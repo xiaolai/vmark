@@ -1262,22 +1262,5 @@
       "severity": "error",
       "name": "plugin-isolation"
     }
-  },
-  {
-    "type": "dependency",
-    "from": "src/services/mcpBridge/v2/browserNavigation.ts",
-    "to": "src/components/Browser/useBrowserNativeView.ts",
-    "unresolvedTo": "@/components/Browser/useBrowserNativeView",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "services-no-upward"
-    }
   }
 ]

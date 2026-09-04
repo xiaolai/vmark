@@ -23,11 +23,13 @@
  * a typed name for the same bytes.
  *
  * @coordinates-with src-tauri/src/browser/console_shim_macos.rs — injects the asset
+ * @coordinates-with lib/browser/agent/shimDrain.ts — the drain stamp the clear writes
  * @coordinates-with services/mcpBridge/v2/browserConsole.ts — the read handler
  * @module lib/browser/agent/consoleShim
  */
 
 import CONSOLE_SHIM_SRC from "./consoleShim.src.js?raw";
+import { buildDrainScript } from "./shimDrain";
 
 /** The page-world shim source — the exact bytes Rust injects. */
 export { CONSOLE_SHIM_SRC };
@@ -38,13 +40,11 @@ export const CONSOLE_BUFFER_ID = "__vmark_console_buffer";
 /**
  * Isolated-world script that reads (and optionally clears) the console ring buffer.
  * Returns `JSON.stringify({entries:[{level,text},...]})`. A page that cleared or
- * corrupted the buffer just yields `[]` — the reader never throws.
+ * corrupted the buffer just yields `[]` — the reader never throws. A clearing read
+ * also bumps the drain stamp (`shimDrain.ts`), which is what makes the clear stick
+ * (audit 2026-09-03 S-01): the shim's closure array is its source of truth and
+ * used to re-publish every drained entry on the next log.
  */
 export function buildConsoleReadScript(clear: boolean): string {
-  return (
-    `var e=document.getElementById(${JSON.stringify(CONSOLE_BUFFER_ID)});var b=[];` +
-    `if(e){try{b=JSON.parse(e.textContent||"[]");}catch(x){}}` +
-    (clear ? 'if(e)e.textContent="[]";' : "") +
-    `return JSON.stringify({entries:b});`
-  );
+  return buildDrainScript(CONSOLE_BUFFER_ID, "entries", clear);
 }

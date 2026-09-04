@@ -60,3 +60,24 @@ fn the_floor_does_not_cut_off_a_load_that_is_still_running() {
     assert!(!p.observe(MS(2_600), false));
     assert!(p.observe(MS(3_000), false)); // settled
 }
+
+/// The bound is real (round 4, #16): a completion that never fires ends the pump
+/// with `false` once the timeout elapses, instead of spinning forever.
+#[test]
+fn pump_until_gives_up_at_the_deadline_when_the_condition_never_holds() {
+    use objc2_foundation::NSRunLoop;
+    use std::time::{Duration, Instant};
+    let started = Instant::now();
+    let done = pump_until(
+        &NSRunLoop::currentRunLoop(),
+        Duration::from_millis(150),
+        0.01,
+        || false,
+    );
+    assert!(!done, "a condition that never holds must report a timeout");
+    assert!(started.elapsed() >= Duration::from_millis(150));
+    assert!(
+        started.elapsed() < Duration::from_secs(5),
+        "the bound, not the OS resolver's schedule"
+    );
+}

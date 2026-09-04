@@ -13,22 +13,30 @@
  * The arm is authoritatively gated (a `record` one-shot the Rust driver consumes);
  * re-arm and drain are read-class — the recorder is never a security boundary
  * (redaction is), so continuing an already-consented session needs no re-prompt.
+ * The drained buffer IS page data: `parseDrainedEvents` drops page-supplied
+ * navigate events and urls (navigation records are host-side only, D2v2) and caps
+ * a drain; the session records the entry URL itself so the workflow has an entry
+ * point.
  *
+ * @coordinates-with lib/browser/workflow/drainedEvents.ts — the drain trust boundary
  * @coordinates-with services/workflow/recorderSession.ts — the host-owned session
  * @coordinates-with lib/browser/agent/recorderShim.ts — the arm/drain scripts
  * @coordinates-with src-tauri browser/authorize.rs — consumes the `record` one-shot
+ * @coordinates-with services/mcpBridge/v2/browserApprovalFlow.ts — the shared approval machine
  * @module services/mcpBridge/v2/browserRecord
  */
 
 import { invoke } from "@tauri-apps/api/core";
+import { bridgeErrorEnvelope } from "./bridgeError";
 import { respond } from "@/services/mcpBridge/utils";
 import { wrapHandler } from "./wrapHandler";
-import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
-import { originForAgent } from "@/lib/browser/url";
 import { buildArmScript, buildDisarmScript, buildRecorderDrainScript } from "@/lib/browser/agent/recorderShim";
-import type { RecordedEvent } from "@/lib/browser/workflow/recorder";
+import { parseDrainedEvents } from "@/lib/browser/workflow/drainedEvents";
 import type { RecorderDeps } from "@/services/workflow/recorderSession";
-import { browserEnabled, readTabIdArg, resolveBrowserTab, type BrowserTarget } from "./browserHelpers";
+import { browserWarn } from "@/utils/debug";
+import type { BrowserTarget } from "./browserHelpers";
+import { resolveBrowserTarget } from "./browserAccess";
+import { authorizeOperation } from "./browserApprovalFlow";
 
 const RECORD_OP = "record";
 const MAX_SITE = 64;
@@ -41,33 +49,6 @@ const recorderService = () => import("@/services/workflow/recorderSession");
 function normalizeSite(raw: unknown): string {
   const s = typeof raw === "string" ? raw.trim().replace(/[\r\n]+/g, " ") : "";
   return s ? s.slice(0, MAX_SITE) : "recording";
-}
-
-/** Parse the (page-controlled, untrusted) drained buffer into typed events, dropping
- *  anything malformed. Values never appear here — only locators and the hint. */
-function parseDrainedEvents(raw: string): RecordedEvent[] {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return [];
-  }
-  const arr = (parsed as { events?: unknown } | null)?.events;
-  if (!Array.isArray(arr)) return [];
-  const out: RecordedEvent[] = [];
-  for (const raw of arr) {
-    if (typeof raw !== "object" || raw === null) continue;
-    const e = raw as Record<string, unknown>;
-    const type = e.type;
-    if (type !== "click" && type !== "type" && type !== "extract" && type !== "navigate") continue;
-    const ev: RecordedEvent = { type };
-    if (typeof e.role === "string") ev.role = e.role;
-    if (typeof e.name === "string") ev.name = e.name;
-    if (typeof e.url === "string") ev.url = e.url;
-    if (typeof e.sensitive === "boolean") ev.sensitive = e.sensitive;
-    out.push(ev);
-  }
-  return out;
 }
 
 /** The real host operations for a session: re-arm and drain are read-class evals. */
@@ -86,51 +67,54 @@ function makeDeps(): RecorderDeps {
         operation: "read",
         generation,
       });
-      return parseDrainedEvents(raw);
+      // The trust boundary: page-supplied navigate events and urls are dropped,
+      // and a drain is capped (S-03). A cap firing is a page misbehaving — say so.
+      const drained = parseDrainedEvents(raw);
+      if (drained.oversized) browserWarn("recorder drain refused: payload over the size cap", { tabId });
+      else if (drained.truncated) browserWarn("recorder drain truncated to the event cap", { tabId });
+      return drained.events;
     },
   };
 }
 
-/** Consent-gate on `record`, then arm and open the session. Mirrors the act path. */
+/**
+ * Tabs whose recording start is in progress. The start is check-then-arm across
+ * awaits, and two concurrent starts used to both pass the active check; the
+ * reservation is taken BEFORE the first await and released in `finally`, so a
+ * start that fails at any stage — refused consent, a driver that will not arm, a
+ * recorder that will not open the session — leaves neither a session nor a
+ * reservation behind, and the next start runs the whole flow again (round 3, #65).
+ */
+const starting = new Set<string>();
+
 async function startRecording(id: string, tab: BrowserTarget, site: string): Promise<void> {
-  const approvals = useBrowserApprovalStore.getState();
-  const decision = approvals.decide(tab.url, RECORD_OP);
-  if (decision === "denied") {
-    await respond({ id, success: false, error: `operation '${RECORD_OP}' is not permitted` });
+  if (starting.has(tab.tabId)) {
+    await respond({ id, success: false, error: "recording-already-active" });
     return;
   }
-  if (decision === "needs-approval") {
-    const authorized = useBrowserApprovalStore
-      .getState()
-      .consumeOneShot(tab.url, RECORD_OP, undefined, tab.tabId);
-    if (!authorized) {
-      const queued = useBrowserApprovalStore
-        .getState()
-        .requestApproval(id, tab.url, RECORD_OP, undefined, tab.tabId, tab.generation);
-      if (queued === "overloaded" || queued === "rejected") {
-        await respond({
-          id,
-          success: false,
-          error: "approval queue is full — resolve or deny pending approvals, then retry",
-        });
-        return;
-      }
-      await respond({
-        id,
-        success: false,
-        error: `approval required to record on ${originForAgent(tab.url)}`,
-        data: { needsApproval: true, operation: RECORD_OP, url: originForAgent(tab.url), tabId: tab.tabId },
-      });
-      return;
-    }
+  starting.add(tab.tabId);
+  try {
+    await startRecordingReserved(id, tab, site);
+  } finally {
+    starting.delete(tab.tabId);
   }
+}
 
+async function startRecordingReserved(id: string, tab: BrowserTarget, site: string): Promise<void> {
+  // Guard BEFORE the approval flow, not merely before arming: a duplicate start
+  // used to raise a prompt (or spend an "Allow once") for a recording that was
+  // already running and then perform nothing.
   const { isRecording, startRecorderSession } = await recorderService();
-  // Guard BEFORE arming, so a duplicate start neither re-arms nor spends the consent.
   if (isRecording(tab.tabId)) {
     await respond({ id, success: false, error: "recording-already-active" });
     return;
   }
+  // The shared approval machine: `record` is never grantable, so this prompts per
+  // call, and the driver's mint is awaited before arming — the authoritative
+  // `browser_eval` used to race the push and refuse a recording the user had just
+  // approved (audit A-04).
+  if ((await authorizeOperation(id, tab, { operation: RECORD_OP })) !== "authorized") return;
+
   try {
     await invoke("browser_eval", {
       tabId: tab.tabId,
@@ -138,12 +122,27 @@ async function startRecording(id: string, tab: BrowserTarget, site: string): Pro
       operation: RECORD_OP,
       generation: tab.generation,
     });
-  } catch {
-    await respond({ id, success: false, error: "the driver refused to start recording" });
+  } catch (error) {
+    // The driver's typed refusal (STALE_COMMAND, EVAL_TIMEOUT, a permission
+    // failure) reaches the model as its token and message, not one generic line.
+    await respond({ id, success: false, ...bridgeErrorEnvelope(error) });
     return;
   }
-  const started = startRecorderSession({ tabId: tab.tabId, site, generation: tab.generation, deps: makeDeps() });
+  const deps = makeDeps();
+  const started = startRecorderSession({
+    tabId: tab.tabId,
+    site,
+    generation: tab.generation,
+    startUrl: tab.url,
+    deps,
+  });
   if (!started.ok) {
+    // Roll the arm back: the recorder is the authority on sessions, and an armed
+    // shim with no session draining it would keep capturing the user's actions
+    // into the page buffer for nobody. Best-effort — the refusal is the answer.
+    await deps.disarm(tab.tabId, tab.generation).catch((error: unknown) => {
+      browserWarn("recorder disarm after a refused session failed", { tabId: tab.tabId, error });
+    });
     await respond({ id, success: false, error: started.error });
     return;
   }
@@ -173,23 +172,11 @@ async function stopRecording(id: string, tab: BrowserTarget): Promise<void> {
 /** `vmark.browser.workflow_record` — start or stop a workflow recording. */
 export async function handleBrowserWorkflowRecord(id: string, args: Record<string, unknown>): Promise<void> {
   return wrapHandler(id, async () => {
-    if (!browserEnabled()) {
-      await respond({ id, success: false, error: "BROWSER_DISABLED" });
-      return;
-    }
+    const tab = await resolveBrowserTarget(id, args);
+    if (!tab) return;
     const recordOp = args.recordOp;
     if (recordOp !== "start" && recordOp !== "stop") {
       await respond({ id, success: false, error: "workflow_record requires recordOp 'start' or 'stop'" });
-      return;
-    }
-    const tabIdArg = readTabIdArg(args);
-    if (tabIdArg === null) {
-      await respond({ id, success: false, error: "tabId must be a non-empty string when supplied" });
-      return;
-    }
-    const tab = resolveBrowserTab(tabIdArg);
-    if (!tab) {
-      await respond({ id, success: false, error: "no active browser tab" });
       return;
     }
     if (tab.automationMode === "human") {

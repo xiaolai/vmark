@@ -53,9 +53,12 @@ vi.mock("@/services/commands/formatCommands", () => ({
   registerFormatCommands: () => registerFormat(),
 }));
 vi.mock("@/services/commands/editorCommandBridge", () => ({ registerEditorCommands: () => registerEditor() }));
-vi.mock("@/utils/debug", () => ({ menuError: (...args: unknown[]) => menuErrorMock(...args) }));
+vi.mock("@/utils/debug", () => ({ menuError: (...args: unknown[]) => menuErrorMock(...args), appError: vi.fn(), browserWarn: vi.fn() }));
+const signalMenuReady = vi.fn();
+vi.mock("@/services/commands/menuCommandsReady", () => ({ signalMenuCommandsMounted: () => signalMenuReady() }));
 
 import { useCommandBootstrap } from "./useCommandBootstrap";
+import { useRecentWorkspacesStore } from "@/stores/recentsStore";
 
 beforeEach(() => {
   mountMenuCommandsMock.mockReset();
@@ -70,6 +73,7 @@ beforeEach(() => {
   registerFormat.mockReset();
   registerEditor.mockClear();
   disposeEditor.mockClear();
+  signalMenuReady.mockReset();
 
   // Default happy-path behaviors — individual tests override as needed.
   registerPandocMock.mockResolvedValue([]);
@@ -156,6 +160,28 @@ describe("useCommandBootstrap", () => {
     expect(off).toHaveBeenCalledTimes(1);
   });
 
+  it("a StrictMode-cancelled first pass never trips the menu-ready barrier; the live pass does, once (round 3, #272)", async () => {
+    let resolveFirst: ((fn: () => void) => void) | null = null;
+    mountMenuCommandsMock.mockImplementationOnce(() => new Promise<() => void>((resolve) => (resolveFirst = resolve)));
+    const { unmount } = renderHook(() => useCommandBootstrap());
+    await Promise.resolve();
+    unmount(); // the cancelled pass
+    expect(resolveFirst).not.toBeNull();
+    resolveFirst!(() => {});
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(signalMenuReady).not.toHaveBeenCalled();
+
+    // The replayed (live) pass mounts and signals exactly once.
+    mountMenuCommandsMock.mockResolvedValueOnce(() => {});
+    renderHook(() => useCommandBootstrap());
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(signalMenuReady).toHaveBeenCalledTimes(1);
+  });
+
   it("invokes the unlistener when unmount races mountMenuCommands resolution (audit Round A H4)", async () => {
     const off = vi.fn();
     // Capture the resolver so we can defer resolution past unmount.
@@ -183,5 +209,20 @@ describe("useCommandBootstrap", () => {
     await Promise.resolve();
 
     expect(off).toHaveBeenCalledTimes(1);
+  });
+});
+
+
+describe("DEV seam: forgetRecentWorkspace", () => {
+  it("removes a workspace from the recents through the store's own action", () => {
+    const path = "/tmp/vmark-e2e-second-window-seam";
+    useRecentWorkspacesStore.getState().addWorkspace(path);
+    expect(useRecentWorkspacesStore.getState().workspaces.some((w) => w.path === path)).toBe(true);
+    renderHook(() => useCommandBootstrap());
+    const seam = (window as unknown as { __VMARK_DEBUG__?: Record<string, unknown> }).__VMARK_DEBUG__;
+    const forget = seam?.forgetRecentWorkspace as ((p: string) => void) | undefined;
+    expect(typeof forget).toBe("function");
+    forget?.(path);
+    expect(useRecentWorkspacesStore.getState().workspaces.some((w) => w.path === path)).toBe(false);
   });
 });

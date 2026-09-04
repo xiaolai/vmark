@@ -10,11 +10,10 @@ use objc2_web_kit::{
     WKFrameInfo, WKNavigation, WKNavigationAction, WKNavigationActionPolicy, WKNavigationDelegate,
     WKUIDelegate, WKWebView, WKWebViewConfiguration, WKWindowFeatures,
 };
-use tauri::Manager;
 
 use crate::browser::recovery::RecoveryAction;
+use crate::browser::redact;
 use crate::browser::registry::Lifecycle;
-use crate::browser::surface::BrowserSurface;
 
 #[path = "nav_payloads_macos.rs"]
 mod payloads;
@@ -74,6 +73,9 @@ define_class!(
                 .map(|url| url.to_string())
                 .unwrap_or_default();
             // Nil target frames are blocked popups; they must not mint navigation tickets.
+            // A SUBFRAME on an AI-owned tab meets the same destination policy as the
+            // main frame (audit 20260903 P-01) — no ticket, no failure event, just a
+            // cancelled frame load.
             let target_frame = unsafe { navigation_action.targetFrame() };
             let main_frame = target_frame
                 .as_ref()
@@ -81,28 +83,17 @@ define_class!(
                 .unwrap_or(false);
             let allowed = match target_frame.as_ref() {
                 Some(_) if main_frame => self.prepare_navigation_action(&url),
-                Some(_) => true,
+                Some(_) => self.subframe_load_allowed(&url),
                 None => false,
             };
             if !allowed {
-                let report_failure = target_frame.is_some() && self
-                    .ivars()
-                    .app
-                    .try_state::<BrowserSurface>()
-                    .and_then(|state| {
-                        state
-                            .registry
-                            .lock()
-                            .ok()
-                            .map(|reg| reg.state(&self.ivars().tab_id) == Some(Lifecycle::Navigating))
-                    })
-                    .unwrap_or(false);
-                if report_failure {
+                if main_frame && self.is_navigating() {
                     self.emit_policy_failed("navigation destination blocked by policy");
                 } else {
                     log::debug!(
-                        "[browser] navigation policy cancelled for {}: {url}",
-                        self.ivars().tab_id
+                        "[browser] navigation policy cancelled for {}: {}",
+                        self.ivars().tab_id,
+                        redact::redact(&url)
                     );
                 }
             }
@@ -120,28 +111,25 @@ define_class!(
             self.mark_navigation_started(nav);
             // Release any outgoing page dialog before the new load runs.
             super::dialogs::drain_for(&ivars.tab_id);
-            if let Some(state) = ivars.app.try_state::<BrowserSurface>() {
-                if let Ok(mut reg) = state.registry.lock() {
-                    let _ = reg.clear_committed_url(&ivars.tab_id);
-                }
-                state.clear_tab_one_shots(&ivars.tab_id);
-                state.clear_tab_attachment(&ivars.tab_id);
-            }
+            self.revoke_for_new_load();
         }
         #[unsafe(method(webView:didReceiveServerRedirectForProvisionalNavigation:))]
-        fn did_receive_redirect(&self, _wv: &WKWebView, _nav: Option<&WKNavigation>) {
+        fn did_receive_redirect(&self, _wv: &WKWebView, nav: Option<&WKNavigation>) {
+            if !self.callback_is_current(nav) {
+                return; // a late redirect from a superseded load
+            }
             self.ivars().redirected.set(true);
         }
         #[unsafe(method(webView:didCommitNavigation:))]
         fn did_commit(&self, web_view: &WKWebView, nav: Option<&WKNavigation>) {
             let ivars = self.ivars();
-            ivars.loading.set(false); // committed: a URL change after this is same-document
             let Some(navigation_id) = self.navigation_id_for(nav) else {
                 return;
             };
             if !self.is_current_navigation(&navigation_id) {
-                return;
+                return; // a stale commit must not clear `loading` for the live navigation
             }
+            ivars.loading.set(false); // committed: a URL change after this is same-document
             let url = current_url(web_view);
             let Some(generation) = self.commit_navigation(&url, &navigation_id) else {
                 unsafe { web_view.stopLoading() };
@@ -238,7 +226,11 @@ define_class!(
                 .and_then(|u| u.absoluteString())
                 .map(|s| s.to_string())
                 .unwrap_or_default();
-            log::debug!("[browser] popup blocked for {} → {url}", ivars.tab_id);
+            log::debug!(
+                "[browser] popup blocked for {} → {}",
+                ivars.tab_id,
+                redact::redact(&url)
+            );
             let _ = self.emit_owned(
                 "browser://popup",
                 PopupPayload {

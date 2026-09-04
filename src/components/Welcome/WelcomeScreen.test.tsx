@@ -231,15 +231,22 @@ describe("front door copy and buttons (WI-UI4.7, WI-UA13)", () => {
   });
 
   it("teaches the real bindings — command palette and quick open, from the live store", () => {
-    const { container } = render(<WelcomeScreen />);
-    // jsdom's navigator.platform is "" → non-mac formatting. The audit
-    // canvas's ⌘K/⌘P were WRONG (both taken: Link and Print); the hint must
-    // quote the shortcuts store, never hardcode a chord.
-    const hint = container.querySelector(".welcome-screen__hint");
-    expect(hint?.textContent).toContain("Ctrl+Shift+P");
-    expect(hint?.textContent).toContain("Command Palette");
-    expect(hint?.textContent).toContain("Ctrl+O");
-    expect(hint?.textContent).toContain("Quick Open");
+    // Pin a non-mac platform explicitly (the tier models macOS by default) so the
+    // hint renders Ctrl chords. The audit canvas's ⌘K/⌘P were WRONG (both taken:
+    // Link and Print); the hint must quote the shortcuts store, never hardcode a
+    // chord.
+    const original = navigator.platform;
+    Object.defineProperty(navigator, "platform", { value: "Win32", configurable: true });
+    try {
+      const { container } = render(<WelcomeScreen />);
+      const hint = container.querySelector(".welcome-screen__hint");
+      expect(hint?.textContent).toContain("Ctrl+Shift+P");
+      expect(hint?.textContent).toContain("Command Palette");
+      expect(hint?.textContent).toContain("Ctrl+O");
+      expect(hint?.textContent).toContain("Quick Open");
+    } finally {
+      Object.defineProperty(navigator, "platform", { value: original, configurable: true });
+    }
   });
 
   it("all three actions are canonical .vm-btn pills wearing the elevated variant", () => {

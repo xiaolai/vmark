@@ -1,6 +1,7 @@
 /**
- * ⚠️ **NOT WIRED — no production caller.** `runWebWorkflow` is invoked only by tests;
- * see engine.ts for the missing per-attempt approval gate this must not ship without.
+ * WIRED: `services/workflow/workflowRunService.ts` drives every `workflow_run`
+ * through `runWebWorkflow`; the per-attempt approval gate the earlier banner
+ * demanded lives in `services/workflow/runExecutor.ts` (P-1).
  *
  * Purpose: Top-level web-workflow runner (WI-4.2) — the capstone that wires the
  * parsed IR to the R8a-safe engine. It maps each `WorkflowStep` to the engine's

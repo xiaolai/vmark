@@ -274,3 +274,53 @@ describe("parseWorkflow — variable references", () => {
     expect(r.warnings).toEqual([]);
   });
 });
+
+// Audit 2026-09-03 W12 — line-ending and Unicode robustness: CRLF/CR sources
+// parse identically to LF, a BOM is stripped, and U+2028/U+2029 are ordinary
+// characters inside a step (never line breaks).
+describe("parseWorkflow — line endings and Unicode", () => {
+  const LF = ["---", "site: x", "inputs: [a]", "---", "1. goal: first", "", "2. action: click \"Go\" (button)"].join("\n");
+
+  it("parses a CRLF source exactly like the LF source (steps, text and lines)", () => {
+    const lf = wf(LF);
+    const crlf = wf(LF.replace(/\n/g, "\r\n"));
+    expect(crlf.ok).toBe(true);
+    expect(crlf).toEqual(lf);
+  });
+
+  it("parses a bare-CR (classic Mac) source exactly like the LF source", () => {
+    const lf = wf(LF);
+    const cr = wf(LF.replace(/\n/g, "\r"));
+    expect(cr).toEqual(lf);
+  });
+
+  it("accepts a BOM in front of a CRLF source", () => {
+    const r = wf(`\uFEFF${LF.replace(/\n/g, "\r\n")}`);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.workflow.steps).toHaveLength(2);
+  });
+
+  it("treats U+2028 / U+2029 inside a step as ordinary characters, not line breaks", () => {
+    const r = wf(["---", "site: x", "---", "goal: one\u2028two\u2029three"].join("\n"));
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.workflow.steps).toHaveLength(1);
+    expect(r.workflow.steps[0].text).toBe("one\u2028two\u2029three");
+  });
+
+  it("keeps a front-matter value containing U+2028 intact", () => {
+    const r = wf(["---", "site: a\u2028b", "---", "goal: x"].join("\n"));
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.workflow.site).toBe("a\u2028b");
+  });
+
+  it("does not backtrack superlinearly on a whitespace-heavy line BEFORE the kind", () => {
+    const line = `${" ".repeat(50_000)}!`;
+    const start = performance.now();
+    const r = wf(["---", "site: x", "---", "goal: ok", line].join("\n"));
+    expect(r.ok).toBe(false);
+    expect(performance.now() - start).toBeLessThan(2_000);
+  });
+});

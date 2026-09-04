@@ -5,14 +5,13 @@
  * combinations); regenerate with `pnpm gen:mcp-contracts` after any change.
  *
  * @coordinates-with server/mcp/src/bridge/operationSchemas.ts — spreads this map
+ * @coordinates-with server/mcp/src/bridge/operationSchemas.primitives.ts — the shared spellings
  * @module bridge/operationSchemas.browser
  */
 import { z } from 'zod';
+import { id, optionalTabId } from './operationSchemas.primitives.js';
 
-// Local spellings of the shared field helpers (three one-liners; importing them
-// from operationSchemas would be a cycle).
-const id = z.string();
-const optionalTabId = z.string().optional();
+// `timeoutMs` is a browser-only spelling, so it stays beside its users.
 const timeoutMs = z.number().optional();
 
 export const BROWSER_OPERATION_SCHEMAS = {
@@ -29,6 +28,9 @@ export const BROWSER_OPERATION_SCHEMAS = {
     ref: z.string().optional(),
     dy: z.number().optional(),
     key: z.string().optional(),
+    // `.strict()` does not recurse from the outer schema: an unknown modifier such
+    // as `command` passed contract checking and was silently dropped, dispatching an
+    // UNMODIFIED key action. The nested object rejects unknown keys itself.
     modifiers: z
       .object({
         ctrl: z.boolean().optional(),
@@ -36,6 +38,7 @@ export const BROWSER_OPERATION_SCHEMAS = {
         alt: z.boolean().optional(),
         meta: z.boolean().optional(),
       })
+      .strict()
       .optional(),
   }),
   'vmark.browser.open': z.object({
@@ -78,11 +81,16 @@ export const BROWSER_OPERATION_SCHEMAS = {
   'vmark.browser.session.load': z.object({ tabId: optionalTabId, handle: id }),
   'vmark.browser.console': z.object({ tabId: optionalTabId, clear: z.boolean().optional() }),
   'vmark.browser.extract': z.object({ tabId: optionalTabId }),
+  // Close an AI-owned tab (audit 2026-09-03 X-01). Never approval-gated.
+  'vmark.browser.close': z.object({ tabId: id }),
   'vmark.browser.workflow_run': z.object({
     tabId: optionalTabId,
     source: id,
     inputs: z.record(z.string(), z.string()).optional(),
     allowRepeat: z.boolean().optional(),
+    // Resume a PAUSED run (audit 2026-09-03 W-05): the new run inherits its
+    // completed steps and treats the paused-at step as done by the human.
+    resumeRunId: z.string().optional(),
   }),
   'vmark.browser.workflow_status': z.object({ tabId: optionalTabId, runId: id }),
   'vmark.browser.workflow_cancel': z.object({ tabId: optionalTabId, runId: id }),

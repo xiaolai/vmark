@@ -5,8 +5,24 @@
  * navigation. Keeping a small terminal history here makes the race safe in
  * both directions: an event may arrive before the waiter is registered, or a
  * waiter may be registered before the webview finishes loading.
+ *
+ * The broker does not decode payloads (round 3, #80): it subscribes to
+ * `browserNativeEvents`, the one hub that validates every native event and fans
+ * the typed result out to it and to the UI handlers alike. Its own copy of the
+ * decoding had drifted — a missing `generation` became 0 and a missing `url`
+ * became "" here, while the UI side dropped the same payload. What is left
+ * here is correlation policy only: a payload without a ticket is correlated
+ * under a synthesized `legacy-<tabId>` id.
+ *
+ * @coordinates-with services/browser/browserNativeEvents — the typed-event source
+ * @coordinates-with services/mcpBridge/v2/browserNavigationShared — waits on tickets
  */
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import {
+  browserNativeEvents,
+  type BrowserNativeEvent,
+  type BrowserNativeEventSource,
+  type BrowserNativeEventSubscription,
+} from "./browserNativeEvents";
 
 export type BrowserNavigationEvent =
   | {
@@ -44,15 +60,6 @@ type Waiter = {
   timer: ReturnType<typeof setTimeout>;
 };
 
-type NativePayload = {
-  tabId?: unknown;
-  navigationId?: unknown;
-  generation?: unknown;
-  url?: unknown;
-  title?: unknown;
-  message?: unknown;
-};
-
 const legacyNavigationId = (tabId: string): string => `legacy-${tabId}`;
 
 /** A process-local broker. It deliberately contains no React or store state. */
@@ -61,11 +68,13 @@ export class BrowserEventBroker {
   private readonly latest = new Map<string, string>();
   private readonly terminals = new Map<string, Map<string, BrowserWaitResult>>();
   private readonly waiters = new Map<string, Set<Waiter>>();
-  private readonly unlisteners: UnlistenFn[] = [];
+  private readonly source: BrowserNativeEventSource;
+  private subscription: BrowserNativeEventSubscription | null = null;
   private startPromise: Promise<void> | null = null;
 
-  constructor(options: { maxTerminalsPerTab?: number } = {}) {
+  constructor(options: { maxTerminalsPerTab?: number; source?: BrowserNativeEventSource } = {}) {
     this.maxTerminalsPerTab = Math.max(1, options.maxTerminalsPerTab ?? 8);
+    this.source = options.source ?? browserNativeEvents;
   }
 
   publish(event: BrowserNavigationEvent): void {
@@ -134,15 +143,17 @@ export class BrowserEventBroker {
     return !this.terminals.get(tabId)?.has(navigationId);
   }
 
+  /** Subscribe to the native events. Resolves once the hub's listeners are live;
+   *  rejects — after undoing the subscription — when one could not be registered,
+   *  so an MCP caller fails loudly instead of waiting for an event that cannot
+   *  arrive. A later `start()` subscribes again, which re-arms the failed listener. */
   async start(): Promise<void> {
     if (this.startPromise) return this.startPromise;
-    this.startPromise = Promise.all([
-      this.listen("browser://navigated", (payload) => this.fromNative("navigated", payload)),
-      this.listen("browser://loaded", (payload) => this.fromNative("loaded", payload)),
-      this.listen("browser://load-failed", (payload) => this.fromNative("failed", payload)),
-    ]).then(() => undefined);
+    const subscription = this.source.subscribe((event) => this.fromNative(event));
+    this.subscription = subscription;
+    this.startPromise = subscription.ready;
     try {
-      await this.startPromise;
+      await subscription.ready;
     } catch (error) {
       this.startPromise = null;
       await this.stop();
@@ -152,10 +163,8 @@ export class BrowserEventBroker {
 
   async stop(): Promise<void> {
     this.cancelPending();
-    const pending = this.unlisteners.splice(0);
-    // `UnlistenFn` is synchronous and returns void, so aggregating these in
-    // `Promise.all` awaited nothing and only looked like it did.
-    for (const unlisten of pending) unlisten();
+    this.subscription?.unsubscribe();
+    this.subscription = null;
     this.startPromise = null;
   }
 
@@ -187,43 +196,19 @@ export class BrowserEventBroker {
     this.terminals.delete(tabId);
   }
 
-  private async listen(
-    event: string,
-    callback: (payload: NativePayload) => void,
-  ): Promise<void> {
-    const unlisten = await listen<NativePayload>(event, (message) => callback(message.payload));
-    this.unlisteners.push(unlisten);
-  }
-
-  private fromNative(kind: BrowserNavigationEvent["kind"], payload: NativePayload): void {
-    if (typeof payload.tabId !== "string") return;
-    const tabId = payload.tabId;
-    const navigationId =
-      typeof payload.navigationId === "string" ? payload.navigationId : legacyNavigationId(tabId);
-    if (kind === "navigated") {
-      this.publish({
-        kind,
-        tabId,
-        navigationId,
-        generation: typeof payload.generation === "number" ? payload.generation : 0,
-        url: typeof payload.url === "string" ? payload.url : "",
-      });
-    } else if (kind === "loaded") {
-      this.publish({
-        kind,
-        tabId,
-        navigationId,
-        generation: typeof payload.generation === "number" ? payload.generation : 0,
-        url: typeof payload.url === "string" ? payload.url : "",
-        title: typeof payload.title === "string" ? payload.title : "",
-      });
+  /** The navigation kinds become tickets; crashes, dialogs and popups are the UI's. */
+  private fromNative(event: BrowserNativeEvent): void {
+    if (event.kind !== "navigated" && event.kind !== "loaded" && event.kind !== "failed") return;
+    const { tabId } = event;
+    // Older native builds emit no navigationId; correlate under a per-tab stand-in.
+    const navigationId = event.navigationId ?? legacyNavigationId(tabId);
+    if (event.kind === "navigated") {
+      this.publish({ kind: "navigated", tabId, navigationId, generation: event.generation, url: event.url });
+    } else if (event.kind === "loaded") {
+      const { generation, url, title } = event;
+      this.publish({ kind: "loaded", tabId, navigationId, generation, url, title });
     } else {
-      this.publish({
-        kind,
-        tabId,
-        navigationId,
-        message: typeof payload.message === "string" ? payload.message : "navigation failed",
-      });
+      this.publish({ kind: "failed", tabId, navigationId, message: event.message });
     }
   }
 

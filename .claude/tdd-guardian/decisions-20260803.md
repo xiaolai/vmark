@@ -213,7 +213,22 @@ moves inside it), and would refuse saves after benign cloud rewrites — trading
   fixes (oscillating decisions never converge — the fixpoint loop only terminates because every
   individual decision is stable under the pipeline's own rewrites).
 
-## D9 — WI-6: the live-webview bound is the surface lifecycle, not a cap store — RESOLVED (2026-08-03, at RED)
+## D9 — WI-6: the live-webview bound is the surface lifecycle, not a cap store — RESOLVED (2026-08-03, at RED); AMENDED 2026-09-03
+
+**Amendment (2026-09-03, embedded-browser audit L-01).** The "one live view per
+window" invariant below is superseded. Destroying the view on unmount reloaded the
+page on every tab switch, lost in-page state, and made the driver forget the tab's
+navigation generation — after which the frontend's monotonic-generation guard
+rejected the driver's restarted generation and every AI operation on the tab was
+refused as stale until it had navigated as many times as before. The mechanism of
+the fix is the one every browser uses: a tab owns its view for the tab's lifetime;
+leaving the screen hides it (`OCCLUDER.background`), closing the tab destroys it
+(`browserTabLifecycle` on the removal bus). The bound is now **live views ≤ open
+browser tabs**, with AI-owned tabs capped at `MAX_AI_TABS` in the driver.
+`browserLifecycleBound.test.tsx` pins the new invariants; the E4 delete verdict
+(no cap STORE) still stands.
+
+## D9 — WI-6: the live-webview bound is the surface lifecycle, not a cap store — ORIGINAL RESOLUTION (2026-08-03, at RED)
 
 - **Invariant (pinned)**: the number of live native webviews per window never exceeds the
   number of active browser pages (= 1): one `BrowserSurface` mounts for the active page only,

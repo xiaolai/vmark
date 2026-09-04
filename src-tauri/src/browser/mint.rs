@@ -29,13 +29,13 @@ use sha2::{Digest, Sha256};
 /// approval prompts, so the vector must not be growable without bound.
 pub(crate) const MAX_ONE_SHOTS: usize = 256;
 
-/// Cap on standing grants mirrored from the frontend store.
+/// Cap on standing grants mirrored from ONE window's frontend store.
 pub(crate) const MAX_GRANTS: usize = 512;
 
-/// Hex SHA-256 of a script — binds a `style`/`eval`/`session` one-shot to the EXACT
-/// payload the user approved, so an approved-A cannot be spent on a substituted-B on
-/// the retry. Computed authoritatively both when minting and when running.
-/// (Security review P5, High #1.)
+/// Hex SHA-256 of a script — binds a payload-carrying one-shot (`style`, `eval`,
+/// `session`, `type`, `key`, `scroll`) to the EXACT payload the user approved, so an
+/// approved-A cannot be spent on a substituted-B on the retry. Computed
+/// authoritatively both when minting and when running. (Security review P5, High #1.)
 pub(crate) fn script_hash(script: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(script.as_bytes());
@@ -73,6 +73,14 @@ pub(crate) fn parse_act_target(
 /// prompt being raised and the click on "Allow once", and stamping "current" would bind
 /// the approval to a page the user never saw. Reading it from the caller and *checking*
 /// it turns that race into a refusal. (Audit, High.)
+///
+/// **Idempotent for an identical binding** (audit 20260903 A-04). The frontend mints
+/// one approval through two paths — the grant-sync subscription and the run
+/// executor's awaited mint — so the second arrival of the same (tab, generation,
+/// origin, operation, target, payload) is the same approval, not a second one. A
+/// genuine second approval of the same descriptor on the same page is still one
+/// authorization: the one-shot is consumed before the next prompt can be raised,
+/// because the executor consumes and then acts.
 pub(crate) fn mint_one_shot(
     state: &BrowserSurface,
     tab_id: &str,
@@ -108,6 +116,14 @@ pub(crate) fn mint_one_shot(
     } else {
         None
     };
+    let candidate = OneShot {
+        tab_id: tab_id.to_string(),
+        generation,
+        origin_pattern: origin_pattern.to_string(),
+        operation: operation_name.to_string(),
+        target,
+        payload_hash,
+    };
     // [Audit Medium] The generation check and the insertion must be ATOMIC. With the
     // registry guard released in between, a navigation could clear this tab's
     // one-shots after the check and before the push — leaving a permanently stale
@@ -124,17 +140,21 @@ pub(crate) fn mint_one_shot(
         ));
     }
     let mut shots = state.one_shots.lock().map_err(|e| e.to_string())?;
-    if shots.len() >= MAX_ONE_SHOTS {
-        return Err("too many pending single-use authorizations".into());
+    if shots
+        .iter()
+        .any(|existing| existing.same_binding(&candidate))
+    {
+        return Ok(()); // the same approval, arriving again — see the doc comment
     }
-    shots.push(OneShot {
-        tab_id: tab_id.to_string(),
-        generation,
-        origin_pattern: origin_pattern.to_string(),
-        operation: operation_name.to_string(),
-        target,
-        payload_hash,
-    });
+    if shots.len() >= MAX_ONE_SHOTS {
+        // Evict the OLDEST unspent one-shot rather than refuse the newest: the old one
+        // is bound to a generation its tab has almost certainly left, the new one is
+        // the approval the user just gave. The frontend mirror applies the same rule
+        // (`MAX_ONE_SHOTS` in browserApprovalStore.constants.ts, parity-tested), so
+        // the two lists can no longer diverge at the cap.
+        shots.remove(0);
+    }
+    shots.push(candidate);
     drop(shots);
     drop(reg);
     Ok(())
@@ -161,23 +181,33 @@ pub(crate) fn attach_ai_tab(
     state.attach_tab(tab_id.to_string(), generation, once)
 }
 
-/// Mirror the frontend approval store's standing grants into the driver (WI-2.1).
+/// Mirror ONE window's frontend approval store into the driver (WI-2.1).
 ///
 /// The driver's copy is authoritative — `browser_eval` reads it — so a caller that
 /// never syncs simply gets default-deny, and an empty vec revokes everything.
+///
+/// **Keyed by window** (audit 20260903 A-03). Every document window runs its own
+/// grant sync against its own store, and the driver used to hold ONE vector that
+/// whichever window synced last replaced wholesale: a grant made in window A vanished
+/// the moment window B pushed, and Revoke in A could not touch what B had pushed.
+/// Each window now owns its slice; a tab is authorized only by the grants of the
+/// window that owns it (the registry knows which), and `teardown::destroy_window`
+/// drops the slice with the window.
 ///
 /// **Validated as strictly as a one-shot is (WI-1.6).** Previously this accepted the
 /// vector verbatim, so a malformed pattern was stored as authority the guard could
 /// never match: invisible to the user, who sees a grant that does nothing.
 ///
-/// **On a rejected batch the store is CLEARED, not left alone.** [Audit Medium] An
-/// earlier comment here claimed a revocation "always applies"; that was wrong. This is
-/// a REPLACEMENT sync, so a batch that revokes origin A while carrying one malformed
-/// unrelated entry would, under retain-on-error, leave A authorized indefinitely — the
-/// user revokes access and it silently does not take. Clearing fails CLOSED: the worst
-/// case is the user re-approves, versus authority outliving its revocation.
+/// **On a rejected batch the window's slice is CLEARED, not left alone.** [Audit
+/// Medium] An earlier comment here claimed a revocation "always applies"; that was
+/// wrong. This is a REPLACEMENT sync, so a batch that revokes origin A while carrying
+/// one malformed unrelated entry would, under retain-on-error, leave A authorized
+/// indefinitely — the user revokes access and it silently does not take. Clearing
+/// fails CLOSED: the worst case is the user re-approves, versus authority outliving
+/// its revocation.
 pub(crate) fn set_standing_grants(
     state: &BrowserSurface,
+    window_label: &str,
     grants: Vec<StandingGrant>,
 ) -> Result<(), String> {
     let validated = (|| -> Result<(), String> {
@@ -211,16 +241,20 @@ pub(crate) fn set_standing_grants(
         Ok(())
     })();
 
-    let mut current = state.grants.lock().map_err(|e| e.to_string())?;
+    let mut by_window = state.grants.lock().map_err(|e| e.to_string())?;
     match validated {
+        Ok(()) if grants.is_empty() => {
+            by_window.remove(window_label);
+            Ok(())
+        }
         Ok(()) => {
-            *current = grants;
+            by_window.insert(window_label.to_string(), grants);
             Ok(())
         }
         Err(reason) => {
             // Fail CLOSED — see the doc comment. Never retain prior authority past a
-            // failed replacement.
-            current.clear();
+            // failed replacement; only THIS window's, since only it sent the batch.
+            by_window.remove(window_label);
             Err(reason)
         }
     }

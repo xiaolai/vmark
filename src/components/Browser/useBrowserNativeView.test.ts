@@ -8,7 +8,7 @@
 // correctly. Nothing then retried, because the controller only reconciles when an occluder
 // is added or removed, and none was. The view finished creating and came up LIVE on top of
 // the overlay: precisely the failure occlusion exists to prevent.
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 
 const invoke = vi.fn().mockResolvedValue(undefined);
@@ -23,15 +23,28 @@ vi.mock("@/services/browser/browserOcclusion", () => ({
     removeOccluder: vi.fn(),
     isFrozen: () => false,
   },
-  OCCLUDER: { crash: "crash-overlay", dialog: "page-dialog", approval: "approval-dialog", error: "error-overlay" },
+  OCCLUDER: {
+    crash: "crash-overlay",
+    dialog: "page-dialog",
+    approval: "approval-dialog",
+    error: "error-overlay",
+    background: "background-tab",
+  },
 }));
 
-import { ensureBrowserNativeView, useBrowserNativeView } from "./useBrowserNativeView";
+import { useBrowserNativeView } from "./useBrowserNativeView";
+import { __resetNativeViews, destroyBrowserNativeView, ensureBrowserNativeView, hasBrowserNativeView } from "@/services/browser/browserNativeViews";
+import { browserOcclusion } from "@/services/browser/browserOcclusion";
 import { useBrowserUiStore } from "@/stores/browserUiStore";
 
 // jsdom has no ResizeObserver. The hook observes the reserved rect, so it needs one; the
-// bounds report is driven directly (`report()` on attach), which is what these assert.
+// bounds report is driven directly (`report()` on attach) and, for the coalescing tests,
+// through the captured callback.
+let resizeCb: ResizeObserverCallback | null = null;
 class StubResizeObserver {
+  constructor(cb: ResizeObserverCallback) {
+    resizeCb = cb;
+  }
   observe() {}
   unobserve() {}
   disconnect() {}
@@ -39,9 +52,19 @@ class StubResizeObserver {
 vi.stubGlobal("ResizeObserver", StubResizeObserver);
 
 beforeEach(() => {
+  // The hook retries a rejected bounds report on a timer; the clock is controlled so
+  // that timer cannot fire between a mock reset and an assertion.
+  vi.useFakeTimers({ shouldAdvanceTime: true });
   invoke.mockReset().mockResolvedValue(undefined);
   resync.mockReset();
+  // Native-view records now outlive a surface (audit L-01), so tests reset them.
+  __resetNativeViews();
   useBrowserUiStore.setState({ entries: {} });
+  resizeCb = null;
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 /** The rect the surface reserves; the hook reports it so Rust can align the native view. */
@@ -149,15 +172,45 @@ describe("useBrowserNativeView — create/destroy", () => {
     expect(invoke).toHaveBeenCalledTimes(2);
   });
 
-  it("destroys the native view on unmount", async () => {
+  // Audit 2026-09-03 L-01 — unmount HIDES (background occluder); the tab keeps its page.
+  it("hides the native view on unmount instead of destroying it, and shows it on remount", async () => {
     const { unmount } = renderHook(() =>
       useBrowserNativeView("t1", "https://example.com", "v0", viewportRef()),
     );
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("browser_create", expect.anything()));
     act(() => unmount());
-    await waitFor(() =>
-      expect(invoke).toHaveBeenCalledWith("browser_destroy", { tabId: "t1" }),
+    expect(browserOcclusion.addOccluder).toHaveBeenCalledWith("t1", "background-tab");
+    expect(invoke).not.toHaveBeenCalledWith("browser_destroy", expect.anything());
+    expect(hasBrowserNativeView("t1")).toBe(true);
+
+    invoke.mockClear();
+    renderHook(() => useBrowserNativeView("t1", "https://example.com", "v0", viewportRef()));
+    expect(browserOcclusion.removeOccluder).toHaveBeenCalledWith("t1", "background-tab");
+    await Promise.resolve();
+    // One view, created once: no second browser_create.
+    expect(invoke).not.toHaveBeenCalledWith("browser_create", expect.anything());
+  });
+
+  it("destroyBrowserNativeView waits for a create in flight, tears down, and forgets the tab", async () => {
+    let settle: (() => void) | undefined;
+    invoke.mockImplementation((cmd: string) =>
+      cmd === "browser_create"
+        ? new Promise<void>((r) => {
+            settle = r;
+          })
+        : Promise.resolve(undefined),
     );
+    void ensureBrowserNativeView("t1", "https://example.com", "human");
+    const destroyed = destroyBrowserNativeView("t1");
+    await Promise.resolve();
+    expect(invoke).not.toHaveBeenCalledWith("browser_destroy", expect.anything());
+    settle?.();
+    await destroyed;
+    expect(invoke).toHaveBeenCalledWith("browser_destroy", { tabId: "t1" });
+    expect(hasBrowserNativeView("t1")).toBe(false);
+    expect(browserOcclusion.removeTab).toHaveBeenCalledWith("t1");
+    // Idempotent: a second destroy is harmless.
+    await destroyBrowserNativeView("t1");
   });
 });
 
@@ -179,7 +232,10 @@ describe("useBrowserNativeView — occlusion is enforced against the view that e
     expect(resync).not.toHaveBeenCalled();
   });
 
-  it("does not resync a tab whose surface already unmounted", async () => {
+  // Audit 2026-09-03 L-01: the view outlives the surface, so a create that settles
+  // AFTER unmount produces a live view that must be HIDDEN — the background occluder
+  // is added and the controller re-driven, rather than nothing happening.
+  it("a create that settles after unmount hides the new view under the background occluder", async () => {
     let settle: (() => void) | undefined;
     invoke.mockImplementation((cmd: string) =>
       cmd === "browser_create"
@@ -195,11 +251,16 @@ describe("useBrowserNativeView — occlusion is enforced against the view that e
     await act(async () => {
       settle?.();
     });
-    expect(resync).not.toHaveBeenCalled();
+    expect(browserOcclusion.addOccluder).toHaveBeenCalledWith("t1", "background-tab");
+    expect(resync).toHaveBeenCalledWith("t1");
+    expect(hasBrowserNativeView("t1")).toBe(true);
   });
 });
 
 describe("useBrowserNativeView — bounds", () => {
+  const rect = (width: number) => ({ x: 0, y: 0, width, height: 100 }) as DOMRect;
+  const boundsCalls = () => invoke.mock.calls.filter((c) => c[0] === "browser_set_bounds");
+
   it("reports the reserved rect so Rust can align the native view under it", async () => {
     renderHook(() => useBrowserNativeView("t1", "https://example.com", "v0", viewportRef()));
     await waitFor(() =>
@@ -208,5 +269,93 @@ describe("useBrowserNativeView — bounds", () => {
         expect.objectContaining({ tabId: "t1" }),
       ),
     );
+  });
+
+  // Audit 2026-09-03 round 3, #167 — bounds are a serialized, latest-wins channel.
+  it("coalesces rapid rects: one send in flight at a time, and only the latest is sent", async () => {
+    const rects = [rect(100), rect(200), rect(300)];
+    let i = 0;
+    const ref = viewportRef();
+    ref.current.getBoundingClientRect = () => rects[Math.min(i++, rects.length - 1)];
+    let release!: () => void;
+    invoke.mockImplementation((cmd: string) => {
+      if (cmd !== "browser_set_bounds") return Promise.resolve();
+      return boundsCalls().length === 1
+        ? new Promise<void>((r) => {
+            release = r;
+          })
+        : Promise.resolve();
+    });
+    renderHook(() => useBrowserNativeView("t1", "https://example.com", "v0", ref));
+    await waitFor(() => expect(boundsCalls()).toHaveLength(1));
+    expect(boundsCalls()[0][1]).toMatchObject({ width: 100 });
+
+    // Two reflows while the first send is still in flight.
+    act(() => {
+      resizeCb?.([], {} as ResizeObserver);
+      resizeCb?.([], {} as ResizeObserver);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(boundsCalls()).toHaveLength(1); // nothing overlaps the in-flight send
+
+    release();
+    await waitFor(() => expect(boundsCalls()).toHaveLength(2));
+    expect(boundsCalls()[1][1]).toMatchObject({ width: 300 }); // latest wins; 200 is never sent
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(boundsCalls()).toHaveLength(2);
+  });
+
+  it("holds bounds reported before the view exists, and delivers the latest once creation settles", async () => {
+    let settleCreate!: () => void;
+    invoke.mockImplementation((cmd: string) =>
+      cmd === "browser_create"
+        ? new Promise<void>((r) => {
+            settleCreate = r;
+          })
+        : Promise.resolve(),
+    );
+    const rects = [rect(100), rect(200)];
+    let i = 0;
+    const ref = viewportRef();
+    ref.current.getBoundingClientRect = () => rects[Math.min(i++, rects.length - 1)];
+    renderHook(() => useBrowserNativeView("t1", "https://example.com", "v0", ref));
+    act(() => resizeCb?.([], {} as ResizeObserver)); // a reflow while the create is pending
+    // Time passes; no send and therefore no retry budget is spent against a view that
+    // does not exist yet.
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(boundsCalls()).toHaveLength(0);
+
+    await act(async () => {
+      settleCreate();
+    });
+    await waitFor(() => expect(boundsCalls()).toHaveLength(1));
+    expect(boundsCalls()[0][1]).toMatchObject({ tabId: "t1", width: 200 });
+  });
+
+  it("retries a refused report with backoff while mounted, and stops on unmount", async () => {
+    invoke.mockImplementation((cmd: string) =>
+      cmd === "browser_set_bounds" ? Promise.reject(new Error("no view yet")) : Promise.resolve(),
+    );
+    const { unmount } = renderHook(() =>
+      useBrowserNativeView("t1", "https://example.com", "v0", viewportRef()),
+    );
+    await waitFor(() => expect(boundsCalls().length).toBeGreaterThanOrEqual(1));
+    // Backoff 100 ms, then 200 ms: the old fixed three-attempt budget is gone.
+    await vi.advanceTimersByTimeAsync(100);
+    await waitFor(() => expect(boundsCalls().length).toBeGreaterThanOrEqual(2));
+    await vi.advanceTimersByTimeAsync(200);
+    await waitFor(() => expect(boundsCalls().length).toBeGreaterThanOrEqual(3));
+
+    act(() => unmount());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const atUnmount = boundsCalls().length;
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(boundsCalls().length).toBe(atUnmount);
   });
 });

@@ -282,3 +282,67 @@ describe("resync — when the failing freeze is still in flight", () => {
     expect(freeze).toHaveBeenCalledTimes(1); // no hot loop against a driver that keeps failing
   });
 });
+
+// Audit 2026-09-03 (round 1): a rejected freeze used to be attempted once and then
+// only when an occluder came or went — a native view could sit LIVE under a
+// persistent overlay while `isFrozen` reported hidden. Failures now retry on a
+// backoff and, when the budget is spent, are reported instead of forgotten.
+describe("retry with backoff after a failed native op", () => {
+  it("retries a failed freeze on its own until the driver accepts it", async () => {
+    vi.useFakeTimers();
+    try {
+      const freeze = vi.fn<(tabId: string) => Promise<void>>()
+        .mockRejectedValueOnce(new Error("no view yet"))
+        .mockRejectedValueOnce(new Error("still no view"))
+        .mockResolvedValue(undefined);
+      const controller = new OcclusionController({ freeze, thaw: vi.fn(async () => undefined) });
+      controller.addOccluder("t1", "approval-dialog");
+      await vi.advanceTimersByTimeAsync(0);
+      expect(freeze).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(100); // first backoff
+      expect(freeze).toHaveBeenCalledTimes(2);
+      await vi.advanceTimersByTimeAsync(200); // second backoff
+      expect(freeze).toHaveBeenCalledTimes(3);
+      expect(controller.isFrozen("t1")).toBe(true);
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(freeze).toHaveBeenCalledTimes(3); // converged: no more attempts
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("reports a tab whose freeze keeps failing past the retry budget, and stops", async () => {
+    vi.useFakeTimers();
+    try {
+      const freeze = vi.fn<(tabId: string) => Promise<void>>().mockRejectedValue(new Error("driver broken"));
+      const gaveUp = vi.fn();
+      const controller = new OcclusionController({ freeze, thaw: vi.fn(async () => undefined) }, gaveUp);
+      controller.addOccluder("t1", "approval-dialog");
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(gaveUp).toHaveBeenCalledWith("t1", expect.any(Error));
+      expect(gaveUp).toHaveBeenCalledTimes(1);
+      const attempts = freeze.mock.calls.length;
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(freeze).toHaveBeenCalledTimes(attempts); // budget spent: no spin
+      // The intent still stands — nothing here ever claims the view is visible.
+      expect(controller.isFrozen("t1")).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("removeTab cancels a pending retry", async () => {
+    vi.useFakeTimers();
+    try {
+      const freeze = vi.fn<(tabId: string) => Promise<void>>().mockRejectedValue(new Error("no view"));
+      const controller = new OcclusionController({ freeze, thaw: vi.fn(async () => undefined) });
+      controller.addOccluder("t1", "approval-dialog");
+      await vi.advanceTimersByTimeAsync(0);
+      controller.removeTab("t1");
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(freeze).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

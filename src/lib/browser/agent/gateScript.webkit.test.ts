@@ -48,3 +48,14 @@ describe("password field — rendered tier", () => {
     expect(exec().passwordField).toBe(false);
   });
 });
+
+describe("password field — composed ancestors (rendered tier)", () => {
+  it("a shadow HOST with opacity:0 hides the password field in its shadow tree; a visible host shows it", () => {
+    document.body.innerHTML = `<div id="host" style="opacity:0"></div>`;
+    document.getElementById("host")!.attachShadow({ mode: "open" }).innerHTML = `<input type="password" style="width:120px;height:24px">`;
+    expect(exec().passwordField).toBe(false);
+    document.body.innerHTML = `<div id="host"></div>`;
+    document.getElementById("host")!.attachShadow({ mode: "open" }).innerHTML = `<input type="password" style="width:120px;height:24px">`;
+    expect(exec().passwordField).toBe(true);
+  });
+});

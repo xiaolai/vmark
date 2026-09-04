@@ -33,6 +33,9 @@ export const BRIDGE_OPERATION_FIELDS = {
     { name: "tabId", optional: true, kind: "string" },
     { name: "text", optional: true, kind: "string" },
   ],
+  "vmark.browser.close": [
+    { name: "tabId", optional: false, kind: "string" },
+  ],
   "vmark.browser.console": [
     { name: "clear", optional: true, kind: "boolean" },
     { name: "tabId", optional: true, kind: "string" },
@@ -108,6 +111,7 @@ export const BRIDGE_OPERATION_FIELDS = {
   "vmark.browser.workflow_run": [
     { name: "allowRepeat", optional: true, kind: "boolean" },
     { name: "inputs", optional: true, kind: "object" },
+    { name: "resumeRunId", optional: true, kind: "string" },
     { name: "source", optional: false, kind: "string" },
     { name: "tabId", optional: true, kind: "string" },
   ],
@@ -200,6 +204,7 @@ export const BRIDGE_OPERATION_FIELDS = {
 /** Unknown-field posture per operation (chosen per class; ledger D5). */
 export const BRIDGE_OPERATION_POSTURE = {
   "vmark.browser.act": "reject",
+  "vmark.browser.close": "reject",
   "vmark.browser.console": "reject",
   "vmark.browser.execute_js": "reject",
   "vmark.browser.extract": "reject",
@@ -252,6 +257,9 @@ export interface BridgeOperationArgs {
     role?: string;
     tabId?: string;
     text?: string;
+  };
+  "vmark.browser.close": {
+    tabId: string;
   };
   "vmark.browser.console": {
     clear?: boolean;
@@ -328,6 +336,7 @@ export interface BridgeOperationArgs {
   "vmark.browser.workflow_run": {
     allowRepeat?: boolean;
     inputs?: Record<string, string>;
+    resumeRunId?: string;
     source: string;
     tabId?: string;
   };

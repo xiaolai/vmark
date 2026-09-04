@@ -2,186 +2,212 @@
  * Workflow run orchestrator (WI-NB6.2/6.3) — starts, tracks, and cancels async
  * workflow runs.
  *
- * `startWorkflowRun` validates the source (parse + inputs + bounds), acquires
+ * `startWorkflowRun` validates the request (`workflowRunValidate.ts`), acquires
  * the AI lease, creates a run record, and starts the run DETACHED — it returns a
  * `runId` synchronously, because the bridge bounds a single request at ~20s and
  * a run can take longer (Codex review). The run executes in the event loop,
  * updating the registry as it goes; the model polls `workflowRunStatus` and may
  * `cancelWorkflowRun`.
  *
- * The engine (`runWebWorkflow`) drives each step through `makeRunExecutor`; the
- * `leaseHeld` thunk ties the run to the lease, so a human takeover pauses it. On
- * any terminal outcome the run releases the lease and withdraws its own pending
- * prompts (closing the late-Allow race).
+ * The engine (`runWebWorkflow`) drives each step through `makeRunExecutor`,
+ * wrapped by `makeGuardedExecutor` (ledger skips, the running-time budget, one
+ * step result per step). Audit 2026-09-03:
+ *   - W-01: every run has an `AbortController`; `cancelWorkflowRun` aborts it,
+ *     and it is registered as the lease's in-flight canceller so a human takeover
+ *     (`reclaimForHuman`/`release`) aborts it too. An approval wait exits at once.
+ *   - W-04/W-05: EVERY end state — including `paused` — releases the lease,
+ *     clears a fresh human hold (the interrupted run is over) and withdraws the
+ *     run's prompts; a paused run frees its tab, and `resumeRunId` continues it.
+ *   - W-06: the D1v2 clock — 120 s of RUNNING time, paused while a prompt is open.
+ *   - W-07: the ledger is keyed on `workflowIdentity` (canonical parsed IR + inputs).
+ *   - W-08: cancel is a no-op on a terminal run, refuses an unknown run, and
+ *     releases the lease only if THIS run holds it.
  *
  * @coordinates-with lib/browser/workflow/runner.ts — the engine
  * @coordinates-with services/workflow/runExecutor.ts — the step executor
+ * @coordinates-with services/workflow/runStepGuard.ts — ledger skips + step results
  * @coordinates-with services/workflow/runRegistry.ts — run state + write ledger
  * @module services/workflow/workflowRunService
  */
 
-import { parseWorkflow } from "@/lib/browser/workflow/parser";
 import { runWebWorkflow } from "@/lib/browser/workflow/runner";
-import { stepWrites } from "@/lib/browser/workflow/classify";
+import { WorkflowPause, type RunStopCode } from "@/lib/browser/workflow/engine";
+import type { WorkflowStep } from "@/lib/browser/workflow/types";
 import { useBrowserLeaseStore } from "@/services/browser/lease";
 import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
 import { makeRunExecutor } from "./runExecutor";
+import { createRunClock, type RunClock } from "./runClock";
+import { makeGuardedExecutor, stepWillBeSkipped, type SkipPolicy } from "./runStepGuard";
+import { validateRunRequest } from "./workflowRunValidate";
 import {
+  claimLease,
   createRun,
   getRun,
-  hasLiveRun,
-  markWriteStepDone,
+  getRunAbort,
+  isTerminalStatus,
+  registerRunAbort,
+  unregisterRunAbort,
+  releaseLeaseClaim,
+  setPendingApproval,
   updateRun,
-  writeStepAlreadyDone,
   type RunState,
+  type RunStatus,
 } from "./runRegistry";
 
-/** v1 run bounds (recorded residuals in the plan). */
-const MAX_STEPS = 25;
-const MAX_INPUTS = 64;
-const MAX_SOURCE_BYTES = 64 * 1024;
-const MAX_VALUE_BYTES = 4 * 1024;
+/** D1v2 run budget: 120 s of RUNNING time (approval waits excluded). */
+const DEFAULT_BUDGET_MS = 120_000;
 
 export interface StartRunContext {
   tabId: string;
   resolveTab: () => { url: string; generation: number } | null;
   inputs: Record<string, string>;
-  /** Wall-clock budget for the run (ms); default 120s. Approval waits count. */
+  /** Running-time budget for the run (ms); default 120 s. Approval waits do not count. */
   deadlineMs?: number;
   now?: () => number;
   allowRepeat?: boolean;
+  /** Continue a PAUSED run on the same tab with the same normalised source: its
+   *  completed steps and the step it paused at (the human did it) are skipped. */
+  resumeRunId?: string;
+  /** Test seam: approval poll interval (ms). */
+  pollMs?: number;
+  /** A `navigate to` step landed: the caller mirrors the page onto the tab record. */
+  onNavigated?: (nav: { url: string; generation: number }) => void;
 }
 
 export type StartRunResult =
-  | { ok: true; runId: string; steps: number }
+  | { ok: true; runId: string; steps: number; firstStep: string | null }
   | { ok: false; error: string };
 
-/** Cheap, stable content hash for the completed-write ledger key. */
-function hashSource(source: string): string {
-  let h = 2166136261;
-  for (let i = 0; i < source.length; i += 1) {
-    h ^= source.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return (h >>> 0).toString(36);
+export type CancelResult =
+  | { outcome: "cancelled" }
+  | { outcome: "already-terminal"; status: RunStatus }
+  | { outcome: "not-found" };
+
+/** `step-N` → N, or null for anything else. */
+function stepIndexOf(stepId: string | undefined): number | null {
+  const m = stepId === undefined ? null : /^step-(\d+)$/.exec(stepId);
+  return m ? Number(m[1]) : null;
 }
 
-function byteLen(s: string): number {
-  return new TextEncoder().encode(s).length;
-}
-
-/** Validate everything that must hold before a run starts. */
-function validate(source: string, ctx: StartRunContext): { error: string } | { workflow: ReturnType<typeof parseWorkflow> } {
-  if (byteLen(source) > MAX_SOURCE_BYTES) return { error: "workflow source is too large" };
-  const inputNames = Object.keys(ctx.inputs);
-  if (inputNames.length > MAX_INPUTS) return { error: "too many inputs" };
-  for (const name of inputNames) {
-    if (byteLen(ctx.inputs[name]) > MAX_VALUE_BYTES) return { error: `input "${name}" value is too large` };
-  }
-  const parsed = parseWorkflow(source);
-  if (!parsed.ok) {
-    return { error: `workflow parse failed: ${parsed.errors.map((e) => e.code).join(", ")}` };
-  }
-  if (parsed.workflow.steps.length > MAX_STEPS) return { error: `too many steps (max ${MAX_STEPS})` };
-  for (const declared of parsed.workflow.inputs) {
-    if (ctx.inputs[declared] === undefined) return { error: `missing input "${declared}"` };
-  }
-  if (hasLiveRun(ctx.tabId)) return { error: "a workflow is already running on this tab" };
-  return { workflow: parsed };
+/** Release the tab's lease if THIS run holds the claim. A fresh human hold is the
+ *  interruption of this run — it ends with the run (W-04). */
+function releaseRunLease(run: RunState): void {
+  if (!releaseLeaseClaim(run.tabId, run.runId)) return;
+  const lease = useBrowserLeaseStore.getState();
+  const holder = lease.currentHolder(run.tabId);
+  if (holder !== null) lease.release(run.tabId, holder);
 }
 
 /** Start a run; returns a runId synchronously and executes detached. */
 export function startWorkflowRun(source: string, ctx: StartRunContext): StartRunResult {
-  const checked = validate(source, ctx);
+  const checked = validateRunRequest(source, {
+    tabId: ctx.tabId,
+    inputs: ctx.inputs,
+    ...(ctx.resumeRunId !== undefined ? { resumeRunId: ctx.resumeRunId } : {}),
+  });
   if ("error" in checked) return { ok: false, error: checked.error };
-  const parsed = checked.workflow;
-  if (!parsed.ok) return { ok: false, error: "workflow parse failed" };
-  const workflow = parsed.workflow;
-
+  const { workflow, identity, resume } = checked;
+  // Wall-clock for timestamps the registry records; the RUN CLOCK below is
+  // monotonic by default (`createRunClock`'s own source) — a system-clock
+  // rollback must not extend the execution budget (#191).
   const now = ctx.now ?? Date.now;
-  const sourceHash = hashSource(source);
-  const deadlineAt = now() + (ctx.deadlineMs ?? 120_000);
-
-  if (!useBrowserLeaseStore.getState().acquireForAi(ctx.tabId)) {
-    return { ok: false, error: "the human is currently driving this tab" };
+  // Validate the budget BEFORE anything is mutated: a bad deadline used to throw
+  // after the lease was acquired, the run registered and a resumed run superseded,
+  // leaving a permanent live run and AI lease behind a function that returns a result.
+  let clock: RunClock;
+  try {
+    clock = createRunClock(ctx.deadlineMs ?? DEFAULT_BUDGET_MS, ctx.now);
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
   }
-  const run = createRun({ tabId: ctx.tabId, sourceHash, stepCount: workflow.steps.length, deadlineAt });
 
+  const lease = useBrowserLeaseStore.getState();
+  if (!lease.acquireForAi(ctx.tabId)) return { ok: false, error: "the human is currently driving this tab" };
+
+  const skipPolicy: SkipPolicy = {
+    tabId: ctx.tabId,
+    ledgerId: identity.ledgerId,
+    allowRepeat: ctx.allowRepeat === true,
+    inherited: new Set(
+      resume?.stepResults.filter((s) => s.status === "success" || s.status === "skipped").map((s) => s.index) ?? [],
+    ),
+    humanDone: stepIndexOf(resume?.pausedAt),
+  };
+  const firstStep = workflow.steps.find((s: WorkflowStep) => !stepWillBeSkipped(s, skipPolicy));
+  const run = createRun({
+    tabId: ctx.tabId,
+    sourceHash: identity.sourceHash,
+    inputsHash: identity.inputsHash,
+    stepCount: workflow.steps.length,
+    firstStep: firstStep ? `step-${firstStep.index}` : null,
+    ...(resume ? { resumedFrom: resume.runId } : {}),
+  });
+  if (resume) {
+    updateRun(resume.runId, { status: "superseded", reasonCode: "superseded", reason: `resumed by ${run.runId}` });
+  }
+  claimLease(ctx.tabId, run.runId);
+
+  const controller = new AbortController();
+  registerRunAbort(run.runId, controller);
+  // Human takeover (reclaim) and release fire this: the in-flight step exits at once.
+  lease.setInflightCancel(ctx.tabId, () =>
+    controller.abort(new WorkflowPause("lease-lost", "automation lease lost — a human took control")),
+  );
   const executor = makeRunExecutor({
     tabId: ctx.tabId,
     runId: run.runId,
     inputs: ctx.inputs,
     resolveTab: ctx.resolveTab,
-    deadlineAt,
+    clock,
+    signal: controller.signal,
+    leaseEpoch: lease.epochOf(ctx.tabId),
     now,
+    ...(ctx.pollMs !== undefined ? { pollMs: ctx.pollMs } : {}),
+    onPendingApproval: (info) => setPendingApproval(run.runId, info),
+    ...(ctx.onNavigated ? { onNavigated: ctx.onNavigated } : {}),
+    isWriteLedgered: (index) => stepWillBeSkipped({ index, kind: "action", text: "", line: 0 }, { ...skipPolicy, allowRepeat: false }),
   });
+  const guarded = makeGuardedExecutor({ runId: run.runId, ...skipPolicy, clock, executor });
 
-  // Skip completed write steps on a re-run (unless allowed): a write that
-  // already succeeded for this (tab, source) must not run twice.
-  const guardedExecutor: typeof executor = async (step, index) => {
-    const stepId = `step-${step.index}`;
-    if (!ctx.allowRepeat && stepWrites(step) && writeStepAlreadyDone(ctx.tabId, sourceHash, stepId)) {
-      updateRun(run.runId, { stepResults: [...(getRun(run.runId)?.stepResults ?? []), { index: step.index, outcome: "skipped" }] });
-      return { outcome: "success", postconditionMet: true };
-    }
-    const outcome = await executor(step, index);
-    if (outcome.outcome === "success" && stepWrites(step)) {
-      markWriteStepDone(ctx.tabId, sourceHash, stepId);
-    }
-    const prev = getRun(run.runId)?.stepResults ?? [];
-    updateRun(run.runId, {
-      stepResults: [...prev, { index: step.index, outcome: outcome.outcome === "success" ? "success" : "failed" }],
-      completedSteps: outcome.outcome === "success" ? prev.length + 1 : prev.length,
-    });
-    return outcome;
-  };
-
-  void runWebWorkflow(workflow, guardedExecutor, {
+  void runWebWorkflow(workflow, guarded, {
     maxRetries: 2,
     leaseHeld: () => useBrowserLeaseStore.getState().currentHolder(ctx.tabId) === "ai",
   })
-    .then((result) => finish(run.runId, ctx.tabId, result))
+    .then((result) => finish(run.runId, result))
     .catch((error: unknown) => {
-      finish(run.runId, ctx.tabId, {
+      finish(run.runId, {
         status: "failed",
-        completedSteps: getRun(run.runId)?.completedSteps ?? 0,
         reasonCode: "internal",
         reason: error instanceof Error ? error.message : String(error),
       });
     });
 
-  return { ok: true, runId: run.runId, steps: workflow.steps.length };
+  return { ok: true, runId: run.runId, steps: workflow.steps.length, firstStep: run.firstStep };
 }
 
-type EngineResult = {
+interface EngineResult {
   status: "completed" | "paused" | "failed";
-  completedSteps: number;
   pausedAt?: string;
-  reasonCode?: string;
+  reasonCode?: RunStopCode | "internal";
   reason?: string;
-};
+}
 
-/** Terminal cleanup: map the engine result to a status, release the lease if
- *  still AI-held, and withdraw the run's pending prompts (late-Allow race). */
-function finish(runId: string, tabId: string, result: EngineResult): void {
+/** End-of-run cleanup for EVERY end state, paused included: record the status,
+ *  release the lease this run holds (and a fresh human hold), and withdraw the
+ *  run's prompts — an orphaned prompt is worse than a re-request. */
+function finish(runId: string, result: EngineResult): void {
   const run = getRun(runId);
-  if (!run || run.status === "cancelled") return; // a cancel already finalized it
-  const status = result.status === "paused" ? "paused" : result.status;
+  if (!run || isTerminalStatus(run.status)) return; // a cancel/resume already finalized it
   updateRun(runId, {
-    status,
-    completedSteps: result.completedSteps,
+    status: result.status,
     ...(result.pausedAt !== undefined ? { pausedAt: result.pausedAt } : {}),
     ...(result.reasonCode !== undefined ? { reasonCode: result.reasonCode } : {}),
     ...(result.reason !== undefined ? { reason: result.reason } : {}),
   });
-  // A paused run keeps its lease (the user may resolve an approval and it
-  // continues via a re-run); a completed/failed run releases it.
-  if (status !== "paused" && useBrowserLeaseStore.getState().currentHolder(tabId) === "ai") {
-    useBrowserLeaseStore.getState().release(tabId, "ai");
-  }
-  if (status !== "paused") {
-    useBrowserApprovalStore.getState().withdrawByRun(runId);
-  }
+  setPendingApproval(runId, null);
+  releaseRunLease(run);
+  useBrowserApprovalStore.getState().withdrawByRun(runId);
+  unregisterRunAbort(runId);
 }
 
 /** The current state of a run, for `workflow_status`. */
@@ -190,13 +216,17 @@ export function workflowRunStatus(runId: string): RunState | null {
 }
 
 /** Cancel a run — never approval-gated (stopping is always allowed, WI-19).
- *  Withdraws its prompts and releases the lease. */
-export function cancelWorkflowRun(runId: string): void {
+ *  Aborts the in-flight step, withdraws its prompts and releases the lease it
+ *  holds. A terminal run is left alone; an unknown run is reported as such. */
+export function cancelWorkflowRun(runId: string): CancelResult {
   const run = getRun(runId);
-  if (!run) return;
+  if (!run) return { outcome: "not-found" };
+  if (isTerminalStatus(run.status)) return { outcome: "already-terminal", status: run.status };
   updateRun(runId, { status: "cancelled", reasonCode: "cancelled", reason: "cancelled by user" });
+  setPendingApproval(runId, null);
+  getRunAbort(runId)?.abort(new WorkflowPause("cancelled", "cancelled by user"));
+  unregisterRunAbort(runId);
   useBrowserApprovalStore.getState().withdrawByRun(runId);
-  if (useBrowserLeaseStore.getState().currentHolder(run.tabId) === "ai") {
-    useBrowserLeaseStore.getState().release(run.tabId, "ai");
-  }
+  releaseRunLease(run);
+  return { outcome: "cancelled" };
 }

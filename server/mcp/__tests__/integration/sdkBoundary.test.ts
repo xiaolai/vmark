@@ -103,7 +103,7 @@ suite('MCP SDK boundary (spawned dist/cli.js)', () => {
       expect(browser?.inputSchema.properties?.timeoutMs).toMatchObject({
         type: 'integer',
         minimum: 1,
-        maximum: 12000,
+        maximum: 9000,
       });
 
       // A `default` must survive the same trip (it regressed once before).

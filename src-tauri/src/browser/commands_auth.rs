@@ -14,6 +14,7 @@
 
 use crate::browser::ai_guards::{lock_failure, require_browser_enabled, surface_failure};
 use crate::browser::authorize::{authorize_driver_op, command_still_fresh};
+use crate::browser::eval_outcome::eval_error;
 use crate::browser::mint::{
     attach_ai_tab, mint_one_shot, parse_act_target, script_hash, set_standing_grants,
 };
@@ -23,21 +24,29 @@ use crate::browser::origin_guard::{self, StandingGrant};
 use crate::browser::profile_open::{self, ProfileOpen};
 use crate::browser::refusals::stale_command;
 use crate::browser::script_limit::ensure_script_within_limit;
-use crate::browser::surface::{self, BrowserSurface};
+use crate::browser::surface::{self, AttachmentState, BrowserSurface};
 use crate::command_error::CommandError;
 use tauri::{AppHandle, State};
 
-/// Mirror the frontend approval store's standing grants into the driver (WI-2.1).
+/// Mirror the invoking window's approval store into the driver (WI-2.1).
 ///
 /// The driver's copy is the **authoritative** one: `browser_eval` reads it, so a
 /// caller that never syncs simply gets default-deny. Passing an empty vec revokes
-/// everything. Validation lives in `mint::set_standing_grants` (WI-1.6).
+/// everything THIS window granted. The window is the invoking one, from Tauri —
+/// each document window syncs its own store, and the driver keeps one slice per
+/// window (audit 20260903 A-03). Validation lives in `mint::set_standing_grants`.
+/// Cap on driver-side profile-open approvals. Mirrors the frontend's
+/// `MAX_PENDING_APPROVALS` (`browserApprovalStore.constants.ts`); the TS test
+/// `approvalCapParity.test.ts` reads this line, so the two cannot drift apart.
+pub(crate) const MAX_PENDING_PROFILE_OPENS: usize = 64;
+
 #[tauri::command]
 pub async fn browser_set_grants(
+    webview: tauri::WebviewWindow,
     state: State<'_, BrowserSurface>,
     grants: Vec<StandingGrant>,
 ) -> Result<(), CommandError> {
-    set_standing_grants(&state, grants).map_err(CommandError::invalid_input)
+    set_standing_grants(&state, webview.label(), grants).map_err(CommandError::invalid_input)
 }
 
 /// Mint a single-use authorization from the user's "Allow once" (R5).
@@ -54,10 +63,11 @@ pub async fn browser_add_one_shot(
     origin_pattern: String,
     operation: String,
     target: Option<OneShotTarget>,
-    // The exact script a `style`/`eval` one-shot authorizes. Required for those
-    // payload-binding operations, ignored otherwise. The driver stores only its
-    // hash and binds the eval to it — an approved script cannot be swapped out on
-    // the retry. (Security review P5, High #1.)
+    // The exact script a payload-binding one-shot (`style`, `eval`, `session`,
+    // `type`, `key`, `scroll`) authorizes. Required for those operations, ignored
+    // otherwise. The driver stores only its hash and binds the eval to it — an
+    // approved script cannot be swapped out on the retry. (Security review P5,
+    // High #1; audit 20260903 A-05.)
     eval_script: Option<String>,
 ) -> Result<(), CommandError> {
     // Bound the payload before any authority is minted from it. A one-shot bound to
@@ -80,6 +90,42 @@ pub async fn browser_add_one_shot(
     .map_err(CommandError::invalid_input)
 }
 
+/// Withdraw an unspent one-shot the frontend no longer wants honoured (round 3,
+/// #124): a workflow run cancelled while its "Allow once" mint was in flight
+/// leaves the driver holding an authorization nobody will spend on purpose. The
+/// identity is the mint's own; the count removed is returned (0 is not an error —
+/// the one-shot may already have lapsed with a navigation).
+#[tauri::command]
+pub async fn browser_revoke_one_shot(
+    state: State<'_, BrowserSurface>,
+    tab_id: String,
+    generation: u64,
+    origin_pattern: String,
+    operation: String,
+    target: Option<OneShotTarget>,
+    // The exact script a payload-binding mint authorized, so the revoke names the
+    // SAME one-shot the mint created and no other for that target.
+    eval_script: Option<String>,
+) -> Result<u32, CommandError> {
+    let payload_hash = eval_script
+        .as_deref()
+        .map(crate::browser::mint::script_hash);
+    let mut shots = state
+        .one_shots
+        .lock()
+        .map_err(|_| CommandError::internal("one-shot store lock poisoned"))?;
+    let removed = crate::browser::one_shot::revoke_one_shot(
+        &mut shots,
+        &tab_id,
+        generation,
+        &origin_pattern,
+        &operation,
+        target.as_ref(),
+        payload_hash.as_deref(),
+    );
+    Ok(removed as u32)
+}
+
 /// Attach AI access to a human-created tab for exactly its current generation.
 /// The UI calls this only after the user has accepted the visible prompt.
 #[tauri::command]
@@ -93,8 +139,22 @@ pub async fn browser_ai_attach(
         .map_err(CommandError::invalid_input)
 }
 
+/// The attachment `tab_id` currently holds, as the authority sees it (round 4,
+/// #37). Read-only, no gate: it reveals nothing the frontend did not mint itself,
+/// and it is how the frontend's mirror learns whether the driver spent a one-use
+/// attachment instead of inferring it from a denylist of refusal tokens
+/// (`attachment_state.rs`). Unknown tab: `attached: false`.
+#[tauri::command]
+pub async fn browser_ai_attachment_state(
+    state: State<'_, BrowserSurface>,
+    tab_id: String,
+) -> Result<AttachmentState, CommandError> {
+    state.attachment_state(&tab_id).map_err(lock_failure)
+}
+
 /// Evaluate `script` in the driver's isolated content world and return its
-/// string result (WI-2.1). The script should `return` a JSON-serializable value.
+/// string result (WI-2.1). The script must `return` a JSON STRING; anything else
+/// is reported as an `EVAL_FAILED` script error.
 /// Authorization is delegated to `authorize_driver_op` (the shared gate); this
 /// command adds only the `act`-target validation and the eval side effect.
 #[tauri::command]
@@ -125,9 +185,9 @@ pub async fn browser_eval(
     ensure_script_within_limit("script", &script).map_err(CommandError::invalid_input)?;
     // A target is both halves or neither — see `mint::parse_act_target` (Audit, High).
     let target = parse_act_target(role, name).map_err(CommandError::invalid_input)?;
-    // A `style`/`eval` one-shot is bound to the EXACT script; hash it so the gate can
-    // match what the user approved against what is about to run. `None` for the
-    // target-only operations (click/type/…), which bind role+name instead.
+    // A payload-binding one-shot is bound to the EXACT script; hash it so the gate
+    // can match what the user approved against what is about to run. `None` for the
+    // target-only operations (click, read), which bind role+name or nothing.
     let payload_hash = operation::operation_binds_payload(&operation).then(|| script_hash(&script));
     authorize_driver_op(
         &state,
@@ -149,7 +209,10 @@ pub async fn browser_eval(
     if !command_still_fresh(&state, &tab_id, generation) {
         return Err(stale_command(&tab_id, "before the script could run"));
     }
-    surface::eval(&app, tab_id, script, generation).map_err(|e| surface_failure(&e))
+    // A timeout, a thrown exception, no value and an oversized result are typed
+    // failures (audit 20260903 E-03/E-04), never a `<timeout>`/`<null>` string
+    // returned as the script's result.
+    surface::eval(&app, tab_id, script, generation).map_err(eval_error)
 }
 
 /// Capture the tab's current rendering as a base64 JPEG (WI-P1.1).
@@ -197,7 +260,7 @@ pub async fn browser_add_profile_open(
     }
     let mut opens = state.profile_opens.lock().map_err(lock_failure)?;
     // Bound an untrusted client from piling up pending approvals.
-    if opens.len() >= 64 {
+    if opens.len() >= MAX_PENDING_PROFILE_OPENS {
         // A bound, not a fault in this request: the client must let earlier
         // approvals resolve first.
         return Err(CommandError::conflict("too many pending profile approvals"));

@@ -20,13 +20,17 @@
 //! @coordinates-with browser/session_state.rs — keychain persistence + the model
 //! @coordinates-with browser/authorize.rs — the shared driver-authorization gate
 
-use crate::browser::ai_guards::surface_failure;
+use crate::browser::ai_guards::{surface_failure, with_mcp_code};
 use crate::browser::authorize::{authorize_driver_op, command_still_fresh};
+use crate::browser::eval_outcome::eval_error;
 use crate::browser::origin_guard::canonicalize_origin;
 use crate::browser::refusals::stale_command;
 use crate::browser::session_state::{self, OriginStorage, StorageState};
 use crate::browser::surface::{self, BrowserSurface};
-use crate::command_error::CommandError;
+use crate::command_error::{CommandError, ErrorCode};
+
+#[path = "session_restore_script.rs"]
+mod restore_script;
 use sha2::{Digest, Sha256};
 use tauri::{AppHandle, State};
 
@@ -50,23 +54,21 @@ fn committed_origin(state: &BrowserSurface, tab_id: &str) -> Result<String, Stri
 /// records the committed `origin` it was captured from, so load can bind the whole
 /// restore to it (even a cookies-only blob with empty `origins`).
 ///
-/// FAILS CLOSED: a failed/timed-out eval (`<null>`/`<timeout>`) or an unparseable
-/// result is an error, NEVER an empty blob — so a capture that could not read the
-/// page cannot silently overwrite a good saved session with nothing. (Sec review
-/// P6, Medium.)
+/// FAILS CLOSED: a failed or timed-out eval is a typed error (`eval_error`) and an
+/// unparseable result is an error too, NEVER an empty blob — so a capture that
+/// could not read the page cannot silently overwrite a good saved session with
+/// nothing. (Sec review P6, Medium.)
 fn capture(
     app: &AppHandle,
     tab_id: &str,
     origin: &str,
     generation: u64,
-) -> Result<StorageState, String> {
+) -> Result<StorageState, CommandError> {
     let script = "return JSON.stringify(Object.keys(localStorage).map(function(k){return [k, localStorage.getItem(k)];}));";
-    let raw = surface::eval(app, tab_id.to_string(), script.to_string(), generation)?;
-    if raw == "<null>" || raw == "<timeout>" || raw.is_empty() {
-        return Err("capture failed: could not read the page's storage".into());
-    }
-    let items: Vec<(String, String)> =
-        serde_json::from_str(&raw).map_err(|e| format!("capture parse error: {e}"))?;
+    let raw = surface::eval(app, tab_id.to_string(), script.to_string(), generation)
+        .map_err(eval_error)?;
+    let items: Vec<(String, String)> = serde_json::from_str(&raw)
+        .map_err(|e| CommandError::internal(format!("capture parse error: {e}")))?;
     let origins = if items.is_empty() {
         Vec::new()
     } else {
@@ -77,8 +79,10 @@ fn capture(
     };
     // Cookies from the native store, DOMAIN-SCOPED to the committed host (never the
     // whole store). A failed native capture is an error, not an empty set.
-    let host = host_of(origin).ok_or_else(|| "committed page has no host".to_string())?;
-    let cookies = surface::capture_cookies(app, tab_id.to_string(), host)?;
+    let host =
+        host_of(origin).ok_or_else(|| CommandError::internal("committed page has no host"))?;
+    let cookies =
+        surface::capture_cookies(app, tab_id.to_string(), host).map_err(|e| surface_failure(&e))?;
     Ok(StorageState {
         origin: Some(origin.to_string()),
         cookies,
@@ -96,6 +100,17 @@ fn host_of(url: &str) -> Option<String> {
 /// Every saved origin must canonically equal the destination's committed origin,
 /// or the whole restore is refused. This is the cross-origin credential-release
 /// guard (Sec review P6, Critical/High) — pure, so it is unit-tested directly.
+/// The command-boundary shape of a refused cross-origin replay: a CONFLICT (the page
+/// is not the one the blob was saved for) carrying the session layer's own token,
+/// `STORAGE_STATE_ORIGIN_MISMATCH` — not a native surface failure, which is what
+/// routing it through `surface_failure` used to call it (round 4, #31).
+pub(crate) fn origin_mismatch(message: String) -> CommandError {
+    with_mcp_code(
+        CommandError::new(ErrorCode::Conflict, message),
+        "STORAGE_STATE_ORIGIN_MISMATCH",
+    )
+}
+
 pub(crate) fn ensure_same_origin(committed: &str, state: &StorageState) -> Result<(), String> {
     let here = canonicalize_origin(committed)
         .ok_or_else(|| "current page has no canonical origin".to_string())?;
@@ -145,12 +160,12 @@ fn apply(
     state: &StorageState,
     generation: u64,
     state_handle: &BrowserSurface,
-) -> Result<(), String> {
+) -> Result<(), CommandError> {
     // Defence in depth: refuse a cross-origin blob on the COMMAND thread before we
     // even dispatch. But the authoritative check is IN the replay script below —
     // the command-thread check can be raced by a navigation before the main-thread
     // write actually runs (Sec review P6 re-verify, PARTIAL #1).
-    ensure_same_origin(committed, state)?;
+    ensure_same_origin(committed, state).map_err(origin_mismatch)?;
     // Cookies first: replayed into the native store, DOMAIN-SCOPED to the committed
     // host (apply_cookies drops any cookie whose domain doesn't cover it), so a saved
     // session's cookies can never be planted under an unrelated origin.
@@ -163,17 +178,19 @@ fn apply(
         // generation the approval was minted against. Check it here, so a stale
         // command cannot restore cookies at all.
         if !command_still_fresh(state_handle, tab_id, generation) {
-            return Err(format!(
-                "stale command: tab '{tab_id}' navigated or closed before the cookies could be restored"
+            return Err(stale_command(
+                tab_id,
+                "before the cookies could be restored",
             ));
         }
         let host = host_of(committed)
-            .ok_or_else(|| "current page has no host for cookie replay".to_string())?;
+            .ok_or_else(|| CommandError::internal("current page has no host for cookie replay"))?;
         let origin = url::Url::parse(committed)
             .ok()
             .map(|u| u.origin().ascii_serialization())
-            .ok_or_else(|| "current page has no canonical origin".to_string())?;
-        surface::apply_cookies(app, tab_id.to_string(), host, origin, state.cookies.clone())?;
+            .ok_or_else(|| CommandError::internal("current page has no canonical origin"))?;
+        surface::apply_cookies(app, tab_id.to_string(), host, origin, state.cookies.clone())
+            .map_err(|e| surface_failure(&e))?;
     }
     // All saved origins equal `committed` (ensure_same_origin), so flatten and write once.
     let items: Vec<&(String, String)> = state.origins.iter().flat_map(|o| &o.items).collect();
@@ -185,21 +202,15 @@ fn apply(
     // approved one immediately before any write, in the SAME synchronous turn, so a
     // navigation that raced the main-thread dispatch cannot land the credential in a
     // different origin. Both sides use the browser's own origin normalization.
-    let pairs = serde_json::to_string(&items).map_err(|e| e.to_string())?;
-    let expected = serde_json::to_string(committed).map_err(|e| e.to_string())?;
-    let script = format!(
-        "if(new URL({expected}).origin!==location.origin){{return JSON.stringify({{applied:false,reason:'origin-changed'}});}}\
-         var d={pairs};for(var i=0;i<d.length;i++){{try{{localStorage.setItem(d[i][0],d[i][1]);}}catch(e){{}}}}return JSON.stringify({{applied:true}});"
-    );
-    let raw = surface::eval(app, tab_id.to_string(), script, generation)?;
-    if raw.contains("origin-changed") {
-        return Err(
-            "stale command: the page's origin changed before the session could be restored \
-             — refusing to write credentials into a different origin"
-                .into(),
-        );
-    }
-    Ok(())
+    let pairs =
+        serde_json::to_string(&items).map_err(|e| CommandError::internal(format!("{e}")))?;
+    let expected =
+        serde_json::to_string(committed).map_err(|e| CommandError::internal(format!("{e}")))?;
+    let script = restore_script::restore_script(&pairs, &expected);
+    let raw = surface::eval(app, tab_id.to_string(), script, generation).map_err(eval_error)?;
+    // Every outcome the page can report — including a rollback that itself failed,
+    // which leaves the page only partly restored — is named there, not here.
+    restore_script::parse_restore_outcome(&raw).into_result(tab_id)
 }
 
 /// Snapshot the tab's session into the keychain under `handle`; return a value-FREE
@@ -222,7 +233,7 @@ pub async fn browser_save_storage_state(
         Some(&payload_hash),
     )?;
     let origin = committed_origin(&state, &tab_id).map_err(CommandError::conflict)?;
-    let captured = capture(&app, &tab_id, &origin, generation).map_err(|e| surface_failure(&e))?;
+    let captured = capture(&app, &tab_id, &origin, generation)?;
     // The capture eval could have raced a navigation, leaving `captured` labelled
     // with `origin` but read from a different page. Re-check freshness before
     // persisting so a mislabelled blob never overwrites a good saved session.
@@ -268,7 +279,7 @@ pub async fn browser_load_storage_state(
         ));
     }
     let committed = committed_origin(&state, &tab_id).map_err(CommandError::conflict)?;
-    apply(&app, &tab_id, &committed, &blob, generation, &state).map_err(|e| surface_failure(&e))
+    apply(&app, &tab_id, &committed, &blob, generation, &state)
 }
 
 /// Delete a saved session. User-initiated cleanup (the profile UI / data

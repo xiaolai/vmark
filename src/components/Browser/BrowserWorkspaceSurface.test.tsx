@@ -33,7 +33,6 @@ function reset() {
     activeTabId: {},
     lastActiveBrowserPageId: {},
     untitledCounter: 0,
-    closedTabs: {},
   });
 }
 

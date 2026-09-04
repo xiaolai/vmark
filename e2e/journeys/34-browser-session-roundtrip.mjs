@@ -104,7 +104,7 @@ export default {
 
     /** Read the fixture page's own marker, which reports what storage holds. */
     async function marker() {
-      const read = await mcp.callTool("browser", { action: "query", selector: "#marker" });
+      const read = await mcp.callTool("browser_read", { action: "query", selector: "#marker" });
       if (read.isError) throw new Error(`query failed: ${read.text.slice(0, 200)}`);
       return read.json?.elements?.[0]?.text ?? "";
     }

@@ -1,7 +1,15 @@
 // @vitest-environment node
 // WI-1.1 — browser URL canonicalization for tab dedup + persistence
 import { describe, it, expect } from "vitest";
-import { canonicalizeBrowserUrl, urlForAgent, urlForPersistence, originForAgent } from "./url";
+import {
+  canonicalizeBrowserUrl,
+  urlForAgent,
+  urlForPersistence,
+  originForAgent,
+  hostLabel,
+  parseNavigableUrl,
+  credentialPath,
+} from "./url";
 
 describe("canonicalizeBrowserUrl", () => {
   it("lowercases scheme and host", () => {
@@ -134,9 +142,10 @@ describe("urlForAgent — credentials never cross to the AI", () => {
     );
   });
 
-  it("passes through a url it cannot parse rather than inventing one", () => {
+  it("fails closed on a url it cannot parse — a placeholder, never the raw value", () => {
+    // The raw value can itself carry a credential; `about:` pages carry nothing.
     expect(urlForAgent("about:blank")).toBe("about:blank");
-    expect(urlForAgent("")).toBe("");
+    expect(urlForAgent("")).toBe("(unparseable url)");
   });
 });
 
@@ -190,5 +199,82 @@ describe("urlForPersistence — a secret is not ours to write to disk", () => {
   it("passes an unparseable url through rather than inventing one", () => {
     expect(urlForPersistence("about:blank")).toBe("about:blank");
     expect(urlForPersistence("")).toBe("");
+  });
+});
+
+describe("hostLabel", () => {
+  it("names the host, keeping a non-default port", () => {
+    expect(hostLabel("http://127.0.0.1:59180/second?x=1#f")).toBe("127.0.0.1:59180");
+    expect(hostLabel("https://Example.com/path")).toBe("example.com");
+  });
+
+  it("falls back to the input when it is not a URL", () => {
+    expect(hostLabel("not a url")).toBe("not a url");
+    expect(hostLabel("")).toBe("");
+  });
+});
+
+describe("urlForAgent fails closed", () => {
+  it("never hands the model an unparseable value or an opaque payload", () => {
+    expect(urlForAgent("not a url")).toBe("(unparseable url)");
+    expect(urlForAgent("data:text/html,<script>secret</script>")).toBe("data:(opaque)");
+    // A blob URL has its creator's origin and no payload; about: pages carry nothing.
+    expect(urlForAgent("blob:https://a.example/uuid")).toBe("blob:https://a.example/uuid");
+    expect(urlForAgent("about:blank")).toBe("about:blank");
+  });
+});
+
+describe("urlForPersistence drops credential-bearing parameters", () => {
+  it("removes token-like query and fragment parameters but keeps the rest", () => {
+    expect(urlForPersistence("https://a.example/cb?access_token=abc&state=x&q=hello")).toBe(
+      "https://a.example/cb?state=x&q=hello",
+    );
+    expect(urlForPersistence("https://a.example/#access_token=abc&expires=3600")).toBe(
+      "https://a.example/#expires=3600",
+    );
+    // `/reset` is a credential-bearing FLOW path (round 3): the whole URL is kept as
+    // its origin, the same rule the workflow recorder applies.
+    expect(urlForPersistence("https://a.example/reset?token=t&user_password=p")).toBe("https://a.example/");
+    expect(urlForPersistence("https://a.example/account/settings?token=t&tab=2")).toBe("https://a.example/account/settings?tab=2");
+  });
+
+  it("returns the input unchanged when nothing credential-like is present", () => {
+    const url = "https://a.example/search?q=vmark&page=2#results";
+    expect(urlForPersistence(url)).toBe(url);
+  });
+  it("shows only about:blank and about:srcdoc; any other about: payload is opaque (#129)", () => {
+    expect(urlForAgent("about:srcdoc")).toBe("about:srcdoc");
+    expect(urlForAgent("about:settings#secret")).toBe("about:(opaque)");
+    expect(urlForAgent("about:blank?x=token")).toBe("about:blank");
+  });
+});
+
+describe("parseNavigableUrl — the one parser (round 3)", () => {
+  it("normalises the host and refuses what is not a navigable web URL", () => {
+    expect(parseNavigableUrl("HTTPS://Example.COM./p")?.href).toBe("https://example.com/p");
+    expect(parseNavigableUrl("https://[::1]:8443/x")?.hostname).toBe("[::1]");
+    expect(parseNavigableUrl("https://a..b.com/")).toBeNull();
+    expect(parseNavigableUrl("https://.com/")).toBeNull();
+    expect(parseNavigableUrl("javascript:alert(1)")).toBeNull();
+    expect(parseNavigableUrl("file:///etc/passwd")).toBeNull();
+    expect(parseNavigableUrl("not a url")).toBeNull();
+  });
+});
+
+describe("credential-bearing paths and session parameters never reach disk (round 3)", () => {
+  it.each([
+    "https://a.example/reset/abc",
+    "https://a.example/magic-login/x",
+    "https://a.example/invite/9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c",
+    "https://a.example/auth/callback",
+  ])("%s persists as its origin only", (url) => {
+    expect(credentialPath(new URL(url).pathname)).toBe(true);
+    expect(urlForPersistence(url)).toBe("https://a.example/");
+  });
+  it("an ordinary path keeps its query, minus session ids and OAuth verifiers", () => {
+    expect(credentialPath("/blog/2026/09/post-title")).toBe(false);
+    expect(urlForPersistence("https://a.example/search?q=cats&sid=abc&JSESSIONID=1&oauth_verifier=v&page=2")).toBe(
+      "https://a.example/search?q=cats&page=2",
+    );
   });
 });

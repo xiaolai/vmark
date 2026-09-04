@@ -33,8 +33,7 @@
  * @module lib/browser/bookmarkUrl
  */
 
-/** Only these can be bookmarked. `javascript:` and `file:` are refused outright. */
-const BOOKMARKABLE_PROTOCOLS: ReadonlySet<string> = new Set(["http:", "https:"]);
+import { parseNavigableUrl } from "./url";
 
 /**
  * The canonical identity of a bookmark, or `null` if the input cannot be one.
@@ -42,24 +41,10 @@ const BOOKMARKABLE_PROTOCOLS: ReadonlySet<string> = new Set(["http:", "https:"])
  * Two urls that produce the same string are the same bookmark; two that do not, are not.
  */
 export function canonicalizeBookmarkUrl(input: string): string | null {
-  let url: URL;
-  try {
-    url = new URL(input);
-  } catch {
-    return null;
-  }
-
-  if (!BOOKMARKABLE_PROTOCOLS.has(url.protocol)) return null;
-
-  // `URL` lowercases the scheme and host and punycodes IDN, but leaves a trailing dot.
-  const host = url.hostname.replace(/\.$/, "");
-  if (host === "") return null;
-  // Empty labels (`https://..`, `https://.com`). An IPv6 literal is one bracketed label
-  // and passes through untouched.
-  if (!host.startsWith("[") && host.split(".").some((label) => label === "")) {
-    return null;
-  }
-  url.hostname = host;
+  // The one navigable-URL parser (lib/browser/url): http(s) only, host normalised,
+  // empty labels refused — `javascript:` and `file:` are refused there.
+  const url = parseNavigableUrl(input);
+  if (url === null) return null;
 
   // Drop the password. A bookmark is persisted in cleartext and rendered in the sidebar,
   // so keeping `https://alice:hunter2@host/x` would write a secret to disk the user never

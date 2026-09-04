@@ -20,7 +20,7 @@ describe('SERVER_INSTRUCTIONS', () => {
   it('states the approval contract: surface and wait, never retry-spin', () => {
     expect(SERVER_INSTRUCTIONS).toContain('needsApproval');
     expect(SERVER_INSTRUCTIONS).toMatch(/WAIT/);
-    expect(SERVER_INSTRUCTIONS).toContain('re-raises the same prompt');
+    expect(SERVER_INSTRUCTIONS).toContain('queues ANOTHER prompt');
     expect(SERVER_INSTRUCTIONS).toContain('Uploads are never permitted');
   });
 
@@ -37,7 +37,11 @@ describe('SERVER_INSTRUCTIONS', () => {
   it('names the truthful-act failure vocabulary', () => {
     expect(SERVER_INSTRUCTIONS).toContain('"obscured"');
     expect(SERVER_INSTRUCTIONS).toContain('"hidden"');
-    expect(SERVER_INSTRUCTIONS).toContain('matchedTotal');
+    // Audit 2026-09-03 S-04: same-name ambiguity is REFUSED, not resolved by DOM
+    // order, and the refusal names the candidates.
+    expect(SERVER_INSTRUCTIONS).toContain('"ambiguous"');
+    expect(SERVER_INSTRUCTIONS).toContain('candidates');
+    expect(SERVER_INSTRUCTIONS).toContain('data.popup.url');
   });
 
   it('discloses the platform bound and synthetic input', () => {

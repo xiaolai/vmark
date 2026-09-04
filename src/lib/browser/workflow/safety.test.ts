@@ -3,10 +3,7 @@
 import { describe, it, expect } from "vitest";
 import {
   decideAfterResult,
-  nextTier,
   idempotencyKey,
-  loopStopReason,
-  TIER_ORDER,
 } from "./safety";
 
 describe("decideAfterResult (R8a)", () => {
@@ -51,23 +48,6 @@ describe("decideAfterResult (R8a)", () => {
   });
 });
 
-describe("nextTier (R8a: writes never auto-escalate)", () => {
-  it("escalates a read through the tier order", () => {
-    expect(nextTier("api", false)).toBe("action");
-    expect(nextTier("action", false)).toBe("goal");
-    expect(nextTier("goal", false)).toBe("vision");
-    expect(nextTier("vision", false)).toBeNull(); // top of the ladder
-  });
-
-  it("never auto-escalates a write", () => {
-    expect(nextTier("api", true)).toBeNull();
-    expect(nextTier("action", true)).toBeNull();
-  });
-
-  it("exposes the canonical tier order", () => {
-    expect(TIER_ORDER).toEqual(["api", "action", "goal", "vision"]);
-  });
-});
 
 describe("idempotencyKey", () => {
   it("is deterministic and order-independent in the inputs", () => {
@@ -158,6 +138,15 @@ describe("idempotencyKey", () => {
     expect(() => idempotencyKey("s", { o })).toThrow(TypeError);
   });
 
+  it("rejects an array carrying a symbol key or a non-enumerable extra (#141)", () => {
+    const withSymbol: unknown[] = [1];
+    (withSymbol as unknown as Record<symbol, number>)[Symbol("k")] = 2;
+    expect(() => idempotencyKey("s", { a: withSymbol })).toThrow(TypeError);
+    const hidden: unknown[] = [1];
+    Object.defineProperty(hidden, "extra", { value: 1, enumerable: false });
+    expect(() => idempotencyKey("s", { a: hidden })).toThrow(TypeError);
+  });
+
   it("fails closed on input nested past the encoder's depth bound", () => {
     let deep: unknown = 1;
     for (let i = 0; i < 200; i++) deep = { n: deep };
@@ -189,47 +178,3 @@ describe("decideAfterResult — fail-closed on malformed runtime data", () => {
   });
 });
 
-describe("loopStopReason (genie-loop bounds)", () => {
-  const bounds = { maxIterations: 5, timeoutMs: 10_000 };
-
-  it("continues when under all bounds", () => {
-    expect(loopStopReason({ iterations: 2, elapsedMs: 1000, cancelled: false }, bounds)).toBeNull();
-  });
-
-  it("fails closed (stops) on a non-finite iteration bound rather than looping forever", () => {
-    // NaN never trips `iterations >= maxIterations`, so the loop would run unbounded.
-    expect(
-      loopStopReason({ iterations: 2, elapsedMs: 0, cancelled: false }, { maxIterations: NaN, timeoutMs: 10_000 }),
-    ).toBe("max-iterations");
-    expect(
-      loopStopReason({ iterations: 2, elapsedMs: 0, cancelled: false }, { maxIterations: 5, timeoutMs: Infinity }),
-    ).toBeNull(); // finite iteration bound still governs; time bound invalid but iterations under cap
-  });
-
-  it("fails closed on invalid live counters (NaN/negative)", () => {
-    expect(
-      loopStopReason({ iterations: NaN, elapsedMs: 0, cancelled: false }, bounds),
-    ).toBe("max-iterations");
-    expect(
-      loopStopReason({ iterations: 0, elapsedMs: NaN, cancelled: false }, bounds),
-    ).toBe("timeout");
-  });
-
-  it("cancellation wins over everything", () => {
-    expect(
-      loopStopReason({ iterations: 99, elapsedMs: 99_999, cancelled: true }, bounds),
-    ).toBe("cancelled");
-  });
-
-  it("stops at the iteration cap", () => {
-    expect(loopStopReason({ iterations: 5, elapsedMs: 0, cancelled: false }, bounds)).toBe(
-      "max-iterations",
-    );
-  });
-
-  it("stops at the timeout", () => {
-    expect(loopStopReason({ iterations: 0, elapsedMs: 10_000, cancelled: false }, bounds)).toBe(
-      "timeout",
-    );
-  });
-});

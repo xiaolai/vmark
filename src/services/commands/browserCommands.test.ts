@@ -57,3 +57,26 @@ describe("browser commands", () => {
     expect(getCommand("browser.newTab")).toBeDefined();
   });
 });
+
+// Audit 2026-09-03 X-04 — the command is offered only where the surface exists.
+describe("browser.newTab platform gate", () => {
+  it("is available on macOS with the browser on, and not on other platforms", async () => {
+    const { browserAvailableHere } = await import("./browserCommands");
+    const { useSettingsStore } = await import("@/stores/settingsStore");
+    const original = navigator.platform;
+    try {
+      useSettingsStore.setState((s) => ({ browser: { ...s.browser, enabled: true } }));
+      Object.defineProperty(navigator, "platform", { value: "MacIntel", configurable: true });
+      expect(browserAvailableHere()).toBe(true);
+      Object.defineProperty(navigator, "platform", { value: "Win32", configurable: true });
+      expect(browserAvailableHere()).toBe(false);
+      Object.defineProperty(navigator, "platform", { value: "Linux x86_64", configurable: true });
+      expect(browserAvailableHere()).toBe(false);
+      Object.defineProperty(navigator, "platform", { value: "MacIntel", configurable: true });
+      useSettingsStore.setState((s) => ({ browser: { ...s.browser, enabled: false } }));
+      expect(browserAvailableHere()).toBe(false);
+    } finally {
+      Object.defineProperty(navigator, "platform", { value: original, configurable: true });
+    }
+  });
+});

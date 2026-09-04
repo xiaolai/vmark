@@ -93,7 +93,8 @@ const CALLS: ReadonlyArray<readonly [tool: string, args: Record<string, unknown>
   ['browser', { action: 'session_save', tabId: 'b1', handle: 'h1' }],
   ['browser', { action: 'session_load', tabId: 'b1', handle: 'h1' }],
   ['browser', { action: 'console_clear', tabId: 'b1' }],
-  ['browser', { action: 'workflow_run', tabId: 'b1', source: 's', inputs: { a: 'b' }, allowRepeat: true }],
+  ['browser', { action: 'workflow_run', tabId: 'b1', source: 's', inputs: { a: 'b' }, allowRepeat: true, resumeRunId: 'run-0' }],
+  ['browser', { action: 'close', tabId: 'b1' }],
   ['browser', { action: 'workflow_cancel', tabId: 'b1', runId: 'wfrun-1' }],
   ['browser', { action: 'workflow_record', tabId: 'b1', recordOp: 'start', site: 'blog' }],
 

@@ -6,7 +6,7 @@
  * sites and fails when any operation is missing from the manifest, present
  * in the manifest but absent from its owning surface, or classified with a
  * different effect than the code enforces:
- *   - dispatch.ts case labels        == manifest owner:"webview"
+ *   - dispatch.ts route-table keys   == manifest owner:"webview"
  *   - core-types.ts wire types       == manifest (all operations)
  *   - state.rs read-only matches!    == manifest owner:"webview" effect:"read"
  *   - routing.rs coherence arms      == manifest owner:"rust"
@@ -44,12 +44,15 @@ const manifestRustWrites = operationsWhere(
 );
 
 describe("bridge operation manifest parity", () => {
-  it("webview dispatcher cases match the manifest exactly", () => {
-    const cases = extract(
+  it("webview dispatcher routes match the manifest exactly", () => {
+    // The dispatcher is two route tables (round 3, #74): every quoted `vmark.*`
+    // OBJECT KEY in the module is a route. The prefix list (`"vmark.session.*"`)
+    // is an array element, not a key, and its `*` keeps it out of the pattern.
+    const routes = extract(
       source("src/services/mcpBridge/v2/dispatch.ts"),
-      /case "(vmark\.[^"]+)":/g
+      /"(vmark\.[^"*]+)"\s*:/g
     );
-    expect(cases).toEqual(manifestWebview);
+    expect(routes).toEqual(manifestWebview);
   });
 
   it("sidecar wire types match the manifest exactly", () => {

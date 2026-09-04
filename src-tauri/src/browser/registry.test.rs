@@ -162,6 +162,107 @@ fn rollback_restores_the_previous_page_when_native_navigation_fails() {
     );
 }
 
+// Audit 20260903 round 3, #4 — the snapshot a rollback restores must be the state
+// THIS navigation replaced, never an older one a concurrent navigation had
+// already superseded.
+#[test]
+fn begin_navigation_with_snapshot_captures_exactly_the_state_it_replaces() {
+    let mut reg = BrowserRegistry::default();
+    reg.create_with_mode("t", "main", AutomationMode::AiShared)
+        .unwrap();
+    reg.transition("t", Lifecycle::Live).unwrap();
+    reg.set_committed_url("t", "https://a.example/").unwrap();
+    reg.set_shared_navigation_approval("t", "https://a.example/")
+        .unwrap();
+    let (ticket, snapshot) = reg
+        .begin_navigation_with_snapshot("t", "https://b.example/")
+        .unwrap();
+    assert_eq!(ticket.requested_url, "https://b.example/");
+    assert_eq!(snapshot.state, Lifecycle::Live);
+    assert_eq!(
+        snapshot.committed_url.as_deref(),
+        Some("https://a.example/")
+    );
+    assert_eq!(snapshot.ticket, None);
+    assert!(snapshot.shared_origin.is_some(), "the approval it replaced");
+    // …and the begin itself happened.
+    assert_eq!(reg.state("t"), Some(Lifecycle::Navigating));
+    assert_eq!(reg.committed_url("t"), None);
+    assert_eq!(reg.shared_navigation_origin("t"), None);
+}
+
+#[test]
+fn rolling_back_a_failed_navigation_restores_its_own_predecessor_not_an_older_page() {
+    let mut reg = BrowserRegistry::default();
+    reg.create("t", "main").unwrap();
+    reg.transition("t", Lifecycle::Live).unwrap();
+    reg.set_committed_url("t", "https://a.example/").unwrap();
+    // N1 begins (its predecessor is the committed page A)…
+    let (n1, before_n1) = reg
+        .begin_navigation_with_snapshot("t", "https://b.example/")
+        .unwrap();
+    // …and a concurrent N2 begins on top of it before N2's native call fails.
+    let (n2, before_n2) = reg
+        .begin_navigation_with_snapshot("t", "https://c.example/")
+        .unwrap();
+    assert!(reg.restore_navigation("t", &n2.id, before_n2).unwrap());
+    // N1 is back in force — not page A, which N1 had already left.
+    assert_eq!(reg.state("t"), Some(Lifecycle::Navigating));
+    assert_eq!(reg.committed_url("t"), None);
+    assert_eq!(
+        reg.navigation_ticket("t").map(|t| t.id.as_str()),
+        Some(n1.id.as_str())
+    );
+    // N2 is no longer the active navigation, so a second rollback in its name — even
+    // one carrying the older snapshot — changes nothing.
+    assert!(!reg.restore_navigation("t", &n2.id, before_n1).unwrap());
+    assert_eq!(
+        reg.navigation_ticket("t").map(|t| t.id.as_str()),
+        Some(n1.id.as_str())
+    );
+}
+
+// Audit 20260903 round 3, #5 — one read, no fallbacks.
+#[test]
+fn tab_status_is_one_consistent_read_and_none_for_an_unknown_tab() {
+    let mut reg = BrowserRegistry::default();
+    assert_eq!(reg.tab_status("ghost"), None);
+    reg.create_with_mode("t", "main", AutomationMode::AiShared)
+        .unwrap();
+    reg.set_policy_epoch("t", 5).unwrap();
+    let ticket = reg.begin_navigation("t", "https://a.example/").unwrap();
+    reg.bump_generation("t").unwrap();
+    assert_eq!(
+        reg.tab_status("t"),
+        Some(TabStatus {
+            automation_mode: AutomationMode::AiShared,
+            generation: 1,
+            state: Lifecycle::Navigating,
+            policy_epoch: 5,
+            navigation_id: Some(ticket.id),
+        })
+    );
+}
+
+// Audit 20260903 round 3, #35 — the precondition for binding an attachment.
+#[test]
+fn tab_alive_at_requires_a_live_entry_at_exactly_that_generation() {
+    let mut reg = BrowserRegistry::default();
+    assert!(!reg.tab_alive_at("ghost", 0));
+    reg.create("t", "main").unwrap();
+    assert!(reg.tab_alive_at("t", 0));
+    assert!(
+        !reg.tab_alive_at("t", 1),
+        "a generation the tab has not reached"
+    );
+    reg.transition("t", Lifecycle::Live).unwrap();
+    reg.bump_generation("t").unwrap();
+    assert!(!reg.tab_alive_at("t", 0), "a generation the tab has left");
+    assert!(reg.tab_alive_at("t", 1));
+    reg.transition("t", Lifecycle::Destroyed).unwrap();
+    assert!(!reg.tab_alive_at("t", 1), "a terminal tab binds nothing");
+}
+
 #[test]
 fn create_rejects_a_duplicate_tab_id() {
     let mut reg = BrowserRegistry::default();
@@ -548,4 +649,57 @@ fn window_of_is_none_for_an_unknown_tab_so_an_event_is_dropped_not_broadcast() {
     // to all of them is how a routing failure becomes a leak.
     let reg = BrowserRegistry::default();
     assert_eq!(reg.window_of("ghost"), None);
+}
+
+// Audit 20260903 X-01 — the input to the AI-tab cap.
+#[test]
+fn live_ai_tab_count_excludes_human_and_terminal_tabs() {
+    let mut reg = BrowserRegistry::default();
+    assert_eq!(reg.live_ai_tab_count(), 0);
+    reg.create("human", "main").unwrap();
+    reg.create_with_mode("s1", "main", AutomationMode::AiSandbox)
+        .unwrap();
+    reg.create_with_mode("s2", "main", AutomationMode::AiShared)
+        .unwrap();
+    reg.create_with_mode("gone", "main", AutomationMode::AiSandbox)
+        .unwrap();
+    reg.transition("gone", Lifecycle::Destroyed).unwrap();
+    assert_eq!(
+        reg.live_ai_tab_count(),
+        2,
+        "a human tab and a destroyed AI tab occupy no AI slot"
+    );
+    reg.remove("s1");
+    assert_eq!(reg.live_ai_tab_count(), 1, "a closed tab frees its slot");
+}
+
+// Audit 20260903 — `browser_dialog_respond` may only be answered by the window
+// that owns the dialog's tab.
+#[test]
+fn tab_belongs_to_window_is_exact_and_false_for_unknown_tabs() {
+    let mut reg = BrowserRegistry::default();
+    reg.create("t1", "main").unwrap();
+    reg.create("t2", "doc-2").unwrap();
+    assert!(reg.tab_belongs_to_window("t1", "main"));
+    assert!(!reg.tab_belongs_to_window("t1", "doc-2"));
+    assert!(!reg.tab_belongs_to_window("t2", "main"));
+    assert!(reg.tab_belongs_to_window("t2", "doc-2"));
+    assert!(
+        !reg.tab_belongs_to_window("ghost", "main"),
+        "an unknown tab has no window entitled to answer for it"
+    );
+    reg.remove("t1");
+    assert!(!reg.tab_belongs_to_window("t1", "main"));
+}
+
+#[test]
+fn a_closed_window_refuses_every_new_registration_and_leaves_other_windows_alone() {
+    let mut reg = BrowserRegistry::default();
+    reg.mark_window_closed("doc-1");
+    assert!(reg.window_closed("doc-1"));
+    assert_eq!(
+        reg.create("t1", "doc-1"),
+        Err(BrowserError::WindowClosed("doc-1".into()))
+    );
+    assert!(reg.create("t2", "main").is_ok());
 }

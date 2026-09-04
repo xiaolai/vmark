@@ -9,6 +9,13 @@
  * was permanent-deny and the "human in the loop" had no way to be in the loop. This
  * closes that.
  *
+ * An attach approval is an IPC in flight until confirmed; the buttons are disabled
+ * while it is (`resolving` in the store), so a second click cannot start a
+ * concurrent attach whose completion order would decide the final authority. If
+ * the IPC fails the prompt stays raised and SAYS SO (audit 2026-09-03 #153): the
+ * store puts an i18n key on the entry (`attachError`), rendered here as a live
+ * `role="alert"` line, and the buttons re-enable so the user can retry or deny.
+ *
  * **It shows the descriptor, not the page.** The authorization is bound to exactly
  * (origin, operation, element role+name) — so that is what the user is asked to
  * approve. Rendering the page instead would be strictly *weaker*: the page controls
@@ -25,41 +32,53 @@
  * Fail-closed: Escape denies, and Deny holds focus, so a stray Enter can never
  * authorize an action.
  *
+ * Prompt-swap protection (audit 2026-09-03 A-02): the head of the queue can be
+ * removed asynchronously by things the AI controls — cancelling its own workflow
+ * run withdraws that run's prompt, a sandbox navigation dismisses a tab's prompts —
+ * so the NEXT prompt could render under a click the user aimed at the previous
+ * one. Two rules make that click a no-op: an Allow within `ACTIVATION_DELAY_MS`
+ * of the prompt (re)rendering is ignored, and a pointer Allow must have started
+ * (pointerdown) on the SAME request it completes on. Deny is never delayed.
+ *
+ * Display hardening (A-05, S-09): page-derived names are bidi-isolated and
+ * length-capped, and a payload-binding operation shows what it binds.
+ *
  * @coordinates-with stores/browserApprovalStore — pending queue + resolveApproval
  * @coordinates-with services/browser/browserOcclusion — freeze while raised
  * @coordinates-with services/browser/grantSync — pushes the resulting grant/one-shot to Rust
  * @module components/Browser/BrowserApprovalDialog
  */
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type MouseEvent as ReactMouseEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { useBrowserApprovalStore, type ApprovalOutcome } from "@/stores/browserApprovalStore";
 import { NEVER_GRANTABLE } from "@/lib/browser/approval/grants";
 import { OCCLUDER } from "@/services/browser/browserOcclusion";
 import { useBrowserOccluder } from "@/hooks/useBrowserOccluder";
-import { canonicalizeOrigin } from "@/lib/browser/origin/originGuard";
+import { approvalDenied } from "@/services/browser/browserTabLifecycle";
+import { ACTIVATION_DELAY_MS, clipName, displayOrigin } from "./approvalDialogFormat";
+import { useApprovalDialogKeyboard } from "./useApprovalDialogKeyboard";
 import "./browser-approval-dialog.css";
 
-/** The committed origin as `scheme://host[:port]`, or the raw url if it is opaque
- *  (about:/data:) — an opaque origin can be neither granted nor authorized once, so
- *  the dialog still names it rather than showing a blank. */
-function displayOrigin(url: string): string {
-  const origin = canonicalizeOrigin(url);
-  if (!origin) return url;
-  const defaultPort = origin.scheme === "https" ? 443 : 80;
-  return origin.port === defaultPort
-    ? `${origin.scheme}://${origin.host}`
-    : `${origin.scheme}://${origin.host}:${origin.port}`;
-}
 
 export function BrowserApprovalDialog(): React.ReactElement | null {
   const { t } = useTranslation("common");
   // One prompt at a time: each request is a separate decision, and stacking them
   // would invite the user to click through a queue.
   const request = useBrowserApprovalStore((s) => s.pending[0] ?? null);
+  const resolving = useBrowserApprovalStore((s) => s.resolving);
   const denyRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  // Prompt-swap protection — see the header. `armedAt` is when THIS request
+  // started rendering; `pointerDownFor` is the request a pointer Allow began on.
+  const armedAtRef = useRef(0);
+  const pointerDownForRef = useRef<string | null>(null);
 
   const requestId = request?.id;
+
+  useEffect(() => {
+    armedAtRef.current = Date.now();
+    pointerDownForRef.current = null;
+  }, [requestId]);
 
   // Freeze EVERY mounted browser, not just the tab being asked about.
   //
@@ -76,68 +95,31 @@ export function BrowserApprovalDialog(): React.ReactElement | null {
   // an asynchronous window with the page visible and a dialog on screen.
   useBrowserOccluder(Boolean(requestId), OCCLUDER.approval);
 
-  // Deny holds focus: a stray Enter must never authorize an action. The element
-  // focused BEFORE the prompt is remembered so it can be restored on close —
-  // otherwise resolving a prompt dropped focus to <body> and a keyboard user lost
-  // their place in the app (audit 20260815-163607 #22).
-  useEffect(() => {
-    if (!requestId) return;
-    const restoreTo = document.activeElement as HTMLElement | null;
-    denyRef.current?.focus();
-    return () => {
-      if (restoreTo?.isConnected) restoreTo.focus();
-    };
-  }, [requestId]);
-
-  useEffect(() => {
-    if (!requestId) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      // Fail closed. Dismissing a security prompt is a denial, never an approval.
-      if (e.key === "Escape") {
-        e.preventDefault();
-        // EXCLUSIVE: while a security prompt is raised it is the only Escape
-        // handler. There is no modal stack, so a sibling overlay's window-level
-        // listener also saw this keystroke and one Escape resolved two separate
-        // decisions — one of them unseen by the user (audit #23). Capture phase
-        // plus stopImmediatePropagation makes this prompt win deterministically
-        // instead of depending on listener registration order.
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-        useBrowserApprovalStore.getState().resolveApproval(requestId, "deny");
-        return;
-      }
-      // Trap Tab inside the dialog. `aria-modal` tells assistive tech the rest of
-      // the app is inert; it does NOT make it inert for the Tab key, so focus
-      // could walk out of a security prompt and into the background UI while the
-      // prompt was still open (audit #22).
-      if (e.key !== "Tab") return;
-      const root = dialogRef.current;
-      if (!root) return;
-      const focusable = [
-        ...root.querySelectorAll<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-        ),
-      ].filter((el) => !el.hasAttribute("disabled"));
-      if (focusable.length === 0) return;
-      const first = focusable[0] as HTMLElement;
-      const last = focusable[focusable.length - 1] as HTMLElement;
-      const active = document.activeElement;
-      if (e.shiftKey && (active === first || !root.contains(active))) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && (active === last || !root.contains(active))) {
-        e.preventDefault();
-        first.focus();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown, true);
-    return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [requestId]);
+  useApprovalDialogKeyboard(requestId, denyRef, dialogRef, (id) => {
+    const current = useBrowserApprovalStore.getState().pending.find((p) => p.id === id);
+    if (current) approvalDenied(current);
+  });
 
   if (!request) return null;
 
-  const resolve = (outcome: ApprovalOutcome) =>
+  const resolve = (outcome: ApprovalOutcome, event?: ReactMouseEvent<HTMLButtonElement>) => {
+    if (outcome === "deny") {
+      // A denial also discards an AI tab that was only waiting for this approval to load.
+      approvalDenied(request);
+      return;
+    }
+    {
+      // Too soon after this prompt appeared: the click was aimed at its predecessor.
+      if (Date.now() - armedAtRef.current < ACTIVATION_DELAY_MS) return;
+      // A pointer activation (detail > 0) must have STARTED on this same request; a
+      // keyboard activation (detail === 0) has no pointerdown and relies on the delay.
+      if (event && event.detail > 0 && pointerDownForRef.current !== request.id) return;
+    }
     useBrowserApprovalStore.getState().resolveApproval(request.id, outcome);
+  };
+  const armPointer = () => {
+    pointerDownForRef.current = request.id;
+  };
 
   const origin = displayOrigin(request.targetUrl);
   const operation = t(`browser.approval.operation.${request.operation}`, request.operation);
@@ -150,7 +132,9 @@ export function BrowserApprovalDialog(): React.ReactElement | null {
   // AI-chosen stylesheet was authorised unseen — a list in the view duplicating
   // knowledge the store owns, which drifted the moment `style` was added
   // (audit 20260815-163607 #21). Anything that carries a payload now shows it.
-  const payload = request.script;
+  // A payload-binding op with a human summary (type/key/scroll) shows the summary,
+  // not the built script the summary describes.
+  const payload = request.payloadSummary !== undefined ? undefined : request.script;
   // A `session` payload is a saved-login HANDLE, not a script; rendering it in a
   // <pre> under a "Script" heading misdescribed what was being approved.
   const payloadIsScript = request.operation !== "session";
@@ -158,6 +142,9 @@ export function BrowserApprovalDialog(): React.ReactElement | null {
   // "Allow on this site" would be a button that silently does nothing (the grant is
   // sanitized away), which is misleading security UX (Security review P5, Low #5).
   const grantable = !NEVER_GRANTABLE.has(request.operation);
+  // An attach approval is an IPC in flight until it is confirmed; while it is, a
+  // second click must not start a concurrent attach (the store guards it too).
+  const busy = resolving.includes(request.id);
 
   return (
     <div className="browser-approval-backdrop">
@@ -174,7 +161,9 @@ export function BrowserApprovalDialog(): React.ReactElement | null {
 
         <dl className="browser-approval-descriptor">
           <dt>{t("browser.approval.site")}</dt>
-          <dd className="browser-approval-origin">{origin}</dd>
+          <dd className="browser-approval-origin">
+            <bdi>{origin}</bdi>
+          </dd>
 
           <dt>{t("browser.approval.action")}</dt>
           <dd>{operation}</dd>
@@ -183,7 +172,9 @@ export function BrowserApprovalDialog(): React.ReactElement | null {
             <>
               <dt>{t("browser.profiles.label")}</dt>
               <dd>
-                <span className="browser-approval-name">“{request.profile}”</span>
+                <span className="browser-approval-name">
+                  “<bdi>{clipName(request.profile)}</bdi>”
+                </span>
               </dd>
             </>
           )}
@@ -192,8 +183,23 @@ export function BrowserApprovalDialog(): React.ReactElement | null {
             <>
               <dt>{t("browser.approval.element")}</dt>
               <dd>
-                <span className="browser-approval-role">{request.target.role}</span>{" "}
-                <span className="browser-approval-name">“{request.target.name}”</span>
+                <span className="browser-approval-role">
+                  <bdi>{clipName(request.target.role)}</bdi>
+                </span>{" "}
+                <span className="browser-approval-name">
+                  “<bdi>{clipName(request.target.name)}</bdi>”
+                </span>
+              </dd>
+            </>
+          )}
+
+          {request.payloadSummary !== undefined && (
+            <>
+              <dt>{t("browser.approval.details")}</dt>
+              <dd>
+                <span className="browser-approval-name">
+                  <bdi>{clipName(request.payloadSummary)}</bdi>
+                </span>
               </dd>
             </>
           )}
@@ -209,7 +215,9 @@ export function BrowserApprovalDialog(): React.ReactElement | null {
                 {payloadIsScript ? (
                   <pre className="browser-approval-script">{payload}</pre>
                 ) : (
-                  <span className="browser-approval-name">“{payload}”</span>
+                  <span className="browser-approval-name">
+                    “<bdi>{clipName(payload)}</bdi>”
+                  </span>
                 )}
               </dd>
             </>
@@ -217,14 +225,27 @@ export function BrowserApprovalDialog(): React.ReactElement | null {
         </dl>
 
         <p className="browser-approval-note">
-          {t("browser.approval.note")} {t("browser.approval.sessionNote")}
+          {t("browser.approval.note")}
+          {/* "Site permissions last until VMark quits" describes a standing grant: it
+              is wrong for an attachment ("until navigation") and for a one-shot-only
+              operation, which offers no such button. */}
+          {grantable && !attachment ? ` ${t("browser.approval.sessionNote")}` : ""}
         </p>
+
+        {/* The last attach attempt failed (#153). A live region, so assistive tech
+            hears the retry offer; the buttons below are enabled again by then. */}
+        {request.attachError !== undefined && (
+          <p className="browser-approval-error" role="alert">
+            {t(request.attachError)}
+          </p>
+        )}
 
         <div className="browser-approval-actions">
           <button
             type="button"
             ref={denyRef}
             className="vm-btn"
+            disabled={busy}
             onClick={() => resolve("deny")}
           >
             {t("browser.approval.deny")}
@@ -232,7 +253,9 @@ export function BrowserApprovalDialog(): React.ReactElement | null {
           <button
             type="button"
             className="vm-btn"
-            onClick={() => resolve("once")}
+            disabled={busy}
+            onPointerDown={armPointer}
+            onClick={(e) => resolve("once", e)}
           >
             {t("browser.approval.allowOnce")}
           </button>
@@ -240,7 +263,9 @@ export function BrowserApprovalDialog(): React.ReactElement | null {
             <button
               type="button"
               className="vm-btn vm-btn--primary"
-              onClick={() => resolve("remember")}
+              disabled={busy}
+              onPointerDown={armPointer}
+              onClick={(e) => resolve("remember", e)}
             >
               {t(attachment ? "browser.approval.allowTab" : "browser.approval.allowSite")}
             </button>

@@ -27,6 +27,14 @@
  *     in the webview; the key travels so `lint:i18n` can see the string and so a
  *     future shared bundle can re-render it. Today the UI maps `code` to its own
  *     translation key.
+ *   - **`detail.indeterminate: true` demotes a retryable class to `indeterminate`**
+ *     and does nothing else. Rust sets it on a failure whose side effect may still
+ *     land — the browser eval timeout (`EVAL_TIMEOUT`): nothing cancels an
+ *     enqueued script, so a blind retry of a `timeout` can run a mutating act
+ *     twice (audit 20260903 round 3, #18). The code stays `timeout`, because that
+ *     is what happened and no code in the closed vocabulary says "unknown effect"
+ *     truthfully; the flag rides in `detail`, the machine-readable channel. It
+ *     never LIFTS a class: an approval-required or denied error stays what it is.
  *
  * @coordinates-with src-tauri/src/command_error.rs — the Rust source of truth
  * @coordinates-with src/test/fixtures/commandErrorWire.json — generated fixtures
@@ -67,6 +75,12 @@ export interface CommandError {
 export type CommandErrorClass =
   /** Repeating the same call may work: disk, network, deadline, stale state. */
   | "retryable"
+  /**
+   * The call ended without a verdict and its effect is UNKNOWN — the work may
+   * still complete. Read the state before retrying; a blind retry can perform a
+   * mutating action twice.
+   */
+  | "indeterminate"
   /** Blocked pending the user's decision; raise an approval and retry after. */
   | "needs-approval"
   /** Refused outright — no approval can lift it. */
@@ -130,12 +144,16 @@ export function commandErrorDetailString(error: unknown, key: string): string | 
 /**
  * Map a rejection to what the UI should do. Anything unrecognised — an unknown
  * code, a legacy string, a thrown `Error`, `undefined` — is `fatal`, so a gap
- * surfaces the failure rather than silently retrying or swallowing it.
+ * surfaces the failure rather than silently retrying or swallowing it. A
+ * retryable class whose `detail.indeterminate` is `true` is `indeterminate`
+ * instead: the effect is unknown, so a retry must be preceded by a read.
  */
 export function classifyCommandError(error: unknown): CommandErrorClass {
-  const code = parseCommandError(error)?.code;
-  if (code === undefined) return "fatal";
-  return CLASS_BY_CODE[code as CommandErrorCode] ?? "fatal";
+  const parsed = parseCommandError(error);
+  if (!parsed) return "fatal";
+  const byCode = CLASS_BY_CODE[parsed.code as CommandErrorCode] ?? "fatal";
+  // Exactly `true`, never truthy: the flag is a contract, not a hint.
+  return byCode === "retryable" && parsed.detail?.indeterminate === true ? "indeterminate" : byCode;
 }
 
 /**

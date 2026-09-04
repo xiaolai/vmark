@@ -116,6 +116,15 @@ describe('browser tool — integration via server.callTool', () => {
     });
   });
 
+  it('act key: refuses an unknown modifier key instead of dropping it silently (#171)', async () => {
+    const { server, bridge } = harness({ 'vmark.browser.act': () => ({ success: true, data: {} }) });
+    const r = await server.callTool('browser', {
+      action: 'act', operation: 'key', key: 'Enter', modifiers: { ctrl: true, hyper: true },
+    });
+    expect(r.isError).toBe(true);
+    expect(bridge.requests).toHaveLength(0);
+  });
+
   it('act key: refuses a missing key name', async () => {
     const { server, bridge } = harness({ 'vmark.browser.act': () => ({ success: true, data: {} }) });
     const r = await server.callTool('browser', { action: 'act', operation: 'key' });
@@ -265,6 +274,24 @@ describe('browser tool — integration via server.callTool', () => {
     expect(bridge.getRequestsOfType('vmark.browser.console')).toHaveLength(2);
   });
 
+  it('close: forwards the AI-owned tabId; refuses to guess a tab', async () => {
+    const { server, bridge } = harness({
+      'vmark.browser.close': () => ({ success: true, data: { closed: 'b1' } }),
+    });
+    const closed = await server.callTool('browser', { action: 'close', tabId: 'b1' });
+    expect(closed.isError).not.toBe(true);
+    expect(bridge.getRequestsOfType('vmark.browser.close')[0].request).toEqual({
+      type: 'vmark.browser.close',
+      tabId: 'b1',
+    });
+    // Unlike navigate, close never falls back to the focused tab: an omitted id
+    // must not close whatever the user happens to be looking at.
+    const none = await server.callTool('browser', { action: 'close' });
+    expect(none.isError).toBe(true);
+    expect(none.content[0]?.type === 'text' ? none.content[0].text : '').toContain('tabId');
+    expect(bridge.getRequestsOfType('vmark.browser.close')).toHaveLength(1);
+  });
+
   it('workflow_run: forwards source/inputs/allowRepeat; rejects a blank source', async () => {
     const { server, bridge } = harness({
       'vmark.browser.workflow_run': () => ({ success: true, data: { runId: 'wfrun-1', steps: 2 } }),
@@ -381,7 +408,7 @@ describe('browser tool — integration via server.callTool', () => {
     for (const timeoutMs of [0, 12_001, 1.5, 'soon']) {
       const result = await server.callTool('browser', { ...args, timeoutMs });
       expect(result.isError, String(timeoutMs)).toBe(true);
-      expect(toolText(result)).toContain('timeoutMs must be an integer from 1 to 12000');
+      expect(toolText(result)).toContain('timeoutMs must be an integer from 1 to 9000');
     }
     expect(bridge.requests).toHaveLength(0);
   });

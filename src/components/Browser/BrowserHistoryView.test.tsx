@@ -18,7 +18,7 @@ beforeEach(() => {
   cleanup();
   nav.submitOmnibox.mockClear();
   useBrowserHistoryStore.setState({ byWindow: {} });
-  useTabStore.setState({ tabs: {}, activeTabId: {}, untitledCounter: 0, closedTabs: {} });
+  useTabStore.setState({ tabs: {}, activeTabId: {}, untitledCounter: 0 });
 });
 
 describe("BrowserHistoryView", () => {

@@ -1,9 +1,9 @@
 /**
  * Browser commands — the user-facing entry point to the embedded browser (WI-1.10).
  *
- * A single "New Browser Tab" command, gated by the `browser.enabled` setting
- * (off by default) via the CommandBus `when` predicate, so the palette/menu
- * simply don't surface it until the user opts in. Mirrors viewCommands'
+ * A single "New Browser Tab" command, gated by the `browser.enabled` setting AND
+ * the platform via the CommandBus `when` predicate, so the palette/menu simply
+ * don't surface it where it cannot work. Mirrors viewCommands'
  * registration pattern. The command creates (and activates) a browser page in the
  * browser workspace, which `Editor.tsx` renders as a native browser surface.
  *
@@ -14,7 +14,19 @@
 import { hasCommand, registerCommand } from "./CommandBus";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";
+import { isMacPlatform } from "@/utils/platform";
 import i18n from "@/i18n";
+
+/**
+ * Is the embedded browser usable here? The setting AND the platform: the native
+ * surface exists only on macOS (`surface_stub.rs` everywhere else), and the setting
+ * defaults on regardless of platform, so a Windows or Linux build used to offer a
+ * command that could only ever show "not available on this platform" (audit
+ * 2026-09-03 X-04). One predicate, shared with the native menu item.
+ */
+export function browserAvailableHere(): boolean {
+  return isMacPlatform() && useSettingsStore.getState().browser.enabled;
+}
 
 /**
  * Default start page for a new browser tab. DuckDuckGo is a privacy-respecting
@@ -37,7 +49,7 @@ export function registerBrowserCommands(): void {
     id: "browser.newTab",
     title: () => i18n.t("commands:browser.newTab"),
     category: "view",
-    when: () => useSettingsStore.getState().browser.enabled,
+    when: browserAvailableHere,
     run: (_args, ctx: Ctx) => {
       const windowLabel = ctx.windowLabel ?? "main";
       useTabStore.getState().createBrowserPage(windowLabel, NEW_BROWSER_TAB_URL);

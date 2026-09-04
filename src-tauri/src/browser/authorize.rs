@@ -8,24 +8,31 @@
 //! `authorize_driver_op`; `browser_screenshot` additionally re-checks
 //! `command_still_fresh` after its long capture.
 //!
+//! The gate is two halves composed under one guard (audit 20260903 round 3,
+//! #10): `authorize_decision.rs` builds an immutable `Decision` from the
+//! registry, the policy and the owning window's grants, spending nothing;
+//! `authorize_spend.rs` consumes exactly what that decision requires. The
+//! composition here owns the LOCK ORDER — registry, held across both halves;
+//! then attachments (a released peek) and grants (released before any spend);
+//! then, inside the spend, attachments → one_shots — and nothing else.
+//!
+//! @coordinates-with browser/authorize_decision.rs — the immutable decision
+//! @coordinates-with browser/authorize_spend.rs — the atomic spend
 //! @coordinates-with browser/refusals.rs — the typed refusal vocabulary this
 //!   gate raises, split out at WI-DP2.5 to keep the security core one screen
 //! @coordinates-with browser/commands_auth.rs — the command entry points
-//! @coordinates-with browser/origin_guard.rs — the per-operation decision
-//! @coordinates-with browser/one_shot.rs — single-use "Allow once" consumption
 
-use crate::browser::ai_guards::{
-    lock_failure, require_browser_enabled, require_current_epoch, tab_not_found,
-};
-use crate::browser::one_shot::{self, OneShotTarget};
-use crate::browser::origin_guard;
-use crate::browser::redact;
-use crate::browser::refusals::{
-    attachment_required, no_committed_page, not_granted, profile_origin_confined, stale_command,
-};
+use crate::browser::ai_guards::{ai_policy, lock_failure, require_browser_enabled};
+use crate::browser::one_shot::OneShotTarget;
+use crate::browser::refusals::stale_command;
 use crate::browser::registry::AutomationMode;
-use crate::browser::surface::{self, BrowserSurface};
+use crate::browser::surface::BrowserSurface;
 use crate::command_error::CommandError;
+
+#[path = "authorize_decision.rs"]
+mod decision;
+#[path = "authorize_spend.rs"]
+mod spend;
 
 /// The full driver authorization gate, shared by every command that drives a
 /// **committed** page (`browser_eval`, `browser_screenshot`).
@@ -54,7 +61,6 @@ use crate::command_error::CommandError;
 ///
 /// On `Ok(())` the caller may run its AppHandle-bound side effect (the eval or
 /// the capture); nothing here touches the page.
-#[allow(clippy::too_many_arguments)]
 pub(crate) fn authorize_driver_op(
     state: &BrowserSurface,
     tab_id: &str,
@@ -69,119 +75,32 @@ pub(crate) fn authorize_driver_op(
     // the retry. (Security review P5, High #1.)
     payload_hash: Option<&str>,
 ) -> Result<(), CommandError> {
-    let policy = state
-        .ai_policy
-        .lock()
-        .map_err(lock_failure)
-        .map(|policy| *policy)?;
+    let policy = ai_policy(state)?;
     require_browser_enabled(&policy)?;
+    // The registry guard spans the decision AND the spend: no navigation, destroy
+    // or epoch bump on another thread can sit between what was decided and what
+    // is consumed for it.
     let reg = state.registry.lock().map_err(lock_failure)?;
-
-    if !reg.is_command_fresh(tab_id, generation) {
-        return Err(stale_command(tab_id, "since this operation was authorized"));
-    }
-
-    // The origin comes from the registry's committed URL — NOT from the caller.
-    let committed = reg
-        .committed_url(tab_id)
-        .ok_or_else(|| no_committed_page(tab_id))?;
-
-    let mode = reg.automation_mode(tab_id).ok_or_else(tab_not_found)?;
-    if mode != AutomationMode::Human {
-        require_current_epoch(reg.policy_epoch(tab_id), policy.epoch)?;
-    }
-    let shared_origin_approved =
-        mode == AutomationMode::AiShared && reg.shared_navigation_approved(tab_id, committed);
-    // For a profile-backed sandbox tab, a read is only allowed on the approved origin;
-    // an ordinary sandbox tab (no profile) reads unconfined. The registry is the origin
-    // authority, never the caller — WI-P6.1 H1.
-    let sandbox_read_allowed = match mode {
-        AutomationMode::AiSandbox => reg.profile_read_allowed(tab_id, committed),
-        _ => true,
-    };
     let attached = state.is_tab_attached(tab_id, generation);
-    let grants = state.grants.lock().map_err(lock_failure)?;
-    let allowed = origin_guard::is_driver_operation_allowed_for_mode(
-        committed,
-        operation,
-        &grants,
-        mode,
-        attached,
-        shared_origin_approved,
-        sandbox_read_allowed,
-    );
-    drop(grants); // authority computed; don't hold this lock across the spends below
-
-    // A profile-backed tab that has left its approved origin is HARD-denied a read
-    // (and screenshot, which authorizes as `read`): not even a one-shot may rescue it.
-    // The page is loaded with the profile's real login, and the user approved reading
-    // only the approved origin — so a later "read once", or a stale read one-shot, must
-    // never expose authenticated off-origin content. (WI-P6.1 H1, re-verify round 2.)
-    if operation == "read" && mode == AutomationMode::AiSandbox && !sandbox_read_allowed {
-        return Err(profile_origin_confined());
-    }
-
-    // A human tab requires an ephemeral attachment for EVERY operation — read AND
-    // mutating — on top of any standing grant or one-shot. A grant authorizes the
-    // *operation* on the origin; it is NEVER the per-view human consent. Refusing
-    // an unattached human tab here is what stops a granted click/type from slipping
-    // past on a tab the user never attached (Audit, High).
-    if mode == AutomationMode::Human && !attached {
-        return Err(attachment_required());
-    }
-    // For a human tab, hold the attachments lock from the presence check THROUGH
-    // the consume, so the single-use attachment cannot be raced away in between —
-    // otherwise a lost race after a one-shot was already spent would burn that
-    // one-shot on an action that never runs (Audit round 2). A non-human tab needs
-    // no attachment, so the guard stays None.
-    let mut human_attachment = if mode == AutomationMode::Human {
-        let guard = state.attachments.lock().map_err(lock_failure)?;
-        // Re-verify under THIS held lock (the earlier `attached` used a transient one).
-        if !surface::attachment_present(&guard, tab_id, generation) {
-            return Err(attachment_required());
-        }
-        Some(guard)
-    } else {
-        None
+    let decided = {
+        // Grants are read and released here: authority is computed, then the
+        // grants lock is not held across the spends.
+        let grants = state.grants.lock().map_err(lock_failure)?;
+        decision::decide(
+            &reg, &policy, &grants, attached, tab_id, generation, operation,
+        )?
     };
-    if !allowed {
-        // No standing authority. A single-use "Allow once" may still authorize
-        // this exact action — consumed HERE, atomically, so the check and the
-        // spend cannot be separated (and so a one-shot the frontend believed in
-        // is actually honored by the authority rather than refused by it). The
-        // full descriptor (tab, generation, origin, operation, target) must
-        // match, so an approval can't be spent on a different page or element.
-        let mut one_shots = state.one_shots.lock().map_err(lock_failure)?;
-        if !one_shot::consume_one_shot(
-            &mut one_shots,
-            tab_id,
-            generation,
-            committed,
-            operation,
-            target,
-            payload_hash,
-        ) {
-            // Origin only. The committed URL's query string routinely carries session
-            // tokens and document ids, and a refusal log is not a place to persist
-            // them. (Audit, Medium.)
-            log::warn!(
-                "[browser] REFUSED {operation} on {} (tab {tab_id}): not granted",
-                redact::redact(committed)
-            );
-            return Err(not_granted(operation));
-        }
-        log::info!(
-            "[browser] {operation} on {} (tab {tab_id}): one-shot consumed",
-            redact::redact(committed)
-        );
-    }
-    // Attachment verified present under the still-held lock ⇒ this consume cannot
-    // fail; a persistent attachment (uses = None) is left in place. Done last, so a
-    // denied action never burns consent.
-    if let Some(attachments) = human_attachment.as_deref_mut() {
-        surface::consume_attachment_in(attachments, tab_id, generation);
-    }
-    Ok(())
+    let outcome = spend::spend(
+        state,
+        &decided,
+        tab_id,
+        generation,
+        operation,
+        target,
+        payload_hash,
+    );
+    drop(reg);
+    outcome
 }
 
 /// Re-check that a command authorized against (`tab_id`, `generation`) is STILL

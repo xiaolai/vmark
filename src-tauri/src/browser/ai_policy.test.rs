@@ -233,3 +233,233 @@ fn public_hostnames_that_merely_contain_the_suffixes_are_still_allowed() {
         );
     }
 }
+
+// Audit 20260903 round 3, #9 — the v6 side is a table too. Every range refuses its
+// edges through the one public entry point, and the neighbours just outside are
+// judged by the tables alone (or, for an embedded-IPv4 spelling, by the v4 table).
+#[test]
+fn every_blocked_ipv6_range_refuses_its_edges_and_the_tables_alone_judge_the_rest() {
+    use crate::browser::ai_policy_addr::{blocked_ipv6, BLOCKED_IPV6_RANGES};
+    use std::net::Ipv6Addr;
+    for &(network, prefix) in BLOCKED_IPV6_RANGES {
+        let first = u128::from(network);
+        // The host mask, `checked_shr` because a /128 shifts by the full width
+        // (`u128::MAX >> 128` overflows rather than yielding 0).
+        let last = first | u128::MAX.checked_shr(u32::from(prefix)).unwrap_or(0);
+        for value in [first, last] {
+            let url = format!("http://[{}]/", Ipv6Addr::from(value));
+            assert_eq!(
+                validate_ai_navigation_url(&url, false),
+                Err(AiUrlError::Blocked),
+                "{url}"
+            );
+            assert!(
+                blocked_ipv6(Ipv6Addr::from(value), true),
+                "{url} is not loopback"
+            );
+        }
+    }
+    // Ordinary public addresses are in no range.
+    for public in [
+        "2001:4860:4860::8888",
+        "2600::",
+        "2a00:1450:4001::1",
+        "2001:db9::1",
+        "2001:20::1",
+        "fe00::1",
+        "fb00::1",
+    ] {
+        let address: Ipv6Addr = public.parse().unwrap();
+        assert!(!blocked_ipv6(address, false), "{public}");
+        assert!(validate_ai_navigation_url(&format!("http://[{public}]/"), false).is_ok());
+    }
+    // Loopback is gated by the toggle, never by the table.
+    assert!(blocked_ipv6(Ipv6Addr::LOCALHOST, false));
+    assert!(!blocked_ipv6(Ipv6Addr::LOCALHOST, true));
+}
+
+// Audit 20260903 round 3, #21 — the pure half of the same-document decision, the
+// KVO observer's question with the registry facts passed in.
+#[test]
+fn a_same_document_navigation_on_a_human_tab_needs_only_the_feature_on() {
+    let on = AiBrowserPolicy {
+        enabled: true,
+        epoch: 9,
+        ..AiBrowserPolicy::default()
+    };
+    // A human tab is not posture-bound and not destination-policed.
+    assert!(same_document_allowed(
+        AutomationMode::Human,
+        &on,
+        0,
+        false,
+        "http://10.0.0.1/x"
+    ));
+    assert!(!same_document_allowed(
+        AutomationMode::Human,
+        &AiBrowserPolicy::default(),
+        0,
+        false,
+        "https://example.com/"
+    ));
+}
+
+#[test]
+fn a_same_document_navigation_on_an_ai_tab_needs_the_current_epoch_and_a_policy_pass() {
+    let on = AiBrowserPolicy {
+        enabled: true,
+        epoch: 2,
+        ..AiBrowserPolicy::default()
+    };
+    let sandbox = AutomationMode::AiSandbox;
+    assert!(same_document_allowed(
+        sandbox,
+        &on,
+        2,
+        false,
+        "https://example.com/app#route"
+    ));
+    assert!(
+        !same_document_allowed(sandbox, &on, 1, false, "https://example.com/app#route"),
+        "bound to an older posture"
+    );
+    assert!(
+        !same_document_allowed(sandbox, &on, 2, false, "http://169.254.169.254/latest"),
+        "a blocked destination"
+    );
+    let off = AiBrowserPolicy {
+        enabled: false,
+        ..on
+    };
+    assert!(!same_document_allowed(
+        sandbox,
+        &off,
+        2,
+        false,
+        "https://example.com/"
+    ));
+}
+
+#[test]
+fn a_same_document_navigation_on_a_shared_tab_needs_the_approved_origin_too() {
+    let on = AiBrowserPolicy {
+        enabled: true,
+        session: AiSessionMode::Shared,
+        ..AiBrowserPolicy::default()
+    };
+    let shared = AutomationMode::AiShared;
+    assert!(same_document_allowed(
+        shared,
+        &on,
+        0,
+        true,
+        "https://example.com/x"
+    ));
+    assert!(
+        !same_document_allowed(shared, &on, 0, false, "https://example.com/x"),
+        "an origin the navigation was not approved for"
+    );
+    assert!(
+        !same_document_allowed(shared, &on, 0, true, "http://[fe80::1]/"),
+        "approval does not override the destination policy"
+    );
+    assert!(
+        !same_document_allowed(shared, &on, 1, true, "https://example.com/x"),
+        "an older posture epoch"
+    );
+}
+
+// Audit 20260903 P-01 — a subframe on an AI-owned tab meets the same destination
+// policy as the main frame; a human tab keeps today's behaviour.
+#[test]
+fn ai_owned_subframes_run_the_destination_policy() {
+    let policy = AiBrowserPolicy {
+        enabled: true,
+        ..AiBrowserPolicy::default()
+    };
+    for mode in [AutomationMode::AiSandbox, AutomationMode::AiShared] {
+        assert!(subframe_load_allowed(
+            mode,
+            &policy,
+            "https://example.com/frame"
+        ));
+        for blocked in [
+            "http://169.254.169.254/latest/meta-data/",
+            "http://10.0.0.1/",
+            "http://[::1]/",
+            "http://localhost:3000/",
+            "http://printer.local/",
+            "file:///etc/passwd",
+            "https://user:pw@example.com/",
+        ] {
+            assert!(
+                !subframe_load_allowed(mode, &policy, blocked),
+                "{mode:?} subframe to {blocked} must be refused"
+            );
+        }
+    }
+}
+
+#[test]
+fn human_subframes_are_untouched_by_the_policy() {
+    let policy = AiBrowserPolicy::default(); // even disabled
+    for url in [
+        "http://10.0.0.1/",
+        "http://localhost/",
+        "https://example.com/",
+    ] {
+        assert!(subframe_load_allowed(AutomationMode::Human, &policy, url));
+    }
+}
+
+#[test]
+fn network_free_frames_stay_allowed_on_ai_tabs() {
+    // about:blank / srcdoc / blob / data frames are how pages build portals and ad
+    // slots; they reach no network, so refusing them breaks pages for nothing.
+    let policy = AiBrowserPolicy {
+        enabled: true,
+        ..AiBrowserPolicy::default()
+    };
+    for url in [
+        "about:blank",
+        "about:srcdoc",
+        "blob:https://example.com/3f2a",
+        "data:text/html,<p>hi</p>",
+        "ABOUT:BLANK",
+    ] {
+        assert!(
+            subframe_load_allowed(AutomationMode::AiSandbox, &policy, url),
+            "{url}"
+        );
+    }
+    // javascript: and every other scheme still meet the validator.
+    assert!(!subframe_load_allowed(
+        AutomationMode::AiSandbox,
+        &policy,
+        "javascript:alert(1)"
+    ));
+}
+
+#[test]
+fn ai_subframes_honour_the_loopback_opt_in_and_a_disabled_browser() {
+    let mut policy = AiBrowserPolicy {
+        enabled: true,
+        allow_loopback: true,
+        ..AiBrowserPolicy::default()
+    };
+    assert!(subframe_load_allowed(
+        AutomationMode::AiSandbox,
+        &policy,
+        "http://127.0.0.1:5173/"
+    ));
+    assert!(!subframe_load_allowed(
+        AutomationMode::AiSandbox,
+        &policy,
+        "http://10.0.0.1/"
+    ));
+    policy.enabled = false;
+    assert!(
+        !subframe_load_allowed(AutomationMode::AiSandbox, &policy, "https://example.com/"),
+        "a disabled browser grants an AI tab nothing, subframes included"
+    );
+}

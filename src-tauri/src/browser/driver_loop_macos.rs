@@ -52,8 +52,10 @@ pub(super) fn pump_until(
 /// is unit-tested — this loop blocks the main thread, so a rule that is subtly
 /// wrong is a frozen app, not a slow one.
 pub(super) struct LoadProgress {
-    /// `isLoading` is false at t=0 — before the navigation commits — so "not
-    /// loading" only means "finished" once a load has actually been observed.
+    /// "Not loading" only means "finished" once a load has actually been observed:
+    /// `isLoading` reads true right after `loadRequest`/`goBack` return (measured,
+    /// `nav_api_navigation_native.test.rs`), but a redirect or a slow start can
+    /// still leave it false on an early sample, and the rule must not stop there.
     seen_loading: bool,
     /// When the load stopped, if it has. Reset by a redirect starting a new one.
     finished_at: Option<Duration>,

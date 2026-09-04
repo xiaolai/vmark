@@ -15,7 +15,6 @@ function resetStore() {
     activeTabId: {},
     lastActiveBrowserPageId: {},
     untitledCounter: 0,
-    closedTabs: {},
   });
 }
 

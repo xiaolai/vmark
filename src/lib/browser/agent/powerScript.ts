@@ -1,7 +1,12 @@
 /**
  * Injected DOM-detection (`query`) and CSS-manipulation (`style`) scripts
  * (WI-P5.1 / WI-P5.2). Prepend `AGENT_LIB` to reuse `__vmarkRefFor` /
- * `__vmarkQueryByRef` / `__vmarkNorm`.
+ * `__vmarkQueryByRef` and the core's budgeted composed walk (`__vmarkWalk`) and
+ * bounded text head (`__vmarkTextHead`). `query` walks the composed tree, so
+ * elements inside open shadow roots are found and counted (S-05), and it is
+ * bounded in every dimension (#119): at most SCAN elements visited, at most `cap`
+ * kept, at most 500 characters of text per match — a match's textContent is never
+ * read, so a hostile page's megabytes cost it nothing.
  *
  * Both run in the driver's ISOLATED content world — they share the DOM (so
  * `querySelector`, `element.style`, an injected `<style>` all work) but cannot
@@ -16,16 +21,38 @@ import { AGENT_LIB } from "./actScript";
 
 const QUERY_LIB = `
 function __vmarkQueryDom(sel,gen,opts){
-  var els; try{els=document.querySelectorAll(sel);}catch(e){return {error:'invalid-selector'};}
-  var cap=50,n=Math.min(els.length,cap),out=[];
+  // Validated against a DETACHED element: \`matches\` throws on a malformed
+  // selector exactly like querySelectorAll, and touches nothing in the document
+  // — a querySelectorAll on the document materialised every light-DOM match
+  // before the bounded walk began.
+  try{document.createElement('div').matches(sel);}catch(e){return {error:'invalid-selector'};}
+  // \`:scope\` inside \`matches()\` names the element itself, so it would match
+  // everything; refuse it rather than answer wrong.
+  if(/:scope\\b/i.test(sel))return {error:'invalid-selector'};
+  // ONE streaming walk — the core's budgeted composed walk, a cursor per open node
+  // and never a copied child list — in composed order through open shadow roots
+  // (S-05), testing \`matches\` per element: combinators keep their meaning (a
+  // selector matches within the element's own tree, as querySelectorAll would),
+  // while nothing is materialised up front — no array of every element, no list of
+  // every match. At most SCAN elements are visited and at most \`cap\` results kept;
+  // a hostile page can make the answer incomplete (reported as truncated), never
+  // make the webview allocate without limit (#119).
+  var SCAN=20000,cap=50,count=0,els=[];
+  var exhausted=__vmarkWalk(document,SCAN,function(el){
+    var hit=false;try{hit=el.matches(sel);}catch(e){}
+    if(hit){count++;if(els.length<cap)els.push(el);}
+  });
+  var n=els.length,out=[];
   for(var i=0;i<n;i++){
-    var el=els[i],o={ref:__vmarkRefFor(el,gen),tag:el.tagName.toLowerCase(),text:__vmarkNorm(el.textContent).slice(0,500)};
+    // \`text\` is a bounded HEAD gathered from the match's text nodes: the
+    // textContent of a match holding megabytes is never read, let alone copied.
+    var el=els[i],o={ref:__vmarkRefFor(el,gen),tag:el.tagName.toLowerCase(),text:__vmarkTextHead(el,500)};
     if(opts&&opts.attributes){o.attributes={};for(var a=0;a<el.attributes.length;a++){o.attributes[el.attributes[a].name]=el.attributes[a].value;}}
     if(opts&&opts.box&&el.getBoundingClientRect){var r=el.getBoundingClientRect();o.box={x:Math.round(r.x),y:Math.round(r.y),w:Math.round(r.width),h:Math.round(r.height)};}
     if(opts&&opts.styles&&opts.styles.length&&typeof getComputedStyle==='function'){var cs=getComputedStyle(el);o.styles={};for(var s=0;s<opts.styles.length;s++){o.styles[opts.styles[s]]=cs.getPropertyValue(opts.styles[s]);}}
     out.push(o);
   }
-  return {count:els.length,truncated:els.length>n,elements:out};
+  return {count:count,truncated:count>n||exhausted,elements:out};
 }`;
 
 const STYLE_LIB = `

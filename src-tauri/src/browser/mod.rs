@@ -39,15 +39,24 @@
 #![cfg_attr(not(target_os = "macos"), allow(dead_code))]
 
 pub mod ai_commands;
+pub mod ai_content_rules;
 pub mod ai_guards;
 pub mod ai_policy;
 pub mod ai_policy_addr;
+pub mod ai_policy_dns;
+pub mod ai_transactions_preflight;
 pub mod authorize;
 pub mod browser_store_policy;
 pub mod commands;
 pub mod commands_auth;
+pub mod eval_outcome;
 pub mod geometry;
+pub mod main_thread_hop;
 pub mod mint;
+pub mod native_failure;
+pub mod nav_api_navigation;
+pub mod nav_decision;
+pub mod nav_ring;
 pub mod no_bridge;
 pub mod one_shot;
 pub mod operation;

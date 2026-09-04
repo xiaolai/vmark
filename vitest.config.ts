@@ -56,7 +56,10 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "jsdom",
-    setupFiles: ["./src/test/setup.ts"],
+    // `platformDefault` pins navigator.platform to macOS (the tested platform) before
+    // the shared setup runs; a second file rather than a line in setup.ts, which is at
+    // the file-size limit.
+    setupFiles: ["./src/test/platformDefault.ts", "./src/test/setup.ts"],
     maxWorkers: maxWorkers(),
     // A test timeout is a LIVENESS bound — "this hung" — not a performance
     // assertion. Vitest's 5000ms default is sized for an isolated unit test,

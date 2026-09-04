@@ -318,7 +318,7 @@ case "$PHASE" in
     # the active page; browser_destroy on unmount). The row now runs the test
     # that pins THAT mechanism.
     run_vitest src/services/browser/occlusion.test.ts   "WI-1.4 occlusion / freeze-thaw incl. IME"
-    run_vitest src/components/Browser/browserLifecycleBound.test.tsx "WI-1.6 live-webview bound (active-page-only surface lifecycle)"
+    run_vitest src/components/Browser/browserLifecycleBound.test.tsx "WI-1.6 live-webview bound (one view per open browser tab)"
     run_vitest src/lib/browser/uxPolicy.test.ts          "WI-1.7 every R12 surface implemented or explicitly denied"
     run_vitest src/services/browser/lease.test.ts        "WI-1.9 automation lease + eval watchdog"
     run_vitest src/stores/settingsStore.browser.test.ts  "WI-1.10 feature flag defaults OFF"

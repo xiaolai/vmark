@@ -10,29 +10,23 @@
 import { canonicalizeOrigin } from "@/lib/browser/origin/originGuard";
 import type { ActionTarget } from "./browserApprovalStore.types";
 
-/** Closed operation vocabulary; upload is intentionally never grantable. */
-export const KNOWN_OPERATIONS = new Set([
-  "read",
-  "attach",
-  "click",
-  "type",
-  "scroll",
-  "key",
-  "style",
-  "navigate",
-  "publish",
-  "eval",
-  "session",
-  "record",
-]);
+/** The closed operation vocabulary — ONE copy, owned by `lib/browser/approval/grants`.
+ *  This used to be a second hand-maintained list (it had drifted: it carried
+ *  `publish`, omitted `upload`). Re-exported so the store's imports stay put. */
+export { KNOWN_OPERATIONS } from "@/lib/browser/approval/grants";
 
-/** The optional (target, script) bindings an approval/one-shot carries. */
+/** The optional (target, script, payloadSummary) bindings an approval/one-shot
+ *  carries. `payloadSummary` is display-only: the human-readable form of a bound
+ *  payload (the text a `type` will enter, the key a `key` will press) so the
+ *  prompt can show what the script binds. */
 export const approvalBindings = (
   target: ActionTarget | undefined,
   script: string | undefined,
-): { target?: ActionTarget; script?: string } => ({
+  payloadSummary?: string,
+): { target?: ActionTarget; script?: string; payloadSummary?: string } => ({
   ...(target !== undefined && { target }),
   ...(script !== undefined && { script }),
+  ...(payloadSummary !== undefined && { payloadSummary }),
 });
 
 /** Whether two act targets name the same element (role + accessible name). */

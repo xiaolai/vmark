@@ -6,10 +6,25 @@
  * token does the AI client see?" — and before `CommandError` both were answered
  * by matching text.
  *
+ * Key decisions:
+ *   - **The approval question is decided by CODE alone; there is no text
+ *     fallback.** One survived the migration for untyped rejections, "until the
+ *     CommandError ratchet reaches zero for the browser producers". It has
+ *     (round 4, #48): every `#[tauri::command]` under `src-tauri/src/browser/`
+ *     returns `CommandError` and `scripts/command-error-baseline.json` carries no
+ *     entry for that directory, so an untyped rejection can no longer BE an
+ *     approval. What still arrives untyped is the webview's own plumbing
+ *     (`TAB_DESTROYING`, an `Error` from a dead IPC channel) or caller-controlled
+ *     text, and prompting for those would ask the user to approve something no
+ *     approval can lift.
+ *
  * @coordinates-with src-tauri/src/browser/ai_guards.rs — the producer
+ * @coordinates-with services/commands/commandError — `isCommandErrorCode`, the exact-code test
+ * @coordinates-with services/mcpBridge/v2/bridgeError — the one token derivation
  * @module services/mcpBridge/v2/browserFailure
  */
-import { parseCommandError } from "@/services/commands/commandError";
+import { isCommandErrorCode } from "@/services/commands/commandError";
+import { bridgeErrorEnvelope, bridgeErrorToken } from "./bridgeError";
 
 /**
  * Does this refusal mean "ask the user, then retry"? (WI-14)
@@ -22,19 +37,7 @@ import { parseCommandError } from "@/services/commands/commandError";
  * user approval can lift an SSRF block.
  */
 export function needsNavigationApproval(error: unknown): boolean {
-  const parsed = parseCommandError(error);
-  if (parsed) return parsed.code === "approval-required";
-  // Transitional, and its stated precondition has now MOVED. The comment here
-  // used to name "the unmigrated human `browser_create` path" — that path is
-  // typed as of WI-DP2.1, and a sweep of `src-tauri/src/browser/` finds no
-  // remaining producer of a bare `APPROVAL_REQUIRED` string.
-  //
-  // It is kept anyway, deliberately: the CommandError ratchet is not at zero, a
-  // grep is weaker evidence than a gate, and the cost of being wrong here is
-  // asymmetric — losing this line turns "ask the user" into "fail silently" on a
-  // security path. Delete it when `pnpm lint:command-errors` reports 0, which is
-  // the condition that makes the sweep an invariant rather than an observation.
-  return String(error).includes("APPROVAL_REQUIRED");
+  return isCommandErrorCode(error, "approval-required");
 }
 
 /**
@@ -46,10 +49,7 @@ export function needsNavigationApproval(error: unknown): boolean {
  * a typed rejection would have sent the AI the literal text "[object Object]".
  */
 export function browserFailureToken(error: unknown): string {
-  const parsed = parseCommandError(error);
-  if (!parsed) return String(error);
-  const token = parsed.detail?.mcpCode;
-  if (typeof token === "string") return token;
-  return parsed.code.toUpperCase().replace(/-/g, "_");
+  // An UNTYPED object rejection has no token; its message is still the useful
+  // part, and `String(object)` would print "[object Object]" (the WI-14 class).
+  return bridgeErrorToken(error) ?? bridgeErrorEnvelope(error).error;
 }
-

@@ -18,10 +18,11 @@ import { wrapHandler } from "./wrapHandler";
 import { buildConsoleReadScript } from "@/lib/browser/agent/consoleShim";
 import { urlForAgent } from "@/lib/browser/url";
 import { runReadClass, parseEvalResult } from "./browserReadClass";
+import { readOperationArgs } from "./readOperationArgs";
 
 /** `vmark.browser.console` — return the captured console ring buffer (read-class). */
 export async function handleBrowserConsole(id: string, args: Record<string, unknown>): Promise<void> {
-  const clear = args.clear === true;
+  const clear = readOperationArgs("vmark.browser.console", args).clear === true;
   return wrapHandler(id, () =>
     runReadClass<string>(id, args, {
       invoke: (tab) =>

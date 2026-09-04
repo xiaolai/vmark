@@ -1,13 +1,18 @@
-// WI-6 — the REAL live-webview bound: native surface lifecycle is active-page-only.
+// WI-6 — the REAL live-webview bound: one native view per OPEN browser tab, no more.
 //
-// Replaces the deleted browser-hibernation store's "live-webview cap" (plan WI-1.6, review
-// finding E4). That store was never wired, and the unbounded-webview leak its LRU cap bounded
-// was REFUTED: `BrowserWorkspaceSurface` mounts ONE `BrowserSurface` for the active page
-// only, and `useBrowserNativeView` invokes `browser_destroy` on unmount — the live count is
-// bounded at one per window, strictly tighter than the unwired cap of 3. These tests pin
-// that mechanism, the property the deleted gate line pretended to certify.
+// D9 (decisions-20260803) pinned "one per window": the surface mounted for the active
+// page only and destroyed its view on unmount. The 2026-09-03 audit (L-01) showed the
+// cost: a glance at a document reloaded the page, lost its state, and made the driver
+// forget the tab — its restarted generation then collided with the frontend's
+// monotonic guard and every AI operation on the tab was refused as stale. A web page
+// is a document with state, so views now stay alive while their TAB exists (hidden
+// under the background occluder when not on screen) and are destroyed when the tab
+// is closed — the bound every browser has. Memory is bounded by the tab count, and the
+// AI side is capped at MAX_AI_TABS in the driver. D9 is amended in the ledger.
 //
-// Decision ledger: .claude/tdd-guardian/decisions-20260803.md (D9 — E4 delete verdict).
+// These tests pin the new invariants: live views ≤ open browser tabs; a view is created
+// once per tab and never recreated on switch; a closed tab releases its view (through
+// the removal bus → browserTabLifecycle); rapid open/close returns to baseline.
 //
 // Mock boundary: `@tauri-apps/api/core` ONLY, as a STATEFUL fake — browser_create /
 // browser_ai_create add to a live set, browser_destroy removes. Assertions are on the
@@ -38,8 +43,12 @@ vi.mock("@/contexts/WindowContext", () => ({ useWindowLabel: () => "main" }));
 vi.mock("@/contexts/PaneContext", () => ({ usePaneContext: () => null }));
 
 import { BrowserWorkspaceSurface } from "./BrowserWorkspaceSurface";
+import { __resetNativeViews } from "@/services/browser/browserNativeViews";
+import { startBrowserTabLifecycle } from "@/services/browser/browserTabLifecycle";
 import { useTabStore } from "@/stores/tabStore";
 import { useBrowserUiStore } from "@/stores/browserUiStore";
+
+let stopLifecycle: (() => void) | null = null;
 
 // jsdom has no ResizeObserver; the bounds hook needs one to exist.
 class StubResizeObserver {
@@ -50,14 +59,16 @@ class StubResizeObserver {
 vi.stubGlobal("ResizeObserver", StubResizeObserver);
 
 beforeEach(() => {
+  stopLifecycle?.();
   native.live.clear();
   native.created = 0;
+  __resetNativeViews();
+  stopLifecycle = startBrowserTabLifecycle();
   useTabStore.setState({
     tabs: {},
     activeTabId: {},
     lastActiveBrowserPageId: {},
     untitledCounter: 0,
-    closedTabs: {},
   });
   useBrowserUiStore.setState({ entries: {} });
 });
@@ -70,20 +81,19 @@ function openPage(url: string): string {
   return id;
 }
 
-describe("live-webview bound — active-page-only surface lifecycle", () => {
-  it("opening N pages yields exactly ONE live native webview: the active page", async () => {
+describe("live-webview bound — one view per open browser tab", () => {
+  it("opening N pages creates a view only for the page that was shown", async () => {
     const ids = Array.from({ length: 5 }, (_, i) => openPage(`https://p${i}.example/`));
     const { container } = render(<BrowserWorkspaceSurface />);
 
     await waitFor(() => expect(native.live.size).toBe(1));
-    // The active page (the last created) owns the one view; inactive pages own none.
+    // The active page (the last created) owns the one view; pages never shown own none.
     expect(native.live.has(ids[4])).toBe(true);
-    // Not even a transient create was issued for the 4 inactive pages.
     expect(native.created).toBe(1);
     expect(container.querySelectorAll(".browser-surface")).toHaveLength(1);
   });
 
-  it("switching the active page swaps the single view — old destroyed, new created", async () => {
+  it("switching the active page keeps the old view alive and creates the new one — never more than open tabs", async () => {
     const a = openPage("https://a.example/");
     const b = openPage("https://b.example/"); // b is active
     render(<BrowserWorkspaceSurface />);
@@ -92,32 +102,54 @@ describe("live-webview bound — active-page-only surface lifecycle", () => {
     act(() => {
       useTabStore.getState().setActiveTab("main", a);
     });
+    await waitFor(() => expect(native.live.has(a)).toBe(true));
+    // b left the screen but not the world: its page (and driver state) survive.
+    expect(native.live.has(b)).toBe(true);
+    expect(native.live.size).toBe(2);
+    expect(native.live.size).toBeLessThanOrEqual(useTabStore.getState().tabs.main!.length);
 
-    await waitFor(() => {
-      expect(native.live.has(a)).toBe(true);
-      expect(native.live.has(b)).toBe(false);
+    // Switching back creates nothing: the view was there the whole time.
+    act(() => {
+      useTabStore.getState().setActiveTab("main", b);
     });
-    expect(native.live.size).toBe(1);
+    await Promise.resolve();
+    expect(native.created).toBe(2);
   });
 
-  it("closing the active page releases its native webview (count decrements)", async () => {
-    openPage("https://a.example/");
+  it("closing a page releases its native webview (count decrements), shown or not", async () => {
+    const a = openPage("https://a.example/");
     const b = openPage("https://b.example/"); // b is active
-    const { unmount } = render(<BrowserWorkspaceSurface />);
+    render(<BrowserWorkspaceSurface />);
     await waitFor(() => expect(native.live.has(b)).toBe(true));
+    act(() => {
+      useTabStore.getState().setActiveTab("main", a);
+    });
+    await waitFor(() => expect(native.live.has(a)).toBe(true));
 
+    // Close the BACKGROUND page: its hidden view must go too.
     act(() => {
       useTabStore.getState().closeTab("main", b);
     });
+    await waitFor(() => expect(native.live.has(b)).toBe(false));
+    expect(native.live.has(a)).toBe(true);
 
-    // b's view is torn down; whatever the store activates next, the bound holds.
-    await waitFor(() => {
-      expect(native.live.has(b)).toBe(false);
-      expect(native.live.size).toBeLessThanOrEqual(1);
+    act(() => {
+      useTabStore.getState().closeTab("main", a);
     });
+    await waitFor(() => expect(native.live.size).toBe(0));
+  });
 
-    // Unmounting the workspace releases the last view — nothing survives the surface.
+  it("unmounting the workspace surface hides views but does not destroy them — tabs own views", async () => {
+    const id = openPage("https://sticky.example/");
+    const { unmount } = render(<BrowserWorkspaceSurface />);
+    await waitFor(() => expect(native.live.has(id)).toBe(true));
     unmount();
+    await Promise.resolve();
+    expect(native.live.has(id)).toBe(true);
+    // Closing the tab is what releases it.
+    act(() => {
+      useTabStore.getState().closeTab("main", id);
+    });
     await waitFor(() => expect(native.live.size).toBe(0));
   });
 
@@ -127,7 +159,7 @@ describe("live-webview bound — active-page-only surface lifecycle", () => {
     for (let i = 0; i < 10; i++) {
       const id = openPage(`https://rapid${i}.example/`);
       // Close immediately — no settling between: the create may still be in
-      // flight when the surface unmounts (the deferred-destroy race, hazard 1).
+      // flight when the tab closes (destroy waits for it, then tears down).
       act(() => {
         useTabStore.getState().closeTab("main", id);
       });
@@ -136,20 +168,18 @@ describe("live-webview bound — active-page-only surface lifecycle", () => {
     await waitFor(() => expect(native.live.size).toBe(0));
   });
 
-  it("rapid remount ×10 of the same page converges to one view, then zero on unmount", async () => {
+  it("rapid remount ×10 of the same page converges to one view, created once", async () => {
     const id = openPage("https://sticky.example/");
     for (let i = 0; i < 10; i++) {
       const { unmount } = render(<BrowserWorkspaceSurface />);
       unmount();
     }
-    const { unmount } = render(<BrowserWorkspaceSurface />);
+    render(<BrowserWorkspaceSurface />);
 
     await waitFor(() => {
       expect(native.live.size).toBe(1);
       expect(native.live.has(id)).toBe(true);
     });
-
-    unmount();
-    await waitFor(() => expect(native.live.size).toBe(0));
+    expect(native.created).toBe(1);
   });
 });

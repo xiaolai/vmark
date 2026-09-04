@@ -18,10 +18,13 @@
  * @coordinates-with services/browser/occlusion — the controller (pure orchestration)
  * @coordinates-with src-tauri browser_freeze/browser_thaw — the native driver
  * @coordinates-with components/Browser/BrowserApprovalDialog — the approval occluder
- * @coordinates-with components/Browser/BrowserSurface — crash + page-dialog occluders
+ * @coordinates-with components/Browser/BrowserSurface — error occluder
+ * @coordinates-with services/browser/browserTabEvents — crash + page-dialog occluders
+ * @coordinates-with services/browser/browserNativeViews — the background occluder for off-screen tabs
  * @module services/browser/browserOcclusion
  */
 import { invoke } from "@tauri-apps/api/core";
+import { browserWarn } from "@/utils/debug";
 import { useBrowserUiStore } from "@/stores/browserUiStore";
 import { OcclusionController, type OcclusionDriver } from "./occlusion";
 
@@ -50,10 +53,25 @@ export const OCCLUDER = {
   /** A load/create failure overlay. The native view paints over DOM, so an error message
    *  drawn under a live page is a message nobody can read (audit finding). */
   error: "error-overlay",
+  /**
+   * The tab is not the visible page (audit 2026-09-03 L-01). Native views used to be
+   * DESTROYED on unmount and recreated on remount — the page reloaded, in-page state
+   * was lost, and the driver forgot the tab's generation, which locked the AI out of
+   * it. Now a tab that leaves the screen is merely hidden under this occluder, and
+   * destroyed only when it is closed.
+   */
+  background: "background-tab",
 } as const;
 
 /** The one controller. Do not construct another — reference counts must be shared. */
-const controller = new OcclusionController(tauriDriver);
+const controller = new OcclusionController(tauriDriver, (tabId, error) => {
+  // The retry budget is spent: the native view may be LIVE under an overlay that
+  // believes it is hidden. Loud, because nothing else will say so.
+  browserWarn("browser occlusion: freeze/thaw kept failing; the view may be visible under an overlay", {
+    tabId,
+    error,
+  });
+});
 
 /**
  * Mirror the controller's *intent* into `browserUiStore` so React can paint an opaque

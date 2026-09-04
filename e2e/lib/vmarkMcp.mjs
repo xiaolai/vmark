@@ -152,6 +152,22 @@ export async function bridgeReady() {
   }
 }
 
+/**
+ * The environment the spawned sidecar runs under: the harness's own, plus the
+ * DEV identifier.
+ *
+ * The sidecar defaults to the RELEASE identifier (`portFile.ts`) — correct for
+ * the shipped binary, wrong here. Until this was passed, the harness probed
+ * the dev app's port file (`bridgeReady`) and then spawned a sidecar that read
+ * the RELEASE app's: every browser journey drove whichever VMark the release
+ * profile happened to name, or failed with "Not connected to VMark" when that
+ * port was dead — while the dev app under test sat idle and reachable.
+ * `portFileAgreement.test.mjs` pins that the two now agree.
+ */
+export function sidecarEnv() {
+  return { ...process.env, VMARK_APP_IDENTIFIER: devIdentifier() };
+}
+
 /** Rebuild the sidecar from the working tree. See the header. */
 async function rebuildSidecar() {
   const child = spawn("pnpm", ["exec", "tsc"], {
@@ -183,7 +199,7 @@ export async function startVmarkMcp({ rebuild = true } = {}) {
   const child = spawn(process.execPath, [SIDECAR_ENTRY], {
     cwd: REPO_ROOT,
     stdio: ["pipe", "pipe", "pipe"],
-    env: { ...process.env },
+    env: sidecarEnv(),
   });
 
   // stdout is PROTOCOL ONLY. Anything the sidecar logs must go to stderr, or the

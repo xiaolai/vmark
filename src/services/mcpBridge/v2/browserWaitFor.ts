@@ -9,139 +9,102 @@
  * or a bounded timeout elapses, reporting `matched: true|false` so the caller
  * can tell "found" from "timed out".
  *
- * Read-class: each check is a fast SYNCHRONOUS `browser_eval` authorized as
- * `read`. It POLLS rather than blocking one long eval, because the driver's
- * per-eval run-loop pump is short — polling also keeps each eval well under that
- * cap and lets the wait track a navigation (the tab is re-resolved each round, so
- * its current committed generation is used). A human tab needs an attachment, as
- * for `read`.
+ * Shape (round 3, #71): the shared envelope resolves the tab, `readWaitRequest`
+ * validates the request, the attachment gates run, and the wait itself is one of
+ * two polls in `browserWaitForPoll` — the URL poll against the mirror, or the
+ * read-class eval poll raced against the deadline — whose outcome this handler
+ * turns into the response. Read-class: each check is a fast SYNCHRONOUS
+ * `browser_eval` authorized as `read`. It POLLS rather than blocking one long
+ * eval, because the driver's per-eval run-loop pump is short — polling also keeps
+ * each eval well under that cap and lets the wait track a navigation.
  *
+ * Audit 2026-09-03: a human tab attached with "Allow once" holds ONE authorized
+ * read, and a poll loop is many — the first poll spent it and every later poll
+ * was refused, reported as `matched:false` (A-01). Such a tab is now refused up
+ * front with `ATTACHMENT_ONCE_INSUFFICIENT`; "Allow until navigation" covers a
+ * wait. A driver rejection during a poll propagates as its typed token instead of
+ * a success envelope (E-01). `urlContains` matches the REDACTED url — query and
+ * fragment are stripped so a redirect-set token cannot be probed — so a needle
+ * containing `?` or `#` can never match and is refused with a reason (A-06).
+ *
+ * @coordinates-with services/mcpBridge/v2/browserWaitForPoll.ts — validation + the two polls
  * @coordinates-with lib/browser/agent/actScript.ts — buildWaitConditionScript
- * @coordinates-with services/mcpBridge/v2/browserReadClass.ts — requireHumanAttachment
+ * @coordinates-with services/mcpBridge/v2/browserAccess.ts — gate + tab resolution + attachment mirror
  * @module services/mcpBridge/v2/browserWaitFor
  */
 
 import { invoke } from "@tauri-apps/api/core";
 import { respond } from "@/services/mcpBridge/utils";
 import { wrapHandler } from "./wrapHandler";
-import { urlForAgent } from "@/lib/browser/url";
-import { buildWaitConditionScript, type WaitCondition } from "@/lib/browser/agent/actScript";
-import { browserEnabled, readTabIdArg, resolveBrowserTab, validateTimeout } from "./browserHelpers";
+import { buildWaitConditionScript } from "@/lib/browser/agent/actScript";
+import { hasOnceAttachment, invokeAttached, resolveBrowserTarget } from "./browserAccess";
 import { requireHumanAttachment } from "./browserReadClass";
+import { pollScript, pollUrl, readWaitRequest, type PollContext, type WaitOutcome } from "./browserWaitForPoll";
 
-const POLL_INTERVAL_MS = 200;
-const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
-
-/** A wait mode: a page condition checked by eval, or a URL check answered from
- *  the webview mirror without touching the page (WI-NB1.4). */
-type WaitMode = { kind: "script"; condition: WaitCondition } | { kind: "url"; needle: string };
-
-/** Parse exactly one condition from the args, or null if zero or more than one. */
-function readCondition(args: Record<string, unknown>): WaitMode | null {
-  const ref = typeof args.ref === "string" && args.ref.trim() ? args.ref : undefined;
-  const role = typeof args.role === "string" && args.role.trim() ? args.role : undefined;
-  const name = typeof args.name === "string" ? args.name : undefined;
-  const text = typeof args.text === "string" && args.text.length > 0 ? args.text : undefined;
-  const urlContains =
-    typeof args.urlContains === "string" && args.urlContains.length > 0 ? args.urlContains : undefined;
-  const modes = [ref, role, text, urlContains].filter((m) => m !== undefined).length;
-  if (modes !== 1) return null;
-  if (ref !== undefined) return { kind: "script", condition: { ref } };
-  if (role !== undefined) {
-    return { kind: "script", condition: name !== undefined ? { role, name } : { role } };
+/** The response for a wait that ended — a guard that aborted has answered already. */
+async function respondOutcome(id: string, outcome: WaitOutcome): Promise<void> {
+  switch (outcome.kind) {
+    case "aborted":
+      return;
+    case "tab-gone":
+      await respond({ id, success: true, data: { matched: false, reason: "tab-gone" } });
+      return;
+    case "matched":
+      await respond({
+        id,
+        success: true,
+        data: { matched: true, url: outcome.url, ...(outcome.ref ? { ref: outcome.ref } : {}) },
+      });
+      return;
+    case "timeout":
+      await respond({ id, success: true, data: { matched: false, url: outcome.url, reason: "timeout" } });
+      return;
   }
-  if (text !== undefined) return { kind: "script", condition: { text } };
-  if (urlContains !== undefined) return { kind: "url", needle: urlContains };
-  return null;
 }
 
 /** `vmark.browser.wait_for` — poll until a condition holds or the timeout elapses. */
 export async function handleBrowserWaitFor(id: string, args: Record<string, unknown>): Promise<void> {
   return wrapHandler(id, async () => {
-    if (!browserEnabled()) {
-      await respond({ id, success: false, error: "BROWSER_DISABLED" });
+    const initial = await resolveBrowserTarget(id, args);
+    if (!initial) return;
+    const parsed = readWaitRequest(args);
+    if (!parsed.ok) {
+      await respond({ id, success: false, error: parsed.error });
       return;
     }
-    const tabIdArg = readTabIdArg(args);
-    if (tabIdArg === null) {
-      await respond({ id, success: false, error: "tabId must be a non-empty string when supplied" });
-      return;
-    }
-    const timeoutMs = validateTimeout(args.timeoutMs);
-    if (timeoutMs === null) {
-      await respond({ id, success: false, error: "INVALID_TIMEOUT" });
-      return;
-    }
-    const mode = readCondition(args);
-    if (!mode) {
+    const { timeoutMs, mode } = parsed.request;
+    if (!(await requireHumanAttachment(id, initial))) return;
+    if (mode.kind === "script" && hasOnceAttachment(initial)) {
       await respond({
         id,
         success: false,
-        error: "wait_for needs exactly one of: ref, role (+optional name), text, or urlContains",
+        error:
+          "ATTACHMENT_ONCE_INSUFFICIENT: wait_for polls the page repeatedly, and this tab is attached for " +
+          "one read only — ask the user for 'Allow until navigation', or use browser_read read once",
+        data: { token: "ATTACHMENT_ONCE_INSUFFICIENT", tabId: initial.tabId, generation: initial.generation },
       });
       return;
     }
-    const initial = resolveBrowserTab(tabIdArg);
-    if (!initial) {
-      await respond({ id, success: false, error: "no active browser tab" });
-      return;
-    }
-    if (!(await requireHumanAttachment(id, initial))) return;
-
-    const deadline = Date.now() + timeoutMs;
-    for (;;) {
-      // Re-resolve each round so the wait tracks navigation (current generation).
-      const tab = resolveBrowserTab(tabIdArg);
-      if (!tab) {
-        await respond({ id, success: true, data: { matched: false, reason: "tab-gone" } });
-        return;
-      }
-      let matched: boolean;
-      let matchedRef: string | undefined;
-      if (mode.kind === "url") {
-        // Answered from the webview mirror: the same redacted URL the model
-        // already sees on every navigation result. No eval round-trip.
-        matched = urlForAgent(tab.url).includes(mode.needle);
-        if (matched) {
-          await respond({ id, success: true, data: { matched: true, url: urlForAgent(tab.url) } });
-          return;
-        }
-        if (Date.now() >= deadline) {
-          await respond({ id, success: true, data: { matched: false, url: urlForAgent(tab.url) } });
-          return;
-        }
-        await sleep(POLL_INTERVAL_MS);
-        continue;
-      }
-      try {
-        const raw = await invoke<string>("browser_eval", {
-          tabId: tab.tabId,
-          script: buildWaitConditionScript(mode.condition, tab.generation),
-          operation: "read",
-          generation: tab.generation,
-        });
-        const parsed = JSON.parse(raw) as { matched?: boolean; ref?: string };
-        matched = parsed.matched === true;
-        matchedRef = parsed.ref;
-      } catch {
-        // The tab navigated/closed mid-wait (a stale generation), or the eval did
-        // not return JSON: stop rather than spin on errors.
-        await respond({ id, success: true, data: { matched: false, url: urlForAgent(tab.url), reason: "unavailable" } });
-        return;
-      }
-      if (matched) {
-        await respond({
-          id,
-          success: true,
-          data: { matched: true, url: urlForAgent(tab.url), ...(matchedRef ? { ref: matchedRef } : {}) },
-        });
-        return;
-      }
-      if (Date.now() >= deadline) {
-        await respond({ id, success: true, data: { matched: false, url: urlForAgent(tab.url) } });
-        return;
-      }
-      await sleep(POLL_INTERVAL_MS);
-    }
+    const ctx: PollContext = {
+      tabId: initial.tabId,
+      deadline: Date.now() + timeoutMs,
+      // A navigation changes the generation, and an attachment is per generation:
+      // the page that was attached is gone, so re-ask rather than keep reading.
+      guard: (tab) => (tab.generation === initial.generation ? Promise.resolve(true) : requireHumanAttachment(id, tab)),
+    };
+    const outcome =
+      mode.kind === "url"
+        ? await pollUrl(ctx, mode.needle)
+        : await pollScript(ctx, (tab) =>
+            invokeAttached(tab, () =>
+              invoke<string>("browser_eval", {
+                tabId: tab.tabId,
+                script: buildWaitConditionScript(mode.condition, tab.generation),
+                operation: "read",
+                generation: tab.generation,
+              }),
+            ),
+          );
+    await respondOutcome(id, outcome);
   });
 }

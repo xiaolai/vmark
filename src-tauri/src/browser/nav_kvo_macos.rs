@@ -17,10 +17,20 @@
 //! another. Authority must lapse with the view it was granted against, not merely with
 //! the document (R7a).
 //!
+//! The decision and the write are each ONE registry guard (audit 20260903 round 3, #21).
+//! This used to read the committed URL, mode, epoch and shared approval through four
+//! separate locks and then bump-and-record through a fifth; a top-level navigation begun
+//! by a command thread in between revokes the committed page, and the late write here put
+//! it back — on a tab that was `Navigating`, hence executable — for a page WebKit was
+//! already leaving. `same_document_view` reads everything at once, and
+//! `commit_same_document` refuses to record unless the ticket it observed is still the
+//! one in force.
+//!
 //! A `#[path]` submodule of nav_registry_macos.rs, adding inherent methods to
 //! `NavDelegate`. Split out to keep both files under the file-size limit.
 //!
-//! @coordinates-with nav_registry_macos.rs — expire_authority (the R7a half)
+//! @coordinates-with registry_same_document.rs — same_document_view / commit_same_document
+//! @coordinates-with ai_policy.rs — same_document_allowed, the pure half of the decision
 //! @coordinates-with nav_delegate_macos.rs — observeValueForKeyPath: dispatches here
 
 use objc2::DefinedClass;
@@ -33,13 +43,58 @@ use tauri::Manager;
 use super::super::payloads::NavPayload;
 use super::super::webview::{current_url, history_state};
 use super::super::NavDelegate;
-use crate::browser::ai_policy::validate_ai_navigation_url;
+use crate::browser::ai_policy::same_document_allowed;
+use crate::browser::nav_api_navigation::{own, Settlement};
+use crate::browser::registry::same_document::SameDocumentRefusal;
 use crate::browser::surface::BrowserSurface;
 
 /// The one property observed. `WKWebView.URL` is documented KVO-compliant.
 pub(in crate::browser) const URL_KEY_PATH: &str = "URL";
 
 impl NavDelegate {
+    /// Run an API-initiated navigation call — `loadRequest`, `goBack`, `goForward` —
+    /// so the URL change it publishes SYNCHRONOUSLY is not taken for a same-document
+    /// navigation, then `pump` the load and settle. The rule and the measured WebKit
+    /// facts behind it live in `nav_api_navigation.rs`; this supplies the delegate's
+    /// `loading` flag, its start counter, the observer, and the authority revocation.
+    /// Returns whether WebKit created a navigation.
+    pub(in crate::browser) fn api_navigation(
+        &self,
+        web_view: &WKWebView,
+        start: impl FnOnce() -> bool,
+        pump: impl FnOnce(&WKWebView),
+    ) -> bool {
+        let ivars = self.ivars();
+        let starts_before = ivars.starts.get();
+        let Some(owned) = own(&ivars.loading, start) else {
+            return false; // nowhere to go: nothing changed, nothing will report
+        };
+        // The view WILL change, whichever kind of move this is. Revoke the tab's
+        // one-shots and attachment NOW, under the registry guard — before the pump
+        // can run another command against a view that is on its way out — as the
+        // observer used to (by accident of the misfire) and the start does later.
+        if let Some(state) = ivars.app.try_state::<BrowserSurface>() {
+            if let Ok(mut reg) = state.registry.lock() {
+                state.clear_tab_authority_in(&mut reg, &ivars.tab_id);
+            }
+        }
+        pump(web_view);
+        let saw_start = ivars.starts.get() != starts_before;
+        let still_loading = unsafe { web_view.isLoading() };
+        match owned.settle(&ivars.loading, saw_start, still_loading) {
+            Settlement::CrossDocument | Settlement::Pending => {}
+            Settlement::SameDocument { observe_now } => {
+                if observe_now {
+                    // The history item's URL change arrived while the flag was up;
+                    // nothing else will report it. Records the page and expires the
+                    // authority granted against the previous view (R7a).
+                    self.same_document_navigated(web_view);
+                }
+            }
+        }
+        true
+    }
+
     /// A same-document navigation happened. Called from the `URL` KVO observer.
     ///
     /// Ignores the `URL` change that belongs to a full load — that one is `did_commit`'s,
@@ -59,54 +114,93 @@ impl NavDelegate {
         let Some(state) = ivars.app.try_state::<BrowserSurface>() else {
             return;
         };
-        let committed = state
+        // ONE read of everything the decision needs, including the ticket the write
+        // below must still find.
+        let Some(view) = state
             .registry
             .lock()
             .ok()
-            .and_then(|reg| reg.committed_url(&ivars.tab_id).map(str::to_owned));
-        if committed.as_deref() == Some(url.as_str()) {
+            .and_then(|reg| reg.same_document_view(&ivars.tab_id, &url))
+        else {
+            return; // an unknown tab has no authority to expire
+        };
+        if view.committed_url.as_deref() == Some(url.as_str()) {
             return; // already recorded — nothing changed, so no authority to expire
         }
-        let mode = state
-            .registry
-            .lock()
-            .ok()
-            .and_then(|reg| reg.automation_mode(&ivars.tab_id));
-        if let Some(mode) = mode {
-            let policy = state.ai_policy.lock().map(|policy| *policy).ok();
-            let valid = policy.is_some_and(|policy| {
-                policy.enabled
-                    && (mode == crate::browser::registry::AutomationMode::Human
-                        || state
-                            .registry
-                            .lock()
-                            .map(|reg| reg.policy_epoch(&ivars.tab_id) == Some(policy.epoch))
-                            .unwrap_or(false))
-                    && match mode {
-                        crate::browser::registry::AutomationMode::Human => true,
-                        crate::browser::registry::AutomationMode::AiSandbox => {
-                            validate_ai_navigation_url(&url, policy.allow_loopback).is_ok()
-                        }
-                        crate::browser::registry::AutomationMode::AiShared => {
-                            validate_ai_navigation_url(&url, policy.allow_loopback).is_ok()
-                                && state
-                                    .registry
-                                    .lock()
-                                    .map(|reg| reg.shared_navigation_approved(&ivars.tab_id, &url))
-                                    .unwrap_or(false)
-                        }
-                    }
-            });
-            if !valid {
-                self.emit_policy_failed("AI same-document destination blocked by policy");
-                return;
-            }
+        let policy = state.ai_policy.lock().ok().map(|policy| *policy);
+        let allowed = policy.is_some_and(|policy| {
+            same_document_allowed(
+                view.mode,
+                &policy,
+                view.policy_epoch,
+                view.shared_approved,
+                &url,
+            )
+        });
+        if !allowed {
+            self.emit_policy_failed("AI same-document destination blocked by policy");
+            return;
         }
         log::debug!(
-            "[browser] same-document navigation on {}: {url}",
-            ivars.tab_id
+            "[browser] same-document navigation on {}: {}",
+            ivars.tab_id,
+            crate::browser::redact::redact(&url)
         );
-        let generation = self.expire_authority(Some(&url));
+        // R7a: the view this tab's authority was granted against is gone. Bump the
+        // generation (so any operation stamped with the old one is refused as
+        // stale) and record the new committed url — under one guard, and only if
+        // no top-level navigation has superseded the page observed above.
+        let committed = state.registry.lock().ok().map(|mut reg| {
+            reg.commit_same_document(&ivars.tab_id, &url, view.navigation_id.as_deref())
+        });
+        let generation = match committed {
+            Some(Ok(generation)) => generation,
+            Some(Err(SameDocumentRefusal::Superseded)) => {
+                // A command thread began a navigation after the observation: its own
+                // commit records the next page, and its revocation stands.
+                log::debug!(
+                    "[browser] same-document navigation on {} superseded by a top-level navigation",
+                    ivars.tab_id
+                );
+                return;
+            }
+            Some(Err(SameDocumentRefusal::NoCommittedPage)) => {
+                // No page has committed, so there is no document to have navigated
+                // within and no authority to expire — the registry's answer, not an
+                // anomaly (a first load's URL change, reported before its commit).
+                log::debug!(
+                    "[browser] same-document navigation on {} with no committed page; nothing to expire",
+                    ivars.tab_id
+                );
+                return;
+            }
+            Some(Err(refusal)) => {
+                log::warn!(
+                    "[browser] same-document commit refused for {}: {refusal:?}",
+                    ivars.tab_id
+                );
+                if refusal == SameDocumentRefusal::GenerationExhausted {
+                    // The registry has already dropped the committed page (it
+                    // cannot stamp this view apart from the last one); finish the
+                    // revocation under the registry guard, so nothing approved for
+                    // the replaced view survives it and no reused id is caught in
+                    // between (#35).
+                    if let Ok(mut reg) = state.registry.lock() {
+                        state.clear_tab_authority_in(&mut reg, &ivars.tab_id);
+                    }
+                }
+                return;
+            }
+            None => {
+                log::warn!("[browser] registry lock poisoned on same-document navigation");
+                return;
+            }
+        };
+        // R7a: the view the authority was granted against is gone — revoked under
+        // the registry guard, never in a gap after it (#35).
+        if let Ok(mut reg) = state.registry.lock() {
+            state.clear_tab_authority_in(&mut reg, &ivars.tab_id);
+        }
         let (can_go_back, can_go_forward) = history_state(web_view);
         let _ = self.emit_owned(
             "browser://navigated",
@@ -150,3 +244,7 @@ impl NavDelegate {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "nav_api_navigation_native.test.rs"]
+mod native_tests;

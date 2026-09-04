@@ -16,6 +16,7 @@ import {
   buildClickByRefScript,
   buildSnapshotScript,
   buildTypeScript,
+  buildWaitConditionScript,
 } from "./actScript";
 
 interface ActResult {
@@ -97,6 +98,18 @@ describe("stylesheet-hidden targets (invisible to the attribute tier)", () => {
     expect(hits()).toEqual(["real"]);
   });
 
+  it("the snapshot and a role wait do not perceive a class-hidden element (#101)", () => {
+    mount(
+      `<style>.gone{visibility:hidden}</style>` +
+        `<button id="shown">Save</button><button id="hidden" class="gone">Save</button>`,
+    );
+    const snapshot = exec(buildSnapshotScript(1)) as { nodes: Array<{ role: string; name: string }> };
+    expect(snapshot.nodes.filter((n) => n.role === "button" && n.name === "Save")).toHaveLength(1);
+    mount(`<style>.gone{visibility:hidden}</style><button id="hidden" class="gone">Only hidden</button>`);
+    const waited = exec(buildWaitConditionScript({ role: "button", name: "Only hidden" }, 1)) as { matched: boolean };
+    expect(waited.matched).toBe(false);
+  });
+
   it("refuses an opacity:0 target", () => {
     mount(`<button id="invis" type="button" style="opacity:0">Buy</button>`);
     const res = exec(buildClickScript("button", "Buy")) as ActResult;
@@ -136,8 +149,8 @@ describe("occlusion (the NeoBrowser bug-2 class)", () => {
 
   it("ref clicks get the same protection: an overlay added after the read blocks the click", () => {
     mount(`<button id="b" type="button">Pay</button>`);
-    const snap = exec(buildSnapshotScript(1)) as Array<{ role: string; ref: string }>;
-    const ref = snap.find((n) => n.role === "button")!.ref;
+    const snap = exec(buildSnapshotScript(1)) as { nodes: Array<{ role: string; ref: string }> };
+    const ref = snap.nodes.find((n) => n.role === "button")!.ref;
     const overlay = document.createElement("div");
     overlay.className = "late-modal";
     overlay.setAttribute("style", "position:fixed;inset:0;z-index:99");
@@ -171,5 +184,136 @@ describe("typing effects in a real engine", () => {
     expect(res.typed).toBe(true);
     expect(ed.textContent).toBe("fresh");
     expect(inputs).toBe(1);
+  });
+});
+
+// Audit 2026-09-03 — the rendered tier of the new refusals. Everything below
+// needs a layout engine or a real hit-test and self-disables in jsdom.
+describe("ambiguity in a real engine (S-03)", () => {
+  it("two rendered same-name buttons are refused as ambiguous, and a candidate ref lands on the chosen one", () => {
+    mount(`<button id="c1" type="button">Continue</button><button id="c2" type="button">Continue</button>`);
+    const res = exec(buildClickScript("button", "Continue", 3)) as ActResult & { candidates?: Array<{ ref: string; text: string }> };
+    expect(res).toMatchObject({ found: true, clicked: false, reason: "ambiguous", matchedTotal: 2, matchedVisible: 2 });
+    expect(hits()).toEqual([]);
+    expect(res.candidates).toHaveLength(2);
+    const second = exec(buildClickByRefScript(res.candidates![1].ref, 3)) as ActResult;
+    expect(second).toEqual({ found: true, clicked: true, matchedTotal: 1, matchedVisible: 1 });
+    expect(hits()).toEqual(["c2"]);
+  });
+});
+
+describe("visibility and hit-test holes (S-04)", () => {
+  it("an off-screen twin (left:-9999px) never competes: the on-screen button is acted on", () => {
+    mount(`
+      <button id="off" type="button" style="position:absolute;left:-9999px;top:0">Continue</button>
+      <button id="on" type="button">Continue</button>`);
+    const res = exec(buildClickScript("button", "Continue")) as ActResult;
+    expect(res).toEqual({ found: true, clicked: true, matchedTotal: 2, matchedVisible: 1 });
+    expect(hits()).toEqual(["on"]);
+  });
+
+  it("a target the scroll cannot bring into the viewport is refused as 'offscreen'", () => {
+    mount(`<button id="far" type="button" style="position:fixed;top:calc(100vh + 200px);left:10px">Far away</button>`);
+    const res = exec(buildClickScript("button", "Far away")) as ActResult;
+    expect(res).toMatchObject({ found: true, clicked: false, reason: "offscreen" });
+    expect(hits()).toEqual([]);
+  });
+
+  it("an opacity:0 ANCESTOR hides the target", () => {
+    mount(`<div style="opacity:0"><button id="ghost" type="button">Buy</button></div>`);
+    const res = exec(buildClickScript("button", "Buy")) as ActResult;
+    expect(res).toMatchObject({ found: true, clicked: false, reason: "hidden", matchedVisible: 0 });
+    expect(hits()).toEqual([]);
+  });
+
+  it("a pointer-events:none target (or ancestor) is 'disabled' with detail 'inert'", () => {
+    mount(`<div style="pointer-events:none"><button id="pe" type="button">Go</button></div>`);
+    const res = exec(buildClickScript("button", "Go")) as ActResult & { detail?: string };
+    expect(res).toEqual({ found: true, clicked: false, reason: "disabled", detail: "inert", matchedTotal: 1, matchedVisible: 0 });
+    expect(hits()).toEqual([]);
+  });
+
+  it("an inert subtree is 'disabled' with detail 'inert' in a real engine too", () => {
+    mount(`<div inert><button id="i" type="button">Go</button></div>`);
+    const res = exec(buildClickScript("button", "Go")) as ActResult & { detail?: string };
+    expect(res).toMatchObject({ found: true, clicked: false, reason: "disabled", detail: "inert" });
+    expect(hits()).toEqual([]);
+  });
+
+  it("visibility:collapse hides a table row's control", () => {
+    mount(`<table><tr style="visibility:collapse"><td><button id="row" type="button">Row action</button></td></tr></table>`);
+    const res = exec(buildClickScript("button", "Row action")) as ActResult;
+    expect(res).toMatchObject({ found: true, clicked: false, reason: "hidden" });
+    expect(hits()).toEqual([]);
+  });
+});
+
+describe("shadow DOM in a real engine (S-05)", () => {
+  it("clicks a button inside an open shadow root — the retargeted hit is related to the target", () => {
+    document.body.innerHTML = `<div id="host"></div>`;
+    const root = document.getElementById("host")!.attachShadow({ mode: "open" });
+    root.innerHTML = `<button id="in" type="button">Inner</button>`;
+    root.getElementById("in")!.addEventListener("click", () => hits().push("in"));
+    const res = exec(buildClickScript("button", "Inner")) as ActResult;
+    expect(res).toEqual({ found: true, clicked: true, matchedTotal: 1, matchedVisible: 1 });
+    expect(hits()).toEqual(["in"]);
+  });
+
+  it("an overlay living inside a shadow root still occludes, and is named by its own description", () => {
+    mount(`<button id="pay" type="button">Pay</button><x-veil id="v"></x-veil>`);
+    document.getElementById("v")!.attachShadow({ mode: "open" }).innerHTML =
+      `<div class="veil" style="position:fixed;inset:0;z-index:5"></div>`;
+    const res = exec(buildClickScript("button", "Pay")) as ActResult;
+    expect(res).toMatchObject({ found: true, clicked: false, reason: "obscured", by: "div.veil" });
+    expect(hits()).toEqual([]);
+  });
+
+  it("the snapshot reports the shadow node and counts a frame as unreachable", () => {
+    document.body.innerHTML = `<div id="host"></div><iframe></iframe>`;
+    document.getElementById("host")!.attachShadow({ mode: "open" }).innerHTML = `<button type="button">Inner</button>`;
+    const snap = exec(buildSnapshotScript(2)) as { nodes: Array<{ name: string }>; unreachable: { frames: number } };
+    expect(snap.nodes.map((n) => n.name)).toEqual(["Inner"]);
+    expect(snap.unreachable.frames).toBe(1);
+  });
+});
+
+describe("bounded occluder description (S-12)", () => {
+  it("a 500-char class token never reaches `by`", () => {
+    mount(`
+      <button id="t" type="button">Accept</button>
+      <div class="${"z".repeat(500)} cmp" style="position:fixed;inset:0;z-index:10"></div>`);
+    const res = exec(buildClickScript("button", "Accept")) as ActResult;
+    expect(res).toMatchObject({ reason: "obscured", by: "div.cmp" });
+    expect(res.by!.length).toBeLessThanOrEqual(64);
+  });
+});
+
+describe("contenteditable in a real engine (S-08)", () => {
+  it("an editor that cancels beforeinput owns the insertion: no mutation, detail 'editor-handled'", () => {
+    document.body.innerHTML = `<div id="ed" role="textbox" aria-label="Body" contenteditable="true">model</div>`;
+    const ed = document.getElementById("ed")!;
+    let inputs = 0;
+    ed.addEventListener("beforeinput", (ev) => ev.preventDefault());
+    ed.addEventListener("input", () => (inputs += 1));
+    const res = exec(buildTypeScript("textbox", "Body", "fresh")) as ActResult & { detail?: string };
+    // The editor cancelled the insertion and changed nothing visible: that is a
+    // refusal now, not a typed value (audit 2026-09-03 round 1).
+    expect(res).toMatchObject({ found: true, typed: false, reason: "rejected-value", detail: "editor-cancelled" });
+    expect(ed.textContent).toBe("model");
+    expect(inputs).toBe(0);
+  });
+
+  it("beforeinput reaches the editor before the text lands, with inputType and data", () => {
+    document.body.innerHTML = `<div id="ed" role="textbox" aria-label="Body" contenteditable="true">old</div>`;
+    const ed = document.getElementById("ed")!;
+    const seen: string[] = [];
+    ed.addEventListener("beforeinput", (ev) => {
+      const ie = ev as InputEvent;
+      seen.push(`${ie.inputType}:${ie.data}:${ed.textContent}`);
+    });
+    const res = exec(buildTypeScript("textbox", "Body", "fresh")) as ActResult;
+    expect(res.typed).toBe(true);
+    expect(seen[0]).toBe("insertText:fresh:old");
+    expect(ed.textContent).toBe("fresh");
   });
 });

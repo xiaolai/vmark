@@ -2,7 +2,10 @@
  * Tool output construction: the single choke point for serialization,
  * the output bound, and structured content.
  *
- * Purpose: before this module the sidecar had NO output bound anywhere —
+ * Purpose (error results are bounded too — see `structuredErrorResult`, whose
+ * message and record are capped separately, since a page-derived error could
+ * otherwise grow to the bridge frame limit):
+ * before this module the sidecar had NO output bound anywhere —
  * `document.read` serialized a whole document into one text block and shipped
  * it. The ecosystem convention is a ~25,000-token cap plus a steering message,
  * because a silent cut is worse than useless: the agent cannot distinguish a
@@ -72,13 +75,13 @@ export const RECOVERY = {
   sessionGetState:
     'session.get_state takes no arguments and has no pagination, so this call cannot be narrowed — the preview is all it can return. Work from the tab ids you can see, or ask the user to close windows/tabs and call again.',
   browserRead:
-    'the ARIA snapshot of this page exceeds the output budget — use `browser.query` with a CSS selector to fetch only the elements you need.',
+    'the ARIA snapshot of this page exceeds the output budget — use `browser_read` action `query` with a CSS selector to fetch only the elements you need.',
   browserQuery:
     'tighten the CSS `selector` so it matches fewer elements, and drop any `fields` (attributes/box/styles) you do not need.',
   browserExtract:
-    'the extracted article exceeds the output budget — use `browser.query` with a CSS selector for the specific part you need, or `browser_read` action `read` for the structural snapshot.',
+    'the extracted article exceeds the output budget — use `browser_read` action `query` with a CSS selector for the specific part you need, or `browser_read` action `read` for the structural snapshot.',
   browserConsole:
-    'the captured console buffer is bigger than one response and `console` has no pagination, so there is no way to page to the rest. DO NOT pass `clear: true` to get it: that returns the same oversized response AND discards every entry you never saw. Narrow the problem instead — reproduce the step you are debugging in a fresh tab so the buffer is small, or read the specific page state you need with `browser.query`. Use `clear: true` only once you have decided the unread entries do not matter and you want the next call to show only new output.',
+    'the captured console buffer is bigger than one response and `console` has no pagination, so there is no way to page to the rest. DO NOT drain it with `browser` action `console_clear` to get it: that returns the same oversized response AND discards every entry you never saw. Narrow the problem instead — reproduce the step you are debugging in a fresh tab so the buffer is small, or read the specific page state you need with `browser_read` action `query`. Use `console_clear` only once you have decided the unread entries do not matter and you want the next read to show only new output.',
   coherenceEdges:
     'this workspace has more non-fresh edges than fit in one response — resolve or waive the ones you can see, then call `coherence.edges` again.',
 } as const;
@@ -268,22 +271,3 @@ export function structuredJsonResult(
   };
 }
 
-/**
- * Error result that also carries machine-readable detail.
- *
- * For refusals an agent is expected to BRANCH on rather than read — a STALE
- * write, whose `current_revision` is the whole point of the response. The SDK
- * skips output-schema validation for `isError` results, so this cannot turn a
- * refusal into a protocol error.
- */
-export function structuredErrorResult(
-  message: string,
-  structured: Record<string, unknown>,
-): ToolCallResult {
-  return {
-    success: false,
-    content: [{ type: 'text', text: message }],
-    structuredContent: structured,
-    isError: true,
-  };
-}

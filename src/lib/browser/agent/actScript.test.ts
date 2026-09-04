@@ -27,6 +27,17 @@ function run(html: string, script: string): unknown {
   return exec(parse(html), script);
 }
 
+interface SnapNode {
+  role: string;
+  name: string;
+  ref: string;
+}
+
+/** The snapshot's nodes (the script returns `{nodes, truncated, unreachable}` — S-05). */
+function nodes(doc: Document, gen = 0): SnapNode[] {
+  return (exec(doc, buildSnapshotScript(gen)) as { nodes: SnapNode[] }).nodes;
+}
+
 interface ActResult {
   found: boolean;
   clicked?: boolean;
@@ -39,10 +50,7 @@ interface ActResult {
 
 describe("buildSnapshotScript", () => {
   it("extracts interactive/structural elements with role + name", () => {
-    const snap = run(
-      `<h1>Welcome</h1><button>Publish</button><a href="/x">More</a><p>ignored</p>`,
-      buildSnapshotScript(),
-    ) as Array<{ role: string; name: string }>;
+    const snap = nodes(parse(`<h1>Welcome</h1><button>Publish</button><a href="/x">More</a><p>ignored</p>`));
     const byRole = Object.fromEntries(snap.map((n) => [n.role, n.name]));
     expect(byRole.heading).toBe("Welcome");
     expect(byRole.button).toBe("Publish");
@@ -51,10 +59,7 @@ describe("buildSnapshotScript", () => {
   });
 
   it("stamps each snapshot node with a ref (WI-P2.1)", () => {
-    const snap = run(
-      `<button>Publish</button><a href="/x">More</a>`,
-      buildSnapshotScript(),
-    ) as Array<{ ref: string }>;
+    const snap = nodes(parse(`<button>Publish</button><a href="/x">More</a>`));
     expect(snap.length).toBeGreaterThan(0);
     expect(snap.every((n) => /^e\d+$/.test(n.ref))).toBe(true);
   });
@@ -102,32 +107,32 @@ describe("parity with aria.ts", () => {
 
   it("produces an identical snapshot (role, name, level, checked, disabled) for the same page", () => {
     const doc = parse(FIXTURE);
-    const injected = exec(doc, buildSnapshotScript());
+    const injected = nodes(doc);
     expect(injected).toEqual(ariaSnapshot(doc.body));
   });
 
   it("agrees on the live checked state after interaction", () => {
     const doc = parse(`<input type="checkbox" checked aria-label="Agree">`);
     (doc.querySelector("input") as HTMLInputElement).checked = false;
-    expect(exec(doc, buildSnapshotScript())).toEqual(ariaSnapshot(doc.body));
+    expect(nodes(doc)).toEqual(ariaSnapshot(doc.body));
   });
 });
 
 describe("act by ref (WI-P2.2)", () => {
   it("clicks the element bound to a ref minted by a snapshot at the same generation", () => {
     const doc = parse(`<button id="a">One</button><button id="b">Two</button>`);
-    const snap = exec(doc, buildSnapshotScript(5)) as Array<{ ref: string; name: string }>;
+    const snap = nodes(doc, 5);
     const two = snap.find((n) => n.name === "Two")!;
     let clicked = "";
     doc.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => (clicked = b.id)));
     const res = exec(doc, buildClickByRefScript(two.ref, 5)) as ActResult;
-    expect(res).toEqual({ found: true, clicked: true });
+    expect(res).toEqual({ found: true, clicked: true, matchedTotal: 1, matchedVisible: 1 });
     expect(clicked).toBe("b");
   });
 
   it("types into the field bound to a ref", () => {
     const doc = parse(`<label for="e">Email</label><input id="e" type="text">`);
-    const snap = exec(doc, buildSnapshotScript(1)) as Array<{ ref: string; role: string }>;
+    const snap = nodes(doc, 1);
     const field = snap.find((n) => n.role === "textbox")!;
     const res = exec(doc, buildTypeByRefScript(field.ref, "hi@x.com", 1)) as ActResult;
     expect(res.typed).toBe(true);
@@ -136,7 +141,7 @@ describe("act by ref (WI-P2.2)", () => {
 
   it("refuses a stale ref after the generation bumps (store reset on navigation)", () => {
     const doc = parse(`<button id="a">One</button>`);
-    const ref = (exec(doc, buildSnapshotScript(1)) as Array<{ ref: string }>)[0].ref;
+    const ref = nodes(doc, 1)[0].ref;
     // Same document, new generation (SPA nav): the ref must no longer resolve.
     const res = exec(doc, buildClickByRefScript(ref, 2)) as ActResult;
     expect(res.found).toBe(false);
@@ -144,9 +149,23 @@ describe("act by ref (WI-P2.2)", () => {
 
   it("refuses a disabled ref target rather than reporting a click", () => {
     const doc = parse(`<button id="a" disabled>Go</button>`);
-    const ref = (exec(doc, buildSnapshotScript(1)) as Array<{ ref: string }>)[0].ref;
+    const ref = nodes(doc, 1)[0].ref;
     const res = exec(doc, buildClickByRefScript(ref, 1)) as ActResult;
-    expect(res).toEqual({ found: true, clicked: false, reason: "disabled" });
+    expect(res).toEqual({ found: true, clicked: false, reason: "disabled", matchedTotal: 1, matchedVisible: 1 });
+  });
+});
+
+describe("wait condition shape (#93)", () => {
+  it("refuses zero or several modes, and a name without a role", () => {
+    expect(() => buildWaitConditionScript({} as never, 1)).toThrow(/exactly one/);
+    expect(() => buildWaitConditionScript({ ref: "e1", text: "x" } as never, 1)).toThrow(/exactly one/);
+    expect(() => buildWaitConditionScript({ role: "button", text: "x" } as never, 1)).toThrow(/exactly one/);
+    expect(() => buildWaitConditionScript({ text: "x", name: "y" } as never, 1)).toThrow(/exactly one/);
+  });
+  it("refuses non-string fields instead of embedding them", () => {
+    expect(() => buildWaitConditionScript({ text: 5 } as never, 1)).toThrow(/as strings/);
+    expect(() => buildWaitConditionScript({ role: "button", name: ["x"] } as never, 1)).toThrow(/as strings/);
+    expect(() => buildWaitConditionScript({ ref: {} } as never, 1)).toThrow(/as strings/);
   });
 });
 
@@ -181,7 +200,7 @@ describe("buildWaitConditionScript (WI-P3.1)", () => {
 
   it("matches a ref minted at the same generation, and not after it bumps", () => {
     const doc = parse(`<button id="a">A</button>`);
-    const ref = (exec(doc, buildSnapshotScript(7)) as Array<{ ref: string }>)[0].ref;
+    const ref = nodes(doc, 7)[0].ref;
     expect((exec(doc, buildWaitConditionScript({ ref }, 7)) as { matched: boolean }).matched).toBe(true);
     // A generation bump (navigation) resets the store; the old ref no longer matches.
     expect((exec(doc, buildWaitConditionScript({ ref }, 8)) as { matched: boolean }).matched).toBe(false);
@@ -294,12 +313,12 @@ describe("act truthfulness (WI-NB1.1)", () => {
 
   it("refuses to click a ref target that is attribute-hidden since it was read", () => {
     const doc = parse(`<button id="a">Go</button>`);
-    const ref = (exec(doc, buildSnapshotScript(3)) as Array<{ ref: string }>)[0].ref;
+    const ref = nodes(doc, 3)[0].ref;
     doc.getElementById("a")!.setAttribute("hidden", "");
     let clicked = false;
     doc.getElementById("a")!.addEventListener("click", () => (clicked = true));
     const res = exec(doc, buildClickByRefScript(ref, 3)) as ActResult;
-    expect(res).toEqual({ found: true, clicked: false, reason: "hidden" });
+    expect(res).toEqual({ found: true, clicked: false, reason: "hidden", matchedTotal: 1, matchedVisible: 0 });
     expect(clicked).toBe(false);
   });
 
@@ -418,6 +437,16 @@ describe("buildTypeScript", () => {
     expect(res.typed).toBe(false);
     expect(res.reason).toBe("no-such-option");
     expect((doc.querySelector("select") as HTMLSelectElement).value).toBe("jp");
+  });
+
+  it("an implicit contenteditable host is ONE textbox end to end: snapshot, locator, type (#110)", () => {
+    const doc = parse(`<div contenteditable="true" aria-label="Body"><p>old <b>bold</b></p></div><p>prose</p>`);
+    const snapshot = exec(doc, buildSnapshotScript(1)) as { nodes: Array<{ role: string; name: string }> };
+    const textboxes = snapshot.nodes.filter((n) => n.role === "textbox");
+    expect(textboxes).toEqual([{ role: "textbox", name: "Body", ref: expect.any(String) }].map((n) => expect.objectContaining(n)));
+    const res = exec(doc, buildTypeScript("textbox", "Body", "new text")) as ActResult;
+    expect(res.typed).toBe(true);
+    expect(doc.querySelector("[contenteditable]")!.textContent).toBe("new text");
   });
 
   it("types into a contenteditable region (WI-NB1.2)", () => {

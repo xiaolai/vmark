@@ -321,6 +321,13 @@ errors:
   browser.notGranted: "A IA não tem permissão para fazer isso nesta página"
   browser.attachmentRequired: "Conecte a IA a esta aba antes que ela possa agir nela"
   browser.profileOriginConfined: "A IA só pode ler a página aprovada para este perfil"
+  browser.evalTimeout: "O script da página não terminou a tempo"
+  browser.evalFailed: "O script da página falhou"
+  browser.evalNoValue: "O script da página não retornou nenhum valor"
+  browser.evalResultTooLarge: "O resultado do script da página é grande demais para ser retornado"
+  browser.tabLimit: "A IA já tem %{limit} abas do navegador abertas: feche uma primeiro"
+  browser.dialogNotOwned: "Essa caixa de diálogo da página pertence a outra janela"
+  browser.contentRulesFailed: "Não foi possível instalar as regras de destino do navegador da IA"
 
   # === Hot exit ===
   hotExit.noWindows: "Nenhuma janela de documento para capturar"

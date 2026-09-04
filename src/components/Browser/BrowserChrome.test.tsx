@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { BrowserChrome } from "./BrowserChrome";
 import { useTabStore } from "@/stores/tabStore";
 
@@ -17,7 +17,6 @@ describe("BrowserChrome", () => {
       tabs: {},
       activeTabId: {},
       untitledCounter: 0,
-      closedTabs: {},
     });
   });
 
@@ -107,17 +106,16 @@ describe("BrowserChrome", () => {
     expect(screen.queryByTestId("omnibox")).not.toBeInTheDocument();
   });
 
-  it("does not activate a page when Enter bubbles from its close button", () => {
+  it("the close button is a sibling of its tab, so Enter on it never reaches the tab (#163)", () => {
     const first = useTabStore.getState().createBrowserTab("main", "https://one.example", "One");
     useTabStore.getState().createBrowserPage("main", "https://two.example", "Two"); // Two is active
     render(<BrowserChrome />);
 
     const oneTab = screen.getByRole("tab", { name: /One/ });
-    const closeBtn = within(oneTab).getByRole("button");
+    const closeBtn = screen.getByRole("button", { name: "Close One" });
+    // Not nested: a keydown on the close control has no tab above it to bubble into.
+    expect(oneTab.contains(closeBtn)).toBe(false);
     fireEvent.keyDown(closeBtn, { key: "Enter" });
-
-    // The keydown bubbles to the tab, but the target guard must prevent it from
-    // activating the very page it is about to close.
     expect(useTabStore.getState().activeTabId.main).not.toBe(first);
   });
 

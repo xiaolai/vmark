@@ -28,10 +28,24 @@ describe("acquireForAi", () => {
     expect(useBrowserLeaseStore.getState().currentHolder(TAB)).toBe("ai");
   });
 
-  it("refuses when a human holds the lease (human always wins)", () => {
+  it("refuses while a human hold is fresh (human always wins over the interrupted run)", () => {
+    useBrowserLeaseStore.getState().acquireForAi(TAB);
     useBrowserLeaseStore.getState().reclaimForHuman(TAB);
     expect(useBrowserLeaseStore.getState().acquireForAi(TAB)).toBe(false);
     expect(useBrowserLeaseStore.getState().currentHolder(TAB)).toBe("human");
+  });
+
+  // Audit 2026-09-03 W-04: a human hold used to be PERMANENT — nothing released it,
+  // so one accidental scroll refused every later workflow_run on the tab until it
+  // was closed. The hold is the interruption of an AI tenure; the run service
+  // releases it when the interrupted run ends, and the AI may acquire again.
+  it("succeeds again once the human hold is released (a hold is not permanent)", () => {
+    useBrowserLeaseStore.getState().acquireForAi(TAB);
+    useBrowserLeaseStore.getState().reclaimForHuman(TAB);
+    useBrowserLeaseStore.getState().release(TAB, "human");
+    expect(useBrowserLeaseStore.getState().currentHolder(TAB)).toBeNull();
+    expect(useBrowserLeaseStore.getState().acquireForAi(TAB)).toBe(true);
+    expect(useBrowserLeaseStore.getState().currentHolder(TAB)).toBe("ai");
   });
 });
 
@@ -52,8 +66,20 @@ describe("reclaimForHuman", () => {
     expect(cancel).toHaveBeenCalledTimes(1);
   });
 
-  it("works on a tab with no prior lease", () => {
+  it("is a no-op on a tab the AI does not hold — ordinary browsing never creates a human hold (W-04)", () => {
     expect(() => useBrowserLeaseStore.getState().reclaimForHuman(TAB)).not.toThrow();
+    expect(useBrowserLeaseStore.getState().currentHolder(TAB)).toBeNull();
+    expect(useBrowserLeaseStore.getState().epochOf(TAB)).toBe(0);
+    // …so a later run is not locked out by a scroll that interrupted nothing.
+    expect(useBrowserLeaseStore.getState().acquireForAi(TAB)).toBe(true);
+  });
+
+  it("is a no-op while the human already holds it (no double bump, no double cancel)", () => {
+    useBrowserLeaseStore.getState().acquireForAi(TAB);
+    useBrowserLeaseStore.getState().reclaimForHuman(TAB);
+    const epoch = useBrowserLeaseStore.getState().epochOf(TAB);
+    useBrowserLeaseStore.getState().reclaimForHuman(TAB);
+    expect(useBrowserLeaseStore.getState().epochOf(TAB)).toBe(epoch);
     expect(useBrowserLeaseStore.getState().currentHolder(TAB)).toBe("human");
   });
 });
@@ -127,6 +153,7 @@ describe("release", () => {
   });
 
   it("is a no-op when released by a non-holder (does not steal the lease)", () => {
+    useBrowserLeaseStore.getState().acquireForAi(TAB);
     useBrowserLeaseStore.getState().reclaimForHuman(TAB);
     useBrowserLeaseStore.getState().release(TAB, "ai");
     expect(useBrowserLeaseStore.getState().currentHolder(TAB)).toBe("human");
@@ -164,6 +191,7 @@ describe("in-flight canceller lifecycle", () => {
   });
 
   it("a refused release leaves the in-flight step alone", () => {
+    useBrowserLeaseStore.getState().acquireForAi(TAB);
     useBrowserLeaseStore.getState().reclaimForHuman(TAB); // human holds
     const cancel = vi.fn();
     useBrowserLeaseStore.setState({ inflightCancel: { [TAB]: cancel } });
@@ -174,6 +202,7 @@ describe("in-flight canceller lifecycle", () => {
   it("refuses to register a canceller while the AI does not hold the lease, cancelling it at once", () => {
     // A registration that lands after a human reclaim would otherwise re-install
     // an operation the reclaim just cancelled (R11).
+    useBrowserLeaseStore.getState().acquireForAi(TAB);
     useBrowserLeaseStore.getState().reclaimForHuman(TAB);
     const late = vi.fn();
     useBrowserLeaseStore.getState().setInflightCancel(TAB, late);

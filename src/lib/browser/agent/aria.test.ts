@@ -1,6 +1,6 @@
 // WI-2.2 — agent perception: ARIA role inference, accessible name, snapshot, locators
 import { describe, it, expect } from "vitest";
-import { computeRole, accessibleName, ariaSnapshot, queryByRole } from "./aria";
+import { computeRole, accessibleName, ariaSnapshot, queryByRole, SNAPSHOT_NODE_CAP, SNAPSHOT_VISIT_BUDGET } from "./aria";
 
 function el(html: string): HTMLElement {
   const doc = new DOMParser().parseFromString(`<body>${html}</body>`, "text/html");
@@ -281,5 +281,86 @@ describe("ariaSnapshot", () => {
     // Each document has its own store, so a navigation cannot carry a ref across.
     expect(ariaSnapshot(p1)[0].ref).toBe("e1");
     expect(ariaSnapshot(p2)[0].ref).toBe("e1");
+  });
+});
+
+describe("audit 2026-09-03 additions", () => {
+  it("maps <summary> to button (a disclosure control the agent must be able to target)", () => {
+    expect(computeRole(el(`<summary>More</summary>`))).toBe("button");
+  });
+
+  it("names a landmark from label/title only, never from its content (S-06)", () => {
+    expect(accessibleName(el(`<nav>Home About</nav>`))).toBe("");
+    expect(accessibleName(el(`<nav aria-label="Primary">Home</nav>`))).toBe("Primary");
+  });
+
+  it("normalises Unicode format characters and NFC in every source (S-09)", () => {
+    expect(accessibleName(el(`<button>Publ\u200Bish</button>`))).toBe("Publish");
+    expect(accessibleName(el(`<button aria-label="\u202Eevil\u202C">x</button>`))).toBe("evil");
+    expect(accessibleName(el(`<button>café</button>`))).toBe("café");
+  });
+
+  it("marks file inputs with upload:true and nothing else (S-10)", () => {
+    const snap = ariaSnapshot(root(`<input type="file" aria-label="Attachment"><input type="text" aria-label="Name">`));
+    expect(snap.find((n) => n.name === "Attachment")?.upload).toBe(true);
+    expect("upload" in snap.find((n) => n.name === "Name")!).toBe(false);
+  });
+
+  it("walks the composed tree: nodes inside an open shadow root are perceived, in shadow-first order (S-05)", () => {
+    document.body.innerHTML = `<div id="host"><button>Light</button></div>`;
+    document.getElementById("host")!.attachShadow({ mode: "open" }).innerHTML = `<button>Shadow</button><slot></slot>`;
+    expect(ariaSnapshot(document.body).map((n) => n.name)).toEqual(["Shadow", "Light"]);
+    expect(queryByRole(document.body, "button", { name: "Shadow" })).toHaveLength(1);
+    document.body.innerHTML = "";
+  });
+
+  it("caps the snapshot at 2000 nodes (S-06)", () => {
+    const page = root(Array.from({ length: 2001 }, () => `<button>b</button>`).join(""));
+    expect(ariaSnapshot(page)).toHaveLength(2000);
+  });
+});
+
+describe("composed walk allocation (round 3, #177)", () => {
+  it("a root with a billion children costs one cursor, not a billion pushes: only visited children are ever read", () => {
+    const reads: number[] = [];
+    const kids = new Proxy(
+      {},
+      {
+        get(_t, key) {
+          if (key === "length") return 1_000_000_000;
+          const i = typeof key === "string" ? Number(key) : NaN;
+          if (!Number.isInteger(i)) return undefined;
+          reads.push(i);
+          const b = document.createElement("button");
+          b.textContent = `b${i}`;
+          return b;
+        },
+      },
+    ) as unknown as HTMLCollection;
+    const root = { children: kids } as unknown as Element;
+    const nodes = ariaSnapshot(root);
+    expect(nodes.length).toBe(SNAPSHOT_NODE_CAP);
+    // Bounded by what was visited — never the declared width.
+    expect(reads.length).toBeLessThan(SNAPSHOT_NODE_CAP + 10);
+  });
+
+  it("queryByRole streams the same bounded walk: a billion-child root yields at most SNAPSHOT_VISIT_BUDGET matches after at most budget+1 reads", () => {
+    const reads: number[] = [];
+    const kids = new Proxy(
+      {},
+      {
+        get(_t, key) {
+          if (key === "length") return 1_000_000_000;
+          const i = typeof key === "string" ? Number(key) : NaN;
+          if (!Number.isInteger(i)) return undefined;
+          reads.push(i);
+          if (reads.length > SNAPSHOT_VISIT_BUDGET + 1) throw new Error(`read past the budget: ${reads.length} reads`);
+          return document.createElement("button");
+        },
+      },
+    ) as unknown as HTMLCollection;
+    const root = { children: kids } as unknown as Element;
+    expect(queryByRole(root, "button")).toHaveLength(SNAPSHOT_VISIT_BUDGET);
+    expect(reads.length).toBeLessThanOrEqual(SNAPSHOT_VISIT_BUDGET + 1);
   });
 });

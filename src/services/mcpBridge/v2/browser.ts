@@ -39,6 +39,25 @@ export {
   handleBrowserWorkflowCancel,
 } from "./browserWorkflow";
 export { handleBrowserWorkflowRecord } from "./browserRecord";
+export { handleBrowserClose } from "./browserClose";
+
+/**
+ * The snapshot script returns `{nodes, truncated, unreachable}` (audit S-05/S-06:
+ * bounded, and honest about closed shadow roots and frames it cannot walk). The
+ * response keeps `snapshot` as the node array the model already knows and adds
+ * the two facts beside it; a bare array (an older script) passes through as-is.
+ */
+function snapshotData(parsed: unknown): Record<string, unknown> {
+  if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed) && "nodes" in parsed) {
+    const p = parsed as { nodes: unknown; truncated?: unknown; unreachable?: unknown };
+    return {
+      snapshot: p.nodes,
+      ...(p.truncated === true ? { truncated: true } : {}),
+      ...(typeof p.unreachable === "object" && p.unreachable !== null ? { unreachable: p.unreachable } : {}),
+    };
+  }
+  return { snapshot: parsed };
+}
 
 /**
  * `vmark.browser.read` — ARIA snapshot (with a stable `ref` per node) of the
@@ -58,7 +77,7 @@ export async function handleBrowserRead(id: string, args: Record<string, unknown
         }),
       // Redacted at the trust boundary: credentials in a URL are the one thing about
       // a page the AI could not read out of the DOM anyway (audit, High).
-      data: (tab, raw) => ({ url: urlForAgent(tab.url), snapshot: parseEvalResult(raw) }),
+      data: (tab, raw) => ({ url: urlForAgent(tab.url), ...snapshotData(parseEvalResult(raw)) }),
     }),
   );
 }

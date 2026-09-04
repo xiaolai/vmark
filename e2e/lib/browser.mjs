@@ -20,6 +20,7 @@
 
 import { evalJs } from "./bridge.mjs";
 import { poll } from "./vmark.mjs";
+import { drainPendingApprovals } from "./browserApproval.mjs";
 import {
   patchPersistedSettings,
   readPersistedSettingsSection,
@@ -89,12 +90,23 @@ export async function withBrowserEnabled(client, opts, fn) {
     // where the feature is off by default — which is exactly why it survived. The
     // fix is to own what we created rather than to lean on a side effect of the
     // toggle.
+    //
+    // Closed THROUGH THE APP (`__VMARK_DEBUG__.closeBrowserTab` → tabStore.closeTab →
+    // tabRemovalBus → destroyBrowserNativeView), never by a bare `browser_destroy`.
+    // The bare command tears the native view out from under the frontend: the tab
+    // record, the omnibox entry and every approval prompt raised against the page
+    // stay behind, so the next journey inherits ghost page tabs and a queue of
+    // prompts for tabs Rust no longer knows ("one-shot mint refused … unknown
+    // tab"). Seen live: two later journeys failed on a leaked click prompt from a
+    // third. `browser_destroy` remains the fallback for a native view the frontend
+    // never recorded.
     if (preexistingNativeTabs) {
       const leaked = (await nativeBrowserTabIds(client).catch(() => [])).filter(
         (id) => !preexistingNativeTabs.includes(id)
       );
       for (const id of leaked) {
-        await invokeBrowserCommand(client, "browser_destroy", id).catch(() => {});
+        const closed = await closeBrowserTabViaApp(client, id).catch(() => false);
+        if (!closed) await invokeBrowserCommand(client, "browser_destroy", id).catch(() => {});
       }
     }
 
@@ -114,9 +126,62 @@ export async function withBrowserEnabled(client, opts, fn) {
     // Surface teardown failures instead of swallowing them. A journey that leaves
     // the app dirty is not a pass — but never mask the journey's OWN error, which
     // is the more informative one, so only throw when it succeeded.
+    // No approval prompt may outlive the journey. One that does belongs to a tab
+    // this journey created and is a leak of ITS making — deny it here so the next
+    // journey starts clean, and report it against this journey, not the next.
+    const leakedPrompts = await drainPendingApprovals(client).catch((e) => {
+      teardownErrors.push(`approval queue did not drain: ${String(e?.message ?? e)}`);
+      return 0;
+    });
+    if (leakedPrompts > 0) {
+      teardownErrors.push(`${leakedPrompts} approval prompt(s) were still pending after the journey`);
+    }
+
     if (teardownErrors.length && !failed) {
       throw new Error(`journey passed but teardown failed: ${teardownErrors.join("; ")}`);
     }
+  }
+}
+
+/**
+ * Close a browser tab the way the app does — through the tab store — so the
+ * whole lifecycle runs: prompts withdrawn, omnibox entry dropped, native view
+ * destroyed. Resolves false when the frontend has no such tab (nothing closed).
+ */
+export async function closeBrowserTabViaApp(client, tabId) {
+  const r = await evalJs(
+    client,
+    `(async () => {
+       const close = window.__VMARK_DEBUG__ && window.__VMARK_DEBUG__.closeBrowserTab;
+       if (typeof close !== "function") return "NO_SEAM";
+       try { return (await close(${JSON.stringify(tabId)})) ? "CLOSED" : "UNKNOWN"; }
+       catch (e) { return "ERR " + (e && e.message ? e.message : String(e)); }
+     })()`
+  );
+  if (r === "NO_SEAM") {
+    throw new Error("__VMARK_DEBUG__.closeBrowserTab is absent — the app is not a DEV build");
+  }
+  if (r.startsWith("ERR ")) throw new Error(`closeBrowserTab failed: ${r}`);
+  return r === "CLOSED";
+}
+
+/**
+ * Run `fn` with the embedded browser DISABLED, restoring the prior setting.
+ *
+ * The browser ships ON by default (maintainer decision 2026-08-15), so a journey
+ * that asserts the feature gate must create the OFF state itself and put things
+ * back — exactly the discipline `withBrowserEnabled` applies in the other
+ * direction. Disabling closes every browser tab and revokes every site permission
+ * (browserAiPolicySync), so the caller should expect a clean browser slate.
+ */
+export async function withBrowserDisabled(client, fn) {
+  const before = (await readBrowserSettings(client)) ?? {};
+  const snapshot = { enabled: before.enabled ?? true };
+  await patchBrowserSettings(client, { enabled: false });
+  try {
+    return await fn();
+  } finally {
+    await patchBrowserSettings(client, snapshot).catch(() => {});
   }
 }
 

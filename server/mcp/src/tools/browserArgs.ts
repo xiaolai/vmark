@@ -1,5 +1,5 @@
 /**
- * Argument guards for the `browser` tool.
+ * Argument guards for the two embedded-browser tools.
  *
  * Split out of `browser.ts` so the tool file stays dispatch-only, and so the
  * two guards the 2026-07-28 round-2 audit flagged can be unit-tested directly:
@@ -13,9 +13,11 @@
  *     proceeded WITHOUT the persistent context the caller asked for: the agent
  *     believes it is reusing a login and is quietly anonymous instead.
  *
- * @coordinates-with tools/browser.ts (sole consumer)
- * @coordinates-with src/hooks/mcpBridge/v2/browserPower.ts (the app-side twin
- *   of MAX_SCRIPT_BYTES — keep the number in sync)
+ * @coordinates-with tools/browser.ts, tools/browserRead.ts (the schemas: scriptSchema, MAX_WAIT_MS)
+ * @coordinates-with tools/browserActions.tab.ts (readTimeout, readProfile, withinScriptBytes)
+ * @coordinates-with tools/browserReadActions.ts (readTimeout)
+ * @coordinates-with src/services/mcpBridge/v2/browserHelpers.ts (the app-side twins
+ *   of MAX_SCRIPT_BYTES and MAX_WAIT_MS — keep the numbers in sync)
  */
 
 import { z } from 'zod';
@@ -24,6 +26,15 @@ import type { ArgCheck } from './toolArgs.js';
 
 /** Cap on a caller-supplied script / injected CSS, in UTF-8 BYTES. */
 export const MAX_SCRIPT_BYTES = 64 * 1024;
+
+/**
+ * The longest wait a browser action accepts, in ms — the app-side twin is
+ * `MAX_WAIT_MS` in `src/services/mcpBridge/v2/browserHelpers.ts`. It sits below
+ * the bridge's first 10 s deadline on purpose: a wait that outlived that
+ * deadline tripped the bridge's wake-and-retry recovery on every slow page
+ * (audit 2026-09-03). Keep the two numbers in sync.
+ */
+export const MAX_WAIT_MS = 9_000;
 
 /** Named persistent contexts are filesystem-safe and short. */
 const PROFILE_PATTERN = /^[A-Za-z0-9._-]{1,64}$/;
@@ -50,13 +61,23 @@ export function scriptSchema(description: string) {
     .describe(description);
 }
 
-/** A wait bound: an integer 1..12000 ms, or undefined when omitted. */
-export function boundedTimeout(value: unknown): number | undefined {
-  if (value === undefined) return undefined;
-  if (typeof value !== 'number' || !Number.isFinite(value) || !Number.isInteger(value)) {
-    return undefined;
+/**
+ * An optional wait bound. Absent stays absent (the app applies its default);
+ * anything supplied must be an integer 1..MAX_WAIT_MS.
+ *
+ * Answers an `ArgCheck` so that "omitted" and "invalid" are different values
+ * and the refusal text has ONE home. Its predecessor answered
+ * `number | undefined` for both, so every caller re-derived the difference and
+ * re-spelled the refusal — four copies of one contract across open, navigate,
+ * wait and wait_for (audit row #176).
+ */
+export function readTimeout(value: unknown): ArgCheck<number | undefined> {
+  if (value === undefined) return { ok: true, value: undefined };
+  // `Number.isInteger` is false for NaN and ±Infinity, so no separate finiteness test.
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > MAX_WAIT_MS) {
+    return { ok: false, error: `timeoutMs must be an integer from 1 to ${MAX_WAIT_MS}` };
   }
-  return value >= 1 && value <= 12_000 ? value : undefined;
+  return { ok: true, value };
 }
 
 /**

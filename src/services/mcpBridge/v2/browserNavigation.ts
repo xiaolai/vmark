@@ -1,22 +1,44 @@
+/**
+ * MCP v2 `vmark.browser.open` / `navigate` / `wait` handlers.
+ *
+ * Audit 2026-09-03 changes, each with its mechanism:
+ *  - ONE wait budget per request (`MAX_WAIT_MS`, below the bridge's first
+ *    deadline): the native-view wait and the navigation wait draw on the same
+ *    deadline, so two stacked waits can no longer outlive the transport (timing).
+ *  - `wait` no longer focuses the window or switches the active tab (L-03): it
+ *    is advertised read-only, and a client that auto-approves read-only tools
+ *    must not be able to yank the user's foreground through it. It answers from
+ *    the broker and the mirror; a tab with no native view yet reports its state.
+ *  - Shared posture (L-02): an `open` refused pending destination approval keeps
+ *    its tab RECORD (the prompt is about that page) and tells the client to retry
+ *    with `navigate {tabId}`; a fresh `open` would create a new tab the tab-bound
+ *    one-shot cannot match. That `navigate` on a tab whose native view does not
+ *    exist yet completes the CREATION (which consumes the one-shot) and waits on
+ *    the creation ticket instead of issuing a second navigation that would demand
+ *    a second approval. Denying the prompt discards the never-loaded tab
+ *    (`browserTabLifecycle`).
+ *
+ * `open` lives in `browserOpen.ts` and the shared tail in `browserNavigationShared.ts`
+ * (file-size gate); this file is `navigate` and `wait`.
+ *
+ * @coordinates-with services/mcpBridge/v2/browserHelpers.ts — MAX_WAIT_MS, tab resolution
+ * @coordinates-with services/mcpBridge/v2/browserNavigationShared.ts — the shared tail
+ * @coordinates-with services/browser/browserNativeViews.ts — native view creation
+ * @coordinates-with services/browser/browserEventBroker.ts — navigation tickets
+ * @module services/mcpBridge/v2/browserNavigation
+ */
 import { invoke } from "@tauri-apps/api/core";
 import { respond } from "@/services/mcpBridge/utils";
 import { wrapHandler } from "./wrapHandler";
-import { useTabStore } from "@/stores/tabStore";
-import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
-import { MAX_PENDING_APPROVALS, useBrowserApprovalStore } from "@/stores/browserApprovalStore";
-import { useBrowserSessionStore } from "@/stores/browserSessionStore";
-import { originForAgent } from "@/lib/browser/url";
-import { isOriginGranted } from "@/lib/browser/origin/originGuard";
 import {
   ensureBrowserNativeView,
+  hasBrowserNativeView,
   waitForBrowserNativeView,
-} from "@/components/Browser/useBrowserNativeView";
+} from "@/services/browser/browserNativeViews";
 import { browserEventBroker } from "@/services/browser/browserEventBroker";
-import { browserFailureToken, needsNavigationApproval } from "./browserFailure";
+import { needsNavigationApproval } from "./browserFailure";
 import {
-  aiMode,
   activateBrowserTarget,
-  browserEnabled,
   ensureBrokerStarted,
   readAiState,
   readTabIdArg,
@@ -24,235 +46,91 @@ import {
   resolveBrowserTab,
   validateNonEmptyString,
   validateTimeout,
+  type BrowserTarget,
 } from "./browserHelpers";
-import { probeGate } from "./browserGateProbe";
+import { browserGate } from "./browserAccess";
+import { readOperationArgs } from "./readOperationArgs";
+import {
+  failure,
+  failureFrom,
+  confirmNavigationOneShot,
+  finishCreation,
+  remaining,
+  requestNavigationApproval,
+  waitForNavigation,
+  type NavigationResult,
+} from "./browserNavigationShared";
 
-type NavigationResult = { tabId: string; navigationId: string };
-
-function failure(id: string, error: string, data?: unknown): Promise<void> {
-  return respond({ id, success: false, error, ...(data === undefined ? {} : { data }) });
-}
-
-function requestNavigationApproval(
-  id: string,
-  tabId: string,
-  url: string,
-  generation: number,
-): Promise<void> {
-  const queued = useBrowserApprovalStore
-    .getState()
-    .requestApproval(id, url, "navigate", undefined, tabId, generation);
-  // No prompt exists to approve: a needsApproval envelope would be a lie.
-  if (queued === "overloaded" || queued === "rejected") {
-    return failure(id, "approval queue is full — resolve or deny pending approvals, then retry");
-  }
-  return failure(id, "APPROVAL_REQUIRED", {
-    needsApproval: true,
-    operation: "navigate",
-    url: redactUrl(url),
-    tabId,
-    generation,
-  });
-}
-
-function discardUncreatedAiTab(tabId: string, windowLabel: string): void {
-  useTabStore.getState().detachTab(windowLabel, tabId);
-  void invoke("browser_destroy", { tabId }).catch(() => {});
-}
-
-function eventData(result: Awaited<ReturnType<typeof browserEventBroker.wait>>, tabId: string) {
-  if (result.kind === "loaded") {
-    return {
-      tabId,
-      url: redactUrl(result.url),
-      title: result.title,
-      navigationId: result.navigationId,
-      generation: result.generation,
-      loading: false,
-    };
-  }
-  return { tabId, navigationId: "navigationId" in result ? result.navigationId : undefined, loading: false };
-}
-
-async function waitForNavigation(
-  id: string,
-  tabId: string,
-  navigationId: string,
-  timeoutMs: number,
-): Promise<void> {
-  const result = await browserEventBroker.wait(tabId, navigationId, timeoutMs);
-  if (result.kind === "loaded") {
-    // Persist the committed generation (and url) onto the tab record. `open`
-    // waits on the broker for the initial load, whose event is consumed here
-    // before BrowserSurface mounts its own nav-event listener — so without this
-    // the tab keeps `generation: undefined`, resolveBrowserTab defaults it to 0,
-    // and the driver rejects the first read/act as a stale command until an
-    // unrelated navigation happens to sync it. The store ignores an older
-    // generation, so this never regresses a tab BrowserSurface already advanced.
-    useTabStore.getState().updateBrowserTab(tabId, {
-      url: result.url,
-      generation: result.generation,
-    });
-    // Advisory gate verdict (WI-NB2.2): best-effort, absent for ordinary pages
-    // and on any probe failure — a gate must never degrade a loaded result.
-    const gate = await probeGate(tabId, result.generation);
-    await respond({
-      id,
-      success: true,
-      data: { ...eventData(result, tabId), ...(gate ? { gate } : {}) },
-    });
-  } else if (result.kind === "failed") {
-    await failure(id, "NAVIGATION_FAILED", {
-      ...eventData(result, tabId),
-      error: result.message,
-    });
-  } else if (result.kind === "superseded") {
-    await failure(id, "NAVIGATION_SUPERSEDED", eventData(result, tabId));
-  } else if (result.kind === "timeout") {
-    await failure(id, "TIMEOUT", eventData(result, tabId));
-  } else if (result.kind === "disabled") {
-    await failure(id, "BROWSER_DISABLED", eventData(result, tabId));
-  } else if (result.kind === "unmounted") {
-    await failure(id, "WINDOW_UNAVAILABLE", eventData(result, tabId));
-  } else {
-    await failure(id, "TAB_NOT_FOUND");
-  }
-}
-
-export async function handleBrowserOpen(id: string, args: Record<string, unknown>): Promise<void> {
-  return wrapHandler(id, async () => {
-    if (!browserEnabled()) return failure(id, "BROWSER_DISABLED");
-    if (!validateNonEmptyString(args.url)) return failure(id, "INVALID_URL");
-    const timeoutMs = validateTimeout(args.timeoutMs);
-    if (timeoutMs === null) return failure(id, "INVALID_TIMEOUT");
-    await ensureBrokerStarted();
-    const windowLabel = getCurrentWindowLabel();
-    // Optional named profile (WI-P6.1): AI-sandbox persistent store, safe charset.
-    // A profile that is PRESENT but malformed — including an empty/whitespace string —
-    // is rejected, never silently downgraded to an unnamed tab (a different posture
-    // than asked for). Only an absent profile means "no profile" (sec review WI-P6.1
-    // Validation, re-verify round 2). The Rust side validates again.
-    let profile: string | undefined;
-    if (args.profile != null) {
-      const raw = typeof args.profile === "string" ? args.profile.trim() : "";
-      if (!/^[A-Za-z0-9._-]{1,64}$/.test(raw)) return failure(id, "INVALID_PROFILE");
-      profile = raw;
-    }
-    // H1: opening a named profile needs a FRESH per-use approval — without a
-    // single-use (profile, origin) grant, raise the prompt and DON'T create the tab,
-    // so a guessed profile can't silently open authenticated content. The driver
-    // (browser_ai_create) re-enforces this authoritatively.
-    if (profile) {
-      const targetUrl = String(args.url);
-      const approvals = useBrowserApprovalStore;
-      const grantIdx = approvals
-        .getState()
-        .profileOpens.findIndex((g) => g.profile === profile && isOriginGranted(targetUrl, [g.originPattern]));
-      if (grantIdx === -1) {
-        // Queue the prompt — but honor the same dedup + cap as `requestApproval`, so
-        // an untrusted client cannot grow `pending` without bound by flooding
-        // profile-open requests (sec review WI-P6.1 regression). Over-cap requests
-        // are dropped (fail-safe: no tab, no grant).
-        approvals.setState((s) =>
-          s.pending.some((p) => p.id === id) || s.pending.length >= MAX_PENDING_APPROVALS
-            ? s
-            : {
-                pending: [
-                  ...s.pending,
-                  { id, targetUrl, operation: "session", tabId: "", generation: 0, profile },
-                ],
-              },
-        );
-        const origin = originForAgent(targetUrl);
-        await respond({
-          id,
-          success: false,
-          error: `approval required: open profile '${profile}' on ${origin}`,
-          data: { needsApproval: true, operation: "session", action: "open-profile", profile, url: origin },
-        });
-        return;
-      }
-      approvals.setState((s) => ({ profileOpens: s.profileOpens.filter((_, i) => i !== grantIdx) }));
-    }
-    const tabId = useTabStore.getState().createBrowserTab(windowLabel, args.url, undefined, aiMode());
-    try {
-      await ensureBrowserNativeView(tabId, args.url, aiMode(), profile);
-      if (profile) useBrowserSessionStore.getState().recordProfileUse(profile, Date.now());
-    } catch (error) {
-      if (needsNavigationApproval(error)) {
-        await requestNavigationApproval(id, tabId, args.url, 0);
-        return;
-      }
-      discardUncreatedAiTab(tabId, windowLabel);
-      await failure(id, browserFailureToken(error));
-      return;
-    }
-    let state: Record<string, unknown>;
-    try {
-      state = await readAiState(tabId);
-    } catch (error) {
-      discardUncreatedAiTab(tabId, windowLabel);
-      await failure(id, browserFailureToken(error));
-      return;
-    }
-    const navigationId = typeof state.navigationId === "string" ? state.navigationId : undefined;
-    if (!navigationId) {
-      discardUncreatedAiTab(tabId, windowLabel);
-      await failure(id, "WINDOW_UNAVAILABLE");
-      return;
-    }
-    const ticket: NavigationResult = { tabId, navigationId };
-    await waitForNavigation(id, ticket.tabId, ticket.navigationId, timeoutMs);
-  });
-}
+export { handleBrowserOpen } from "./browserOpen";
 
 export async function handleBrowserNavigate(id: string, args: Record<string, unknown>): Promise<void> {
   return wrapHandler(id, async () => {
-    if (!browserEnabled()) return failure(id, "BROWSER_DISABLED");
-    if (!validateNonEmptyString(args.url)) return failure(id, "INVALID_URL");
-    const timeoutMs = validateTimeout(args.timeoutMs);
+    if (!(await browserGate(id))) return;
+    const wire = readOperationArgs("vmark.browser.navigate", args);
+    if (!validateNonEmptyString(wire.url)) return failure(id, "INVALID_URL");
+    const url = wire.url;
+    const timeoutMs = validateTimeout(wire.timeoutMs);
     if (timeoutMs === null) return failure(id, "INVALID_TIMEOUT");
+    const deadline = Date.now() + timeoutMs;
     const tabIdArg = readTabIdArg(args);
     if (tabIdArg === null) return failure(id, "INVALID_TAB");
     const target = resolveBrowserTab(tabIdArg ?? undefined);
-    if (!target) return failure(id, tabIdArg === undefined ? "TAB_NOT_FOUND" : "TAB_NOT_FOUND");
+    if (!target) return failure(id, "TAB_NOT_FOUND");
     if (target.automationMode === "human") return failure(id, "TAB_NOT_AI_OWNED");
+    // A tab whose creation is still owed (an `open` that waited for the user):
+    // creating it IS the navigation the user approved.
+    const creationOwed = !hasBrowserNativeView(target.tabId);
+    // "Allow once" for THIS destination: spend the mirror's copy and wait for the
+    // driver to hold it before the driver is asked, or a fast retry is refused.
+    if (!(await confirmNavigationOneShot(target, url))) {
+      return failure(id, "the driver refused the 'navigate' authorization — the page may have navigated; retry to be prompted again");
+    }
+    let active: BrowserTarget;
     try {
-      await activateBrowserTarget(target);
-      await ensureBrowserNativeView(target.tabId, target.url, target.automationMode);
-      await waitForBrowserNativeView(target.tabId, timeoutMs);
+      // The page must be visible while the AI drives it (browser.md, co-driving).
+      const fresh = await activateBrowserTarget(target);
+      if (!fresh) return failure(id, "TAB_NOT_FOUND");
+      active = fresh;
+      await ensureBrowserNativeView(active.tabId, creationOwed ? url : active.url, active.automationMode);
+      await waitForBrowserNativeView(active.tabId, remaining(deadline));
     } catch (error) {
       if (needsNavigationApproval(error)) {
-        await requestNavigationApproval(id, target.tabId, target.url, target.generation);
+        await requestNavigationApproval(id, target.tabId, url, target.generation, "navigate");
         return;
       }
-      return failure(id, "WINDOW_UNAVAILABLE");
+      return failureFrom(id, error, "WINDOW_UNAVAILABLE");
     }
     await ensureBrokerStarted();
+    if (creationOwed) {
+      await finishCreation(id, active.tabId, deadline);
+      return;
+    }
     let ticket: NavigationResult;
     try {
       ticket = await invoke<NavigationResult>("browser_ai_navigate", {
-        tabId: target.tabId,
-        url: args.url,
+        tabId: active.tabId,
+        url,
       });
     } catch (error) {
       if (needsNavigationApproval(error)) {
-        await requestNavigationApproval(id, target.tabId, args.url, target.generation);
+        await requestNavigationApproval(id, target.tabId, url, target.generation, "navigate");
         return;
       }
-      await failure(id, browserFailureToken(error));
+      await failureFrom(id, error);
       return;
     }
-    await waitForNavigation(id, ticket.tabId, ticket.navigationId, timeoutMs);
+    await waitForNavigation(id, ticket.tabId, ticket.navigationId, deadline);
   });
 }
 
 export async function handleBrowserWait(id: string, args: Record<string, unknown>): Promise<void> {
   return wrapHandler(id, async () => {
-    if (!browserEnabled()) return failure(id, "BROWSER_DISABLED");
-    const timeoutMs = validateTimeout(args.timeoutMs);
+    if (!(await browserGate(id))) return;
+    const wire = readOperationArgs("vmark.browser.wait", args);
+    const timeoutMs = validateTimeout(wire.timeoutMs);
     if (timeoutMs === null) return failure(id, "INVALID_TIMEOUT");
-    if (args.navigationId !== undefined && !validateNonEmptyString(args.navigationId)) {
+    const deadline = Date.now() + timeoutMs;
+    if (wire.navigationId !== undefined && !validateNonEmptyString(wire.navigationId)) {
       return failure(id, "INVALID_NAVIGATION");
     }
     const tabIdArg = readTabIdArg(args);
@@ -260,26 +138,26 @@ export async function handleBrowserWait(id: string, args: Record<string, unknown
     const target = resolveBrowserTab(tabIdArg ?? undefined);
     if (!target) return failure(id, "TAB_NOT_FOUND");
     if (target.automationMode === "human") return failure(id, "TAB_NOT_AI_OWNED");
-    try {
-      await activateBrowserTarget(target);
-      await ensureBrowserNativeView(target.tabId, target.url, target.automationMode);
-      await waitForBrowserNativeView(target.tabId, timeoutMs);
-    } catch (error) {
-      if (needsNavigationApproval(error)) {
-        await requestNavigationApproval(id, target.tabId, target.url, target.generation);
-        return;
-      }
-      return failure(id, "WINDOW_UNAVAILABLE");
-    }
     await ensureBrokerStarted();
-    const navigationId = typeof args.navigationId === "string"
-      ? args.navigationId
-      : browserEventBroker.latestNavigationId(target.tabId);
+    // Observe only: no focus change, no activation, no view creation. A tab whose
+    // native view does not exist yet has nothing in flight to wait for.
+    if (!hasBrowserNativeView(target.tabId)) {
+      await respond({
+        id,
+        success: true,
+        data: { tabId: target.tabId, url: redactUrl(target.url), generation: target.generation, loading: false },
+      });
+      return;
+    }
+    const navigationId =
+      typeof wire.navigationId === "string"
+        ? wire.navigationId
+        : browserEventBroker.latestNavigationId(target.tabId);
     if (!navigationId) {
       const state = await readAiState(target.tabId);
       await respond({ id, success: true, data: { ...state, url: redactUrl(target.url), loading: false } });
       return;
     }
-    await waitForNavigation(id, target.tabId, navigationId, timeoutMs);
+    await waitForNavigation(id, target.tabId, navigationId, deadline);
   });
 }

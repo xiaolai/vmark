@@ -164,18 +164,17 @@ describe("buildEditorKeymapBindings — inner callback coverage", () => {
     }
   });
 
-  it("Mod-y binding exists on non-mac platforms (covers line 325)", () => {
-    // On macOS in test environment, isMacPlatform() checks navigator.platform.
-    // In jsdom, navigator.platform is "" so isMacPlatform() returns false,
-    // meaning the Mod-y binding SHOULD be registered.
-    const bindings = buildEditorKeymapBindings();
-    // If we're not on mac (which jsdom simulates), Mod-y should exist
-    if (bindings["Mod-y"]) {
-      const result = bindings["Mod-y"]({} as never, undefined, undefined);
-      expect(typeof result).toBe("boolean");
+  it("Mod-y binding is absent on macOS and present elsewhere (covers line 325)", () => {
+    // The test tier models macOS by default (src/test/setup.ts).
+    expect(buildEditorKeymapBindings()["Mod-y"]).toBeUndefined();
+    const original = navigator.platform;
+    Object.defineProperty(navigator, "platform", { value: "Linux x86_64", configurable: true });
+    try {
+      const bindings = buildEditorKeymapBindings();
+      expect(bindings["Mod-y"]).toBeTypeOf("function");
+    } finally {
+      Object.defineProperty(navigator, "platform", { value: original, configurable: true });
     }
-    // If on mac, just verify it doesn't exist — either way is valid
-    // The important thing is the test exercises the !isMacPlatform() branch
   });
 
   it("plugin handleKeyDown invokes handler and returns result (covers line 346)", () => {
@@ -393,12 +392,18 @@ describe("buildEditorKeymapBindings — inner callback coverage", () => {
   });
 
   it("Mod-y binding exists and works on non-mac platform (covers lines 323-327)", () => {
-    const bindings = buildEditorKeymapBindings();
-    // jsdom reports navigator.platform as "" which makes isMacPlatform() return false
-    // so Mod-y SHOULD be registered
-    expect(bindings["Mod-y"]).toBeTypeOf("function");
-    const result = bindings["Mod-y"]({} as never, undefined, undefined);
-    expect(typeof result).toBe("boolean");
+    // The test tier models macOS by default (src/test/setup.ts); a non-mac
+    // expectation says so explicitly rather than relying on the host.
+    const original = navigator.platform;
+    Object.defineProperty(navigator, "platform", { value: "Win32", configurable: true });
+    try {
+      const bindings = buildEditorKeymapBindings();
+      expect(bindings["Mod-y"]).toBeTypeOf("function");
+      const result = bindings["Mod-y"]({} as never, undefined, undefined);
+      expect(typeof result).toBe("boolean");
+    } finally {
+      Object.defineProperty(navigator, "platform", { value: original, configurable: true });
+    }
   });
 
   it("blockquote binding delegates only once per invocation", () => {

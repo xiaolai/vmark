@@ -99,6 +99,27 @@
   word-break: break-word;
 }
 
+/* An answer that did not reach the page (audit 2026-09-03 round 3, #164). Painted
+   inside the dialog, which stays up: the user reads why, and clicks again. */
+.browser-dialog-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-1);
+  margin: 0;
+  max-width: 576px;
+  text-align: center;
+  font-size: var(--font-size-sm);
+  color: var(--error-color);
+}
+
+/* The driver's own words — mono, like .browser-error-detail: a diagnostic string. */
+.browser-dialog-error-detail {
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  word-break: break-word;
+}
+
 .browser-dialog-actions {
   display: flex;
   gap: var(--spacing-2);
@@ -186,4 +207,33 @@
 .browser-error-retry:focus-visible {
   outline: 2px solid var(--primary-color);
   outline-offset: 2px;
+}
+
+/* A blocked popup (audit 2026-09-03 X-03): a bar along the top of the rect — the page
+   stays live underneath; this only names the URL the page wanted and offers it as a
+   new tab. Tokens throughout; the bar sits above the native view via the viewport's
+   own stacking, like the other overlays. */
+.browser-popup-notice {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: var(--z-panel-overlay);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  padding: var(--spacing-1) var(--spacing-2);
+  border-bottom: var(--border-thin) solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-color);
+  font-family: var(--font-ui);
+  font-size: var(--font-size-sm);
+}
+
+.browser-popup-notice-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

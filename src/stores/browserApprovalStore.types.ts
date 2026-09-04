@@ -43,6 +43,14 @@ export interface PendingApproval {
    * binds role+name instead). (Security review P5, High #1.)
    */
   script?: string;
+  /**
+   * Human-readable form of a bound payload for the prompt (audit 2026-09-03 A-05).
+   * A `type` binds the text it will enter and a `key` the key it will press by
+   * hashing the BUILT script; the script itself is not something to show a user,
+   * so the handler supplies this one-line summary alongside it. Display only —
+   * the binding is `script`.
+   */
+  payloadSummary?: string;
   /** For a profile-OPEN approval (WI-P6.1 H1): the named profile the AI wants to
    *  open. Present only for that approval kind; on "Allow once" it mints a
    *  ProfileOpenApproval instead of a tab-bound one-shot. */
@@ -51,6 +59,14 @@ export interface PendingApproval {
    *  run's prompts, so `withdrawByRun` can drop exactly them when the run ends,
    *  closing the late-Allow race. Absent for a one-off act's prompt. */
   runId?: string;
+  /**
+   * Why the last attach attempt on this prompt failed, as an i18n KEY — never
+   * English prose (audit 2026-09-03 #153). Only an `attach` prompt carries it: the
+   * attach IPC can fail, and the prompt then stays raised so the user can retry or
+   * deny; the dialog renders it as a live alert. Set by `settleAttach`, cleared by
+   * the next decision on the prompt (`beginAttach`).
+   */
+  attachError?: string;
 }
 
 /** How the user (or a policy) resolved a pending approval. */
@@ -61,6 +77,10 @@ export interface OneShotApproval {
   /** Canonical bare origin pattern the approval was granted on. */
   originPattern: string;
   operation: string;
+  /** The workflow run whose prompt minted this, so the run's end can withdraw an
+   *  unspent one-shot with its pending prompts — "Allow once" clicked as the run
+   *  was cancelled used to leave a consumable one-shot behind for any later request. */
+  runId?: string;
   /** The generation the user approved against — see `PendingApproval.generation`. */
   generation: number;
   /**

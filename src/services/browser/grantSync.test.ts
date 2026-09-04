@@ -5,7 +5,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 const invoke = vi.fn();
 vi.mock("@tauri-apps/api/core", () => ({ invoke: (...a: unknown[]) => invoke(...a) }));
 
-import { startGrantSync } from "./grantSync";
+import { startGrantSync, revokeOneShot } from "./grantSync";
 import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
 
 /** Drain the microtask queue so a serialized push settles before we assert. */
@@ -193,6 +193,25 @@ describe("grant-sync ordering and fail-closed retry", () => {
     stop();
   });
 
+  it("a restarted session's first push waits for the previous session's in-flight send (#91)", async () => {
+    const resolvers: Array<() => void> = [];
+    invoke.mockImplementation(() => new Promise<void>((resolve) => resolvers.push(() => resolve())));
+    useBrowserApprovalStore.getState().grant("https://a.com", ["click"]);
+    const stopA = startGrantSync(); // invoke #1 in flight: the permissive snapshot
+    expect(invoke).toHaveBeenCalledTimes(1);
+    stopA();
+    useBrowserApprovalStore.getState().revoke("https://a.com");
+    const stopB = startGrantSync(); // the revocation — must not overtake #1
+    await flush();
+    expect(invoke).toHaveBeenCalledTimes(1);
+    resolvers[0]();
+    await flush();
+    expect(invoke).toHaveBeenCalledTimes(2);
+    expect(invoke).toHaveBeenLastCalledWith("browser_set_grants", { grants: [] });
+    resolvers[1]?.();
+    stopB();
+  });
+
   it("retries a failed grant sync rather than silently abandoning it (fail-closed)", async () => {
     let calls = 0;
     invoke.mockImplementation(() => {
@@ -200,14 +219,22 @@ describe("grant-sync ordering and fail-closed retry", () => {
       return Promise.reject(new Error("driver down"));
     });
 
-    const stop = startGrantSync();
-    // Let the bounded retries flush.
-    for (let i = 0; i < 12; i += 1) await Promise.resolve();
-    stop();
-
-    // A single one-and-done push would leave the driver on stale (permissive) state
-    // after a revocation. The syncer retries before giving up.
-    expect(calls).toBeGreaterThan(1);
+    vi.useFakeTimers();
+    try {
+      const stop = startGrantSync();
+      // Retries are timer-backed (exponential backoff from 100 ms); advance past several.
+      await vi.advanceTimersByTimeAsync(2_000);
+      stop();
+      // A single one-and-done push would leave the driver on stale (permissive) state
+      // after a revocation. The syncer keeps retrying until it converges or is disposed.
+      expect(calls).toBeGreaterThan(3);
+      const afterStop = calls;
+      await vi.advanceTimersByTimeAsync(20_000);
+      // Disposed: no further attempts.
+      expect(calls).toBe(afterStop);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
@@ -329,5 +356,79 @@ describe("mintOneShotConfirmed (awaitable)", () => {
         script: "1+1",
       }),
     ).resolves.toBe(false);
+  });
+});
+
+// Audit 2026-09-03 A-04 — ONE mint path. The subscription used to fire-and-forget
+// while the workflow executor minted the same approval again to be able to await
+// it, leaving an orphan one-shot in the driver per approved step.
+describe("one mint per approval (audit 2026-09-03 A-04)", () => {
+  it("mintOneShotConfirmed awaits the subscription's own mint instead of minting again", async () => {
+    const { mintOneShotConfirmed, __resetPendingMints } = await import("./grantSync");
+    __resetPendingMints();
+    const stop = startGrantSync();
+    await flush();
+    invoke.mockClear();
+
+    const target = { role: "button", name: "Publish" };
+    useBrowserApprovalStore.getState().requestApproval("p1", "https://a.com/x", "click", target, "tab-1", 2);
+    useBrowserApprovalStore.getState().resolveApproval("p1", "once");
+    const shot = useBrowserApprovalStore.getState().oneShots[0];
+    expect(shot).toBeDefined();
+
+    const ok = await mintOneShotConfirmed(shot);
+    await flush();
+
+    expect(ok).toBe(true);
+    const mints = invoke.mock.calls.filter((c) => c[0] === "browser_add_one_shot");
+    expect(mints).toHaveLength(1);
+    expect(mints[0][1]).toMatchObject({ tabId: "tab-1", generation: 2, operation: "click", target });
+    stop();
+  });
+
+  it("a refused driver mint is reported to the awaiting caller", async () => {
+    const { mintOneShotConfirmed, __resetPendingMints } = await import("./grantSync");
+    __resetPendingMints();
+    invoke.mockImplementation((cmd: string) =>
+      cmd === "browser_add_one_shot" ? Promise.reject(new Error("stale approval")) : Promise.resolve(undefined),
+    );
+    const stop = startGrantSync();
+    await flush();
+    useBrowserApprovalStore.getState().requestApproval("p2", "https://a.com/x", "click", undefined, "tab-1", 2);
+    useBrowserApprovalStore.getState().resolveApproval("p2", "once");
+    const shot = useBrowserApprovalStore.getState().oneShots[0];
+    expect(await mintOneShotConfirmed(shot)).toBe(false);
+    stop();
+  });
+
+  it("without a running subscription the caller mints exactly once itself", async () => {
+    const { mintOneShotConfirmed, __resetPendingMints } = await import("./grantSync");
+    __resetPendingMints();
+    const shot = { tabId: "tab-9", generation: 1, originPattern: "https://a.com", operation: "click" as const };
+    expect(await mintOneShotConfirmed(shot)).toBe(true);
+    expect(invoke.mock.calls.filter((c) => c[0] === "browser_add_one_shot")).toHaveLength(1);
+  });
+});
+
+describe("revokeOneShot (round 3, #124)", () => {
+  it("withdraws the driver's copy by the mint's own identity, target included", async () => {
+    await revokeOneShot({ tabId: "t1", generation: 3, originPattern: "https://a.com", operation: "click", target: { role: "button", name: "Go" } });
+    expect(invoke).toHaveBeenCalledWith("browser_revoke_one_shot", {
+      tabId: "t1",
+      generation: 3,
+      originPattern: "https://a.com",
+      operation: "click",
+      target: { role: "button", name: "Go" },
+      evalScript: null,
+    });
+  });
+  it("a payload-bound one-shot is revoked by its script as well", async () => {
+    await revokeOneShot({ tabId: "t1", generation: 3, originPattern: "https://a.com", operation: "type", target: { role: "textbox", name: "T" }, script: "S" });
+    expect(invoke).toHaveBeenLastCalledWith("browser_revoke_one_shot", expect.objectContaining({ operation: "type", evalScript: "S" }));
+  });
+  it("a target-less one-shot sends target: null, and a failed revoke does not throw", async () => {
+    invoke.mockRejectedValueOnce(new Error("gone"));
+    await expect(revokeOneShot({ tabId: "t1", generation: 3, originPattern: "https://a.com", operation: "read" })).resolves.toBeUndefined();
+    expect(invoke).toHaveBeenLastCalledWith("browser_revoke_one_shot", expect.objectContaining({ target: null }));
   });
 });

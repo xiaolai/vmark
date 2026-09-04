@@ -116,3 +116,16 @@ fn a_wrapped_id_cancels_the_dialog_it_displaces_instead_of_dropping_it() {
     respond(same_id, true);
     assert_eq!(*second_calls.borrow(), vec![true]);
 }
+
+// Audit 20260903 — the ownership check in `dialog_respond` needs to know which
+// tab a parked dialog belongs to, and must not learn anything about one that is
+// gone.
+#[test]
+fn tab_of_names_the_parked_dialogs_tab_until_it_is_answered() {
+    let (block, _calls) = recorder();
+    let id = park_confirm("t7".into(), block);
+    assert_eq!(tab_of(id).as_deref(), Some("t7"));
+    assert_eq!(tab_of(id + 1), None, "an id never parked has no tab");
+    respond(id, true);
+    assert_eq!(tab_of(id), None, "an answered dialog is gone");
+}

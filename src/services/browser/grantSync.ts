@@ -16,6 +16,17 @@
  *
  * Default-deny holds if this never runs: the driver starts with an empty set.
  *
+ * Grant sends are ordered across sync sessions, not only within one (round 2, #91):
+ * a restarted session's first push is chained behind whatever the previous session
+ * still has in flight, so a revocation can never be overtaken by an older,
+ * more permissive snapshot.
+ *
+ * It is also the ONE mint path for single-use approvals (audit 2026-09-03 A-04):
+ * the subscription mints each new one-shot and records the promise, and callers
+ * await that mint through `mintOneShotConfirmed` instead of minting a second copy.
+ * The mint/revoke family lives in `oneShotMints.ts` (split for size, round 3) and
+ * is re-exported here so callers keep one import.
+ *
  * @coordinates-with stores/browserApprovalStore.ts — the source of truth for grants
  * @coordinates-with src-tauri browser_set_grants — the driver's mirror
  * @module services/browser/grantSync
@@ -24,127 +35,53 @@
 import { invoke } from "@tauri-apps/api/core";
 import {
   useBrowserApprovalStore,
-  type OneShotApproval,
   type ProfileOpenApproval,
 } from "@/stores/browserApprovalStore";
 import type { StandingGrant } from "@/lib/browser/approval/grants";
 import { browserWarn } from "@/utils/debug";
+import { makeSerializedPusher, type SerializedPusher } from "./serializedPusher";
+import { MAX_PENDING_MINTS, pushOneShot, resetOneShotMints } from "./oneShotMints";
 
-/** How many times a failed grant push is retried before giving up loudly. Bounds
- *  a permanently-unreachable driver from spinning while still healing the common
- *  transient failure — the next legitimate change re-pushes the full state anyway. */
-const MAX_PUSH_ATTEMPTS = 3;
+export { mintOneShotConfirmed, revokeOneShot } from "./oneShotMints";
 
 /**
- * A serialized, coalescing pusher for the full grant snapshot.
- *
- * `browser_set_grants` replaces the driver's whole grant vector, so only the
- * LATEST snapshot matters — but Tauri does not guarantee two concurrently
- * dispatched commands complete in call order. A fire-and-forget push therefore
- * risks an older snapshot landing after a newer revocation, leaving the authority
- * permissive. This runs at most one push at a time and always re-reads the latest
- * desired snapshot, so the driver observes changes in order and converges on the
- * final state. A failed push is retried (bounded) rather than silently abandoned,
- * so a revocation whose sync failed is not left stale.
+ * The grant pusher: the driver must hold exactly the frontend's standing grants.
+ * A shared `makeSerializedPusher` — sends are serialized so an older snapshot
+ * can never land after a newer revocation, only the latest snapshot is sent,
+ * and a failed push is retried with backoff until it converges or the session is
+ * disposed. The bounded three-try version this replaced gave up and left the
+ * driver on a possibly stale (permissive) grant set for the rest of the session.
  */
-function makeGrantPusher(): (grants: StandingGrant[]) => void {
-  let desired: StandingGrant[] | null = null;
-  let running = false;
-  let attempts = 0;
+function makeGrantPusher(): SerializedPusher<StandingGrant[]> {
+  return makeSerializedPusher(
+    sendGrants,
+    (error, attempt) => browserWarn(`grant sync failed (attempt ${attempt}); retrying`, error),
+  );
+}
 
-  async function drain(): Promise<void> {
-    if (running) return; // the running loop will pick up the newer `desired`
-    running = true;
-    try {
-      while (desired !== null) {
-        const snapshot = desired;
-        desired = null;
-        try {
-          await invoke("browser_set_grants", { grants: snapshot });
-          attempts = 0;
-        } catch (error) {
-          browserWarn("grant sync failed; retrying", error);
-          if (desired !== null) {
-            attempts = 0; // a newer snapshot supersedes this one — push that instead
-          } else if (++attempts < MAX_PUSH_ATTEMPTS) {
-            desired = snapshot; // re-queue: never silently abandon a revocation
-          } else {
-            attempts = 0;
-            browserWarn(
-              "grant sync giving up after retries; the driver may hold a stale grant set",
-            );
-          }
-        }
-      }
-    } finally {
-      running = false;
-    }
-  }
+/** Grant sends still in the air, across every sync session in this window. */
+let grantSendsInFlight = 0;
+/** The most recent grant send, settled or not. */
+let grantSendTail: Promise<unknown> = Promise.resolve();
 
-  return (grants) => {
-    desired = grants;
-    void drain();
+/**
+ * One grant send, ordered ACROSS sessions as well as within one (#91): a disposed
+ * session cannot cancel a send already in flight, and Tauri does not promise
+ * call-order completion — so a restarted session's first push (possibly a
+ * revocation) is chained behind whatever the previous session still has in the
+ * air and lands after it. With nothing in flight the send starts synchronously,
+ * exactly as before.
+ */
+function sendGrants(grants: StandingGrant[]): Promise<void> {
+  const run = grantSendsInFlight === 0 ? invoke("browser_set_grants", { grants }) : grantSendTail.then(() => invoke("browser_set_grants", { grants }));
+  grantSendsInFlight += 1;
+  const settle = () => {
+    grantSendsInFlight -= 1;
   };
-}
-
-/**
- * Send a newly minted "Allow once" to the driver.
- *
- * One-shots are ADDED, never wholesale replaced: the driver consumes them as
- * actions are performed, so pushing the full list would resurrect authority the
- * user already spent.
- */
-function pushOneShot(shot: OneShotApproval): void {
-  // The driver binds the one-shot to (tab, generation, origin, operation, target).
-  //
-  // The generation is the one the APPROVAL WAS RAISED AGAINST, sent explicitly. The driver
-  // used to stamp it from the registry at mint time — so if the page navigated between the
-  // prompt appearing and the user clicking "Allow once", the approval landed on the new
-  // page's generation and authorized an action on a page the user never saw. The driver now
-  // refuses a mint whose generation is no longer current, which turns that race into a
-  // refusal instead of an escalation. (Audit, High.)
-  void invoke("browser_add_one_shot", {
-    tabId: shot.tabId,
-    generation: shot.generation,
-    originPattern: shot.originPattern,
-    operation: shot.operation,
-    target: shot.target,
-    // The exact script (for `style`/`eval`) so the driver binds the payload hash and
-    // refuses a substituted retry. The driver REQUIRES it for those operations —
-    // without it the mint is rejected, so "Allow once" would authorize nothing rather
-    // than the wrong thing. (Security review P5, High #1.)
-    evalScript: shot.script,
-  }).catch((error: unknown) => {
-    browserWarn("one-shot sync failed; the driver will refuse the action", error);
-  });
-}
-
-/**
- * Mint a one-shot and AWAIT the driver's confirmation (WI-NB5.3).
- *
- * The subscription path (`pushOneShot`) is fire-and-forget, which is correct for
- * a one-off act: the handler is about to return anyway. A workflow run is
- * different — if it consumes its frontend one-shot and calls `browser_eval`
- * before Rust has recorded the mint, the driver refuses the act as unauthorized
- * (Codex review F4). So the run path calls this and only proceeds on `true`.
- * A rejected mint (a stale generation, a missing script) resolves `false`: the
- * step must fail, not act unauthorized.
- */
-export async function mintOneShotConfirmed(shot: OneShotApproval): Promise<boolean> {
-  try {
-    await invoke("browser_add_one_shot", {
-      tabId: shot.tabId,
-      generation: shot.generation,
-      originPattern: shot.originPattern,
-      operation: shot.operation,
-      target: shot.target,
-      evalScript: shot.script,
-    });
-    return true;
-  } catch (error) {
-    browserWarn("one-shot mint refused by the driver; the run step will not proceed", error);
-    return false;
-  }
+  // Registered BEFORE the caller's own handlers, so the count is already down when
+  // a serialized pusher decides how to start its next send.
+  grantSendTail = run.then(settle, settle);
+  return run.then(() => undefined);
 }
 
 /** Send a newly minted profile-open grant (WI-P6.1 H1) to the driver, which is the
@@ -152,12 +89,55 @@ export async function mintOneShotConfirmed(shot: OneShotApproval): Promise<boole
  *  applies a named profile. Without this leg, an approved profile-open authorizes the
  *  frontend and is then refused by the driver. */
 function pushProfileOpen(grant: ProfileOpenApproval): void {
-  void invoke("browser_add_profile_open", {
-    profile: grant.profile,
-    originPattern: grant.originPattern,
-  }).catch((error: unknown) => {
+  const key = profileOpenKey(grant);
+  if (pendingProfileMints.has(key)) return;
+  if (pendingProfileMints.size >= MAX_PENDING_MINTS) {
+    const oldest = pendingProfileMints.keys().next().value;
+    if (oldest !== undefined) pendingProfileMints.delete(oldest);
+  }
+  pendingProfileMints.set(key, mintProfileOpen(grant));
+}
+
+/** The identity of a profile-open grant: the (profile, origin pattern) the driver binds. */
+function profileOpenKey(grant: ProfileOpenApproval): string {
+  return JSON.stringify([grant.profile, grant.originPattern]);
+}
+
+/** Every profile-open mint in flight or settled-but-unconsumed, by identity — the
+ *  same discipline as `pendingMints`: `browserOpen` awaits the driver's confirmation
+ *  before it spends the frontend grant and creates the tab, so a fast create can no
+ *  longer race the mint, fail PROFILE_NOT_APPROVED and lose the user's approval. */
+const pendingProfileMints = new Map<string, Promise<boolean>>();
+
+async function mintProfileOpen(grant: ProfileOpenApproval): Promise<boolean> {
+  try {
+    await invoke("browser_add_profile_open", {
+      profile: grant.profile,
+      originPattern: grant.originPattern,
+    });
+    return true;
+  } catch (error) {
     browserWarn("profile-open sync failed; the driver will refuse the open", error);
-  });
+    return false;
+  }
+}
+
+/** Await the driver's confirmation that `grant` is minted; mints once itself when
+ *  no subscription recorded one (a test harness). The recorded outcome is consumed. */
+export async function mintProfileOpenConfirmed(grant: ProfileOpenApproval): Promise<boolean> {
+  const key = profileOpenKey(grant);
+  const recorded = pendingProfileMints.get(key);
+  if (recorded) {
+    pendingProfileMints.delete(key);
+    return recorded;
+  }
+  return mintProfileOpen(grant);
+}
+
+/** Test-only: forget every recorded mint, one-shot and profile-open alike. */
+export function __resetPendingMints(): void {
+  resetOneShotMints();
+  pendingProfileMints.clear();
 }
 
 /**
@@ -174,13 +154,14 @@ function pushProfileOpen(grant: ProfileOpenApproval): void {
 export function startGrantSync(): () => void {
   // One serialized pusher per sync session — its lifecycle matches the
   // subscription, so a torn-down session leaves no in-flight drain behind.
-  const push = makeGrantPusher();
+  const pusher = makeGrantPusher();
+  const push = pusher.push;
   push(useBrowserApprovalStore.getState().grants);
 
   let previousGrants = useBrowserApprovalStore.getState().grants;
   let previousShots = useBrowserApprovalStore.getState().oneShots;
   let previousProfileOpens = useBrowserApprovalStore.getState().profileOpens;
-  return useBrowserApprovalStore.subscribe((state) => {
+  const unsubscribe = useBrowserApprovalStore.subscribe((state) => {
     // Reference compare: the store's actions always produce new arrays, and
     // unrelated churn (pending approvals) must not spam the driver.
     if (state.grants !== previousGrants) {
@@ -202,4 +183,10 @@ export function startGrantSync(): () => void {
       for (const grant of added) pushProfileOpen(grant);
     }
   });
+  return () => {
+    unsubscribe();
+    // A disposed session sends nothing further: an old in-flight snapshot cannot
+    // be re-queued after a restarted session has pushed its own (newer) state.
+    pusher.dispose();
+  };
 }

@@ -83,7 +83,7 @@ React adapter (ADR-013).
 | File | Role |
 |---|---|
 | `handleRequest.ts` | Top-level router. Dedup, then hand off to `dispatchV2`; an unmatched type gets a diagnostic error listing `SUPPORTED_TOOL_PREFIXES`. |
-| `v2/dispatch.ts` | The `switch` on `event.type` over the 5-tool surface (`vmark.session.*`, `.workspace.*`, `.document.*`, `.workflow.*`, `.selection.*`) plus the browser tools. Returns `true` iff the type matched. Also the single source of truth for `SUPPORTED_TOOL_PREFIXES` — never carry a second list. |
+| `v2/dispatch.ts` | Typed route tables over the 5-tool surface (`vmark.session.*`, `.workspace.*`, `.document.*`, `.workflow.*`, `.selection.*`): `EAGER_ROUTES` (operation → handler) plus a SEPARATE lazily-imported `BROWSER_ROUTES` (operation → handler name in `./browser`), looked up by own property so a client-sent `constructor` cannot route. Returns `true` iff the operation matched. Also the single source of truth for `SUPPORTED_TOOL_PREFIXES` — never carry a second list; `__tests__/dispatch.test.ts` and `operationManifestParity.test.ts` read the tables and fail on a missing route. |
 | `v2/wrapHandler.ts` | The error contract, in one place. |
 | `utils.ts` | `respond()` — sends the result back to Rust via `invoke("mcp_bridge_respond")` and records it for duplicate-delivery re-send. |
 

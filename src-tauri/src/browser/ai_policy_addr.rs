@@ -7,6 +7,12 @@
 //! (`2130706433`, `0x7f000001`, `127.1`). Everything here is pure and
 //! platform-free; the policy tests in `ai_policy.test.rs` exercise it through
 //! `validate_ai_navigation_url`, the one public entry point.
+//!
+//! Both families are TABLES, not boolean chains (audit 20260903 round 3, #9):
+//! `BLOCKED_IPV4_RANGES` and `BLOCKED_IPV6_RANGES` are read by the predicates
+//! here AND by `ai_content_rules.rs`, which derives the WebKit url-filters from
+//! them, and `ai_content_rules.test.rs` walks every range of both tables asserting
+//! the two agree. A range added to one side without the other is a failing test.
 
 use std::net::{Ipv4Addr, Ipv6Addr};
 
@@ -40,25 +46,48 @@ pub(crate) fn embedded_ipv4(v6: Ipv6Addr) -> Option<Ipv4Addr> {
     None
 }
 
+/// Loopback, gated separately by `allow_loopback` ("my own machine").
+pub(crate) const IPV4_LOOPBACK: (u32, u8) = (0x7f00_0000, 8);
+
+/// Every IPv4 range an AI tab may never reach, loopback aside: `(network, prefix)`.
+///
+/// THE declarative source. `blocked_ipv4` consults it, and the WebKit content
+/// rule list (`ai_content_rules.rs`) is parity-tested against it range by range,
+/// so a range added here without a matching url-filter fails a test rather than
+/// silently reaching subresources while navigation refuses it — which is exactly
+/// the drift the first list shipped with (six of these ranges were missing).
+pub(crate) const BLOCKED_IPV4_RANGES: &[(u32, u8)] = &[
+    // RFC 1918 private.
+    (0x0a00_0000, 8),
+    (0xac10_0000, 12),
+    (0xc0a8_0000, 16),
+    // Link-local.
+    (0xa9fe_0000, 16),
+    // Shared address space (carrier NAT).
+    (0x6440_0000, 10),
+    // "This" network.
+    (0, 8),
+    // IETF protocol assignments, TEST-NET-1, 6to4 relay anycast, benchmarking,
+    // TEST-NET-2, TEST-NET-3.
+    (0xc000_0000, 24),
+    (0xc000_0200, 24),
+    (0xc058_6300, 24),
+    (0xc612_0000, 15),
+    (0xc633_6400, 24),
+    (0xcb00_7100, 24),
+    // Multicast and reserved.
+    (0xe000_0000, 4),
+    (0xf000_0000, 4),
+];
+
 pub(crate) fn blocked_ipv4(address: Ipv4Addr, allow_loopback: bool) -> bool {
     let value = u32::from(address);
-    let loopback = in_ipv4_range(value, 0x7f00_0000, 8);
-    let private = in_ipv4_range(value, 0x0a00_0000, 8)
-        || in_ipv4_range(value, 0xac10_0000, 12)
-        || in_ipv4_range(value, 0xc0a8_0000, 16);
-    let link_local = in_ipv4_range(value, 0xa9fe_0000, 16);
-    let shared = in_ipv4_range(value, 0x6440_0000, 10);
-    let special = in_ipv4_range(value, 0, 8)
-        || in_ipv4_range(value, 0xc000_0000, 24)
-        || in_ipv4_range(value, 0xc000_0200, 24)
-        || in_ipv4_range(value, 0xc058_6300, 24)
-        || in_ipv4_range(value, 0xc612_0000, 15)
-        || in_ipv4_range(value, 0xc633_6400, 24)
-        || in_ipv4_range(value, 0xcb00_7100, 24)
-        || in_ipv4_range(value, 0xe000_0000, 4)
-        || in_ipv4_range(value, 0xf000_0000, 4);
-
-    (loopback && !allow_loopback) || private || link_local || shared || special
+    let (loopback_net, loopback_prefix) = IPV4_LOOPBACK;
+    let loopback = in_ipv4_range(value, loopback_net, loopback_prefix);
+    (loopback && !allow_loopback)
+        || BLOCKED_IPV4_RANGES
+            .iter()
+            .any(|&(network, prefix)| in_ipv4_range(value, network, prefix))
 }
 
 fn in_ipv4_range(address: u32, network: u32, prefix: u8) -> bool {
@@ -68,6 +97,48 @@ fn in_ipv4_range(address: u32, network: u32, prefix: u8) -> bool {
         u32::MAX << (32 - prefix)
     };
     address & mask == network & mask
+}
+
+/// IPv6 loopback, gated separately by `allow_loopback` like `IPV4_LOOPBACK`.
+pub(crate) const IPV6_LOOPBACK: (Ipv6Addr, u8) = (Ipv6Addr::LOCALHOST, 128);
+
+/// Every NATIVE IPv6 range an AI tab may never reach, loopback aside:
+/// `(network, prefix)`. THE declarative source for the v6 side, the twin of
+/// `BLOCKED_IPV4_RANGES`: `blocked_ipv6` consults it, and the content rule list
+/// derives its bracketed-literal filters from it and is parity-tested range by
+/// range. The transition prefixes that EMBED an IPv4 address (mapped, compatible,
+/// 6to4, NAT64) are deliberately absent — `embedded_ipv4` routes those to the IPv4
+/// table, so each is exactly as blocked as the address it carries.
+pub(crate) const BLOCKED_IPV6_RANGES: &[(Ipv6Addr, u8)] = &[
+    // Unspecified.
+    (Ipv6Addr::UNSPECIFIED, 128),
+    // Unique-local (RFC 4193).
+    (Ipv6Addr::new(0xfc00, 0, 0, 0, 0, 0, 0, 0), 7),
+    // Link-local.
+    (Ipv6Addr::new(0xfe80, 0, 0, 0, 0, 0, 0, 0), 10),
+    // Deprecated site-local — still routable on legacy LANs.
+    (Ipv6Addr::new(0xfec0, 0, 0, 0, 0, 0, 0, 0), 10),
+    // Multicast.
+    (Ipv6Addr::new(0xff00, 0, 0, 0, 0, 0, 0, 0), 8),
+    // Documentation, Teredo, benchmarking, ORCHID.
+    (Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 0), 32),
+    (Ipv6Addr::new(0x2001, 0, 0, 0, 0, 0, 0, 0), 32),
+    (Ipv6Addr::new(0x2001, 2, 0, 0, 0, 0, 0, 0), 48),
+    (Ipv6Addr::new(0x2001, 0x10, 0, 0, 0, 0, 0, 0), 28),
+];
+
+/// The v6 twin of `blocked_ipv4`: an address that embeds an IPv4 address is
+/// judged as that address; otherwise loopback is gated and the table is
+/// consulted.
+pub(crate) fn blocked_ipv6(address: Ipv6Addr, allow_loopback: bool) -> bool {
+    if let Some(embedded) = embedded_ipv4(address) {
+        return blocked_ipv4(embedded, allow_loopback);
+    }
+    let (loopback_net, loopback_prefix) = IPV6_LOOPBACK;
+    (in_ipv6_range(address, loopback_net, loopback_prefix) && !allow_loopback)
+        || BLOCKED_IPV6_RANGES
+            .iter()
+            .any(|&(network, prefix)| in_ipv6_range(address, network, prefix))
 }
 
 pub(crate) fn in_ipv6_range(address: Ipv6Addr, network: Ipv6Addr, prefix: u8) -> bool {

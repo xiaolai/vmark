@@ -10,6 +10,7 @@
 //! (`commands_auth::browser_screenshot`) runs BEFORE this is ever called;
 //! nothing here re-decides authorization.
 
+use crate::browser::native_failure::NativeSurfaceError;
 use base64::Engine as _;
 use block2::RcBlock;
 use objc2::rc::Retained;
@@ -35,21 +36,19 @@ const JPEG_QUALITY: f64 = 0.7;
 /// preserved) rather than captured at full resolution.
 const MAX_SNAPSHOT_WIDTH: f64 = 1600.0;
 
-/// Encoded JPEG bytes, or a stable reason string. Shared between the async
+/// Encoded JPEG bytes, or a stable reason token. Shared between the async
 /// completion handler and the pumping caller.
-type CaptureResult = Result<Vec<u8>, String>;
+type CaptureResult = Result<Vec<u8>, &'static str>;
 
 /// Capture the tab's current rendering as a base64-encoded JPEG.
 ///
 /// The capture is asynchronous (a completion handler), so the run loop is pumped
-/// until it fires, exactly as `eval_js` does. A tab whose native view is gone
-/// yields `no webview`; a snapshot that fails or produces no image yields a
-/// stable reason string rather than a panic.
-pub fn screenshot(app: &AppHandle, tab_id: String) -> Result<String, String> {
+/// until it fires, exactly as `eval_js` does. A tab whose native view is gone is
+/// the typed `NoWebview`; a snapshot that fails, times out or produces no image is
+/// an `Unclassified` failure carrying its stable reason token rather than a panic.
+pub fn screenshot(app: &AppHandle, tab_id: String) -> Result<String, NativeSurfaceError> {
     super::on_main(app, move |mtm| {
-        let webview = super::WEBVIEWS
-            .with(|m| m.borrow().get(&tab_id).cloned())
-            .ok_or_else(|| format!("no webview: {tab_id}"))?;
+        let webview = super::webview_for(&tab_id)?;
 
         let out: Rc<RefCell<Option<CaptureResult>>> = Rc::new(RefCell::new(None));
         let sink = out.clone();
@@ -77,20 +76,21 @@ pub fn screenshot(app: &AppHandle, tab_id: String) -> Result<String, String> {
         let bytes = out
             .borrow_mut()
             .take()
-            .ok_or_else(|| "SCREENSHOT_TIMEOUT".to_string())??;
+            .unwrap_or(Err("SCREENSHOT_TIMEOUT"))
+            .map_err(|reason| NativeSurfaceError::Unclassified(reason.to_string()))?;
         Ok(base64::engine::general_purpose::STANDARD.encode(bytes))
     })
 }
 
 /// Convert the snapshot `NSImage` to bounded-quality JPEG bytes, or a stable
-/// reason string. Runs inside the completion handler on the main thread. The
+/// reason token. Runs inside the completion handler on the main thread. The
 /// block does not own the image, so it is borrowed, never released here.
 fn encode_snapshot(image: *mut NSImage, error: *mut NSError) -> CaptureResult {
     if !error.is_null() {
-        return Err("SNAPSHOT_FAILED".into());
+        return Err("SNAPSHOT_FAILED");
     }
     if image.is_null() {
-        return Err("SNAPSHOT_EMPTY".into());
+        return Err("SNAPSHOT_EMPTY");
     }
     let image: &NSImage = unsafe { &*image };
     let tiff = image.TIFFRepresentation().ok_or("SNAPSHOT_NO_TIFF")?;

@@ -19,7 +19,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 
 const SITE = "https://x.example.com/";
 function seed(mode: "ai-sandbox" | "human" = "ai-sandbox"): string {
-  useTabStore.setState({ tabs: {}, activeTabId: {}, untitledCounter: 0, closedTabs: {} });
+  useTabStore.setState({ tabs: {}, activeTabId: {}, untitledCounter: 0 });
   return useTabStore.getState().createBrowserTab("main", SITE, "X", mode);
 }
 function lastResponse() {
@@ -84,6 +84,19 @@ describe("handleBrowserWaitFor", () => {
     expect(invoke).not.toHaveBeenCalled();
     expect(lastResponse()).toMatchObject({ error: "ATTACHMENT_REQUIRED" });
   });
+
+  // Round 3, #71 — the shared envelope: the tab is resolved before the request is
+  // validated (as every other browser handler does), and validation precedes the
+  // attachment gate, so a malformed wait never queues an attach prompt.
+  it("resolves the tab first, then validates, then gates the attachment", async () => {
+    seed();
+    await handleBrowserWaitFor("w-order", { tabId: "nope", timeoutMs: 0 });
+    expect(lastResponse()).toMatchObject({ success: false, error: "TAB_NOT_FOUND" });
+    const human = seed("human");
+    await handleBrowserWaitFor("w-bad-human", { tabId: human, timeoutMs: 0, text: "x" });
+    expect(lastResponse()).toMatchObject({ success: false, error: "INVALID_TIMEOUT" });
+    expect(useBrowserApprovalStore.getState().pending).toEqual([]);
+  });
 });
 
 // WI-NB1.4 — a fourth condition: the tab's (agent-redacted) URL contains a
@@ -106,10 +119,13 @@ describe("wait_for urlContains (WI-NB1.4)", () => {
     expect(lastResponse()).toMatchObject({ success: true, data: { matched: true } });
   });
 
-  it("returns matched:false on timeout", async () => {
+  it("returns matched:false on timeout, with the same reason the eval poll reports (round 3, #71)", async () => {
     const id = seed();
     await handleBrowserWaitFor("u3", { tabId: id, urlContains: "/never", timeoutMs: 1 });
-    expect(lastResponse()).toMatchObject({ success: true, data: { matched: false } });
+    expect(lastResponse()).toMatchObject({
+      success: true,
+      data: { matched: false, url: "https://x.example.com/", reason: "timeout" },
+    });
   });
 
   it("is exclusive with the other conditions", async () => {

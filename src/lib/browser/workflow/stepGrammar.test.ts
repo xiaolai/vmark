@@ -4,7 +4,14 @@
 // round-trip) — click/type with a "name" (role) target, navigate to <url> —
 // and reject anything it cannot execute deterministically so the runner pauses.
 import { describe, it, expect } from "vitest";
-import { parseActionText } from "./stepGrammar";
+import { parseAction } from "./stepGrammar";
+
+/** Test convenience: the parsed action, or null when the text is not executable. */
+function parseActionText(text: string) {
+  const r = parseAction(text);
+  return r.ok ? r.action : null;
+}
+import { expectBoundedTime } from "@/test/timeBudget";
 
 describe("parseActionText — click", () => {
   it("parses a name+role click", () => {
@@ -73,5 +80,67 @@ describe("parseActionText — non-executable text pauses (returns null)", () => 
     ["", "empty"],
   ])("%s → null (%s)", (text) => {
     expect(parseActionText(text)).toBeNull();
+  });
+});
+
+// Audit 2026-09-03 W12 — robustness: an empty or unbalanced target is
+// `malformed-target` (never an empty name that would match unlabeled controls),
+// a quoted value may contain " into ", and the quoted-run scan is linear so a
+// hostile 60 KB `\"` run cannot stall the UI thread.
+describe("parseAction — malformed targets are rejected, never an empty name", () => {
+  it.each([
+    ['click ""', "empty name"],
+    ['click "   "', "whitespace-only name"],
+    ['click "a"b"', "unescaped inner quote"],
+    ['click "unterminated', "unterminated quote"],
+    ['click "a" (Button)', "role is not a lowercase ARIA token"],
+    ['click "a" trailing', "junk after the target"],
+    ['type {x} into ""', "empty type target"],
+    ['type "v" into "a"b" (textbox)', "unescaped inner quote in a type target"],
+  ])("%s → malformed-target (%s)", (text) => {
+    const r = parseAction(text);
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.code).toBe("malformed-target");
+    expect(parseActionText(text)).toBeNull();
+  });
+
+  it("an escaped inner quote is a legitimate name", () => {
+    expect(parseAction('click "Say \\"hi\\"" (button)')).toEqual({
+      ok: true,
+      action: { kind: "click", name: 'Say "hi"', role: "button" },
+    });
+  });
+
+  it("a malformed type VALUE is reported as malformed-value", () => {
+    const r = parseAction('type "unterminated into "F"');
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.code).toBe("malformed-value");
+  });
+
+  it("a quoted value may itself contain ` into `", () => {
+    expect(parseAction('type "go into town" into "Field" (textbox)')).toEqual({
+      ok: true,
+      action: { kind: "type", value: { kind: "literal", text: "go into town" }, name: "Field", role: "textbox" },
+    });
+  });
+
+  it("free prose and unquoted names stay not-executable (the model handles them)", () => {
+    for (const text of ["scroll down a bit", "click Publish", "navigate", ""]) {
+      const r = parseAction(text);
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.code).toBe("not-executable");
+    }
+  });
+
+  it("scans a 60 KB run of escaped quotes in bounded time", () => {
+    const hostile = `click "${"\\\"".repeat(30_000)}`; // opening quote, then 30k escaped quotes, never closed
+    const started = performance.now();
+    const r = parseAction(hostile);
+    const elapsed = performance.now() - started;
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.code).toBe("malformed-target");
+    expectBoundedTime(elapsed, { budgetMs: 200, livenessMs: 5_000, label: "parseAction hostile quotes" });
   });
 });

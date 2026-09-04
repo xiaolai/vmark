@@ -22,10 +22,10 @@ import {
   applyOutputBound,
   jsonResult,
   sliceUtf8,
-  structuredErrorResult,
   structuredJsonResult,
   utf8ByteLength,
 } from '../../../src/utils/toolOutput.js';
+import { structuredErrorResult } from '../../../src/utils/errorOutput.js';
 
 /** A string survives a UTF-8 round trip only if it holds no lone surrogate. */
 function isWellFormed(text: string): boolean {
@@ -272,5 +272,42 @@ describe('structuredErrorResult', () => {
     expect(result.success).toBe(false);
     expect(result.content[0].text).toContain('STALE');
     expect(result.structuredContent).toEqual({ error: 'STALE', current_revision: 'r9' });
+  });
+});
+
+// Audit 2026-09-03 (round 1) — an error result is bounded like every other output.
+// `structuredErrorResult` bypassed the module's bound in both channels, so a
+// page-derived message or record could grow to the bridge frame limit.
+describe('structuredErrorResult is bounded', () => {
+  it('truncates an oversized message and marks the cut', async () => {
+    const { structuredErrorResult, MAX_ERROR_MESSAGE_BYTES } = await import('../../../src/utils/errorOutput.js');
+    const res = structuredErrorResult('x'.repeat(MAX_ERROR_MESSAGE_BYTES * 2), { token: 'BOOM' });
+    const text = res.content[0]?.type === 'text' ? (res.content[0].text as string) : '';
+    expect(Buffer.byteLength(text, 'utf8')).toBeLessThan(MAX_ERROR_MESSAGE_BYTES + 64);
+    expect(text.endsWith('… [error text truncated]')).toBe(true);
+    expect(res.structuredContent).toEqual({ token: 'BOOM' });
+  });
+
+  it('collapses an oversized structured record to its branchable fields', async () => {
+    const { structuredErrorResult, MAX_ERROR_STRUCTURED_BYTES } = await import('../../../src/utils/errorOutput.js');
+    const res = structuredErrorResult('APPROVAL_REQUIRED: big', {
+      token: 'APPROVAL_REQUIRED',
+      code: 'approval-required',
+      needsApproval: true,
+      blob: 'y'.repeat(MAX_ERROR_STRUCTURED_BYTES * 2),
+    });
+    expect(res.structuredContent).toEqual({
+      truncated: true,
+      token: 'APPROVAL_REQUIRED',
+      code: 'approval-required',
+      needsApproval: true,
+    });
+  });
+
+  it('leaves an ordinary error untouched', async () => {
+    const { structuredErrorResult } = await import('../../../src/utils/errorOutput.js');
+    const res = structuredErrorResult('STALE_COMMAND: moved on', { token: 'STALE_COMMAND', current_revision: 4 });
+    expect(res.content[0]).toEqual({ type: 'text', text: 'STALE_COMMAND: moved on' });
+    expect(res.structuredContent).toEqual({ token: 'STALE_COMMAND', current_revision: 4 });
   });
 });

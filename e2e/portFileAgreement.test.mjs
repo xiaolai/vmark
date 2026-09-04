@@ -66,6 +66,18 @@ describe("port-file path agreement", () => {
     expect(harness).toContain('"mcp-port"');
   });
 
+  it("spawns the sidecar under the DEV identifier the harness itself probes", async () => {
+    // The probe (`bridgeReady`) and the spawned sidecar must read the SAME
+    // port file. Before `sidecarEnv()` existed the child inherited a bare
+    // environment, defaulted to the release profile, and every browser journey
+    // talked to the wrong app — or to a dead port — while the probe said ready.
+    delete process.env.VMARK_APP_IDENTIFIER;
+    const { sidecarEnv } = await import("./lib/vmarkMcp.mjs");
+    const devConf = JSON.parse(readFileSync("src-tauri/tauri.dev.conf.json", "utf8"));
+    expect(devConf.identifier).not.toBe(RELEASE_ID);
+    expect(sidecarEnv().VMARK_APP_IDENTIFIER).toBe(devConf.identifier);
+  });
+
   it("has the sidecar default to the RELEASE identifier", () => {
     // The harness points itself at the dev profile; the sidecar must not, or a
     // shipped app would look for a port file no release ever writes.

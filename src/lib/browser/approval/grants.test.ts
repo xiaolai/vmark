@@ -22,7 +22,7 @@ describe("decideApproval", () => {
     const grants: StandingGrant[] = [
       { originPattern: "https://blog.example.com", operations: ["read"] },
     ];
-    expect(decideApproval(URL, "publish", grants)).toBe("needs-approval");
+    expect(decideApproval(URL, "style", grants)).toBe("needs-approval");
   });
 
   it("needs approval when the grant is for a different origin", () => {
@@ -48,9 +48,9 @@ describe("decideApproval", () => {
 
   it("can allow an explicitly-granted write operation (scoped standing grant)", () => {
     const grants: StandingGrant[] = [
-      { originPattern: "https://blog.example.com", operations: ["publish"] },
+      { originPattern: "https://blog.example.com", operations: ["style"] },
     ];
-    expect(decideApproval(URL, "publish", grants)).toBe("allowed");
+    expect(decideApproval(URL, "style", grants)).toBe("allowed");
   });
 
   it.each([["Upload"], ["UPLOAD"], [" upload"], ["exfiltrate"], [""]])(
@@ -236,5 +236,36 @@ describe("upload prohibition is sourced from uxPolicy (WI-NB8.1)", () => {
     expect(grants).toHaveLength(1);
     expect(grants[0].operations).toContain("click");
     expect(grants[0].operations).not.toContain("upload");
+  });
+});
+
+// Audit 2026-09-03 R11 / A-05 / #13 — one vocabulary, honest contracts.
+describe("operation vocabulary (audit 2026-09-03)", () => {
+  it("publish is gone: no consumer ever existed, so it is unknown and denied", async () => {
+    const { isBrowserOperation, isGrantableOperation, isApprovableOperation, BROWSER_OPERATIONS } =
+      await import("./grants");
+    expect(BROWSER_OPERATIONS).not.toContain("publish");
+    expect(isBrowserOperation("publish")).toBe(false);
+    expect(decideApproval("https://blog.example.com/", "publish", [])).toBe("denied");
+    expect(isGrantableOperation("publish")).toBe(false);
+    expect(isApprovableOperation("publish")).toBe(false);
+  });
+
+  it("upload is known, never approvable, never grantable", async () => {
+    const { isBrowserOperation, isGrantableOperation, isApprovableOperation } = await import("./grants");
+    expect(isBrowserOperation("upload")).toBe(true);
+    expect(isApprovableOperation("upload")).toBe(false);
+    expect(isGrantableOperation("upload")).toBe(false);
+  });
+
+  it("per-call-only operations are approvable but not grantable", async () => {
+    const { isGrantableOperation, isApprovableOperation } = await import("./grants");
+    for (const op of ["eval", "session", "record"]) {
+      expect(isApprovableOperation(op)).toBe(true);
+      expect(isGrantableOperation(op)).toBe(false);
+    }
+    for (const op of ["click", "type", "scroll", "key", "style", "navigate", "read", "attach"]) {
+      expect(isGrantableOperation(op)).toBe(true);
+    }
   });
 });

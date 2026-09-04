@@ -8,8 +8,9 @@
  *
  *   - it drains the shim buffer on a timer (default 500 ms) and at stop, so most
  *     events are captured before a navigation discards the buffer;
- *   - it records each NAVIGATION host-side (from the native `browser://navigated`
- *     event, not the page) and RE-ARMS the shim in the fresh document;
+ *   - it records each NAVIGATION host-side — the entry URL at start, then every
+ *     native `browser://navigated` event, never a page claim — and RE-ARMS the shim
+ *     in the fresh document;
  *   - it caps the session at 1000 events, whatever the per-document shim cap; and
  *   - it owns the lifecycle: one recording per tab, duplicate start refused, stop
  *     without start refused, tab close/disable discards.
@@ -57,6 +58,23 @@ interface RecorderSession {
   capped: boolean;
   deps: RecorderDeps;
   cancel: () => void;
+  /** Every drain and navigation is queued here, so a periodic, a manual and a final
+   *  drain can never overlap (read-and-clear calls that interleave reorder or lose
+   *  events), and a navigation cannot be appended ahead of the drain that precedes it. */
+  chain: Promise<void>;
+  /** The single stop in flight, so two concurrent stops finalize once. */
+  stopping: Promise<{ source: string; inputs: string[]; eventCount: number; capped: boolean }> | null;
+  /** The token of the stop's own final drain — the ONLY drain a stopping session
+   *  runs; a periodic or late drain carries no token and is refused. */
+  finalDrain: object | null;
+}
+
+/** Run `work` after everything already queued on the session, and keep the chain alive
+ *  whatever `work` does. */
+function enqueue(session: RecorderSession, work: () => Promise<void>): Promise<void> {
+  const next = session.chain.then(work, work);
+  session.chain = next.catch(() => undefined);
+  return session.chain;
 }
 
 /** tabId → the one active recording. */
@@ -66,6 +84,10 @@ export interface StartRecorderArgs {
   tabId: string;
   site: string;
   generation: number;
+  /** The tab's committed URL at start. Recorded host-side as the workflow's ENTRY
+   *  `navigate to` step (the redactor strips it to origin+path), so a replay
+   *  begins on the page the recording did. */
+  startUrl: string;
   deps: RecorderDeps;
 }
 
@@ -88,10 +110,14 @@ export function startRecorderSession(args: StartRecorderArgs): { ok: true } | { 
     tabId: args.tabId,
     site: args.site,
     generation: args.generation,
-    events: [],
+    // The entry point is a host-side record (D2v2) — the page never supplies a URL.
+    events: [{ type: "navigate", url: args.startUrl }],
     capped: false,
     deps: args.deps,
     cancel: () => {},
+    chain: Promise.resolve(),
+    stopping: null,
+    finalDrain: null,
   };
   sessions.set(args.tabId, session);
   session.cancel = schedule(() => {
@@ -113,16 +139,21 @@ function appendCapped(session: RecorderSession, events: readonly RecordedEvent[]
 
 /** Drain the shim buffer once and append. A drain error is swallowed — a single
  *  failed poll must not tear down an in-progress recording. */
-export async function drainActiveRecording(tabId: string): Promise<void> {
+export async function drainActiveRecording(tabId: string, finalToken?: object): Promise<void> {
   const session = sessions.get(tabId);
   if (!session) return;
-  let events: RecordedEvent[];
-  try {
-    events = await session.deps.drainOnce(tabId, session.generation);
-  } catch {
-    return;
-  }
-  appendCapped(session, events);
+  // Only the stop's own final drain runs once the session is stopping (round 3):
+  // the token identifies it, so a late periodic drain cannot slip in behind it.
+  if (session.stopping && (finalToken === undefined || session.finalDrain !== finalToken)) return;
+  await enqueue(session, async () => {
+    let events: RecordedEvent[];
+    try {
+      events = await session.deps.drainOnce(tabId, session.generation);
+    } catch {
+      return;
+    }
+    appendCapped(session, events);
+  });
 }
 
 /** Record a navigation host-side (from the native event) and re-arm the new document.
@@ -130,14 +161,18 @@ export async function drainActiveRecording(tabId: string): Promise<void> {
  *  becomes the one drains and re-arms use. */
 export async function recordNavigation(tabId: string, url: string, newGeneration: number): Promise<void> {
   const session = sessions.get(tabId);
-  if (!session) return;
-  session.generation = newGeneration;
-  appendCapped(session, [{ type: "navigate", url }]);
-  try {
-    await session.deps.rearm(tabId, newGeneration);
-  } catch {
-    // Best-effort: a failed re-arm risks tail loss on the new document, never a crash.
-  }
+  if (!session || session.stopping) return; // a stopping session takes no new work
+  // Queued behind any drain in flight: the old document's remaining events belong
+  // BEFORE the navigation, and the drain must still run against the old generation.
+  await enqueue(session, async () => {
+    session.generation = newGeneration;
+    appendCapped(session, [{ type: "navigate", url }]);
+    try {
+      await session.deps.rearm(tabId, newGeneration);
+    } catch {
+      // Best-effort: a failed re-arm risks tail loss on the new document, never a crash.
+    }
+  });
 }
 
 /** Finalize the recording: a last drain, stop the timer, and convert the trace into
@@ -147,17 +182,25 @@ export async function stopRecorderSession(
 ): Promise<{ source: string; inputs: string[]; eventCount: number; capped: boolean } | null> {
   const session = sessions.get(tabId);
   if (!session) return null;
-  await drainActiveRecording(tabId);
-  // Stop capture immediately — best-effort; a failure only leaves an inert marker.
-  try {
-    await session.deps.disarm(tabId, session.generation);
-  } catch {
-    /* the session is ending anyway */
-  }
+  if (session.stopping) return session.stopping; // a second stop joins the first
+  // Cancel the schedule synchronously, so no periodic drain is queued after the final one.
   session.cancel();
-  sessions.delete(tabId);
-  const { source, inputs } = recordingToWorkflow(session.events, { site: session.site });
-  return { source, inputs, eventCount: session.events.length, capped: session.capped };
+  const finalToken = {};
+  session.finalDrain = finalToken;
+  session.stopping = (async () => {
+    await drainActiveRecording(tabId, finalToken);
+    session.finalDrain = null;
+    // Stop capture immediately — best-effort; a failure only leaves an inert marker.
+    try {
+      await session.deps.disarm(tabId, session.generation);
+    } catch {
+      /* the session is ending anyway */
+    }
+    sessions.delete(tabId);
+    const { source, inputs } = recordingToWorkflow(session.events, { site: session.site });
+    return { source, inputs, eventCount: session.events.length, capped: session.capped };
+  })();
+  return session.stopping;
 }
 
 /** Discard a recording without finalizing (tab close/disable). */

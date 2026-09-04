@@ -56,3 +56,48 @@ describe("buildGateSignalsScript", () => {
     expect(s).toMatchObject({ challengeWidget: false, passwordField: false });
   });
 });
+
+// S-05: the probe used `document.querySelectorAll`, which never enters a shadow
+// root, so a login form or challenge widget rendered by a web component was
+// invisible to gate detection. It now walks the composed tree.
+describe("rendered visibility inside the gate script (#114)", () => {
+  it("is self-contained: the script ships without the agent library", () => {
+    expect(buildGateSignalsScript()).not.toContain("__vmarkRendered");
+  });
+  it("a shadow HOST with opacity:0 hides the password field inside its shadow tree (composed walk)", () => {
+    const doc = parse(`<div id="host" style="opacity:0"></div>`);
+    doc.getElementById("host")!.attachShadow({ mode: "open" }).innerHTML = `<input type="password">`;
+    expect(exec(doc).passwordField).toBe(false);
+    const shown = parse(`<div id="host"></div>`);
+    shown.getElementById("host")!.attachShadow({ mode: "open" }).innerHTML = `<input type="password">`;
+    expect(exec(shown).passwordField).toBe(true);
+  });
+  it("does not report a password field hidden by computed style", () => {
+    expect(exec(parse(`<input type="password" style="visibility:hidden">`)).passwordField).toBe(false);
+    expect(exec(parse(`<div style="display:none"><input type="password"></div>`)).passwordField).toBe(false);
+    expect(exec(parse(`<div style="opacity:0"><input type="password"></div>`)).passwordField).toBe(false);
+  });
+});
+
+describe("gate signals through open shadow roots (S-05)", () => {
+  function execLive(): GateSignals {
+    const fn = new Function("document", "location", buildGateSignalsScript());
+    return JSON.parse(fn(document, { href: "https://x.example.com/p" }) as string) as GateSignals;
+  }
+
+  it("sees a password field inside an open shadow root", () => {
+    document.body.innerHTML = `<div id="host"></div>`;
+    document.getElementById("host")!.attachShadow({ mode: "open" }).innerHTML = `<form><input type="password"></form>`;
+    expect(execLive().passwordField).toBe(true);
+  });
+
+  it("sees a challenge frame inside an open shadow root, unless its host is hidden", () => {
+    document.body.innerHTML = `<div id="host"></div>`;
+    const host = document.getElementById("host")!;
+    host.attachShadow({ mode: "open" }).innerHTML =
+      `<iframe src="https://challenges.cloudflare.com/turnstile/v0/x" title="challenge"></iframe>`;
+    expect(execLive().challengeWidget).toBe(true);
+    host.setAttribute("hidden", "");
+    expect(execLive().challengeWidget).toBe(false);
+  });
+});

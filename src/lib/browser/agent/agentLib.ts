@@ -1,95 +1,40 @@
 /**
- * The injected agent library (WI-2.3 / WI-NB1.1) — the standalone ES5 role /
- * name / refs / query / visibility / act functions prepended to every driver
- * script. Split from `actScript.ts` (which keeps the script BUILDERS) purely
- * along that seam; the behaviour contract and the parity story are unchanged
- * and live in actScript's header.
+ * The injected agent library (WI-2.3 / WI-NB1.1) — the standalone ES5 refs /
+ * query / visibility / snapshot functions prepended to every driver script,
+ * assembled on the shared perception core. Split from `actScript.ts` (which keeps
+ * the script BUILDERS) along that seam; the act half lives in `agentAct.ts`.
  *
- * Everything here must run standalone in the page's isolated world — no
- * imports, no bundler. `actScript.test.ts` and `actScript.webkit.test.ts`
- * execute these exact bytes through the builders; `agentLib.test.ts` pins the
- * assembly.
+ * Assembly order (audit 2026-09-03 S-02): `agentCore.src.js` (name, hidden-ness,
+ * the budgeted composed walk — the same bytes the recorder shim runs) with its
+ * role vocabulary, then the refs, query and act sections below. `agentLib.test.ts`
+ * pins that the library starts with the core and defines each function exactly once.
  *
+ * Every locator and the snapshot run the core's ONE budgeted walk (`__vmarkWalk`,
+ * #103) and keep only what they emit — never a list of every element — so a
+ * hostile page can make an answer incomplete (reported as truncated) but never
+ * make the webview allocate without limit.
+ *
+ * Everything here must run standalone in the page's isolated world — no imports,
+ * no bundler. `actScript.test.ts`, `agentAct.test.ts` and `agentSnapshot.test.ts`
+ * execute these exact bytes through the builders in jsdom;
+ * `actScript.webkit.test.ts` exercises the rendered tier in real WebKit.
+ *
+ * @coordinates-with lib/browser/agent/agentCore.src.js — the perception core
+ * @coordinates-with lib/browser/agent/agentAct.ts — the act section
  * @coordinates-with lib/browser/agent/actScript.ts — the builders
- * @coordinates-with lib/browser/agent/aria.ts — the TS twin of the perception rules
+ * @coordinates-with lib/browser/agent/aria.ts — the TS mirror of the perception rules
  * @module lib/browser/agent/agentLib
  */
 
-/** Role inference — mirrors `computeRole`. */
-const LIB_ROLE = `
-var __vmarkInputRoles={checkbox:'checkbox',radio:'radio',submit:'button',button:'button',
-  reset:'button',image:'button',range:'slider',number:'spinbutton',search:'searchbox',hidden:null};
-function __vmarkRole(el){
-  var r=el.getAttribute('role');
-  if(r&&r.trim()){
-    var first=r.trim().toLowerCase().split(/\\s+/)[0];
-    return (first==='presentation'||first==='none')?null:first;
-  }
-  var t=el.tagName.toLowerCase();
-  if(/^h[1-6]$/.test(t))return 'heading';
-  switch(t){
-    case 'button':return 'button';
-    case 'a':return el.hasAttribute('href')?'link':null;
-    case 'nav':return 'navigation';
-    case 'main':return 'main';
-    case 'textarea':return 'textbox';
-    case 'select':
-      return (el.hasAttribute('multiple')||Number(el.getAttribute('size')||'1')>1)?'listbox':'combobox';
-    case 'img':return 'img';
-    case 'input':
-      var ty=(el.getAttribute('type')||'text').toLowerCase();
-      return (ty in __vmarkInputRoles)?__vmarkInputRoles[ty]:'textbox';
-    default:return null;
-  }
-}`;
-
-/** Accessible name — mirrors `accessibleName` (aria-label, aria-labelledby, labels,
- *  image-input alt, placeholder, button value, text, title — all normalized). */
-const LIB_NAME = `
-function __vmarkNorm(s){return (s||'').replace(/\\s+/g,' ').trim();}
-function __vmarkIdListText(el,ids){
-  var doc=el.ownerDocument,out=[];
-  ids.trim().split(/\\s+/).forEach(function(id){
-    var ref=doc?doc.getElementById(id):null;
-    out.push(ref?(ref.textContent||''):'');
-  });
-  return __vmarkNorm(out.join(' '));
-}
-function __vmarkLabelText(el){
-  var labels=el.labels;
-  if(labels&&labels.length){
-    var parts=[];
-    for(var i=0;i<labels.length;i++)parts.push(labels[i].textContent||'');
-    return __vmarkNorm(parts.join(' '));
-  }
-  var wrap=el.closest?el.closest('label'):null;
-  return wrap?__vmarkNorm(wrap.textContent):'';
-}
-function __vmarkControlName(el){
-  var label=__vmarkLabelText(el); if(label)return label;
-  var ty=(el.getAttribute('type')||'').toLowerCase();
-  if(ty==='image'){var alt=__vmarkNorm(el.getAttribute('alt')); if(alt)return alt;}
-  var ph=el.getAttribute('placeholder'); if(ph&&ph.trim())return __vmarkNorm(ph);
-  if(ty==='submit'||ty==='button'||ty==='reset'||ty==='image'){
-    var v=el.getAttribute('value'); if(v&&v.trim())return __vmarkNorm(v);
-  }
-  return '';
-}
-function __vmarkName(el){
-  var lb=el.getAttribute('aria-labelledby');
-  if(lb){var t=__vmarkIdListText(el,lb); if(t)return t;}
-  var al=el.getAttribute('aria-label'); if(al&&al.trim())return __vmarkNorm(al);
-  var tag=el.tagName.toLowerCase();
-  if(tag==='img')return __vmarkNorm(el.getAttribute('alt'));
-  if(tag==='input'||tag==='textarea'||tag==='select')return __vmarkControlName(el);
-  if(el.textContent&&el.textContent.trim())return __vmarkNorm(el.textContent);
-  return __vmarkNorm(el.getAttribute('title'));
-}`;
+import { AGENT_CORE_SRC } from "./agentCore";
+import { AGENT_ACT } from "./agentAct";
 
 /** Stable per-document element refs — mirrors `refs.ts` (`refFor`/`queryByRef`).
  *  The store lives on `document`, so refs persist across reads within a page and
  *  reset when a navigation replaces the document. Same shape + assignment order as
- *  `refs.ts`, so `actScript.test.ts`'s parity check holds. */
+ *  `refs.ts`, so `actScript.test.ts`'s parity check holds. `__vmarkRefForLive` mints
+ *  against the store's CURRENT generation when a builder passes none, so a
+ *  candidate ref (S-03) never resets a store a prior read populated. */
 const LIB_REFS = `
 function __vmarkRefStore(gen){
   var d=document;
@@ -105,195 +50,174 @@ function __vmarkRefFor(el,gen){
   s.refs.set(el,ref);s.byRef.set(ref,new WeakRef(el));
   return ref;
 }
+function __vmarkRefForLive(el,gen){
+  if(gen==null){var s=document.__vmarkRefStore;gen=s?s.gen:0;}
+  return __vmarkRefFor(el,gen);
+}
 function __vmarkQueryByRef(ref,gen){
   var s=__vmarkRefStore(gen),w=s.byRef.get(ref),el=w?w.deref():null;
   if(!el||!el.isConnected||el.ownerDocument!==document)return null;
   return el;
 }`;
 
-/** Visibility, state, locating, snapshot — mirrors `isHidden`/`isDisabled`/
- *  `isChecked`/`queryByRole`/`ariaSnapshot`. */
+/** Locating and rendered visibility. Every locator streams the core's budgeted
+ *  composed walk (`__vmarkWalk`) and keeps only its matches. `__vmarkRendered`
+ *  needs a layout engine and self-disables without one (jsdom), leaving the
+ *  attribute tier. Its walks use the composed parent, so a shadow tree inherits
+ *  its host's fate. */
 const LIB_QUERY = `
-function __vmarkHidden(el){
-  for(var n=el;n;n=n.parentElement){
-    if(n.hasAttribute('hidden')||n.hasAttribute('inert'))return true;
-    if(n.getAttribute('aria-hidden')==='true')return true;
-    var s=n.style;
-    if(s&&(s.display==='none'||s.visibility==='hidden'))return true;
-  }
-  return false;
-}
-function __vmarkDisabled(el){
-  if(el.getAttribute('aria-disabled')==='true')return true;
-  if(el.matches&&el.matches(':disabled'))return true;
-  return el.hasAttribute('disabled');
-}
-function __vmarkChecked(el){
-  if(el.tagName==='INPUT')return !!el.checked;
-  return el.getAttribute('aria-checked')==='true';
-}
-function __vmarkQuery(role,name){
-  var all=document.querySelectorAll('*'),out=[];
-  for(var i=0;i<all.length;i++){
-    var el=all[i];
-    if(__vmarkRole(el)!==role)continue;
-    if(__vmarkHidden(el))continue;
-    if(name!=null&&__vmarkName(el)!==name)continue;
+function __vmarkQueryBy(role,name,includeHidden){
+  var out=[];
+  __vmarkWalk(document,__vmarkVisitBudget(),function(el){
+    if(__vmarkRole(el)!==role)return;
+    // Rendered visibility, not attributes alone: a stylesheet-hidden control must not
+    // be reported present to a wait or offered as a target. (Without a layout engine
+    // \`__vmarkRendered\` is true, so the attribute tier still decides.)
+    if(!includeHidden&&(__vmarkHidden(el)||!__vmarkRendered(el)))return;
+    if(name!=null&&__vmarkName(el)!==name)return;
     out.push(el);
-  }
+  });
   return out;
 }
-function __vmarkQueryAll(role,name){
-  var all=document.querySelectorAll('*'),out=[];
-  for(var i=0;i<all.length;i++){
-    var el=all[i];
-    if(__vmarkRole(el)!==role)continue;
-    if(name!=null&&__vmarkName(el)!==name)continue;
-    out.push(el);
-  }
-  return out;
-}
+function __vmarkQuery(role,name){return __vmarkQueryBy(role,name,false);}
+function __vmarkQueryAll(role,name){return __vmarkQueryBy(role,name,true);}
 function __vmarkHasLayout(){
   var d=document.documentElement;
   if(!d||!d.getBoundingClientRect)return false;
   var r=d.getBoundingClientRect();
   return r.width>0||r.height>0;
 }
+function __vmarkHasBox(el){
+  if(!__vmarkHasLayout())return true;
+  var r=el.getBoundingClientRect();
+  return r.width>0&&r.height>0;
+}
 function __vmarkRendered(el){
   if(!__vmarkHasLayout())return true;
   var r=el.getBoundingClientRect();
   if(r.width===0||r.height===0)return false;
+  // Entirely in negative page coordinates: no scroll can ever reach it (the
+  // left:-9999px idiom), so it is not something a user could see or click.
+  var sx=(typeof window!=='undefined'&&window.pageXOffset)||0,sy=(typeof window!=='undefined'&&window.pageYOffset)||0;
+  if(r.right+sx<=0||r.bottom+sy<=0)return false;
   var cs=getComputedStyle(el);
-  if(cs.visibility==='hidden'||cs.display==='none'||cs.opacity==='0')return false;
-  for(var p=el.parentElement;p&&p!==document.body&&p!==document.documentElement;p=p.parentElement){
-    var pr=p.getBoundingClientRect();
-    if(pr.height===0&&getComputedStyle(p).overflow!=='visible')return false;
+  // visibility is INHERITED, so the element's own computed value already reflects
+  // every ancestor — and a descendant may legitimately override to visible.
+  if(cs.visibility==='hidden'||cs.visibility==='collapse')return false;
+  // opacity and display are not: an ancestor's opacity:0 hides everything below it
+  // and nothing below can undo it, so those walk the whole composed ancestry.
+  for(var p=el;p;p=__vmarkParent(p)){
+    var ps=(p===el)?cs:getComputedStyle(p);
+    if(ps.display==='none'||ps.opacity==='0')return false;
+  }
+  for(var q=__vmarkParent(el);q&&q!==document.body&&q!==document.documentElement;q=__vmarkParent(q)){
+    var qr=q.getBoundingClientRect();
+    if(qr.height===0&&getComputedStyle(q).overflow!=='visible')return false;
   }
   return true;
 }
-function __vmarkActable(el){return !__vmarkHidden(el)&&__vmarkRendered(el);}
-function __vmarkDescribe(el){
-  var t=el.tagName.toLowerCase();
-  var c=(typeof el.className==='string')?el.className.trim().split(/\\s+/).slice(0,2).join('.'):'';
-  return c?t+'.'+c:t;
+function __vmarkNotActable(el){
+  var why=__vmarkHiddenBy(el);
+  if(why==='hidden')return 'hidden';
+  if(!__vmarkRendered(el))return 'hidden';
+  if(why==='inert')return 'inert';
+  if(__vmarkHasLayout()&&getComputedStyle(el).pointerEvents==='none')return 'inert';
+  return null;
 }
-function __vmarkObscuredBy(el){
+function __vmarkToken(s){return /^[A-Za-z0-9_-]{1,32}$/.test(s)?s:'';}
+function __vmarkDescribe(el){
+  var out=__vmarkToken(String(el.tagName||'').toLowerCase())||'element',n=0;
+  var cls=(typeof el.className==='string')?el.className:(el.getAttribute?(el.getAttribute('class')||''):'');
+  var parts=cls.trim().split(/\\s+/);
+  for(var i=0;i<parts.length&&n<2;i++){var tok=__vmarkToken(parts[i]);if(tok){out+='.'+tok;n++;}}
+  return out.slice(0,64);
+}
+function __vmarkContext(el){
+  var hops=0;
+  for(var n=__vmarkParent(el);n&&hops++<8;n=__vmarkParent(n)){
+    if(n===document.body||n===document.documentElement)break;
+    var t=String(n.tagName||'').toLowerCase();
+    var named=n.hasAttribute('id')||n.hasAttribute('class')||n.hasAttribute('aria-label')||n.hasAttribute('role');
+    if(!named&&!/^(form|section|article|aside|nav|main|header|footer|dialog|li|tr|fieldset|table|ul|ol|label)$/.test(t))continue;
+    var d=__vmarkDescribe(n),id=__vmarkToken(n.getAttribute('id')||'');
+    if(id)d+='#'+id;
+    var hint=__vmarkNorm(n.getAttribute('aria-label')||__vmarkContentText(n,false)).slice(0,40);
+    return hint?d+' "'+hint+'"':d;
+  }
+  return '';
+}
+function __vmarkCandidateText(el){
+  var ctx=__vmarkContext(el);
+  return (__vmarkDescribe(el)+(ctx?' in '+ctx:'')).slice(0,80);
+}
+function __vmarkCandidates(els,gen){
+  var out=[];
+  for(var i=0;i<els.length;i++)out.push({ref:__vmarkRefForLive(els[i],gen),text:__vmarkCandidateText(els[i])});
+  return out;
+}
+function __vmarkRelated(a,b){
+  for(var n=b;n;n=__vmarkParent(n))if(n===a)return true;
+  for(var m=a;m;m=__vmarkParent(m))if(m===b)return true;
+  return false;
+}
+function __vmarkDeepHit(cx,cy){
+  var hit=document.elementFromPoint(cx,cy),guard=0;
+  while(hit&&hit.shadowRoot&&hit.shadowRoot.elementFromPoint&&guard++<32){
+    var inner=hit.shadowRoot.elementFromPoint(cx,cy);
+    if(!inner||inner===hit)break;
+    hit=inner;
+  }
+  return hit;
+}
+function __vmarkOcclusion(el){
   if(!__vmarkHasLayout()||!document.elementFromPoint)return null;
   var r=el.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;
-  var hit=document.elementFromPoint(cx,cy);
-  if(!hit||hit===el||el.contains(hit)||hit.contains(el))return null;
-  return __vmarkDescribe(hit);
+  var hit=__vmarkDeepHit(cx,cy);
+  if(!hit)return {reason:'offscreen'};
+  if(hit===el||__vmarkRelated(el,hit))return null;
+  return {reason:'obscured',by:__vmarkDescribe(hit)};
+}
+function __vmarkPageText(){
+  var b=document.body,t=String((b&&(b.innerText||b.textContent))||'');
+  var all=__vmarkAll(document);
+  for(var i=0;i<all.length;i++){
+    var sr=all[i].shadowRoot;
+    if(!sr||!sr.children)continue;
+    for(var j=0;j<sr.children.length;j++){
+      var c=sr.children[j];
+      t+=' '+String((typeof c.innerText==='string'?c.innerText:c.textContent)||'');
+    }
+  }
+  return t;
 }
 var __vmarkLevels={H1:1,H2:2,H3:3,H4:4,H5:5,H6:6};
 function __vmarkSnapshot(gen){
-  var all=document.querySelectorAll('*'),out=[];
-  for(var i=0;i<all.length;i++){
-    var el=all[i],role=__vmarkRole(el);
-    if(!role||__vmarkHidden(el))continue;
-    var node={role:role,name:__vmarkName(el),ref:__vmarkRefFor(el,gen)};
+  var out=[],truncated=false,capped=false,unreachable={closedShadowRoots:0,frames:0};
+  // ONE budgeted composed walk (#103): each element is perceived as it is visited
+  // and only the emitted nodes are kept — no array of every element. Past the node
+  // cap only the unreachable tally continues (so it still covers the whole reachable
+  // page), and a walk that ran out of visit budget is reported as truncated: the
+  // page was not all seen.
+  var exhausted=__vmarkWalk(document,__vmarkVisitBudget(),function(el){
+    __vmarkCountUnreachable(unreachable,el);
+    if(capped)return;
+    var role=__vmarkRole(el);
+    if(!role||__vmarkHidden(el)||!__vmarkRendered(el))return;
+    if(out.length>=2000){capped=true;return;}
+    var full=__vmarkNameFull(el);
+    if(full.length>__vmarkNameMax())truncated=true;
+    var node={role:role,name:full.slice(0,__vmarkNameMax()),ref:__vmarkRefFor(el,gen)};
     if(role==='heading')node.level=__vmarkLevels[el.tagName]||(Number(el.getAttribute('aria-level'))||undefined);
     if(role==='checkbox'||role==='radio')node.checked=__vmarkChecked(el);
     if(__vmarkDisabled(el))node.disabled=true;
+    if(__vmarkIsFileInput(el))node.upload=true;
     out.push(node);
-  }
-  return out;
+  });
+  return {nodes:out,truncated:truncated||capped||exhausted,unreachable:unreachable};
 }`;
 
-/** Acting — click/type. Both refuse what they cannot actually do and say why
- *  (WI-NB1.1): a click scrolls its target into view, refuses hidden and occluded
- *  targets, and role/name results carry matchedTotal/matchedVisible so ambiguity
- *  is visible to the model (the accordion-form failure class: N same-name
- *  matches, only the rendered one may be acted on). Layout checks self-disable
- *  where no layout engine exists (jsdom), leaving the attribute tier. */
-const LIB_ACT = `
-function __vmarkAssign(base,extra){
-  if(extra)for(var k in extra)if(Object.prototype.hasOwnProperty.call(extra,k))base[k]=extra[k];
-  return base;
-}
-function __vmarkDoClick(el,extra){
-  if(__vmarkDisabled(el))return __vmarkAssign({found:true,clicked:false,reason:'disabled'},extra);
-  if(el.scrollIntoView&&__vmarkHasLayout())el.scrollIntoView({block:'center',inline:'center'});
-  var by=__vmarkObscuredBy(el);
-  if(by)return __vmarkAssign({found:true,clicked:false,reason:'obscured',by:by},extra);
-  el.click();
-  return __vmarkAssign({found:true,clicked:true},extra);
-}
-function __vmarkClick(role,name){
-  var all=__vmarkQueryAll(role,name);
-  if(!all.length)return {found:false,clicked:false,matchedTotal:0,matchedVisible:0};
-  var vis=[];
-  for(var i=0;i<all.length;i++)if(__vmarkActable(all[i]))vis.push(all[i]);
-  var counts={matchedTotal:all.length,matchedVisible:vis.length};
-  if(!vis.length)return __vmarkAssign({found:true,clicked:false,reason:'hidden'},counts);
-  return __vmarkDoClick(vis[0],counts);
-}
-function __vmarkSetValue(el,text){
-  // A framework (React) installs its own \`value\` setter on the NODE to track
-  // changes; assigning through it updates the tracker first, so the framework then
-  // sees "no change" and drops the keystroke. Going through the prototype's native
-  // setter leaves the tracker stale, which is exactly what makes the change visible.
-  var desc=Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el),'value');
-  if(desc&&desc.set){desc.set.call(el,text);return;}
-  el.value=text;
-}
-function __vmarkFireEdit(el){
-  el.dispatchEvent(new Event('input',{bubbles:true}));
-  el.dispatchEvent(new Event('change',{bubbles:true}));
-}
-function __vmarkDoType(el,text,extra){
-  var tag=el.tagName.toLowerCase();
-  if(__vmarkDisabled(el))return __vmarkAssign({found:true,typed:false,reason:'disabled'},extra);
-  try{
-    if(tag==='select'){
-      var opts=el.options||[],pick=null;
-      for(var i=0;i<opts.length;i++){
-        if(__vmarkNorm(opts[i].textContent)===text||opts[i].value===text){pick=opts[i];break;}
-      }
-      if(!pick)return __vmarkAssign({found:true,typed:false,reason:'no-such-option'},extra);
-      if(el.focus)el.focus();
-      __vmarkSetValue(el,pick.value);
-      __vmarkFireEdit(el);
-      return __vmarkAssign({found:true,typed:true},extra);
-    }
-    if(tag==='input'||tag==='textarea'){
-      if(el.readOnly)return __vmarkAssign({found:true,typed:false,reason:'readonly'},extra);
-      if(el.focus)el.focus();
-      __vmarkSetValue(el,text);
-      __vmarkFireEdit(el);
-      return __vmarkAssign({found:true,typed:true},extra);
-    }
-    if(el.isContentEditable){
-      if(el.focus)el.focus();
-      el.textContent=text;
-      el.dispatchEvent(new Event('input',{bubbles:true}));
-      return __vmarkAssign({found:true,typed:true},extra);
-    }
-    return __vmarkAssign({found:true,typed:false,reason:'not-editable'},extra);
-  }catch(e){
-    return __vmarkAssign({found:true,typed:false,reason:String((e&&e.message)||e)},extra);
-  }
-}
-function __vmarkType(role,name,text){
-  var all=__vmarkQueryAll(role,name);
-  if(!all.length)return {found:false,typed:false,matchedTotal:0,matchedVisible:0};
-  var vis=[];
-  for(var i=0;i<all.length;i++)if(__vmarkActable(all[i]))vis.push(all[i]);
-  var counts={matchedTotal:all.length,matchedVisible:vis.length};
-  if(!vis.length)return __vmarkAssign({found:true,typed:false,reason:'hidden'},counts);
-  return __vmarkDoType(vis[0],text,counts);
-}
-function __vmarkClickRef(ref,gen){
-  var el=__vmarkQueryByRef(ref,gen); if(!el)return {found:false,clicked:false};
-  if(!__vmarkActable(el))return {found:true,clicked:false,reason:'hidden'};
-  return __vmarkDoClick(el,null);
-}
-function __vmarkTypeRef(ref,gen,text){
-  var el=__vmarkQueryByRef(ref,gen); if(!el)return {found:false,typed:false};
-  if(!__vmarkActable(el))return {found:true,typed:false,reason:'hidden'};
-  return __vmarkDoType(el,text,null);
-}`;
-
-/** Standalone role/name/refs/query/snapshot/click/type library, injected verbatim.
- *  Exported so sibling injected-script modules (`interactScript.ts`) can prepend
- *  it and reuse `__vmarkQueryByRef` / `__vmarkQuery` / `__vmarkRefFor`. */
-export const AGENT_LIB = [LIB_ROLE, LIB_NAME, LIB_REFS, LIB_QUERY, LIB_ACT].join("\n");
+/** Standalone core/refs/query/snapshot/click/type library, injected verbatim.
+ *  Exported so sibling injected-script modules (`interactScript.ts`,
+ *  `powerScript.ts`) can prepend it and reuse `__vmarkQueryByRef` / `__vmarkQuery`
+ *  / `__vmarkRefFor` / `__vmarkWalk` / `__vmarkAll`. */
+export const AGENT_LIB = [AGENT_CORE_SRC, LIB_REFS, LIB_QUERY, AGENT_ACT].join("\n");

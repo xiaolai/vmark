@@ -35,6 +35,18 @@ fn grant(pattern: &str, ops: &[&str]) -> StandingGrant {
     }
 }
 
+/// The driver's grants for one window — the slice `authorize.rs` reads for a tab
+/// that window owns. Absent (a window that never synced) reads as empty: default-deny.
+fn grants_of(surface: &BrowserSurface, window: &str) -> Vec<StandingGrant> {
+    surface
+        .grants
+        .lock()
+        .unwrap()
+        .get(window)
+        .cloned()
+        .unwrap_or_default()
+}
+
 // ---------------------------------------------------------------- WI-1.1 target
 
 #[test]
@@ -135,11 +147,12 @@ fn an_operation_outside_the_closed_vocabulary_is_refused() {
 
 #[test]
 fn a_payload_binding_operation_must_carry_its_script() {
-    // style/eval/session bind the exact payload; minting without one would create
-    // authority spendable on ANY script.
+    // style/eval/session bind the exact payload, and so do type/key/scroll (audit
+    // 20260903 A-05 — their built script embeds the text, key or delta); minting
+    // without one would create authority spendable on ANY script.
     let surface = enabled_surface();
     commit_tab(&surface, "t", "https://ex.com/", AutomationMode::AiSandbox);
-    for op in ["style", "eval", "session"] {
+    for op in ["style", "eval", "session", "type", "key", "scroll"] {
         let err = mint_one_shot(&surface, "t", 0, "https://ex.com", op, None, None).unwrap_err();
         assert!(err.contains("requires the exact script"), "{op} → {err}");
     }
@@ -194,14 +207,31 @@ fn an_approved_payload_cannot_be_spent_on_a_substituted_one() {
 #[test]
 fn minting_is_bounded() {
     // An untrusted client must not be able to grow the one-shot vector without bound.
+    // DISTINCT bindings: an identical re-mint is idempotent and never grows the
+    // vector (audit 20260903 A-04), so it cannot exercise the cap.
     let surface = enabled_surface();
     commit_tab(&surface, "t", "https://ex.com/", AutomationMode::AiSandbox);
-    let mut last = Ok(());
-    for _ in 0..(MAX_ONE_SHOTS + 8) {
-        last = mint_one_shot(&surface, "t", 0, "https://ex.com", "click", None, None);
+    for i in 0..(MAX_ONE_SHOTS + 8) {
+        let target = Some(OneShotTarget {
+            role: "button".into(),
+            name: format!("b{i}"),
+        });
+        mint_one_shot(&surface, "t", 0, "https://ex.com", "click", target, None)
+            .expect("at the cap the OLDEST unspent one-shot is evicted, the new one is kept");
     }
-    assert!(last.is_err(), "expected the cap to refuse further mints");
-    assert!(surface.one_shots.lock().unwrap().len() <= MAX_ONE_SHOTS);
+    let shots = surface.one_shots.lock().unwrap();
+    assert_eq!(shots.len(), MAX_ONE_SHOTS);
+    let has = |name: &str| {
+        shots
+            .iter()
+            .any(|s| s.target.as_ref().is_some_and(|t| t.name == name))
+    };
+    // FIFO: the first eight are gone, the newest is present (parity with the frontend mirror).
+    assert!(
+        !has("b0") && !has("b7"),
+        "the oldest one-shots must have been evicted"
+    );
+    assert!(has("b8") && has(&format!("b{}", MAX_ONE_SHOTS + 7)));
 }
 
 // -------------------------------------------------------------- WI-1.3 attach
@@ -246,6 +276,7 @@ fn well_formed_grants_are_accepted() {
     let surface = enabled_surface();
     set_standing_grants(
         &surface,
+        "main",
         vec![
             grant("https://ex.com", &["click", "read"]),
             grant("https://*.ex.com", &["read"]),
@@ -253,7 +284,7 @@ fn well_formed_grants_are_accepted() {
         ],
     )
     .unwrap();
-    assert_eq!(surface.grants.lock().unwrap().len(), 3);
+    assert_eq!(grants_of(&surface, "main").len(), 3);
 }
 
 #[test]
@@ -263,6 +294,7 @@ fn an_unenforceable_grant_pattern_is_refused_like_a_one_shot_is() {
     let surface = enabled_surface();
     let err = set_standing_grants(
         &surface,
+        "main",
         vec![
             grant("https://ok.com", &["click"]),
             grant("https://*.example.com@evil.com", &["click"]),
@@ -282,9 +314,10 @@ fn a_refused_batch_clears_rather_than_retaining_prior_authority() {
     // it silently does not take. Failing CLOSED costs a re-approval; failing open
     // outlives a revocation.
     let surface = enabled_surface();
-    set_standing_grants(&surface, vec![grant("https://ex.com", &["click"])]).unwrap();
+    set_standing_grants(&surface, "main", vec![grant("https://ex.com", &["click"])]).unwrap();
     let err = set_standing_grants(
         &surface,
+        "main",
         vec![
             grant("https://ex.com", &["click"]),
             grant("bogus", &["click"]),
@@ -293,7 +326,7 @@ fn a_refused_batch_clears_rather_than_retaining_prior_authority() {
     .unwrap_err();
     assert!(err.contains("not a valid origin pattern"), "got: {err}");
     assert!(
-        surface.grants.lock().unwrap().is_empty(),
+        grants_of(&surface, "main").is_empty(),
         "a rejected replacement must not leave prior authority standing"
     );
 }
@@ -301,8 +334,12 @@ fn a_refused_batch_clears_rather_than_retaining_prior_authority() {
 #[test]
 fn a_grant_carrying_an_unknown_operation_is_refused() {
     let surface = enabled_surface();
-    let err =
-        set_standing_grants(&surface, vec![grant("https://ex.com", &["frobnicate"])]).unwrap_err();
+    let err = set_standing_grants(
+        &surface,
+        "main",
+        vec![grant("https://ex.com", &["frobnicate"])],
+    )
+    .unwrap_err();
     assert!(err.contains("not a browser operation"), "got: {err}");
 }
 
@@ -310,9 +347,9 @@ fn a_grant_carrying_an_unknown_operation_is_refused() {
 fn an_empty_batch_revokes_everything() {
     // Revocation must always be applicable — it is the safe direction.
     let surface = enabled_surface();
-    set_standing_grants(&surface, vec![grant("https://ex.com", &["click"])]).unwrap();
-    set_standing_grants(&surface, vec![]).unwrap();
-    assert!(surface.grants.lock().unwrap().is_empty());
+    set_standing_grants(&surface, "main", vec![grant("https://ex.com", &["click"])]).unwrap();
+    set_standing_grants(&surface, "main", vec![]).unwrap();
+    assert!(grants_of(&surface, "main").is_empty());
 }
 
 #[test]
@@ -321,7 +358,7 @@ fn the_grant_vector_is_bounded() {
     let many: Vec<StandingGrant> = (0..(MAX_GRANTS + 1))
         .map(|i| grant(&format!("https://h{i}.com"), &["click"]))
         .collect();
-    assert!(set_standing_grants(&surface, many).is_err());
+    assert!(set_standing_grants(&surface, "main", many).is_err());
 }
 
 // ------------------------------------------------- WI-1.6 frontend/Rust parity
@@ -346,9 +383,9 @@ fn every_pattern_shape_the_frontend_emits_is_accepted() {
         grant("http://127.0.0.1:5173", &["read"]),
         grant("https://xn--fsq.com:443", &["click"]), // punycode IDN
     ];
-    set_standing_grants(&surface, emitted.clone())
+    set_standing_grants(&surface, "main", emitted.clone())
         .expect("the frontend's own pattern format must validate");
-    assert_eq!(surface.grants.lock().unwrap().len(), emitted.len());
+    assert_eq!(grants_of(&surface, "main").len(), emitted.len());
 }
 
 #[test]
@@ -360,8 +397,8 @@ fn a_grant_refuses_operations_that_can_never_be_granted() {
     // inert state that misrepresents to the user what they have allowed.
     let surface = enabled_surface();
     for op in ["upload", "eval", "session"] {
-        let err =
-            set_standing_grants(&surface, vec![grant("https://ex.com:443", &[op])]).unwrap_err();
+        let err = set_standing_grants(&surface, "main", vec![grant("https://ex.com:443", &[op])])
+            .unwrap_err();
         assert!(
             err.contains("can never be granted"),
             "{op} should be refused at the storage boundary, got: {err}"
@@ -373,9 +410,9 @@ fn a_grant_refuses_operations_that_can_never_be_granted() {
 fn a_grant_accepts_every_operation_that_is_actually_grantable() {
     let surface = enabled_surface();
     for op in [
-        "read", "attach", "click", "type", "scroll", "key", "style", "navigate", "publish",
+        "read", "attach", "click", "type", "scroll", "key", "style", "navigate",
     ] {
-        set_standing_grants(&surface, vec![grant("https://ex.com:443", &[op])])
+        set_standing_grants(&surface, "main", vec![grant("https://ex.com:443", &[op])])
             .unwrap_or_else(|e| panic!("grantable operation '{op}' rejected: {e}"));
     }
 }
@@ -389,4 +426,135 @@ fn a_one_shot_refuses_a_never_automated_operation() {
     let err = mint_one_shot(&surface, "t", 0, "https://ex.com", "upload", None, None).unwrap_err();
     assert!(err.contains("never automated"), "got: {err}");
     assert!(surface.one_shots.lock().unwrap().is_empty());
+}
+
+// ------------------------------------------------ audit 20260903 A-03 per window
+
+#[test]
+fn grants_are_kept_per_window_so_one_window_cannot_clobber_another() {
+    // Two document windows each run their own grant sync. One process-wide vector
+    // meant whichever window synced last silently replaced the other's grants.
+    let surface = enabled_surface();
+    set_standing_grants(&surface, "a", vec![grant("https://a.com", &["click"])]).unwrap();
+    set_standing_grants(&surface, "b", vec![grant("https://b.com", &["read"])]).unwrap();
+    assert_eq!(grants_of(&surface, "a").len(), 1);
+    assert_eq!(grants_of(&surface, "a")[0].origin_pattern, "https://a.com");
+    assert_eq!(grants_of(&surface, "b").len(), 1);
+    assert_eq!(grants_of(&surface, "b")[0].origin_pattern, "https://b.com");
+
+    // A re-sync from B replaces only B's slice.
+    set_standing_grants(&surface, "b", vec![]).unwrap();
+    assert!(grants_of(&surface, "b").is_empty());
+    assert_eq!(
+        grants_of(&surface, "a").len(),
+        1,
+        "A's grant must survive B's revocation"
+    );
+}
+
+#[test]
+fn a_rejected_batch_clears_only_the_window_that_sent_it() {
+    let surface = enabled_surface();
+    set_standing_grants(&surface, "a", vec![grant("https://a.com", &["click"])]).unwrap();
+    set_standing_grants(&surface, "b", vec![grant("https://b.com", &["click"])]).unwrap();
+    set_standing_grants(&surface, "b", vec![grant("bogus", &["click"])]).unwrap_err();
+    assert!(
+        grants_of(&surface, "b").is_empty(),
+        "fail closed for the sender"
+    );
+    assert_eq!(
+        grants_of(&surface, "a").len(),
+        1,
+        "another window's authority is untouched"
+    );
+}
+
+#[test]
+fn the_grant_cap_is_per_window() {
+    let surface = enabled_surface();
+    let full: Vec<StandingGrant> = (0..MAX_GRANTS)
+        .map(|i| grant(&format!("https://h{i}.com"), &["click"]))
+        .collect();
+    set_standing_grants(&surface, "a", full.clone()).unwrap();
+    set_standing_grants(&surface, "b", full).unwrap();
+    assert_eq!(grants_of(&surface, "a").len(), MAX_GRANTS);
+    assert_eq!(grants_of(&surface, "b").len(), MAX_GRANTS);
+}
+
+// ------------------------------------------------ audit 20260903 A-04 idempotent
+
+#[test]
+fn minting_the_same_binding_twice_stores_one_one_shot() {
+    // The frontend mints one approval through two paths (the grant-sync
+    // subscription and the executor's awaited mint). Two entries would be two
+    // authorizations for an action the user approved once — one orphan per step.
+    let surface = enabled_surface();
+    commit_tab(&surface, "t", "https://ex.com/", AutomationMode::AiSandbox);
+    let target = || {
+        Some(OneShotTarget {
+            role: "button".into(),
+            name: "Publish".into(),
+        })
+    };
+    mint_one_shot(&surface, "t", 0, "https://ex.com", "click", target(), None).unwrap();
+    mint_one_shot(&surface, "t", 0, "https://ex.com", "click", target(), None).unwrap();
+    assert_eq!(surface.one_shots.lock().unwrap().len(), 1);
+
+    // Payload-bound: the same script is the same binding; a different one is not.
+    let script = || Some("return 1;".to_string());
+    mint_one_shot(&surface, "t", 0, "https://ex.com", "eval", None, script()).unwrap();
+    mint_one_shot(&surface, "t", 0, "https://ex.com", "eval", None, script()).unwrap();
+    assert_eq!(surface.one_shots.lock().unwrap().len(), 2);
+    mint_one_shot(
+        &surface,
+        "t",
+        0,
+        "https://ex.com",
+        "eval",
+        None,
+        Some("return 2;".into()),
+    )
+    .unwrap();
+    assert_eq!(surface.one_shots.lock().unwrap().len(), 3);
+}
+
+#[test]
+fn a_different_binding_is_a_second_one_shot() {
+    let surface = enabled_surface();
+    commit_tab(&surface, "t", "https://ex.com/", AutomationMode::AiSandbox);
+    let publish = Some(OneShotTarget {
+        role: "button".into(),
+        name: "Publish".into(),
+    });
+    let delete = Some(OneShotTarget {
+        role: "button".into(),
+        name: "Delete".into(),
+    });
+    mint_one_shot(&surface, "t", 0, "https://ex.com", "click", publish, None).unwrap();
+    mint_one_shot(&surface, "t", 0, "https://ex.com", "click", delete, None).unwrap();
+    mint_one_shot(&surface, "t", 0, "https://ex.com", "read", None, None).unwrap();
+    assert_eq!(surface.one_shots.lock().unwrap().len(), 3);
+}
+
+#[test]
+fn an_identical_re_mint_on_a_full_vector_is_still_ok() {
+    // Idempotency is decided before the cap: the entry already exists, so nothing
+    // is added and nothing is refused.
+    let surface = enabled_surface();
+    commit_tab(&surface, "t", "https://ex.com/", AutomationMode::AiSandbox);
+    for i in 0..MAX_ONE_SHOTS {
+        let target = Some(OneShotTarget {
+            role: "button".into(),
+            name: format!("b{i}"),
+        });
+        mint_one_shot(&surface, "t", 0, "https://ex.com", "click", target, None).unwrap();
+    }
+    assert_eq!(surface.one_shots.lock().unwrap().len(), MAX_ONE_SHOTS);
+    let existing = Some(OneShotTarget {
+        role: "button".into(),
+        name: "b0".into(),
+    });
+    mint_one_shot(&surface, "t", 0, "https://ex.com", "click", existing, None)
+        .expect("an identical binding is the same approval, not a new slot");
+    assert_eq!(surface.one_shots.lock().unwrap().len(), MAX_ONE_SHOTS);
 }

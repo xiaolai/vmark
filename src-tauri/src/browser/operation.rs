@@ -7,6 +7,10 @@
 //! opaque permission — that is how a hard denial or an operation-scoped grant
 //! cannot be bypassed by a misspelled or case-variant spelling (`"Upload"`).
 //!
+//! `publish` was removed from the set (audit 20260903): it had no consumer on
+//! either side, so it was a grantable token that authorized nothing — inert
+//! authority the user could be shown and could never observe.
+//!
 //! @coordinates-with src/lib/browser/approval/grants.ts — the mirrored vocabulary
 
 /// Operations the AI may NEVER perform autonomously, even with a matching grant.
@@ -29,21 +33,39 @@ pub(crate) const NEVER_AUTOMATED: &[&str] = &["upload"];
 pub(crate) const NEVER_GRANTABLE: &[&str] = &["eval", "session", "record"];
 
 /// Operations whose one-shot must bind the exact PAYLOAD that will run, not merely
-/// `(origin, operation)`. `style` and `eval` carry a caller-supplied script/CSS, so
-/// an "Allow once" the user approved for payload A must NOT authorize a substituted
-/// payload B on the retry. The driver binds a hash of the exact script the eval will
-/// run and refuses a mismatched retry. (Security review P5 — High #1, Medium #4.)
+/// `(origin, operation, target)`.
+///
+/// `style` and `eval` carry a caller-supplied script/CSS, so an "Allow once" the
+/// user approved for payload A must NOT authorize a substituted payload B on the
+/// retry. The driver binds a hash of the exact script the eval will run and
+/// refuses a mismatched retry. (Security review P5 — High #1, Medium #4.)
+///
+/// `type`, `key` and `scroll` bind too (audit 20260903 A-05): the built script
+/// EMBEDS the text to type, the key plus its modifiers, or the scroll delta, so
+/// binding the script hash binds the payload. Before this an "Allow once" for
+/// `key` authorized any key with any modifiers on the retry, and one for `type`
+/// bound the element but not the text. `click` stays target-only — its script
+/// carries nothing beyond the descriptor the prompt already showed.
 pub(crate) fn operation_binds_payload(operation: &str) -> bool {
-    // `session` binds an `action:handle` descriptor, so an "Allow once" for
-    // "load work_login" cannot be spent on loading a different saved session
-    // (WI-P6.3) — the same anti-substitution reasoning as style/eval.
-    matches!(operation, "style" | "eval" | "session")
+    // An UNKNOWN spelling binds nothing because it authorizes nothing: every
+    // route refuses it before a binding question is asked.
+    BrowserOperation::from_wire(operation).is_some_and(BrowserOperation::binds_payload)
 }
 
-/// The closed browser-operation vocabulary. The `Deserialize` impl is the
-/// enforceable form: it rejects unknown/variant spellings at the wire boundary.
-/// `from_wire` is the single source of truth — both the deserializer and
-/// `is_known_operation` delegate to it, so the set has exactly one definition.
+/// The closed browser-operation vocabulary, with `from_wire` as its single
+/// definition: `is_known_operation` and `operation_binds_payload` both delegate
+/// to it, and every route that can authorize an operation asks one of them.
+///
+/// It is NOT a wire type, and a `Deserialize` impl claiming to be one was
+/// removed (audit 20260903 round 3, #26): the command boundary takes
+/// `operation: String` (`browser_eval`) and `operations: Vec<String>`
+/// (`StandingGrant`), so the deserializer had exactly one caller — its own test —
+/// while the doc comment above it advertised enforcement that was not happening
+/// anywhere. The enforcement is real, but it lives at the decision points
+/// (`is_operation_granted`, `consume_one_shot`, `mint_one_shot`,
+/// `set_standing_grants`), each of which refuses an unknown spelling. Typing the
+/// wire itself would be a genuine improvement and a larger change: `StandingGrant`
+/// is mirrored from the TS store and compared as strings by `origin_guard`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BrowserOperation {
     Read,
@@ -54,7 +76,6 @@ pub enum BrowserOperation {
     Key,
     Style,
     Navigate,
-    Publish,
     Upload,
     Eval,
     Session,
@@ -62,8 +83,36 @@ pub enum BrowserOperation {
 }
 
 impl BrowserOperation {
+    /// Does an approval for this operation bind the exact payload (script hash)?
+    ///
+    /// EXHAUSTIVE on purpose: a new payload-carrying operation added to the enum
+    /// fails to compile until it says which side it is on. The old string match
+    /// silently defaulted a new operation to "unbound", and the vocabulary loop
+    /// test could not tell.
+    pub(crate) fn binds_payload(self) -> bool {
+        match self {
+            // `session` binds an `action:handle` descriptor, so an "Allow once" for
+            // "load work_login" cannot be spent on loading a different saved session
+            // (WI-P6.3) — the same anti-substitution reasoning as style/eval.
+            Self::Style | Self::Eval | Self::Session | Self::Type | Self::Key | Self::Scroll => {
+                true
+            }
+            // `click` is target-only: its script carries nothing beyond the
+            // descriptor the prompt already showed. The rest carry no script.
+            Self::Read
+            | Self::Attach
+            | Self::Click
+            | Self::Navigate
+            | Self::Upload
+            | Self::Record => false,
+        }
+    }
+
     /// Parse a wire operation string, or `None` for unknown/variant spellings.
-    fn from_wire(s: &str) -> Option<Self> {
+    /// The one definition of the set — `src/lib/browser/approval/grants.ts` is
+    /// asserted equal to these arms by `operationVocabulary.test.ts`, which reads
+    /// this function from source.
+    pub(crate) fn from_wire(s: &str) -> Option<Self> {
         match s {
             "read" => Some(Self::Read),
             "attach" => Some(Self::Attach),
@@ -73,21 +122,12 @@ impl BrowserOperation {
             "key" => Some(Self::Key),
             "style" => Some(Self::Style),
             "navigate" => Some(Self::Navigate),
-            "publish" => Some(Self::Publish),
             "upload" => Some(Self::Upload),
             "eval" => Some(Self::Eval),
             "session" => Some(Self::Session),
             "record" => Some(Self::Record),
             _ => None,
         }
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for BrowserOperation {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let s = String::deserialize(deserializer)?;
-        Self::from_wire(&s)
-            .ok_or_else(|| serde::de::Error::custom(format!("unknown browser operation: {s:?}")))
     }
 }
 

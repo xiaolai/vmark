@@ -124,6 +124,10 @@ fn refusal_names_the_argument_it_was_given() {
 
 /// The body of `pub async fn {name}(` up to the next `#[tauri::command]`.
 fn command_body(source: &str, name: &str) -> String {
+    // A CRLF checkout (Windows runners) must scan like an LF one, or the body
+    // silently runs to the end of the file.
+    let source = source.replace("\r\n", "\n");
+    let source = source.as_str();
     let needle = format!("pub async fn {name}(");
     let start = source
         .find(&needle)
@@ -158,7 +162,8 @@ fn browser_add_one_shot_calls_the_gate() {
 /// when one appears, which is the moment to add it.
 #[test]
 fn no_uncapped_script_argument_exists_in_commands_auth() {
-    let source = include_str!("commands_auth.rs");
+    let source = include_str!("commands_auth.rs").replace("\r\n", "\n");
+    let source = source.as_str();
     let capped = ["browser_eval", "browser_add_one_shot"];
     for line in source.lines() {
         let line = line.trim();

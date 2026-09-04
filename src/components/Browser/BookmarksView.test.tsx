@@ -19,7 +19,7 @@ beforeEach(() => {
   nav.submitOmnibox.mockClear();
   localStorage.clear();
   useBookmarkStore.setState({ bookmarks: [] });
-  useTabStore.setState({ tabs: {}, activeTabId: {}, untitledCounter: 0, closedTabs: {} });
+  useTabStore.setState({ tabs: {}, activeTabId: {}, untitledCounter: 0 });
 });
 
 describe("BookmarksView", () => {

@@ -12,8 +12,8 @@
 // exactly that tuple, and a hostile page controls its own pixels, so approving a
 // rendering of the page would be strictly weaker than approving the descriptor the
 // gate actually enforces. That is also why an opaque hide-only freeze is sufficient.
-import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render, screen, cleanup, waitFor } from "@testing-library/react";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { act, render, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const occlusion = vi.hoisted(() => ({
@@ -48,6 +48,7 @@ vi.mock("@/hooks/useBrowserOccluder", async () => {
 import { BrowserApprovalDialog } from "./BrowserApprovalDialog";
 import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
 import { useBrowserUiStore } from "@/stores/browserUiStore";
+import { __setAttachInvoker } from "@/services/browser/humanTabAttach";
 
 const TAB = "tab-1";
 const URL = "https://blog.example.com/wp-admin/post-new.php";
@@ -64,7 +65,20 @@ function raiseClick(id = "r1") {
   raise(id, "click", TARGET);
 }
 
+// The prompt ignores an Allow within ACTIVATION_DELAY_MS of rendering (audit A-02).
+// Tests drive `Date.now` explicitly: `settle()` moves the clock past the delay so a
+// deliberate click counts, and the swap tests assert that a click BEFORE it does not.
+let now = 1_000_000;
+const settle = () => {
+  now += 600;
+};
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
 beforeEach(() => {
+  now = 1_000_000;
+  vi.spyOn(Date, "now").mockImplementation(() => now);
   cleanup();
   useBrowserApprovalStore.setState({ grants: [], pending: [], oneShots: [], attachments: [] });
   useBrowserUiStore.setState({ entries: {} });
@@ -113,6 +127,7 @@ describe("BrowserApprovalDialog", () => {
   it("Allow once mints a single-use authorization", async () => {
     raiseClick();
     render(<BrowserApprovalDialog />);
+    settle();
     await userEvent.click(screen.getByRole("button", { name: /allow once/i }));
 
     const s = useBrowserApprovalStore.getState();
@@ -126,6 +141,7 @@ describe("BrowserApprovalDialog", () => {
   it("Allow on this site creates a standing grant scoped to the origin", async () => {
     raiseClick();
     render(<BrowserApprovalDialog />);
+    settle();
     await userEvent.click(screen.getByRole("button", { name: /this site/i }));
 
     const s = useBrowserApprovalStore.getState();
@@ -257,5 +273,153 @@ describe("BrowserApprovalDialog — audit 20260815-163607", () => {
     expect(useBrowserApprovalStore.getState().pending).toHaveLength(0);
     expect(other, "sibling overlay must not also see Escape").not.toHaveBeenCalled();
     window.removeEventListener("keydown", other);
+  });
+});
+
+// Audit 2026-09-03 A-02 (prompt swap), A-05 (payload shown), S-09 / #11 (display hardening).
+describe("prompt-swap protection and display hardening (audit 2026-09-03)", () => {
+  it("ignores an Allow that lands within the activation delay", async () => {
+    raiseClick();
+    render(<BrowserApprovalDialog />);
+    await userEvent.click(screen.getByRole("button", { name: /allow once/i }));
+    expect(useBrowserApprovalStore.getState().pending).toHaveLength(1);
+    expect(useBrowserApprovalStore.getState().oneShots).toHaveLength(0);
+    settle();
+    await userEvent.click(screen.getByRole("button", { name: /allow once/i }));
+    expect(useBrowserApprovalStore.getState().pending).toHaveLength(0);
+  });
+
+  it("Deny is never delayed", async () => {
+    raiseClick();
+    render(<BrowserApprovalDialog />);
+    await userEvent.click(screen.getByRole("button", { name: /deny/i }));
+    expect(useBrowserApprovalStore.getState().pending).toHaveLength(0);
+  });
+
+  it("a click whose pointerdown started on the previous prompt does not resolve the one that slid under it", () => {
+    raiseClick("p1");
+    raise("p2", "eval", undefined);
+    render(<BrowserApprovalDialog />);
+    settle();
+    // The user presses on Allow while P1 is showing…
+    fireEvent.pointerDown(screen.getByRole("button", { name: /allow once/i }));
+    // …and P1 is withdrawn underneath them (a run cancel, a navigation), so P2 renders.
+    act(() => {
+      useBrowserApprovalStore.setState((s) => ({ pending: s.pending.filter((p) => p.id !== "p1") }));
+    });
+    expect(screen.getByRole("alertdialog")).toHaveTextContent("Run a script");
+    settle();
+    // The press completes on P2's Allow: the pointer never went down on P2, so it is a no-op.
+    fireEvent.click(screen.getByRole("button", { name: /allow once/i }), { detail: 1 });
+    expect(useBrowserApprovalStore.getState().pending.map((p) => p.id)).toEqual(["p2"]);
+    expect(useBrowserApprovalStore.getState().oneShots).toHaveLength(0);
+    // A fresh, deliberate press — pointerdown AND click on the prompt that is
+    // actually showing — works.
+    const allowNow = screen.getByRole("button", { name: /allow once/i });
+    fireEvent.pointerDown(allowNow);
+    fireEvent.click(allowNow, { detail: 1 });
+    expect(useBrowserApprovalStore.getState().pending).toHaveLength(0);
+  });
+
+  it("a keyboard Allow works after the delay without a pointerdown", async () => {
+    raiseClick();
+    render(<BrowserApprovalDialog />);
+    settle();
+    screen.getByRole("button", { name: /allow once/i }).focus();
+    await userEvent.keyboard("{Enter}");
+    expect(useBrowserApprovalStore.getState().pending).toHaveLength(0);
+  });
+
+  it("shows the payload summary of a type request instead of its script", () => {
+    useBrowserApprovalStore
+      .getState()
+      .requestApproval("t1", URL, "type", { role: "textbox", name: "Message" }, TAB, 1, "return 1", undefined, 'Text: "hello"');
+    render(<BrowserApprovalDialog />);
+    const dlg = screen.getByRole("alertdialog");
+    expect(dlg).toHaveTextContent('Text: "hello"');
+    expect(dlg).toHaveTextContent("Type into");
+    expect(dlg.querySelector("pre")).toBeNull();
+  });
+
+  it("clips an absurd name, isolates it for bidi, and keeps the buttons reachable", () => {
+    const long = "A".repeat(600) + "\u202E";
+    raise("n1", "click", { role: "button", name: long });
+    render(<BrowserApprovalDialog />);
+    const name = screen.getByRole("alertdialog").querySelector(".browser-approval-name bdi");
+    expect(name).not.toBeNull();
+    expect(name!.textContent!.length).toBeLessThanOrEqual(201);
+    expect(name!.textContent!.endsWith("…")).toBe(true);
+    expect(screen.getByRole("button", { name: /deny/i })).toBeInTheDocument();
+  });
+
+  it("labels every approvable operation from the closed vocabulary", () => {
+    for (const [op, label] of [
+      ["scroll", "Scroll the page"],
+      ["key", "Press a key"],
+      ["style", "Change the page's styling"],
+      ["eval", "Run a script"],
+    ] as const) {
+      cleanup();
+      useBrowserApprovalStore.setState({ pending: [] });
+      raise("o-" + op, op, undefined);
+      render(<BrowserApprovalDialog />);
+      expect(screen.getByRole("alertdialog")).toHaveTextContent(label);
+    }
+  });
+});
+
+// Audit 2026-09-03 #153 (round 4): a failed attach is a VISIBLE state. The prompt
+// stays raised, says what happened in a live region, and re-enables its buttons so
+// the user can retry or deny — not a dialog that silently stays up unexplained.
+describe("attach failure is visible and retryable (audit #153)", () => {
+  afterEach(() => __setAttachInvoker(null));
+  const raiseAttach = () => raise("at1", "attach", undefined);
+  const allowOnce = () => screen.getByRole("button", { name: /allow once/i });
+
+  it("keeps the prompt up, announces the failure, and re-enables the buttons", async () => {
+    __setAttachInvoker(() => Promise.reject(new Error("ipc down")));
+    raiseAttach();
+    render(<BrowserApprovalDialog />);
+    settle();
+    await userEvent.click(allowOnce());
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(/couldn't allow the AI to use this tab/i);
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+    for (const name of [/deny/i, /allow once/i, /until navigation/i]) {
+      expect(screen.getByRole("button", { name })).toBeEnabled();
+    }
+    expect(useBrowserApprovalStore.getState().pending).toHaveLength(1);
+  });
+
+  it("a retry clears the announcement while the attach is in flight and disables the buttons again", async () => {
+    __setAttachInvoker(() => Promise.reject(new Error("ipc down")));
+    raiseAttach();
+    render(<BrowserApprovalDialog />);
+    settle();
+    await userEvent.click(allowOnce());
+    await screen.findByRole("alert");
+
+    let release!: () => void;
+    __setAttachInvoker(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+        }),
+    );
+    settle();
+    await userEvent.click(allowOnce());
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(allowOnce()).toBeDisabled();
+    expect(screen.getByRole("button", { name: /deny/i })).toBeDisabled();
+
+    release();
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+  });
+
+  it("announces nothing before an attempt has failed", () => {
+    raiseAttach();
+    render(<BrowserApprovalDialog />);
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 });

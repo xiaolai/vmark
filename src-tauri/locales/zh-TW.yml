@@ -321,6 +321,13 @@ errors:
   browser.notGranted: "AI 無權在此頁面執行該操作"
   browser.attachmentRequired: "請先將 AI 連接到此分頁再進行操作"
   browser.profileOriginConfined: "AI 只能讀取此設定檔已核准的頁面"
+  browser.evalTimeout: "頁面指令碼未能及時完成"
+  browser.evalFailed: "頁面指令碼執行失敗"
+  browser.evalNoValue: "頁面指令碼沒有回傳任何值"
+  browser.evalResultTooLarge: "頁面指令碼的結果過大，無法回傳"
+  browser.tabLimit: "AI 已開啟 %{limit} 個瀏覽器分頁，請先關閉一個"
+  browser.dialogNotOwned: "該頁面對話方塊屬於另一個視窗"
+  browser.contentRulesFailed: "無法安裝 AI 瀏覽器的目標規則"
 
   # === Hot exit ===
   hotExit.noWindows: "沒有需要擷取的文件視窗"

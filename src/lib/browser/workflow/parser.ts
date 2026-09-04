@@ -1,6 +1,7 @@
 /**
  * Purpose: Parse a web-workflow markdown file into the typed `WebWorkflow` IR,
- * with precise line-numbered diagnostics (ADR-W1, WI-4.1).
+ * with precise line-numbered diagnostics (ADR-W1, WI-4.1). Any line ending
+ * (CRLF/CR/LF) and a leading BOM are accepted (audit 2026-09-03 W-12).
  * Plan: dev-docs/plans/20260712-0610-embedded-browser-sites-workflows.md
  *
  * File shape:
@@ -35,11 +36,14 @@ import {
 
 const KIND_SET = new Set<string>(STEP_KINDS);
 const KNOWN_FM_KEYS = new Set(["site", "inputs", "trigger"]);
-// Trailing text is captured with a bounded `(.*)$` (no overlapping quantifiers) and
-// trimmed/emptiness-checked in code. The earlier `(.*\S)\s*$` form let `\s*` and `.*`
-// both range over the same trailing whitespace — superlinear backtracking on a
+// Trailing text is captured with a bounded `([\s\S]*)$` (no overlapping quantifiers)
+// and trimmed/emptiness-checked in code. The earlier `(.*\S)\s*$` form let `\s*` and
+// `.*` both range over the same trailing whitespace — superlinear backtracking on a
 // whitespace-heavy malformed line, which could freeze the synchronous UI thread (ReDoS).
-const STEP_RE = /^\s*(?:\d+\.|-)?\s*([a-z]+)\s*:\s*(.*)$/;
+// `[\s\S]` rather than `.`: `.` excludes U+2028/U+2029, which are ordinary characters
+// inside a step (lines are split on CR/LF only). The list marker's own `\s*` lives
+// INSIDE the optional group, so leading whitespace is matched by exactly one `\s*`.
+const STEP_RE = /^\s*(?:(?:\d+\.|-)\s*)?([a-z]+)\s*:\s*([\s\S]*)$/;
 // One grammar source for a variable name, so a declaration and a `{ref}` cannot drift.
 const VAR_NAME_SRC = "[a-zA-Z_][\\w-]*";
 const VAR_NAME_RE = new RegExp(`^${VAR_NAME_SRC}$`);
@@ -58,7 +62,9 @@ function warn(line: number, code: DiagnosticCode, message: string): WarningDiagn
 
 /** Parse workflow source text. Never throws — all failure surfaces as diagnostics. */
 export function parseWorkflow(source: string): ParseResult {
-  const lines = (source.startsWith(BOM) ? source.slice(BOM.length) : source).split("\n");
+  // CRLF (Windows editors), bare CR (legacy) and LF are all one line break; nothing
+  // else is — U+2028/U+2029 stay inside their line.
+  const lines = (source.startsWith(BOM) ? source.slice(BOM.length) : source).split(/\r\n|\r|\n/);
   const errors: ErrorDiagnostic[] = [];
   const warnings: WarningDiagnostic[] = [];
 
@@ -110,7 +116,7 @@ type FrontMatter =
 
 // Keys may contain letters, digits, `-` and `_` so hyphenated keys (`some-key`) are
 // recognized and warned as unknown rather than silently skipped.
-const FM_KEY_RE = /^([a-zA-Z_][\w-]*)\s*:\s*(.*)$/;
+const FM_KEY_RE = /^([a-zA-Z_][\w-]*)\s*:\s*([\s\S]*)$/;
 
 /** Read the leading `---` … `---` block into a flat key→value map, diagnosing keys. */
 function extractFrontMatter(lines: string[]): FrontMatter {

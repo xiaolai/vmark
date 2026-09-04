@@ -4,8 +4,10 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";
 import { isBrowserTab } from "@/stores/tabStoreTypes";
 import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
+import { destroyBrowserNativeView } from "./browserNativeViews";
 import { browserEventBroker } from "./browserEventBroker";
 import { browserWarn } from "@/utils/debug";
+import { makeSerializedPusher } from "./serializedPusher";
 
 type BrowserPolicy = {
   enabled: boolean;
@@ -22,17 +24,28 @@ function currentPolicy(): BrowserPolicy {
   };
 }
 
+/**
+ * Close every browser tab (or every AI-owned one) and drop the authority that went
+ * with them. Detaching the tab fires the removal bus, whose lifecycle subscriber
+ * destroys the native view; the explicit destroy here is idempotent and covers a
+ * window whose bootstrap has not started that subscriber yet.
+ *
+ * Switching the browser OFF also revokes every standing grant (audit 2026-09-03
+ * #12): "withdraws the AI automation surface" must include the authority it had
+ * accumulated, or switching it back on resumes acting with no fresh prompt.
+ */
 function destroyBrowserViews(onlyAi = false): void {
   const store = useTabStore.getState();
   for (const [windowLabel, tabs] of Object.entries(store.tabs)) {
     for (const tab of tabs) {
       if (!isBrowserTab(tab)) continue;
       if (onlyAi && tab.automationMode === "human") continue;
-      void invoke("browser_destroy", { tabId: tab.id }).catch(() => {});
+      void destroyBrowserNativeView(tab.id);
       store.detachTab(windowLabel, tab.id);
     }
   }
   useBrowserApprovalStore.getState().clearEphemeral();
+  if (!onlyAi) useBrowserApprovalStore.getState().revokeAll();
   browserEventBroker.cancelPending();
 }
 
@@ -41,11 +54,16 @@ function destroyBrowserViews(onlyAi = false): void {
  * so the initial push is required before either manual or AI native creation.
  */
 export function startBrowserAiPolicySync(): () => void {
-  const push = (policy: BrowserPolicy) => {
-    void invoke("browser_ai_policy", policy).catch((error: unknown) => {
-      browserWarn("browser policy sync failed; Rust remains fail-closed", error);
-    });
-  };
+  // Serialized, latest-wins, retried until acknowledged: two rapid updates used
+  // to be fired concurrently (the older, more permissive one could land last),
+  // and a failed TIGHTENING push left Rust permanently more permissive than the
+  // settings. Rust starts fail-closed, so a push that has not landed yet only ever
+  // errs on the strict side.
+  const pusher = makeSerializedPusher<BrowserPolicy>(
+    (policy) => invoke("browser_ai_policy", policy),
+    (error, attempt) => browserWarn(`browser policy sync failed (attempt ${attempt}); retrying`, error),
+  );
+  const push = pusher.push;
 
   const initial = currentPolicy();
   push(initial);
@@ -80,6 +98,9 @@ export function startBrowserAiPolicySync(): () => void {
 
   return () => {
     unsubscribe();
+    // A disposed session pushes nothing further, so a stale in-flight policy can
+    // never be re-queued after a restarted session has pushed its own.
+    pusher.dispose();
     void browserEventBroker.stop();
   };
 }

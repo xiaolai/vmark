@@ -321,6 +321,13 @@ errors:
   browser.notGranted: "AI はこのページでその操作を許可されていません"
   browser.attachmentRequired: "操作する前に AI をこのタブに接続してください"
   browser.profileOriginConfined: "AI はこのプロファイルで承認されたページのみ読み取れます"
+  browser.evalTimeout: "ページスクリプトが時間内に完了しませんでした"
+  browser.evalFailed: "ページスクリプトが失敗しました"
+  browser.evalNoValue: "ページスクリプトは値を返しませんでした"
+  browser.evalResultTooLarge: "ページスクリプトの結果が大きすぎて返せません"
+  browser.tabLimit: "AI はすでに %{limit} 個のブラウザタブを開いています。先に 1 つ閉じてください"
+  browser.dialogNotOwned: "そのページダイアログは別のウインドウのものです"
+  browser.contentRulesFailed: "AI ブラウザの宛先ルールをインストールできませんでした"
 
   # === Hot exit ===
   hotExit.noWindows: "キャプチャするドキュメントウィンドウがありません"

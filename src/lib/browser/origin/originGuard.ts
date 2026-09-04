@@ -7,7 +7,8 @@
  * layer cannot drift. A grant confers authority (read, and via plugins, publish), so
  * every rule below is a security boundary:
  *   - scheme + host + port only (userinfo/path/query/hash discarded)
- *   - host is IDN→punycode, lowercased, trailing dot stripped
+ *   - host is IDN→punycode, lowercased, trailing dot stripped — via the ONE
+ *     navigable-URL parser, `parseNavigableUrl` in lib/browser/url (round 3)
  *   - default ports normalized (443/80)
  *   - only http/https are navigable origins; data:/blob:/about:/file:/ws: are opaque → null
  *   - NO implicit subdomain wildcarding — a pattern must write `*.host` to cover subdomains
@@ -15,6 +16,8 @@
  *
  * @coordinates-with src-tauri/src/browser/origin_guard.rs (must mirror these rules)
  */
+
+import { parseNavigableUrl } from "../url";
 
 const DEFAULT_PORTS: Record<string, number> = {
   "https:": 443,
@@ -40,29 +43,16 @@ export function originKey(o: CanonicalOrigin): string {
  * navigable http(s) origin (opaque scheme, missing host, or unparseable).
  */
 export function canonicalizeOrigin(input: string): CanonicalOrigin | null {
-  let url: URL;
-  try {
-    url = new URL(input);
-  } catch {
-    return null;
-  }
-
+  // The one navigable-URL parser (lib/browser/url): http(s) only, host lowercased
+  // and punycoded, trailing dot stripped, empty labels refused (round 3 — this was
+  // the third hand-rolled copy of those rules).
+  const url = parseNavigableUrl(input);
+  if (url === null) return null;
   const defaultPort = DEFAULT_PORTS[url.protocol];
-  if (defaultPort === undefined) return null; // only http/https are navigable origins
-
-  // The URL constructor punycodes IDN hosts and lowercases scheme/host for us.
-  // It does NOT strip a trailing dot — do that explicitly.
-  const host = url.hostname.replace(/\.$/, "");
-  if (host === "") return null;
-  // Reject empty labels (`https://..`, `https://.com`, `https://a..b.com`) — these
-  // survive URL parsing as e.g. "." but are not real hosts. IPv6 literals like
-  // "[::1]" are a single bracketed label and pass unaffected.
-  if (!host.startsWith("[") && host.split(".").some((label) => label === "")) return null;
-
+  if (defaultPort === undefined) return null;
   // URL yields "" for a default port; otherwise the explicit numeric port.
   const port = url.port === "" ? defaultPort : Number(url.port);
-
-  return { scheme: url.protocol.replace(/:$/, ""), host, port };
+  return { scheme: url.protocol.replace(/:$/, ""), host: url.hostname, port };
 }
 
 /** A parsed grant pattern: a canonical base origin plus whether it is a subdomain wildcard. */

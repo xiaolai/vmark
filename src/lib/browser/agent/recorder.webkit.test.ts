@@ -14,7 +14,13 @@ import {
 } from "./recorderShim";
 import { recordingToWorkflow, type RecordedEvent } from "@/lib/browser/workflow/recorder";
 import { parseWorkflow } from "@/lib/browser/workflow/parser";
-import { parseActionText } from "@/lib/browser/workflow/stepGrammar";
+import { parseAction } from "@/lib/browser/workflow/stepGrammar";
+
+/** Test convenience: the parsed action, or null when the text is not executable. */
+function parseActionText(text: string) {
+  const r = parseAction(text);
+  return r.ok ? r.action : null;
+}
 
 const frames: HTMLIFrameElement[] = [];
 
@@ -112,5 +118,58 @@ describe("recorder — cross-document, real WebKit", () => {
     expect(source).toContain("action: navigate to https://app.test/login");
     expect(inputs).toContain("Email");
     expect(source).toContain("confirm:");
+  });
+});
+
+// S-01 — in real WebKit, across two real documents: a clearing drain must stick.
+// The shim's closure array used to re-publish every drained event on the next
+// event, so a recording held each step once per drain interval it survived.
+describe("recorder — drained events are never re-published (S-01), real WebKit", () => {
+  it("drain(clear) → click → drain returns only the new click, in each document", () => {
+    const a = newDocument(`<button id="one">One</button><button id="two">Two</button>`);
+    installAndArm(a);
+    fire(a, a.document.getElementById("one")!, "click");
+    expect(drain(a).map((e) => e.name)).toEqual(["One"]);
+    fire(a, a.document.getElementById("two")!, "click");
+    expect(drain(a).map((e) => e.name)).toEqual(["Two"]);
+    expect(drain(a)).toEqual([]);
+
+    // A fresh document has a fresh shim and a fresh stamp: the same property holds.
+    const b = newDocument(`<button id="three">Three</button><button id="four">Four</button>`);
+    installAndArm(b);
+    fire(b, b.document.getElementById("three")!, "click");
+    expect(drain(b).map((e) => e.name)).toEqual(["Three"]);
+    fire(b, b.document.getElementById("four")!, "click");
+    fire(b, b.document.getElementById("four")!, "click");
+    expect(drain(b).map((e) => e.name)).toEqual(["Four", "Four"]);
+  });
+
+  it("records the replayer's role vocabulary and omits the role of a target that has none", () => {
+    const a = newDocument(`<div id="d" role="Button">Custom</div><a id="anchor">no href</a><input id="n" type="number" aria-label="Qty">`);
+    installAndArm(a);
+    fire(a, a.document.getElementById("d")!, "click");
+    fire(a, a.document.getElementById("anchor")!, "click");
+    fire(a, a.document.getElementById("n")!, "change");
+    const events = drain(a);
+    expect(events[0]).toEqual({ type: "click", role: "button", name: "Custom" });
+    expect(events[1]).toEqual({ type: "click", name: "no href" });
+    expect(events[2]).toMatchObject({ type: "type", role: "spinbutton", name: "Qty", sensitive: false });
+  });
+});
+
+describe("label activation in real WebKit (#122)", () => {
+  it("a label click records ONE click on its control; two direct clicks record two", () => {
+    const win = newDocument(`<label id="l" for="cb">Agree</label><input id="cb" type="checkbox">`);
+    installAndArm(win);
+    const doc = win.document;
+    (doc.getElementById("l") as HTMLLabelElement).click(); // WebKit fires the control's activation click
+    let events = drain(win);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ type: "click", role: "checkbox", name: "Agree" });
+    const cb = doc.getElementById("cb") as HTMLInputElement;
+    cb.click();
+    cb.click();
+    events = drain(win);
+    expect(events).toHaveLength(2);
   });
 });

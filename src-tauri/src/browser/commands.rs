@@ -12,6 +12,7 @@
 //! the origin gate is enforced.
 
 use crate::browser::ai_guards::{lock_failure, require_browser_enabled, surface_failure};
+use crate::browser::eval_outcome::eval_error;
 use crate::browser::registry::{validate_navigation_url, AutomationMode, Lifecycle};
 use crate::browser::surface::{self, BrowserSurface};
 use crate::command_error::CommandError;
@@ -59,8 +60,9 @@ pub async fn browser_create(
     }
     if let Err(e) = surface::create(&app, tab_id.clone(), window_label, url) {
         // Roll back BOTH halves of the tab's state — registry entry and crash
-        // budget — so a retried tab id starts clean (see `forget_tab`).
-        state.forget_tab(&tab_id).map_err(|e| surface_failure(&e))?;
+        // budget — so a retried tab id starts clean (see `forget_tab`). Its only
+        // failure is a poisoned lock, which is what `lock_failure` means.
+        state.forget_tab(&tab_id).map_err(lock_failure)?;
         return Err(surface_failure(&e));
     }
     Ok(())
@@ -89,9 +91,11 @@ pub async fn browser_navigate(
         require_browser_enabled(&policy)?;
     }
     let url = validate_navigation_url(&url).map_err(CommandError::from)?;
-    {
+    // Snapshot what `begin_navigation` changes, so a native failure can put it back.
+    let (snapshot, ticket) = {
         let mut reg = state.registry.lock().map_err(lock_failure)?;
-        reg.begin_navigation(&tab_id, &url)?;
+        let snapshot = reg.snapshot_navigation(&tab_id)?;
+        let ticket = reg.begin_navigation(&tab_id, &url)?;
         // This command is the user's omnibox path, including when the tab was
         // originally created in shared AI posture. The native delegate must
         // not reinterpret that explicit human navigation as an AI destination
@@ -99,8 +103,14 @@ pub async fn browser_navigate(
         if reg.automation_mode(&tab_id) == Some(AutomationMode::AiShared) {
             reg.set_shared_navigation_approval(&tab_id, &url)?;
         }
+        (snapshot, ticket)
+    };
+    if let Err(error) = surface::navigate(&app, tab_id.clone(), url) {
+        let mut reg = state.registry.lock().map_err(lock_failure)?;
+        let _ = reg.restore_navigation(&tab_id, &ticket.id, snapshot);
+        return Err(surface_failure(&error));
     }
-    surface::navigate(&app, tab_id, url).map_err(|e| surface_failure(&e))
+    Ok(())
 }
 
 /// Go back in the tab's history. The nav delegate reports the resulting load,
@@ -123,13 +133,21 @@ pub async fn browser_stop(app: AppHandle, tab_id: String) -> Result<(), CommandE
 }
 
 /// Answer a page `confirm()` dialog surfaced via `browser://dialog` (WI-1.7).
+///
+/// Only the window that OWNS the dialog's tab may answer it (audit 20260903): the
+/// window is the invoking one, taken from Tauri, and the native layer refuses
+/// (`DIALOG_NOT_OWNED`) when the parked dialog's tab belongs to another window —
+/// a dialog id is a small integer, and a guessed one must not answer a page the
+/// caller cannot even see.
 #[tauri::command]
 pub async fn browser_dialog_respond(
     app: AppHandle,
+    webview: tauri::WebviewWindow,
     id: u64,
     accepted: bool,
 ) -> Result<(), CommandError> {
-    surface::dialog_respond(&app, id, accepted).map_err(|e| surface_failure(&e))
+    let window_label = webview.label().to_string();
+    surface::dialog_respond(&app, id, accepted, window_label).map_err(|e| surface_failure(&e))
 }
 
 /// Reject a rect the native layer cannot honour.
@@ -184,20 +202,27 @@ pub async fn browser_destroy(
     state: State<'_, BrowserSurface>,
     tab_id: String,
 ) -> Result<(), CommandError> {
-    {
+    let known = {
         let mut reg = state.registry.lock().map_err(lock_failure)?;
         match reg.state(&tab_id) {
-            // Unknown, or a concurrent destroy already claimed it.
-            None => return Ok(()),
-            Some(s) if s.is_terminal() => {}
-            Some(_) => reg.transition(&tab_id, Lifecycle::Destroyed)?,
+            // Unknown (or already claimed): the native teardown below still runs.
+            None => false,
+            Some(s) if s.is_terminal() => true,
+            Some(_) => {
+                reg.transition(&tab_id, Lifecycle::Destroyed)?;
+                true
+            }
         }
+    };
+    let native = surface::destroy(&app, tab_id.clone());
+    if !known {
+        return native.map_err(|e| surface_failure(&e)); // nothing to forget in the registry
     }
-    let teardown = surface::destroy(&app, tab_id.clone()).map_err(|e| surface_failure(&e));
+    let teardown = native.map_err(|e| surface_failure(&e));
     // The tab is terminal either way, so its state goes regardless of how the
     // native teardown fared: a native failure here means the main thread is gone
     // (app shutting down), and keeping a dead entry would leak it forever.
-    state.forget_tab(&tab_id).map_err(|e| surface_failure(&e))?;
+    state.forget_tab(&tab_id).map_err(lock_failure)?;
     teardown
 }
 
@@ -208,7 +233,7 @@ pub async fn browser_assert_no_bridge(
     app: AppHandle,
     tab_id: String,
 ) -> Result<String, CommandError> {
-    surface::assert_no_bridge(&app, tab_id).map_err(|e| surface_failure(&e))
+    surface::assert_no_bridge(&app, tab_id).map_err(eval_error)
 }
 
 /// Tab ids holding a live native webview (debug builds only).

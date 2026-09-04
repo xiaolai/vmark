@@ -124,6 +124,11 @@
    `.tab-strip-close` own paint, hover, focus and the D2 hit box. The class
    names remain in the DOM as residual hooks only. */
 
+/* The tab is a non-interactive WRAPPER (audit 2026-09-03 round 3, #163): it owns
+   the frame — border, radius, hover and active paint — and holds two SIBLING
+   controls, the role="tab" element (.browser-page-tab-select) and the close
+   button. The tab element fills the wrapper so the whole tab face activates;
+   the wrapper keeps only the trailing padding beside the close control. */
 .browser-page-tab {
   /* Component-scoped local (rule 31): the tab inside the strip. */
   --browser-page-tab-height: 28px;
@@ -133,12 +138,24 @@
   min-width: 0;
   max-width: 220px;
   height: var(--browser-page-tab-height);
-  padding: 0 var(--space-1-5) 0 var(--space-2);
+  padding: 0 var(--space-1-5) 0 0;
   border: var(--border-thin) solid transparent;
   border-bottom: 0;
   border-radius: var(--radius-md) var(--radius-md) 0 0;
   color: var(--text-secondary);
   background: transparent;
+}
+
+/* The roving stop: inherits the wrapper's ink and stretches to its full height,
+   so the hit target is the whole tab face. */
+.browser-page-tab-select {
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+  gap: var(--space-1);
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0 0 0 var(--space-2);
   cursor: pointer;
 }
 
@@ -156,7 +173,9 @@
   background: var(--bg-color);
 }
 
-.browser-page-tab:focus-visible {
+/* The focus bar paints on the roving stop itself — the same inset 2px bar as
+   .tab-pill:focus-visible, under the tab face. */
+.browser-page-tab-select:focus-visible {
   outline: none;
   box-shadow: inset 0 -2px 0 var(--accent-primary);
 }
@@ -215,4 +234,17 @@
   background: var(--accent-bg);
   color: var(--accent-primary);
   white-space: nowrap;
+}
+
+/* An AI run holds this page (audit 2026-09-03 #15). A dot on the page tab, because
+   the page may not be the one on screen while it is being driven. */
+.browser-page-tab-ai {
+  /* ui-ok(target): a decorative status dot inside the page tab, not a control —
+     the tab itself is the 24px hit target */
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  flex: none;
 }

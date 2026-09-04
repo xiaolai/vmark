@@ -4,6 +4,8 @@
  *   See dev-docs/plans/20260504-mcp-pruning.md for the full ADR set.
  *   These types are exposed as part of the MCP server's public schema —
  *   changes to shape are breaking and must bump the action version.
+ *   `BrowserSessionTab` is the browser-tab record `sessionSerializers.ts`
+ *   builds for session.get_state (round 3 split of session.ts).
  *
  * @module services/mcpBridge/v2/types
  */
@@ -39,16 +41,29 @@ export interface DocumentSessionTab {
 }
 
 /** Browser tab info returned in session.get_state. */
-interface BrowserSessionTab {
+export interface BrowserSessionTab {
   id: string;
   kind: "browser";
   /** True when this webpage is the currently visible page in its workspace. */
   active: boolean;
-  title: string;
+  /**
+   * Page title — absent for a human tab the AI is not attached to (audit
+   * 2026-09-03 X-02): attachment is the gate for AI access to a human tab, and
+   * the title is page content.
+   */
+  title?: string;
+  /**
+   * Redacted URL (no userinfo, query or fragment). For an UNATTACHED human tab
+   * this is the origin only — a path can carry a magic-login token — which is
+   * enough to describe the tab when asking the user to attach it.
+   */
   url: string;
   loading: boolean;
   generation: number;
   automationMode: "human" | "ai-sandbox" | "ai-shared";
+  /** Human tabs only: whether the AI currently holds an attachment for the
+   *  tab's present generation. AI-owned tabs need none and omit it. */
+  attached?: boolean;
 }
 
 export type SessionTab = DocumentSessionTab | BrowserSessionTab;

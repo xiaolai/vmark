@@ -23,6 +23,12 @@
  *     delimiter (`/path?`) survives too — the server, not this module, decides
  *     whether it is meaningful.
  *
+ * The display-side helpers live here too, because they are the same leaf-pure
+ * URL parsing: `urlForAgent` / `originForAgent` (what an agent may be shown),
+ * `urlForPersistence` (+ `credentialPath`, shared with the workflow recorder), and
+ * `hostLabel` (the strip label for a page with no title). `parseNavigableUrl` is the
+ * one navigable-URL parser every canonicalizer and the grant-pattern helper use.
+ *
  * @module lib/browser/url
  */
 
@@ -36,27 +42,37 @@ const NAVIGABLE_PROTOCOLS: ReadonlySet<string> = new Set(["http:", "https:"]);
  * value stored on a `BrowserTab`.
  */
 export function canonicalizeBrowserUrl(input: string): string | null {
+  const url = parseNavigableUrl(input);
+  if (url === null) return null;
+  url.hash = ""; // drop the fragment (same document)
+  return url.href;
+}
+
+/**
+ * THE navigable-URL parser (round 3): http(s) only, host lowercased and punycoded
+ * by `URL`, a trailing dot stripped, empty labels refused. `canonicalizeBrowserUrl`,
+ * `canonicalizeBookmarkUrl` and the grant-pattern helper all parse through here —
+ * three hand-rolled copies of these rules had already begun to differ in comments
+ * and were one edit away from differing in behaviour. Returns a `URL` the caller
+ * may keep mutating (fragment, password), or `null` when the input is not a
+ * navigable web URL.
+ */
+export function parseNavigableUrl(input: string): URL | null {
   let url: URL;
   try {
     url = new URL(input);
   } catch {
     return null;
   }
-
   if (!NAVIGABLE_PROTOCOLS.has(url.protocol)) return null;
-
   // URL lowercases scheme/host and punycodes IDN; it does NOT strip a trailing dot.
   const host = url.hostname.replace(/\.$/, "");
   if (host === "") return null;
   // Reject empty labels (`https://..`, `https://.com`). IPv6 literals ("[::1]")
   // are a single bracketed label and pass unaffected.
-  if (!host.startsWith("[") && host.split(".").some((label) => label === "")) {
-    return null;
-  }
-
+  if (!host.startsWith("[") && host.split(".").some((label) => label === "")) return null;
   url.hostname = host; // write the trailing-dot-stripped host back
-  url.hash = ""; // drop the fragment (same document)
-  return url.href;
+  return url;
 }
 
 /**
@@ -75,19 +91,26 @@ export function canonicalizeBrowserUrl(input: string): string | null {
  * where it is; if it legitimately needs a query value it can read the rendered page.
  * (Security review P5, Medium #3 — extends the earlier userinfo-only redaction.)
  *
- * A URL that will not parse is returned unchanged: this is a redactor, not a validator, and
- * inventing a value here would hide the real one from the caller. (Audit, High.)
+ * FAILS CLOSED (audit 2026-09-03 round 1): a URL that will not parse yields a placeholder,
+ * not the raw string — an unparseable value can still carry a credential — and an OPAQUE
+ * origin (`data:`/`blob:`/`about:`) exposes only its scheme, because a `data:` URL carries
+ * its whole payload in what `URL` calls the path. The earlier rule returned both whole.
  */
 export function urlForAgent(url: string): string {
   try {
     const parsed = new URL(url);
+    // `about:blank` / `about:srcdoc` carry nothing; every other opaque origin
+    // (`data:` above all) is reduced to its scheme.
+    if (parsed.origin === "null" && !(parsed.protocol === "about:" && (parsed.pathname === "blank" || parsed.pathname === "srcdoc"))) {
+      return `${parsed.protocol}(opaque)`;
+    }
     parsed.username = "";
     parsed.password = "";
     parsed.search = "";
     parsed.hash = "";
     return parsed.href;
   } catch {
-    return url;
+    return "(unparseable url)";
   }
 }
 
@@ -136,9 +159,63 @@ export function originForAgent(url: string): string {
 export function urlForPersistence(url: string): string {
   try {
     const parsed = new URL(url);
-    if (!parsed.password) return url;
-    parsed.password = "";
-    return parsed.href;
+    // A credential-bearing PATH — a reset, magic-login or invite link, or a long
+    // opaque token segment — is kept as its origin only (round 3): the same rule the
+    // recorder applies to a recorded workflow, for the same reason — the file
+    // outlives the session that had a reason for the secret.
+    if (credentialPath(parsed.pathname)) return `${parsed.origin}/`;
+    let changed = false;
+    if (parsed.password) {
+      parsed.password = "";
+      changed = true;
+    }
+    // Query and fragment parameters that NAME a credential are dropped too: OAuth
+    // callbacks, magic links and reset URLs put the secret there, and a cleartext
+    // session file outlives the reason for it. The rest of the query stays — a
+    // search-results tab must still restore to its results.
+    for (const params of [parsed.searchParams, new URLSearchParams(parsed.hash.replace(/^#/, ""))]) {
+      const drop = [...params.keys()].filter((k) => CREDENTIAL_PARAM.test(k));
+      if (drop.length === 0) continue;
+      for (const k of drop) params.delete(k);
+      changed = true;
+      if (params === parsed.searchParams) continue;
+      parsed.hash = params.toString();
+    }
+    return changed ? parsed.href : url;
+  } catch {
+    return url;
+  }
+}
+
+/** Does this path carry a credential — a flow word (`reset`, `magic-login`, `invite`,
+ *  `callback`…) or a long opaque token-shaped segment? Shared by persistence and the
+ *  workflow recorder, so the two redactors cannot drift. */
+export function credentialPath(pathname: string): boolean {
+  return CREDENTIAL_PATH.test(pathname) || pathname.split("/").some((seg) => TOKEN_SEGMENT.test(seg));
+}
+
+/** Path words that name a credential-bearing flow. */
+const CREDENTIAL_PATH = /(^|\/)(reset|reset-password|magic|magic-link|magic-login|token|verify|confirm|invite|activate|auth|callback|sso)(\/|$)/i;
+/** A long opaque segment: hex, base64url or a random id — the shape a token takes. */
+const TOKEN_SEGMENT = /^(?=.*\d)(?=.*[A-Za-z])[A-Za-z0-9_-]{20,}$/;
+
+/** Query/fragment parameter names that carry a credential rather than an address —
+ *  tokens, secrets, and every common session-id spelling (`sid`, `sessid`,
+ *  `jsessionid`, `phpsessid`, `asp.net_sessionid`…), OAuth verifiers and tickets. */
+const CREDENTIAL_PARAM =
+  /(^|_|-|\.)(token|access_token|id_token|refresh_token|oauth_token|oauth_verifier|bearer|jwt|secret|password|passwd|otp|auth|authorization|session|sessionid|sessid|sess|sid|jsessionid|phpsessid|aspsessionid|asp\.net_sessionid|cfid|cftoken|api_?key|apikey|signature|sig|code|ticket|nonce)($|_|-)/i;
+
+/**
+ * The label a tab wears for a page that has no `<title>`: the host (with a
+ * non-default port), never the full URL. A tab record's `title` used to be set
+ * once at creation and never again, so a tab that navigated away kept naming
+ * its FIRST page — the strip read `duckduckgo.com` over a fixture at
+ * `127.0.0.1` (seen in the chrome-controls journey's failure screenshot).
+ * Unparseable input is returned as-is: a wrong label beats a blank one.
+ */
+export function hostLabel(url: string): string {
+  try {
+    return new URL(url).host || url;
   } catch {
     return url;
   }

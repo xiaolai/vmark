@@ -46,7 +46,16 @@ pub struct NavDelegateIvars {
     /// Read by the `URL` KVO observer to tell the two kinds of URL change apart: a normal
     /// load changes `URL` too — at commit — and `did_commit` owns that path. A change seen
     /// while NO navigation is in flight is same-document.
+    ///
+    /// An API-initiated call (`loadRequest`, `goBack`, `goForward`) publishes its URL
+    /// SYNCHRONOUSLY, before `did_start_provisional` can raise this, so those calls
+    /// go through `api_navigation`, which raises it across the call
+    /// (`nav_api_navigation.rs`).
     pub(super) loading: std::cell::Cell<bool>,
+    /// How many provisional starts WebKit has reported. `api_navigation` compares it
+    /// across a call to learn whether the call's navigation was cross-document
+    /// (`nav_api_navigation.rs`).
+    pub(super) starts: std::cell::Cell<u64>,
     /// Native navigation identity paired with the registry ticket. WebKit can
     /// deliver a late callback for an older `WKNavigation` after a newer load
     /// has started; pointer identity lets the delegate drop that callback.
@@ -86,10 +95,10 @@ impl NavDelegate {
             .and_then(|reg| reg.automation_mode(&ivars.tab_id));
         if let Some(mode) = mode {
             if !ai_commit_allowed(&state, mode, &ivars.tab_id, url) {
-                state.clear_tab_one_shots(&ivars.tab_id);
-                state.clear_tab_attachment(&ivars.tab_id);
+                // Committed page and authority go together, under one guard (#35).
                 if let Ok(mut reg) = state.registry.lock() {
                     let _ = reg.clear_committed_url(&ivars.tab_id);
+                    state.clear_tab_authority_in(&mut reg, &ivars.tab_id);
                 }
                 return None;
             }
@@ -104,11 +113,18 @@ impl NavDelegate {
         let generation = match reg.bump_generation(&ivars.tab_id) {
             Ok(g) => g,
             Err(e) => {
+                // A generation that cannot advance cannot distinguish this page from
+                // the last one, so nothing stamped for the old page may stay fresh:
+                // the commit is refused and the tab's authority dropped, the same
+                // fail-closed shape as a disallowed destination. Substituting 0 used
+                // to commit anyway while every stale stamp remained valid (#28).
                 log::warn!(
-                    "[browser] generation bump refused for {}: {e:?}",
+                    "[browser] generation bump refused for {}: {e:?}; commit refused",
                     ivars.tab_id
                 );
-                0
+                let _ = reg.clear_committed_url(&ivars.tab_id);
+                state.clear_tab_authority_in(&mut reg, &ivars.tab_id);
+                return None;
             }
         };
         if let Err(e) = reg.transition(&ivars.tab_id, Lifecycle::Navigating) {
@@ -126,40 +142,20 @@ impl NavDelegate {
         Some(generation)
     }
 
-    /// R7a: the view this tab's authority was granted against is gone. Bump the
-    /// generation (so any operation stamped with the old one is refused as stale), record
-    /// the new committed url, and drop the tab's one-shots outright.
-    ///
-    /// Shared by a full navigation and a SAME-DOCUMENT one. The same-document case is the
-    /// subtle one: the origin does not change, so the origin guard still passes — but the
-    /// ELEMENT the user approved can be a completely different button once an SPA has
-    /// rewritten its DOM. "Click Publish", approved on one view, spent on another.
-    /// Authority must lapse with the view it was granted against, not merely with the
-    /// document. Returns the new generation.
-    pub(super) fn expire_authority(&self, committed_url: Option<&str>) -> u64 {
+    /// A load STARTED: the committed page and the authority granted against it go
+    /// together, under ONE registry guard (#35) — a command that reads the registry
+    /// in a gap between the two would see a page with no authority, or authority
+    /// with no page.
+    pub(super) fn revoke_for_new_load(&self) {
         let ivars = self.ivars();
-        let mut generation = 0;
-        if let Some(state) = ivars.app.try_state::<BrowserSurface>() {
-            if let Ok(mut reg) = state.registry.lock() {
-                match committed_url {
-                    // A same-document navigation stays on a real page: record where it is.
-                    Some(url) => {
-                        if let Ok(g) = reg.bump_generation(&ivars.tab_id) {
-                            generation = g;
-                        }
-                        let _ = reg.set_committed_url(&ivars.tab_id, url);
-                    }
-                    // A navigation is STARTING: there is no committed page until it lands,
-                    // so the tab grants nothing in the meantime.
-                    None => {
-                        let _ = reg.clear_committed_url(&ivars.tab_id);
-                    }
-                }
-            }
-            state.clear_tab_one_shots(&ivars.tab_id);
-            state.clear_tab_attachment(&ivars.tab_id);
-        }
-        generation
+        let Some(state) = ivars.app.try_state::<BrowserSurface>() else {
+            return;
+        };
+        let Ok(mut reg) = state.registry.lock() else {
+            return;
+        };
+        let _ = reg.clear_committed_url(&ivars.tab_id);
+        state.clear_tab_authority_in(&mut reg, &ivars.tab_id);
     }
 
     /// A load finished cleanly: reset the tab's crash budget, the mirror of `record_crash`.
@@ -200,6 +196,7 @@ impl NavDelegate {
             app,
             redirected: std::cell::Cell::new(false),
             loading: std::cell::Cell::new(false),
+            starts: std::cell::Cell::new(0),
             native_navigation: std::cell::RefCell::new(Vec::new()),
             pending_navigation_id: std::cell::RefCell::new(None),
         });

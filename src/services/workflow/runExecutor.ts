@@ -5,11 +5,15 @@
  * never carry to the next (the engine retries by calling this again).
  *
  * Executable steps:
- *   - `extract` — reader-mode read, no approval (read-class), always success.
- *   - `action` navigate/click/type (recorder grammar, `stepGrammar.ts`) — run
- *     through the standing-grant → one-shot → run-scoped-prompt path. A granted
- *     origin acts directly; an ungranted act raises a prompt bound to this run
- *     and awaits authorization until the run deadline, then throws (pause).
+ *   - `extract` — reader-mode read, no approval (read-class); the reader's
+ *     `{title, textLength, truncated}` is kept as step data (W9).
+ *   - `action` navigate/click/type (recorder grammar, `stepGrammar.ts`).
+ *     `navigate to` is awaited on its ticket (`runNavigate.ts`, W2). A click or
+ *     type runs through the standing-grant → one-shot → run-scoped-prompt path
+ *     (`runApproval.ts`): a granted origin acts directly; an ungranted act raises
+ *     a prompt bound to this run and waits — cancellably (W1) and with the run
+ *     clock paused (W6). A role-less locator resolves its role from a fresh
+ *     snapshot first, so the prompt names a real control (W10).
  *
  * Everything else — `goal`, `confirm`, `api`, and any `action` text the grammar
  * cannot execute — throws, which the engine converts to a pause (`needs-human`),
@@ -17,210 +21,104 @@
  *
  * Outcome mapping (→ `StepOutcome`): clicked/typed → success+met; obscured/hidden
  * → failed+false (retryable, heal-eligible); not-found → failed+false; disabled
- * → failed+undefined (stop-and-ask); a transport error propagates as a throw
- * (→ unknown → pause).
+ * or ambiguous → failed+undefined (stop-and-ask); a transport error propagates as
+ * a throw (→ unknown → pause); a `WorkflowPause` carries its own code.
+ *
+ * Split (round 3, #106): `runExecutorEnv.ts` holds the shared environment
+ * (authorize, tab, evals, snapshot, the single authorized act) and the pure
+ * outcome/input helpers; `runExecutorHeal.ts` holds role resolution and the heal
+ * retry. This file composes the two step kinds from them.
  *
  * @coordinates-with lib/browser/workflow/stepGrammar.ts — parses action text
+ * @coordinates-with services/workflow/runExecutorEnv.ts — the shared environment
+ * @coordinates-with services/workflow/runExecutorHeal.ts — role resolution + heal
  * @coordinates-with lib/browser/workflow/runner.ts — calls this per step
- * @coordinates-with stores/browserApprovalStore.ts — the authorization gate
  * @module services/workflow/runExecutor
  */
 
-import { invoke } from "@tauri-apps/api/core";
-import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
-import { mintOneShotConfirmed } from "@/services/browser/grantSync";
-import { buildClickScript, buildTypeScript } from "@/lib/browser/agent/actScript";
 import { buildExtractHtmlScript } from "@/lib/browser/agent/extractScript";
 import { readerForUrl } from "@/lib/sites/registry";
 import { ensureBuiltinSitesRegistered } from "@/lib/sites/builtins";
-import { originForAgent } from "@/lib/browser/url";
-import { buildSnapshotScript } from "@/lib/browser/agent/actScript";
-import { proposeLocatorFix } from "@/lib/browser/workflow/selfHeal";
-import { parseActionText, type ActionValue } from "@/lib/browser/workflow/stepGrammar";
+import { WorkflowPause } from "@/lib/browser/workflow/engine";
+import { parseAction } from "@/lib/browser/workflow/stepGrammar";
 import type { WorkflowStep } from "@/lib/browser/workflow/types";
 import type { StepOutcome } from "@/lib/browser/workflow/safety";
-import type { AriaNode } from "@/lib/browser/agent/aria";
+import { throwIfAborted } from "./runApproval";
+import { runNavigateStep } from "./runNavigate";
+import { defaultWaitForNavigation, makeExecutorEnv, resolveValue } from "./runExecutorEnv";
+import { healAndRetry, resolveRole } from "./runExecutorHeal";
 
-export interface RunExecutorContext {
-  tabId: string;
-  runId: string;
-  /** Input variable values for `{name}` substitution. */
-  inputs: Record<string, string>;
-  /** Current tab url + generation, re-read each attempt (the page may move). */
-  resolveTab: () => { url: string; generation: number } | null;
-  /** Epoch ms after which an unresolved approval pauses the run. */
-  deadlineAt: number;
-  /** Test seam: the wall clock (defaults to Date.now). */
-  now?: () => number;
-  /** Test seam: how long to sleep between approval polls (ms). */
-  pollMs?: number;
-  /** Set false to disable self-healing (default on). */
-  selfHeal?: boolean;
-}
+import type { RunExecutorContext } from "./runExecutorEnv";
+export type { RunExecutorContext } from "./runExecutorEnv";
 
 type WorkflowStepExecutor = (step: WorkflowStep, index: number) => Promise<StepOutcome>;
 
-const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
-
-function resolveValue(value: ActionValue, inputs: Record<string, string>): string {
-  if (value.kind === "literal") return value.text;
-  const v = inputs[value.name];
-  if (v === undefined) throw new Error(`workflow input "${value.name}" was not supplied`);
-  return v;
-}
-
-/** Build a StepOutcome, omitting `postconditionMet` when it is undefined
- *  (exactOptionalPropertyTypes). `undefined` = stop-and-ask. */
-function stepOutcome(outcome: StepOutcome["outcome"], met?: boolean): StepOutcome {
-  return met === undefined ? { outcome } : { outcome, postconditionMet: met };
-}
-
-/** Map an act script's result object onto a `StepOutcome`. */
-function toOutcome(result: unknown, flag: "clicked" | "typed"): StepOutcome {
-  if (typeof result !== "object" || result === null) return stepOutcome("failed", false);
-  const r = result as { [k: string]: unknown; reason?: string };
-  if (r[flag] === true) return stepOutcome("success", true);
-  if (r.reason === "disabled") return stepOutcome("failed"); // undefined → stop-and-ask
-  return stepOutcome("failed", false);
-}
-
 export function makeRunExecutor(ctx: RunExecutorContext): WorkflowStepExecutor {
-  const now = ctx.now ?? Date.now;
-  const pollMs = ctx.pollMs ?? 150;
-
-  /** Ensure the act is authorized; returns when it is, throws (pause) at the
-   *  deadline. Re-decided every call — P-1. */
-  async function authorize(url: string, operation: string, target: { role: string; name: string }): Promise<void> {
-    const store = useBrowserApprovalStore.getState;
-    const decision = store().decide(url, operation);
-    if (decision === "denied") throw new Error(`operation '${operation}' is not permitted on ${originForAgent(url)}`);
-    if (decision === "allowed") return; // a standing grant — the driver already has it
-
-    // needs-approval: spend a matching one-shot, or raise a run-scoped prompt.
-    const tab = ctx.resolveTab();
-    const generation = tab?.generation ?? 0;
-    if (store().consumeOneShot(url, operation, target, ctx.tabId)) {
-      const ok = await mintOneShotConfirmed({ originPattern: originForAgent(url), operation, tabId: ctx.tabId, generation, target });
-      if (!ok) throw new Error(`the driver refused the '${operation}' authorization`);
-      return;
-    }
-    // Raise a prompt bound to this run, then poll until it is authorized.
-    const reqId = `${ctx.runId}:${operation}:${target.role}:${target.name}:${now()}`;
-    store().requestApproval(reqId, url, operation, target, ctx.tabId, generation, undefined, ctx.runId);
-    for (;;) {
-      if (now() >= ctx.deadlineAt) {
-        throw new Error(`approval required for '${operation}' on ${originForAgent(url)} — the run is waiting`);
-      }
-      if (store().decide(url, operation) === "allowed") return;
-      if (store().consumeOneShot(url, operation, target, ctx.tabId)) {
-        const ok = await mintOneShotConfirmed({ originPattern: originForAgent(url), operation, tabId: ctx.tabId, generation, target });
-        if (!ok) throw new Error(`the driver refused the '${operation}' authorization`);
-        return;
-      }
-      await sleep(pollMs);
-    }
-  }
+  const env = makeExecutorEnv(ctx);
+  const { currentTab, evalRead, authorize, actOnce } = env;
 
   async function runExtract(): Promise<StepOutcome> {
     ensureBuiltinSitesRegistered();
-    const tab = ctx.resolveTab();
-    if (!tab) throw new Error("the browser tab is gone");
-    const raw = await invoke<string>("browser_eval", {
-      tabId: ctx.tabId,
-      script: buildExtractHtmlScript(),
-      operation: "read",
-      generation: tab.generation,
-    });
-    const parsed = JSON.parse(raw) as { html?: unknown };
+    const tab = currentTab();
+    const parsed = await evalRead(buildExtractHtmlScript(), tab.generation, (raw) => JSON.parse(raw) as { html?: unknown; truncated?: unknown });
     const reader = readerForUrl(tab.url);
     if (reader === null || typeof parsed.html !== "string") throw new Error("this page cannot be read");
-    reader.read(parsed.html, tab.url);
-    return { outcome: "success" };
+    const result = reader.read(parsed.html, tab.url);
+    return {
+      outcome: "success",
+      data: { title: result.title, textLength: result.textLength, truncated: parsed.truncated === true },
+    };
   }
 
-  /** Run one click/type against a role+name, authorizing per attempt (P-1). */
-  async function actOnce(
-    op: "click" | "type",
-    role: string,
-    name: string,
-    text: string | undefined,
-    url: string,
-    generation: number,
-  ): Promise<StepOutcome & { raw: Record<string, unknown> }> {
-    const script = op === "type" ? buildTypeScript(role || "textbox", name, text ?? "") : buildClickScript(role, name);
-    await authorize(url, op, { role, name });
-    const raw = await invoke<string>("browser_eval", {
-      tabId: ctx.tabId,
-      script,
-      operation: op,
-      generation,
-      role,
-      name,
-    });
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    return { ...toOutcome(parsed, op === "type" ? "typed" : "clicked"), raw: parsed };
-  }
-
-  /** WI-NB6.4 — one heal attempt: read a fresh snapshot, propose a same-role
-   *  locator whose name is close to the failed one, and retry the act against
-   *  it. The healed act re-enters `authorize` (P-3): a one-shot bound to the old
-   *  descriptor cannot match the new name, so a standing grant is required or a
-   *  fresh prompt is raised. */
-  async function healAndRetry(
-    op: "click" | "type",
-    role: string,
-    name: string,
-    text: string | undefined,
-    url: string,
-    generation: number,
-  ): Promise<StepOutcome | null> {
-    let snapshot: AriaNode[];
-    try {
-      const raw = await invoke<string>("browser_eval", {
-        tabId: ctx.tabId,
-        script: buildSnapshotScript(generation),
-        operation: "read",
-        generation,
-      });
-      const parsed: unknown = JSON.parse(raw);
-      if (!Array.isArray(parsed)) return null;
-      snapshot = parsed as AriaNode[];
-    } catch {
-      return null;
+  async function runAction(step: WorkflowStep): Promise<StepOutcome> {
+    const parsed = parseAction(step.text);
+    if (!parsed.ok) {
+      if (parsed.code === "not-executable") throw new Error(`step is not executable: "${step.text}" — hand it to the model`);
+      throw new Error(`${parsed.code}: ${parsed.detail} — in "${step.text}"`);
     }
-    const fix = proposeLocatorFix({ role, name }, snapshot);
-    if (fix === null || fix.name === name) return null;
-    const healed = await actOnce(op, fix.role, fix.name, text, url, generation);
-    return stepOutcome(healed.outcome, healed.postconditionMet);
-  }
-
-  async function runAction(text: string): Promise<StepOutcome> {
-    const action = parseActionText(text);
-    if (action === null) throw new Error(`step is not executable: "${text}" — hand it to the model`);
-    const tab = ctx.resolveTab();
-    if (!tab) throw new Error("the browser tab is gone");
-
+    const action = parsed.action;
+    const tab = currentTab();
     if (action.kind === "navigate") {
-      await authorize(tab.url, "navigate", { role: "", name: action.url });
-      const res = await invoke<{ navigationId?: unknown }>("browser_ai_navigate", { tabId: ctx.tabId, url: action.url });
-      return { outcome: res && typeof res === "object" ? "success" : "failed", postconditionMet: true };
+      return runNavigateStep(
+        {
+          tabId: ctx.tabId,
+          signal: ctx.signal,
+          clock: ctx.clock,
+          authorize,
+          waitForNavigation: ctx.waitForNavigation ?? defaultWaitForNavigation,
+          ...(ctx.onNavigated ? { onNavigated: ctx.onNavigated } : {}),
+        },
+        action.url,
+      );
     }
-
-    const role = action.role ?? "";
     const value = action.kind === "type" ? resolveValue(action.value, ctx.inputs) : undefined;
-    const first = await actOnce(action.kind, role, action.name, value, tab.url, tab.generation);
+    let role = action.role;
+    if (role === undefined) {
+      const resolved = await resolveRole(env, action.name, tab.generation);
+      if (typeof resolved !== "string") return resolved;
+      role = resolved;
+    }
+    const { raw: _raw, ...first } = await actOnce(action.kind, role, action.name, value, tab.url);
     // A not-found act is the healable case: the locator drifted. An obscured or
-    // disabled target is a page-state problem heal cannot fix.
-    if (first.raw.found === false && ctx.selfHeal !== false) {
-      const healed = await healAndRetry(action.kind, role, action.name, value, tab.url, tab.generation);
+    // disabled target is a page-state problem heal cannot fix — and a step whose
+    // write is already ledgered is looking at the POST-action page (W3).
+    const ledgered = ctx.isWriteLedgered?.(step.index) ?? false;
+    // Heal on the VALIDATED outcome — a confirmed not-found — never on the raw
+    // flag: `{found:false, clicked:true}` is contradictory (unknown), and healing
+    // it would be a second write on the strength of page-adjacent garbage.
+    const notFound = first.outcome === "failed" && first.reason === "not-found";
+    if (notFound && ctx.selfHeal !== false && !ledgered) {
+      const healed = await healAndRetry(env, action.kind, role, action.name, value, tab.url, tab.generation);
       if (healed !== null) return healed;
     }
-    return stepOutcome(first.outcome, first.postconditionMet);
+    return first;
   }
 
   return async (step) => {
+    throwIfAborted(ctx.signal);
+    if (ctx.clock.expired()) throw new WorkflowPause("deadline", "the run's running-time budget is spent");
     if (step.kind === "extract") return runExtract();
-    if (step.kind === "action") return runAction(step.text);
+    if (step.kind === "action") return runAction(step);
     // goal / confirm / api — a human/model gate, never machine-run.
     throw new Error(`step kind '${step.kind}' needs the model: ${step.text}`);
   };
