@@ -39,7 +39,7 @@ export interface DocumentSessionTab {
 }
 
 /** Browser tab info returned in session.get_state. */
-interface BrowserSessionTab {
+export interface BrowserSessionTab {
   id: string;
   kind: "browser";
   /** True when this webpage is the currently visible page in its workspace. */

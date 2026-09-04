@@ -45,6 +45,55 @@ describe("wrapExecuteJsScript", () => {
     expect(out.ok).toBe(false);
   });
 
+  // Round 3, #47 — every value JSON cannot carry is refused BY NAME, wherever it
+  // sits; only the "cannot encode a cycle" case was pinned before, while a nested
+  // function silently vanished from the object and a nested `undefined` dropped its
+  // key. The model reads the returned shape as page truth, so a key that was
+  // present must come back present.
+  describe("values JSON cannot carry", () => {
+    it("refuses a function at the top level and nested, naming the key", async () => {
+      expect(unwrapExecuteJsResult(await runWrapped("return function () {}"))).toEqual({
+        ok: false,
+        error: "unserializable value: function",
+      });
+      expect(unwrapExecuteJsResult(await runWrapped("return { a: 1, handler() {} }"))).toEqual({
+        ok: false,
+        error: "unserializable value: function at handler",
+      });
+    });
+
+    it("refuses a symbol and a bigint, including inside an array", async () => {
+      expect(unwrapExecuteJsResult(await runWrapped("return { s: Symbol('x') }"))).toEqual({
+        ok: false,
+        error: "unserializable value: symbol at s",
+      });
+      expect(unwrapExecuteJsResult(await runWrapped("return [1n]"))).toEqual({
+        ok: false,
+        error: "unserializable value: bigint at 0",
+      });
+    });
+
+    it("refuses a non-finite number instead of the null JSON.stringify would emit", async () => {
+      expect(unwrapExecuteJsResult(await runWrapped("return Infinity"))).toEqual({
+        ok: false,
+        error: "unserializable value: non-finite number",
+      });
+      expect(unwrapExecuteJsResult(await runWrapped("return { n: NaN, ok: 1 }"))).toEqual({
+        ok: false,
+        error: "unserializable value: non-finite number at n",
+      });
+    });
+
+    it("encodes a nested undefined as null so the key survives, like the top level", async () => {
+      // JSON has no `undefined`. Dropping the key (JSON.stringify's default) changes
+      // the object's shape behind the model's back, and refusing would fail the most
+      // common value in JS — a missing property read — so it is encoded, not lost.
+      const out = unwrapExecuteJsResult(await runWrapped("return { a: undefined, b: [undefined, 2], c: { d: undefined } }"));
+      expect(out).toEqual({ ok: true, value: { a: null, b: [null, 2], c: { d: null } } });
+      if (out.ok) expect(Object.keys(out.value as object)).toEqual(["a", "b", "c"]);
+    });
+  });
+
   it("is deterministic, so the payload-hash binding still holds", () => {
     expect(wrapExecuteJsScript("return 1")).toBe(wrapExecuteJsScript("return 1"));
     expect(wrapExecuteJsScript("return 1")).not.toBe(wrapExecuteJsScript("return 2"));

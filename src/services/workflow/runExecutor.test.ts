@@ -204,8 +204,33 @@ describe("self-heal (WI-NB6.4 / P-3)", () => {
       args.name === "Publish!" ? { found: true, clicked: true } : { found: false, clicked: false, matchedTotal: 0, matchedVisible: 0 },
     );
     const exec = makeRunExecutor(ctx());
-    const out = await exec(step("action", 'click "Publish" (button)'), 0);
+    const run = exec(step("action", 'click "Publish" (button)'), 0);
+    // The healed locator is not the one the author wrote: the standing grant does
+    // not cover it, so a prompt naming the NEW target is raised and must be approved
+    // (round 3, #162). "Once" mints and the healed click proceeds.
+    await vi.waitFor(() => {
+      const prompt = useBrowserApprovalStore.getState().pending.find((p) => p.target?.name === "Publish!");
+      expect(prompt).toBeDefined();
+      useBrowserApprovalStore.getState().resolveApproval(prompt!.id, "once");
+    });
+    const out = await run;
     expect(out).toMatchObject({ outcome: "success", data: { healedFrom: "Publish", healedTo: "Publish!" } });
+    expect(mintOneShotConfirmed).toHaveBeenCalledTimes(1);
+  });
+
+  it("a healed write is never silently authorized by a standing grant (round 3, #162)", async () => {
+    useBrowserApprovalStore.getState().grant("https://blog.example.com", ["click"]);
+    routeEval(snapshotOf([["button", "Publish!"]]), (args) =>
+      args.name === "Publish!" ? { found: true, clicked: true } : { found: false, clicked: false, matchedTotal: 0, matchedVisible: 0 },
+    );
+    const controller = new AbortController();
+    const exec = makeRunExecutor(ctx({ signal: controller.signal }));
+    const run = exec(step("action", 'click "Publish" (button)'), 0);
+    await vi.waitFor(() => expect(useBrowserApprovalStore.getState().pending.some((p) => p.target?.name === "Publish!")).toBe(true));
+    // Nothing was clicked on the healed target while the prompt is open.
+    expect(invoke.mock.calls.filter(([, a]) => (a as { name?: string })?.name === "Publish!")).toHaveLength(0);
+    controller.abort();
+    await expect(run).rejects.toBeDefined();
   });
 
   it("does not heal an obscured click (page state, not a drifted locator)", async () => {

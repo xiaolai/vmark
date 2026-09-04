@@ -20,14 +20,18 @@ import { invoke } from "@tauri-apps/api/core";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { browserAvailableHere } from "@/services/commands/browserCommands";
 import { makeSerializedPusher } from "./serializedPusher";
+import { browserWarn } from "@/utils/debug";
 
 /** Start syncing; returns a disposer. */
 export function startBrowserMenuSync(): () => void {
   const pusher = makeSerializedPusher<boolean>(
     (enabled) => invoke("set_browser_menu_enabled", { enabled }),
-    () => {
+    (error, attempt) => {
       // The menu may not exist yet (early boot) or on a platform branch without the
-      // item; the pusher retries. Not worth surfacing: the palette still works.
+      // item; the pusher retries with backoff until the window disposes it. Every
+      // failed attempt is LOGGED (round 3, #212): a retry loop nobody can see is a
+      // silent failure, and giving up would leave the item wrong for the session.
+      browserWarn(`browser menu sync failed (attempt ${attempt}); retrying`, error);
     },
   );
   pusher.push(browserAvailableHere());

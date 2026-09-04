@@ -14,8 +14,9 @@
  * background. This surface reads that store for its tab and paints the overlays:
  * the frozen placeholder, a load failure with retry, the crash overlay, a page
  * `alert`/`confirm` (answered via `browser_dialog_respond` — the dialog and its
- * occluder stay up until that answer succeeded, one submission at a time), and a blocked-popup
- * notice with "open in new tab".
+ * occluder stay up until that answer succeeded, one submission at a time, and a
+ * rejected answer is shown inside the dialog so the user can click again), and a
+ * blocked-popup notice with "open in new tab".
  *
  * Freezing goes through `browserOcclusion` (WI-S0.8), never a raw `browser_freeze`:
  * occluders are reference-counted, so a crash overlay, a page dialog and an approval
@@ -31,13 +32,14 @@
  * @module components/Browser/BrowserSurface
  */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { browserWarn } from "@/utils/debug";
 import { useBrowserNativeView } from "./useBrowserNativeView";
 import { useTabStore } from "@/stores/tabStore";
 import { isBrowserTab } from "@/stores/tabStoreTypes";
-import { useBrowserUiStore } from "@/stores/browserUiStore";
+import { useBrowserUiStore, type BrowserDialog } from "@/stores/browserUiStore";
+import { commandErrorMessage } from "@/services/commands/commandError";
 import { reloadBrowser } from "@/services/browser/browserNavigation";
 import { browserOcclusion, OCCLUDER } from "@/services/browser/browserOcclusion";
 import { activateTabInFocusedPane } from "@/services/navigation/activateTabInFocusedPane";
@@ -101,6 +103,11 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
   // `confirm` can be answered — the type carries the completion-handler id, so
   // there is no unanswerable-confirm case to guard against here.
   const respondingRef = useRef(false);
+  // The last answer that did not reach the page, keyed to the dialog it was for. Read
+  // against the CURRENT dialog, so a new dialog (or this one, answered successfully)
+  // starts clean without an effect to reset it.
+  const [dialogFailure, setDialogFailure] = useState<{ dialog: BrowserDialog; message: string } | null>(null);
+  const dialogError = dialogFailure !== null && dialogFailure.dialog === dialog ? dialogFailure.message : null;
   const closeDialog = (accepted: boolean) => {
     const current = useBrowserUiStore.getState().entries[tabId]?.dialog ?? null;
     if (!current) return;
@@ -111,13 +118,15 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
     if (current.kind !== "confirm") return dismiss();
     // The dialog and its occluder stay up until the native confirm has actually been
     // answered: dismissing first and swallowing a rejection left a parked confirm() with
-    // no UI to answer it. One submission at a time.
+    // no UI to answer it. One submission at a time; a rejection is painted INTO the
+    // dialog (audit round 3, #164) and releases the guard, so the next click is the retry.
     if (respondingRef.current) return;
     respondingRef.current = true;
     invoke("browser_dialog_respond", { id: current.id, accepted })
       .then(dismiss)
       .catch((error: unknown) => {
         browserWarn("browser_dialog_respond failed; the page dialog stays open for a retry", { tabId, error });
+        setDialogFailure({ dialog: current, message: commandErrorMessage(error) });
       })
       .finally(() => {
         respondingRef.current = false;
@@ -154,6 +163,7 @@ export function BrowserSurface({ tabId }: { tabId: string }): React.ReactElement
           error={error}
           crash={crash}
           dialog={dialog}
+          dialogError={dialogError}
           popup={popup}
           onRetry={() => reloadBrowser(tabId)}
           onCloseDialog={closeDialog}

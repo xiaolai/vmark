@@ -295,6 +295,91 @@ fn the_rule_list_blocks_every_ipv4_range_the_navigation_policy_blocks() {
     }
 }
 
+// The v6 twin of the parity test above (round 3, #9). Both sides read
+// `BLOCKED_IPV6_RANGES`, so a range added to the policy without a url-filter — or
+// a filter that reaches past its range — fails here. Probes are spelled the way
+// WebKit serializes an IPv6 host: compressed, lowercase, in brackets.
+#[test]
+fn the_rule_list_blocks_every_ipv6_range_the_navigation_policy_blocks() {
+    use super::super::ai_policy_addr::{blocked_ipv6, BLOCKED_IPV6_RANGES, IPV6_LOOPBACK};
+    use std::net::Ipv6Addr;
+    let filters = compiled(false);
+    let mut probes: Vec<Ipv6Addr> = Vec::new();
+    for &(network, prefix) in BLOCKED_IPV6_RANGES
+        .iter()
+        .chain(std::iter::once(&IPV6_LOOPBACK))
+    {
+        let first = u128::from(network);
+        // `checked_shr`, because a /128 shifts by the full width.
+        let last = first | u128::MAX.checked_shr(u32::from(prefix)).unwrap_or(0);
+        let size = last - first;
+        for value in [first, first.saturating_add(1), first + size / 2, last] {
+            probes.push(Ipv6Addr::from(value));
+        }
+        // The neighbours just outside must AGREE too (both allow, or both block
+        // when another range covers them).
+        if first > 0 {
+            probes.push(Ipv6Addr::from(first - 1));
+        }
+        if last < u128::MAX {
+            probes.push(Ipv6Addr::from(last + 1));
+        }
+    }
+    // Ordinary public addresses, which neither side may touch.
+    probes.extend(
+        [
+            "2001:4860:4860::8888",
+            "2600::",
+            "2a00:1450:4001::1",
+            "2001:db9::1",
+            "2001:20::1",
+            "fe00::1",
+            "fb00::1",
+        ]
+        .map(|a| a.parse::<Ipv6Addr>().unwrap()),
+    );
+    for address in probes {
+        let policy = blocked_ipv6(address, false);
+        // WebKit's serialization, not `Display`'s — see `render`'s own test.
+        let url = format!("http://[{}]/x", super::cidr6::render(address));
+        assert_eq!(
+            blocked(&filters, &url),
+            policy,
+            "{url}: rules vs policy disagree"
+        );
+    }
+}
+
+// Round 3, #9 — `[::<group>]` is the compatible spelling of 0.0.x.y, which is in
+// 0/8 and must block; only `[::1]` is exempt, and only when loopback is allowed.
+// The list used to carry `[::ffff]` alone, so `[::2]` reached the network while
+// the navigation policy refused it.
+#[test]
+fn the_compatible_zero_page_spellings_block_and_only_loopback_is_exempt() {
+    let blocked_loopback = compiled(false);
+    let allowed_loopback = compiled(true);
+    for url in [
+        "http://[::2]/",
+        "http://[::a]/",
+        "http://[::ff]/",
+        "http://[::ffff]/",
+    ] {
+        assert!(blocked(&blocked_loopback, url), "{url}");
+        assert!(
+            blocked(&allowed_loopback, url),
+            "{url} is 0/8, never loopback"
+        );
+    }
+    assert!(blocked(&blocked_loopback, "http://[::1]/"));
+    assert!(
+        !blocked(&allowed_loopback, "http://[::1]/"),
+        "the loopback opt-in still reaches [::1]"
+    );
+    // A mapped/compatible address that carries a further group is a different
+    // shape and must not be swallowed by these rules.
+    assert!(!blocked(&blocked_loopback, "https://[::ffff:808:808]/"));
+}
+
 #[test]
 fn every_filter_stays_inside_webkits_regex_subset() {
     // WebKit's URLFilterParser refuses these outright; a filter using one would

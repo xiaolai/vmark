@@ -35,7 +35,8 @@ function __vmarkEditingHost(el) {
  *  global ARIA property (ARIA §5.3). Mirrors ariaRole.ts. */
 function __vmarkPresentationalConflict(el) {
   if (__vmarkFocusable(el)) return true;
-  var attrs = ["aria-label", "aria-labelledby", "aria-describedby", "aria-live", "aria-owns", "aria-controls"];
+  // Every global WAI-ARIA state and property (ARIA 1.2 §6.4); mirrors ariaRole.ts GLOBAL_ARIA.
+  var attrs = ["aria-atomic", "aria-busy", "aria-controls", "aria-current", "aria-describedby", "aria-description", "aria-details", "aria-disabled", "aria-dropeffect", "aria-errormessage", "aria-flowto", "aria-grabbed", "aria-haspopup", "aria-hidden", "aria-invalid", "aria-keyshortcuts", "aria-label", "aria-labelledby", "aria-live", "aria-owns", "aria-relevant", "aria-roledescription"];
   for (var i = 0; i < attrs.length; i++) if (el.hasAttribute(attrs[i])) return true;
   return false;
 }

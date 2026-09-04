@@ -17,7 +17,11 @@ import { AGENT_LIB } from "./actScript";
 
 const QUERY_LIB = `
 function __vmarkQueryDom(sel,gen,opts){
-  try{document.querySelectorAll(sel);}catch(e){return {error:'invalid-selector'};}
+  // Validated against a DETACHED element: \`matches\` throws on a malformed
+  // selector exactly like querySelectorAll, and touches nothing in the document
+  // — a querySelectorAll on the document materialised every light-DOM match
+  // before the bounded walk began.
+  try{document.createElement('div').matches(sel);}catch(e){return {error:'invalid-selector'};}
   // \`:scope\` inside \`matches()\` names the element itself, so it would match
   // everything; refuse it rather than answer wrong.
   if(/:scope\\b/i.test(sel))return {error:'invalid-selector'};

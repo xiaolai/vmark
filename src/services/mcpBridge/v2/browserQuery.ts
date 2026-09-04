@@ -42,6 +42,9 @@ function readFields(f: unknown): { ok: true; fields: QueryFields | undefined } |
 }
 
 /** `vmark.browser.query` — structured DOM detection by CSS selector (read-class). */
+/** Twenty decimal digits, the print width of `u64::MAX` (the driver stamps u64). */
+const WIDEST_GENERATION = 1e19;
+
 export async function handleBrowserQuery(id: string, args: Record<string, unknown>): Promise<void> {
   return wrapHandler(id, async () => {
     const wire = readOperationArgs("vmark.browser.query", args);
@@ -61,7 +64,9 @@ export async function handleBrowserQuery(id: string, args: Record<string, unknow
     // attachment was spent on it.
     // Sized with the widest generation the script could embed, so a boundary-sized
     // query cannot pass here and exceed the limit once rebuilt with a real one.
-    const tooLarge = scriptTooLarge(buildQueryScript(selector, Number.MAX_SAFE_INTEGER, fields), "query script");
+    // 1e19 prints as twenty digits — the width of u64::MAX, which Rust may stamp —
+    // so the checked script is never shorter than the one later rebuilt for real.
+    const tooLarge = scriptTooLarge(buildQueryScript(selector, WIDEST_GENERATION, fields), "query script");
     if (tooLarge) {
       await respond({ id, success: false, error: tooLarge });
       return;

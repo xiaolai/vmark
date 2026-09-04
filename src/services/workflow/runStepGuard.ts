@@ -91,9 +91,11 @@ export function makeGuardedExecutor(args: StepGuardArgs): WorkflowStepExecutor {
       markWriteStepDone(args.tabId, args.ledgerId, stepId(step));
     }
     noteStepResult(args.runId, step.index, {
-      // A "success" the engine will NOT treat as done (postcondition says it did not
-      // land) is recorded as unknown — the status a reader can act on.
-      status: outcome.outcome === "success" && verdict !== "done" ? "unknown" : outcome.outcome,
+      // The recorded status follows the ENGINE's verdict, not the raw flag: a
+      // "success" it will not treat as done is unknown, and a "failed" whose
+      // postcondition says the write landed (verdict done) is success — the
+      // ledger and the reader must agree.
+      status: verdict === "done" ? "success" : outcome.outcome === "success" ? "unknown" : outcome.outcome,
       ...(outcome.reason !== undefined ? { reason: outcome.reason } : {}),
       ...(outcome.data !== undefined ? { data: outcome.data } : {}),
     });

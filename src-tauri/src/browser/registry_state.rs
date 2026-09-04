@@ -2,7 +2,44 @@
 
 use super::{AutomationMode, BrowserError, BrowserRegistry, Entry, Lifecycle};
 
+/// One consistent read of a tab — what `browser_ai_state` reports and what the
+/// AI navigate command decides on (audit 20260903 round 3, #5). Read as a whole so
+/// no caller has to default a field the entry must have: the per-field reads
+/// defaulted a missing generation to 0 and a missing state to "Destroyed", and a
+/// fallback there could only ever mask an invariant violation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TabStatus {
+    pub automation_mode: AutomationMode,
+    pub generation: u64,
+    pub state: Lifecycle,
+    pub policy_epoch: u64,
+    /// The active top-level navigation ticket, if one has been begun.
+    pub navigation_id: Option<String>,
+}
+
 impl BrowserRegistry {
+    pub fn tab_status(&self, tab_id: &str) -> Option<TabStatus> {
+        self.tabs.get(tab_id).map(|e| TabStatus {
+            automation_mode: e.automation_mode,
+            generation: e.generation,
+            state: e.state,
+            policy_epoch: e.policy_epoch,
+            navigation_id: e.active_navigation.as_ref().map(|t| t.id.clone()),
+        })
+    }
+
+    /// Does `tab_id` exist, outside a terminal state, at exactly `generation`?
+    /// The precondition for binding tab-scoped authority (a human attachment) to
+    /// it, checked under the guard the binding is written under (audit 20260903
+    /// round 3, #35): an unknown, destroyed or navigated-away tab gets nothing
+    /// bound, so a reused id cannot inherit an attachment written for its
+    /// predecessor.
+    pub fn tab_alive_at(&self, tab_id: &str, generation: u64) -> bool {
+        self.tabs
+            .get(tab_id)
+            .is_some_and(|e| !e.state.is_terminal() && e.generation == generation)
+    }
+
     pub fn set_committed_url(&mut self, tab_id: &str, url: &str) -> Result<(), BrowserError> {
         let entry = self.live_entry_mut(tab_id)?;
         entry.committed_url = Some(url.to_string());
@@ -64,15 +101,30 @@ impl BrowserRegistry {
         Ok(entry.generation)
     }
 
-    #[allow(dead_code, reason = "observation seam for the generation tests")]
     pub fn generation(&self, tab_id: &str) -> Option<u64> {
         self.tabs.get(tab_id).map(|e| e.generation)
+    }
+
+    /// Put a tab AT a generation. The only way to reach the exhausted counter the
+    /// fail-closed paths exist for — `bump_generation` moves by one, so u64::MAX
+    /// is otherwise unreachable in a test. Arrangement only, hence `cfg(test)`.
+    #[cfg(test)]
+    pub fn force_generation(&mut self, tab_id: &str, generation: u64) {
+        if let Some(entry) = self.tabs.get_mut(tab_id) {
+            entry.generation = generation;
+        }
     }
 
     pub fn state(&self, tab_id: &str) -> Option<Lifecycle> {
         self.tabs.get(tab_id).map(|e| e.state)
     }
 
+    /// Re-stamp a tab's posture epoch. Production stamps it at reservation
+    /// (`reserve_ai_tab`), so this is an observation seam for the tests that build
+    /// AI tabs through `create_with_mode` — compiled only for them (audit round 3,
+    /// #29: a production method with no production caller is dead code wearing an
+    /// allowance).
+    #[cfg(test)]
     pub fn set_policy_epoch(&mut self, tab_id: &str, epoch: u64) -> Result<(), BrowserError> {
         let entry = self
             .tabs
@@ -111,12 +163,15 @@ impl BrowserRegistry {
             .count()
     }
 
-    #[allow(dead_code, reason = "observation seam for the lifecycle tests")]
+    /// Observation seam for the lifecycle tests; production reads go through the
+    /// typed queries above, so this is compiled only for tests (audit round 3, #29).
+    #[cfg(test)]
     pub fn contains(&self, tab_id: &str) -> bool {
         self.tabs.contains_key(tab_id)
     }
 
-    #[allow(dead_code, reason = "observation seam for the lifecycle tests")]
+    /// Observation seam for the lifecycle tests — see `contains`.
+    #[cfg(test)]
     pub fn is_empty(&self) -> bool {
         self.tabs.is_empty()
     }

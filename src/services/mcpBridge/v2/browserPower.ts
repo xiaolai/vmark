@@ -14,25 +14,18 @@
  *
  * @coordinates-with src-tauri browser/authorize.rs — the authoritative gate
  * @coordinates-with lib/browser/agent/powerScript.ts — the query/style scripts
+ * @coordinates-with services/mcpBridge/v2/browserApprovalFlow.ts — the shared approval machine
+ * @coordinates-with services/mcpBridge/v2/browserAccess.ts — gate + tab resolution + attachment mirror
  * @module services/mcpBridge/v2/browserPower
  */
 
 import { invoke } from "@tauri-apps/api/core";
 import { respond } from "@/services/mcpBridge/utils";
 import { wrapHandler } from "./wrapHandler";
-import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
 import { buildStyleScript } from "@/lib/browser/agent/powerScript";
-import { originForAgent } from "@/lib/browser/url";
-import { grantPatternFor } from "@/stores/browserApprovalStore.helpers";
-import { mintOneShotConfirmed } from "@/services/browser/grantSync";
-import {
-  MAX_SCRIPT_BYTES,
-  readTabIdArg,
-  resolveBrowserTab,
-  utf8ByteLength,
-  type BrowserTarget,
-} from "./browserHelpers";
-import { browserGate, invokeAttached } from "./browserAccess";
+import { MAX_SCRIPT_BYTES, utf8ByteLength, type BrowserTarget } from "./browserHelpers";
+import { invokeAttached, resolveBrowserTarget } from "./browserAccess";
+import { authorizeOperation } from "./browserApprovalFlow";
 import { readStyleOps } from "./browserStyleOps";
 import { requireHumanAttachment, parseEvalResult } from "./browserReadClass";
 
@@ -40,101 +33,16 @@ export { handleBrowserQuery } from "./browserQuery";
 import { readOperationArgs } from "./readOperationArgs";
 import { unwrapExecuteJsResult, wrapExecuteJsScript } from "./browserExecuteJs";
 
-
-/** Feature gate + tab resolution for the write-class tools. Payload validation
- *  and the attachment gate come AFTER this (see runWriteOp's ordering rule). */
-async function resolveWriteTab(id: string, args: Record<string, unknown>): Promise<BrowserTarget | null> {
-  if (!(await browserGate(id))) return null;
-  const tabIdArg = readTabIdArg(args);
-  if (tabIdArg === null) {
-    await respond({ id, success: false, error: "tabId must be a non-empty string when supplied" });
-    return null;
-  }
-  const tab = resolveBrowserTab(tabIdArg);
-  if (!tab) {
-    await respond({ id, success: false, error: "no active browser tab" });
-    return null;
-  }
-  return tab;
-}
-
-/** Approval flow for a target-less op (style, eval). Returns true if authorized
- *  (may proceed). `extraData` is folded into the needs-approval envelope. */
-async function approveOp(
-  id: string,
-  tab: BrowserTarget,
-  operation: string,
-  // The EXACT script that will run (for `style`/`eval`) — bound into the one-shot so
-  // an approved payload cannot be swapped on the retry. (Security review P5, High #1.)
-  script: string | undefined,
-  extraData?: Record<string, unknown>,
-): Promise<boolean> {
-  const decision = useBrowserApprovalStore.getState().decide(tab.url, operation);
-  if (decision === "denied") {
-    await respond({ id, success: false, error: `operation '${operation}' is not permitted` });
-    return false;
-  }
-  if (decision === "needs-approval") {
-    const ok = useBrowserApprovalStore
-      .getState()
-      .consumeOneShot(tab.url, operation, undefined, tab.tabId, script, tab.generation);
-    if (!ok) {
-      const queued = useBrowserApprovalStore
-        .getState()
-        .requestApproval(id, tab.url, operation, undefined, tab.tabId, tab.generation, script);
-      // No prompt was queued: advertising `needsApproval` would point the
-      // client at an approval that does not exist and can never resolve.
-      if (queued === "overloaded" || queued === "rejected") {
-        await respond({
-          id,
-          success: false,
-          error:
-            queued === "overloaded"
-              ? "approval queue is full — resolve or deny pending approvals, then retry"
-              : `operation '${operation}' cannot be approved`,
-        });
-        return false;
-      }
-      // Origin-only in the pre-authorization envelope — the path can carry a token.
-      const origin = originForAgent(tab.url);
-      await respond({
-        id,
-        success: false,
-        error: `approval required: '${operation}' on ${origin}`,
-        data: { needsApproval: true, operation, url: origin, tabId: tab.tabId, generation: tab.generation, ...extraData },
-      });
-      return false;
-    }
-    // The mirror copy is spent; act only once the driver confirms its copy exists
-    // (one mint path — audit A-04), else the eval is refused as unauthorized.
-    const pattern = grantPatternFor(tab.url);
-    const minted =
-      pattern !== null &&
-      (await mintOneShotConfirmed({
-        originPattern: pattern,
-        operation,
-        tabId: tab.tabId,
-        generation: tab.generation,
-        ...(script !== undefined ? { script } : {}),
-      }));
-    if (!minted) {
-      await respond({
-        id,
-        success: false,
-        error: `the driver refused the '${operation}' authorization — the page may have navigated; retry to be prompted again`,
-      });
-      return false;
-    }
-  }
-  return true;
-}
-
 /**
  * The shared tail of both write-class tools: attachment gate → approval →
- * native invoke → response. The attachment mirror follows the driver's consume
- * through `invokeAttached` (`browserAccess.ts`): spent on success and on any
- * post-authorization failure, kept on a pre-authorization refusal. A driver
- * rejection propagates to `wrapHandler` as its typed token.
+ * native invoke → response. The approval is the shared state machine
+ * (`browserApprovalFlow`) with the EXACT script bound into the one-shot, so an
+ * approved payload cannot be swapped on the retry (security review P5, High #1);
+ * `extraEnvelope` is folded into its needs-approval envelope. The attachment
+ * mirror follows the driver's consume through `invokeAttached` (`browserAccess.ts`):
+ * spent on success and on any post-authorization failure, kept on a
+ * pre-authorization refusal. A driver rejection propagates to `wrapHandler` as
+ * its typed token.
  */
 async function runWriteOp(
   id: string,
@@ -145,7 +53,12 @@ async function runWriteOp(
   data: (raw: string) => Record<string, unknown>,
 ): Promise<void> {
   if (!(await requireHumanAttachment(id, tab))) return;
-  if (!(await approveOp(id, tab, operation, script, extraEnvelope))) return;
+  const outcome = await authorizeOperation(id, tab, {
+    operation,
+    script,
+    ...(extraEnvelope ? { promptData: extraEnvelope } : {}),
+  });
+  if (outcome !== "authorized") return;
   const raw = await invokeAttached(tab, () =>
     invoke<string>("browser_eval", {
       tabId: tab.tabId,
@@ -160,7 +73,9 @@ async function runWriteOp(
 /** `vmark.browser.style` — isolated-world CSS manipulation (act-class, op `style`). */
 export async function handleBrowserStyle(id: string, args: Record<string, unknown>): Promise<void> {
   return wrapHandler(id, async () => {
-    const tab = await resolveWriteTab(id, args);
+    // Gate + tab first; payload validation and the attachment gate come AFTER
+    // (the ordering rule in the header).
+    const tab = await resolveBrowserTarget(id, args);
     if (!tab) return;
     const wire = readOperationArgs("vmark.browser.style", args);
     const ref = typeof wire.ref === "string" && wire.ref.trim() ? wire.ref : undefined;
@@ -217,7 +132,7 @@ export async function handleBrowserStyle(id: string, args: Record<string, unknow
  *  wrapper is deterministic, so an approved script still cannot be swapped. */
 export async function handleBrowserExecuteJs(id: string, args: Record<string, unknown>): Promise<void> {
   return wrapHandler(id, async () => {
-    const tab = await resolveWriteTab(id, args);
+    const tab = await resolveBrowserTarget(id, args);
     if (!tab) return;
     const wire = readOperationArgs("vmark.browser.execute_js", args);
     const script = typeof wire.script === "string" && wire.script.trim() ? wire.script : "";

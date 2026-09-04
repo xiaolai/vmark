@@ -64,6 +64,14 @@ describe("rendered visibility inside the gate script (#114)", () => {
   it("is self-contained: the script ships without the agent library", () => {
     expect(buildGateSignalsScript()).not.toContain("__vmarkRendered");
   });
+  it("a shadow HOST with opacity:0 hides the password field inside its shadow tree (composed walk)", () => {
+    const doc = parse(`<div id="host" style="opacity:0"></div>`);
+    doc.getElementById("host")!.attachShadow({ mode: "open" }).innerHTML = `<input type="password">`;
+    expect(exec(doc).passwordField).toBe(false);
+    const shown = parse(`<div id="host"></div>`);
+    shown.getElementById("host")!.attachShadow({ mode: "open" }).innerHTML = `<input type="password">`;
+    expect(exec(shown).passwordField).toBe(true);
+  });
   it("does not report a password field hidden by computed style", () => {
     expect(exec(parse(`<input type="password" style="visibility:hidden">`)).passwordField).toBe(false);
     expect(exec(parse(`<div style="display:none"><input type="password"></div>`)).passwordField).toBe(false);

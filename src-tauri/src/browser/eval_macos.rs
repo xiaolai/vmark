@@ -18,13 +18,16 @@
 //! is `<null>` from a script that failed, and reported a still-running script as
 //! "did not affect the target" before retrying it. `eval_outcome.rs` owns the
 //! vocabulary; `view::js_result_to_outcome` classifies the native completion.
+//! A refusal by the gate inside the turn crosses the hop as the typed
+//! `CommandError` it is (`EvalError::Refused`, round 3 #17) — it used to be
+//! flattened to a string and re-derived by prefix, which lost its details.
 //!
 //! @coordinates-with browser/authorize.rs — the guarded submit
 //! @coordinates-with browser/eval_outcome.rs — the failure vocabulary
 //! @coordinates-with browser/no_bridge.rs — the R3 assertion this evaluates
 
 use super::view::js_result_to_outcome;
-use super::{driver_loop::pump_until, on_main, WEBVIEWS};
+use super::{driver_loop::pump_until, on_main, webview_for};
 use crate::browser::eval_outcome::{EvalError, EvalFailure};
 use crate::browser::surface::BrowserSurface;
 use objc2::runtime::AnyObject;
@@ -112,8 +115,8 @@ pub(super) fn eval_js(
 /// completion handler, and WebKit callbacks re-enter on this same thread and take the
 /// registry lock themselves (the nav delegate does exactly that). Holding the registry
 /// — or any `BrowserSurface` guard — across it would deadlock immediately.
-/// `command_still_fresh` acquires and releases internally, so the guards are all gone
-/// before the dispatch below; keep it that way.
+/// `submit_if_fresh` acquires and releases internally, so the guards are all gone
+/// before the await below; keep it that way.
 pub fn eval(
     app: &AppHandle,
     tab_id: String,
@@ -127,46 +130,30 @@ pub fn eval(
         let state = app_for_closure
             .try_state::<BrowserSurface>()
             .ok_or_else(|| "browser state unavailable".to_string())?;
-        // The verify-then-dispatch ordering lives in `authorize::dispatch_if_fresh`
+        // The verify-then-dispatch ordering lives in `authorize::submit_if_fresh`
         // so it is unit-testable; this closure supplies only the native call. When
         // it was inline here, deleting the check left every test green.
-        let webview = WEBVIEWS
-            .with(|m| m.borrow().get(&tab_id).cloned())
-            .ok_or_else(|| {
-                format!(
-                    "{}: no webview: {tab_id}",
-                    crate::browser::surface::fail::NO_WEBVIEW
-                )
-            })?;
+        let webview = webview_for(&tab_id)?;
         let run_loop = NSRunLoop::mainRunLoop();
         let world =
             unsafe { WKContentWorld::worldWithName(&NSString::from_str("vmark-agent"), mtm) };
         // Check + enqueue happen together under the registry guard, so no other
         // thread can navigate or destroy the tab in between; the pump then runs
         // unlocked, because a re-entrant WebKit callback takes that same lock.
-        let sink = crate::browser::authorize::submit_if_fresh(
+        //
+        // The hop's own error type is String (a native surface failure); the turn's
+        // verdict is typed, and a refusal is returned AS the CommandError the gate
+        // raised — code, STALE_COMMAND token, `tabId` and `when` intact.
+        let turn = match crate::browser::authorize::submit_if_fresh(
             &state,
             &tab_id,
             expected_generation,
             || submit_js(&webview, &script, &world),
-        )
-        // This closure returns String to its own caller; the gate is typed, so
-        // flatten at the boundary rather than widen the whole main-thread hop —
-        // but keep the class: a `STALE_COMMAND` refusal is re-tagged so
-        // `surface_failure` restores the typed conflict the frontend branches on,
-        // instead of an "internal" surface failure with the reason in prose.
-        .map_err(|e| {
-            let mcp = e
-                .detail()
-                .and_then(|d| d.get("mcpCode"))
-                .and_then(|v| v.as_str())
-                .map(str::to_owned);
-            match mcp {
-                Some(code) => format!("{code}: {}", e.message()),
-                None => e.message().to_string(),
-            }
-        })?;
-        Ok(await_js(&run_loop, sink))
+        ) {
+            Ok(sink) => await_js(&run_loop, sink).map_err(EvalError::from),
+            Err(refusal) => Err(EvalError::from(refusal)),
+        };
+        Ok(turn)
     });
     EvalError::flatten(native)
 }

@@ -90,6 +90,35 @@ pub async fn browser_add_one_shot(
     .map_err(CommandError::invalid_input)
 }
 
+/// Withdraw an unspent one-shot the frontend no longer wants honoured (round 3,
+/// #124): a workflow run cancelled while its "Allow once" mint was in flight
+/// leaves the driver holding an authorization nobody will spend on purpose. The
+/// identity is the mint's own; the count removed is returned (0 is not an error —
+/// the one-shot may already have lapsed with a navigation).
+#[tauri::command]
+pub async fn browser_revoke_one_shot(
+    state: State<'_, BrowserSurface>,
+    tab_id: String,
+    generation: u64,
+    origin_pattern: String,
+    operation: String,
+    target: Option<OneShotTarget>,
+) -> Result<u32, CommandError> {
+    let mut shots = state
+        .one_shots
+        .lock()
+        .map_err(|_| CommandError::internal("one-shot store lock poisoned"))?;
+    let removed = crate::browser::one_shot::revoke_one_shot(
+        &mut shots,
+        &tab_id,
+        generation,
+        &origin_pattern,
+        &operation,
+        target.as_ref(),
+    );
+    Ok(removed as u32)
+}
+
 /// Attach AI access to a human-created tab for exactly its current generation.
 /// The UI calls this only after the user has accepted the visible prompt.
 #[tauri::command]

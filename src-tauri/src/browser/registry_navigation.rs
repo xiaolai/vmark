@@ -111,6 +111,21 @@ impl BrowserRegistry {
         })
     }
 
+    /// `snapshot_navigation` and `begin_navigation` as ONE step, so the snapshot
+    /// is exactly the state this navigation replaced (audit 20260903 round 3, #4).
+    /// Taken under separate guards, a navigation begun between them was captured
+    /// by neither: a native failure then rolled the tab back PAST it, to a page
+    /// and ticket that navigation had already superseded.
+    pub fn begin_navigation_with_snapshot(
+        &mut self,
+        tab_id: &str,
+        requested_url: &str,
+    ) -> Result<(NavigationTicket, NavigationSnapshot), BrowserError> {
+        let snapshot = self.snapshot_navigation(tab_id)?;
+        let ticket = self.begin_navigation(tab_id, requested_url)?;
+        Ok((ticket, snapshot))
+    }
+
     /// Restore a snapshot taken by `snapshot_navigation` if `navigation_id` is
     /// still the active navigation (a concurrent navigation is left alone).
     pub fn restore_navigation(

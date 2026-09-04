@@ -176,6 +176,7 @@
   "browser.approval.operation.session": "ログインを保存または復元",
   "browser.error.title": "このページを読み込めませんでした。",
   "browser.error.retry": "再試行",
+  "browser.dialog.answerFailed": "ページに回答を送信できませんでした。もう一度お試しください。",
   "browser.history.heading": "履歴",
   "browser.history.empty": "まだ閲覧履歴はありません。開いたページがここに表示されます。",
   "browser.history.clear": "消去",

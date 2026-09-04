@@ -5,8 +5,7 @@
  * Purpose: on mount, make sure the tab's view exists and is visible; keep it aligned
  * under the reserved rect while mounted; on unmount, hide it. The registry itself —
  * create once, show/hide, destroy on tab close — is `services/browser/browserNativeViews`
- * (audit 2026-09-03 L-01: views are kept alive across tab switches), re-exported here
- * so existing importers keep their path.
+ * (audit 2026-09-03 L-01: views are kept alive across tab switches).
  *
  * Hazard handled here: **the rect can MOVE without resizing.** A ResizeObserver fires
  * on size. A terminal switching sides, or a bar appearing above the viewport, changes
@@ -14,13 +13,18 @@
  * painting over unrelated UI. `layoutVersion` re-runs the report whenever the shell
  * reflows.
  *
+ * Bounds go through ONE `browserBounds` channel for the tab's whole mount (audit round
+ * 3, #167): resize, reflow and retry all feed the same serialized, latest-wins pusher,
+ * so an older rect can never land after a newer one, and the first send waits for the
+ * create to settle instead of spending retries against a view that does not exist yet.
+ * Unmount disposes the channel, which ends its retry loop.
+ *
  * @coordinates-with services/browser/browserNativeViews — the registry
+ * @coordinates-with components/Browser/browserBounds — the bounds channel
  * @coordinates-with stores/browserUiStore — seeds the tab's omnibox entry
  * @module components/Browser/useBrowserNativeView
  */
-import { useEffect, type RefObject } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { browserWarn } from "@/utils/debug";
+import { useEffect, useRef, type RefObject } from "react";
 import { useBrowserUiStore } from "@/stores/browserUiStore";
 import {
   ensureBrowserNativeView,
@@ -31,11 +35,9 @@ import {
   classifyCommandError,
   commandErrorMessage,
 } from "@/services/commands/commandError";
+import type { SerializedPusher } from "@/services/browser/serializedPusher";
 import type { BrowserAutomationMode } from "@/stores/tabStoreTypes";
-
-/** A rejected bounds report is retried this many times, spaced by the delay. */
-const BOUNDS_RETRIES = 3;
-const BOUNDS_RETRY_MS = 150;
+import { makeBoundsPusher, type BoundsRect } from "./browserBounds";
 
 export function useBrowserNativeView(
   tabId: string,
@@ -44,6 +46,11 @@ export function useBrowserNativeView(
   viewportRef: RefObject<HTMLDivElement | null>,
   automationMode: BrowserAutomationMode = "human",
 ): void {
+  // The tab's bounds channel — alive for exactly this mount, shared with the bounds
+  // effect below through a ref because that effect re-runs on every reflow while the
+  // channel must not (two channels would let an older in-flight rect land last).
+  const boundsRef = useRef<SerializedPusher<BoundsRect> | null>(null);
+
   // Create on first mount; show on every mount; hide on unmount. Seed the transient
   // omnibox state (ADR-5) alongside so the bottom bar has this tab's url the moment it
   // renders. The destroy lives in `destroyBrowserNativeView` (tab close), not here.
@@ -54,6 +61,8 @@ export function useBrowserNativeView(
     // `ensureBrowserNativeView` re-drives occlusion itself once the view exists; a
     // second resync here was the same work twice.
     const created = ensureBrowserNativeView(tabId, url, automationMode);
+    const bounds = makeBoundsPusher(tabId, created);
+    boundsRef.current = bounds;
     void created
       .catch((e: unknown) => {
         // A create that fails leaves NO native view at all — the tab would sit there as an
@@ -71,6 +80,8 @@ export function useBrowserNativeView(
 
     return () => {
       active = false;
+      bounds.dispose();
+      boundsRef.current = null;
       markSurfaceUnmounted(tabId);
     };
     // `url` is the initial navigation target only; navigation is explicit after.
@@ -78,41 +89,14 @@ export function useBrowserNativeView(
   }, [tabId]);
 
   // Keep the native view aligned under the reserved rect — on resize AND on reflow.
+  // Every report is a push into the tab's channel: coalesced, ordered, retried there.
   useEffect(() => {
     const el = viewportRef.current;
     if (!el) return;
-    // Bounds are coalesced (only the latest rect is ever sent) and a rejection is
-    // retried once the view can exist: a create/layout race used to drop the rect
-    // silently and leave the native view misaligned over unrelated UI for good.
-    let latest: DOMRect | null = null;
-    let retry: ReturnType<typeof setTimeout> | null = null;
-    const send = (attempt: number) => {
-      const r = latest;
-      if (!r) return;
-      void invoke("browser_set_bounds", { tabId, x: r.x, y: r.y, width: r.width, height: r.height }).catch(
-        (error: unknown) => {
-          if (attempt < BOUNDS_RETRIES) {
-            retry = setTimeout(() => send(attempt + 1), BOUNDS_RETRY_MS * (attempt + 1));
-            return;
-          }
-          browserWarn("browser_set_bounds kept failing; the native view may be misaligned", { tabId, error });
-        },
-      );
-    };
-    const report = () => {
-      latest = el.getBoundingClientRect();
-      if (retry !== null) {
-        clearTimeout(retry);
-        retry = null;
-      }
-      send(0);
-    };
+    const report = () => boundsRef.current?.push(el.getBoundingClientRect());
     const observer = new ResizeObserver(report);
     observer.observe(el);
     report();
-    return () => {
-      observer.disconnect();
-      if (retry !== null) clearTimeout(retry);
-    };
+    return () => observer.disconnect();
   }, [tabId, layoutVersion, viewportRef]);
 }

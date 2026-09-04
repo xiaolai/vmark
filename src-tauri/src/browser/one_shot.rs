@@ -158,6 +158,30 @@ pub fn consume_one_shot(
 /// Drop every one-shot for `tab_id`. Called when the tab starts a new navigation
 /// (its committed origin is revoked — R7a) and when it is destroyed, so authority
 /// never outlives the page it was granted on.
+/// Withdraw every unspent one-shot with exactly this identity (tab, generation,
+/// origin pattern, operation, target) — the mint that a cancelled workflow run
+/// confirmed AFTER the run was gone (round 3, #124). Returns how many were removed;
+/// a payload-bound one-shot is withdrawn too, whatever its script, because the
+/// authorization it carries belongs to a run that no longer exists.
+pub fn revoke_one_shot(
+    shots: &mut Vec<OneShot>,
+    tab_id: &str,
+    generation: u64,
+    origin_pattern: &str,
+    operation: &str,
+    target: Option<&OneShotTarget>,
+) -> usize {
+    let before = shots.len();
+    shots.retain(|s| {
+        !(s.tab_id == tab_id
+            && s.generation == generation
+            && s.origin_pattern == origin_pattern
+            && s.operation == operation
+            && s.target.as_ref().map(|t| (&t.role, &t.name)) == target.map(|t| (&t.role, &t.name)))
+    });
+    before - shots.len()
+}
+
 pub fn clear_one_shots_for_tab(shots: &mut Vec<OneShot>, tab_id: &str) {
     shots.retain(|s| s.tab_id != tab_id);
 }

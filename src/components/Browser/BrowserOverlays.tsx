@@ -18,6 +18,10 @@
  * contract: a page dialog takes focus on open (OK, the safe default) and hands it back
  * to whatever had it when it closes (audit 2026-09-03 round 2, #161).
  *
+ * A page dialog whose answer did not reach the page keeps standing, with the failure
+ * painted inside it as a live alert and both buttons live (audit round 3, #164): the
+ * surface owns the retry, this only shows why the last click went nowhere.
+ *
  * @coordinates-with components/Browser/BrowserSurface — owns the state, passes it down
  * @module components/Browser/BrowserOverlays
  */
@@ -35,6 +39,9 @@ export interface BrowserOverlaysProps {
   crash: { action: CrashAction } | null;
   /** Non-null while a page JS dialog is open (WI-1.7). */
   dialog: BrowserDialog | null;
+  /** Why the last answer to `dialog` did not reach the page, or null. Shown inside
+   *  the dialog, which stays up so the user can answer again (audit round 3, #164). */
+  dialogError: string | null;
   /** The last popup the page tried to open and VMark blocked (audit X-03), or null. */
   popup: { url: string; at: number } | null;
   onRetry: () => void;
@@ -49,6 +56,7 @@ export function BrowserOverlays({
   error,
   crash,
   dialog,
+  dialogError,
   popup,
   onRetry,
   onCloseDialog,
@@ -130,6 +138,12 @@ export function BrowserOverlays({
           }}
         >
           <p className="browser-dialog-message">{dialog.message}</p>
+          {dialogError && (
+            <p className="browser-dialog-error" role="alert">
+              {t("browser.dialog.answerFailed")}
+              <span className="browser-dialog-error-detail">{dialogError}</span>
+            </p>
+          )}
           <div className="browser-dialog-actions">
             {dialog.kind === "confirm" && (
               <button

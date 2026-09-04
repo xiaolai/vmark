@@ -81,7 +81,7 @@ describe("validateRunRequest — live run and resume (W-05)", () => {
     expect(errorOf(validateRunRequest(SOURCE, req({ resumeRunId: run.runId })))).toBe("RESUME_NOT_PAUSED");
   });
 
-  it("resume: the run must belong to the same tab and the same normalised source", () => {
+  it("resume: the run must belong to the same tab and the same canonical IR", () => {
     const { sourceHash } = workflowIdentity(SOURCE, {}, []);
     const other = createRun({ tabId: "tab-2", sourceHash, inputsHash: "i", stepCount: 2, firstStep: "step-1" });
     updateRun(other.runId, { status: "paused", pausedAt: "step-1" });

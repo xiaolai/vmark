@@ -18,7 +18,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 
 const BLOG = "https://blog.example.com/";
 function seed(): string {
-  useTabStore.setState({ tabs: {}, activeTabId: {}, untitledCounter: 0, closedTabs: {} });
+  useTabStore.setState({ tabs: {}, activeTabId: {}, untitledCounter: 0 });
   const id = useTabStore.getState().createBrowserTab("main", BLOG, "Blog", "ai-sandbox");
   useTabStore.getState().updateBrowserTab(id, { generation: 1 });
   return id;
@@ -56,6 +56,18 @@ describe("act smoke (via browserAct.ts directly)", () => {
     await handleBrowserAct("bad", { tabId: id, operation: "frobnicate" });
     expect(invoke).not.toHaveBeenCalled();
     expect(lastResponse()).toMatchObject({ success: false });
+  });
+
+  // Round 3, #38 — validation runs BEFORE the attachment gate (the power tools'
+  // ordering rule): a malformed act must fail on its own, never queue an attach
+  // prompt the user is then asked to answer for nothing.
+  it("refuses a malformed act on an unattached human tab without queueing an attach prompt", async () => {
+    useTabStore.setState({ tabs: {}, activeTabId: {}, untitledCounter: 0 });
+    const id = useTabStore.getState().createBrowserTab("main", BLOG, "Blog", "human");
+    await handleBrowserAct("bad-human", { tabId: id, operation: "frobnicate" });
+    expect(invoke).not.toHaveBeenCalled();
+    expect(lastResponse()).toMatchObject({ success: false, error: expect.stringContaining("act supports") });
+    expect(useBrowserApprovalStore.getState().pending).toEqual([]);
   });
 });
 

@@ -14,13 +14,18 @@
 //! dormant precisely because of that: capture is gated on the runtime marker, not on
 //! installation, so a tab that never records pays only for two idle event listeners.
 //!
-//! **Assembled from two canonical assets** (audit 20260903 S-02): the recorder used
+//! **Assembled from the canonical assets** (audit 20260903 S-02): the recorder used
 //! to compute roles and names with its own copy of the vocabulary, which drifted from
 //! the replayer's (`aria.ts`), so it emitted locators the replayer could not resolve.
-//! `agentCore.src.js` is the shared role/name helper set that BOTH the recorder and
-//! the agent library are built from; `recorderShim.src.js` is the shim body. Rust
-//! wraps the two in one IIFE, so the shipped bytes are those two files and nothing
-//! else — `recorderShim.test.ts` executes the same pair in jsdom.
+//! `agentCore.src.js` (+ `agentCoreRoles.src.js`) is the shared role/name helper set
+//! that BOTH the recorder and the agent library are built from; `recorderShim.src.js`
+//! is the shim body. Rust wraps them in one IIFE (the list and its order are on
+//! `RECORDER_SHIM_SRC`), so the shipped bytes are those files and nothing else.
+//! `recorderShim.test.ts` executes the same assembly in jsdom and pins what the shim
+//! DOES — dormant until armed, no message handler, never a `.value` read — and
+//! `recorderShimRustParity.test.ts` proves the two assemblies are byte-identical, so
+//! those invariants are stated ONCE, there; the tests here check only what Rust adds
+//! (the includes resolve to the real shim, one wrapper, which postures get it).
 //!
 //! CONTRACT: the buffer element id is `__vmark_recorder_buffer` (JSON array of
 //! `{type, role?, name?, sensitive?}`) and the arm marker id is
@@ -88,90 +93,24 @@ pub(super) fn configure(
 mod tests {
     use super::*;
 
-    /// The JavaScript with its `//` and `/* */` comments removed (string literals
-    /// kept), so the pins below read CODE. The shared core's own header says "NO
-    /// `.value` read anywhere" — a substring pin on the raw bytes would trip on the
-    /// sentence that states the rule.
-    fn code_only(src: &str) -> String {
-        let bytes: Vec<char> = src.chars().collect();
-        let mut out = String::with_capacity(src.len());
-        let mut i = 0;
-        let mut quote: Option<char> = None;
-        while i < bytes.len() {
-            let c = bytes[i];
-            let next = bytes.get(i + 1).copied();
-            match quote {
-                Some(q) => {
-                    out.push(c);
-                    if c == '\\' {
-                        if let Some(n) = next {
-                            out.push(n);
-                            i += 1;
-                        }
-                    } else if c == q {
-                        quote = None;
-                    }
-                }
-                None if c == '"' || c == '\'' => {
-                    quote = Some(c);
-                    out.push(c);
-                }
-                None if c == '/' && next == Some('/') => {
-                    while i < bytes.len() && bytes[i] != '\n' {
-                        i += 1;
-                    }
-                    continue;
-                }
-                None if c == '/' && next == Some('*') => {
-                    i += 2;
-                    while i + 1 < bytes.len() && !(bytes[i] == '*' && bytes[i + 1] == '/') {
-                        i += 1;
-                    }
-                    i += 2;
-                    continue;
-                }
-                None => out.push(c),
-            }
-            i += 1;
-        }
-        out
+    /// The include paths resolve to the real shim, not an empty or wrong file: the
+    /// assembled string carries the two ids the CONTRACT names. Everything about
+    /// the shim's BEHAVIOUR is pinned on the identical bytes by `recorderShim.test.ts`
+    /// and `agentCore.test.ts` (with `recorderShimRustParity.test.ts` proving the
+    /// bytes identical), so it is not restated here — the copy that used to be
+    /// carried a 43-line comment stripper of its own to keep from tripping on the
+    /// core's header sentence, and could drift from the canonical pins.
+    #[test]
+    fn the_included_assets_are_the_recorder_shim() {
+        assert!(RECORDER_SHIM_SRC.contains("__vmark_recorder_buffer"));
+        assert!(RECORDER_SHIM_SRC.contains("__vmark_recorder_armed"));
     }
 
-    /// The assembled asset is the real recorder shim, not an empty or wrong file —
-    /// the load-bearing invariants a bad include path or a gutted asset would break.
+    /// One IIFE around every asset: the core's helpers are in scope for the body and
+    /// nothing leaks onto the page's `window`. The body carries its own inner IIFE,
+    /// so the wrapper is asserted by position, not by count.
     #[test]
-    fn assembled_asset_is_the_recorder_shim() {
-        let code = code_only(RECORDER_SHIM_SRC);
-        assert!(code.contains("__vmark_recorder_buffer"));
-        assert!(code.contains("__vmark_recorder_armed"));
-        // Dormant: capture is gated on the arm marker.
-        assert!(code.contains("function armed()"));
-        // No message handler: the no-bridge invariant (R3).
-        assert!(!code.contains("webkit.messageHandlers"));
-        // Never records a typed value — only the locator and a sensitivity hint.
-        assert!(code.contains("sensitive"));
-        assert!(
-            !code.contains(".value"),
-            "a `.value` read in the shim or the shared core would let a typed value \
-             enter the recorder buffer"
-        );
-    }
-
-    #[test]
-    fn the_comment_stripper_keeps_code_and_strings_and_drops_comments() {
-        let src = "var a = 1; // trailing .value\n/* block .value\n more */ var s = \"// not a comment\";";
-        let code = code_only(src);
-        assert!(!code.contains(".value"));
-        assert!(code.contains("var a = 1;"));
-        assert!(code.contains("\"// not a comment\""));
-        // A `.value` in CODE is still seen — the pin is not blind.
-        assert!(code_only("x = el.value; // ok").contains(".value"));
-    }
-
-    /// One IIFE around both files: the core's helpers are in scope for the body and
-    /// nothing leaks onto the page's `window`.
-    #[test]
-    fn the_two_assets_are_wrapped_in_one_iife() {
+    fn the_assets_are_wrapped_in_one_iife() {
         assert!(RECORDER_SHIM_SRC.starts_with("(function(){\n"));
         assert!(RECORDER_SHIM_SRC.ends_with("\n})();"));
     }

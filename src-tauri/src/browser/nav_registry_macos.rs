@@ -135,42 +135,6 @@ impl NavDelegate {
         Some(generation)
     }
 
-    /// R7a: the view this tab's authority was granted against is gone. Bump the
-    /// generation (so any operation stamped with the old one is refused as stale), record
-    /// the new committed url, and drop the tab's one-shots outright.
-    ///
-    /// Shared by a full navigation and a SAME-DOCUMENT one. The same-document case is the
-    /// subtle one: the origin does not change, so the origin guard still passes — but the
-    /// ELEMENT the user approved can be a completely different button once an SPA has
-    /// rewritten its DOM. "Click Publish", approved on one view, spent on another.
-    /// Authority must lapse with the view it was granted against, not merely with the
-    /// document. Returns the new generation.
-    pub(super) fn expire_authority(&self, committed_url: Option<&str>) -> u64 {
-        let ivars = self.ivars();
-        let mut generation = 0;
-        if let Some(state) = ivars.app.try_state::<BrowserSurface>() {
-            if let Ok(mut reg) = state.registry.lock() {
-                match committed_url {
-                    // A same-document navigation stays on a real page: record where it is.
-                    Some(url) => {
-                        if let Ok(g) = reg.bump_generation(&ivars.tab_id) {
-                            generation = g;
-                        }
-                        let _ = reg.set_committed_url(&ivars.tab_id, url);
-                    }
-                    // A navigation is STARTING: there is no committed page until it lands,
-                    // so the tab grants nothing in the meantime.
-                    None => {
-                        let _ = reg.clear_committed_url(&ivars.tab_id);
-                    }
-                }
-            }
-            state.clear_tab_one_shots(&ivars.tab_id);
-            state.clear_tab_attachment(&ivars.tab_id);
-        }
-        generation
-    }
-
     /// A load finished cleanly: reset the tab's crash budget, the mirror of `record_crash`.
     pub(super) fn record_load_success(&self) {
         let ivars = self.ivars();

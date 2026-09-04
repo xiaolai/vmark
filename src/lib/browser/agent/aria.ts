@@ -117,20 +117,26 @@ function isHidden(el: Element): boolean {
 const SNAPSHOT_VISIT_BUDGET = 50_000;
 
 function* composedDescendants(root: ParentNode): Generator<Element> {
+  // Lazy in BOTH dimensions (round 3): a cursor per open node instead of a copied
+  // child list, so a node with a million children costs one cursor, not a million
+  // pushes, before the budget is checked; the stack is bounded by tree depth and
+  // every allocation is per VISITED element. Composed order is unchanged: an
+  // element, then its open shadow tree, then its light children.
   let visited = 0;
-  const stack: Element[] = [];
-  const push = (node: ParentNode): void => {
-    const kids = node.children;
-    for (let i = kids.length - 1; i >= 0; i--) stack.push(kids[i]);
-  };
-  push(root);
+  const stack: Array<{ kids: HTMLCollection; i: number }> = [{ kids: root.children, i: 0 }];
   while (stack.length) {
-    const el = stack.pop()!;
+    const top = stack[stack.length - 1];
+    if (top.i >= top.kids.length) {
+      stack.pop();
+      continue;
+    }
+    const el = top.kids[top.i];
+    top.i += 1;
     visited += 1;
     if (visited > SNAPSHOT_VISIT_BUDGET) return;
     yield el;
-    push(el);
-    if (el.shadowRoot) push(el.shadowRoot);
+    stack.push({ kids: el.children, i: 0 });
+    if (el.shadowRoot) stack.push({ kids: el.shadowRoot.children, i: 0 });
   }
 }
 

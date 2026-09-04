@@ -1,37 +1,55 @@
 //! The localStorage replay script a `session.load` runs in the page, and its result.
 //!
-//! Split from `session_commands.rs`. The values are injected as a JSON literal the
-//! script READS — never interpolated into code. The script re-checks the EXECUTING
-//! document's live origin against the approved one immediately before any write, in
-//! the SAME synchronous turn, so a navigation that raced the main-thread dispatch
-//! cannot land the credential in a different origin. Every write is checked: a
-//! rejected `setItem` (quota, a storage-disabled origin) puts the preceding writes
+//! Split from `session_commands.rs`. The script is the asset `session_restore.src.js`
+//! (`include_str!`); the saved values and the approved origin are appended to it as
+//! the arguments of a CALL — never interpolated into code. The script re-checks the
+//! EXECUTING document's live origin against the approved one immediately before any
+//! write, in the SAME synchronous turn, so a navigation that raced the main-thread
+//! dispatch cannot land the credential in a different origin. Every write is checked:
+//! a rejected `setItem` (quota, a storage-disabled origin) puts the preceding writes
 //! back to their previous values and reports the failing entry's INDEX — never the
-//! key or the value (audit 2026-09-03 round 1; it used to be swallowed and reported
-//! as applied:true).
+//! key or the value (audit 2026-09-03 round 1; it used to be swallowed and reported as
+//! applied:true). A put-back that itself throws is REPORTED, by index, as a distinct
+//! outcome (round 3, #30): the page's storage is then only partly restored, and the
+//! caller is told that instead of being told the rollback succeeded.
+//!
+//! The JavaScript is executed, against a storage that throws, by
+//! `src/services/browser/sessionRestoreScript.test.ts`; the tests here cover the
+//! parse, the call shape, and how each outcome is reported.
+//!
+//! @coordinates-with browser/session_commands.rs — the only caller
+//! @coordinates-with src/services/browser/sessionRestoreScript.test.ts — runs the asset
+
+use crate::browser::ai_guards::surface_failure;
+use crate::browser::refusals::stale_command;
+use crate::command_error::{CommandError, ErrorCode};
+
+/// The asset, whole: one function expression over `(d, expected)`.
+const RESTORE_SRC: &str = include_str!("session_restore.src.js");
 
 /// What the page reported back, parsed without trusting its shape.
 #[derive(Debug, PartialEq, Eq)]
 pub(super) enum RestoreOutcome {
     Applied,
     OriginChanged,
-    WriteFailed { index: Option<u64> },
+    /// Write `index` was rejected; every earlier write was put back.
+    WriteFailed {
+        index: Option<u64>,
+    },
+    /// Write `index` was rejected AND putting back the earlier writes at `failed`
+    /// (data indices, ascending) threw too: the page's storage is partly restored.
+    RollbackFailed {
+        index: Option<u64>,
+        failed: Vec<u64>,
+    },
     Unreadable,
 }
 
 /// `pairs` and `expected` are JSON literals (an array of `[key, value]` pairs and
-/// the committed origin URL string), already serialized by the caller.
+/// the committed origin URL string), already serialized by the caller. They become
+/// the CALL's arguments, after the whole asset.
 pub(super) fn restore_script(pairs: &str, expected: &str) -> String {
-    format!(
-        "if(new URL({expected}).origin!==location.origin){{return JSON.stringify({{applied:false,reason:'origin-changed'}});}}\
-         var d={pairs},prev=[];\
-         for(var i=0;i<d.length;i++){{\
-           var k=d[i][0],old=null;try{{old=localStorage.getItem(k);}}catch(e){{}}\
-           try{{localStorage.setItem(k,d[i][1]);prev.push([k,old]);}}\
-           catch(e){{for(var j=prev.length-1;j>=0;j--){{try{{if(prev[j][1]===null){{localStorage.removeItem(prev[j][0]);}}else{{localStorage.setItem(prev[j][0],prev[j][1]);}}}}catch(_){{}}}}\
-             return JSON.stringify({{applied:false,reason:'write-failed',index:i}});}}\
-         }}return JSON.stringify({{applied:true,count:d.length}});"
-    )
+    format!("return ({RESTORE_SRC})({pairs},{expected});")
 }
 
 pub(super) fn parse_restore_outcome(raw: &str) -> RestoreOutcome {
@@ -43,55 +61,67 @@ pub(super) fn parse_restore_outcome(raw: &str) -> RestoreOutcome {
     }
     match outcome.get("reason").and_then(|v| v.as_str()) {
         Some("origin-changed") => RestoreOutcome::OriginChanged,
-        Some("write-failed") => RestoreOutcome::WriteFailed {
-            index: outcome.get("index").and_then(|v| v.as_u64()),
-        },
+        Some("write-failed") => {
+            let index = outcome.get("index").and_then(|v| v.as_u64());
+            match rollback_failures(&outcome) {
+                Some(failed) if failed.is_empty() => RestoreOutcome::WriteFailed { index },
+                Some(failed) => RestoreOutcome::RollbackFailed { index, failed },
+                None => RestoreOutcome::Unreadable,
+            }
+        }
         _ => RestoreOutcome::Unreadable,
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+/// The `rollbackFailed` list: always an array of indices from this script, so
+/// anything else — absent, not an array, a non-index — is `None`, a shape the script
+/// never produces. Normalised to ascending, deduplicated data indices.
+fn rollback_failures(outcome: &serde_json::Value) -> Option<Vec<u64>> {
+    let items = outcome.get("rollbackFailed")?.as_array()?;
+    let mut failed = items
+        .iter()
+        .map(serde_json::Value::as_u64)
+        .collect::<Option<Vec<u64>>>()?;
+    failed.sort_unstable();
+    failed.dedup();
+    Some(failed)
+}
 
-    #[test]
-    fn outcomes_are_parsed_without_trusting_the_shape() {
-        assert_eq!(
-            parse_restore_outcome(r#"{"applied":true,"count":3}"#),
-            RestoreOutcome::Applied
-        );
-        assert_eq!(
-            parse_restore_outcome(r#"{"applied":false,"reason":"origin-changed"}"#),
-            RestoreOutcome::OriginChanged
-        );
-        assert_eq!(
-            parse_restore_outcome(r#"{"applied":false,"reason":"write-failed","index":2}"#),
-            RestoreOutcome::WriteFailed { index: Some(2) }
-        );
-        assert_eq!(
-            parse_restore_outcome("not json"),
-            RestoreOutcome::Unreadable
-        );
-        assert_eq!(
-            parse_restore_outcome(r#"{"applied":"yes"}"#),
-            RestoreOutcome::Unreadable
-        );
-    }
-
-    #[test]
-    fn the_script_reads_its_values_as_data_and_rolls_back_on_a_rejected_write() {
-        let script = restore_script(r#"[["k","v"]]"#, r#""https://a.example/""#);
-        assert!(
-            script.contains("localStorage.getItem(k)"),
-            "previous values are captured before writing"
-        );
-        assert!(
-            script.contains("removeItem(prev[j][0])"),
-            "a rejected write restores what preceded it"
-        );
-        assert!(
-            script.contains("reason:'write-failed',index:i"),
-            "the failing INDEX is reported, never the key"
-        );
+impl RestoreOutcome {
+    /// Report the outcome at the command boundary. A refused write is `io`
+    /// (`detail.rolledBack` says whether the page is as it was); an origin that moved
+    /// under the restore is the same stale-command conflict every other late write
+    /// raises; a result this script cannot have produced is an internal failure.
+    pub(super) fn into_result(self, tab_id: &str) -> Result<(), CommandError> {
+        match self {
+            RestoreOutcome::Applied => Ok(()),
+            // The page's origin changed before the write: refuse rather than plant a
+            // credential in a different origin.
+            RestoreOutcome::OriginChanged => Err(stale_command(
+                tab_id,
+                "before the session could be restored",
+            )),
+            RestoreOutcome::WriteFailed { index } => Err(CommandError::new(
+                ErrorCode::Io,
+                "the page refused a localStorage write (quota or storage policy); the restore was rolled back",
+            )
+            .with_detail(serde_json::json!({ "index": index, "rolledBack": true }))),
+            RestoreOutcome::RollbackFailed { index, failed } => Err(CommandError::new(
+                ErrorCode::Io,
+                "the page refused a localStorage write (quota or storage policy), and putting the earlier writes back failed too — the page's storage is only partly restored",
+            )
+            .with_detail(serde_json::json!({
+                "index": index,
+                "rolledBack": false,
+                "rollbackFailed": failed,
+            }))),
+            RestoreOutcome::Unreadable => {
+                Err(surface_failure("session restore returned an unreadable result"))
+            }
+        }
     }
 }
+
+#[cfg(test)]
+#[path = "session_restore_script.test.rs"]
+mod tests;

@@ -20,6 +20,13 @@
 //! approval, it is never cleared — so a persistent-login profile cannot be read
 //! cross-origin after a redirect (WI-P6.1 H1).
 //!
+//! An **AI tab** records the request that reserved it (`registry_ai.rs`): a
+//! `browser_ai_create` retry naming an existing id is honoured only as that same
+//! request — same window, mode, url and profile — and refused otherwise (audit
+//! 20260903 round 3, #3). The same-document transition (`registry_same_document.rs`)
+//! and the paired snapshot-and-begin (`registry_navigation.rs`) are the other two
+//! places where a decision and its write share one guard on purpose.
+//!
 //! Lifecycle state machine:
 //! ```text
 //!   Creating ─▶ Live ⇄ Navigating ⟲   (a redirect chain commits again)
@@ -169,6 +176,31 @@ struct Entry {
     /// tab, which reads its committed page unconfined.
     profile_origin: Option<String>,
     policy_epoch: u64,
+    /// For an AI tab, the request that reserved it (`registry_ai.rs`): a later
+    /// `browser_ai_create` naming this id is honoured only as the SAME request.
+    /// `None` for a human tab.
+    ai_request: Option<ai::AiCreation>,
+}
+
+impl Entry {
+    /// A fresh entry: `Creating`, generation 0, nothing committed, nothing bound.
+    fn new(window_label: &str, automation_mode: AutomationMode) -> Self {
+        Entry {
+            window_label: window_label.to_string(),
+            generation: 0,
+            state: Lifecycle::Creating,
+            // Not the target URL: nothing is committed until the nav delegate
+            // says so (R7a). A tab created pointing at an origin grants nothing.
+            committed_url: None,
+            automation_mode,
+            navigation_sequence: 0,
+            active_navigation: None,
+            shared_navigation_origin: None,
+            profile_origin: None,
+            policy_epoch: 0,
+            ai_request: None,
+        }
+    }
 }
 
 /// The identity map: `tabId ↔ {window, generation, lifecycle}`. Not thread-safe
@@ -180,9 +212,20 @@ pub struct BrowserRegistry {
 
 #[path = "registry_navigation.rs"]
 mod navigation;
+pub use navigation::NavigationSnapshot;
 
 #[path = "registry_state.rs"]
 mod state;
+pub use state::TabStatus;
+
+#[path = "registry_ai.rs"]
+mod ai;
+pub use ai::{AiRequestMismatch, AiReservation, AiReservationRefusal, AiTabRequest};
+
+// A `pub mod`, not a re-export: its only consumer is the macOS KVO observer, and a
+// `pub use` nothing imports is an unused-import warning on the Windows/Linux legs.
+#[path = "registry_same_document.rs"]
+pub mod same_document;
 
 impl BrowserRegistry {
     /// Register a new browser tab in `Creating` state at generation 0.
@@ -190,8 +233,9 @@ impl BrowserRegistry {
         self.create_with_mode(tab_id, window_label, AutomationMode::Human)
     }
 
-    /// Register a tab with explicit provenance. Existing human callers use
-    /// `create`, while the AI command family must choose its mode here.
+    /// Register a tab with explicit provenance. Human callers use `create`; the
+    /// AI command family reserves through `reserve_ai_tab`, which also records the
+    /// request the tab is bound to.
     pub fn create_with_mode(
         &mut self,
         tab_id: &str,
@@ -203,20 +247,7 @@ impl BrowserRegistry {
         }
         self.tabs.insert(
             tab_id.to_string(),
-            Entry {
-                window_label: window_label.to_string(),
-                generation: 0,
-                state: Lifecycle::Creating,
-                // Not the target URL: nothing is committed until the nav delegate
-                // says so (R7a). A tab created pointing at an origin grants nothing.
-                committed_url: None,
-                automation_mode,
-                navigation_sequence: 0,
-                active_navigation: None,
-                shared_navigation_origin: None,
-                profile_origin: None,
-                policy_epoch: 0,
-            },
+            Entry::new(window_label, automation_mode),
         );
         Ok(())
     }

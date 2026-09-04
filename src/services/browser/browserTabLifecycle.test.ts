@@ -9,6 +9,9 @@ vi.mock("./browserNativeViews", () => ({
   destroyBrowserNativeView: (tabId: string) => destroy(tabId),
   hasBrowserNativeView: (tabId: string) => hasNative(tabId),
 }));
+// The confirming `browser_destroy` (round 3, #44) — the one driver call this module makes.
+const invoke = vi.fn<(command: string, args?: Record<string, unknown>) => Promise<unknown>>(() => Promise.resolve());
+vi.mock("@tauri-apps/api/core", () => ({ invoke: (...a: Parameters<typeof invoke>) => invoke(...a) }));
 
 import { useTabStore } from "@/stores/tabStore";
 import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
@@ -22,30 +25,66 @@ beforeEach(() => {
   useTabStore.getState().removeWindow(WINDOW);
   useTabStore.getState().removeWindow("second");
   useBrowserApprovalStore.setState({ pending: [], oneShots: [] });
-  destroy.mockClear();
+  destroy.mockClear().mockImplementation(() => Promise.resolve());
   hasNative.mockReset().mockReturnValue(false);
+  invoke.mockReset().mockImplementation(() => Promise.resolve());
   stop();
   stop = startBrowserTabLifecycle();
 });
 
 describe("closeBrowserTabById", () => {
-  it("closes a browser tab in whichever window holds it and destroys its native view", () => {
+  it("closes a browser tab in whichever window holds it, awaits its teardown and confirms it with the driver", async () => {
     const tabId = useTabStore.getState().createBrowserTab("second", "https://a.example/");
+    let teardownSettled = false;
+    destroy.mockImplementation(
+      () => new Promise<void>((resolve) => setTimeout(() => { teardownSettled = true; resolve(); }, 5)),
+    );
+    invoke.mockImplementation(async () => {
+      // The confirmation must not race the teardown it confirms.
+      expect(teardownSettled).toBe(true);
+    });
 
-    expect(closeBrowserTabById(tabId)).toBe(true);
+    await expect(closeBrowserTabById(tabId)).resolves.toEqual({ destroyed: true });
 
     expect(useTabStore.getState().tabs.second?.some((t) => t.id === tabId)).toBe(false);
     expect(destroy).toHaveBeenCalledWith(tabId);
+    expect(invoke).toHaveBeenCalledWith("browser_destroy", { tabId });
   });
 
-  it("returns false for an unknown id and for a document tab, and touches nothing", () => {
+  // Round 3, #44 — the shared teardown reports a native failure with a warning and
+  // resolves anyway; the confirming destroy is the one observable of that failure.
+  it("reports destroyed:false with the driver's reason when the confirming destroy is refused", async () => {
+    const tabId = useTabStore.getState().createBrowserTab(WINDOW, "https://a.example/");
+    invoke.mockRejectedValue({ code: "internal", message: "surface: main thread unavailable" });
+
+    await expect(closeBrowserTabById(tabId)).resolves.toEqual({
+      destroyed: false,
+      reason: "surface: main thread unavailable",
+    });
+    // The record is gone either way — the tab left the store before the teardown ran.
+    expect(useTabStore.getState().findTabById(tabId)).toBeNull();
+  });
+
+  it("resolves null for an unknown id and for a document tab, and touches nothing", async () => {
     const docId = useTabStore.getState().createTab(WINDOW, "/tmp/doc.md");
 
-    expect(closeBrowserTabById("tab-nope")).toBe(false);
-    expect(closeBrowserTabById(docId)).toBe(false);
+    await expect(closeBrowserTabById("tab-nope")).resolves.toBeNull();
+    await expect(closeBrowserTabById(docId)).resolves.toBeNull();
 
     expect(useTabStore.getState().tabs[WINDOW]?.some((t) => t.id === docId)).toBe(true);
     expect(destroy).not.toHaveBeenCalled();
+    expect(invoke).not.toHaveBeenCalled();
+  });
+
+  it("resolves null for a pinned tab the store refuses, without touching the driver", async () => {
+    const tabId = useTabStore.getState().createBrowserTab(WINDOW, "https://p.example/");
+    useTabStore.getState().togglePin(WINDOW, tabId);
+
+    await expect(closeBrowserTabById(tabId)).resolves.toBeNull();
+
+    expect(useTabStore.getState().findTabById(tabId)).not.toBeNull();
+    expect(destroy).not.toHaveBeenCalled();
+    expect(invoke).not.toHaveBeenCalled();
   });
 });
 

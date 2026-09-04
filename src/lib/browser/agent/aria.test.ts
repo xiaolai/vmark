@@ -1,6 +1,6 @@
 // WI-2.2 — agent perception: ARIA role inference, accessible name, snapshot, locators
 import { describe, it, expect } from "vitest";
-import { computeRole, accessibleName, ariaSnapshot, queryByRole } from "./aria";
+import { computeRole, accessibleName, ariaSnapshot, queryByRole, SNAPSHOT_NODE_CAP } from "./aria";
 
 function el(html: string): HTMLElement {
   const doc = new DOMParser().parseFromString(`<body>${html}</body>`, "text/html");
@@ -317,5 +317,30 @@ describe("audit 2026-09-03 additions", () => {
   it("caps the snapshot at 2000 nodes (S-06)", () => {
     const page = root(Array.from({ length: 2001 }, () => `<button>b</button>`).join(""));
     expect(ariaSnapshot(page)).toHaveLength(2000);
+  });
+});
+
+describe("composed walk allocation (round 3, #177)", () => {
+  it("a root with a billion children costs one cursor, not a billion pushes: only visited children are ever read", () => {
+    const reads: number[] = [];
+    const kids = new Proxy(
+      {},
+      {
+        get(_t, key) {
+          if (key === "length") return 1_000_000_000;
+          const i = typeof key === "string" ? Number(key) : NaN;
+          if (!Number.isInteger(i)) return undefined;
+          reads.push(i);
+          const b = document.createElement("button");
+          b.textContent = `b${i}`;
+          return b;
+        },
+      },
+    ) as unknown as HTMLCollection;
+    const root = { children: kids } as unknown as Element;
+    const nodes = ariaSnapshot(root);
+    expect(nodes.length).toBe(SNAPSHOT_NODE_CAP);
+    // Bounded by what was visited — never the declared width.
+    expect(reads.length).toBeLessThan(SNAPSHOT_NODE_CAP + 10);
   });
 });

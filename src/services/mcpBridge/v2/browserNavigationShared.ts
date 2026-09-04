@@ -7,6 +7,7 @@
  *
  * @coordinates-with services/mcpBridge/v2/browserNavigation — navigate + wait
  * @coordinates-with services/mcpBridge/v2/browserOpen — open
+ * @coordinates-with services/mcpBridge/v2/browserApprovalFlow — the shared prompt + mint steps
  * @module services/mcpBridge/v2/browserNavigationShared
  */
 import { respond } from "@/services/mcpBridge/utils";
@@ -17,8 +18,7 @@ import { bridgeErrorEnvelope } from "./bridgeError";
 import { readAiState, redactUrl } from "./browserHelpers";
 import { probeGate } from "./browserGateProbe";
 import type { BrowserTarget } from "./browserHelpers";
-import { mintOneShotConfirmed } from "@/services/browser/grantSync";
-import { grantPatternFor } from "@/stores/browserApprovalStore.helpers";
+import { confirmOneShotMint, queueApprovalPrompt } from "./browserApprovalFlow";
 
 export type NavigationResult = { tabId: string; navigationId: string };
 
@@ -47,6 +47,11 @@ export function remaining(deadline: number): number {
   return Math.max(1, deadline - Date.now());
 }
 
+/**
+ * Queue the destination prompt through the shared prompt step and answer
+ * `APPROVAL_REQUIRED`. Returns whether a prompt exists (false: refused, e.g. a
+ * full queue, and the client has been told so — never `needsApproval`).
+ */
 export async function requestNavigationApproval(
   id: string,
   tabId: string,
@@ -55,25 +60,21 @@ export async function requestNavigationApproval(
   /** The verb the client should retry with once the user approves. */
   retry: "navigate" | "open",
 ): Promise<boolean> {
-  const queued = useBrowserApprovalStore
-    .getState()
-    .requestApproval(id, url, "navigate", undefined, tabId, generation);
-  // No prompt exists to approve: a needsApproval envelope would be a lie.
-  if (queued === "overloaded" || queued === "rejected") {
-    await failure(id, "approval queue is full — resolve or deny pending approvals, then retry");
-    return false;
-  }
-  await failure(id, "APPROVAL_REQUIRED", {
-    needsApproval: true,
-    operation: "navigate",
-    url: redactUrl(url),
-    tabId,
-    generation,
-    // The one-shot is bound to THIS tab; a fresh `open` would mint a tab it cannot
-    // match. The sidecar renders this into its "then try again" prose.
-    retry: { action: retry, tabId },
-  });
-  return true;
+  const outcome = await queueApprovalPrompt(
+    id,
+    { tabId, generation },
+    {
+      operation: "navigate",
+      promptError: "APPROVAL_REQUIRED",
+      // The DESTINATION the AI itself supplied, path kept (not page data).
+      promptUrl: redactUrl(url),
+      // The one-shot is bound to THIS tab; a fresh `open` would mint a tab it cannot
+      // match. The sidecar renders this into its "then try again" prose.
+      promptData: { retry: { action: retry, tabId } },
+    },
+    url,
+  );
+  return outcome === "queued";
 }
 
 /**
@@ -97,14 +98,7 @@ export async function confirmNavigationOneShot(tab: BrowserTarget, url: string):
     .getState()
     .consumeOneShot(url, "navigate", undefined, tab.tabId, undefined, tab.generation);
   if (!spent) return true;
-  const pattern = grantPatternFor(url);
-  if (pattern === null) return false;
-  return mintOneShotConfirmed({
-    originPattern: pattern,
-    operation: "navigate",
-    tabId: tab.tabId,
-    generation: tab.generation,
-  });
+  return confirmOneShotMint(tab, { operation: "navigate" }, url);
 }
 
 function eventData(result: Awaited<ReturnType<typeof browserEventBroker.wait>>, tabId: string) {

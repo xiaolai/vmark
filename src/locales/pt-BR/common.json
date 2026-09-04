@@ -176,6 +176,7 @@
   "browser.approval.operation.session": "Salvar ou restaurar um login",
   "browser.error.title": "Não foi possível carregar esta página.",
   "browser.error.retry": "Tentar novamente",
+  "browser.dialog.answerFailed": "Não foi possível enviar sua resposta à página. Tente novamente.",
   "browser.history.heading": "Histórico",
   "browser.history.empty": "Nada visitado ainda. As páginas abertas aparecerão aqui.",
   "browser.history.clear": "Limpar",

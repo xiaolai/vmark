@@ -1,9 +1,20 @@
 /**
- * The state transition for resolving a non-attach approval (split from
- * `browserApprovalStore.ts` for the file-size gate). Pure: takes the current
- * state slices and the request, returns the partial state to set.
+ * The state transitions for resolving a non-attach approval (split from
+ * `browserApprovalStore.ts` for the file-size gate; split again into its three
+ * transitions in audit round 3, #150). Pure: each takes the current slice and the
+ * request, returns the next slice — the SAME array when nothing changes, so a
+ * subscriber sees no spurious update.
+ *
+ * `resolveNonAttach` composes them and drops the prompt in the same update:
+ * never expose a state where the grant exists but the request is still pending
+ * (subscribers — grantSync — would see it and push twice).
+ *
+ * `pattern` is the request's grant pattern, or null for an opaque origin
+ * (about:/data:) that can be neither remembered nor authorized once — every
+ * transition fails closed on it.
  *
  * @coordinates-with stores/browserApprovalStore.ts — the only consumer
+ * @coordinates-with src-tauri browser/mint.rs — the driver's one-shot cap this mirrors
  * @module stores/browserApprovalStore.resolve
  */
 import { addGrant, type StandingGrant } from "@/lib/browser/approval/grants";
@@ -24,62 +35,78 @@ interface ResolveSlices {
 }
 
 /**
- * Resolve `request` (not an `attach`) with `outcome`. `pattern` is the request's
- * grant pattern, or null for an opaque origin (about:/data:) that can be neither
- * remembered nor authorized once — fail closed.
+ * Profile-OPEN (WI-P6.1 H1): "Allow once" mints a single-use grant bound to
+ * (profile, origin) — never a standing grant, so `remember` mints nothing. Capped
+ * and de-duplicated so a stream of approvals cannot grow `profileOpens` without
+ * bound (mirrors the pending cap and the Rust-side profile-open cap).
  */
+export function resolveProfileOpen(
+  profileOpens: ProfileOpenApproval[],
+  request: PendingApproval,
+  outcome: ApprovalOutcome,
+  pattern: string | null,
+): ProfileOpenApproval[] {
+  const profile = request.profile;
+  if (profile === undefined || outcome !== "once" || pattern === null) return profileOpens;
+  if (profileOpens.length >= MAX_PENDING_APPROVALS) return profileOpens;
+  if (profileOpens.some((g) => g.profile === profile && g.originPattern === pattern)) return profileOpens;
+  return [...profileOpens, { profile, originPattern: pattern }];
+}
+
+/** "Remember" promotes the request's operation to a standing grant on its origin. */
+export function rememberStandingGrant(
+  grants: StandingGrant[],
+  request: PendingApproval,
+  outcome: ApprovalOutcome,
+  pattern: string | null,
+): StandingGrant[] {
+  if (outcome !== "remember" || pattern === null) return grants;
+  return addGrant(grants, { originPattern: pattern, operations: [request.operation] });
+}
+
+/**
+ * "Allow once" mints a single-use authorization bound to everything the user was
+ * shown: the origin, the operation, the tab, the generation the prompt was RAISED
+ * against (not whatever is current when the driver receives the mint — audit,
+ * High), the element and the exact script (so a substituted retry is refused), and
+ * the run that raised it, when one did. At the cap the OLDEST unspent one-shot
+ * goes (see MAX_ONE_SHOTS).
+ */
+export function mintOneShot(
+  oneShots: OneShotApproval[],
+  request: PendingApproval,
+  outcome: ApprovalOutcome,
+  pattern: string | null,
+): OneShotApproval[] {
+  if (outcome !== "once" || pattern === null) return oneShots;
+  const kept = oneShots.length >= MAX_ONE_SHOTS ? oneShots.slice(1) : oneShots;
+  return [
+    ...kept,
+    {
+      originPattern: pattern,
+      operation: request.operation,
+      tabId: request.tabId,
+      generation: request.generation,
+      ...(request.runId !== undefined ? { runId: request.runId } : {}),
+      ...approvalBindings(request.target, request.script),
+    },
+  ];
+}
+
+/** Resolve `request` (not an `attach`) with `outcome`: the partial state to set. */
 export function resolveNonAttach(
   state: ResolveSlices,
   request: PendingApproval,
   outcome: ApprovalOutcome,
   pattern: string | null,
 ): Partial<ResolveSlices> {
-  const id = request.id;
-  // Profile-OPEN (WI-P6.1 H1): "Allow once" mints a single-use grant bound to
-  // (profile, origin) — never a standing grant. Capped and de-duplicated so a
-  // stream of approvals can't grow `profileOpens` without bound (mirrors the
-  // pending cap and the Rust-side profile-open cap). (Re-verify WI-P6.1.)
+  const pending = state.pending.filter((p) => p.id !== request.id);
   if (request.profile !== undefined) {
-    const p = request.profile;
-    return {
-      profileOpens:
-        outcome === "once" &&
-        pattern !== null &&
-        state.profileOpens.length < MAX_PENDING_APPROVALS &&
-        !state.profileOpens.some((g) => g.profile === p && g.originPattern === pattern)
-          ? [...state.profileOpens, { profile: p, originPattern: pattern }]
-          : state.profileOpens,
-      pending: state.pending.filter((r) => r.id !== id),
-    };
+    return { profileOpens: resolveProfileOpen(state.profileOpens, request, outcome, pattern), pending };
   }
-  const remember = outcome === "remember" && pattern !== null;
-  const once = outcome === "once" && pattern !== null;
-  // One update: never expose a state where the grant exists but the request
-  // is still pending (subscribers — grantSync — would see it and push twice).
   return {
-    grants: remember
-      ? addGrant(state.grants, {
-          originPattern: pattern as string,
-          operations: [request.operation],
-        })
-      : state.grants,
-    oneShots: once
-      ? [
-          // At the cap the OLDEST unspent one-shot goes (see MAX_ONE_SHOTS).
-          ...(state.oneShots.length >= MAX_ONE_SHOTS ? state.oneShots.slice(1) : state.oneShots),
-          {
-            originPattern: pattern as string,
-            operation: request.operation,
-            tabId: request.tabId,
-            ...(request.runId !== undefined ? { runId: request.runId } : {}),
-            // The generation the prompt was RAISED against — not whatever is current
-            // when the driver eventually receives the mint. (Audit, High.)
-            generation: request.generation,
-            // Element + exact script approved, so a substituted retry is refused.
-            ...approvalBindings(request.target, request.script),
-          },
-        ]
-      : state.oneShots,
-    pending: state.pending.filter((p) => p.id !== id),
+    grants: rememberStandingGrant(state.grants, request, outcome, pattern),
+    oneShots: mintOneShot(state.oneShots, request, outcome, pattern),
+    pending,
   };
 }

@@ -176,6 +176,7 @@
   "browser.approval.operation.session": "Enregistrer ou restaurer une connexion",
   "browser.error.title": "Cette page n'a pas pu être chargée.",
   "browser.error.retry": "Réessayer",
+  "browser.dialog.answerFailed": "Impossible de transmettre votre réponse à la page. Réessayez.",
   "browser.history.heading": "Historique",
   "browser.history.empty": "Rien de visité pour l'instant. Les pages ouvertes apparaîtront ici.",
   "browser.history.clear": "Effacer",

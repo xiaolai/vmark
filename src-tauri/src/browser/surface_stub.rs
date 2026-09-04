@@ -10,15 +10,15 @@
 //! drift there compiles fine on macOS and breaks these targets.
 
 use crate::browser::eval_outcome::EvalError;
+use crate::browser::native_failure::NativeSurfaceError;
 use tauri::AppHandle;
-/// The one unsupported-platform failure, tagged with the SAME token
-/// `surface_failure` classifies (`fail::UNSUPPORTED_PLATFORM`), so the stub can
-/// never drift from the classifier by spelling its own.
+
+/// The one unsupported-platform failure, rendered by the SAME vocabulary
+/// `surface_failure` classifies (`NativeSurfaceError::UnsupportedPlatform`), so the
+/// stub can never drift from the classifier by spelling its own tag.
 fn unsupported_message() -> String {
-    format!(
-        "{}: embedded browser surface is macOS-only in this build",
-        crate::browser::surface::fail::UNSUPPORTED_PLATFORM
-    )
+    NativeSurfaceError::UnsupportedPlatform
+        .tagged("embedded browser surface is macOS-only in this build")
 }
 
 /// Every stub entry point returns this — one definition, not fourteen.

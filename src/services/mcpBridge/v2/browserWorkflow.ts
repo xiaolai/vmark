@@ -22,8 +22,8 @@
 
 import { respond } from "@/services/mcpBridge/utils";
 import { wrapHandler } from "./wrapHandler";
-import { browserGate } from "./browserAccess";
-import { readTabIdArg, resolveBrowserTab } from "./browserHelpers";
+import { resolveBrowserTarget } from "./browserAccess";
+import { resolveBrowserTab } from "./browserHelpers";
 import { urlForAgent } from "@/lib/browser/url";
 import { useTabStore } from "@/stores/tabStore";
 
@@ -54,7 +54,8 @@ export async function handleBrowserWorkflowRun(id: string, args: Record<string, 
     // The same gate as every other browser handler: UNSUPPORTED_PLATFORM before
     // BROWSER_DISABLED, so an off-macOS client learns why instead of receiving a
     // runId for a run that fails in the background.
-    if (!(await browserGate(id))) return;
+    const tab = await resolveBrowserTarget(id, args);
+    if (!tab) return;
     if (typeof args.source !== "string" || args.source.trim() === "") {
       await respond({ id, success: false, error: "workflow_run requires a non-empty `source`" });
       return;
@@ -62,16 +63,6 @@ export async function handleBrowserWorkflowRun(id: string, args: Record<string, 
     const inputs = readInputs(args.inputs);
     if (inputs === null) {
       await respond({ id, success: false, error: "`inputs` must be an object of string values" });
-      return;
-    }
-    const tabIdArg = readTabIdArg(args);
-    if (tabIdArg === null) {
-      await respond({ id, success: false, error: "tabId must be a non-empty string when supplied" });
-      return;
-    }
-    const tab = resolveBrowserTab(tabIdArg);
-    if (!tab) {
-      await respond({ id, success: false, error: "no active browser tab" });
       return;
     }
     if (tab.automationMode === "human") {

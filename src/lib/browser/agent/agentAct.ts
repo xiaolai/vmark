@@ -78,13 +78,22 @@ function __vmarkDoClick(el,extra){
   el.click();
   return __vmarkAssign({found:true,clicked:true},extra);
 }
-function __vmarkClick(role,name,gen){
+// The ONE resolver from a role+name to the single actable element (round 3): the
+// not-found, none-actable and ambiguous refusals are shaped here once, with the
+// operation's result verb (\`clicked\`/\`typed\`) as the only difference — click and
+// type used to carry two copies that could drift apart.
+function __vmarkResolveUnique(role,name,gen,verb){
   var all=__vmarkQueryAll(role,name);
-  if(!all.length)return {found:false,clicked:false,matchedTotal:0,matchedVisible:0};
+  if(!all.length){var none={found:false,matchedTotal:0,matchedVisible:0};none[verb]=false;return {refusal:none};}
   var p=__vmarkPick(all),counts={matchedTotal:all.length,matchedVisible:p.vis.length};
-  if(!p.vis.length)return __vmarkNoneActable('clicked',p,counts);
-  if(p.vis.length>1)return __vmarkAmbiguous('clicked',p.vis,gen,counts);
-  return __vmarkDoClick(p.vis[0],counts);
+  if(!p.vis.length)return {refusal:__vmarkNoneActable(verb,p,counts)};
+  if(p.vis.length>1)return {refusal:__vmarkAmbiguous(verb,p.vis,gen,counts)};
+  return {el:p.vis[0],counts:counts};
+}
+function __vmarkClick(role,name,gen){
+  var r=__vmarkResolveUnique(role,name,gen,'clicked');
+  if(r.refusal)return r.refusal;
+  return __vmarkDoClick(r.el,r.counts);
 }
 function __vmarkClickRef(ref,gen){
   var el=__vmarkQueryByRef(ref,gen); if(!el)return {found:false,clicked:false};
@@ -188,12 +197,9 @@ function __vmarkDoType(el,text,extra){
   }
 }
 function __vmarkType(role,name,text,gen){
-  var all=__vmarkQueryAll(role,name);
-  if(!all.length)return {found:false,typed:false,matchedTotal:0,matchedVisible:0};
-  var p=__vmarkPick(all),counts={matchedTotal:all.length,matchedVisible:p.vis.length};
-  if(!p.vis.length)return __vmarkNoneActable('typed',p,counts);
-  if(p.vis.length>1)return __vmarkAmbiguous('typed',p.vis,gen,counts);
-  return __vmarkDoType(p.vis[0],text,counts);
+  var r=__vmarkResolveUnique(role,name,gen,'typed');
+  if(r.refusal)return r.refusal;
+  return __vmarkDoType(r.el,text,r.counts);
 }
 function __vmarkTypeRef(ref,gen,text){
   var el=__vmarkQueryByRef(ref,gen); if(!el)return {found:false,typed:false};

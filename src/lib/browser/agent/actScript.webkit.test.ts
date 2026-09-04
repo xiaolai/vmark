@@ -16,6 +16,7 @@ import {
   buildClickByRefScript,
   buildSnapshotScript,
   buildTypeScript,
+  buildWaitConditionScript,
 } from "./actScript";
 
 interface ActResult {
@@ -95,6 +96,18 @@ describe("stylesheet-hidden targets (invisible to the attribute tier)", () => {
     expect(res.matchedTotal).toBe(2);
     expect(res.matchedVisible).toBe(1);
     expect(hits()).toEqual(["real"]);
+  });
+
+  it("the snapshot and a role wait do not perceive a class-hidden element (#101)", () => {
+    mount(
+      `<style>.gone{visibility:hidden}</style>` +
+        `<button id="shown">Save</button><button id="hidden" class="gone">Save</button>`,
+    );
+    const snapshot = exec(buildSnapshotScript(1)) as { nodes: Array<{ role: string; name: string }> };
+    expect(snapshot.nodes.filter((n) => n.role === "button" && n.name === "Save")).toHaveLength(1);
+    mount(`<style>.gone{visibility:hidden}</style><button id="hidden" class="gone">Only hidden</button>`);
+    const waited = exec(buildWaitConditionScript({ role: "button", name: "Only hidden" }, 1)) as { matched: boolean };
+    expect(waited.matched).toBe(false);
   });
 
   it("refuses an opacity:0 target", () => {

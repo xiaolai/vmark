@@ -17,6 +17,11 @@
  * switching tabs must not reload it. So an unmounted tab is merely occluded
  * (`OCCLUDER.background`), its view alive and driveable in the background.
  *
+ * Teardown is shared and retried (audit round 2, #78/#79): concurrent destroys of
+ * one tab join a single in-flight promise, and `browser_destroy` is attempted three
+ * times with backoff before the failure is reported — bookkeeping is dropped either
+ * way, because the tab is gone from the store either way.
+ *
  * Hazard handled here: occlusion must be enforced against the view that EXISTS. The
  * store entry is seeded before `browser_create` is invoked and `useBrowserOccluder`
  * watches the store, so an overlay already on screen freezes a tab with no native
@@ -135,6 +140,40 @@ export async function destroyBrowserNativeView(tabId: string): Promise<void> {
 
 /** Backoff between teardown attempts; three tries in all. */
 const DESTROY_RETRY_MS = [100, 300];
+/** Views whose teardown failed every immediate attempt: tracked here and swept
+ *  in the background until the driver confirms, so a live view is never simply
+ *  forgotten (round 3, #79). */
+const leakedViews = new Set<string>();
+const LEAK_SWEEP_MS = 10_000;
+const LEAK_SWEEP_ATTEMPTS = 6;
+let leakSweep: ReturnType<typeof setTimeout> | null = null;
+let leakSweepsRun = 0;
+
+/** Test-only: the tabs still awaiting a confirmed teardown. */
+export function leakedNativeViews(): ReadonlySet<string> {
+  return leakedViews;
+}
+
+function scheduleLeakSweep(): void {
+  if (leakSweep !== null || leakedViews.size === 0) return;
+  leakSweep = setTimeout(async () => {
+    leakSweep = null;
+    leakSweepsRun += 1;
+    for (const tabId of [...leakedViews]) {
+      try {
+        await invoke("browser_destroy", { tabId });
+        leakedViews.delete(tabId);
+      } catch (error) {
+        if (leakSweepsRun >= LEAK_SWEEP_ATTEMPTS) {
+          leakedViews.delete(tabId);
+          browserWarn("browser_destroy never succeeded; giving up on a native view that may still be running", { tabId, error });
+        }
+      }
+    }
+    if (leakedViews.size === 0) leakSweepsRun = 0;
+    scheduleLeakSweep();
+  }, LEAK_SWEEP_MS);
+}
 
 /** `browser_destroy`, retried on failure: a transient refusal (the main thread
  *  busy, a teardown racing the window) must not leave a live, untracked
@@ -147,7 +186,9 @@ async function destroyNativeWithRetry(tabId: string): Promise<void> {
     } catch (error) {
       const delay = DESTROY_RETRY_MS[attempt];
       if (delay === undefined) {
-        browserWarn("browser_destroy failed after retries; a native view may be left running", { tabId, error });
+        browserWarn("browser_destroy failed after retries; the view is tracked and swept until the driver confirms", { tabId, error });
+        leakedViews.add(tabId);
+        scheduleLeakSweep();
         return;
       }
       await new Promise((resolve) => setTimeout(resolve, delay));
@@ -182,6 +223,12 @@ async function destroyOnce(tabId: string): Promise<void> {
 export function __resetNativeViews(): void {
   nativeReady.clear();
   destroying.clear();
+  leakedViews.clear();
+  leakSweepsRun = 0;
+  if (leakSweep !== null) {
+    clearTimeout(leakSweep);
+    leakSweep = null;
+  }
   activeMounts.clear();
 }
 

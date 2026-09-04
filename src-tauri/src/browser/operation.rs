@@ -52,10 +52,20 @@ pub(crate) fn operation_binds_payload(operation: &str) -> bool {
     BrowserOperation::from_wire(operation).is_some_and(BrowserOperation::binds_payload)
 }
 
-/// The closed browser-operation vocabulary. The `Deserialize` impl is the
-/// enforceable form: it rejects unknown/variant spellings at the wire boundary.
-/// `from_wire` is the single source of truth — both the deserializer and
-/// `is_known_operation` delegate to it, so the set has exactly one definition.
+/// The closed browser-operation vocabulary, with `from_wire` as its single
+/// definition: `is_known_operation` and `operation_binds_payload` both delegate
+/// to it, and every route that can authorize an operation asks one of them.
+///
+/// It is NOT a wire type, and a `Deserialize` impl claiming to be one was
+/// removed (audit 20260903 round 3, #26): the command boundary takes
+/// `operation: String` (`browser_eval`) and `operations: Vec<String>`
+/// (`StandingGrant`), so the deserializer had exactly one caller — its own test —
+/// while the doc comment above it advertised enforcement that was not happening
+/// anywhere. The enforcement is real, but it lives at the decision points
+/// (`is_operation_granted`, `consume_one_shot`, `mint_one_shot`,
+/// `set_standing_grants`), each of which refuses an unknown spelling. Typing the
+/// wire itself would be a genuine improvement and a larger change: `StandingGrant`
+/// is mirrored from the TS store and compared as strings by `origin_guard`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BrowserOperation {
     Read,
@@ -99,7 +109,10 @@ impl BrowserOperation {
     }
 
     /// Parse a wire operation string, or `None` for unknown/variant spellings.
-    fn from_wire(s: &str) -> Option<Self> {
+    /// The one definition of the set — `src/lib/browser/approval/grants.ts` is
+    /// asserted equal to these arms by `operationVocabulary.test.ts`, which reads
+    /// this function from source.
+    pub(crate) fn from_wire(s: &str) -> Option<Self> {
         match s {
             "read" => Some(Self::Read),
             "attach" => Some(Self::Attach),
@@ -115,14 +128,6 @@ impl BrowserOperation {
             "record" => Some(Self::Record),
             _ => None,
         }
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for BrowserOperation {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let s = String::deserialize(deserializer)?;
-        Self::from_wire(&s)
-            .ok_or_else(|| serde::de::Error::custom(format!("unknown browser operation: {s:?}")))
     }
 }
 

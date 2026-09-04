@@ -27,6 +27,42 @@ fn click_shot(tab: &str, gen: u64, role: &str, name: &str) -> OneShot {
 }
 
 #[test]
+fn revoke_withdraws_exactly_the_identity_and_nothing_else() {
+    let mut shots = vec![
+        click_shot("t1", 3, "button", "Publish"),
+        click_shot("t1", 3, "button", "Delete"),
+        click_shot("t1", 4, "button", "Publish"),
+        click_shot("t2", 3, "button", "Publish"),
+    ];
+    let removed = revoke_one_shot(
+        &mut shots,
+        "t1",
+        3,
+        "https://blog.example.com",
+        "click",
+        Some(&target("button", "Publish")),
+    );
+    assert_eq!(removed, 1);
+    assert_eq!(shots.len(), 3);
+    assert!(shots.iter().all(|s| !(s.tab_id == "t1"
+        && s.generation == 3
+        && s.target.as_ref().unwrap().name == "Publish")));
+    // A target-less identity does not match a targeted one-shot, and vice versa.
+    assert_eq!(
+        revoke_one_shot(
+            &mut shots,
+            "t1",
+            3,
+            "https://blog.example.com",
+            "click",
+            None
+        ),
+        0
+    );
+    assert_eq!(shots.len(), 3);
+}
+
+#[test]
 fn authorizes_the_exact_action_with_no_standing_grant() {
     let mut shots = vec![click_shot("t1", 3, "button", "Publish")];
     assert!(consume_one_shot(

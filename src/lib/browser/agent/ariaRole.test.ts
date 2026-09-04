@@ -2,7 +2,8 @@
 // name module can ask "is this a landmark?" without an import cycle. Held to
 // the injected core's answers by `ariaParity.test.ts`.
 import { describe, it, expect } from "vitest";
-import { computeRole, isLandmarkRole, HEADING_TAGS } from "./ariaRole";
+import { computeRole, isLandmarkRole, HEADING_TAGS, GLOBAL_ARIA } from "./ariaRole";
+import ROLES_SRC from "./agentCoreRoles.src.js?raw";
 
 function el(html: string): Element {
   return new DOMParser().parseFromString(`<body>${html}</body>`, "text/html").body.firstElementChild!;
@@ -43,6 +44,17 @@ describe("presentational conflict resolution (#107)", () => {
   it("a global ARIA property keeps the implicit role, like focusability does", () => {
     expect(computeRole(el(`<h2 role="none" aria-label="Section">x</h2>`))).toBe("heading");
     expect(computeRole(el(`<h2 role="none">x</h2>`))).toBe(null);
+  });
+  it.each(GLOBAL_ARIA)("%s is a global property: role=presentation yields to the implicit role", (attr) => {
+    expect(computeRole(el(`<h2 role="presentation" ${attr}="x">x</h2>`))).toBe("heading");
+  });
+  it("a NON-global property (aria-checked) does not rescue a presentational role", () => {
+    expect(computeRole(el(`<h2 role="presentation" aria-checked="true">x</h2>`))).toBe(null);
+  });
+  it("the injected core carries the same global list (parity)", () => {
+    const m = /var attrs = (\[[^\]]*\]);/.exec(ROLES_SRC);
+    expect(m).not.toBeNull();
+    expect(JSON.parse(m![1])).toEqual(GLOBAL_ARIA);
   });
 });
 

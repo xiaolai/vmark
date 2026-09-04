@@ -176,6 +176,7 @@
   "browser.approval.operation.session": "로그인 저장 또는 복원",
   "browser.error.title": "이 페이지를 불러오지 못했습니다.",
   "browser.error.retry": "다시 시도",
+  "browser.dialog.answerFailed": "페이지에 응답을 전달하지 못했습니다. 다시 시도하세요.",
   "browser.history.heading": "기록",
   "browser.history.empty": "아직 방문 기록이 없습니다. 연 페이지가 여기에 표시됩니다.",
   "browser.history.clear": "지우기",

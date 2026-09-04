@@ -40,7 +40,9 @@
  * (S-03); `offscreen`, `disabled`+`detail:'inert'`, `upload` and `rejected-value`
  * are the new refusals (S-04/S-08/S-10). The role/name builders take an optional
  * `generation` so candidate refs are minted in the tab's store; without one they
- * are minted against the store's live generation, never resetting it.
+ * are minted against the store's live generation, never resetting it. A wait
+ * condition is a discriminated union (`{ref}` | `{role, name?}` | `{text}`) and
+ * the builder refuses any non-string field rather than embed it (round 2, #93).
  *
  * @coordinates-with lib/browser/agent/aria.ts — same role/name/state/visibility rules
  * @coordinates-with lib/browser/agent/refs.ts — the mirrored per-node ref store
@@ -121,7 +123,10 @@ export function buildTypeByRefScript(ref: string, text: string, generation: numb
 
 /** A `wait_for` condition: a ref present, a role (+optional name) present, or a
  *  substring present in the page's visible text. Exactly one is set. */
-export type WaitCondition = { ref: string } | { role: string; name?: string } | { text: string };
+export type WaitCondition =
+  | { ref: string; role?: never; name?: never; text?: never }
+  | { role: string; name?: string; ref?: never; text?: never }
+  | { text: string; ref?: never; role?: never; name?: never };
 
 /** Script: a single SYNCHRONOUS check of `condition` (no observer, no blocking —
  *  the frontend polls this). Reports `{matched}` and, for a ref/role condition,

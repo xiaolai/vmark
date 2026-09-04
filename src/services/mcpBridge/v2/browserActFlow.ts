@@ -4,9 +4,12 @@
  * Split from `browserAct.ts` for the file-size gate; the handler parses and
  * validates, this module authorizes and acts. Three contracts live here:
  *
- *  - A `{role,name}` act consumes the frontend one-shot with the EXACT script
- *    (payload-binding ops) and the current generation, then AWAITS the driver's
- *    mint confirmation before invoking — one mint path (audit A-04).
+ *  - A `{role,name}` act authorizes through the shared approval machine
+ *    (`browserApprovalFlow`, round 3 #43): the frontend one-shot is consumed with
+ *    the EXACT script (payload-binding ops) and the current generation, and the
+ *    driver's mint confirmation is AWAITED before invoking — one mint path
+ *    (audit A-04). This module decides WHAT is bound: a click binds its element,
+ *    `type`/`key`/`scroll` bind the built script.
  *  - A driver rejection propagates as its typed token. A `<timeout>`-class
  *    failure used to be read as "the click did not affect the target", which
  *    invites a retry while the enqueued script is still running (E-03).
@@ -14,7 +17,7 @@
  *    page tried to open during it (X-03), and prose that names the next tool.
  *
  * @coordinates-with services/mcpBridge/v2/browserAct.ts — the caller
- * @coordinates-with services/browser/grantSync.ts — mintOneShotConfirmed
+ * @coordinates-with services/mcpBridge/v2/browserApprovalFlow.ts — the shared approval machine
  * @coordinates-with stores/browserUiStore.ts — blocked-popup record
  * @module services/mcpBridge/v2/browserActFlow
  */
@@ -22,12 +25,11 @@
 import { invoke } from "@tauri-apps/api/core";
 import { respond } from "@/services/mcpBridge/utils";
 import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
-import { grantPatternFor } from "@/stores/browserApprovalStore.helpers";
 import { useBrowserUiStore } from "@/stores/browserUiStore";
-import { mintOneShotConfirmed } from "@/services/browser/grantSync";
 import { originForAgent, urlForAgent } from "@/lib/browser/url";
 import { resolveBrowserTab, type BrowserTarget, scriptTooLarge } from "./browserHelpers";
 import { invokeAttached } from "./browserAccess";
+import { authorizeOperation } from "./browserApprovalFlow";
 import { parseEvalResult } from "./browserReadClass";
 
 export type ActOp = "click" | "type" | "scroll" | "key";
@@ -138,10 +140,11 @@ export async function finishAct(
 }
 
 /**
- * Run the approval flow (grant → one-shot → needs-approval), then act.
- * `target` is the role/name binding, or undefined for a target-less op
- * (scroll/key); `script` is bound into the one-shot for the payload-binding
- * ops (`type`, `key`, `scroll`) and `payloadSummary` is what the prompt shows.
+ * Authorize through the shared approval machine (`browserApprovalFlow`: grant →
+ * one-shot → prompt → mint), then act. `target` is the role/name binding, or
+ * undefined for a target-less op (scroll/key); `script` is bound into the one-shot
+ * for the payload-binding ops (`type`, `key`, `scroll` — a click binds its element
+ * instead) and `payloadSummary` is what the prompt shows.
  */
 export async function approveAndAct(
   id: string,
@@ -158,61 +161,13 @@ export async function approveAndAct(
     await respond({ id, success: false, error: tooLarge });
     return;
   }
-  const approvals = useBrowserApprovalStore.getState();
-  const decision = approvals.decide(tab.url, operation);
-  if (decision === "denied") {
-    await respond({ id, success: false, error: `operation '${operation}' is not permitted` });
-    return;
-  }
-  if (decision === "needs-approval") {
-    const binds = operation !== "click";
-    const boundScript = binds ? script : undefined;
-    const authorizedOnce = useBrowserApprovalStore
-      .getState()
-      .consumeOneShot(tab.url, operation, target, tab.tabId, boundScript, tab.generation);
-    if (!authorizedOnce) {
-      const queued = useBrowserApprovalStore
-        .getState()
-        .requestApproval(id, tab.url, operation, target, tab.tabId, tab.generation, boundScript, undefined, payloadSummary);
-      // No prompt exists to approve: a needsApproval envelope would be a lie.
-      if (queued === "overloaded" || queued === "rejected") {
-        await respond({
-          id,
-          success: false,
-          error: "approval queue is full — resolve or deny pending approvals, then retry",
-        });
-        return;
-      }
-      await respond({
-        id,
-        success: false,
-        error: `approval required: '${operation}' on ${originForAgent(tab.url)}`,
-        data: { needsApproval: true, operation, url: originForAgent(tab.url), tabId: tab.tabId, generation: tab.generation },
-      });
-      return;
-    }
-    // The frontend copy is spent; act only once the driver confirms its copy
-    // exists, else the act is refused as unauthorized while the mirror is gone.
-    const pattern = grantPatternFor(tab.url);
-    const minted =
-      pattern !== null &&
-      (await mintOneShotConfirmed({
-        originPattern: pattern,
-        operation,
-        tabId: tab.tabId,
-        generation: tab.generation,
-        ...(target ? { target } : {}),
-        ...(boundScript !== undefined ? { script: boundScript } : {}),
-      }));
-    if (!minted) {
-      await respond({
-        id,
-        success: false,
-        error: `the driver refused the '${operation}' authorization — the page may have navigated; retry to be prompted again`,
-      });
-      return;
-    }
-  }
+  const outcome = await authorizeOperation(id, tab, {
+    operation,
+    ...(target ? { target } : {}),
+    ...(operation !== "click" ? { script } : {}),
+    ...(payloadSummary !== undefined ? { payloadSummary } : {}),
+  });
+  if (outcome !== "authorized") return;
   await finishAct(id, tab, operation, script, target);
 }
 

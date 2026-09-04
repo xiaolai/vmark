@@ -176,6 +176,7 @@
   "browser.approval.operation.session": "Anmeldung speichern oder wiederherstellen",
   "browser.error.title": "Diese Seite konnte nicht geladen werden.",
   "browser.error.retry": "Erneut versuchen",
+  "browser.dialog.answerFailed": "Ihre Antwort konnte nicht an die Seite übermittelt werden. Versuchen Sie es erneut.",
   "browser.history.heading": "Verlauf",
   "browser.history.empty": "Noch nichts besucht. Geöffnete Seiten erscheinen hier.",
   "browser.history.clear": "Löschen",

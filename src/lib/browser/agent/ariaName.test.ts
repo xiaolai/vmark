@@ -15,7 +15,10 @@ describe("normalize", () => {
   it("NFC-normalises", () => {
     expect(normalize("é")).toBe("é");
   });
-  it.each(["\u200B", "\u200C", "\u200D", "\u200E", "\u200F", "\u202A", "\u202E", "\u2060", "\u2064", "\uFEFF", "\u00AD"])(
+  it.each([
+    "\u200B", "\u200C", "\u200D", "\u200E", "\u200F", "\u202A", "\u202E", "\u2060", "\u2064", "\uFEFF", "\u00AD",
+    "\u2066", "\u2067", "\u2068", "\u2069", "\u061C", "\u0600", "\u0605", "\u06DD", "\u070F", "\u0890", "\u0891", "\u08E2", "\u180E",
+  ])(
     "strips format character U+%s",
     (ch) => {
       expect(normalize(`Publ${ch}ish`)).toBe("Publish");
@@ -47,6 +50,10 @@ describe("accessibleName", () => {
       "text/html",
     );
     expect(accessibleName(doc.querySelector("button")!)).toBe("Alpha");
+  });
+  it("format characters never spend the content budget: 3,200 bidi controls before a name leave the name (#105)", () => {
+    expect(accessibleName(el(`<button>${"\u202E".repeat(3200)}Save</button>`))).toBe("Save");
+    expect(accessibleName(el(`<button>${"\u200B".repeat(5000)}<span>Deep</span></button>`))).toBe("Deep");
   });
   it("leading whitespace does not spend the content budget, and a huge first node is sliced, not appended (#105)", () => {
     expect(accessibleName(el(`<button>${" ".repeat(5000)}Save</button>`))).toBe("Save");

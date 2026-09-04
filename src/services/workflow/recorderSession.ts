@@ -64,8 +64,9 @@ interface RecorderSession {
   chain: Promise<void>;
   /** The single stop in flight, so two concurrent stops finalize once. */
   stopping: Promise<{ source: string; inputs: string[]; eventCount: number; capped: boolean }> | null;
-  /** True only while the stop performs its own final drain. */
-  finalDrain: boolean;
+  /** The token of the stop's own final drain — the ONLY drain a stopping session
+   *  runs; a periodic or late drain carries no token and is refused. */
+  finalDrain: object | null;
 }
 
 /** Run `work` after everything already queued on the session, and keep the chain alive
@@ -116,7 +117,7 @@ export function startRecorderSession(args: StartRecorderArgs): { ok: true } | { 
     cancel: () => {},
     chain: Promise.resolve(),
     stopping: null,
-    finalDrain: false,
+    finalDrain: null,
   };
   sessions.set(args.tabId, session);
   session.cancel = schedule(() => {
@@ -138,10 +139,12 @@ function appendCapped(session: RecorderSession, events: readonly RecordedEvent[]
 
 /** Drain the shim buffer once and append. A drain error is swallowed — a single
  *  failed poll must not tear down an in-progress recording. */
-export async function drainActiveRecording(tabId: string): Promise<void> {
+export async function drainActiveRecording(tabId: string, finalToken?: object): Promise<void> {
   const session = sessions.get(tabId);
   if (!session) return;
-  if (session.stopping && !session.finalDrain) return; // only the stop's own drain runs now
+  // Only the stop's own final drain runs once the session is stopping (round 3):
+  // the token identifies it, so a late periodic drain cannot slip in behind it.
+  if (session.stopping && (finalToken === undefined || session.finalDrain !== finalToken)) return;
   await enqueue(session, async () => {
     let events: RecordedEvent[];
     try {
@@ -182,10 +185,11 @@ export async function stopRecorderSession(
   if (session.stopping) return session.stopping; // a second stop joins the first
   // Cancel the schedule synchronously, so no periodic drain is queued after the final one.
   session.cancel();
-  session.finalDrain = true;
+  const finalToken = {};
+  session.finalDrain = finalToken;
   session.stopping = (async () => {
-    await drainActiveRecording(tabId);
-    session.finalDrain = false;
+    await drainActiveRecording(tabId, finalToken);
+    session.finalDrain = null;
     // Stop capture immediately — best-effort; a failure only leaves an inert marker.
     try {
       await session.deps.disarm(tabId, session.generation);

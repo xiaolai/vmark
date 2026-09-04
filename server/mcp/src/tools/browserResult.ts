@@ -14,8 +14,8 @@
  * never saw them. Now every failure with data carries it in `structuredContent`
  * and, bounded, in the text.
  *
- * @coordinates-with tools/browser.ts (the mutating half)
- * @coordinates-with tools/browserRead.ts (the read-only half)
+ * @coordinates-with tools/browserDispatch.ts (the one caller — the dispatcher both
+ *   `browser` and `browser_read` route through)
  */
 
 import { VMarkMcpServer } from '../server.js';

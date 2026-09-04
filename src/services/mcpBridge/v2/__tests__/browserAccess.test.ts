@@ -5,10 +5,18 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 const respond = vi.fn();
 vi.mock("@/services/mcpBridge/utils", () => ({ respond: (...a: unknown[]) => respond(...a) }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
+vi.mock("@/services/persistence/workspaceStorage", () => ({ getCurrentWindowLabel: () => "main" }));
 
 import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { browserGate, invokeAttached, attachmentSpentBy, hasOnceAttachment } from "@/services/mcpBridge/v2/browserAccess";
+import { useTabStore } from "@/stores/tabStore";
+import {
+  browserGate,
+  invokeAttached,
+  attachmentSpentBy,
+  hasOnceAttachment,
+  resolveBrowserTarget,
+} from "@/services/mcpBridge/v2/browserAccess";
 import type { BrowserTarget } from "@/services/mcpBridge/v2/browserHelpers";
 
 const human: BrowserTarget = { tabId: "t1", url: "https://a.com/x", generation: 2, automationMode: "human", windowLabel: "main" };
@@ -97,5 +105,58 @@ describe("invokeAttached", () => {
     expect(attached()).toBe(true);
     expect(hasOnceAttachment(human)).toBe(false);
     await expect(invokeAttached(ai, async () => 2)).resolves.toBe(2);
+  });
+});
+
+// Round 3, #62 — the envelope every browser handler opens with, in ONE place. It
+// used to be copied into the read-class executor, the power tools, the session
+// tools, act, wait_for, record and workflow_run, error strings and all.
+describe("resolveBrowserTarget", () => {
+  const SITE = "https://x.example.com/p";
+  function lastResponse() {
+    return respond.mock.calls.at(-1)?.[0] as { id: string; success: boolean; error?: string };
+  }
+  beforeEach(() => {
+    useTabStore.setState({ tabs: {}, activeTabId: {}, untitledCounter: 0 });
+  });
+
+  it("refuses at the gate first, before reading the request", async () => {
+    useSettingsStore.setState((s) => ({ browser: { ...s.browser, enabled: false } }));
+    expect(await resolveBrowserTarget("g", { tabId: "" })).toBeNull();
+    expect(lastResponse()).toEqual({ id: "g", success: false, error: "BROWSER_DISABLED" });
+  });
+
+  it("resolves the tab the request names, with the fields every handler stamps", async () => {
+    const id = useTabStore.getState().createBrowserTab("main", SITE, "X", "ai-sandbox");
+    useTabStore.getState().updateBrowserTab(id, { generation: 4 });
+    expect(await resolveBrowserTarget("r", { tabId: id })).toEqual({
+      tabId: id,
+      url: SITE,
+      generation: 4,
+      automationMode: "ai-sandbox",
+      windowLabel: "main",
+    });
+    expect(respond).not.toHaveBeenCalled();
+  });
+
+  it("falls back to this window's active browser tab only when tabId is ABSENT", async () => {
+    const id = useTabStore.getState().createBrowserTab("main", SITE, "X", "human");
+    expect((await resolveBrowserTarget("a", {}))?.tabId).toBe(id);
+    for (const tabId of ["", "   ", 42]) {
+      expect(await resolveBrowserTarget("bad", { tabId })).toBeNull();
+      expect(lastResponse()).toEqual({
+        id: "bad",
+        success: false,
+        error: "tabId must be a non-empty string when supplied",
+      });
+    }
+  });
+
+  it("refuses when nothing resolves: an unknown id, a document tab, or no active browser tab", async () => {
+    const docId = useTabStore.getState().createTab("main", "/a.md");
+    for (const args of [{ tabId: "nope" }, { tabId: docId }, {}]) {
+      expect(await resolveBrowserTarget("none", args)).toBeNull();
+      expect(lastResponse()).toEqual({ id: "none", success: false, error: "no active browser tab" });
+    }
   });
 });

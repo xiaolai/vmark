@@ -486,7 +486,11 @@ ticket so a later `wait` can retrieve the terminal result.
 ### `close`
 
 Arguments: `tabId`. Closes an AI-owned tab the AI opened. **Never approval-gated** —
-stopping is always allowed. A human tab is refused (`TAB_NOT_AI_OWNED`).
+stopping is always allowed. A human tab is refused (`TAB_NOT_AI_OWNED`). The result is
+`{tabId, closed: true, destroyed: true}` once the native view is confirmed gone; a
+teardown the driver could not confirm after its retries is reported as
+`TAB_TEARDOWN_FAILED` with `data.destroyed: false` — the tab record is already gone,
+so do not retry the close; tell the user a native view may still be running.
 
 **Gate detection.** A loaded `open` / `navigate` / `wait` result may carry
 `gate: {kind, hint}` when the landed page reads as a **login wall**, **consent

@@ -13,7 +13,11 @@ import { describe, it, expect, beforeEach, vi, type Mock } from "vitest";
 const invoke = vi.fn();
 vi.mock("@tauri-apps/api/core", () => ({ invoke: (...a: unknown[]) => invoke(...a) }));
 const mint = vi.fn();
-vi.mock("@/services/browser/grantSync", () => ({ mintOneShotConfirmed: (...a: unknown[]) => mint(...a) }));
+const revoke = vi.fn();
+vi.mock("@/services/browser/grantSync", () => ({
+  mintOneShotConfirmed: (...a: unknown[]) => mint(...a),
+  revokeOneShot: (...a: unknown[]) => revoke(...a),
+}));
 
 import { awaitAuthorization, type ApprovalWaitContext } from "./runApproval";
 import type { PendingApprovalInfo } from "./runRegistry";
@@ -58,6 +62,7 @@ const runPrompt = () => useBrowserApprovalStore.getState().pending.find((p) => p
 beforeEach(() => {
   invoke.mockReset();
   mint.mockReset().mockResolvedValue(true);
+  revoke.mockReset().mockResolvedValue(undefined);
   useBrowserApprovalStore.setState({ grants: [], pending: [], oneShots: [], attachments: [], profileOpens: [] });
   useBrowserLeaseStore.setState({ leases: {}, inflightCancel: {} });
 });
@@ -92,6 +97,45 @@ describe("awaitAuthorization — no prompt needed", () => {
     mint.mockResolvedValue(false);
     const { ctx } = harness();
     await expect(awaitAuthorization(ctx, { url: URL, operation: "click", target: TARGET })).rejects.toThrow(/refused/);
+  });
+});
+
+describe("awaitAuthorization — a navigate is about its DESTINATION (round 3, #184)", () => {
+  const DEST = "https://dest.example/landing?x=1";
+  it("a grant on the destination origin authorizes the navigation, whatever the current page grants", async () => {
+    useBrowserApprovalStore.getState().grant("https://dest.example", ["navigate"]);
+    const { ctx } = harness();
+    const page = await awaitAuthorization(ctx, { url: DEST, operation: "navigate" });
+    expect(page).toEqual({ url: DEST, generation: 3 });
+    expect(runPrompt()).toBeUndefined();
+  });
+  it("a grant on the CURRENT page does not authorize navigating elsewhere: the prompt names the destination", async () => {
+    useBrowserApprovalStore.getState().grant(ORIGIN, ["navigate"]);
+    const { ctx, controller } = harness();
+    const wait = awaitAuthorization(ctx, { url: DEST, operation: "navigate" });
+    await sleep(5);
+    expect(runPrompt()).toMatchObject({ operation: "navigate", targetUrl: DEST, generation: 3 });
+    controller.abort(new WorkflowPause("cancelled", "test over"));
+    await expect(wait).rejects.toBeInstanceOf(WorkflowPause);
+  });
+});
+
+describe("awaitAuthorization — requireFreshApproval (round 3, #162)", () => {
+  it("a standing grant does not settle a healed write: a prompt is raised, and 'once' authorizes it", async () => {
+    useBrowserApprovalStore.getState().grant(ORIGIN, ["click"]);
+    const { ctx } = harness();
+    const wait = awaitAuthorization(ctx, { url: URL, operation: "click", target: TARGET, requireFreshApproval: true });
+    await sleep(5);
+    const prompt = runPrompt();
+    expect(prompt).toMatchObject({ operation: "click", target: TARGET });
+    useBrowserApprovalStore.getState().resolveApproval(prompt!.id, "once");
+    await expect(wait).resolves.toEqual({ url: URL, generation: 3 });
+    expect(mint).toHaveBeenCalledTimes(1);
+  });
+  it("a denied origin is still denied outright, fresh or not", async () => {
+    useBrowserApprovalStore.getState().grant(ORIGIN, ["click"]);
+    const { ctx } = harness();
+    await expect(awaitAuthorization(ctx, { url: URL, operation: "upload", requireFreshApproval: true })).rejects.toMatchObject({ reasonCode: "denied" });
   });
 });
 
@@ -223,6 +267,37 @@ describe("awaitAuthorization — cancel and takeover interrupt the wait (W-01)",
     controller.abort(new WorkflowPause("cancelled", "x"));
     await expect(awaitAuthorization(ctx, { url: URL, operation: "click", target: TARGET })).rejects.toMatchObject({ reasonCode: "cancelled" });
     expect(useBrowserApprovalStore.getState().pending).toHaveLength(0);
+  });
+
+  it("a mint that confirms AFTER the abort is revoked on the driver (round 3, #124)", async () => {
+    let confirm: (ok: boolean) => void = () => {};
+    mint.mockImplementationOnce(() => new Promise<boolean>((r) => (confirm = r)));
+    useBrowserApprovalStore.getState().requestApproval("seed", URL, "click", TARGET, TAB, 3);
+    useBrowserApprovalStore.getState().resolveApproval("seed", "once");
+    const { ctx, controller } = harness();
+    const wait = awaitAuthorization(ctx, { url: URL, operation: "click", target: TARGET });
+    await sleep(5);
+    controller.abort(new WorkflowPause("cancelled", "stop"));
+    await expect(wait).rejects.toBeInstanceOf(WorkflowPause);
+    expect(revoke).not.toHaveBeenCalled();
+    confirm(true);
+    await sleep(5);
+    expect(revoke).toHaveBeenCalledWith(expect.objectContaining({ tabId: TAB, generation: 3, operation: "click", target: TARGET, originPattern: ORIGIN }));
+  });
+
+  it("a late mint that the driver REFUSED has nothing to revoke", async () => {
+    let confirm: (ok: boolean) => void = () => {};
+    mint.mockImplementationOnce(() => new Promise<boolean>((r) => (confirm = r)));
+    useBrowserApprovalStore.getState().requestApproval("seed", URL, "click", TARGET, TAB, 3);
+    useBrowserApprovalStore.getState().resolveApproval("seed", "once");
+    const { ctx, controller } = harness();
+    const wait = awaitAuthorization(ctx, { url: URL, operation: "click", target: TARGET });
+    await sleep(5);
+    controller.abort(new WorkflowPause("cancelled", "stop"));
+    await expect(wait).rejects.toBeInstanceOf(WorkflowPause);
+    confirm(false);
+    await sleep(5);
+    expect(revoke).not.toHaveBeenCalled();
   });
 
   it("an abort that lands while the one-shot is being minted still never acts", async () => {

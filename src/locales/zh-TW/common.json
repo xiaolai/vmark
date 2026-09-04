@@ -176,6 +176,7 @@
   "browser.approval.operation.session": "儲存或還原登入",
   "browser.error.title": "無法載入此頁面。",
   "browser.error.retry": "重試",
+  "browser.dialog.answerFailed": "無法將你的回答傳遞給頁面。請重試。",
   "browser.history.heading": "瀏覽記錄",
   "browser.history.empty": "還沒有瀏覽記錄。開啟的頁面會顯示在這裡。",
   "browser.history.clear": "清除",

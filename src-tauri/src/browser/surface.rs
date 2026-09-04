@@ -13,6 +13,16 @@
 //! (`browser/registry.rs`) lives in Tauri-managed state; the two are kept
 //! consistent by the command layer.
 //!
+//! Lock order across this state (audit 20260903 round 3, #35): the registry is
+//! OUTERMOST. Every path that holds two of these guards takes the registry first
+//! — the authorization gate (registry → grants, registry → attachments →
+//! one_shots), minting (registry → one_shots), `attach_tab` (registry →
+//! attachments) and `forget_tab` (registry → crash_trackers / one_shots /
+//! attachments) — and no path holds one of the others while waiting for the
+//! registry. That is what lets `forget_tab` remove the entry and clear every
+//! piece of tab-scoped state as ONE step, and `attach_tab` validate and write as
+//! one.
+//!
 //! The macOS objc2 recipe is the productionized form of the validated Phase-0
 //! spike (git cd162e02:src-tauri/src/spike_embed.rs).
 
@@ -24,6 +34,11 @@ use crate::browser::recovery::CrashTracker;
 use crate::browser::registry::BrowserRegistry;
 use std::collections::HashMap;
 use std::sync::Mutex;
+
+#[path = "tab_attachments.rs"]
+mod tab_attachments;
+pub use tab_attachments::TabAttachment;
+pub(crate) use tab_attachments::{attachment_present, consume_attachment_in};
 
 /// Tauri-managed browser state: the platform-independent lifecycle/identity
 /// registry (Send). Native handles are held per-platform, off this struct.
@@ -52,7 +67,8 @@ pub struct BrowserSurface {
     /// an AI-owned tab.
     pub ai_policy: Mutex<AiBrowserPolicy>,
     /// Ephemeral human-tab attachments. Exact tab + generation binding prevents
-    /// an approval from following a page navigation or a reused tab id.
+    /// an approval from following a page navigation or a reused tab id; written
+    /// and cleared under the registry guard (`tab_attachments.rs`).
     pub attachments: Mutex<Vec<TabAttachment>>,
     /// Single-use grants to open a named persistent context (WI-P6.1 H1). Bound to
     /// (profile, destination origin); minted from the user's per-use approval,
@@ -95,17 +111,15 @@ pub mod fail {
     /// A page dialog was answered from a window that does not own its tab.
     pub const DIALOG_NOT_OWNED: &str = "DIALOG_NOT_OWNED";
     /// The authorized generation was superseded between authorization and the
-    /// main-thread submit (`authorize::submit_if_fresh`). Carried through the
-    /// String boundary as a tag so the classifier can restore the typed
-    /// `STALE_COMMAND` conflict instead of reporting an internal surface failure.
+    /// main-thread submit (`authorize::submit_if_fresh`).
+    ///
+    /// `eval` no longer needs this tag: its refusal crosses the hop as a typed
+    /// `EvalError::Refused` carrying the `CommandError` intact. The token remains
+    /// the vocabulary's name for the class — every `String`-errored native entry
+    /// point can still raise it, and `native_failure.rs` pairs each constant here
+    /// with exactly one `NativeSurfaceError` variant and one classification, so
+    /// deleting it would break that 1:1 mapping rather than remove a stale rule.
     pub const STALE_COMMAND: &str = "STALE_COMMAND";
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TabAttachment {
-    pub tab_id: String,
-    pub generation: u64,
-    pub uses: Option<u8>,
 }
 
 /// The standing grants of one window, as a slice. `None` (an unknown tab) or a
@@ -143,23 +157,27 @@ impl BrowserSurface {
             .unwrap_or(false)
     }
 
-    /// Drop every trace of a tab: its registry entry **and** its crash budget.
+    /// Drop every trace of a tab: its registry entry, its crash budget, its
+    /// one-shots and its attachment — as ONE step under the registry guard.
     ///
-    /// Both halves must go together. Removing only the registry entry (what
+    /// All halves must go together. Removing only the registry entry (what
     /// `browser_destroy` used to do) leaked one `crash_trackers` entry per tab for
-    /// the life of the process, and — worse — made a **reused** tab id inherit the
-    /// dead tab's exhausted budget, so the new tab's first crash would refuse to
-    /// auto-reload. Called on destroy and on failed creation.
+    /// the life of the process, and made a **reused** tab id inherit the dead
+    /// tab's exhausted budget. And they must go under one guard (audit 20260903
+    /// round 3, #35): taken sequentially, the entry was already gone while the
+    /// rest still existed, so a `create` + `attach_tab` for the same id could land
+    /// in the gap and have its fresh attachment erased by this cleanup — or, in
+    /// the other order, a stale generation-0 attachment could be written after
+    /// the entry was removed and survive to authorize the id's next tenant.
+    /// Called on destroy and on failed creation.
     ///
     /// Idempotent: forgetting an unknown tab is a no-op, so a retried destroy is
     /// safe.
     pub fn forget_tab(&self, tab_id: &str) -> Result<(), String> {
-        // Taken sequentially, never nested: no other path holds both locks, so
-        // there is no lock-order to get wrong.
-        self.registry
-            .lock()
-            .map_err(|e| e.to_string())?
-            .remove(tab_id);
+        // registry → crash_trackers / one_shots / attachments: the module's lock
+        // order, so nothing can hold one of those and wait for the registry.
+        let mut reg = self.registry.lock().map_err(|e| e.to_string())?;
+        reg.remove(tab_id);
         self.crash_trackers
             .lock()
             .map_err(|e| e.to_string())?
@@ -167,6 +185,7 @@ impl BrowserSurface {
         // A destroyed tab's one-shots must not linger to authorize a reused id.
         self.clear_tab_one_shots(tab_id);
         self.clear_tab_attachment(tab_id);
+        drop(reg);
         Ok(())
     }
 
@@ -179,14 +198,23 @@ impl BrowserSurface {
         }
     }
 
+    /// Bind an attachment to `tab_id` at `generation` — only for a tab the
+    /// registry knows, outside a terminal state, at exactly that generation, and
+    /// with the registry guard held across the write (audit 20260903 round 3,
+    /// #35). A destroy cannot slip between the check and the write, so an
+    /// attachment is never written for an id whose entry is gone, where it would
+    /// authorize the id's next tenant at generation 0. `once` makes it
+    /// single-use. Refuses with `STALE_NAVIGATION`, the token `mint::attach_ai_tab`
+    /// already uses for a generation the tab has left.
     pub fn attach_tab(&self, tab_id: String, generation: u64, once: bool) -> Result<(), String> {
+        let reg = self.registry.lock().map_err(|e| e.to_string())?;
+        if !reg.tab_alive_at(&tab_id, generation) {
+            return Err("STALE_NAVIGATION".into());
+        }
         let mut attachments = self.attachments.lock().map_err(|e| e.to_string())?;
-        attachments.retain(|attachment| attachment.tab_id != tab_id);
-        attachments.push(TabAttachment {
-            tab_id,
-            generation,
-            uses: once.then_some(1),
-        });
+        tab_attachments::attach(&mut attachments, tab_id, generation, once);
+        drop(attachments);
+        drop(reg);
         Ok(())
     }
 
@@ -202,48 +230,6 @@ impl BrowserSurface {
             attachments.retain(|attachment| attachment.tab_id != tab_id);
         }
     }
-}
-
-/// Is there an attachment for exactly this tab + generation? A peek — no consume.
-pub(crate) fn attachment_present(
-    attachments: &[TabAttachment],
-    tab_id: &str,
-    generation: u64,
-) -> bool {
-    attachments
-        .iter()
-        .any(|attachment| attachment.tab_id == tab_id && attachment.generation == generation)
-}
-
-/// Consume a matching attachment on an already-held guard: decrement a one-use
-/// count (removing it at zero) and return whether one was present. A persistent
-/// attachment (`uses = None`) is left in place and still returns true. Kept as a
-/// free function so the authorization gate can hold the attachments lock across a
-/// one-shot spend (see `authorize.rs`): the presence check and the consume then
-/// cannot be raced apart, so a one-shot is never burned for an action a lost
-/// attachment race would deny.
-pub(crate) fn consume_attachment_in(
-    attachments: &mut Vec<TabAttachment>,
-    tab_id: &str,
-    generation: u64,
-) -> bool {
-    let Some(index) = attachments
-        .iter()
-        .position(|attachment| attachment.tab_id == tab_id && attachment.generation == generation)
-    else {
-        return false;
-    };
-    if let Some(uses) = attachments[index].uses.as_mut() {
-        if *uses == 0 {
-            attachments.remove(index);
-            return false;
-        }
-        *uses -= 1;
-        if *uses == 0 {
-            attachments.remove(index);
-        }
-    }
-    true
 }
 
 #[cfg(target_os = "macos")]

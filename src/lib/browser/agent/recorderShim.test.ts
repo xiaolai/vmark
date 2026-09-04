@@ -155,6 +155,14 @@ describe("recorder shim — capture shape", () => {
     expect(JSON.stringify(events[0])).not.toContain("draft");
   });
 
+  it("two rapid direct clicks on the same control are two actions (only a label activation is folded)", () => {
+    evalIsolated(buildArmScript());
+    const cb = mount<HTMLInputElement>(`<input id="cb" type="checkbox" aria-label="Agree">`, "cb");
+    cb.click();
+    cb.click();
+    expect(drain()).toHaveLength(2);
+  });
+
   it("does not double-record a checkbox (click covers it; change is skipped)", () => {
     const cb = document.createElement("input");
     cb.type = "checkbox";

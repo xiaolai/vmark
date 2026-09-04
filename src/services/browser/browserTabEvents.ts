@@ -11,7 +11,8 @@
  * What each event does:
  *  - navigated: omnibox url + spinner, history entry (with the human's intent),
  *    prompts and one-shots lapse (R7a), the tab record's url + generation (the
- *    driver stamps operations with the generation, so a stale one is refused).
+ *    driver stamps operations with the generation, so a stale one is refused),
+ *    and the navigation id is recorded as this tab's current commit.
  *  - loaded: spinner off, title into history, crash overlay released, tab
  *    record updated with url, generation and title — the page's, or its host
  *    (an older generation is dropped by the store).
@@ -25,18 +26,30 @@
  *
  * Only tabs of THIS window are handled: the tab store may hold other windows'
  * tabs, and each window runs its own copy of this service. And only CURRENT
- * events: one stamped with an older generation than the tab's (or a failure for
- * a superseded navigationId) is ignored whole, before any side effect — the
- * store rejected only the tab-record patch, while the omnibox, history, prompts
- * and spinner were still rewritten by a late event.
+ * events, guarded twice. Here, one stamped with an older generation than the
+ * tab's is ignored whole, before any side effect — history, prompts, the tab
+ * record. And every page-state write into `browserUiStore` is STAMPED with the
+ * event's generation, so the store itself refuses a late one (round 3, #154)
+ * rather than relying on this handler alone.
  *
- * @coordinates-with services/browser/browserNavEvents — the event decoder
+ * A failure is judged against this service's OWN ledger of committed navigation
+ * ids (`CommittedNavigations`, round 3 #87): one naming a navigation this tab
+ * committed and then replaced is about a page nobody is looking at, and is
+ * dropped. The ledger is fed only by commits, so the verdict cannot depend on
+ * the broker — which listens to the same failure and adopts its id as "latest",
+ * making the old comparison hinge on listener registration order. An id that
+ * never committed is shown: a provisional failure (DNS, TLS, refused) has one.
+ *
+ * @coordinates-with services/browser/browserNavEvents — the handler adapter over the shared event hub
+ * @coordinates-with services/browser/committedNavigations — the per-tab commit ledger
  * @coordinates-with components/Browser/BrowserSurface — renders dialog/crash/popup from the store
- * @coordinates-with stores/browserUiStore — the per-tab UI mirror
+ * @coordinates-with stores/browserUiStore — the per-tab UI mirror, generation-aware
+ * @coordinates-with stores/tabRemovalBus — a closed tab's ledger is dropped
  * @module services/browser/browserTabEvents
  */
 import { useTabStore } from "@/stores/tabStore";
 import { isBrowserTab } from "@/stores/tabStoreTypes";
+import { onTabRemoved } from "@/stores/tabRemovalBus";
 import { useBrowserUiStore } from "@/stores/browserUiStore";
 import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
 import { useBrowserHistoryStore } from "@/stores/browserHistoryStore";
@@ -45,7 +58,7 @@ import { hostLabel } from "@/lib/browser/url";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { activateTabInFocusedPane } from "@/services/navigation/activateTabInFocusedPane";
 import { browserOcclusion, OCCLUDER } from "./browserOcclusion";
-import { browserEventBroker } from "./browserEventBroker";
+import { CommittedNavigations } from "./committedNavigations";
 import { takeNavIntent } from "./navIntent";
 
 /** Is `tabId` a browser tab of this window? */
@@ -57,9 +70,8 @@ function owned(tabId: string): boolean {
 /**
  * Is an event stamped `generation` about the page this tab is CURRENTLY on?
  * Events cross the IPC boundary and can arrive out of order; a late one from a
- * page the tab has left must not touch the omnibox, history, prompts, dialogs
- * or spinner. The store already rejects the tab-record patch for an older
- * generation — but only that patch; every other side effect used to run.
+ * page the tab has left must not touch the history, prompts or tab record. The
+ * UI store carries its own generation and refuses a stale stamp itself.
  */
 function current(tabId: string, generation: number | undefined): boolean {
   if (generation === undefined) return true;
@@ -69,19 +81,22 @@ function current(tabId: string, generation: number | undefined): boolean {
 }
 
 export function startBrowserTabEvents(): () => void {
-  return subscribeBrowserNavEvents(() => ({
-    onNavigated: (tabId, url, generation, redirected) => {
+  const committed = new CommittedNavigations();
+  const stopForgetting = onTabRemoved((_windowLabel, tabId) => committed.forget(tabId));
+  const stopEvents = subscribeBrowserNavEvents(() => ({
+    onNavigated: (tabId, url, generation, redirected, navigationId) => {
       if (!owned(tabId) || !current(tabId, generation)) return;
+      if (navigationId !== undefined) committed.commit(tabId, navigationId);
       const windowLabel = getCurrentWindowLabel();
       const ui = useBrowserUiStore.getState();
-      ui.ensureEntry(tabId, url);
-      ui.setUrlInput(tabId, url);
-      ui.setLoading(tabId, true);
-      ui.setError(tabId, null); // a fresh load supersedes the previous failure
-      ui.setBlockedPopup(tabId, null);
+      ui.ensureEntry(tabId, url, generation);
+      ui.setUrlInput(tabId, url, generation);
+      ui.setLoading(tabId, true, generation);
+      ui.setError(tabId, null, generation); // a fresh load supersedes the previous failure
+      ui.setBlockedPopup(tabId, null, generation);
       // The driver drains page dialogs when a new load starts; mirror it.
       if (ui.entries[tabId]?.dialog) {
-        ui.setDialog(tabId, null);
+        ui.setDialog(tabId, null, generation);
         browserOcclusion.removeOccluder(tabId, OCCLUDER.dialog);
       }
       // Record where the user went, and how they set off (WI-S2.2). A redirect is
@@ -101,15 +116,15 @@ export function startBrowserTabEvents(): () => void {
       if (!owned(tabId) || !current(tabId, generation)) return;
       const windowLabel = getCurrentWindowLabel();
       const ui = useBrowserUiStore.getState();
-      ui.ensureEntry(tabId, url);
-      ui.setUrlInput(tabId, url);
-      ui.setLoading(tabId, false);
+      ui.ensureEntry(tabId, url, generation);
+      ui.setUrlInput(tabId, url, generation);
+      ui.setLoading(tabId, false, generation);
       // The title only exists once the page finished. It is attached to the entry it
       // belongs to — a slow finish for a page we already left must not retitle this one.
       if (title) useBrowserHistoryStore.getState().setTitle(windowLabel, tabId, url, title);
       // A clean load means the process recovered — release the crash occluder.
       if (ui.entries[tabId]?.crash) {
-        ui.setCrash(tabId, null);
+        ui.setCrash(tabId, null, generation);
         browserOcclusion.removeOccluder(tabId, OCCLUDER.crash);
       }
       // Stamped with the generation of the page that finished: a late `loaded` for a page
@@ -123,17 +138,18 @@ export function startBrowserTabEvents(): () => void {
     // its history controls instead of offering no-op buttons (WI-S1.6).
     onHistoryChanged: (tabId, canGoBack, canGoForward, generation) => {
       if (owned(tabId) && current(tabId, generation)) {
-        useBrowserUiStore.getState().setHistory(tabId, canGoBack, canGoForward);
+        useBrowserUiStore.getState().setHistory(tabId, canGoBack, canGoForward, generation);
       }
     },
     onFailed: (tabId, message, navigationId) => {
       // Offline, DNS failure, TLS rejection, a refused connection: the native side knows
       // exactly what went wrong and used to tell nobody (WI-S0.9). A failure that names
       // a navigation the tab has already superseded is about a page nobody is looking
-      // at — it must not paint an error over the newer page that loaded fine.
+      // at — it must not paint an error over the newer page that loaded fine. A failure
+      // carries no generation (a provisional load never committed one), so it is
+      // written unstamped.
       if (!owned(tabId)) return;
-      const latest = browserEventBroker.latestNavigationId(tabId);
-      if (navigationId !== undefined && latest !== undefined && navigationId !== latest) return;
+      if (navigationId !== undefined && committed.isSuperseded(tabId, navigationId)) return;
       useBrowserUiStore.getState().setError(tabId, message);
     },
     onCrashed: (tabId, action) => {
@@ -165,4 +181,8 @@ export function startBrowserTabEvents(): () => void {
       if (owned(tabId)) useBrowserUiStore.getState().setBlockedPopup(tabId, { url, at: Date.now() });
     },
   }));
+  return () => {
+    stopEvents();
+    stopForgetting();
+  };
 }

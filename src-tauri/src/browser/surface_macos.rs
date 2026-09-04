@@ -4,6 +4,8 @@
 //! Included via `#[path]` from surface.rs; `super::` refers to that module.
 
 use crate::browser::eval_outcome::EvalError;
+use crate::browser::main_thread_hop::hop;
+use crate::browser::native_failure::NativeSurfaceError;
 use crate::browser::surface::BrowserSurface;
 use objc2::rc::Retained;
 use objc2::MainThreadMarker;
@@ -11,7 +13,6 @@ use objc2_foundation::{NSRunLoop, NSURLRequest};
 use objc2_web_kit::{WKContentWorld, WKWebView};
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::sync::mpsc;
 use std::time::Duration;
 use tauri::{AppHandle, Manager};
 
@@ -64,35 +65,28 @@ mod user_input_resolve;
 use user_input_resolve::{tab_id_at_window_point, tab_id_for_responder};
 
 /// Run `f` on the main thread and return its result (20s cap).
+///
+/// What happens when the cap fires is `main_thread_hop::hop`'s protocol: a closure
+/// that has not started never runs (the caller rolled back and reported failure;
+/// nothing may mutate native state after that), and a closure that HAS started is
+/// awaited to its real result, because a body already touching AppKit cannot be
+/// stopped and a "timed out" for work that lands would misstate the state.
 fn on_main<T, F>(app: &AppHandle, f: F) -> Result<T, String>
 where
     T: Send + 'static,
     F: FnOnce(MainThreadMarker) -> Result<T, String> + Send + 'static,
 {
-    let (tx, rx) = mpsc::channel();
-    // Set when the caller has given up. A closure still queued behind a busy main
-    // thread then runs as a no-op instead of creating, navigating or destroying a
-    // view AFTER the caller rolled back and reported failure.
-    let abandoned = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-    let abandoned_in_closure = abandoned.clone();
-    app.run_on_main_thread(move || {
-        if abandoned_in_closure.load(std::sync::atomic::Ordering::Acquire) {
-            return;
-        }
-        let result = match MainThreadMarker::new() {
+    hop(
+        |job| {
+            app.run_on_main_thread(job)
+                .map_err(|e| format!("run_on_main_thread: {e}"))
+        },
+        Duration::from_secs(20),
+        || match MainThreadMarker::new() {
             Some(mtm) => f(mtm),
             None => Err("no MainThreadMarker".to_string()),
-        };
-        let _ = tx.send(result);
-    })
-    .map_err(|e| format!("run_on_main_thread: {e}"))?;
-    rx.recv_timeout(Duration::from_secs(20)).map_err(|_| {
-        abandoned.store(true, std::sync::atomic::Ordering::Release);
-        format!(
-            "{fail}: main-thread op timed out",
-            fail = crate::browser::surface::fail::MAIN_THREAD_TIMEOUT
-        )
-    })?
+        },
+    )
 }
 
 #[path = "eval_macos.rs"]
@@ -124,12 +118,7 @@ pub fn clear_ai_sandbox_store(app: &AppHandle) -> Result<(), String> {
 fn webview_for(tab_id: &str) -> Result<Retained<WKWebView>, String> {
     WEBVIEWS
         .with(|m| m.borrow().get(tab_id).cloned())
-        .ok_or_else(|| {
-            format!(
-                "{}: no webview: {tab_id}",
-                crate::browser::surface::fail::NO_WEBVIEW
-            )
-        })
+        .ok_or_else(|| NativeSurfaceError::NoWebview.tagged(format!("no webview: {tab_id}")))
 }
 
 /// Load `url` in an existing webview.
@@ -212,10 +201,8 @@ pub fn dialog_respond(
             reg.tab_belongs_to_window(&tab_id, &window_label)
         };
         if !owned {
-            return Err(format!(
-                "{}: dialog #{id} belongs to another window",
-                crate::browser::surface::fail::DIALOG_NOT_OWNED
-            ));
+            return Err(NativeSurfaceError::DialogNotOwned
+                .tagged(format!("dialog #{id} belongs to another window")));
         }
         dialogs::respond(id, accepted);
         Ok(())
@@ -247,7 +234,8 @@ pub fn assert_no_bridge(app: &AppHandle, tab_id: String) -> Result<String, EvalE
             crate::browser::no_bridge::NO_BRIDGE_ASSERTION,
             &page_world,
             &run_loop,
-        ))
+        )
+        .map_err(EvalError::from))
     });
     EvalError::flatten(native)
 }

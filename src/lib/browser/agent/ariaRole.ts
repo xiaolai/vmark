@@ -34,7 +34,10 @@ function editingHost(el: Element): boolean {
 function presentationalConflict(el: Element): boolean {
   return focusable(el) || GLOBAL_ARIA.some((attr) => el.hasAttribute(attr));
 }
-const GLOBAL_ARIA = ["aria-label", "aria-labelledby", "aria-describedby", "aria-live", "aria-owns", "aria-controls"];
+/** Every global WAI-ARIA state and property (ARIA 1.2 §6.4) — any one of them on a
+ *  `role="none"/"presentation"` element makes the presentational role a conflict
+ *  the implicit role wins. Mirrored in agentCoreRoles.src.js. */
+export const GLOBAL_ARIA = ["aria-atomic", "aria-busy", "aria-controls", "aria-current", "aria-describedby", "aria-description", "aria-details", "aria-disabled", "aria-dropeffect", "aria-errormessage", "aria-flowto", "aria-grabbed", "aria-haspopup", "aria-hidden", "aria-invalid", "aria-keyshortcuts", "aria-label", "aria-labelledby", "aria-live", "aria-owns", "aria-relevant", "aria-roledescription"];
 
 /** Natively focusable, or made focusable by the author (ARIA §5.3 conflict rule). */
 function focusable(el: Element): boolean {

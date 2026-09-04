@@ -11,10 +11,11 @@ vi.mock("./browserOcclusion", () => ({ browserOcclusion: { removeTab: vi.fn(), r
 vi.mock("./browserEventBroker", () => ({ browserEventBroker: { cancelTab: vi.fn() } }));
 vi.mock("./navIntent", () => ({ clearNavIntent: vi.fn() }));
 
-import { destroyBrowserNativeView } from "./browserNativeViews";
+import { destroyBrowserNativeView, ensureBrowserNativeView, leakedNativeViews, __resetNativeViews } from "./browserNativeViews";
 import { browserWarn } from "@/utils/debug";
 
 beforeEach(() => {
+  __resetNativeViews();
   invoke.mockReset();
   vi.mocked(browserWarn).mockReset();
   vi.useFakeTimers({ shouldAdvanceTime: true });
@@ -50,6 +51,33 @@ describe("destroyBrowserNativeView", () => {
     await done;
     expect(invoke.mock.calls.filter(([cmd]) => cmd === "browser_destroy")).toHaveLength(3);
     expect(browserWarn).not.toHaveBeenCalled();
+  });
+
+  it("a view whose teardown failed every attempt is tracked and swept until the driver confirms (#79)", async () => {
+    invoke.mockRejectedValue(new Error("gone"));
+    const done = destroyBrowserNativeView("t5");
+    await vi.advanceTimersByTimeAsync(1_000);
+    await done;
+    expect(leakedNativeViews().has("t5")).toBe(true);
+    // The first sweep fails too; the second succeeds and the view is forgotten.
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(leakedNativeViews().has("t5")).toBe(true);
+    invoke.mockResolvedValue(undefined);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(leakedNativeViews().has("t5")).toBe(false);
+    expect(invoke.mock.calls.filter(([cmd, a]) => cmd === "browser_destroy" && a?.tabId === "t5").length).toBeGreaterThanOrEqual(5);
+  });
+
+  it("creating a view for a tab whose destroy is in flight is refused (#78)", async () => {
+    let release: () => void = () => {};
+    invoke.mockImplementation(() => new Promise<void>((r) => (release = r)));
+    const destroying = destroyBrowserNativeView("t6");
+    await Promise.resolve();
+    // Refused synchronously, before any IPC: the caller learns at once, not on a
+    // rejected promise it might not await.
+    expect(() => ensureBrowserNativeView("t6", "https://a.example/", "ai-sandbox")).toThrow(/TAB_DESTROYING/);
+    release();
+    await destroying;
   });
 
   it("a teardown that fails every attempt is reported once and still releases the marker", async () => {

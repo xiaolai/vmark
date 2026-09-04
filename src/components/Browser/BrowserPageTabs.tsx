@@ -2,8 +2,9 @@
  * BrowserPageTabs
  *
  * Purpose: The nested webpage tablist inside the browser workspace — the "+"
- * new-page button and one roving tab per open page (with a close button). Split
- * out of BrowserChrome so that component stays a thin placement wrapper.
+ * new-page button and one roving tab per open page, each with a close button
+ * beside it. Split out of BrowserChrome so that component stays a thin
+ * placement wrapper.
  *
  * Key decisions:
  *   - Page ids are the real browser tab ids, so activation/close reuse the
@@ -11,7 +12,17 @@
  *   - New pages and activations route through activateTabInFocusedPane so a
  *     split view targets the focused pane, not the primary active tab.
  *   - APG roving tablist: Arrow/Home/End move focus (shared rovingTabFocus);
- *     a keydown bubbled from the close button must not activate the page.
+ *     Enter/Space activate, handled explicitly as the status-bar strip does.
+ *   - The tab is its own element and its close control is a SIBLING inside a
+ *     non-interactive wrapper (audit 2026-09-03 round 3, #163), never a
+ *     descendant: a focusable control nested in a role="tab" joined the tab's
+ *     accessible name and put one extra stop per page into the normal Tab
+ *     order. Only the CURRENT page's close button is a Tab stop; the others are
+ *     reached by pointer or by activating their page first — the roving model's
+ *     own rule of one stop per strip.
+ *   - The tab is a `<div role="tab" tabIndex>`, like the status-bar pill
+ *     (Tabs/Tab.tsx), not a `<button>`: the bespoke-button budget counts every
+ *     non-canonical class on a literal `<button>`, and a tab is not a `.vm-btn`.
  *   - A page an AI run holds shows a dot on ITS tab (lease store): native views
  *     stay alive in the background, so the driven page need not be the visible
  *     one (audit 2026-09-03 #15).
@@ -53,6 +64,12 @@ export function BrowserPageTabs({ pages, activePageId, windowLabel }: BrowserPag
     activateTabInFocusedPane(windowLabel, id);
   };
 
+  const closePage = (pageId: string) => {
+    void closeTabWithDirtyCheck(windowLabel, pageId).catch(() => {
+      /* best-effort: a dirty-check/close failure must not crash the UI */
+    });
+  };
+
   return (
     <div className="browser-page-tabs" role="tablist" aria-label={t("browser.pages")}>
       <TabStripButton kind="add" className="browser-page-new" onClick={createPage} label={t("browser.newPage")} />
@@ -62,46 +79,42 @@ export function BrowserPageTabs({ pages, activePageId, windowLabel }: BrowserPag
         const pageLabel = page.title && page.title !== page.url ? page.title : t("browser.newPage");
         const aiHolds = leases[page.id]?.holder === "ai";
         return (
-          <div
-            key={page.id}
-            className={`browser-page-tab${active ? " active" : ""}`}
-            role="tab"
-            aria-selected={active}
-            tabIndex={active ? 0 : -1}
-            onClick={() => activateTabInFocusedPane(windowLabel, page.id)}
-            onKeyDown={(event) => {
-              // Only the tab itself handles keys — a keydown bubbled from the
-              // nested close button must not activate the page it closes.
-              if (event.target !== event.currentTarget) return;
-              if (isRovingNavKey(event.key)) {
-                if (moveRovingTabFocus(event.currentTarget, event.key)) event.preventDefault();
-                return;
-              }
-              if (event.key !== "Enter" && event.key !== " ") return;
-              event.preventDefault();
-              activateTabInFocusedPane(windowLabel, page.id);
-            }}
-            title={pageLabel}
-          >
-            <Globe2 size={14} aria-hidden="true" />
-            {aiHolds && (
-              <span
-                className="browser-page-tab-ai"
-                role="img"
-                aria-label={t("browser.aiControlling")}
-                title={t("browser.aiControlling")}
-              />
-            )}
-            <span className="browser-page-tab-title">{pageLabel}</span>
+          // The wrapper is not interactive: it owns the tab's frame (CSS) and holds
+          // the two sibling controls. See "Key decisions".
+          <div key={page.id} className={`browser-page-tab${active ? " active" : ""}`}>
+            <div
+              role="tab"
+              className="browser-page-tab-select"
+              aria-selected={active}
+              tabIndex={active ? 0 : -1}
+              onClick={() => activateTabInFocusedPane(windowLabel, page.id)}
+              onKeyDown={(event) => {
+                if (isRovingNavKey(event.key)) {
+                  if (moveRovingTabFocus(event.currentTarget, event.key)) event.preventDefault();
+                  return;
+                }
+                if (event.key !== "Enter" && event.key !== " ") return;
+                event.preventDefault();
+                activateTabInFocusedPane(windowLabel, page.id);
+              }}
+              title={pageLabel}
+            >
+              <Globe2 size={14} aria-hidden="true" />
+              {aiHolds && (
+                <span
+                  className="browser-page-tab-ai"
+                  role="img"
+                  aria-label={t("browser.aiControlling")}
+                  title={t("browser.aiControlling")}
+                />
+              )}
+              <span className="browser-page-tab-title">{pageLabel}</span>
+            </div>
             <TabStripButton
               kind="close"
               className="browser-page-tab-close"
-              onClick={(event) => {
-                event.stopPropagation();
-                void closeTabWithDirtyCheck(windowLabel, page.id).catch(() => {
-                  /* best-effort: a dirty-check/close failure must not crash the UI */
-                });
-              }}
+              tabIndex={active ? 0 : -1}
+              onClick={() => closePage(page.id)}
               label={t("browser.closePage", { title: pageLabel })}
             />
           </div>

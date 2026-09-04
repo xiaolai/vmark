@@ -34,21 +34,43 @@ fn publish_is_no_longer_an_operation() {
     // Audit 20260903: `publish` had no consumer on either side, so a grant for it
     // was authority that could be shown to the user and could never fire.
     assert!(!is_known_operation("publish"));
-    assert!(serde_json::from_value::<BrowserOperation>(serde_json::json!("publish")).is_err());
+    assert!(BrowserOperation::from_wire("publish").is_none());
 }
 
 #[test]
-fn deserialize_rejects_unknown_variants_at_the_wire_boundary() {
+fn from_wire_is_the_one_parser_and_rejects_unknown_variants() {
+    // These assertions used to run through a `Deserialize` impl whose only caller
+    // was this file — the wire boundary takes `String` (round 3, #26). The
+    // PROPERTY is unchanged and still asserted: exactly the vocabulary parses,
+    // and every variant spelling is refused.
     for ok in VOCABULARY {
-        assert!(
-            serde_json::from_value::<BrowserOperation>(serde_json::json!(ok)).is_ok(),
-            "{ok} deserializes"
+        assert_eq!(
+            BrowserOperation::from_wire(ok).is_some(),
+            is_known_operation(ok),
+            "{ok}: the two entry points must agree"
         );
+        assert!(BrowserOperation::from_wire(ok).is_some(), "{ok} parses");
     }
-    for bad in ["Read", "Upload", "frobnicate", "", "CLICK"] {
+    for bad in ["Read", "Upload", "frobnicate", "", "CLICK", "read "] {
         assert!(
-            serde_json::from_value::<BrowserOperation>(serde_json::json!(bad)).is_err(),
-            "{bad:?} must be rejected at the deserialization boundary"
+            BrowserOperation::from_wire(bad).is_none(),
+            "{bad:?} must not parse"
+        );
+        assert!(!is_known_operation(bad), "{bad:?} must not be known");
+    }
+}
+
+#[test]
+fn the_vocabulary_has_no_second_definition() {
+    // `from_wire` is exhaustive over the enum, so a variant added without a wire
+    // spelling cannot parse — and the parity test in
+    // `src/lib/browser/approval/operationVocabulary.test.ts` reads these arms.
+    for op in VOCABULARY {
+        let parsed = BrowserOperation::from_wire(op).expect("in the vocabulary");
+        assert_eq!(
+            BrowserOperation::from_wire(op),
+            Some(parsed),
+            "{op} parses deterministically"
         );
     }
 }

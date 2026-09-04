@@ -256,7 +256,9 @@ describe("serializeSessionTabs — credentials do not go to disk", () => {
     ]);
     const rec = out.tabs[0] as { url: string };
     expect(rec.url).not.toContain("hunter2");
-    expect(rec.url).toBe("https://alice@example.com/inbox?token=abc");
+    // The password AND the credential-named parameter are gone (url.ts urlForPersistence);
+    // the username is an address and stays.
+    expect(rec.url).toBe("https://alice@example.com/inbox");
   });
 
   it("leaves a credential-free url untouched", () => {

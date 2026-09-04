@@ -156,6 +156,12 @@ describe("act by ref (WI-P2.2)", () => {
 });
 
 describe("wait condition shape (#93)", () => {
+  it("refuses zero or several modes, and a name without a role", () => {
+    expect(() => buildWaitConditionScript({} as never, 1)).toThrow(/exactly one/);
+    expect(() => buildWaitConditionScript({ ref: "e1", text: "x" } as never, 1)).toThrow(/exactly one/);
+    expect(() => buildWaitConditionScript({ role: "button", text: "x" } as never, 1)).toThrow(/exactly one/);
+    expect(() => buildWaitConditionScript({ text: "x", name: "y" } as never, 1)).toThrow(/exactly one/);
+  });
   it("refuses non-string fields instead of embedding them", () => {
     expect(() => buildWaitConditionScript({ text: 5 } as never, 1)).toThrow(/as strings/);
     expect(() => buildWaitConditionScript({ role: "button", name: ["x"] } as never, 1)).toThrow(/as strings/);
@@ -431,6 +437,16 @@ describe("buildTypeScript", () => {
     expect(res.typed).toBe(false);
     expect(res.reason).toBe("no-such-option");
     expect((doc.querySelector("select") as HTMLSelectElement).value).toBe("jp");
+  });
+
+  it("an implicit contenteditable host is ONE textbox end to end: snapshot, locator, type (#110)", () => {
+    const doc = parse(`<div contenteditable="true" aria-label="Body"><p>old <b>bold</b></p></div><p>prose</p>`);
+    const snapshot = exec(doc, buildSnapshotScript(1)) as { nodes: Array<{ role: string; name: string }> };
+    const textboxes = snapshot.nodes.filter((n) => n.role === "textbox");
+    expect(textboxes).toEqual([{ role: "textbox", name: "Body", ref: expect.any(String) }].map((n) => expect.objectContaining(n)));
+    const res = exec(doc, buildTypeScript("textbox", "Body", "new text")) as ActResult;
+    expect(res.typed).toBe(true);
+    expect(doc.querySelector("[contenteditable]")!.textContent).toBe("new text");
   });
 
   it("types into a contenteditable region (WI-NB1.2)", () => {

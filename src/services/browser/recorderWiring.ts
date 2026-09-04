@@ -14,43 +14,31 @@
  * Started once from `useCommandBootstrap`, next to `startBrowserLeaseWiring`.
  *
  * @coordinates-with services/workflow/recorderSession.ts — the session being driven
- * @coordinates-with src-tauri browser nav delegate — emits browser://navigated
+ * @coordinates-with services/browser/browserNativeEvents.ts — the validated event hub this subscribes to
  * @coordinates-with stores/tabRemovalBus.ts — close/detach notifications
  * @module services/browser/recorderWiring
  */
 
-import { listen } from "@tauri-apps/api/event";
 import { onTabRemoved } from "@/stores/tabRemovalBus";
+import { browserNativeEvents, type BrowserNativeEventSource } from "./browserNativeEvents";
 import { isRecording, recordNavigation, abortRecorderSession } from "@/services/workflow/recorderSession";
 
-/** Attach the recorder's event sources. Returns a stop function. */
-export function startRecorderWiring(): () => void {
-  let disposed = false;
-  let unlistenNav: (() => void) | null = null;
-
-  void listen("browser://navigated", (event) => {
-    const payload = event.payload;
-    if (typeof payload !== "object" || payload === null) return;
-    const p = payload as Record<string, unknown>;
-    const tabId = typeof p.tabId === "string" ? p.tabId : "";
+/** Attach the recorder's event sources. Returns a stop function. The native
+ *  events arrive through the ONE validated decoder hub (round 3): this used to
+ *  decode `browser://navigated` on its own `listen`, a third copy of the payload
+ *  rules that accepted a generation of 0 for a missing field. */
+export function startRecorderWiring(source: BrowserNativeEventSource = browserNativeEvents): () => void {
+  const subscription = source.subscribe((event) => {
+    if (event.kind !== "navigated") return;
     // Only a tab with an active recording; ordinary navigation is untouched.
-    if (!tabId || !isRecording(tabId)) return;
-    const url = typeof p.url === "string" ? p.url : "";
-    const generation = typeof p.generation === "number" ? p.generation : 0;
-    void recordNavigation(tabId, url, generation);
-  }).then((stop) => {
-    if (disposed) stop();
-    else unlistenNav = stop;
+    if (!isRecording(event.tabId)) return;
+    void recordNavigation(event.tabId, event.url, event.generation);
   });
-
   const offTabRemoved = onTabRemoved((_windowLabel, tabId) => {
     abortRecorderSession(tabId);
   });
-
   return () => {
-    disposed = true;
-    unlistenNav?.();
-    unlistenNav = null;
+    subscription.unsubscribe();
     offTabRemoved();
   };
 }

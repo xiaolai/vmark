@@ -1,7 +1,10 @@
 //! Audit 20260903 E-03 / E-04 — an evaluation that did not produce a string is a
 //! typed failure, never a `<timeout>` / `<null>` string handed back as a result.
+//! Round 3 (#17, #18): a gate refusal crosses the main-thread hop intact, and a
+//! timeout says its effect is indeterminate.
 
 use super::*;
+use crate::browser::refusals::stale_command;
 use crate::browser::surface::fail;
 
 fn mcp_code(err: &CommandError) -> Option<String> {
@@ -53,6 +56,41 @@ fn every_failure_maps_to_its_code_token_and_translation_key() {
         assert!(
             !err.message().is_empty(),
             "{failure:?} must render a user-visible message"
+        );
+    }
+}
+
+#[test]
+fn a_timeout_is_marked_indeterminate_and_no_other_failure_is() {
+    // Round 3 #18: nothing cancels an enqueued script, so a timed-out act may still
+    // land. `timeout` is a retryable class everywhere else in the app; the flag is
+    // what tells a generic retry policy (`classifyCommandError`) to stop and verify
+    // instead of running a mutating act twice. The EVAL_TIMEOUT token is unchanged.
+    let err = eval_failure(EvalFailure::Timeout);
+    assert_eq!(
+        err.code(),
+        ErrorCode::Timeout,
+        "what happened is still a timeout"
+    );
+    assert_eq!(mcp_code(&err).as_deref(), Some("EVAL_TIMEOUT"));
+    assert_eq!(detail_str(&err, "kind"), Some("timeout"));
+    let wire = serde_json::to_value(&err).expect("serialize");
+    assert_eq!(
+        wire["detail"]["indeterminate"],
+        json!(true),
+        "the frontend reads exactly `detail.indeterminate === true`"
+    );
+    for failure in [
+        EvalFailure::ScriptError("boom".into()),
+        EvalFailure::NoValue,
+        EvalFailure::TooLarge,
+    ] {
+        assert!(
+            eval_failure(failure.clone())
+                .detail()
+                .and_then(|d| d.get("indeterminate"))
+                .is_none(),
+            "{failure:?} is a definite failure — the script did not run to a result"
         );
     }
 }
@@ -113,18 +151,46 @@ fn a_non_string_return_is_a_script_error_with_the_documented_message() {
 }
 
 #[test]
-fn flatten_keeps_the_three_outcomes_apart() {
+fn flatten_keeps_the_four_outcomes_apart() {
     assert_eq!(
         EvalError::flatten(Ok(Ok("\"ok\"".into()))),
         Ok("\"ok\"".to_string())
     );
     assert_eq!(
-        EvalError::flatten(Ok(Err(EvalFailure::Timeout))),
+        EvalError::flatten(Ok(Err(EvalFailure::Timeout.into()))),
         Err(EvalError::Failure(EvalFailure::Timeout))
+    );
+    let refusal = stale_command("t", "before the script could run");
+    assert_eq!(
+        EvalError::flatten(Ok(Err(refusal.clone().into()))),
+        Err(EvalError::Refused(refusal))
     );
     assert_eq!(
         EvalError::flatten(Err("NO_WEBVIEW: no webview: t".into())),
         Err(EvalError::Surface("NO_WEBVIEW: no webview: t".into()))
+    );
+}
+
+#[test]
+fn a_refusal_inside_the_main_thread_turn_keeps_its_token_and_its_details() {
+    // Regression, round 3 #17 — the tab navigated between authorization and the
+    // main-thread submit. `submit_if_fresh` refused with STALE_COMMAND naming the tab
+    // and the moment; the hop used to flatten that to a message string and the
+    // classifier re-derived the class from a `STALE_COMMAND:` prefix, so the code and
+    // token survived but `tabId` and `when` did not. The typed refusal now crosses
+    // the hop as itself.
+    let refusal = stale_command("tab-7", "before the script could run");
+    let native: Result<Result<String, EvalError>, String> =
+        Ok(Err(EvalError::Refused(refusal.clone())));
+    let err = eval_error(EvalError::flatten(native).unwrap_err());
+    assert_eq!(err, refusal, "the refusal must cross the hop unchanged");
+    assert_eq!(err.code(), ErrorCode::Conflict);
+    assert_eq!(mcp_code(&err).as_deref(), Some("STALE_COMMAND"));
+    assert_eq!(err.i18n_key(), Some("errors.browser.staleCommand"));
+    assert_eq!(detail_str(&err, "tabId"), Some("tab-7"));
+    assert_eq!(
+        detail_str(&err, "when"),
+        Some("before the script could run")
     );
 }
 

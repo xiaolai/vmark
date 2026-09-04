@@ -21,14 +21,17 @@
  *     production consumer.)
  *   - **Writes never auto-escalate** to a higher (more autonomous) tier — an
  *     escalation is a new, human-approved operation, not an automatic fallback.
- *   - Idempotency keys make a repeated write detectable.
- *   - The genie/agent loop is bounded by max-iterations, a timeout, and cancel.
+ *   - Idempotency keys make a repeated write detectable. The collision-averse
+ *     encoding behind them lives in `canonicalEncode.ts` (split out in audit r3
+ *     #140): a key collision between two different writes IS the double-post.
  *
  * @coordinates-with services/browser/lease.ts — a lost lease also pauses a workflow
  * @coordinates-with lib/browser/workflow/parser.ts — steps come from the parsed IR
- * @coordinates-with services/workflow/workflowRunService.ts — idempotencyKey keys the completed-write ledger
+ * @coordinates-with lib/browser/workflow/canonicalEncode.ts — the encoding under `idempotencyKey`
+ * @coordinates-with lib/browser/workflow/identity.ts — `idempotencyKey` encodes the declared inputs into the ledger identity
  * @module lib/browser/workflow/safety
  */
+import { encodeCanonical } from "./canonicalEncode";
 
 /** A step's observed outcome — deliberately three-valued (R8a). */
 type Outcome = "success" | "failed" | "unknown";
@@ -37,7 +40,6 @@ type Outcome = "success" | "failed" | "unknown";
  *  on it with a `never` guard, so adding a member is a compile error there, not a
  *  silent fall-through into the retry path. */
 export type NextAction = "done" | "retry" | "stop-and-ask";
-
 
 /** The result of running a step. */
 export interface StepOutcome {
@@ -87,127 +89,9 @@ export function decideAfterResult(write: boolean, result: StepOutcome): NextActi
   return "stop-and-ask"; // inconclusive — never risk a double write
 }
 
-
-/**
- * Deterministic, order-independent encoding for idempotency keys.
- *
- * NOT `JSON.stringify`: it flattens distinct values onto the same text — `NaN`,
- * `Infinity` and `null` all become `"null"`, `[undefined]` becomes `[null]`, a key
- * whose value is `undefined` disappears entirely, and `Map`/`Set` collapse to `{}`.
- * A key collision between two *different* writes is precisely the double-post this
- * module exists to prevent, so anything that cannot be encoded unambiguously
- * (symbol, function, class instance, accessor, cycle) throws instead of guessing;
- * `-0`, sparse-array holes, and non-enumerable properties are encoded distinctly so
- * they cannot silently share a key either.
- */
-
-/** Guard against an adversarially deep input blowing the stack while we build the
- *  raw key. Workflow inputs are flat records, so this ceiling is far above any real one. */
-const MAX_ENCODE_DEPTH = 100;
-
-function canonical(value: unknown, seen: Set<object>, depth: number): string {
-  if (depth > MAX_ENCODE_DEPTH) {
-    throw new TypeError("idempotencyKey: input nested deeper than the encoder allows.");
-  }
-  if (value === null) return "null";
-  switch (typeof value) {
-    case "undefined":
-      return "undefined";
-    case "boolean":
-      return value ? "true" : "false";
-    case "number":
-      // NaN / ±Infinity are not JSON — tag them so they cannot collide with `null`.
-      if (!Number.isFinite(value)) return `#${String(value)}`;
-      // `-0` and `0` are distinct write inputs; JSON.stringify flattens both to "0".
-      return Object.is(value, -0) ? "-0" : JSON.stringify(value);
-    case "bigint":
-      return `${value}n`;
-    case "string":
-      return JSON.stringify(value);
-    case "object":
-      break;
-    default:
-      throw new TypeError(`idempotencyKey: cannot encode a value of type "${typeof value}".`);
-  }
-
-  const obj = value as object;
-  if (seen.has(obj)) throw new TypeError("idempotencyKey: cannot encode a cyclic value.");
-  seen.add(obj);
-  try {
-    if (Array.isArray(obj)) {
-      // An array is validated like an object: a subclass, a symbol key or an own
-      // non-index property would otherwise be ignored, so two distinct inputs could
-      // share one idempotency key.
-      if (Object.getPrototypeOf(obj) !== Array.prototype) {
-        throw new TypeError(`idempotencyKey: cannot encode a "${obj.constructor?.name ?? "array"}" value.`);
-      }
-      if (Reflect.ownKeys(obj).some((k) => typeof k === "symbol" || (k !== "length" && !/^(0|[1-9]\d*)$/.test(k)))) {
-        throw new TypeError("idempotencyKey: cannot encode an array with non-index properties.");
-      }
-      return encodeArray(obj, seen, depth);
-    }
-    if (obj instanceof Date) return encodeDate(obj);
-    const proto: unknown = Object.getPrototypeOf(obj);
-    if (proto !== Object.prototype && proto !== null) {
-      throw new TypeError(`idempotencyKey: cannot encode a "${obj.constructor?.name ?? "object"}" value.`);
-    }
-    return encodePlainObject(obj as Record<string, unknown>, seen, depth);
-  } finally {
-    // Only ancestors are "seen" — the same object twice in a tree is not a cycle.
-    seen.delete(obj);
-  }
-}
-
-/** Encode by index over the FULL length so a hole is distinct from `undefined` and
- *  `Array(1)` cannot collide with `[]` (the default `.map` skips holes). */
-function encodeArray(arr: unknown[], seen: Set<object>, depth: number): string {
-  const parts: string[] = [];
-  for (let i = 0; i < arr.length; i++) {
-    parts.push(i in arr ? canonical(arr[i], seen, depth + 1) : "#hole");
-  }
-  return `[${parts.join(",")}]`;
-}
-
-/** A Date SUBCLASS, or a plain Date carrying own properties, is a class instance in
- *  disguise — reject it rather than silently ignoring the extras and colliding. */
-function encodeDate(date: Date): string {
-  if (Object.getPrototypeOf(date) !== Date.prototype || Reflect.ownKeys(date).length > 0) {
-    throw new TypeError("idempotencyKey: cannot encode a Date subclass or a Date with own properties.");
-  }
-  const t = date.getTime();
-  return `Date(${Number.isNaN(t) ? "invalid" : date.toISOString()})`;
-}
-
-/** `Reflect.ownKeys` (not `Object.keys`) so a symbol key or a non-enumerable property
- *  cannot silently vanish and collide with `{}`. Symbol keys and accessors are
- *  rejected — an accessor is stateful/side-effecting, which a deterministic key must
- *  not be. Non-enumerable own data properties ARE encoded, so they stay distinct. */
-function encodePlainObject(record: Record<string, unknown>, seen: Set<object>, depth: number): string {
-  const stringKeys: string[] = [];
-  for (const key of Reflect.ownKeys(record)) {
-    if (typeof key === "symbol") {
-      throw new TypeError("idempotencyKey: cannot encode an object with symbol keys.");
-    }
-    const desc = Object.getOwnPropertyDescriptor(record, key);
-    if (desc && (desc.get || desc.set)) {
-      throw new TypeError("idempotencyKey: cannot encode an object with accessor properties.");
-    }
-    stringKeys.push(key);
-  }
-  const body = stringKeys
-    .sort()
-    .map((k) => `${JSON.stringify(k)}:${canonical(record[k], seen, depth + 1)}`)
-    .join(",");
-  return `{${body}}`;
-}
-
 /** A stable key for a write, so a repeated attempt with the same inputs is
  *  detectable and can be deduplicated rather than re-applied. Throws (rather than
- *  returning an ambiguous key) on values it cannot encode — see `canonical`. */
+ *  returning an ambiguous key) on values it cannot encode — see `encodeCanonical`. */
 export function idempotencyKey(stepId: string, inputs: Record<string, unknown>): string {
-  return `${stepId}:${canonical(inputs, new Set(), 0)}`;
+  return `${stepId}:${encodeCanonical(inputs)}`;
 }
-
-
-/** Configured loop bounds. */
-

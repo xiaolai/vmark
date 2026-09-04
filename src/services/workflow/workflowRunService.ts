@@ -19,7 +19,7 @@
  *     clears a fresh human hold (the interrupted run is over) and withdraws the
  *     run's prompts; a paused run frees its tab, and `resumeRunId` continues it.
  *   - W-06: the D1v2 clock — 120 s of RUNNING time, paused while a prompt is open.
- *   - W-07: the ledger is keyed on `workflowIdentity` (normalised source + inputs).
+ *   - W-07: the ledger is keyed on `workflowIdentity` (canonical parsed IR + inputs).
  *   - W-08: cancel is a no-op on a terminal run, refuses an unknown run, and
  *     releases the lease only if THIS run holds it.
  *

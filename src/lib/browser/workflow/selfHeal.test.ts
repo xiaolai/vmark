@@ -2,7 +2,7 @@
 // WI-4.4 / R8a — self-healing: propose a same-role locator fix from the snapshot
 import { describe, it, expect } from "vitest";
 import { expectBoundedTime } from "@/test/timeBudget";
-import { proposeLocatorFix, type SnapshotNode } from "./selfHeal";
+import { pickUnambiguous, proposeLocatorFix, type SnapshotNode } from "./selfHeal";
 
 const snap = (nodes: Array<[string, string]>): SnapshotNode[] =>
   nodes.map(([role, name]) => ({ role, name }));
@@ -221,5 +221,35 @@ describe("proposeLocatorFix — antonym rejection (W3)", () => {
     ).toMatchObject({ confidence: 1 });
     // …and a format character cannot disguise an antonym as decoration.
     expect(proposeLocatorFix({ role: "button", name: "Publish" }, snap([["button", "Un\u200Bpublish"]]))).toBeNull();
+  });
+});
+
+// Audit r3 #145 — the ambiguity rule, pinned on its own: a proposal must identify
+// ONE element, because the executor resolves a role+name locator to the FIRST match.
+describe("pickUnambiguous", () => {
+  const c = (name: string, confidence: number) => ({ name, confidence });
+
+  it("returns null for no candidates and the sole candidate otherwise", () => {
+    expect(pickUnambiguous([])).toBeNull();
+    expect(pickUnambiguous([c("Publish", 0.9)])).toEqual(c("Publish", 0.9));
+  });
+
+  it("picks the strictly best score, wherever it appears", () => {
+    expect(pickUnambiguous([c("A", 0.7), c("B", 0.9), c("C", 0.8)])).toEqual(c("B", 0.9));
+    expect(pickUnambiguous([c("B", 0.9), c("A", 0.7)])).toEqual(c("B", 0.9));
+  });
+
+  it("returns null when two DIFFERENT names tie for best (a coin-flip locator repairs nothing)", () => {
+    expect(pickUnambiguous([c("Save1", 0.8), c("Save2", 0.8)])).toBeNull();
+    // A tie broken by a later, strictly better candidate is not a tie…
+    expect(pickUnambiguous([c("Save1", 0.8), c("Save2", 0.8), c("Save", 1)])).toEqual(c("Save", 1));
+    // …but a tie AFTER the best stands.
+    expect(pickUnambiguous([c("Save", 1), c("Save1", 1)])).toBeNull();
+  });
+
+  it("returns null when the winning name occurs more than once (the locator would match several elements)", () => {
+    expect(pickUnambiguous([c("Publish", 0.86), c("Publish", 0.86)])).toBeNull();
+    // Duplicates of a LESSER name do not disqualify a unique winner.
+    expect(pickUnambiguous([c("Publish", 0.86), c("Cancel", 0.6), c("Cancel", 0.6)])).toEqual(c("Publish", 0.86));
   });
 });

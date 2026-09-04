@@ -9,17 +9,24 @@
  *
  * Closing goes through the tab store so every subscriber of the removal bus
  * (native-view teardown, lease, recorder, pane layout) does its part exactly as
- * for a user-closed tab.
+ * for a user-closed tab — and the response WAITS for that teardown (round 3,
+ * #44): the bus subscriber destroys the native view fire-and-forget and swallows
+ * a final failure, so this used to report `closed` while the WKWebView could
+ * still be running. `closeBrowserTabById` joins the teardown and confirms it
+ * with the driver; an unconfirmed teardown is `TAB_TEARDOWN_FAILED`, honest about
+ * what did happen (the record is gone) and what is not known to have.
  *
  * @coordinates-with stores/tabStore.ts — closeTab → notifyTabRemoved
- * @coordinates-with services/browser/browserTabLifecycle.ts — destroys the native view
+ * @coordinates-with services/browser/browserTabLifecycle.ts — the awaited, confirmed close
  * @module services/mcpBridge/v2/browserClose
  */
 import { respond } from "@/services/mcpBridge/utils";
-import { useTabStore } from "@/stores/tabStore";
+import { closeBrowserTabById } from "@/services/browser/browserTabLifecycle";
 import { wrapHandler } from "./wrapHandler";
 import { readTabIdArg, resolveBrowserTab } from "./browserHelpers";
 import { browserGate } from "./browserAccess";
+
+const TAB_TEARDOWN_FAILED = "TAB_TEARDOWN_FAILED";
 
 export async function handleBrowserClose(id: string, args: Record<string, unknown>): Promise<void> {
   return wrapHandler(id, async () => {
@@ -38,11 +45,11 @@ export async function handleBrowserClose(id: string, args: Record<string, unknow
       await respond({ id, success: false, error: "TAB_NOT_AI_OWNED" });
       return;
     }
-    const closed = useTabStore.getState().closeTab(tab.windowLabel, tab.tabId);
-    if (!closed) {
-      // `closeTab` refuses a pinned tab (and an unknown one). Reporting success
-      // here left the tab open AND its MAX_AI_TABS slot taken while the model
-      // believed it had freed it.
+    const outcome = await closeBrowserTabById(tab.tabId);
+    if (outcome === null) {
+      // The store refuses a pinned tab (the tab was just resolved, so it is not
+      // unknown). Reporting success here left the tab open AND its MAX_AI_TABS
+      // slot taken while the model believed it had freed it.
       await respond({
         id,
         success: false,
@@ -51,6 +58,17 @@ export async function handleBrowserClose(id: string, args: Record<string, unknow
       });
       return;
     }
-    await respond({ id, success: true, data: { tabId: tab.tabId, closed } });
+    if (!outcome.destroyed) {
+      await respond({
+        id,
+        success: false,
+        error:
+          `${TAB_TEARDOWN_FAILED}: the tab is closed in VMark but the driver could not confirm its native view ` +
+          `was destroyed (${outcome.reason}) — the page may still be running until VMark restarts`,
+        data: { token: TAB_TEARDOWN_FAILED, tabId: tab.tabId, closed: true, destroyed: false },
+      });
+      return;
+    }
+    await respond({ id, success: true, data: { tabId: tab.tabId, closed: true, destroyed: true } });
   });
 }

@@ -35,7 +35,7 @@
 import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
 import { grantPatternFor } from "@/stores/browserApprovalStore.helpers";
 import type { ActionTarget } from "@/stores/browserApprovalStore.types";
-import { mintOneShotConfirmed } from "@/services/browser/grantSync";
+import { mintOneShotConfirmed, revokeOneShot } from "@/services/browser/grantSync";
 import { useBrowserLeaseStore } from "@/services/browser/lease";
 import { originForAgent } from "@/lib/browser/url";
 import { WorkflowPause } from "@/lib/browser/workflow/engine";
@@ -58,9 +58,16 @@ export interface ApprovalWaitContext {
 }
 
 export interface ApprovalRequest {
+  /** For a page operation: the page the caller believes it is on (the tab's
+   *  current url wins). For `navigate`: the DESTINATION — the origin the
+   *  authorization is about (round 3, #184). */
   url: string;
   operation: string;
   target?: ActionTarget;
+  /** A standing grant does not settle this request: a prompt is raised (or an
+   *  identity-bound one-shot spent) even on a granted origin. Set for a HEALED
+   *  write, whose locator is no longer the one the workflow author wrote (#162). */
+  requireFreshApproval?: boolean;
   /** The BUILT script, for the payload-binding ops (`type`, `key`, `scroll`). */
   script?: string;
   /** Display-only summary of the bound payload (`Text: "…"`). */
@@ -122,19 +129,26 @@ async function consumeAndMint(ctx: ApprovalWaitContext, req: ApprovalRequest, pa
   const pattern = grantPatternFor(page.url);
   if (pattern === null) throw new Error(`no grantable origin for ${originForAgent(page.url)}`);
   // Raced against the run's signal: a cancellation or lease loss must settle the
-  // run even while the driver's mint is pending. A late authorization for a run
-  // that is gone is withdrawn with the run's other one-shots (withdrawByRun).
-  const ok = await raceAbort(
-    mintOneShotConfirmed({
-      originPattern: pattern,
-      operation: req.operation,
-      tabId: ctx.tabId,
-      generation: page.generation,
-      ...(req.target ? { target: req.target } : {}),
-      ...(req.script !== undefined ? { script: req.script } : {}),
-    }),
-    ctx.signal,
-  );
+  // run even while the driver's mint is pending. The frontend copy is withdrawn with
+  // the run's other one-shots (withdrawByRun); the DRIVER's copy, minted after the
+  // run was gone, is revoked when the late mint confirms (round 3, #124) — nothing
+  // is left for a later request to spend by accident.
+  const shot = {
+    originPattern: pattern,
+    operation: req.operation,
+    tabId: ctx.tabId,
+    generation: page.generation,
+    ...(req.target ? { target: req.target } : {}),
+    ...(req.script !== undefined ? { script: req.script } : {}),
+  };
+  const minted = mintOneShotConfirmed(shot);
+  let ok: boolean;
+  try {
+    ok = await raceAbort(minted, ctx.signal);
+  } catch (error) {
+    void minted.then((confirmed) => (confirmed ? revokeOneShot(shot) : undefined)).catch(() => undefined);
+    throw error;
+  }
   if (!ok) throw new Error(`the driver refused the '${req.operation}' authorization`);
   throwIfAborted(ctx.signal); // never act after control was taken
   return true;
@@ -151,9 +165,14 @@ async function pollPrompt(ctx: ApprovalWaitContext, req: ApprovalRequest, reqId:
       throw new WorkflowPause("lease-lost", "automation lease lost while waiting for approval — a human took control");
     }
     const store = useBrowserApprovalStore.getState();
-    if (store.decide(page.url, req.operation) === "allowed") return "authorized"; // "remember"
+    // A standing grant settles an authored action at once ("remember" lands here
+    // too). A fresh-approval request is settled by the PROMPT: "once" mints, and
+    // "remember" shows as the prompt gone while the origin is now allowed.
+    if (!req.requireFreshApproval && store.decide(page.url, req.operation) === "allowed") return "authorized";
     if (await consumeAndMint(ctx, req, page)) return "authorized"; // "once"
-    if (!store.pending.some((p) => p.id === reqId)) return "dropped"; // denied, or the page moved
+    if (!store.pending.some((p) => p.id === reqId)) {
+      return store.decide(page.url, req.operation) === "allowed" ? "authorized" : "dropped"; // remember / denied / moved
+    }
     await abortableSleep(ctx.pollMs, ctx.signal);
   }
 }
@@ -174,9 +193,14 @@ function raisePrompt(ctx: ApprovalWaitContext, req: ApprovalRequest, page: Autho
   return reqId;
 }
 
-function currentPage(ctx: ApprovalWaitContext, fallback: AuthorizedPage): AuthorizedPage {
+/** The subject of the authorization: the tab's current page — or, for `navigate`,
+ *  the destination on the tab's current generation. Deciding a navigation against
+ *  the CURRENT page's origin let a grant there authorize going anywhere, and minted
+ *  one-shots the driver (which checks the destination) could never spend. */
+function currentPage(ctx: ApprovalWaitContext, req: ApprovalRequest, fallback: AuthorizedPage): AuthorizedPage {
   const tab = ctx.resolveTab();
-  return tab ? { url: tab.url, generation: tab.generation } : fallback;
+  if (!tab) return fallback;
+  return { url: req.operation === "navigate" ? req.url : tab.url, generation: tab.generation };
 }
 
 /**
@@ -187,13 +211,14 @@ function currentPage(ctx: ApprovalWaitContext, fallback: AuthorizedPage): Author
  */
 export async function awaitAuthorization(ctx: ApprovalWaitContext, req: ApprovalRequest): Promise<AuthorizedPage> {
   throwIfAborted(ctx.signal);
-  let page = currentPage(ctx, { url: req.url, generation: 0 });
+  let page = currentPage(ctx, req, { url: req.url, generation: 0 });
   const store = useBrowserApprovalStore.getState();
   const decision = store.decide(page.url, req.operation);
   if (decision === "denied") {
     throw new WorkflowPause("denied", `operation '${req.operation}' is not permitted on ${originForAgent(page.url)}`);
   }
-  if (decision === "allowed") return page;
+  // A standing grant settles an authored action; a HEALED write asks again.
+  if (decision === "allowed" && !req.requireFreshApproval) return page;
   if (await consumeAndMint(ctx, req, page)) return page;
 
   let rerequested = false;
@@ -209,7 +234,7 @@ export async function awaitAuthorization(ctx: ApprovalWaitContext, req: Approval
       ctx.onPendingApproval(null);
     }
     if (outcome === "authorized") return page;
-    const fresh = currentPage(ctx, page);
+    const fresh = currentPage(ctx, req, page);
     if (fresh.generation === page.generation) {
       throw new WorkflowPause("denied", `the user denied '${req.operation}' on ${originForAgent(page.url)}`);
     }

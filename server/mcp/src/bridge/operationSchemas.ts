@@ -19,10 +19,12 @@
  *
  * @coordinates-with ../../scripts/gen-mcp-contracts.ts — the generator
  * @coordinates-with ../server.ts — validates every outbound request here
+ * @coordinates-with ./operationSchemas.primitives.ts — the field spellings shared with the browser map
  */
 
 import { z } from 'zod';
 import { BROWSER_OPERATION_SCHEMAS } from './operationSchemas.browser.js';
+import { id, optionalTabId } from './operationSchemas.primitives.js';
 
 /**
  * What an operation does with a field its schema does not declare.
@@ -84,9 +86,9 @@ export function postureFor(operation: string): UnknownFieldPosture {
   return OPERATION_CLASS_POSTURE[operationClass(operation)];
 }
 
-const id = z.string();
+// `id` / `optionalTabId` come from the primitives module (shared with the
+// browser map); `revision` is used by this map alone, so it lives here.
 const revision = z.string().optional();
-const optionalTabId = z.string().optional();
 
 /**
  * Every `vmark.*` operation and the fields its payload carries.

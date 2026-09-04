@@ -11,7 +11,8 @@
  * @coordinates-with lib/browser/agent/agentCore.src.js — the asset itself
  * @coordinates-with lib/browser/agent/agentLib.ts — prepends it to every driver script
  * @coordinates-with lib/browser/agent/recorderShim.ts — wraps it with the shim body
- * @coordinates-with src-tauri/src/browser/recorder_shim_macos.rs — concat!s the same file
+ * @coordinates-with src-tauri/src/browser/recorder_shim_macos.rs — concat!s the same files
+ *   (core + roles), pinned by recorderShimRustParity.test.ts
  * @module lib/browser/agent/agentCore
  */
 

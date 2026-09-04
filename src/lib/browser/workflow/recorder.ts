@@ -44,7 +44,7 @@
  * @module lib/browser/workflow/recorder
  */
 import { isValidInputName } from "./parser";
-import { urlForAgent } from "../url";
+import { credentialPath, urlForAgent } from "../url";
 
 /** One recorded user action, as drained from the page-world shim (click/type) or
  *  synthesized host-side from a navigation event. Deliberately carries NO typed
@@ -110,18 +110,12 @@ function stripUrl(raw: string | undefined): string {
   // security-sensitive implementations cannot drift. Then the PATH: a reset, magic-login
   // or invite link carries its token there, and a recorded workflow is an artifact that
   // outlives the session — such a navigation is kept as its origin only.
+  // outlives the session — such a navigation is kept as its origin only. The rule
+  // is `credentialPath`, shared with session persistence (lib/browser/url).
   const redacted = urlForAgent(u.href);
-  const path = u.pathname;
-  if (CREDENTIAL_PATH.test(path) || path.split("/").some((seg) => TOKEN_SEGMENT.test(seg))) {
-    return u.origin;
-  }
+  if (credentialPath(u.pathname)) return u.origin;
   return redacted;
 }
-
-/** Path words that name a credential-bearing flow. */
-const CREDENTIAL_PATH = /(^|\/)(reset|reset-password|magic|magic-link|magic-login|token|verify|confirm|invite|activate|auth|callback|sso)(\/|$)/i;
-/** A long opaque segment: hex, base64url or a random id — the shape a token takes. */
-const TOKEN_SEGMENT = /^(?=.*\d)(?=.*[A-Za-z])[A-Za-z0-9_-]{20,}$/;
 
 /** Derive a variable name from a field label. NFKC-normalized, non-alphanumerics
  *  collapsed to `_`, forced to start with a letter/underscore. The result satisfies

@@ -18,6 +18,12 @@
  *     aware), and the selectors run over the document AND every open shadow root
  *     the composed walk finds — a login form or challenge widget rendered by a
  *     web component is no longer invisible to gate detection.
+ *   - Field visibility has two tiers, in a fixed order (audit round 2, #114): the
+ *     computed-style tier (visibility/display/opacity, up the ancestor chain)
+ *     needs no layout and runs in every engine; the box-size tier runs only where
+ *     `__vmGateHasLayout`. The check is LOCAL to this script — it ships with the
+ *     perception core only, never the agent library, so it must not call
+ *     `__vmarkRendered`; `gateScript.test.ts` asserts that.
  *   - Standalone ES5, no imports, ends in `return JSON.stringify(...)` — the
  *     `browser_eval` calling convention.
  *
@@ -52,7 +58,9 @@ function __vmGateFieldVisible(el){
   // this script ships with the perception core only, not the agent library.
   var cs=getComputedStyle(el);
   if(cs.visibility==='hidden'||cs.display==='none'||cs.opacity==='0')return false;
-  for(var p=el.parentElement;p;p=p.parentElement){var ps=getComputedStyle(p);if(ps.display==='none'||ps.opacity==='0')return false;}
+  // The COMPOSED parent chain (__vmarkParent, from the core): a shadow host with
+  // opacity:0 hides its whole shadow tree, and parentElement stops at the root.
+  for(var p=__vmarkParent(el);p;p=__vmarkParent(p)){var ps=getComputedStyle(p);if(ps.display==='none'||ps.opacity==='0')return false;}
   if(!__vmGateHasLayout())return true;
   var r=el.getBoundingClientRect();
   return r.width>0&&r.height>0;

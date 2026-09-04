@@ -17,7 +17,7 @@
  *   - the per-run `AbortController` that cancel and human takeover fire (W-01);
  *   - the per-(tabId, ledgerId) completed-write LEDGER: a re-run of the same
  *     source with the same inputs must not re-execute a write step that already
- *     succeeded. The `ledgerId` is `workflowIdentity`'s normalised-source +
+ *     succeeded. The `ledgerId` is `workflowIdentity`'s canonical parsed-IR +
  *     inputs hash (W-07), so a whitespace edit keeps the ledger and new inputs get
  *     a fresh one. Reads are idempotent, so they re-run freely; only writes are
  *     ledgered.

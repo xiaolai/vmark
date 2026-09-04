@@ -46,7 +46,10 @@ var ARMED_ID = "__vmark_recorder_armed";
 var CAP = 200;
 var buf = [];
 var seenDrain = "";
-var lastClick = null;
+/** The control a <label> click just resolved to: the browser fires that control's
+ *  own activation click next, and the pair is ONE user action. Only a label-origin
+ *  click arms this — two direct clicks on the same control are two actions. */
+var labelActivation = null;
 function armed() {
   try {
     return !!document.getElementById(ARMED_ID);
@@ -167,11 +170,17 @@ try {
         var el = target(e);
         if (!el || el.nodeType !== 1) return;
         var ctrl = control(el);
-        // A click on a <label> resolves to its control AND the browser then fires
-        // the control's own activation click: one user action, recorded once.
         var now = Date.now();
-        if (lastClick && lastClick.el === ctrl && now - lastClick.at < 100) return;
-        lastClick = { el: ctrl, at: now };
+        var fromLabel = ctrl !== el && !!(el.closest && el.closest("label"));
+        if (fromLabel) {
+          // A click on a <label> resolves to its control AND the browser then fires
+          // the control's own activation click: one user action, recorded once — here.
+          labelActivation = { el: ctrl, at: now };
+        } else if (labelActivation && labelActivation.el === ctrl && now - labelActivation.at < 100) {
+          // The activation click the label just caused: already recorded.
+          labelActivation = null;
+          return;
+        }
         record(locator("click", ctrl));
       } catch (x) {}
     },

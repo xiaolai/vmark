@@ -16,7 +16,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 
 const BLOG = "https://blog.example.com/";
 function seed(): string {
-  useTabStore.setState({ tabs: {}, activeTabId: {}, untitledCounter: 0, closedTabs: {} });
+  useTabStore.setState({ tabs: {}, activeTabId: {}, untitledCounter: 0 });
   const id = useTabStore.getState().createBrowserTab("main", BLOG, "Blog", "ai-sandbox");
   useTabStore.getState().updateBrowserTab(id, { generation: 1 });
   return id;
@@ -191,7 +191,7 @@ describe("handleBrowserExecuteJs (eval — per-call approval only)", () => {
     await handleBrowserExecuteJs("x-b", { tabId: id, script: "return 2+2;" });
     expect(evalCall()).toMatchObject({ operation: "eval", generation: 1 });
     expect(evalCall()?.script).toContain("return 2+2;");
-    expect(evalCall()?.script).toContain("JSON.stringify({ ok: true");
+    expect(evalCall()?.script).toContain("__vmarkRefuse");
     const res = lastResponse();
     expect(res).toMatchObject({ id: "x-b", success: true });
     expect((res.data as { untrusted?: boolean; result?: unknown }).untrusted).toBe(true);

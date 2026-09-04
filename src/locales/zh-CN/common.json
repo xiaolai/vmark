@@ -176,6 +176,7 @@
   "browser.approval.operation.session": "保存或恢复登录",
   "browser.error.title": "无法加载此页面。",
   "browser.error.retry": "重试",
+  "browser.dialog.answerFailed": "无法将你的回答传递给页面。请重试。",
   "browser.history.heading": "历史记录",
   "browser.history.empty": "还没有访问记录。打开的页面会显示在这里。",
   "browser.history.clear": "清除",

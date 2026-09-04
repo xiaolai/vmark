@@ -5,14 +5,13 @@
  * combinations); regenerate with `pnpm gen:mcp-contracts` after any change.
  *
  * @coordinates-with server/mcp/src/bridge/operationSchemas.ts — spreads this map
+ * @coordinates-with server/mcp/src/bridge/operationSchemas.primitives.ts — the shared spellings
  * @module bridge/operationSchemas.browser
  */
 import { z } from 'zod';
+import { id, optionalTabId } from './operationSchemas.primitives.js';
 
-// Local spellings of the shared field helpers (three one-liners; importing them
-// from operationSchemas would be a cycle).
-const id = z.string();
-const optionalTabId = z.string().optional();
+// `timeoutMs` is a browser-only spelling, so it stays beside its users.
 const timeoutMs = z.number().optional();
 
 export const BROWSER_OPERATION_SCHEMAS = {

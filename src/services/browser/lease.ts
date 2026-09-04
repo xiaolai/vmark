@@ -32,6 +32,11 @@
  *     the lease, so a late registration cannot re-install an operation a
  *     reclaim just cancelled.
  *
+ * The state arithmetic lives in `leaseTransitions.ts` as pure functions (round 3,
+ * #92); this file owns SEQUENCING — commit the record first, run the canceller
+ * after — and the store itself.
+ *
+ * @coordinates-with services/browser/leaseTransitions.ts — the pure transitions composed here
  * @coordinates-with services/browser/browserLeaseWiring.ts — event sources (chrome, native input, tab close)
  * @coordinates-with components/Browser/BrowserChrome.tsx — renders the AI-control state
  * @module services/browser/lease
@@ -39,24 +44,25 @@
 
 import { create } from "zustand";
 import { browserWarn } from "@/utils/debug";
-
-/** Who holds a tab's automation lease. */
-export type LeaseHolder = "ai" | "human";
-
-/** Outcome of validating a driver-command envelope against the current lease. */
-type LeaseValidation = "ok" | "lease-lost" | "stale";
-
-interface TabLease {
-  holder: LeaseHolder | null;
-  /** Takeover epoch; bumped on reclaim and release — never on navigation. */
-  epoch: number;
-}
+import {
+  detachCanceller,
+  grantToAi,
+  invalidateLease,
+  leaseOf,
+  validateEnvelope,
+  withCanceller,
+  withoutTab,
+  type Cancellers,
+  type LeaseHolder,
+  type Leases,
+  type LeaseValidation,
+} from "./leaseTransitions";
 
 interface LeaseState {
   /** Per-tab lease record, keyed by browser tab id. */
-  leases: Record<string, TabLease>;
+  leases: Leases;
   /** Per-tab canceller for the AI's in-flight driver step, if any. */
-  inflightCancel: Record<string, (() => void) | undefined>;
+  inflightCancel: Cancellers;
 }
 
 interface LeaseActions {
@@ -83,8 +89,6 @@ interface LeaseActions {
   removeTab: (tabId: string) => void;
 }
 
-const EMPTY_LEASE: TabLease = { holder: null, epoch: 0 };
-
 /**
  * Run a canceller. Called only OUTSIDE a `set` updater: a canceller is foreign
  * code (it aborts a driver step), so it may throw or re-enter the store. Running
@@ -106,13 +110,8 @@ export const useBrowserLeaseStore = create<LeaseState & LeaseActions>((set, get)
   /** Detach the tab's in-flight canceller and return it (so it fires at most
    *  once — the state is committed before the callback runs). */
   const detachCancel = (tabId: string): (() => void) | undefined => {
-    const cancel = get().inflightCancel[tabId];
-    if (!cancel) return undefined;
-    set((state) => {
-      const inflightCancel = { ...state.inflightCancel };
-      delete inflightCancel[tabId];
-      return { inflightCancel };
-    });
+    const { cancellers, cancel } = detachCanceller(get().inflightCancel, tabId);
+    if (cancel) set({ inflightCancel: cancellers });
     return cancel;
   };
 
@@ -124,15 +123,7 @@ export const useBrowserLeaseStore = create<LeaseState & LeaseActions>((set, get)
    */
   const invalidate = (tabId: string, holder: LeaseHolder | null): void => {
     const cancel = detachCancel(tabId);
-    set((state) => {
-      const lease = state.leases[tabId] ?? EMPTY_LEASE;
-      return {
-        leases: {
-          ...state.leases,
-          [tabId]: { holder, epoch: lease.epoch + 1 },
-        },
-      };
-    });
+    set((state) => ({ leases: invalidateLease(state.leases, tabId, holder) }));
     runCancel(cancel);
   };
 
@@ -141,11 +132,9 @@ export const useBrowserLeaseStore = create<LeaseState & LeaseActions>((set, get)
     inflightCancel: {},
 
     acquireForAi: (tabId) => {
-      const lease = get().leases[tabId] ?? EMPTY_LEASE;
-      if (lease.holder === "human") return false;
-      set((state) => ({
-        leases: { ...state.leases, [tabId]: { ...lease, holder: "ai" } },
-      }));
+      const leases = grantToAi(get().leases, tabId);
+      if (!leases) return false;
+      set({ leases });
       return true;
     },
 
@@ -155,8 +144,7 @@ export const useBrowserLeaseStore = create<LeaseState & LeaseActions>((set, get)
     },
 
     release: (tabId, holder) => {
-      const lease = get().leases[tabId];
-      if (!lease || lease.holder !== holder) return;
+      if (leaseOf(get().leases, tabId).holder !== holder) return;
       // An authority transition like reclaim: the epoch moves so envelopes
       // from the ended tenure cannot validate after a re-acquire, and the
       // in-flight step is never left running (or a stale canceller left for a
@@ -173,39 +161,26 @@ export const useBrowserLeaseStore = create<LeaseState & LeaseActions>((set, get)
         return;
       }
       const previous = get().inflightCancel[tabId];
-      set((state) => {
-        const next = { ...state.inflightCancel };
-        if (cancel) next[tabId] = cancel;
-        else delete next[tabId];
-        return { inflightCancel: next };
-      });
+      set((state) => ({ inflightCancel: withCanceller(state.inflightCancel, tabId, cancel) }));
       // Replacing a live canceller abandons its step — cancel it, never orphan it.
       // Clearing with `null` means the step completed on its own: nothing to cancel.
       if (cancel && previous && previous !== cancel) runCancel(previous);
     },
 
-    validate: (tabId, holder, epoch) => {
-      const lease = get().leases[tabId];
-      if (!lease || lease.holder !== holder) return "lease-lost";
-      if (lease.epoch !== epoch) return "stale";
-      return "ok";
-    },
+    validate: (tabId, holder, epoch) => validateEnvelope(get().leases, tabId, holder, epoch),
 
-    currentHolder: (tabId) => get().leases[tabId]?.holder ?? null,
+    currentHolder: (tabId) => leaseOf(get().leases, tabId).holder,
 
-    epochOf: (tabId) => get().leases[tabId]?.epoch ?? 0,
+    epochOf: (tabId) => leaseOf(get().leases, tabId).epoch,
 
     removeTab: (tabId) => {
       // The surface is gone: an in-flight step would act on a destroyed webview
       // (or, worse, a reused tab id) — cancel it as part of the teardown.
       const cancel = detachCancel(tabId);
-      set((state) => {
-        const leases = { ...state.leases };
-        const inflightCancel = { ...state.inflightCancel };
-        delete leases[tabId];
-        delete inflightCancel[tabId];
-        return { leases, inflightCancel };
-      });
+      set((state) => ({
+        leases: withoutTab(state.leases, tabId),
+        inflightCancel: withoutTab(state.inflightCancel, tabId),
+      }));
       runCancel(cancel);
     },
   };

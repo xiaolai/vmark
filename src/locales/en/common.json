@@ -176,6 +176,7 @@
   "browser.approval.operation.session": "Save or restore a login",
   "browser.error.title": "This page could not be loaded.",
   "browser.error.retry": "Try again",
+  "browser.dialog.answerFailed": "Couldn't deliver your answer to the page. Try again.",
   "browser.history.heading": "History",
   "browser.history.empty": "Nothing visited yet. Pages you open will appear here.",
   "browser.history.clear": "Clear",

@@ -1,3 +1,8 @@
+// Audit 2026-09-03 round 3, #163 — the page tab is its own role="tab" element and its
+// close control is a SIBLING inside a non-interactive wrapper, never a descendant.
+// A focusable control nested inside a role="tab" broke the APG roving model twice
+// over: the tab's accessible name absorbed the close button, and every inactive
+// page's close button stayed in the normal Tab sequence while its tab did not.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -16,7 +21,6 @@ function reset() {
     activeTabId: {},
     lastActiveBrowserPageId: {},
     untitledCounter: 0,
-    closedTabs: {},
   });
 }
 
@@ -26,6 +30,10 @@ function seedPages() {
   const pages = useTabStore.getState().tabs.main!.filter(isBrowserTab);
   return { a, b, pages };
 }
+
+/** The close control for the page titled `title` — found by NAME, because it is
+ *  no longer inside the tab and must not be. */
+const closeButton = (title: string) => screen.getByRole("button", { name: `Close ${title}` });
 
 beforeEach(() => {
   reset();
@@ -41,6 +49,40 @@ describe("BrowserPageTabs", () => {
     expect(screen.getByRole("tab", { name: /B/ })).toHaveAttribute("aria-selected", "true");
   });
 
+  it("the tab's close control is a sibling, not a descendant", () => {
+    const { pages, b } = seedPages();
+    render(<BrowserPageTabs pages={pages} activePageId={b} windowLabel="main" />);
+    const aTab = screen.getByRole("tab", { name: /A/ });
+    // A div like the status-bar pill, not a <button>: the bespoke-button budget
+    // counts every non-canonical class on a literal <button>.
+    expect(aTab.tagName).toBe("DIV");
+    // No interactive descendant: the tab's accessible name is its own.
+    expect(within(aTab).queryByRole("button")).toBeNull();
+    expect(aTab).toHaveAccessibleName("A");
+    const close = closeButton("A");
+    expect(aTab.contains(close)).toBe(false);
+    // Both live in ONE non-interactive wrapper.
+    expect(close.parentElement).toBe(aTab.parentElement);
+    expect(aTab.parentElement).not.toHaveAttribute("role");
+    expect(aTab.parentElement).not.toHaveAttribute("tabindex");
+  });
+
+  it("roving tabindex: the active tab is the strip's tab stop; inactive tabs are -1", () => {
+    const { pages, b } = seedPages();
+    render(<BrowserPageTabs pages={pages} activePageId={b} windowLabel="main" />);
+    expect(screen.getByRole("tab", { name: /B/ })).toHaveAttribute("tabindex", "0");
+    expect(screen.getByRole("tab", { name: /A/ })).toHaveAttribute("tabindex", "-1");
+  });
+
+  it("only the current page's close button is in the Tab sequence", () => {
+    // The roving model has ONE stop per strip. An inactive page's close button in
+    // the normal Tab order added a stop per page — for pages nobody was looking at.
+    const { pages, b } = seedPages();
+    render(<BrowserPageTabs pages={pages} activePageId={b} windowLabel="main" />);
+    expect(closeButton("B")).toHaveAttribute("tabindex", "0");
+    expect(closeButton("A")).toHaveAttribute("tabindex", "-1");
+  });
+
   it("activates a page on click", () => {
     const { pages, a, b } = seedPages();
     render(<BrowserPageTabs pages={pages} activePageId={b} windowLabel="main" />);
@@ -48,16 +90,25 @@ describe("BrowserPageTabs", () => {
     expect(useTabStore.getState().activeTabId.main).toBe(a);
   });
 
-  it("activates a page on Enter but not when Enter bubbles from the close button", () => {
+  it("activates a page on Enter and on Space", () => {
+    const { pages, a, b } = seedPages();
+    const { rerender } = render(<BrowserPageTabs pages={pages} activePageId={b} windowLabel="main" />);
+    fireEvent.keyDown(screen.getByRole("tab", { name: /A/ }), { key: "Enter" });
+    expect(useTabStore.getState().activeTabId.main).toBe(a);
+
+    rerender(<BrowserPageTabs pages={pages} activePageId={a} windowLabel="main" />);
+    fireEvent.keyDown(screen.getByRole("tab", { name: /B/ }), { key: " " });
+    expect(useTabStore.getState().activeTabId.main).toBe(b);
+  });
+
+  it("Enter on a close button closes that page and does not activate it", async () => {
+    const user = userEvent.setup();
     const { pages, a, b } = seedPages();
     render(<BrowserPageTabs pages={pages} activePageId={b} windowLabel="main" />);
-    const aTab = screen.getByRole("tab", { name: /A/ });
-
-    fireEvent.keyDown(within(aTab).getByRole("button"), { key: "Enter" });
-    expect(useTabStore.getState().activeTabId.main).not.toBe(a);
-
-    fireEvent.keyDown(aTab, { key: "Enter" });
-    expect(useTabStore.getState().activeTabId.main).toBe(a);
+    closeButton("A").focus();
+    await user.keyboard("{Enter}");
+    expect(closeTabWithDirtyCheck).toHaveBeenCalledWith("main", a);
+    expect(useTabStore.getState().activeTabId.main).toBe(b);
   });
 
   it("ignores keys that are neither activation nor navigation", () => {
@@ -70,33 +121,48 @@ describe("BrowserPageTabs", () => {
     expect(a).not.toBe(b);
   });
 
-  it("moves focus with ArrowRight/Home/End (roving tablist)", () => {
+  it("moves focus with ArrowRight/ArrowLeft/Home/End (roving tablist), skipping close buttons", () => {
     const { pages, b } = seedPages();
     render(<BrowserPageTabs pages={pages} activePageId={b} windowLabel="main" />);
     const [aTab, bTab] = screen.getAllByRole("tab");
     aTab.focus();
     fireEvent.keyDown(aTab, { key: "ArrowRight" });
     expect(document.activeElement).toBe(bTab);
+    fireEvent.keyDown(bTab, { key: "ArrowRight" }); // wraps — never lands on a close button
+    expect(document.activeElement).toBe(aTab);
+    fireEvent.keyDown(aTab, { key: "ArrowLeft" });
+    expect(document.activeElement).toBe(bTab);
     fireEvent.keyDown(bTab, { key: "Home" });
     expect(document.activeElement).toBe(aTab);
+    fireEvent.keyDown(aTab, { key: "End" });
+    expect(document.activeElement).toBe(bTab);
   });
 
   it("closes a page via its close button", () => {
     const { pages, a, b } = seedPages();
     render(<BrowserPageTabs pages={pages} activePageId={b} windowLabel="main" />);
-    const aTab = screen.getByRole("tab", { name: /A/ });
-    fireEvent.click(within(aTab).getByRole("button"));
+    fireEvent.click(closeButton("A"));
     expect(closeTabWithDirtyCheck).toHaveBeenCalledWith("main", a);
+    // A click on the close control is not a click on the tab.
+    expect(useTabStore.getState().activeTabId.main).toBe(b);
   });
 
   it("closes a page via keyboard on its close button", async () => {
     const user = userEvent.setup();
     const { pages, a, b } = seedPages();
     render(<BrowserPageTabs pages={pages} activePageId={b} windowLabel="main" />);
-    const closeBtn = within(screen.getByRole("tab", { name: /A/ })).getByRole("button");
-    closeBtn.focus();
+    closeButton("A").focus();
     await user.keyboard("{Enter}");
     expect(closeTabWithDirtyCheck).toHaveBeenCalledWith("main", a);
+  });
+
+  it("a rejected close does not crash the strip", async () => {
+    vi.mocked(closeTabWithDirtyCheck).mockRejectedValueOnce(new Error("dirty check failed"));
+    const { pages, b } = seedPages();
+    render(<BrowserPageTabs pages={pages} activePageId={b} windowLabel="main" />);
+    fireEvent.click(closeButton("A"));
+    await Promise.resolve();
+    expect(screen.getAllByRole("tab")).toHaveLength(2);
   });
 
   it("creates and activates a fresh page from the new-page button", () => {

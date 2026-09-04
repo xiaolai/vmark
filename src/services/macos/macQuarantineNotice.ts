@@ -25,7 +25,8 @@
  *     show a pinned toast explaining what happened. After that, silent.
  *     Persistence via localStorage so the notice doesn't re-appear after a
  *     restart, and isn't tied to settings persistence (which the user might
- *     reset).
+ *     reset). Every read of `localStorage` — the presence check included — sits
+ *     inside a try: the getter itself throws on a sandboxed origin (#185).
  *
  * @coordinates-with src-tauri/src/quarantine.rs — strip_workspace_quarantine_cmd
  * @module services/macos/macQuarantineNotice

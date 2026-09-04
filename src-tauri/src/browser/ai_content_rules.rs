@@ -52,8 +52,12 @@ use sha2::{Digest, Sha256};
 /// a path or query can never pull a later host into the match.
 #[path = "ai_content_rules_cidr.rs"]
 mod cidr;
+#[path = "ai_content_rules_cidr6.rs"]
+mod cidr6;
 
-use super::ai_policy_addr::{BLOCKED_IPV4_RANGES, IPV4_LOOPBACK};
+use super::ai_policy_addr::{
+    BLOCKED_IPV4_RANGES, BLOCKED_IPV6_RANGES, IPV4_LOOPBACK, IPV6_LOOPBACK,
+};
 
 const AUTHORITY: &str = "^[^:/]+://([^/?#@]*@)?";
 
@@ -140,8 +144,6 @@ pub fn url_filters(allow_loopback: bool) -> Vec<String> {
     // 198.18.0.0/15 is a whole high group: `c612` or `c613`, any low group.
     filters.push(ipv6_prefix("::ffff:c61[23]:"));
     filters.push(ipv6_prefix("::c61[23]:"));
-    // `[::]` — unspecified.
-    filters.push(ipv6_prefix("::\\]"));
     // Mapped (`::ffff:a.b.c.d`) and compatible (`::a.b.c.d`) forms of the
     // private IPv4 ranges above, one rule per hex group pattern.
     for hex in V4_HEX_ALWAYS.iter().chain([V4_HEX_HIGH_MAPPED].iter()) {
@@ -150,31 +152,37 @@ pub fn url_filters(allow_loopback: bool) -> Vec<String> {
     for hex in V4_HEX_ALWAYS.iter().chain(V4_HEX_HIGH_COMPATIBLE.iter()) {
         filters.push(ipv6_prefix(&format!("::{hex}:")));
     }
-    // `[::ffff]` — compatible 0.0.255.255, the one 0/8 spelling that ends the
-    // address instead of continuing with a `:`.
-    filters.push(ipv6_prefix("::ffff\\]"));
+    // `[::<group>]` — the compatible form of 0.0.x.y, the one 0/8 spelling that
+    // ENDS the address instead of continuing with a `:`. Every such address is in
+    // 0/8, so all of them block; `::1` is the exception, being loopback, and is
+    // spelled out of the single-digit class so the loopback opt-in still reaches
+    // it (the whole-address `[::1]` filter is derived below when loopback is
+    // blocked). `[::ffff]` used to be the only member of this shape the list
+    // carried — 0.0.255.255 alone, with `[::2]` reachable.
+    filters.push(ipv6_prefix("::[0-9a-f][0-9a-f]+\\]"));
+    filters.push(ipv6_prefix("::[02-9a-f]\\]"));
     // `[::ffff:xxxx]` — compatible 255.255.0.0/16 (inside 240/4). Exactly ONE group
     // after `ffff` and then the bracket: a mapped address always carries a further
     // `:group`, so this cannot swallow `[::ffff:808:808]` the way an unanchored
     // `ffff` in the compatible list would. Found by the policy-parity test.
     filters.push(ipv6_embedded(false, "ffff", "[0-9a-f]+"));
+    // The NATIVE v6 ranges, DERIVED from the navigation policy's table exactly as
+    // the dotted-decimal rules are derived from its IPv4 one (round 3, #9): the
+    // unspecified address, the ULA / link-local / site-local / multicast blocks,
+    // and the documentation, Teredo, benchmarking and ORCHID prefixes all come
+    // from `BLOCKED_IPV6_RANGES`, so a range added to the policy is blocked for
+    // subresources too, with no second list to forget.
+    filters.extend(
+        BLOCKED_IPV6_RANGES
+            .iter()
+            .flat_map(|&(network, prefix)| cidr6::bracket_filters(network, prefix)),
+    );
     filters.extend([
-        // Transition prefixes, wholesale (see the module doc).
+        // Transition prefixes, wholesale (see the module doc). NOT in the table:
+        // the validator judges them by the IPv4 address they embed, and a DFA
+        // cannot range-check that, so the rule list is stricter here on purpose.
         ipv6_prefix("64:ff9b:"),
         ipv6_prefix("2002:"),
-        // fc00::/7 unique-local, fe80::/10 link-local, fec0::/10 site-local.
-        ipv6_prefix("f[cd][0-9a-f][0-9a-f]:"),
-        ipv6_prefix("fe[89ab][0-9a-f]:"),
-        ipv6_prefix("fe[c-f][0-9a-f]:"),
-        // ff00::/8 multicast.
-        ipv6_prefix("ff[0-9a-f][0-9a-f]:"),
-        // 2001:db8::/32 documentation, 2001::/32 Teredo, 2001:2::/48 benchmark,
-        // 2001:10::/28 ORCHID — what the validator refuses, spelled as WebKit does.
-        ipv6_prefix("2001:db8:"),
-        ipv6_prefix("2001::"),
-        ipv6_prefix("2001:0:"),
-        ipv6_prefix("2001:2:"),
-        ipv6_prefix("2001:1[0-9a-f]:"),
     ]);
     // Cloud metadata names and the LAN-facing suffixes (`.local`, `home.arpa`,
     // `.internal`), apex included.
@@ -184,7 +192,7 @@ pub fn url_filters(allow_loopback: bool) -> Vec<String> {
     }));
     if !allow_loopback {
         filters.extend(cidr::dotted_filters(IPV4_LOOPBACK.0, IPV4_LOOPBACK.1));
-        filters.push(ipv6_prefix("::1\\]"));
+        filters.extend(cidr6::bracket_filters(IPV6_LOOPBACK.0, IPV6_LOOPBACK.1));
         filters.push(ipv6_prefix(&format!("::(ffff:)?{V4_HEX_LOOPBACK}:")));
         filters.push(hostname("([^/?#@]*\\.)?localhost"));
     }

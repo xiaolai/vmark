@@ -259,6 +259,31 @@ describe("Tab emulates focus movement (S-07)", () => {
     expect(focusedId()).toBe("b");
   });
 
+  it("a radio group is one stop: the CHECKED radio when one is checked, else the first enabled one", () => {
+    document.body.innerHTML =
+      `<input id="a"><input type="radio" name="g" id="r1"><input type="radio" name="g" id="r2" checked><input type="radio" name="g" id="r3"><input id="z">`;
+    document.getElementById("a")!.focus();
+    run(buildKeyScript("Tab", null, 1));
+    expect(focusedId()).toBe("r2");
+    run(buildKeyScript("Tab", null, 1));
+    expect(focusedId()).toBe("z"); // the other radios are not stops
+    document.body.innerHTML =
+      `<input id="a"><input type="radio" name="g" id="r1" disabled><input type="radio" name="g" id="r2"><input id="z">`;
+    document.getElementById("a")!.focus();
+    run(buildKeyScript("Tab", null, 1));
+    expect(focusedId()).toBe("r2"); // a disabled radio is never the stop
+  });
+
+  it("same-named radios in two forms are two groups, hence two stops", () => {
+    document.body.innerHTML =
+      `<input id="a"><form><input type="radio" name="g" id="f1"></form><form><input type="radio" name="g" id="f2"></form>`;
+    document.getElementById("a")!.focus();
+    run(buildKeyScript("Tab", null, 1));
+    expect(focusedId()).toBe("f1");
+    run(buildKeyScript("Tab", null, 1));
+    expect(focusedId()).toBe("f2");
+  });
+
   it("a radio group is scoped to its tree root: a same-named radio in a shadow root is its own stop (#116)", () => {
     document.body.innerHTML = `<input type="radio" name="g" id="r1"><div id="host"></div><input id="after">`;
     const host = document.getElementById("host")!;

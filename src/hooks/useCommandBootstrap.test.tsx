@@ -53,7 +53,9 @@ vi.mock("@/services/commands/formatCommands", () => ({
   registerFormatCommands: () => registerFormat(),
 }));
 vi.mock("@/services/commands/editorCommandBridge", () => ({ registerEditorCommands: () => registerEditor() }));
-vi.mock("@/utils/debug", () => ({ menuError: (...args: unknown[]) => menuErrorMock(...args) }));
+vi.mock("@/utils/debug", () => ({ menuError: (...args: unknown[]) => menuErrorMock(...args), appError: vi.fn(), browserWarn: vi.fn() }));
+const signalMenuReady = vi.fn();
+vi.mock("@/services/commands/menuCommandsReady", () => ({ signalMenuCommandsMounted: () => signalMenuReady() }));
 
 import { useCommandBootstrap } from "./useCommandBootstrap";
 
@@ -70,6 +72,7 @@ beforeEach(() => {
   registerFormat.mockReset();
   registerEditor.mockClear();
   disposeEditor.mockClear();
+  signalMenuReady.mockReset();
 
   // Default happy-path behaviors — individual tests override as needed.
   registerPandocMock.mockResolvedValue([]);
@@ -154,6 +157,28 @@ describe("useCommandBootstrap", () => {
     await Promise.resolve();
     unmount();
     expect(off).toHaveBeenCalledTimes(1);
+  });
+
+  it("a StrictMode-cancelled first pass never trips the menu-ready barrier; the live pass does, once (round 3, #272)", async () => {
+    let resolveFirst: ((fn: () => void) => void) | null = null;
+    mountMenuCommandsMock.mockImplementationOnce(() => new Promise<() => void>((resolve) => (resolveFirst = resolve)));
+    const { unmount } = renderHook(() => useCommandBootstrap());
+    await Promise.resolve();
+    unmount(); // the cancelled pass
+    expect(resolveFirst).not.toBeNull();
+    resolveFirst!(() => {});
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(signalMenuReady).not.toHaveBeenCalled();
+
+    // The replayed (live) pass mounts and signals exactly once.
+    mountMenuCommandsMock.mockResolvedValueOnce(() => {});
+    renderHook(() => useCommandBootstrap());
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(signalMenuReady).toHaveBeenCalledTimes(1);
   });
 
   it("invokes the unlistener when unmount races mountMenuCommands resolution (audit Round A H4)", async () => {

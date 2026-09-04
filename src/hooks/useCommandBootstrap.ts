@@ -6,13 +6,15 @@
  * dispatcher that routes every `menu:*` event through CommandBus.
  *
  * Order contract:
- *   1. Sync registrations run first (idempotent — each register* is
- *      a no-op on the second call).
- *   2. Async Pandoc-format expansion runs next; the format list is
+ *   1. Sync registrations run first (`registerAllCommands`; idempotent — each
+ *      register* is a no-op on the second call).
+ *   2. The window-lifetime services start (`startRuntimeServices`, one disposer).
+ *   3. Async Pandoc-format expansion runs next; the format list is
  *      not known until pandocExport.ts dynamically loads.
- *   3. The combined binding list is mounted via mountMenuCommands, which
+ *   4. The combined binding list is mounted via mountMenuCommands, which
  *      then signals `menuCommandsReady` — the barrier the window-ready
- *      handshake waits on.
+ *      handshake waits on — only from a setup that is still live: a
+ *      StrictMode-cancelled first pass must never trip it (pinned by test).
  *
  * @module services/commands/useCommandBootstrap
  */
@@ -22,31 +24,11 @@ import type { UnlistenFn } from "@tauri-apps/api/event";
 import { menuError, appError } from "@/utils/debug";
 import { mountMenuCommands, type MenuCommandBinding } from "@/services/commands/menuListener";
 import { MENU_TO_ACTION } from "@/plugins/actions/actionRegistry";
-import { registerExportCommands, registerPandocFormatCommands } from "@/services/commands/exportCommands";
-import { registerMiscCommands } from "@/services/commands/miscCommands";
-import { registerClipboardCommands } from "@/services/commands/clipboardCommands";
-import { registerRecentFilesCommands } from "@/services/commands/recentFilesCommands";
-import { registerRecentWorkspacesCommands } from "@/services/commands/recentWorkspacesCommands";
-import { registerClaimCommands } from "@/services/commands/claimCommands";
-import { registerViewCommands } from "@/services/commands/viewCommands";
-import { registerWorkspaceCommands } from "@/services/commands/workspaceCommands";
-import { registerFormatCommands } from "@/services/commands/formatCommands";
-import { registerBrowserCommands } from "@/services/commands/browserCommands";
-import { registerEditorCommands } from "@/services/commands/editorCommandBridge";
-import { registerTabCommands } from "@/services/commands/tabCommands";
-import { registerFileCommands } from "@/services/commands/fileCommands";
-import { registerGenieCommands } from "@/services/commands/genieCommands";
-import { startGrantSync } from "@/services/browser/grantSync";
-import { startBrowserLeaseWiring } from "@/services/browser/browserLeaseWiring";
-import { startBrowserTabEvents } from "@/services/browser/browserTabEvents";
-import { closeBrowserTabById, startBrowserTabLifecycle } from "@/services/browser/browserTabLifecycle";
-import { startRecorderWiring } from "@/services/browser/recorderWiring";
-import { startCoherenceScanOnChange } from "@/services/coherence/scanOnChange";
-import { startWindowWorkspaceSync } from "@/services/mcpBridge/windowWorkspaceSync";
-import { startBrowserAiPolicySync } from "@/services/browser/browserAiPolicySync";
-import { startWorkflowEnginePolicySync } from "@/services/workflow/workflowEnginePolicySync";
+import { registerPandocFormatCommands } from "@/services/commands/exportCommands";
+import { registerAllCommands } from "@/services/commands/registerAllCommands";
+import { startRuntimeServices } from "@/services/runtimeWiring";
+import { closeBrowserTabById } from "@/services/browser/browserTabLifecycle";
 import { publishDebugHandle } from "@/utils/devDebugHandle";
-import { startBrowserMenuSync } from "@/services/browser/browserMenuSync";
 import { executeCommand } from "@/services/commands/CommandBus";
 import { signalMenuCommandsMounted } from "@/services/commands/menuCommandsReady";
 
@@ -144,22 +126,7 @@ const EDITOR_ACTION_BINDINGS: MenuCommandBinding[] = Object.entries(MENU_TO_ACTI
 
 export function useCommandBootstrap(): void {
   useEffect(() => {
-    registerMiscCommands();
-    registerClipboardCommands();
-    registerExportCommands();
-    registerWorkspaceCommands();
-    registerRecentFilesCommands();
-    registerRecentWorkspacesCommands();
-    registerViewCommands();
-    registerClaimCommands();
-    registerFormatCommands();
-    registerBrowserCommands();
-    registerTabCommands();
-    registerFileCommands();
-    registerGenieCommands();
-    // Lift every editor ActionId into the bus so the palette can find them
-    // (WI-3.4). Owner-based batch registration is HMR-safe (replace-own).
-    const disposeEditorCommands = registerEditorCommands();
+    const disposeEditorCommands = registerAllCommands();
 
     // DEV-only harness seam (WI-4.0). The E2E journeys have no other way to
     // invoke a command: the debug bridge offers only execute_js, a Tauri event
@@ -180,30 +147,10 @@ export function useCommandBootstrap(): void {
     // app's own lifecycle instead of tearing the native view out from under it.
     publishDebugHandle("closeBrowserTab", closeBrowserTabById);
 
-    // Mirror the user's standing browser grants into the Rust driver, which is the
-    // authoritative gate for R4/R5/R7a (WI-2.1). Without this the driver stays
-    // default-deny — safe, but the user's approvals would never take effect.
-    const stopGrantSync = startGrantSync();
-    // Lease event sources (WI-NB5.1): native page input reclaims an AI-held
-    // tab; tab close drops lease state.
-    const stopLeaseWiring = startBrowserLeaseWiring();
-    // Native views stay alive while their tab exists (audit 2026-09-03 L-01): one
-    // window-level consumer keeps every tab's mirror honest, and the removal bus
-    // is what finally destroys a view.
-    const stopBrowserTabEvents = startBrowserTabEvents();
-    const stopBrowserTabLifecycle = startBrowserTabLifecycle();
-    // Recorder event sources (WI-NB7.1): a navigation re-arms the capture shim in
-    // the new document; tab close discards the recording.
-    const stopRecorderWiring = startRecorderWiring();
-    const stopCoherenceScan = startCoherenceScanOnChange();
-    const stopWindowWorkspaceSync = startWindowWorkspaceSync();
-    const stopBrowserAiPolicySync = startBrowserAiPolicySync();
-    // The Rust workflow runner starts fail-closed; without this push it refuses
-    // every command even for a user who has the engine switched on (WI-19).
-    const stopWorkflowEnginePolicySync = startWorkflowEnginePolicySync();
-
-    // Keep the native "New Browser Tab" menu item in step with the setting (WI-S0.5).
-    const stopBrowserMenuSync = startBrowserMenuSync();
+    // The window-lifetime services (grant/policy mirrors, tab events and
+    // lifecycle, recorder, coherence, workspace sync, menu mirror) — one list,
+    // one disposer (services/runtimeWiring.ts).
+    const stopRuntimeServices = startRuntimeServices();
 
     let unlisten: UnlistenFn | null = null;
     let cancelled = false;
@@ -262,16 +209,7 @@ export function useCommandBootstrap(): void {
       cancelled = true;
       if (unlisten) unlisten();
       disposeEditorCommands();
-      stopGrantSync();
-      stopLeaseWiring();
-      stopBrowserTabEvents();
-      stopBrowserTabLifecycle();
-      stopRecorderWiring();
-      stopCoherenceScan();
-      stopWindowWorkspaceSync();
-      stopBrowserAiPolicySync();
-      stopWorkflowEnginePolicySync();
-      stopBrowserMenuSync();
+      stopRuntimeServices();
     };
   }, []);
 }

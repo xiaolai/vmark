@@ -176,6 +176,7 @@
   "browser.approval.operation.session": "Salva o ripristina un accesso",
   "browser.error.title": "Impossibile caricare questa pagina.",
   "browser.error.retry": "Riprova",
+  "browser.dialog.answerFailed": "Impossibile inviare la tua risposta alla pagina. Riprova.",
   "browser.history.heading": "Cronologia",
   "browser.history.empty": "Ancora nessuna visita. Le pagine aperte appariranno qui.",
   "browser.history.clear": "Cancella",

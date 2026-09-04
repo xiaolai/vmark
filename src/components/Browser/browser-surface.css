@@ -99,6 +99,27 @@
   word-break: break-word;
 }
 
+/* An answer that did not reach the page (audit 2026-09-03 round 3, #164). Painted
+   inside the dialog, which stays up: the user reads why, and clicks again. */
+.browser-dialog-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-1);
+  margin: 0;
+  max-width: 576px;
+  text-align: center;
+  font-size: var(--font-size-sm);
+  color: var(--error-color);
+}
+
+/* The driver's own words — mono, like .browser-error-detail: a diagnostic string. */
+.browser-dialog-error-detail {
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  word-break: break-word;
+}
+
 .browser-dialog-actions {
   display: flex;
   gap: var(--spacing-2);

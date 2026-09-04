@@ -19,17 +19,27 @@
  * shipping that under `readOnlyHint: true` would put back exactly the false
  * claim this split exists to remove. It lives on `browser` as `console_clear`.
  *
- * @coordinates-with tools/browser.ts (the mutating half — shares browserArgs/browserResult)
- * @coordinates-with src/hooks/mcpBridge/v2/browserConsole.ts (the app-side console read)
+ * The schema and this registration live here; the per-action handlers are the
+ * table in `browserReadActions.ts`. The `action` enum below stays a LITERAL
+ * array rather than deriving from that table's `BROWSER_READ_ACTIONS`: the
+ * docs-drift gate (`scripts/check-mcp-docs.mjs`) regex-reads the FIRST
+ * `z.enum([...])` that follows an `action` key in every tool file, and a derived
+ * enum blinds it silently (measured: 8 → 0 actions). So does a comment that
+ * spells the pattern out in the gate's own shape — hence this wording. The two
+ * lists are pinned equal, in order, by `browserReadActions.test.ts`.
+ *
+ * @coordinates-with tools/browserReadActions.ts (the action table this registers)
+ * @coordinates-with tools/browser.ts (the mutating half — shares browserArgs/browserDispatch)
+ * @coordinates-with scripts/check-mcp-docs.mjs (reads the `action` enum literal below)
+ * @coordinates-with src/services/mcpBridge/v2/browserConsole.ts (the app-side console read)
  */
 
 import { z } from 'zod';
 import { VMarkMcpServer } from '../server.js';
-import { RECOVERY } from '../utils/toolOutput.js';
 import type { ToolArgs } from './toolArgs.js';
 import { optionalIdSchema, readOptionalId } from './toolArgs.js';
-import { MAX_WAIT_MS, boundedTimeout } from './browserArgs.js';
-import { toErrorResult } from './browserResult.js';
+import { MAX_WAIT_MS } from './browserArgs.js';
+import { runBrowserReadAction } from './browserReadActions.js';
 
 export function registerBrowserReadTool(server: VMarkMcpServer): void {
   server.registerTool(
@@ -120,131 +130,8 @@ export function registerBrowserReadTool(server: VMarkMcpServer): void {
       // the active tab and read the wrong one.
       const tab = readOptionalId(args.tabId, 'tabId');
       if (!tab.ok) return VMarkMcpServer.errorResult(tab.error);
-      const tabId = tab.value;
 
-      try {
-        if (args.action === 'read') {
-          const data = await server.sendBridgeRequest({ type: 'vmark.browser.read', tabId });
-          return VMarkMcpServer.successJsonResult(data, RECOVERY.browserRead);
-        }
-        if (args.action === 'extract') {
-          const data = await server.sendBridgeRequest({
-            type: 'vmark.browser.extract',
-            ...(tabId === undefined ? {} : { tabId }),
-          });
-          return VMarkMcpServer.successJsonResult(data, RECOVERY.browserExtract);
-        }
-        if (args.action === 'workflow_status') {
-          if (typeof args.runId !== 'string' || args.runId === '') {
-            return VMarkMcpServer.errorResult('workflow_status requires a `runId`');
-          }
-          const data = await server.sendBridgeRequest({
-            type: 'vmark.browser.workflow_status',
-            ...(tabId === undefined ? {} : { tabId }),
-            runId: args.runId,
-          });
-          return VMarkMcpServer.successJsonResult(data);
-        }
-        if (args.action === 'query') {
-          const selector = typeof args.selector === 'string' && args.selector.trim() ? args.selector : '';
-          if (!selector) {
-            return VMarkMcpServer.errorResult('query requires a non-empty CSS `selector`');
-          }
-          const data = await server.sendBridgeRequest({
-            type: 'vmark.browser.query',
-            ...(tabId === undefined ? {} : { tabId }),
-            selector,
-            ...(typeof args.fields === 'object' && args.fields !== null ? { fields: args.fields } : {}),
-          });
-          return VMarkMcpServer.successJsonResult(data, RECOVERY.browserQuery);
-        }
-        if (args.action === 'console') {
-          const data = await server.sendBridgeRequest({
-            type: 'vmark.browser.console',
-            ...(tabId === undefined ? {} : { tabId }),
-          });
-          return VMarkMcpServer.successJsonResult(data, RECOVERY.browserConsole);
-        }
-        if (args.action === 'wait') {
-          const ticket = readOptionalId(args.navigationId, 'navigationId');
-          if (!ticket.ok) return VMarkMcpServer.errorResult(ticket.error);
-          const navigationId = ticket.value;
-          const wait = boundedTimeout(args.timeoutMs);
-          if (args.timeoutMs !== undefined && wait === undefined) {
-            return VMarkMcpServer.errorResult(`timeoutMs must be an integer from 1 to ${MAX_WAIT_MS}`);
-          }
-          const data = await server.sendBridgeRequest({
-            type: 'vmark.browser.wait',
-            ...(tabId === undefined ? {} : { tabId }),
-            ...(navigationId === undefined ? {} : { navigationId }),
-            ...(wait === undefined ? {} : { timeoutMs: wait }),
-          });
-          return VMarkMcpServer.successJsonResult(data);
-        }
-        if (args.action === 'wait_for') {
-          const wait = boundedTimeout(args.timeoutMs);
-          if (args.timeoutMs !== undefined && wait === undefined) {
-            return VMarkMcpServer.errorResult(`timeoutMs must be an integer from 1 to ${MAX_WAIT_MS}`);
-          }
-          const ref = typeof args.ref === 'string' && args.ref.trim() ? args.ref : undefined;
-          const role = typeof args.role === 'string' && args.role.trim() ? args.role : undefined;
-          const text = typeof args.text === 'string' && args.text.length > 0 ? args.text : undefined;
-          const urlContains =
-            typeof args.urlContains === 'string' && args.urlContains.length > 0
-              ? args.urlContains
-              : undefined;
-          const modes = [ref, role, text, urlContains].filter((v) => v !== undefined).length;
-          if (modes !== 1) {
-            return VMarkMcpServer.errorResult(
-              'wait_for needs exactly one of: ref, role (+optional name), text, or urlContains',
-            );
-          }
-          const name = typeof args.name === 'string' ? args.name : undefined;
-          if (name !== undefined && role === undefined) {
-            // A name qualifies a role; with any other mode it was silently ignored,
-            // so the caller waited for something other than what they asked for.
-            return VMarkMcpServer.errorResult('wait_for: `name` is only valid together with `role`');
-          }
-          const condition =
-            ref !== undefined
-              ? { ref }
-              : role !== undefined
-                ? { role, ...(name !== undefined ? { name } : {}) }
-                : text !== undefined
-                  ? { text }
-                  : { urlContains };
-          const data = await server.sendBridgeRequest({
-            type: 'vmark.browser.wait_for',
-            ...(tabId === undefined ? {} : { tabId }),
-            ...condition,
-            ...(wait === undefined ? {} : { timeoutMs: wait }),
-          });
-          return VMarkMcpServer.successJsonResult(data);
-        }
-        if (args.action === 'screenshot') {
-          const data = await server.sendBridgeRequest<{ url?: unknown; image?: unknown }>({
-            type: 'vmark.browser.screenshot',
-            ...(tabId === undefined ? {} : { tabId }),
-          });
-          // The bridge returns { url, image } where image is a base64 JPEG. Guard
-          // the shape: a missing image would otherwise become an image content
-          // block with `data: undefined`, which the client renders as broken.
-          if (typeof data?.image !== 'string' || data.image.length === 0) {
-            return VMarkMcpServer.errorResult('screenshot returned no image data');
-          }
-          const url = typeof data.url === 'string' ? data.url : 'the current page';
-          return {
-            success: true,
-            content: [
-              { type: 'text', text: `Screenshot of ${url}` },
-              { type: 'image', data: data.image, mimeType: 'image/jpeg' },
-            ],
-          };
-        }
-        return VMarkMcpServer.errorResult(`unknown action: ${String(args.action)}`);
-      } catch (error) {
-        return toErrorResult(error);
-      }
+      return runBrowserReadAction(server, args, tab.value);
     },
   );
 }

@@ -27,7 +27,7 @@ use crate::browser::origin_guard::canonicalize_origin;
 use crate::browser::refusals::stale_command;
 use crate::browser::session_state::{self, OriginStorage, StorageState};
 use crate::browser::surface::{self, BrowserSurface};
-use crate::command_error::{CommandError, ErrorCode};
+use crate::command_error::CommandError;
 
 #[path = "session_restore_script.rs"]
 mod restore_script;
@@ -194,23 +194,9 @@ fn apply(
     let expected = serde_json::to_string(committed).map_err(|e| surface_failure(&e.to_string()))?;
     let script = restore_script::restore_script(&pairs, &expected);
     let raw = surface::eval(app, tab_id.to_string(), script, generation).map_err(eval_error)?;
-    match restore_script::parse_restore_outcome(&raw) {
-        restore_script::RestoreOutcome::Applied => Ok(()),
-        // The page's origin changed before the write: refuse rather than plant a
-        // credential in a different origin.
-        restore_script::RestoreOutcome::OriginChanged => Err(stale_command(
-            tab_id,
-            "before the session could be restored",
-        )),
-        restore_script::RestoreOutcome::WriteFailed { index } => Err(CommandError::new(
-            ErrorCode::Io,
-            "the page refused a localStorage write (quota or storage policy); the restore was rolled back",
-        )
-        .with_detail(serde_json::json!({ "index": index }))),
-        restore_script::RestoreOutcome::Unreadable => {
-            Err(surface_failure("session restore returned an unreadable result"))
-        }
-    }
+    // Every outcome the page can report — including a rollback that itself failed,
+    // which leaves the page only partly restored — is named there, not here.
+    restore_script::parse_restore_outcome(&raw).into_result(tab_id)
 }
 
 /// Snapshot the tab's session into the keychain under `handle`; return a value-FREE

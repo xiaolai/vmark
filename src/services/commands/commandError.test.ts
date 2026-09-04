@@ -145,6 +145,48 @@ describe("classifyCommandError", () => {
     // retrying or swallowing it.
     expect(classifyCommandError(value)).toBe("fatal");
   });
+
+  describe("indeterminate execution (audit 20260903 round 3, #18)", () => {
+    // The wire shape `eval_outcome::eval_failure(EvalFailure::Timeout)` produces —
+    // `eval_outcome.test.rs` pins `detail.indeterminate === true` on the serialized
+    // value and the token; the code itself comes from the generated fixture.
+    const withDetail = (code: string, detail: Record<string, unknown>) => ({
+      ...(byCode[code] as Record<string, unknown>),
+      detail,
+    });
+    const evalTimeout = withDetail("timeout", { kind: "timeout", mcpCode: "EVAL_TIMEOUT", indeterminate: true });
+
+    it("demotes a retryable class to indeterminate when the effect is unknown", () => {
+      // Nothing cancels an enqueued script: a `timeout` here may still land, and
+      // a blind retry can perform a mutating act twice.
+      expect(classifyCommandError(evalTimeout)).toBe("indeterminate");
+    });
+
+    it("leaves a plain timeout retryable", () => {
+      expect(classifyCommandError(byCode["timeout"])).toBe("retryable");
+      expect(classifyCommandError(withDetail("timeout", { kind: "timeout" }))).toBe("retryable");
+    });
+
+    it.each(["io", "network", "conflict"] as const)("applies to every retryable class (%s)", (code) => {
+      expect(classifyCommandError(withDetail(code, { indeterminate: true }))).toBe("indeterminate");
+    });
+
+    it("never lifts a non-retryable class — the flag only stops blind retries", () => {
+      for (const [code, expected] of table) {
+        if (expected === "retryable") continue;
+        expect(classifyCommandError(withDetail(code, { indeterminate: true })), code).toBe(expected);
+      }
+    });
+
+    it.each([
+      ["a truthy non-boolean", "yes"],
+      ["a number", 1],
+      ["false", false],
+      ["null", null],
+    ])("ignores %s — the flag is exactly `true`", (_label, flag) => {
+      expect(classifyCommandError(withDetail("timeout", { indeterminate: flag }))).toBe("retryable");
+    });
+  });
 });
 
 describe("commandErrorMessage", () => {

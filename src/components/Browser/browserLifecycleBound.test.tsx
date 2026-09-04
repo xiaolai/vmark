@@ -69,7 +69,6 @@ beforeEach(() => {
     activeTabId: {},
     lastActiveBrowserPageId: {},
     untitledCounter: 0,
-    closedTabs: {},
   });
   useBrowserUiStore.setState({ entries: {} });
 });

@@ -169,6 +169,40 @@ describe("workflow_record — start (consent-gated)", () => {
     expect(startRecorderSession).not.toHaveBeenCalled();
     expect(lastRespond().success).toBe(false);
   });
+
+  // Round 3, #65 — the `starting` reservation is atomic with the flow it guards:
+  // taken before the first await, and RELEASED with the failure, so a refused arm
+  // leaves neither a session nor a reservation behind.
+  it("releases the starting reservation when the arm is refused, so the next start runs the flow again", async () => {
+    seedRecordOneShot();
+    invokeMock.mockRejectedValueOnce(new Error("driver refused"));
+    await handleBrowserWorkflowRecord("1", { recordOp: "start", site: "blog" });
+    expect(lastRespond().success).toBe(false);
+    expect(startRecorderSession).not.toHaveBeenCalled();
+    // A fresh start is not refused as already-active: consent is spent, so it is
+    // prompted again — the flow ran, which a leaked reservation would have prevented.
+    await handleBrowserWorkflowRecord("2", { recordOp: "start", site: "blog" });
+    expect(lastRespond()).toMatchObject({ success: false, data: { needsApproval: true, operation: "record" } });
+    // And with consent it proceeds to arm and open the session.
+    useBrowserApprovalStore.getState().resolveApproval("2", "once");
+    await handleBrowserWorkflowRecord("3", { recordOp: "start", site: "blog" });
+    expect(lastRespond()).toMatchObject({ success: true, data: { status: "recording", tabId: "t1" } });
+    expect(startRecorderSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("rolls the arm back when the recorder refuses the session: the shim is disarmed and nothing is left recording", async () => {
+    seedRecordOneShot();
+    startRecorderSession.mockReturnValueOnce({ ok: false, error: "recording-already-active" });
+    await handleBrowserWorkflowRecord("1", { recordOp: "start", site: "blog" });
+    expect(lastRespond()).toMatchObject({ success: false, error: "recording-already-active" });
+    const evals = invokeMock.mock.calls
+      .filter((c) => c[0] === "browser_eval")
+      .map((c) => c[1] as { script: string; operation: string; generation: number });
+    // The gated arm, then the read-class disarm against the same generation.
+    expect(evals.map((e) => e.operation)).toEqual(["record", "read"]);
+    expect(evals[1]).toMatchObject({ generation: 5 });
+    expect(evals[1].script).toContain("disarmed");
+  });
 });
 
 describe("workflow_record — stop", () => {

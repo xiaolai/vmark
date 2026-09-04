@@ -28,7 +28,12 @@ export const NAME_CAP = 200;
 /** Unicode FORMAT characters a page can hide in a name: zero-width space/joiners
  *  and marks, bidi embeddings/overrides/pop, word joiner and invisible operators,
  *  BOM, soft hyphen (S-09). */
-const FORMAT_CHARS = /[\u00AD\u061C\u180E\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF\uFFF9-\uFFFB]/g;
+/** Every Unicode FORMAT character (general category Cf) — bidi controls and
+ *  isolates, zero-width joiners/spaces, soft hyphen, the Arabic/Syriac/Mongolian
+ *  marks (U+0600–0605, U+06DD, U+070F, U+0890–0891, U+08E2, U+180E), interlinear
+ *  annotation marks and the deprecated tags block. A property escape, so no hand
+ *  list can lag the standard; both sides use it (WebKit ≥ 11.1 supports `\p{}`). */
+const FORMAT_CHARS = /\p{Cf}/gu;
 
 /** Raw text gathered before normalization stops: many times the name cap, so a
  *  whitespace-heavy name still fills it, but a hostile page's megabyte of text
@@ -62,7 +67,10 @@ function contentText(el: Element, all: boolean): string {
   const take = (text: string): void => {
     const room = CONTENT_BUDGET - out.length;
     if (room <= 0) return;
-    const collapsed = text.replace(/\s+/g, " ");
+    // Format characters are dropped BEFORE budgeting (they are dropped by
+    // `normalize` anyway): 3,200 zero-width or bidi controls used to spend the
+    // budget and suppress the visible text after them.
+    const collapsed = text.replace(FORMAT_CHARS, "").replace(/\s+/g, " ");
     const piece = collapsed.length > room ? collapsed.slice(0, room) : collapsed;
     out += out.endsWith(" ") && piece.startsWith(" ") ? piece.slice(1) : piece;
   };

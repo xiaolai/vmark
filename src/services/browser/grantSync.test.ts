@@ -5,7 +5,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 const invoke = vi.fn();
 vi.mock("@tauri-apps/api/core", () => ({ invoke: (...a: unknown[]) => invoke(...a) }));
 
-import { startGrantSync } from "./grantSync";
+import { startGrantSync, revokeOneShot } from "./grantSync";
 import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
 
 /** Drain the microtask queue so a serialized push settles before we assert. */
@@ -407,5 +407,23 @@ describe("one mint per approval (audit 2026-09-03 A-04)", () => {
     const shot = { tabId: "tab-9", generation: 1, originPattern: "https://a.com", operation: "click" as const };
     expect(await mintOneShotConfirmed(shot)).toBe(true);
     expect(invoke.mock.calls.filter((c) => c[0] === "browser_add_one_shot")).toHaveLength(1);
+  });
+});
+
+describe("revokeOneShot (round 3, #124)", () => {
+  it("withdraws the driver's copy by the mint's own identity, target included", async () => {
+    await revokeOneShot({ tabId: "t1", generation: 3, originPattern: "https://a.com", operation: "click", target: { role: "button", name: "Go" } });
+    expect(invoke).toHaveBeenCalledWith("browser_revoke_one_shot", {
+      tabId: "t1",
+      generation: 3,
+      originPattern: "https://a.com",
+      operation: "click",
+      target: { role: "button", name: "Go" },
+    });
+  });
+  it("a target-less one-shot sends target: null, and a failed revoke does not throw", async () => {
+    invoke.mockRejectedValueOnce(new Error("gone"));
+    await expect(revokeOneShot({ tabId: "t1", generation: 3, originPattern: "https://a.com", operation: "read" })).resolves.toBeUndefined();
+    expect(invoke).toHaveBeenLastCalledWith("browser_revoke_one_shot", expect.objectContaining({ target: null }));
   });
 });

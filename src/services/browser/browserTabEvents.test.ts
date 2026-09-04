@@ -160,3 +160,96 @@ describe("dialog and popup", () => {
     });
   });
 });
+
+// Audit 2026-09-03 round 3 (#87): a failure is judged against THIS service's own
+// record of committed navigations — never against the broker's `latestNavigationId`,
+// which the same failure event rewrites, so the verdict depended on which listener
+// the runtime called first. See browserTabEvents.ordering.test.ts for both orders
+// through the real event hub.
+describe("failed", () => {
+  it("shows a failure for the current navigation", () => {
+    const tabId = seed();
+    h().onNavigated?.(tabId, "https://next.example/a", 1, false, "nav-1");
+    h().onFailed?.(tabId, "offline", "nav-1");
+    expect(useBrowserUiStore.getState().entries[tabId]).toMatchObject({ error: "offline", loading: false });
+  });
+
+  it("ignores a failure for a navigation the tab has since superseded", () => {
+    const tabId = seed();
+    h().onNavigated?.(tabId, "https://first.example/", 1, false, "nav-1");
+    h().onNavigated?.(tabId, "https://second.example/", 2, false, "nav-2");
+    h().onLoaded?.(tabId, "https://second.example/", "Second", 2, "nav-2");
+
+    h().onFailed?.(tabId, "cancelled", "nav-1");
+
+    expect(useBrowserUiStore.getState().entries[tabId]).toMatchObject({
+      error: null,
+      loading: false,
+      urlInput: "https://second.example/",
+    });
+    // The current navigation's failure is still reported.
+    h().onFailed?.(tabId, "boom", "nav-2");
+    expect(useBrowserUiStore.getState().entries[tabId]?.error).toBe("boom");
+  });
+
+  // DNS, TLS, a refused connection: the load never commits, so its id never appears
+  // in a `navigated` — it is the common real failure, and it must show.
+  it("shows a failure whose navigation never committed (a provisional failure)", () => {
+    const tabId = seed();
+    h().onNavigated?.(tabId, "https://first.example/", 1, false, "nav-1");
+    h().onFailed?.(tabId, "could not resolve host", "nav-provisional");
+    expect(useBrowserUiStore.getState().entries[tabId]?.error).toBe("could not resolve host");
+  });
+
+  it("shows a failure that carries no ticket (an older driver)", () => {
+    const tabId = seed();
+    h().onNavigated?.(tabId, "https://first.example/", 1, false, "nav-1");
+    h().onFailed?.(tabId, "legacy failure");
+    expect(useBrowserUiStore.getState().entries[tabId]?.error).toBe("legacy failure");
+  });
+
+  it("a redirect chain re-committing under one ticket does not supersede that ticket", () => {
+    const tabId = seed();
+    h().onNavigated?.(tabId, "https://short.example/x", 1, false, "nav-1");
+    h().onNavigated?.(tabId, "https://long.example/target", 2, true, "nav-1");
+    h().onFailed?.(tabId, "reset by peer", "nav-1");
+    expect(useBrowserUiStore.getState().entries[tabId]?.error).toBe("reset by peer");
+  });
+});
+
+// Audit 2026-09-03 round 3 (#154): every page-state write is STAMPED with the event's
+// generation, so the store itself — not only this handler — can refuse a late one.
+describe("generation stamps", () => {
+  it("stamps the entry with the committed generation on navigated, loaded and history", () => {
+    const tabId = seed();
+    expect(useBrowserUiStore.getState().entries[tabId]?.generation).toBe(0);
+    h().onNavigated?.(tabId, "https://next.example/a", 3, false);
+    expect(useBrowserUiStore.getState().entries[tabId]?.generation).toBe(3);
+    h().onLoaded?.(tabId, "https://next.example/a", "Next", 4);
+    expect(useBrowserUiStore.getState().entries[tabId]?.generation).toBe(4);
+    h().onHistoryChanged?.(tabId, true, false, 5);
+    expect(useBrowserUiStore.getState().entries[tabId]).toMatchObject({ generation: 5, canGoBack: true });
+  });
+
+  it("a stale loaded event cannot rewrite the omnibox or stop the spinner of the current page", () => {
+    const tabId = seed();
+    h().onNavigated?.(tabId, "https://second.example/", 2, false);
+    h().onLoaded?.(tabId, "https://first.example/", "First", 1);
+    expect(useBrowserUiStore.getState().entries[tabId]).toMatchObject({
+      urlInput: "https://second.example/",
+      loading: true,
+      generation: 2,
+    });
+    expect(browserTab(tabId).title).not.toBe("First");
+  });
+
+  it("an unstamped user edit still applies after a stamped event", () => {
+    const tabId = seed();
+    h().onNavigated?.(tabId, "https://second.example/", 2, false);
+    useBrowserUiStore.getState().setUrlInput(tabId, "https://typing.exa");
+    expect(useBrowserUiStore.getState().entries[tabId]).toMatchObject({
+      urlInput: "https://typing.exa",
+      generation: 2,
+    });
+  });
+});

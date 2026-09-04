@@ -234,6 +234,141 @@ fn public_hostnames_that_merely_contain_the_suffixes_are_still_allowed() {
     }
 }
 
+// Audit 20260903 round 3, #9 — the v6 side is a table too. Every range refuses its
+// edges through the one public entry point, and the neighbours just outside are
+// judged by the tables alone (or, for an embedded-IPv4 spelling, by the v4 table).
+#[test]
+fn every_blocked_ipv6_range_refuses_its_edges_and_the_tables_alone_judge_the_rest() {
+    use crate::browser::ai_policy_addr::{blocked_ipv6, BLOCKED_IPV6_RANGES};
+    use std::net::Ipv6Addr;
+    for &(network, prefix) in BLOCKED_IPV6_RANGES {
+        let first = u128::from(network);
+        // The host mask, `checked_shr` because a /128 shifts by the full width
+        // (`u128::MAX >> 128` overflows rather than yielding 0).
+        let last = first | u128::MAX.checked_shr(u32::from(prefix)).unwrap_or(0);
+        for value in [first, last] {
+            let url = format!("http://[{}]/", Ipv6Addr::from(value));
+            assert_eq!(
+                validate_ai_navigation_url(&url, false),
+                Err(AiUrlError::Blocked),
+                "{url}"
+            );
+            assert!(
+                blocked_ipv6(Ipv6Addr::from(value), true),
+                "{url} is not loopback"
+            );
+        }
+    }
+    // Ordinary public addresses are in no range.
+    for public in [
+        "2001:4860:4860::8888",
+        "2600::",
+        "2a00:1450:4001::1",
+        "2001:db9::1",
+        "2001:20::1",
+        "fe00::1",
+        "fb00::1",
+    ] {
+        let address: Ipv6Addr = public.parse().unwrap();
+        assert!(!blocked_ipv6(address, false), "{public}");
+        assert!(validate_ai_navigation_url(&format!("http://[{public}]/"), false).is_ok());
+    }
+    // Loopback is gated by the toggle, never by the table.
+    assert!(blocked_ipv6(Ipv6Addr::LOCALHOST, false));
+    assert!(!blocked_ipv6(Ipv6Addr::LOCALHOST, true));
+}
+
+// Audit 20260903 round 3, #21 — the pure half of the same-document decision, the
+// KVO observer's question with the registry facts passed in.
+#[test]
+fn a_same_document_navigation_on_a_human_tab_needs_only_the_feature_on() {
+    let on = AiBrowserPolicy {
+        enabled: true,
+        epoch: 9,
+        ..AiBrowserPolicy::default()
+    };
+    // A human tab is not posture-bound and not destination-policed.
+    assert!(same_document_allowed(
+        AutomationMode::Human,
+        &on,
+        0,
+        false,
+        "http://10.0.0.1/x"
+    ));
+    assert!(!same_document_allowed(
+        AutomationMode::Human,
+        &AiBrowserPolicy::default(),
+        0,
+        false,
+        "https://example.com/"
+    ));
+}
+
+#[test]
+fn a_same_document_navigation_on_an_ai_tab_needs_the_current_epoch_and_a_policy_pass() {
+    let on = AiBrowserPolicy {
+        enabled: true,
+        epoch: 2,
+        ..AiBrowserPolicy::default()
+    };
+    let sandbox = AutomationMode::AiSandbox;
+    assert!(same_document_allowed(
+        sandbox,
+        &on,
+        2,
+        false,
+        "https://example.com/app#route"
+    ));
+    assert!(
+        !same_document_allowed(sandbox, &on, 1, false, "https://example.com/app#route"),
+        "bound to an older posture"
+    );
+    assert!(
+        !same_document_allowed(sandbox, &on, 2, false, "http://169.254.169.254/latest"),
+        "a blocked destination"
+    );
+    let off = AiBrowserPolicy {
+        enabled: false,
+        ..on
+    };
+    assert!(!same_document_allowed(
+        sandbox,
+        &off,
+        2,
+        false,
+        "https://example.com/"
+    ));
+}
+
+#[test]
+fn a_same_document_navigation_on_a_shared_tab_needs_the_approved_origin_too() {
+    let on = AiBrowserPolicy {
+        enabled: true,
+        session: AiSessionMode::Shared,
+        ..AiBrowserPolicy::default()
+    };
+    let shared = AutomationMode::AiShared;
+    assert!(same_document_allowed(
+        shared,
+        &on,
+        0,
+        true,
+        "https://example.com/x"
+    ));
+    assert!(
+        !same_document_allowed(shared, &on, 0, false, "https://example.com/x"),
+        "an origin the navigation was not approved for"
+    );
+    assert!(
+        !same_document_allowed(shared, &on, 0, true, "http://[fe80::1]/"),
+        "approval does not override the destination policy"
+    );
+    assert!(
+        !same_document_allowed(shared, &on, 1, true, "https://example.com/x"),
+        "an older posture epoch"
+    );
+}
+
 // Audit 20260903 P-01 — a subframe on an AI-owned tab meets the same destination
 // policy as the main frame; a human tab keeps today's behaviour.
 #[test]

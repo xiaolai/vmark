@@ -4,9 +4,9 @@
 //! human browser may visit local development services; AI navigation must reject
 //! private and special-use destinations before WebKit receives a request.
 
-use std::net::{IpAddr, Ipv6Addr};
+use std::net::IpAddr;
 
-use super::ai_policy_addr::{blocked_ipv4, embedded_ipv4, in_ipv6_range, parse_legacy_ipv4};
+use super::ai_policy_addr::{blocked_ipv4, blocked_ipv6, parse_legacy_ipv4};
 
 use url::Url;
 
@@ -150,6 +150,33 @@ pub fn subframe_load_allowed(mode: AutomationMode, policy: &AiBrowserPolicy, url
     validate_ai_navigation_url(url, policy.allow_loopback).is_ok()
 }
 
+/// May a SAME-DOCUMENT navigation to `url` stand on a tab of `mode` bound to
+/// `tab_epoch` (audit 20260903 round 3, #21)? The pure half of the KVO observer's
+/// decision: the browser must be on; an AI tab must be bound to the current
+/// posture epoch and its destination must pass the navigation policy; a shared tab
+/// must also be inside the origin its current navigation was approved for
+/// (`shared_approved`, read from the registry). A human tab needs only the
+/// feature to be on.
+pub fn same_document_allowed(
+    mode: AutomationMode,
+    policy: &AiBrowserPolicy,
+    tab_epoch: u64,
+    shared_approved: bool,
+    url: &str,
+) -> bool {
+    if !policy.enabled {
+        return false;
+    }
+    let ai_destination_ok = || {
+        tab_epoch == policy.epoch && validate_ai_navigation_url(url, policy.allow_loopback).is_ok()
+    };
+    match mode {
+        AutomationMode::Human => true,
+        AutomationMode::AiSandbox => ai_destination_ok(),
+        AutomationMode::AiShared => ai_destination_ok() && shared_approved,
+    }
+}
+
 fn blocked_hostname(host: &str, allow_loopback: bool) -> bool {
     (matches!(host, "localhost") || host.ends_with(".localhost")) && !allow_loopback
         || matches!(host, "metadata" | "instance-data")
@@ -186,25 +213,14 @@ fn lan_facing_suffix(host: &str) -> bool {
     })
 }
 
+/// Both address families are TABLE-driven (`ai_policy_addr.rs`): `BLOCKED_IPV4_RANGES`
+/// and `BLOCKED_IPV6_RANGES` are the declarative source, and the WebKit content rule
+/// list is derived from the same two tables and parity-tested against them, so a
+/// range can no longer be blocked for navigation and reachable as a subresource.
 fn blocked_ip(address: IpAddr, allow_loopback: bool) -> bool {
     match address {
         IpAddr::V4(v4) => blocked_ipv4(v4, allow_loopback),
-        IpAddr::V6(v6) => {
-            if let Some(embedded) = embedded_ipv4(v6) {
-                return blocked_ipv4(embedded, allow_loopback);
-            }
-            v6.is_unspecified()
-                || v6.is_loopback() && !allow_loopback
-                || v6.is_multicast()
-                || in_ipv6_range(v6, Ipv6Addr::new(0xfc00, 0, 0, 0, 0, 0, 0, 0), 7)
-                || in_ipv6_range(v6, Ipv6Addr::new(0xfe80, 0, 0, 0, 0, 0, 0, 0), 10)
-                // Deprecated site-local — still routable on legacy LANs.
-                || in_ipv6_range(v6, Ipv6Addr::new(0xfec0, 0, 0, 0, 0, 0, 0, 0), 10)
-                || in_ipv6_range(v6, Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 0), 32)
-                || in_ipv6_range(v6, Ipv6Addr::new(0x2001, 0, 0, 0, 0, 0, 0, 0), 32)
-                || in_ipv6_range(v6, Ipv6Addr::new(0x2001, 2, 0, 0, 0, 0, 0, 0), 48)
-                || in_ipv6_range(v6, Ipv6Addr::new(0x2001, 0x10, 0, 0, 0, 0, 0, 0), 28)
-        }
+        IpAddr::V6(v6) => blocked_ipv6(v6, allow_loopback),
     }
 }
 

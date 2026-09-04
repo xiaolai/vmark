@@ -22,6 +22,7 @@
  * @coordinates-with services/workflow/recorderSession.ts — the host-owned session
  * @coordinates-with lib/browser/agent/recorderShim.ts — the arm/drain scripts
  * @coordinates-with src-tauri browser/authorize.rs — consumes the `record` one-shot
+ * @coordinates-with services/mcpBridge/v2/browserApprovalFlow.ts — the shared approval machine
  * @module services/mcpBridge/v2/browserRecord
  */
 
@@ -29,16 +30,13 @@ import { invoke } from "@tauri-apps/api/core";
 import { bridgeErrorEnvelope } from "./bridgeError";
 import { respond } from "@/services/mcpBridge/utils";
 import { wrapHandler } from "./wrapHandler";
-import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
-import { originForAgent } from "@/lib/browser/url";
 import { buildArmScript, buildDisarmScript, buildRecorderDrainScript } from "@/lib/browser/agent/recorderShim";
 import { parseDrainedEvents } from "@/lib/browser/workflow/drainedEvents";
 import type { RecorderDeps } from "@/services/workflow/recorderSession";
 import { browserWarn } from "@/utils/debug";
-import { readTabIdArg, resolveBrowserTab, type BrowserTarget } from "./browserHelpers";
-import { browserGate } from "./browserAccess";
-import { grantPatternFor } from "@/stores/browserApprovalStore.helpers";
-import { mintOneShotConfirmed } from "@/services/browser/grantSync";
+import type { BrowserTarget } from "./browserHelpers";
+import { resolveBrowserTarget } from "./browserAccess";
+import { authorizeOperation } from "./browserApprovalFlow";
 
 const RECORD_OP = "record";
 const MAX_SITE = 64;
@@ -79,9 +77,14 @@ function makeDeps(): RecorderDeps {
   };
 }
 
-/** Consent-gate on `record`, then arm and open the session. Mirrors the act path. */
-/** Tabs whose recording start is in progress: the check-then-arm below crosses
- *  awaits, and two concurrent starts used to both pass the active check. */
+/**
+ * Tabs whose recording start is in progress. The start is check-then-arm across
+ * awaits, and two concurrent starts used to both pass the active check; the
+ * reservation is taken BEFORE the first await and released in `finally`, so a
+ * start that fails at any stage — refused consent, a driver that will not arm, a
+ * recorder that will not open the session — leaves neither a session nor a
+ * reservation behind, and the next start runs the whole flow again (round 3, #65).
+ */
 const starting = new Set<string>();
 
 async function startRecording(id: string, tab: BrowserTarget, site: string): Promise<void> {
@@ -106,57 +109,11 @@ async function startRecordingReserved(id: string, tab: BrowserTarget, site: stri
     await respond({ id, success: false, error: "recording-already-active" });
     return;
   }
-  const approvals = useBrowserApprovalStore.getState();
-  const decision = approvals.decide(tab.url, RECORD_OP);
-  if (decision === "denied") {
-    await respond({ id, success: false, error: `operation '${RECORD_OP}' is not permitted` });
-    return;
-  }
-  if (decision === "needs-approval") {
-    const authorized = useBrowserApprovalStore
-      .getState()
-      .consumeOneShot(tab.url, RECORD_OP, undefined, tab.tabId, undefined, tab.generation);
-    if (!authorized) {
-      const queued = useBrowserApprovalStore
-        .getState()
-        .requestApproval(id, tab.url, RECORD_OP, undefined, tab.tabId, tab.generation);
-      if (queued === "overloaded" || queued === "rejected") {
-        await respond({
-          id,
-          success: false,
-          error: "approval queue is full — resolve or deny pending approvals, then retry",
-        });
-        return;
-      }
-      await respond({
-        id,
-        success: false,
-        error: `approval required to record on ${originForAgent(tab.url)}`,
-        data: { needsApproval: true, operation: RECORD_OP, url: originForAgent(tab.url), tabId: tab.tabId },
-      });
-      return;
-    }
-    // One mint path (audit A-04): the mirror's copy is spent above; wait for the
-    // driver to hold its own before arming, or the authoritative `browser_eval`
-    // races the push and refuses a recording the user just approved.
-    const pattern = grantPatternFor(tab.url);
-    const minted =
-      pattern !== null &&
-      (await mintOneShotConfirmed({
-        originPattern: pattern,
-        operation: RECORD_OP,
-        tabId: tab.tabId,
-        generation: tab.generation,
-      }));
-    if (!minted) {
-      await respond({
-        id,
-        success: false,
-        error: "the driver refused the 'record' authorization — the page may have navigated; retry to be prompted again",
-      });
-      return;
-    }
-  }
+  // The shared approval machine: `record` is never grantable, so this prompts per
+  // call, and the driver's mint is awaited before arming — the authoritative
+  // `browser_eval` used to race the push and refuse a recording the user had just
+  // approved (audit A-04).
+  if ((await authorizeOperation(id, tab, { operation: RECORD_OP })) !== "authorized") return;
 
   try {
     await invoke("browser_eval", {
@@ -171,14 +128,21 @@ async function startRecordingReserved(id: string, tab: BrowserTarget, site: stri
     await respond({ id, success: false, ...bridgeErrorEnvelope(error) });
     return;
   }
+  const deps = makeDeps();
   const started = startRecorderSession({
     tabId: tab.tabId,
     site,
     generation: tab.generation,
     startUrl: tab.url,
-    deps: makeDeps(),
+    deps,
   });
   if (!started.ok) {
+    // Roll the arm back: the recorder is the authority on sessions, and an armed
+    // shim with no session draining it would keep capturing the user's actions
+    // into the page buffer for nobody. Best-effort — the refusal is the answer.
+    await deps.disarm(tab.tabId, tab.generation).catch((error: unknown) => {
+      browserWarn("recorder disarm after a refused session failed", { tabId: tab.tabId, error });
+    });
     await respond({ id, success: false, error: started.error });
     return;
   }
@@ -208,20 +172,11 @@ async function stopRecording(id: string, tab: BrowserTarget): Promise<void> {
 /** `vmark.browser.workflow_record` — start or stop a workflow recording. */
 export async function handleBrowserWorkflowRecord(id: string, args: Record<string, unknown>): Promise<void> {
   return wrapHandler(id, async () => {
-    if (!(await browserGate(id))) return;
+    const tab = await resolveBrowserTarget(id, args);
+    if (!tab) return;
     const recordOp = args.recordOp;
     if (recordOp !== "start" && recordOp !== "stop") {
       await respond({ id, success: false, error: "workflow_record requires recordOp 'start' or 'stop'" });
-      return;
-    }
-    const tabIdArg = readTabIdArg(args);
-    if (tabIdArg === null) {
-      await respond({ id, success: false, error: "tabId must be a non-empty string when supplied" });
-      return;
-    }
-    const tab = resolveBrowserTab(tabIdArg);
-    if (!tab) {
-      await respond({ id, success: false, error: "no active browser tab" });
       return;
     }
     if (tab.automationMode === "human") {

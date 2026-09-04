@@ -89,6 +89,23 @@ describe("recorder session lifecycle", () => {
     expect(result!.source).not.toContain("frag");
   });
 
+  it("two concurrent stops finalize once, and a periodic drain during finalization is refused (#188)", async () => {
+    let releaseDrain: (v: RecordedEvent[]) => void = () => {};
+    const drainOnce = vi.fn(() => new Promise<RecordedEvent[]>((r) => (releaseDrain = r)));
+    const d = deps({ drainOnce });
+    startRecorderSession({ tabId: "t1", site: "x", generation: 1, startUrl: START, deps: d });
+    const stopA = stopRecorderSession("t1");
+    const stopB = stopRecorderSession("t1");
+    await vi.waitFor(() => expect(drainOnce).toHaveBeenCalledTimes(1));
+    await drainActiveRecording("t1"); // a late periodic drain: refused, no second drainOnce
+    expect(drainOnce).toHaveBeenCalledTimes(1);
+    releaseDrain([{ type: "click", role: "button", name: "Go" }]);
+    const [a, b] = await Promise.all([stopA, stopB]);
+    expect(a).toBe(b);
+    expect(a!.eventCount).toBe(2); // the entry navigate + the one final drain
+    expect(d.disarm).toHaveBeenCalledTimes(1);
+  });
+
   it("a navigation that arrives while the session is stopping is not recorded or re-armed (#188)", async () => {
     let releaseDrain: (v: RecordedEvent[]) => void = () => {};
     const d = deps({ drainOnce: vi.fn(() => new Promise<RecordedEvent[]>((r) => (releaseDrain = r))) });

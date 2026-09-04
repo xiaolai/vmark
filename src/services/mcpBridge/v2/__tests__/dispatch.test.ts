@@ -4,7 +4,12 @@
 // false) so the top-level handleRequest can answer with "Unknown request".
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { dispatchV2 } from "@/services/mcpBridge/v2/dispatch";
+import {
+  BROWSER_ROUTED_OPERATIONS,
+  ROUTED_OPERATIONS,
+  SUPPORTED_TOOL_PREFIXES,
+  dispatchV2,
+} from "@/services/mcpBridge/v2/dispatch";
 
 vi.mock("@/services/mcpBridge/v2/session", () => ({
   handleSessionGetState: vi.fn(async () => undefined),
@@ -24,6 +29,10 @@ vi.mock("@/services/mcpBridge/v2/workspace", () => ({
   handleWorkspaceClose: vi.fn(async () => undefined),
   handleWorkspaceSwitchTab: vi.fn(async () => undefined),
   handleWorkspaceFocusWindow: vi.fn(async () => undefined),
+}));
+
+vi.mock("@/services/mcpBridge/v2/workspaceOpenFolder", () => ({
+  handleWorkspaceOpenWorkspace: vi.fn(async () => undefined),
 }));
 
 vi.mock("@/services/mcpBridge/v2/workflow", () => ({
@@ -72,6 +81,7 @@ import {
   handleWorkspaceSwitchTab,
   handleWorkspaceFocusWindow,
 } from "@/services/mcpBridge/v2/workspace";
+import { handleWorkspaceOpenWorkspace } from "@/services/mcpBridge/v2/workspaceOpenFolder";
 import {
   handleWorkflowApplyPatch,
   handleWorkflowValidate,
@@ -129,6 +139,13 @@ const ROUTES: Array<{
     type: "vmark.workspace.open",
     handler: handleWorkspaceOpen as unknown as ReturnType<typeof vi.fn>,
     args: { filePath: "/x.md" },
+  },
+  {
+    // Routed since the folder-open tool shipped, but absent from this table until
+    // round 3 (#74): the old completeness proof covered only vmark.browser.*.
+    type: "vmark.workspace.open_workspace",
+    handler: handleWorkspaceOpenWorkspace as unknown as ReturnType<typeof vi.fn>,
+    args: { folderPath: "/w" },
   },
   {
     type: "vmark.workspace.save",
@@ -220,14 +237,32 @@ const ROUTES: Array<{
 ];
 
 describe("dispatchV2 — routing", () => {
-  it("covers every vmark.browser.* case the dispatcher routes (a case wired to the wrong handler is invisible to manifest parity)", async () => {
-    const source = await import("node:fs").then((fs) =>
-      fs.readFileSync(new URL("../dispatch.ts", import.meta.url), "utf8"),
-    );
-    const cases = [...source.matchAll(/case "(vmark\.browser\.[^"]+)":/g)].map((m) => m[1]).sort();
+  it("covers every vmark.browser.* route the dispatcher declares (a route wired to the wrong handler is invisible to manifest parity)", () => {
+    // Read from the exported route table (round 3, #74), not scraped from case labels.
     const tabled = ROUTES.map((r) => r.type).filter((t) => t.startsWith("vmark.browser.")).sort();
-    expect(tabled).toEqual(cases);
+    expect(tabled).toEqual([...BROWSER_ROUTED_OPERATIONS].sort());
   });
+
+  it("covers every route the dispatcher declares, browser or not", () => {
+    expect(ROUTES.map((r) => r.type).sort()).toEqual([...ROUTED_OPERATIONS].sort());
+  });
+
+  it("every routed operation falls under one advertised prefix, and every prefix routes something", () => {
+    const prefixes = SUPPORTED_TOOL_PREFIXES.map((p) => p.slice(0, -1));
+    for (const type of ROUTED_OPERATIONS) {
+      expect(prefixes.some((p) => type.startsWith(p)), type).toBe(true);
+    }
+    for (const prefix of prefixes) {
+      expect(ROUTED_OPERATIONS.some((t) => t.startsWith(prefix)), prefix).toBe(true);
+    }
+  });
+
+  it.each(["constructor", "__proto__", "toString", "hasOwnProperty"])(
+    "does not route the prototype key %j the untrusted client could send",
+    async (type) => {
+      expect(await dispatchV2({ id: "proto", type, args: {} })).toBe(false);
+    },
+  );
 
   it.each(ROUTES)("routes $type to its handler", async (route) => {
     const id = `req-${route.type}`;
@@ -310,6 +345,7 @@ describe("dispatchV2 — routing", () => {
         "vmark.workspace.focus_window",
         "vmark.workspace.new",
         "vmark.workspace.open",
+        "vmark.workspace.open_workspace",
         "vmark.workspace.save",
         "vmark.workspace.save_as",
         "vmark.workspace.switch_tab",

@@ -16,6 +16,11 @@
  *
  * Default-deny holds if this never runs: the driver starts with an empty set.
  *
+ * Grant sends are ordered across sync sessions, not only within one (round 2, #91):
+ * a restarted session's first push is chained behind whatever the previous session
+ * still has in flight, so a revocation can never be overtaken by an older,
+ * more permissive snapshot.
+ *
  * It is also the ONE mint path for single-use approvals (audit 2026-09-03 A-04):
  * the subscription mints each new one-shot and records the promise, and callers
  * await that mint through `mintOneShotConfirmed` instead of minting a second copy.
@@ -34,10 +39,6 @@ import {
 import type { StandingGrant } from "@/lib/browser/approval/grants";
 import { browserWarn } from "@/utils/debug";
 import { makeSerializedPusher, type SerializedPusher } from "./serializedPusher";
-
-/** How many times a failed grant push is retried before giving up loudly. Bounds
- *  a permanently-unreachable driver from spinning while still healing the common
- *  transient failure — the next legitimate change re-pushes the full state anyway. */
 
 /**
  * The grant pusher: the driver must hold exactly the frontend's standing grants.
@@ -166,6 +167,26 @@ export async function mintOneShotConfirmed(shot: OneShotApproval): Promise<boole
     return recorded;
   }
   return mint(shot);
+}
+
+/**
+ * Withdraw a one-shot the driver holds for a run that is gone (round 3, #124): the
+ * counterpart of a mint that confirmed AFTER its run was cancelled. Best effort —
+ * a lapsed one-shot (the tab navigated) is already gone, and a failed revoke is
+ * logged, not thrown: the caller has nothing left to do with it.
+ */
+export async function revokeOneShot(shot: OneShotApproval): Promise<void> {
+  try {
+    await invoke("browser_revoke_one_shot", {
+      tabId: shot.tabId,
+      generation: shot.generation,
+      originPattern: shot.originPattern,
+      operation: shot.operation,
+      target: shot.target ?? null,
+    });
+  } catch (error) {
+    browserWarn("one-shot revoke failed; a stale authorization may remain until navigation", error);
+  }
 }
 
 /** Test-only: forget every recorded mint. */

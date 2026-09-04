@@ -33,7 +33,8 @@ function __vmarkNorm(s) {
   // ISOLATES (U+2066–U+2069) and the Arabic letter mark (U+061C), word joiner and
   // invisible operators, BOM, soft hyphen. The isolates were missing: an isolate
   // pair reorders a name's display exactly like an override does.
-  return s.replace(/[\u00AD\u061C\u180E\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF\uFFF9-\uFFFB]/g, "").replace(/\s+/g, " ").trim();
+  // Every Unicode format character (Cf), the same property escape as ariaName.ts.
+  return s.replace(/\p{Cf}/gu, "").replace(/\s+/g, " ").trim();
 }
 
 /** Accessible-name cap (S-06): the name the snapshot shows AND the name a locator

@@ -176,6 +176,7 @@
   "browser.approval.operation.session": "Guardar o restaurar un inicio de sesión",
   "browser.error.title": "No se pudo cargar esta página.",
   "browser.error.retry": "Reintentar",
+  "browser.dialog.answerFailed": "No se pudo enviar tu respuesta a la página. Inténtalo de nuevo.",
   "browser.history.heading": "Historial",
   "browser.history.empty": "Aún no has visitado nada. Las páginas que abras aparecerán aquí.",
   "browser.history.clear": "Borrar",

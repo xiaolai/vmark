@@ -13,7 +13,7 @@
  *
  * Resume (`resumeRunId`): the named run must exist (`RUN_NOT_FOUND`), be paused
  * (`RESUME_NOT_PAUSED`), belong to the same tab (`RESUME_TAB_MISMATCH`) and share
- * the same NORMALISED source (`RESUME_SOURCE_MISMATCH`) — inputs may differ, the
+ * the same canonical IR — the parsed workflow (`RESUME_SOURCE_MISMATCH`) — inputs may differ, the
  * completed set carries over regardless. A paused run does not count as live, so
  * it never blocks its own resume.
  *

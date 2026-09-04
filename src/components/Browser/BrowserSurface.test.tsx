@@ -75,7 +75,6 @@ function seedBrowserTab(url: string): string {
     tabs: {},
     activeTabId: {},
     untitledCounter: 0,
-    closedTabs: {},
   });
   return useTabStore.getState().createBrowserTab("main", url, "Example");
 }
@@ -386,6 +385,44 @@ describe("BrowserSurface", () => {
     await emitNav("browser://dialog", { tabId: id, kind: "confirm", message: "Sure?", id: 9 });
     await userEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: /cancel/i }));
     expect(invoke).toHaveBeenCalledWith("browser_dialog_respond", { id: 9, accepted: false });
+  });
+
+  // Audit 2026-09-03 round 3, #164 — a rejected browser_dialog_respond used to be a
+  // debug log: the native confirm stayed parked, the dialog stayed up, and nothing told
+  // the user the click had gone nowhere or that clicking again would help.
+  it("a failed answer keeps the dialog and occluder up, shows a retryable error, and a second click sends again", async () => {
+    const id = seedBrowserTab("https://example.com/");
+    render(<BrowserSurface tabId={id} />);
+    await waitFor(() => expect(eventListeners.has("browser://dialog")).toBe(true));
+    await emitNav("browser://dialog", { tabId: id, kind: "confirm", message: "Delete?", id: 7 });
+    const dlg = await screen.findByRole("alertdialog");
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("browser_freeze", { tabId: id }));
+    invoke.mockClear();
+    invoke.mockImplementation((cmd: string) =>
+      cmd === "browser_dialog_respond"
+        ? Promise.reject({ code: "not-found", message: "no such dialog" })
+        : Promise.resolve(),
+    );
+
+    await userEvent.click(within(dlg).getByRole("button", { name: /^ok$/i }));
+    // The failure is visible, inside the dialog, in the driver's own words — not
+    // "[object Object]" for a typed rejection.
+    const alert = await within(dlg).findByRole("alert");
+    expect(alert).toHaveTextContent(/couldn't deliver your answer/i);
+    expect(alert).toHaveTextContent("no such dialog");
+    // Still open and still occluded: nothing was dismissed or thawed.
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+    expect(useBrowserUiStore.getState().entries[id]?.dialog).toMatchObject({ id: 7 });
+    expect(invoke).not.toHaveBeenCalledWith("browser_thaw", expect.anything());
+
+    // The single-submission guard is released on failure: a second click sends again,
+    // and this time success dismisses the dialog and releases the occluder.
+    invoke.mockImplementation(() => Promise.resolve(undefined));
+    await userEvent.click(within(dlg).getByRole("button", { name: /^ok$/i }));
+    expect(invoke.mock.calls.filter((c) => c[0] === "browser_dialog_respond")).toHaveLength(2);
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+    expect(useBrowserUiStore.getState().entries[id]?.dialog).toBeNull();
+    expect(invoke).toHaveBeenCalledWith("browser_thaw", { tabId: id });
   });
 
   it("shows an alert dialog with only an OK button (no respond call)", async () => {
