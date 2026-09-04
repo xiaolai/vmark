@@ -96,7 +96,9 @@ fn every_fail_constant_has_exactly_one_variant_and_vice_versa() {
         env!("CARGO_MANIFEST_DIR"),
         "/src/browser/surface.rs"
     ))
-    .expect("read surface.rs");
+    .expect("read surface.rs")
+    // A CRLF checkout (Windows runners) must scan like an LF one.
+    .replace("\r\n", "\n");
     let start = source
         .find("pub mod fail {")
         .expect("surface.rs declares `pub mod fail`");
