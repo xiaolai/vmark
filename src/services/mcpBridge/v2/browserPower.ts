@@ -39,10 +39,9 @@ import { unwrapExecuteJsResult, wrapExecuteJsScript } from "./browserExecuteJs";
  * (`browserApprovalFlow`) with the EXACT script bound into the one-shot, so an
  * approved payload cannot be swapped on the retry (security review P5, High #1);
  * `extraEnvelope` is folded into its needs-approval envelope. The attachment
- * mirror follows the driver's consume through `invokeAttached` (`browserAccess.ts`):
- * spent on success and on any post-authorization failure, kept on a
- * pre-authorization refusal. A driver rejection propagates to `wrapHandler` as
- * its typed token.
+ * mirror follows the driver through `invokeAttached` (`browserAccess.ts`): spent
+ * on success, reconciled to the driver's own attachment report after a
+ * rejection. A driver rejection propagates to `wrapHandler` as its typed token.
  */
 async function runWriteOp(
   id: string,

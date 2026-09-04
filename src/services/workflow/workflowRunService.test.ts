@@ -46,7 +46,11 @@ const actCalls = () => invoke.mock.calls.filter((c) => c[0] === "browser_eval" &
 const runPrompt = (runId: string) => useBrowserApprovalStore.getState().pending.find((p) => p.runId === runId);
 
 beforeEach(() => {
-  invoke.mockReset().mockResolvedValue(JSON.stringify({ found: true, clicked: true, typed: true }));
+  // One act result per OPERATION — a click script never emits `typed` and a type
+  // script never emits `clicked`; the executor schema-checks the whole result.
+  invoke.mockReset().mockImplementation((_cmd: string, args?: { operation?: string }) =>
+    Promise.resolve(JSON.stringify(args?.operation === "type" ? { found: true, typed: true } : { found: true, clicked: true })),
+  );
   mint.mockReset().mockResolvedValue(true);
   __resetRunRegistry();
   useBrowserApprovalStore.setState({ grants: [], pending: [], oneShots: [], attachments: [], profileOpens: [] });

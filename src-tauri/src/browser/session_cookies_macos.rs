@@ -23,6 +23,7 @@
 //!   - **Freshness**: replay refuses if the tab navigated off the approved host
 //!     before the write. [M2]
 
+use crate::browser::native_failure::NativeSurfaceError;
 use crate::browser::session_state::StoredCookie;
 use block2::RcBlock;
 use objc2::rc::Retained;
@@ -66,17 +67,16 @@ pub(crate) fn cookie_domain_matches(domain: &str, host: &str) -> bool {
 }
 
 /// Snapshot the cookies whose domain covers `committed_host` (NOT the whole store).
-/// Best-effort: a tab whose native view is gone yields `no webview`; a timeout yields
-/// an error, so a failed capture never silently produces an empty cookie set.
+/// Best-effort: a tab whose native view is gone is the typed `NoWebview`; a
+/// timeout is an error, so a failed capture never silently produces an empty
+/// cookie set.
 pub fn capture_cookies(
     app: &AppHandle,
     tab_id: String,
     committed_host: String,
-) -> Result<Vec<StoredCookie>, String> {
+) -> Result<Vec<StoredCookie>, NativeSurfaceError> {
     super::on_main(app, move |_mtm| {
-        let webview = super::WEBVIEWS
-            .with(|m| m.borrow().get(&tab_id).cloned())
-            .ok_or_else(|| format!("no webview: {tab_id}"))?;
+        let webview = super::webview_for(&tab_id)?;
         let store = unsafe { webview.configuration().websiteDataStore().httpCookieStore() };
 
         let out: Rc<RefCell<Option<Vec<StoredCookie>>>> = Rc::new(RefCell::new(None));
@@ -114,7 +114,8 @@ pub fn capture_cookies(
             out.borrow().is_some()
         });
         let captured = out.borrow_mut().take();
-        captured.ok_or_else(|| "cookie capture timed out".to_string())
+        captured
+            .ok_or_else(|| NativeSurfaceError::Unclassified("cookie capture timed out".to_string()))
     })
 }
 
@@ -171,11 +172,9 @@ pub fn apply_cookies(
     committed_host: String,
     committed_origin: String,
     cookies: Vec<StoredCookie>,
-) -> Result<(), String> {
+) -> Result<(), NativeSurfaceError> {
     super::on_main(app, move |_mtm| {
-        let webview = super::WEBVIEWS
-            .with(|m| m.borrow().get(&tab_id).cloned())
-            .ok_or_else(|| format!("no webview: {tab_id}"))?;
+        let webview = super::webview_for(&tab_id)?;
         // [M2] Freshness on the main thread, immediately before the write: refuse if
         // the tab has navigated off the approved ORIGIN (scheme+host+port, not just
         // host — an HTTPS→HTTP or port change must not slip through). A residual
@@ -186,10 +185,10 @@ pub fn apply_cookies(
             .and_then(|s| url::Url::parse(&s.to_string()).ok())
             .map(|u| u.origin().ascii_serialization());
         if current_origin.as_deref() != Some(committed_origin.as_str()) {
-            return Err(
+            return Err(NativeSurfaceError::Unclassified(
                 "stale command: the tab left the approved origin before the cookies could be restored"
-                    .into(),
-            );
+                    .to_string(),
+            ));
         }
         let store = unsafe { webview.configuration().websiteDataStore().httpCookieStore() };
 
@@ -204,7 +203,9 @@ pub fn apply_cookies(
                 continue; // cannot restore securely — skip rather than downgrade [H1]
             }
             let cookie = build_cookie(c).ok_or_else(|| {
-                "a saved on-domain cookie is malformed; restore aborted".to_string()
+                NativeSurfaceError::Unclassified(
+                    "a saved on-domain cookie is malformed; restore aborted".to_string(),
+                )
             })?;
             to_set.push(cookie);
         }
@@ -224,7 +225,9 @@ pub fn apply_cookies(
             done.get() >= expected
         });
         if done.get() < expected {
-            return Err("cookie restore timed out before all cookies were set".into());
+            return Err(NativeSurfaceError::Unclassified(
+                "cookie restore timed out before all cookies were set".to_string(),
+            ));
         }
         Ok(())
     })

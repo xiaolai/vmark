@@ -48,6 +48,7 @@ vi.mock("@/hooks/useBrowserOccluder", async () => {
 import { BrowserApprovalDialog } from "./BrowserApprovalDialog";
 import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
 import { useBrowserUiStore } from "@/stores/browserUiStore";
+import { __setAttachInvoker } from "@/services/browser/humanTabAttach";
 
 const TAB = "tab-1";
 const URL = "https://blog.example.com/wp-admin/post-new.php";
@@ -364,5 +365,61 @@ describe("prompt-swap protection and display hardening (audit 2026-09-03)", () =
       render(<BrowserApprovalDialog />);
       expect(screen.getByRole("alertdialog")).toHaveTextContent(label);
     }
+  });
+});
+
+// Audit 2026-09-03 #153 (round 4): a failed attach is a VISIBLE state. The prompt
+// stays raised, says what happened in a live region, and re-enables its buttons so
+// the user can retry or deny — not a dialog that silently stays up unexplained.
+describe("attach failure is visible and retryable (audit #153)", () => {
+  afterEach(() => __setAttachInvoker(null));
+  const raiseAttach = () => raise("at1", "attach", undefined);
+  const allowOnce = () => screen.getByRole("button", { name: /allow once/i });
+
+  it("keeps the prompt up, announces the failure, and re-enables the buttons", async () => {
+    __setAttachInvoker(() => Promise.reject(new Error("ipc down")));
+    raiseAttach();
+    render(<BrowserApprovalDialog />);
+    settle();
+    await userEvent.click(allowOnce());
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(/couldn't allow the AI to use this tab/i);
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+    for (const name of [/deny/i, /allow once/i, /until navigation/i]) {
+      expect(screen.getByRole("button", { name })).toBeEnabled();
+    }
+    expect(useBrowserApprovalStore.getState().pending).toHaveLength(1);
+  });
+
+  it("a retry clears the announcement while the attach is in flight and disables the buttons again", async () => {
+    __setAttachInvoker(() => Promise.reject(new Error("ipc down")));
+    raiseAttach();
+    render(<BrowserApprovalDialog />);
+    settle();
+    await userEvent.click(allowOnce());
+    await screen.findByRole("alert");
+
+    let release!: () => void;
+    __setAttachInvoker(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+        }),
+    );
+    settle();
+    await userEvent.click(allowOnce());
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(allowOnce()).toBeDisabled();
+    expect(screen.getByRole("button", { name: /deny/i })).toBeDisabled();
+
+    release();
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+  });
+
+  it("announces nothing before an attempt has failed", () => {
+    raiseAttach();
+    render(<BrowserApprovalDialog />);
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 });

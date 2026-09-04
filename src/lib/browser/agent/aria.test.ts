@@ -1,6 +1,6 @@
 // WI-2.2 — agent perception: ARIA role inference, accessible name, snapshot, locators
 import { describe, it, expect } from "vitest";
-import { computeRole, accessibleName, ariaSnapshot, queryByRole, SNAPSHOT_NODE_CAP } from "./aria";
+import { computeRole, accessibleName, ariaSnapshot, queryByRole, SNAPSHOT_NODE_CAP, SNAPSHOT_VISIT_BUDGET } from "./aria";
 
 function el(html: string): HTMLElement {
   const doc = new DOMParser().parseFromString(`<body>${html}</body>`, "text/html");
@@ -342,5 +342,25 @@ describe("composed walk allocation (round 3, #177)", () => {
     expect(nodes.length).toBe(SNAPSHOT_NODE_CAP);
     // Bounded by what was visited — never the declared width.
     expect(reads.length).toBeLessThan(SNAPSHOT_NODE_CAP + 10);
+  });
+
+  it("queryByRole streams the same bounded walk: a billion-child root yields at most SNAPSHOT_VISIT_BUDGET matches after at most budget+1 reads", () => {
+    const reads: number[] = [];
+    const kids = new Proxy(
+      {},
+      {
+        get(_t, key) {
+          if (key === "length") return 1_000_000_000;
+          const i = typeof key === "string" ? Number(key) : NaN;
+          if (!Number.isInteger(i)) return undefined;
+          reads.push(i);
+          if (reads.length > SNAPSHOT_VISIT_BUDGET + 1) throw new Error(`read past the budget: ${reads.length} reads`);
+          return document.createElement("button");
+        },
+      },
+    ) as unknown as HTMLCollection;
+    const root = { children: kids } as unknown as Element;
+    expect(queryByRole(root, "button")).toHaveLength(SNAPSHOT_VISIT_BUDGET);
+    expect(reads.length).toBeLessThanOrEqual(SNAPSHOT_VISIT_BUDGET + 1);
   });
 });

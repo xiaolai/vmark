@@ -245,11 +245,15 @@ mod unsupported_platform {
         // (Constructing an AppHandle needs a running Tauri app, so this asserts the
         // shape of the surface rather than invoking it.)
         fn _assert_signatures() {
-            let _: fn(&tauri::AppHandle, String, String, String) -> Result<(), String> =
+            use crate::browser::native_failure::NativeSurfaceError;
+            let _: fn(&tauri::AppHandle, String, String, String) -> Result<(), NativeSurfaceError> =
                 super::super::create;
-            let _: fn(&tauri::AppHandle, String, String) -> Result<(), String> =
+            // `navigate` and `create_with_mode` are typed too (round 4, #31): their
+            // callers' closures in `ai_transactions.rs` take `NativeSurfaceError`.
+            let _: fn(&tauri::AppHandle, String, String) -> Result<(), NativeSurfaceError> =
                 super::super::navigate;
-            let _: fn(&tauri::AppHandle, String) -> Result<(), String> = super::super::destroy;
+            let _: fn(&tauri::AppHandle, String) -> Result<(), NativeSurfaceError> =
+                super::super::destroy;
             // 4 args: eval gained `expected_generation` in WI-2.1, and a typed
             // error in audit 20260903 E-03. A stale signature here compiles fine
             // on macOS (where this module is cfg'd out) and breaks the
@@ -270,11 +274,11 @@ mod unsupported_platform {
                 crate::browser::registry::AutomationMode,
                 Option<String>,
                 bool,
-            ) -> Result<(), String>;
+            ) -> Result<(), NativeSurfaceError>;
             let _: CreateWithMode = super::super::create_with_mode;
-            let _: fn(&tauri::AppHandle, u64, bool, String) -> Result<(), String> =
+            let _: fn(&tauri::AppHandle, u64, bool, String) -> Result<(), NativeSurfaceError> =
                 super::super::dialog_respond;
-            let _: fn(&tauri::AppHandle, String) -> Result<String, String> =
+            let _: fn(&tauri::AppHandle, String) -> Result<String, NativeSurfaceError> =
                 super::super::screenshot;
         }
     }

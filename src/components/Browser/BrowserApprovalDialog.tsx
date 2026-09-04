@@ -11,7 +11,10 @@
  *
  * An attach approval is an IPC in flight until confirmed; the buttons are disabled
  * while it is (`resolving` in the store), so a second click cannot start a
- * concurrent attach whose completion order would decide the final authority.
+ * concurrent attach whose completion order would decide the final authority. If
+ * the IPC fails the prompt stays raised and SAYS SO (audit 2026-09-03 #153): the
+ * store puts an i18n key on the entry (`attachError`), rendered here as a live
+ * `role="alert"` line, and the buttons re-enable so the user can retry or deny.
  *
  * **It shows the descriptor, not the page.** The authorization is bound to exactly
  * (origin, operation, element role+name) — so that is what the user is asked to
@@ -228,6 +231,14 @@ export function BrowserApprovalDialog(): React.ReactElement | null {
               operation, which offers no such button. */}
           {grantable && !attachment ? ` ${t("browser.approval.sessionNote")}` : ""}
         </p>
+
+        {/* The last attach attempt failed (#153). A live region, so assistive tech
+            hears the retry offer; the buttons below are enabled again by then. */}
+        {request.attachError !== undefined && (
+          <p className="browser-approval-error" role="alert">
+            {t(request.attachError)}
+          </p>
+        )}
 
         <div className="browser-approval-actions">
           <button

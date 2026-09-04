@@ -187,7 +187,7 @@ describe("open", () => {
 
   it("turns a shared destination refusal into a pending navigation approval", async () => {
     useSettingsStore.getState().updateBrowserSetting("aiSession", "shared");
-    mocks.ensureNative.mockRejectedValueOnce("APPROVAL_REQUIRED");
+    mocks.ensureNative.mockRejectedValueOnce(wire.browserApprovalRequired);
 
     await handleBrowserOpen("approval", { url: URL });
 
@@ -282,7 +282,7 @@ describe("navigate", () => {
     for (let i = 0; i < MAX_PENDING_APPROVALS; i++) {
       store.requestApproval(`fill-${i}`, URL, "click", { role: "button", name: `b${i}` } as never, tabId, 1);
     }
-    mocks.ensureNative.mockRejectedValueOnce("APPROVAL_REQUIRED");
+    mocks.ensureNative.mockRejectedValueOnce(wire.browserApprovalRequired);
 
     await handleBrowserNavigate("nav-full", { tabId, url: URL });
 
@@ -293,7 +293,7 @@ describe("navigate", () => {
 
   it("queues approval when Rust rejects the destination", async () => {
     const tabId = seed("ai-shared");
-    mocks.ensureNative.mockRejectedValueOnce("APPROVAL_REQUIRED");
+    mocks.ensureNative.mockRejectedValueOnce(wire.browserApprovalRequired);
 
     await handleBrowserNavigate("nav-approval", { tabId, url: URL });
 
@@ -305,12 +305,12 @@ describe("navigate", () => {
   });
 });
 
-// WI-14 — the same handlers against the TYPED rejection Rust now sends. The
-// legacy-string cases above stay green throughout: both shapes are live until
-// the migration ratchet reaches zero. Rejection values come from the fixture
-// the Rust suite generates, so a code rename fails here rather than silently
-// disabling the approval flow — which is exactly what a substring match on the
-// message would have done.
+// WI-14 — the handlers against the TYPED rejection Rust sends. Rejection values
+// come from the fixture the Rust suite generates, so a code rename fails here
+// rather than silently disabling the approval flow — which is exactly what a
+// substring match on the message would have done. Round 4 (#48) removed the
+// legacy-string fallback outright: every browser command is typed, so a bare
+// string or Error that merely CONTAINS the token is a failure, never a prompt.
 describe("typed CommandError rejections", () => {
   it("queues an approval for code approval-required, not for a lookalike message", async () => {
     const tabId = seed("ai-shared");
@@ -392,6 +392,30 @@ describe("typed CommandError rejections", () => {
 
     expect(lastResponse()).toMatchObject({ error: "APPROVAL_REQUIRED" });
     expect(useBrowserApprovalStore.getState().pending[0]).toMatchObject({ tabId });
+  });
+
+  it("does NOT queue an approval for an UNTYPED rejection that merely contains the token (round 4, #48)", async () => {
+    const tabId = seed("ai-shared");
+    mocks.ensureNative.mockRejectedValueOnce(new Error("APPROVAL_REQUIRED"));
+
+    await handleBrowserNavigate("untyped-native", { tabId, url: URL });
+
+    expect(useBrowserApprovalStore.getState().pending).toEqual([]);
+    const native = lastResponse();
+    expect(native).toMatchObject({ success: false, error: "WINDOW_UNAVAILABLE: APPROVAL_REQUIRED" });
+    expect(native.data).toBeUndefined();
+
+    mocks.invoke.mockImplementation(async (command: string) => {
+      if (command === "browser_ai_navigate") return Promise.reject("APPROVAL_REQUIRED");
+      return undefined;
+    });
+
+    await handleBrowserNavigate("untyped-invoke", { tabId, url: URL });
+
+    expect(useBrowserApprovalStore.getState().pending).toEqual([]);
+    const invoked = lastResponse();
+    expect(invoked).toMatchObject({ success: false, error: "APPROVAL_REQUIRED" });
+    expect(invoked.data).toBeUndefined();
   });
 });
 

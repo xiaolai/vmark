@@ -178,12 +178,12 @@ fn each_outcome_reports_itself_at_the_command_boundary() {
         partial.message()
     );
 
+    // An unreadable script result is a bug in OUR script, not a native surface
+    // failure: `internal`, with no surface classification attached (round 4, #31).
     let unreadable = RestoreOutcome::Unreadable.into_result("t").unwrap_err();
     assert_eq!(unreadable.code(), ErrorCode::Internal);
-    assert_eq!(
-        detail(&unreadable, "kind"),
-        Some(&serde_json::json!("surface-failed"))
-    );
+    assert!(detail(&unreadable, "kind").is_none());
+    assert!(unreadable.message().contains("unreadable"));
 }
 
 #[test]

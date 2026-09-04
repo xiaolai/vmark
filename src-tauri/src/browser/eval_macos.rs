@@ -29,6 +29,7 @@
 use super::view::js_result_to_outcome;
 use super::{driver_loop::pump_until, on_main, webview_for};
 use crate::browser::eval_outcome::{EvalError, EvalFailure};
+use crate::browser::native_failure::NativeSurfaceError;
 use crate::browser::surface::BrowserSurface;
 use objc2::runtime::AnyObject;
 use objc2_foundation::{NSError, NSRunLoop, NSString};
@@ -129,7 +130,9 @@ pub fn eval(
         // thread is precisely what could not detect a navigation that landed since.
         let state = app_for_closure
             .try_state::<BrowserSurface>()
-            .ok_or_else(|| "browser state unavailable".to_string())?;
+            .ok_or_else(|| {
+                NativeSurfaceError::Unclassified("browser state unavailable".to_string())
+            })?;
         // The verify-then-dispatch ordering lives in `authorize::submit_if_fresh`
         // so it is unit-testable; this closure supplies only the native call. When
         // it was inline here, deleting the check left every test green.
@@ -141,8 +144,8 @@ pub fn eval(
         // thread can navigate or destroy the tab in between; the pump then runs
         // unlocked, because a re-entrant WebKit callback takes that same lock.
         //
-        // The hop's own error type is String (a native surface failure); the turn's
-        // verdict is typed, and a refusal is returned AS the CommandError the gate
+        // The hop's own error is a typed `NativeSurfaceError`; the turn's verdict
+        // is typed too, and a refusal is returned AS the CommandError the gate
         // raised — code, STALE_COMMAND token, `tabId` and `when` intact.
         let turn = match crate::browser::authorize::submit_if_fresh(
             &state,

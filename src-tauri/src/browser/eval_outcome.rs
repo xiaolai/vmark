@@ -19,6 +19,10 @@
 //! (`EvalError::Refused`), never flattened to a message string and re-derived from
 //! a prefix, which kept the code and token but lost the `tabId`/`when` details.
 //!
+//! Round 4 (#31): the native surface's own failure crosses the hop typed too
+//! (`EvalError::Surface(NativeSurfaceError)`), so no half of an eval error is a
+//! string a classifier has to re-read.
+//!
 //! @coordinates-with browser/eval_macos.rs — produces these outcomes
 //! @coordinates-with browser/surface_view_macos.rs — classifies the native completion
 //! @coordinates-with browser/commands_auth.rs — `browser_eval` reports them
@@ -26,6 +30,7 @@
 //! @coordinates-with src/services/commands/commandError.ts — reads `detail.indeterminate`
 
 use crate::browser::ai_guards::{surface_failure, with_mcp_code};
+use crate::browser::native_failure::NativeSurfaceError;
 use crate::command_error::{CommandError, ErrorCode};
 use crate::localized_error;
 use serde_json::json;
@@ -73,9 +78,9 @@ impl EvalFailure {
 #[derive(Debug, Clone, PartialEq)]
 pub enum EvalError {
     /// The native surface could not run the script at all — no webview for the
-    /// tab, a main-thread timeout. A `fail::`-tagged string, classified by
-    /// `ai_guards::surface_failure` like every other native failure.
-    Surface(String),
+    /// tab, a main-thread timeout. Classified by `ai_guards::surface_failure` like
+    /// every other native failure.
+    Surface(NativeSurfaceError),
     /// The gate refused the script inside the main-thread turn: the tab's
     /// generation was superseded between authorization and the submit
     /// (`authorize::submit_if_fresh`). The typed refusal — its class, its
@@ -102,7 +107,9 @@ impl EvalError {
     /// itself may fail (the outer `Err`, a native surface failure) or the turn it
     /// ran may have (the inner `Err`: a gate refusal or a script failure); a caller
     /// sees one error type either way.
-    pub fn flatten(native: Result<Result<String, EvalError>, String>) -> Result<String, Self> {
+    pub fn flatten(
+        native: Result<Result<String, EvalError>, NativeSurfaceError>,
+    ) -> Result<String, Self> {
         match native {
             Ok(turn) => turn,
             Err(surface) => Err(Self::Surface(surface)),
@@ -184,7 +191,7 @@ pub(crate) fn eval_failure(failure: EvalFailure) -> CommandError {
 /// should be, and an evaluation failure gets the mapping above.
 pub(crate) fn eval_error(error: EvalError) -> CommandError {
     match error {
-        EvalError::Surface(message) => surface_failure(&message),
+        EvalError::Surface(error) => surface_failure(&error),
         EvalError::Refused(refusal) => refusal,
         EvalError::Failure(failure) => eval_failure(failure),
     }

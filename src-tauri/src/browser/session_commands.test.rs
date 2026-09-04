@@ -92,3 +92,18 @@ fn a_non_canonical_committed_or_saved_origin_fails_closed() {
     // A saved origin that will not canonicalize is refused.
     assert!(ensure_same_origin("https://work.example/", &state_for("not a url")).is_err());
 }
+
+#[test]
+fn a_cross_origin_refusal_reaches_the_command_boundary_as_a_conflict_with_its_token() {
+    let saved = state_for("https://work.example");
+    let message = ensure_same_origin("https://attacker.example/", &saved).unwrap_err();
+    let err = origin_mismatch(message);
+    assert_eq!(err.code(), crate::command_error::ErrorCode::Conflict);
+    assert_eq!(
+        err.detail()
+            .and_then(|d| d.get("mcpCode"))
+            .and_then(|v| v.as_str()),
+        Some("STORAGE_STATE_ORIGIN_MISMATCH")
+    );
+    assert!(err.message().contains("different origin"));
+}

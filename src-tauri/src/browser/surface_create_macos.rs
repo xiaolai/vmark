@@ -3,7 +3,12 @@
 //! Split out of surface_macos.rs (which stays under the file-size limit). Included
 //! via `#[path]` as a CHILD of that module, so `super::` reaches its private
 //! helpers (`on_main`, `WEBVIEWS`/`DELEGATES`, the view/store/lifecycle submodules).
+//!
+//! Failures are typed `NativeSurfaceError` end to end (round 4, #31). The view and
+//! store helpers (`content_view`, `ns_url`, `browser_store::configure`) fail typed.
+//! here spells a `fail::` token.
 
+use crate::browser::native_failure::NativeSurfaceError;
 use crate::browser::registry::AutomationMode;
 use objc2::MainThreadOnly;
 use objc2_core_foundation::CGRect;
@@ -18,9 +23,9 @@ pub fn create(
     tab_id: String,
     window_label: String,
     url: String,
-) -> Result<(), String> {
+) -> Result<(), NativeSurfaceError> {
     // A human tab gets no AI destination rules, so the loopback posture is moot.
-    create_with_mode(
+    create_webview(
         app,
         tab_id,
         window_label,
@@ -41,6 +46,9 @@ pub fn create(
 /// against; an AI-owned webview gets a content rule list compiled for the same
 /// posture (audit 20260903 P-01), so subframes and subresources are held to the
 /// policy the main frame was.
+///
+/// Typed end to end (round 4, #31): `ai_transactions::create_native` takes this
+/// error as is, so `create_webview`'s failure reaches the classifier unrendered.
 pub fn create_with_mode(
     app: &AppHandle,
     tab_id: String,
@@ -49,7 +57,28 @@ pub fn create_with_mode(
     mode: AutomationMode,
     profile: Option<String>,
     allow_loopback: bool,
-) -> Result<(), String> {
+) -> Result<(), NativeSurfaceError> {
+    create_webview(
+        app,
+        tab_id,
+        window_label,
+        url,
+        mode,
+        profile,
+        allow_loopback,
+    )
+}
+
+/// The typed creation both entry points run.
+fn create_webview(
+    app: &AppHandle,
+    tab_id: String,
+    window_label: String,
+    url: String,
+    mode: AutomationMode,
+    profile: Option<String>,
+    allow_loopback: bool,
+) -> Result<(), NativeSurfaceError> {
     let app_handle = app.clone();
     super::on_main(app, move |mtm| {
         // Validate all fallible inputs before registering native objects.
@@ -104,7 +133,7 @@ pub fn create_with_mode(
 
 /// Forget a named profile's on-disk data (WI-P6.5) — the native half of the
 /// management UI's "Remove profile". Main-thread; no-op for an unknown profile.
-pub fn forget_profile(app: &AppHandle, profile: String) -> Result<(), String> {
+pub fn forget_profile(app: &AppHandle, profile: String) -> Result<(), NativeSurfaceError> {
     super::on_main(app, move |mtm| {
         super::browser_store::forget_profile(&profile, mtm)
     })

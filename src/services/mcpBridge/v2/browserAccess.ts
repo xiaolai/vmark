@@ -22,12 +22,18 @@
  * spent only on a resolved invoke, in three of eight handlers; the others never
  * spent it. After any post-authorization failure the frontend believed the tab
  * was still attached, never re-prompted, and the driver refused every later
- * operation with `permission-denied` — a lockout until the tab navigated. The
- * pre-authorization token list below is exactly the set of refusals
- * `authorize.rs` returns before its consume; everything else spends.
+ * operation with `permission-denied` — a lockout until the tab navigated.
+ *
+ * A success is a certain spend and is mirrored directly. A REJECTION is not
+ * classified here at all (round 4, #37): `browser_eval` can fail before the gate
+ * too — a poisoned lock, a script over the size bound, a half-specified target —
+ * and a token denylist read every one of those as "spent" while the driver kept
+ * the attachment. So after a rejection the mirror is reconciled to the driver's
+ * own report (`browserAttachmentMirror`), which fails safe toward one extra
+ * prompt when the driver cannot be asked.
  *
  * @coordinates-with src-tauri/src/browser/authorize.rs — the consume order this mirrors
- * @coordinates-with src-tauri/src/browser/refusals.rs — the pre-authorization tokens
+ * @coordinates-with services/mcpBridge/v2/browserAttachmentMirror — the post-rejection reconcile
  * @coordinates-with services/mcpBridge/v2/browserReadClass — read-class envelope
  * @coordinates-with services/mcpBridge/v2/browserAct — act-class envelope
  * @module services/mcpBridge/v2/browserAccess
@@ -35,7 +41,7 @@
 import { respond } from "@/services/mcpBridge/utils";
 import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
 import { isMacPlatform } from "@/utils/platform";
-import { bridgeErrorToken } from "./bridgeError";
+import { reconcileAttachmentMirror } from "./browserAttachmentMirror";
 import { browserEnabled, readTabIdArg, resolveBrowserTab, type BrowserTarget } from "./browserHelpers";
 
 /** The native surface exists only on macOS (`surface_stub.rs` everywhere else). */
@@ -92,32 +98,11 @@ export async function resolveBrowserTarget(
 }
 
 /**
- * Refusals `authorize_driver_op` returns BEFORE it spends an attachment. A
- * rejection carrying any other token (or none) came from after authorization,
- * where the driver has already spent it.
- */
-const PRE_AUTHORIZATION_TOKENS: ReadonlySet<string> = new Set([
-  "BROWSER_DISABLED",
-  "STALE_COMMAND",
-  "NO_COMMITTED_PAGE",
-  "TAB_NOT_FOUND",
-  "POLICY_STALE",
-  "PROFILE_ORIGIN_CONFINED",
-  "ATTACHMENT_REQUIRED",
-  "NOT_GRANTED",
-]);
-
-/** Did the driver spend the attachment before this rejection? */
-export function attachmentSpentBy(error: unknown): boolean {
-  const token = bridgeErrorToken(error);
-  return token === null || !PRE_AUTHORIZATION_TOKENS.has(token);
-}
-
-/**
  * Run one driver call on `tab` and keep the attachment mirror in step with what
- * the driver did: spend it on success and on every post-authorization failure,
- * leave it on a pre-authorization refusal. A non-human tab needs no attachment
- * and this is then just `run()`.
+ * the driver did: spend it on success, and after a rejection set it to what the
+ * driver reports it still holds (see `browserAttachmentMirror`). The original
+ * rejection is rethrown either way. A non-human tab needs no attachment and this
+ * is then just `run()`.
  */
 export async function invokeAttached<T>(tab: BrowserTarget, run: () => Promise<T>): Promise<T> {
   const approvals = useBrowserApprovalStore.getState();
@@ -129,9 +114,7 @@ export async function invokeAttached<T>(tab: BrowserTarget, run: () => Promise<T
     useBrowserApprovalStore.getState().consumeHumanTabAttachment(tab.tabId, tab.generation);
     return result;
   } catch (error) {
-    if (attachmentSpentBy(error)) {
-      useBrowserApprovalStore.getState().consumeHumanTabAttachment(tab.tabId, tab.generation);
-    }
+    await reconcileAttachmentMirror(tab);
     throw error;
   }
 }

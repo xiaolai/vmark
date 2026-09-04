@@ -158,6 +158,7 @@
   "browser.approval.allowSite": "Autoriser sur ce site",
   "browser.approval.allowTab": "Autoriser jusqu'à la navigation",
   "browser.approval.sessionNote": "Les autorisations de site durent jusqu'à la fermeture de VMark.",
+  "browser.approval.attachFailed": "Impossible d'autoriser l'IA à utiliser cet onglet. Réessayez ou refusez.",
   "browser.grants.heading": "Autorisations de site",
   "browser.grants.empty": "Aucun site n'a encore de permission. Les autorisations approuvées apparaîtront ici.",
   "browser.grants.revoke": "Révoquer",

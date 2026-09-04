@@ -12,11 +12,12 @@
  *  - navigated: omnibox url + spinner, history entry (with the human's intent),
  *    prompts and one-shots lapse (R7a), the tab record's url + generation (the
  *    driver stamps operations with the generation, so a stale one is refused),
- *    and the navigation id is recorded as this tab's current commit.
+ *    and the navigation id is recorded in this tab's order.
  *  - loaded: spinner off, title into history, crash overlay released, tab
  *    record updated with url, generation and title — the page's, or its host
- *    (an older generation is dropped by the store).
- *  - failed: the error overlay text.
+ *    (an older generation is dropped by the store); the id joins the order.
+ *  - failed: the error overlay text — unless the failure names a navigation this
+ *    tab has already moved past.
  *  - crashed: the crash overlay + occluder.
  *  - dialog: the dialog + occluder, AND the tab is brought forward — a `confirm()`
  *    parks the page's JS until someone answers, so a dialog on a background tab
@@ -32,16 +33,20 @@
  * event's generation, so the store itself refuses a late one (round 3, #154)
  * rather than relying on this handler alone.
  *
- * A failure is judged against this service's OWN ledger of committed navigation
- * ids (`CommittedNavigations`, round 3 #87): one naming a navigation this tab
- * committed and then replaced is about a page nobody is looking at, and is
- * dropped. The ledger is fed only by commits, so the verdict cannot depend on
- * the broker — which listens to the same failure and adopts its id as "latest",
- * making the old comparison hinge on listener registration order. An id that
- * never committed is shown: a provisional failure (DNS, TLS, refused) has one.
+ * A failure is judged by the ORDER of the navigation ids this service has itself
+ * seen (`NavigationOrder`, #87 rounds 3–4). The driver mints `nav-<tabId>-<n>` from
+ * one monotonic counter per tab, so a failure whose sequence is below the highest
+ * this tab has shown — from a commit, a finish, or an earlier failure — is about a
+ * page nobody is looking at, and is dropped; a provisional failure (DNS, TLS,
+ * refused) is the highest when it arrives, so it shows, and a late report about
+ * it is below whatever came next. The order is fed by this service's own events
+ * and is a maximum, so the verdict cannot depend on the broker — which listens to
+ * the same failure and adopts its id as "latest" — nor on listener registration
+ * order. An id that carries no order (an older driver's `legacy-<tabId>`, a
+ * malformed one) falls back to being shown.
  *
  * @coordinates-with services/browser/browserNavEvents — the handler adapter over the shared event hub
- * @coordinates-with services/browser/committedNavigations — the per-tab commit ledger
+ * @coordinates-with services/browser/navigationOrder — the per-tab order of navigation ids
  * @coordinates-with components/Browser/BrowserSurface — renders dialog/crash/popup from the store
  * @coordinates-with stores/browserUiStore — the per-tab UI mirror, generation-aware
  * @coordinates-with stores/tabRemovalBus — a closed tab's ledger is dropped
@@ -58,7 +63,7 @@ import { hostLabel } from "@/lib/browser/url";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { activateTabInFocusedPane } from "@/services/navigation/activateTabInFocusedPane";
 import { browserOcclusion, OCCLUDER } from "./browserOcclusion";
-import { CommittedNavigations } from "./committedNavigations";
+import { NavigationOrder } from "./navigationOrder";
 import { takeNavIntent } from "./navIntent";
 
 /** Is `tabId` a browser tab of this window? */
@@ -81,12 +86,12 @@ function current(tabId: string, generation: number | undefined): boolean {
 }
 
 export function startBrowserTabEvents(): () => void {
-  const committed = new CommittedNavigations();
-  const stopForgetting = onTabRemoved((_windowLabel, tabId) => committed.forget(tabId));
+  const order = new NavigationOrder();
+  const stopForgetting = onTabRemoved((_windowLabel, tabId) => order.forget(tabId));
   const stopEvents = subscribeBrowserNavEvents(() => ({
     onNavigated: (tabId, url, generation, redirected, navigationId) => {
       if (!owned(tabId) || !current(tabId, generation)) return;
-      if (navigationId !== undefined) committed.commit(tabId, navigationId);
+      if (navigationId !== undefined) order.observe(tabId, navigationId);
       const windowLabel = getCurrentWindowLabel();
       const ui = useBrowserUiStore.getState();
       ui.ensureEntry(tabId, url, generation);
@@ -112,8 +117,9 @@ export function startBrowserTabEvents(): () => void {
       // Record the generation with the URL: driver operations are stamped with it.
       useTabStore.getState().updateBrowserTab(tabId, { url, generation });
     },
-    onLoaded: (tabId, url, title, generation) => {
+    onLoaded: (tabId, url, title, generation, navigationId) => {
       if (!owned(tabId) || !current(tabId, generation)) return;
+      if (navigationId !== undefined) order.observe(tabId, navigationId);
       const windowLabel = getCurrentWindowLabel();
       const ui = useBrowserUiStore.getState();
       ui.ensureEntry(tabId, url, generation);
@@ -144,12 +150,16 @@ export function startBrowserTabEvents(): () => void {
     onFailed: (tabId, message, navigationId) => {
       // Offline, DNS failure, TLS rejection, a refused connection: the native side knows
       // exactly what went wrong and used to tell nobody (WI-S0.9). A failure that names
-      // a navigation the tab has already superseded is about a page nobody is looking
-      // at — it must not paint an error over the newer page that loaded fine. A failure
-      // carries no generation (a provisional load never committed one), so it is
-      // written unstamped.
+      // a navigation the tab has already moved past is about a page nobody is looking
+      // at — it must not paint an error over the newer page that loaded fine. One that
+      // is the newest thing the tab did is shown AND joins the order, so a later report
+      // about an older navigation cannot replace it. A failure carries no generation (a
+      // provisional load never committed one), so it is written unstamped.
       if (!owned(tabId)) return;
-      if (navigationId !== undefined && committed.isSuperseded(tabId, navigationId)) return;
+      if (navigationId !== undefined) {
+        if (order.isSuperseded(tabId, navigationId)) return;
+        order.observe(tabId, navigationId);
+      }
       useBrowserUiStore.getState().setError(tabId, message);
     },
     onCrashed: (tabId, action) => {

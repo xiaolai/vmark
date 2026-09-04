@@ -13,6 +13,7 @@
 //!
 //! @coordinates-with e2e/lib/browser.mjs — the only consumer
 
+use crate::browser::native_failure::NativeSurfaceError;
 use objc2_app_kit::NSView;
 use objc2_foundation::NSPoint;
 use tauri::AppHandle;
@@ -29,7 +30,10 @@ use tauri::AppHandle;
 ///
 /// This counts the real hierarchy instead, so it sees a view that outlived its
 /// bookkeeping.
-pub fn debug_attached_webviews(app: &AppHandle, window_label: String) -> Result<usize, String> {
+pub fn debug_attached_webviews(
+    app: &AppHandle,
+    window_label: String,
+) -> Result<usize, NativeSurfaceError> {
     let app_for_closure = app.clone();
     super::on_main(app, move |mtm| {
         let content = super::view::content_view(&app_for_closure, &window_label, mtm)?;
@@ -48,7 +52,7 @@ pub fn debug_attached_webviews(app: &AppHandle, window_label: String) -> Result<
 ///
 /// Useful for identifying WHICH tab is which, but do NOT use it as the teardown
 /// oracle — see `debug_attached_webviews` for why the map is blind to a leak.
-pub fn debug_native_tab_ids(app: &AppHandle) -> Result<Vec<String>, String> {
+pub fn debug_native_tab_ids(app: &AppHandle) -> Result<Vec<String>, NativeSurfaceError> {
     super::on_main(app, move |_mtm| {
         Ok(super::WEBVIEWS.with(|m| {
             let mut ids: Vec<String> = m.borrow().keys().cloned().collect();
@@ -86,12 +90,10 @@ pub fn debug_hit_test(
     window_label: String,
     x: f64,
     y: f64,
-) -> Result<(bool, String), String> {
+) -> Result<(bool, String), NativeSurfaceError> {
     let app_for_closure = app.clone();
     super::on_main(app, move |mtm| {
-        let webview = super::WEBVIEWS
-            .with(|m| m.borrow().get(&tab_id).cloned())
-            .ok_or_else(|| format!("no webview: {tab_id}"))?;
+        let webview = super::webview_for(&tab_id)?;
         let content = super::view::content_view(&app_for_closure, &window_label, mtm)?;
 
         // Point is given in the content view's own (flipped-origin) coordinates.

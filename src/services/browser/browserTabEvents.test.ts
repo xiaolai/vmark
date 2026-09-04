@@ -37,6 +37,8 @@ import { startBrowserTabEvents } from "./browserTabEvents";
 
 const WINDOW = "main";
 const START = "https://start.example/";
+/** A navigation id as the driver mints it: `nav-<tabId>-<sequence>` (registry_navigation.rs). */
+const nav = (tabId: string, sequence: number) => `nav-${tabId}-${sequence}`;
 
 /** A browser tab of this window. `createBrowserTab` reuses an existing tab with
  *  the same URL, so two distinct tabs need two distinct start pages. */
@@ -161,26 +163,30 @@ describe("dialog and popup", () => {
   });
 });
 
-// Audit 2026-09-03 round 3 (#87): a failure is judged against THIS service's own
-// record of committed navigations — never against the broker's `latestNavigationId`,
-// which the same failure event rewrites, so the verdict depended on which listener
-// the runtime called first. See browserTabEvents.ordering.test.ts for both orders
-// through the real event hub.
+// Audit 2026-09-03 round 3 (#87), round 4: a failure is judged by the ORDER of the
+// navigation ids this service has itself seen — never against the broker's
+// `latestNavigationId`, which the same failure event rewrites, so the verdict
+// depended on which listener the runtime called first. Ids are `nav-<tabId>-<n>`
+// from one monotonic counter per tab (registry_navigation.rs); a failure below the
+// highest sequence this tab has shown is about a page nobody is looking at. See
+// browserTabEvents.ordering.test.ts for both listener orders through the real hub.
 describe("failed", () => {
+  const error = (tabId: string) => useBrowserUiStore.getState().entries[tabId]?.error;
+
   it("shows a failure for the current navigation", () => {
     const tabId = seed();
-    h().onNavigated?.(tabId, "https://next.example/a", 1, false, "nav-1");
-    h().onFailed?.(tabId, "offline", "nav-1");
+    h().onNavigated?.(tabId, "https://next.example/a", 1, false, nav(tabId, 1));
+    h().onFailed?.(tabId, "offline", nav(tabId, 1));
     expect(useBrowserUiStore.getState().entries[tabId]).toMatchObject({ error: "offline", loading: false });
   });
 
   it("ignores a failure for a navigation the tab has since superseded", () => {
     const tabId = seed();
-    h().onNavigated?.(tabId, "https://first.example/", 1, false, "nav-1");
-    h().onNavigated?.(tabId, "https://second.example/", 2, false, "nav-2");
-    h().onLoaded?.(tabId, "https://second.example/", "Second", 2, "nav-2");
+    h().onNavigated?.(tabId, "https://first.example/", 1, false, nav(tabId, 1));
+    h().onNavigated?.(tabId, "https://second.example/", 2, false, nav(tabId, 2));
+    h().onLoaded?.(tabId, "https://second.example/", "Second", 2, nav(tabId, 2));
 
-    h().onFailed?.(tabId, "cancelled", "nav-1");
+    h().onFailed?.(tabId, "cancelled", nav(tabId, 1));
 
     expect(useBrowserUiStore.getState().entries[tabId]).toMatchObject({
       error: null,
@@ -188,32 +194,98 @@ describe("failed", () => {
       urlInput: "https://second.example/",
     });
     // The current navigation's failure is still reported.
-    h().onFailed?.(tabId, "boom", "nav-2");
-    expect(useBrowserUiStore.getState().entries[tabId]?.error).toBe("boom");
+    h().onFailed?.(tabId, "boom", nav(tabId, 2));
+    expect(error(tabId)).toBe("boom");
   });
 
   // DNS, TLS, a refused connection: the load never commits, so its id never appears
   // in a `navigated` — it is the common real failure, and it must show.
   it("shows a failure whose navigation never committed (a provisional failure)", () => {
     const tabId = seed();
-    h().onNavigated?.(tabId, "https://first.example/", 1, false, "nav-1");
-    h().onFailed?.(tabId, "could not resolve host", "nav-provisional");
-    expect(useBrowserUiStore.getState().entries[tabId]?.error).toBe("could not resolve host");
+    h().onNavigated?.(tabId, "https://first.example/", 1, false, nav(tabId, 1));
+    h().onFailed?.(tabId, "could not resolve host", nav(tabId, 2));
+    expect(error(tabId)).toBe("could not resolve host");
   });
 
   it("shows a failure that carries no ticket (an older driver)", () => {
     const tabId = seed();
-    h().onNavigated?.(tabId, "https://first.example/", 1, false, "nav-1");
+    h().onNavigated?.(tabId, "https://first.example/", 1, false, nav(tabId, 1));
     h().onFailed?.(tabId, "legacy failure");
-    expect(useBrowserUiStore.getState().entries[tabId]?.error).toBe("legacy failure");
+    expect(error(tabId)).toBe("legacy failure");
   });
 
   it("a redirect chain re-committing under one ticket does not supersede that ticket", () => {
     const tabId = seed();
-    h().onNavigated?.(tabId, "https://short.example/x", 1, false, "nav-1");
-    h().onNavigated?.(tabId, "https://long.example/target", 2, true, "nav-1");
-    h().onFailed?.(tabId, "reset by peer", "nav-1");
-    expect(useBrowserUiStore.getState().entries[tabId]?.error).toBe("reset by peer");
+    h().onNavigated?.(tabId, "https://short.example/x", 1, false, nav(tabId, 1));
+    h().onNavigated?.(tabId, "https://long.example/target", 2, true, nav(tabId, 1));
+    h().onFailed?.(tabId, "reset by peer", nav(tabId, 1));
+    expect(error(tabId)).toBe("reset by peer");
+  });
+
+  // Round 4: the round-3 ledger held only COMMITTED ids. A provisional navigation
+  // never commits, so its id was never in the ledger, and a LATE report of its
+  // failure could paint an error over the page that loaded fine after it.
+  it("ignores a late failure from a provisional navigation the tab has since moved past", () => {
+    const tabId = seed();
+    h().onNavigated?.(tabId, "https://first.example/", 1, false, nav(tabId, 1));
+    h().onLoaded?.(tabId, "https://first.example/", "First", 1, nav(tabId, 1));
+    // nav-2 never commits (DNS failed). Shown: it is the newest thing this tab did.
+    h().onFailed?.(tabId, "could not resolve host", nav(tabId, 2));
+    expect(error(tabId)).toBe("could not resolve host");
+    // The user moves on; nav-3 commits and loads, which clears the overlay.
+    h().onNavigated?.(tabId, "https://third.example/", 2, false, nav(tabId, 3));
+    h().onLoaded?.(tabId, "https://third.example/", "Third", 2, nav(tabId, 3));
+    expect(error(tabId)).toBeNull();
+    // A second, late report about nav-2 must not paint over Third.
+    h().onFailed?.(tabId, "cancelled", nav(tabId, 2));
+    expect(useBrowserUiStore.getState().entries[tabId]).toMatchObject({
+      error: null,
+      urlInput: "https://third.example/",
+    });
+  });
+
+  it("a provisional failure is the newest thing shown: an older navigation's late failure cannot replace it", () => {
+    const tabId = seed();
+    h().onNavigated?.(tabId, "https://first.example/", 1, false, nav(tabId, 1));
+    h().onFailed?.(tabId, "could not resolve host", nav(tabId, 2));
+    h().onFailed?.(tabId, "cancelled", nav(tabId, 1));
+    expect(error(tabId)).toBe("could not resolve host");
+  });
+
+  // Round 4: the round-3 ledger was an eight-entry ring, so the ninth navigation
+  // evicted an id whose late failure then looked "unknown" — and showed.
+  it("ignores a late failure from twenty navigations ago", () => {
+    const tabId = seed();
+    for (let n = 1; n <= 21; n++) {
+      h().onNavigated?.(tabId, `https://page${n}.example/`, n, false, nav(tabId, n));
+    }
+    h().onLoaded?.(tabId, "https://page21.example/", "Twenty-one", 21, nav(tabId, 21));
+    h().onFailed?.(tabId, "cancelled", nav(tabId, 1));
+    expect(useBrowserUiStore.getState().entries[tabId]).toMatchObject({
+      error: null,
+      urlInput: "https://page21.example/",
+    });
+    h().onFailed?.(tabId, "boom", nav(tabId, 21));
+    expect(error(tabId)).toBe("boom");
+  });
+
+  // An id that carries no order for this tab falls back to the pre-order rule: show it.
+  it.each([
+    ["an older driver's stand-in", (tabId: string) => `legacy-${tabId}`],
+    ["a malformed ticket", () => "nav-1"],
+    ["another tab's ticket", () => "nav-tab-other-9"],
+  ])("shows a failure whose id carries no order for this tab (%s), and leaves the order alone", (_label, id) => {
+    const tabId = seed();
+    h().onNavigated?.(tabId, "https://first.example/", 1, false, nav(tabId, 1));
+    h().onNavigated?.(tabId, "https://second.example/", 2, false, nav(tabId, 2));
+    h().onFailed?.(tabId, "unordered failure", id(tabId));
+    expect(error(tabId)).toBe("unordered failure");
+    // The order is untouched: nav-1 is still superseded and a newer failure still shows.
+    h().onNavigated?.(tabId, "https://third.example/", 3, false, nav(tabId, 3)); // clears the overlay
+    h().onFailed?.(tabId, "late", nav(tabId, 1));
+    expect(error(tabId)).toBeNull();
+    h().onFailed?.(tabId, "current", nav(tabId, 3));
+    expect(error(tabId)).toBe("current");
   });
 });
 

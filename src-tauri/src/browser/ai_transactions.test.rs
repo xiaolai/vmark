@@ -1,26 +1,36 @@
 //! Audit 20260903 round 3 (#2, #3, #4) — the transactions behind
 //! `browser_ai_create` / `browser_ai_navigate`, each testable against a plain
-//! `BrowserSurface` (no Tauri app).
+//! `BrowserSurface` (no Tauri app). Round 4 (#7 / #8) adds the resolved-address
+//! pre-flight both native calls run, with the resolver injected so no test here
+//! touches the network.
 
 use super::*;
+use crate::browser::ai_guards::blocked_destination;
+use crate::browser::ai_policy_dns::{
+    DestinationRefused, DestinationResolver, PreflightReason, ResolveFailure,
+};
+use crate::browser::ai_transactions_preflight::resolved_destination_refused;
+use crate::browser::native_failure::NativeSurfaceError;
 use crate::browser::profile_open::ProfileOpen;
 use crate::browser::registry::{Lifecycle, MAX_AI_TABS};
 use crate::command_error::ErrorCode;
+use std::cell::Cell;
+use std::net::IpAddr;
 
-fn mcp_code(err: &CommandError) -> String {
+fn detail(err: &CommandError, key: &str) -> String {
     err.detail()
-        .and_then(|d| d.get("mcpCode"))
+        .and_then(|d| d.get(key))
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string()
 }
 
+fn mcp_code(err: &CommandError) -> String {
+    detail(err, "mcpCode")
+}
+
 fn kind(err: &CommandError) -> String {
-    err.detail()
-        .and_then(|d| d.get("kind"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string()
+    detail(err, "kind")
 }
 
 fn request<'a>(window: &'a str, url: &'a str) -> AiTabRequest<'a> {
@@ -355,17 +365,55 @@ fn a_profile_less_creation_consumes_nothing_and_pins_nothing() {
 
 // --------------------------------------------------- create_native / navigate
 
+/// The pre-flight's one outside input, answered with a fixed set — nothing in
+/// this file touches the network.
+struct Resolves(Vec<IpAddr>);
+
+impl DestinationResolver for Resolves {
+    fn resolve(&self, _host: &str) -> Result<Vec<IpAddr>, ResolveFailure> {
+        Ok(self.0.clone())
+    }
+}
+
+fn answers(addrs: &[&str]) -> Resolves {
+    Resolves(addrs.iter().map(|a| a.parse().unwrap()).collect())
+}
+
+/// A public answer: the destination is what its name says it is.
+fn public() -> Resolves {
+    answers(&["93.184.216.34"])
+}
+
+/// A resolver the test asserts is never consulted.
+struct NeverCalled;
+
+impl DestinationResolver for NeverCalled {
+    fn resolve(&self, host: &str) -> Result<Vec<IpAddr>, ResolveFailure> {
+        panic!("the resolver was consulted for {host}");
+    }
+}
+
+/// A tab reserved and ticketed for `url` — the state `create_native` runs from,
+/// in the order the command runs them.
+fn reserved_for(state: &BrowserSurface, url: &str) {
+    reserve_ai_tab(state, "t", &request("main", url)).unwrap();
+    begin_ai_navigation(state, "t", url, AutomationMode::AiSandbox).unwrap();
+}
+
 #[test]
 fn a_failed_native_creation_forgets_the_tab_and_classifies_the_failure() {
     let state = BrowserSurface::default();
-    reserve_ai_tab(&state, "t", &request("main", "https://a.example/")).unwrap();
+    reserved_for(&state, "https://a.example/");
     state
         .crash_trackers
         .lock()
         .unwrap()
         .entry("t".into())
         .or_default();
-    let err = create_native(&state, "t", || Err("WINDOW_GONE: no such window".into())).unwrap_err();
+    let err = create_native_with(&state, "t", &public(), || {
+        Err(NativeSurfaceError::WindowGone("no such window".into()))
+    })
+    .unwrap_err();
     assert_eq!(err.code(), ErrorCode::NotFound);
     assert_eq!(kind(&err), "window-gone");
     assert!(state.registry.lock().unwrap().tab_status("t").is_none());
@@ -378,9 +426,9 @@ fn a_failed_native_creation_forgets_the_tab_and_classifies_the_failure() {
 #[test]
 fn a_successful_creation_leaves_the_reservation_in_place() {
     let state = BrowserSurface::default();
-    reserve_ai_tab(&state, "t", &request("main", "https://a.example/")).unwrap();
+    reserved_for(&state, "https://a.example/");
     let mut ran = false;
-    create_native(&state, "t", || {
+    create_native_with(&state, "t", &public(), || {
         ran = true;
         Ok(())
     })
@@ -405,8 +453,8 @@ fn a_failed_native_navigation_restores_the_state_the_begin_replaced() {
     let before = state.registry.lock().unwrap().tab_status("t").unwrap();
     let (ticket, replaced) =
         begin_ai_navigation(&state, "t", "https://b.example/", AutomationMode::AiSandbox).unwrap();
-    let err = navigate_native(&state, "t", &ticket, replaced, || {
-        Err("NO_WEBVIEW: no webview: t".into())
+    let err = navigate_native_with(&state, "t", &ticket, replaced, &public(), || {
+        Err(NativeSurfaceError::NoWebview("no webview: t".into()))
     })
     .unwrap_err();
     assert_eq!(err.code(), ErrorCode::NotFound);
@@ -425,8 +473,8 @@ fn a_failure_after_a_concurrent_navigation_leaves_the_newer_navigation_in_force(
         begin_ai_navigation(&state, "t", "https://b.example/", AutomationMode::AiSandbox).unwrap();
     let (n2, _) =
         begin_ai_navigation(&state, "t", "https://c.example/", AutomationMode::AiSandbox).unwrap();
-    let err = navigate_native(&state, "t", &n1, replaced_by_n1, || {
-        Err("MAIN_THREAD_TIMEOUT: x".into())
+    let err = navigate_native_with(&state, "t", &n1, replaced_by_n1, &public(), || {
+        Err(NativeSurfaceError::MainThreadTimeout("x".into()))
     })
     .unwrap_err();
     assert_eq!(err.code(), ErrorCode::Timeout);
@@ -445,11 +493,269 @@ fn a_successful_navigation_keeps_its_ticket() {
     live_tab(&state, "https://a.example/");
     let (ticket, replaced) =
         begin_ai_navigation(&state, "t", "https://b.example/", AutomationMode::AiSandbox).unwrap();
-    navigate_native(&state, "t", &ticket, replaced, || Ok(())).unwrap();
+    navigate_native_with(&state, "t", &ticket, replaced, &public(), || Ok(())).unwrap();
     let reg = state.registry.lock().unwrap();
     assert_eq!(
         reg.navigation_ticket("t").map(|t| t.id.as_str()),
         Some(ticket.id.as_str())
     );
     assert_eq!(reg.state("t"), Some(Lifecycle::Navigating));
+}
+
+// ------------------------------------------ resolved-address pre-flight (round 4)
+
+fn assert_resolved_refusal(err: &CommandError, host: &str, reason: &str) {
+    assert_eq!(err.code(), ErrorCode::PermissionDenied);
+    assert_eq!(
+        mcp_code(err),
+        "SSRF_BLOCKED",
+        "the class the MCP client already matches on"
+    );
+    assert_eq!(kind(err), "ssrf-blocked");
+    assert_eq!(detail(err, "host"), host);
+    assert_eq!(detail(err, "reason"), reason);
+}
+
+#[test]
+fn a_creation_whose_name_resolves_private_is_refused_before_the_native_call_and_forgotten() {
+    let state = BrowserSurface::default();
+    reserved_for(&state, "https://public.example/");
+    let mut ran = false;
+    let err = create_native_with(
+        &state,
+        "t",
+        &answers(&["93.184.216.34", "10.0.0.5"]),
+        || {
+            ran = true;
+            Ok(())
+        },
+    )
+    .unwrap_err();
+    assert!(
+        !ran,
+        "the native creation never runs for a refused destination"
+    );
+    assert_resolved_refusal(&err, "public.example", "resolves-private");
+    assert!(
+        state.registry.lock().unwrap().tab_status("t").is_none(),
+        "forgotten, like any failed creation"
+    );
+}
+
+#[test]
+fn a_creation_whose_name_does_not_resolve_is_refused_closed() {
+    let state = BrowserSurface::default();
+    reserved_for(&state, "https://public.example/");
+    let mut ran = false;
+    let err = create_native_with(&state, "t", &answers(&[]), || {
+        ran = true;
+        Ok(())
+    })
+    .unwrap_err();
+    assert!(!ran);
+    assert_resolved_refusal(&err, "public.example", "unresolved");
+    assert!(state.registry.lock().unwrap().tab_status("t").is_none());
+}
+
+#[test]
+fn a_creation_with_no_begun_navigation_is_an_internal_failure_not_a_skipped_check() {
+    // `begin_ai_navigation` always precedes `create_native` in the command. A
+    // create that reaches the native call without a ticket has nothing to
+    // pre-flight, and the answer to that is a loud failure, never a silent skip.
+    let state = BrowserSurface::default();
+    reserve_ai_tab(&state, "t", &request("main", "https://public.example/")).unwrap();
+    let mut ran = false;
+    let err = create_native_with(&state, "t", &NeverCalled, || {
+        ran = true;
+        Ok(())
+    })
+    .unwrap_err();
+    assert!(!ran);
+    assert_eq!(err.code(), ErrorCode::Internal);
+    assert!(state.registry.lock().unwrap().tab_status("t").is_none());
+}
+
+#[test]
+fn a_literal_destination_is_created_without_consulting_the_resolver() {
+    let state = BrowserSurface::default();
+    reserved_for(&state, "http://93.184.216.34/");
+    let mut ran = false;
+    create_native_with(&state, "t", &NeverCalled, || {
+        ran = true;
+        Ok(())
+    })
+    .unwrap();
+    assert!(ran);
+}
+
+#[test]
+fn a_navigation_whose_name_resolves_private_is_refused_and_the_replaced_state_restored() {
+    let state = BrowserSurface::default();
+    live_tab(&state, "https://a.example/");
+    let before = state.registry.lock().unwrap().tab_status("t").unwrap();
+    let (ticket, replaced) =
+        begin_ai_navigation(&state, "t", "https://b.example/", AutomationMode::AiSandbox).unwrap();
+    let mut ran = false;
+    let err = navigate_native_with(
+        &state,
+        "t",
+        &ticket,
+        replaced,
+        &answers(&["169.254.169.254"]),
+        || {
+            ran = true;
+            Ok(())
+        },
+    )
+    .unwrap_err();
+    assert!(
+        !ran,
+        "the native navigation never runs for a refused destination"
+    );
+    assert_resolved_refusal(&err, "b.example", "resolves-private");
+    let reg = state.registry.lock().unwrap();
+    assert_eq!(reg.tab_status("t").unwrap(), before, "put back exactly");
+    assert_eq!(reg.committed_url("t"), Some("https://a.example/"));
+}
+
+#[test]
+fn a_navigation_whose_name_does_not_resolve_is_refused_closed_and_restored() {
+    let state = BrowserSurface::default();
+    live_tab(&state, "https://a.example/");
+    let before = state.registry.lock().unwrap().tab_status("t").unwrap();
+    let (ticket, replaced) =
+        begin_ai_navigation(&state, "t", "https://b.example/", AutomationMode::AiSandbox).unwrap();
+    let err =
+        navigate_native_with(&state, "t", &ticket, replaced, &answers(&[]), || Ok(())).unwrap_err();
+    assert_resolved_refusal(&err, "b.example", "unresolved");
+    let reg = state.registry.lock().unwrap();
+    assert_eq!(reg.tab_status("t").unwrap(), before, "put back exactly");
+}
+
+#[test]
+fn the_pre_flight_judges_against_the_current_loopback_posture() {
+    let state = BrowserSurface::default();
+    live_tab(&state, "https://a.example/");
+    let loopback = answers(&["127.0.0.1"]);
+    let (ticket, replaced) =
+        begin_ai_navigation(&state, "t", "https://b.example/", AutomationMode::AiSandbox).unwrap();
+    let err =
+        navigate_native_with(&state, "t", &ticket, replaced, &loopback, || Ok(())).unwrap_err();
+    assert_resolved_refusal(&err, "b.example", "resolves-private");
+    state.ai_policy.lock().unwrap().allow_loopback = true;
+    let (ticket, replaced) =
+        begin_ai_navigation(&state, "t", "https://b.example/", AutomationMode::AiSandbox).unwrap();
+    navigate_native_with(&state, "t", &ticket, replaced, &loopback, || Ok(())).unwrap();
+    // "My own machine" never widens to the LAN.
+    let (ticket, replaced) =
+        begin_ai_navigation(&state, "t", "https://b.example/", AutomationMode::AiSandbox).unwrap();
+    let err = navigate_native_with(
+        &state,
+        "t",
+        &ticket,
+        replaced,
+        &answers(&["192.168.1.20"]),
+        || Ok(()),
+    )
+    .unwrap_err();
+    assert_resolved_refusal(&err, "b.example", "resolves-private");
+}
+
+#[test]
+fn a_resolved_refusal_is_the_same_class_as_a_blocked_literal() {
+    let literal = blocked_destination();
+    let resolved = resolved_destination_refused(&DestinationRefused {
+        host: "public.example".into(),
+        reason: PreflightReason::ResolvesPrivate,
+    });
+    assert_eq!(resolved.code(), literal.code());
+    assert_eq!(resolved.i18n_key(), literal.i18n_key());
+    assert_eq!(resolved.message(), literal.message());
+    assert_eq!(mcp_code(&resolved), mcp_code(&literal));
+    assert_eq!(kind(&resolved), kind(&literal));
+    assert_eq!(detail(&resolved, "host"), "public.example");
+    assert_eq!(detail(&resolved, "reason"), "resolves-private");
+}
+
+#[test]
+fn the_resolver_is_consulted_with_no_surface_lock_held() {
+    // DNS may take seconds, and the navigation delegate on the main thread takes
+    // both of these locks: resolving under either would stall the UI.
+    struct LockProbe<'a> {
+        state: &'a BrowserSurface,
+        both_free: Cell<Option<bool>>,
+    }
+    impl DestinationResolver for LockProbe<'_> {
+        fn resolve(&self, _host: &str) -> Result<Vec<IpAddr>, ResolveFailure> {
+            let registry = self.state.registry.try_lock().is_ok();
+            let policy = self.state.ai_policy.try_lock().is_ok();
+            self.both_free.set(Some(registry && policy));
+            Ok(vec!["93.184.216.34".parse().unwrap()])
+        }
+    }
+    let state = BrowserSurface::default();
+    live_tab(&state, "https://a.example/");
+    let probe = LockProbe {
+        state: &state,
+        both_free: Cell::new(None),
+    };
+    let (ticket, replaced) =
+        begin_ai_navigation(&state, "t", "https://b.example/", AutomationMode::AiSandbox).unwrap();
+    navigate_native_with(&state, "t", &ticket, replaced, &probe, || Ok(())).unwrap();
+    assert_eq!(
+        probe.both_free.get(),
+        Some(true),
+        "navigate resolved under a lock"
+    );
+    probe.both_free.set(None);
+    reserve_ai_tab(&state, "c", &request("main", "https://c.example/")).unwrap();
+    begin_ai_navigation(&state, "c", "https://c.example/", AutomationMode::AiSandbox).unwrap();
+    create_native_with(&state, "c", &probe, || Ok(())).unwrap();
+    assert_eq!(
+        probe.both_free.get(),
+        Some(true),
+        "create resolved under a lock"
+    );
+}
+
+#[test]
+fn the_production_wrappers_resolve_with_the_system_resolver() {
+    // `localhost` comes from the hosts file on every platform, so the real
+    // resolver runs offline: refused under the default posture, allowed once the
+    // user has opted loopback in.
+    let state = BrowserSurface::default();
+    live_tab(&state, "https://a.example/");
+    let (ticket, replaced) = begin_ai_navigation(
+        &state,
+        "t",
+        "http://localhost:3000/",
+        AutomationMode::AiSandbox,
+    )
+    .unwrap();
+    let mut ran = false;
+    let err = navigate_native(&state, "t", &ticket, replaced, || {
+        ran = true;
+        Ok(())
+    })
+    .unwrap_err();
+    assert!(!ran);
+    assert_resolved_refusal(&err, "localhost", "resolves-private");
+    state.ai_policy.lock().unwrap().allow_loopback = true;
+    let (ticket, replaced) = begin_ai_navigation(
+        &state,
+        "t",
+        "http://localhost:3000/",
+        AutomationMode::AiSandbox,
+    )
+    .unwrap();
+    navigate_native(&state, "t", &ticket, replaced, || Ok(())).unwrap();
+
+    let state = BrowserSurface::default();
+    reserved_for(&state, "http://localhost:3000/");
+    let err = create_native(&state, "t", || Ok(())).unwrap_err();
+    assert_resolved_refusal(&err, "localhost", "resolves-private");
+    assert!(state.registry.lock().unwrap().tab_status("t").is_none());
+    state.ai_policy.lock().unwrap().allow_loopback = true;
+    reserved_for(&state, "http://localhost:3000/");
+    create_native(&state, "t", || Ok(())).unwrap();
 }

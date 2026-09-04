@@ -81,6 +81,22 @@ describe("action steps — granted origin", () => {
     expect(mintOneShotConfirmed).not.toHaveBeenCalled();
   });
 
+  it.each([
+    [{ found: true, clicked: true, extra: 1 }, "malformed-act-result"],
+    [{ found: true, clicked: true, typed: true }, "malformed-act-result"],
+    [{ found: true, clicked: false, matchedTotal: -1 }, "malformed-act-result"],
+    [{ found: true, clicked: false, candidates: [{ ref: 1 }] }, "malformed-act-result"],
+    [{ found: true, clicked: false, matchedTotal: 1, matchedVisible: 2 }, "contradictory-act-result"],
+    [{ found: true, clicked: true, by: "div.overlay" }, "contradictory-act-result"],
+    [{ found: true, clicked: true, candidates: [] }, "contradictory-act-result"],
+  ])("the whole act result is schema-checked: %j → %s (#193)", async (result, reason) => {
+    useBrowserApprovalStore.getState().grant("https://blog.example.com", ["click"]);
+    invoke.mockResolvedValue(JSON.stringify(result));
+    const exec = makeRunExecutor(ctx());
+    const out = await exec(step("action", 'click "Publish" (button)'), 0);
+    expect(out).toMatchObject({ outcome: "unknown", reason });
+  });
+
   it("a success carrying a failure reason is contradictory → unknown, never success (#193)", async () => {
     useBrowserApprovalStore.getState().grant("https://blog.example.com", ["click"]);
     invoke.mockResolvedValue(JSON.stringify({ found: true, clicked: true, reason: "disabled" }));

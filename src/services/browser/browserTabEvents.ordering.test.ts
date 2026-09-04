@@ -65,6 +65,9 @@ async function startInOrder(order: Order): Promise<void> {
   }
 }
 
+/** A navigation id as the driver mints it: `nav-<tabId>-<sequence>` (registry_navigation.rs). */
+const nav = (tabId: string, sequence: number) => `nav-${tabId}-${sequence}`;
+
 describe.each<Order>(["broker first", "tab events first"])("with the %s", (order) => {
   it("ignores a failure for a superseded navigation, and still shows one for the current page", async () => {
     const tabId = useTabStore.getState().createBrowserTab(WINDOW, "https://start.example/");
@@ -73,12 +76,12 @@ describe.each<Order>(["broker first", "tab events first"])("with the %s", (order
     // One native registration per event, however many subscribers.
     expect(listenCalls).toBe(6);
 
-    emit("browser://navigated", { tabId, url: "https://first.example/", generation: 1, navigationId: "nav-1" });
-    emit("browser://navigated", { tabId, url: "https://second.example/", generation: 2, navigationId: "nav-2" });
-    emit("browser://loaded", { tabId, url: "https://second.example/", title: "Second", generation: 2, navigationId: "nav-2" });
+    emit("browser://navigated", { tabId, url: "https://first.example/", generation: 1, navigationId: nav(tabId, 1) });
+    emit("browser://navigated", { tabId, url: "https://second.example/", generation: 2, navigationId: nav(tabId, 2) });
+    emit("browser://loaded", { tabId, url: "https://second.example/", title: "Second", generation: 2, navigationId: nav(tabId, 2) });
     // The broker has adopted nav-1's failure as "latest" by the time (or before) the
     // service sees it — the verdict must not depend on that.
-    emit("browser://load-failed", { tabId, message: "cancelled", navigationId: "nav-1" });
+    emit("browser://load-failed", { tabId, message: "cancelled", navigationId: nav(tabId, 1) });
 
     expect(useBrowserUiStore.getState().entries[tabId]).toMatchObject({
       error: null,
@@ -86,9 +89,9 @@ describe.each<Order>(["broker first", "tab events first"])("with the %s", (order
       urlInput: "https://second.example/",
       generation: 2,
     });
-    expect(browserEventBroker.latestNavigationId(tabId)).toBe("nav-1");
+    expect(browserEventBroker.latestNavigationId(tabId)).toBe(nav(tabId, 1));
 
-    emit("browser://load-failed", { tabId, message: "boom", navigationId: "nav-2" });
+    emit("browser://load-failed", { tabId, message: "boom", navigationId: nav(tabId, 2) });
     expect(useBrowserUiStore.getState().entries[tabId]?.error).toBe("boom");
   });
 
@@ -97,12 +100,12 @@ describe.each<Order>(["broker first", "tab events first"])("with the %s", (order
     useBrowserUiStore.getState().ensureEntry(tabId, "https://start.example/");
     await startInOrder(order);
 
-    emit("browser://navigated", { tabId, url: "https://first.example/", generation: 1, navigationId: "nav-1" });
-    emit("browser://loaded", { tabId, url: "https://first.example/", title: "First", generation: 1, navigationId: "nav-1" });
-    emit("browser://load-failed", { tabId, message: "could not resolve host", navigationId: "nav-2" });
+    emit("browser://navigated", { tabId, url: "https://first.example/", generation: 1, navigationId: nav(tabId, 1) });
+    emit("browser://loaded", { tabId, url: "https://first.example/", title: "First", generation: 1, navigationId: nav(tabId, 1) });
+    emit("browser://load-failed", { tabId, message: "could not resolve host", navigationId: nav(tabId, 2) });
 
     expect(useBrowserUiStore.getState().entries[tabId]?.error).toBe("could not resolve host");
     // And the broker settles the ticket for an MCP waiter the same way.
-    await expect(browserEventBroker.wait(tabId, "nav-2", 100)).resolves.toMatchObject({ kind: "failed" });
+    await expect(browserEventBroker.wait(tabId, nav(tabId, 2), 100)).resolves.toMatchObject({ kind: "failed" });
   });
 });

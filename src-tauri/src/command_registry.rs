@@ -173,6 +173,7 @@ macro_rules! all_commands {
             browser::commands_auth::browser_add_one_shot,
             browser::commands_auth::browser_revoke_one_shot,
             browser::commands_auth::browser_ai_attach,
+            browser::commands_auth::browser_ai_attachment_state,
             browser::commands_auth::browser_eval,
             browser::commands_auth::browser_screenshot,
             browser::session_commands::browser_save_storage_state,

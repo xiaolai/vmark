@@ -85,6 +85,25 @@ const REGISTRY = [
   },
   {
     kind: "path",
+    path: "src/services/browser/committedNavigations.ts",
+    deletedBy: "audit-fix round 4 (#87)",
+    reason:
+      "An eight-entry ring of COMMITTED navigation ids, used to decide whether a " +
+      "late load failure was superseded. Provisional ids were unknown to it and " +
+      "evicted ids looked unknown too, so a stale failure overlay still landed. " +
+      "navigationOrder.ts decides by the driver's per-tab monotonic SEQUENCE " +
+      "(nav-<tabId>-<n>) instead: no ring, no eviction, listener order irrelevant. " +
+      "Re-adding a ring would reintroduce the eviction blind spot.",
+  },
+  {
+    kind: "symbol",
+    name: "CommittedNavigations",
+    glob: "src",
+    deletedBy: "audit-fix round 4 (#87)",
+    reason: "The ring ledger class itself — see the path entry above.",
+  },
+  {
+    kind: "path",
     path: "src/plugins/registry.ts",
     deletedBy: "ADR-015 / WI-3.3",
     reason:

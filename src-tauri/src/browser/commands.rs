@@ -60,8 +60,9 @@ pub async fn browser_create(
     }
     if let Err(e) = surface::create(&app, tab_id.clone(), window_label, url) {
         // Roll back BOTH halves of the tab's state — registry entry and crash
-        // budget — so a retried tab id starts clean (see `forget_tab`).
-        state.forget_tab(&tab_id).map_err(|e| surface_failure(&e))?;
+        // budget — so a retried tab id starts clean (see `forget_tab`). Its only
+        // failure is a poisoned lock, which is what `lock_failure` means.
+        state.forget_tab(&tab_id).map_err(lock_failure)?;
         return Err(surface_failure(&e));
     }
     Ok(())
@@ -221,7 +222,7 @@ pub async fn browser_destroy(
     // The tab is terminal either way, so its state goes regardless of how the
     // native teardown fared: a native failure here means the main thread is gone
     // (app shutting down), and keeping a dead entry would leak it forever.
-    state.forget_tab(&tab_id).map_err(|e| surface_failure(&e))?;
+    state.forget_tab(&tab_id).map_err(lock_failure)?;
     teardown
 }
 

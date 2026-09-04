@@ -25,7 +25,7 @@
 //! scheduler.
 //!
 //! @coordinates-with browser/surface_macos.rs — `on_main`, the production caller
-//! @coordinates-with browser/native_failure.rs — the `MAIN_THREAD_TIMEOUT` class
+//! @coordinates-with browser/native_failure.rs — the error every outcome is typed as
 
 use crate::browser::native_failure::NativeSurfaceError;
 use std::sync::atomic::{AtomicU8, Ordering};
@@ -75,15 +75,16 @@ impl HopState {
 /// Hand `job` to `schedule` (the main-thread executor) and wait up to `deadline`
 /// for its result, under the protocol above.
 ///
-/// `schedule` failing is reported as its own error; a deadline the body never
-/// started before is the tagged `MAIN_THREAD_TIMEOUT`; a body that started is
-/// awaited to its result; a body that ended without one (it panicked, or the
-/// executor dropped it unrun) is an untagged error, never a hang.
-pub fn hop<T, F, S>(schedule: S, deadline: Duration, job: F) -> Result<T, String>
+/// Every outcome is a typed [`NativeSurfaceError`] (round 4, #31): `schedule`
+/// failing is reported as its own error; a deadline the body never started before
+/// is `MainThreadTimeout`; a body that started is awaited to its result; a body
+/// that ended without one (it panicked, or the executor dropped it unrun) is an
+/// `Unclassified` error, never a hang.
+pub fn hop<T, F, S>(schedule: S, deadline: Duration, job: F) -> Result<T, NativeSurfaceError>
 where
     T: Send + 'static,
-    F: FnOnce() -> Result<T, String> + Send + 'static,
-    S: FnOnce(Box<dyn FnOnce() + Send + 'static>) -> Result<(), String>,
+    F: FnOnce() -> Result<T, NativeSurfaceError> + Send + 'static,
+    S: FnOnce(Box<dyn FnOnce() + Send + 'static>) -> Result<(), NativeSurfaceError>,
 {
     let (tx, rx) = mpsc::channel();
     let state = Arc::new(HopState::new());
@@ -96,9 +97,9 @@ where
     }))?;
     match rx.recv_timeout(deadline) {
         Ok(result) => result,
-        Err(RecvTimeoutError::Timeout) if state.claim_abandoned() => {
-            Err(NativeSurfaceError::MainThreadTimeout.tagged("main-thread op timed out"))
-        }
+        Err(RecvTimeoutError::Timeout) if state.claim_abandoned() => Err(
+            NativeSurfaceError::MainThreadTimeout("main-thread op timed out".into()),
+        ),
         // Lost the race: the body is running and cannot be stopped. Its verdict is
         // the only truthful answer, so wait for it.
         Err(RecvTimeoutError::Timeout) => rx.recv().unwrap_or_else(|_| Err(no_result())),
@@ -108,8 +109,8 @@ where
 
 /// The sender is gone with nothing sent: the body panicked, or the executor dropped
 /// the closure without running it.
-fn no_result() -> String {
-    "main-thread op ended without a result".to_string()
+fn no_result() -> NativeSurfaceError {
+    NativeSurfaceError::Unclassified("main-thread op ended without a result".into())
 }
 
 #[cfg(test)]

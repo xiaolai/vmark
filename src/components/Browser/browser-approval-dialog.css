@@ -79,6 +79,14 @@
   font-size: var(--font-size-sm);
 }
 
+/* The attach IPC failed (audit 2026-09-03 #153): the prompt stays raised and says
+   so, right above the buttons it re-enables. Error ink on the dialog surface. */
+.browser-approval-error {
+  margin: 0 0 var(--spacing-3);
+  color: var(--error-color);
+  font-size: var(--font-size-sm);
+}
+
 .browser-approval-actions {
   display: flex;
   justify-content: flex-end;

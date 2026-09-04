@@ -14,9 +14,10 @@
 //!
 //! **Fail closed.** Compilation is asynchronous, so the run loop is pumped (as
 //! `browser_store::forget_profile` does) until the handler fires, bounded at five
-//! seconds. A compile error or a timeout fails the creation with
-//! `CONTENT_RULES_FAILED`: an AI webview is never created without its rules.
-//! Human tabs get nothing — a human's page is not reshaped by the AI's policy.
+//! seconds. A compile error or a timeout fails the creation with the typed
+//! `ContentRulesFailed` (round 4, #31): an AI webview is never created without its
+//! rules. Human tabs get nothing — a human's page is not reshaped by the AI's
+//! policy.
 //!
 //! **Compiled once per posture.** `WKContentRuleListStore` compiles into a DFA and
 //! persists it under an identifier; the compiled list is cached here per
@@ -25,10 +26,19 @@
 //! (`ai_content_rules::identifier`), so a rules change never resolves to a stale
 //! compiled list. A posture change bumps the policy epoch, which makes existing AI
 //! tabs stale for driving; their webviews keep the list they were created with.
+//!
+//! **Tested against the real store** (round 4, #16). The store and the run loop
+//! are parameters of the compile step — `compile_list` pumps the CURRENT thread's
+//! run loop, which on the main thread (`configure`'s `mtm` proves it) is the main
+//! run loop, and under `cargo test` is the thread WebKit answers on. So
+//! `content_rules_native.test.rs` compiles both postures through a temporary
+//! `WKContentRuleListStore`, attaches them, and gets WebKit's own refusal for a
+//! rule its dialect rejects; the generator tests in `ai_content_rules.test.rs`
+//! cannot see either.
 
 use crate::browser::ai_content_rules::{identifier, rules_json};
+use crate::browser::native_failure::NativeSurfaceError;
 use crate::browser::registry::AutomationMode;
-use crate::browser::surface::fail;
 use objc2::rc::Retained;
 use objc2::MainThreadMarker;
 use objc2_foundation::{NSError, NSRunLoop, NSString};
@@ -51,45 +61,72 @@ thread_local! {
 }
 
 /// Attach the AI destination rules to `config` for an AI-owned webview. A no-op
-/// for a human tab. Errors are `CONTENT_RULES_FAILED`-tagged and abort creation.
+/// for a human tab. A failure is `ContentRulesFailed` and aborts creation.
 pub(super) fn configure(
     config: &WKWebViewConfiguration,
     mtm: MainThreadMarker,
     mode: AutomationMode,
     allow_loopback: bool,
-) -> Result<(), String> {
+) -> Result<(), NativeSurfaceError> {
     if mode == AutomationMode::Human {
         return Ok(());
     }
     let list = compiled_rules(allow_loopback, mtm)?;
-    let controller = unsafe { config.userContentController() };
-    unsafe { controller.addContentRuleList(&list) };
+    attach(config, &list);
     Ok(())
+}
+
+/// Install a compiled list on `config`'s user content controller — the half of
+/// `configure` that touches the configuration.
+fn attach(config: &WKWebViewConfiguration, list: &WKContentRuleList) {
+    let controller = unsafe { config.userContentController() };
+    unsafe { controller.addContentRuleList(list) };
 }
 
 /// The compiled rule list for `allow_loopback`, compiling it on first use.
 fn compiled_rules(
     allow_loopback: bool,
     mtm: MainThreadMarker,
-) -> Result<Retained<WKContentRuleList>, String> {
+) -> Result<Retained<WKContentRuleList>, NativeSurfaceError> {
     if let Some(existing) = COMPILED.with(|m| m.borrow().get(&allow_loopback).cloned()) {
         return Ok(existing);
     }
-    let list = compile(allow_loopback, mtm)?;
+    let store = default_store(mtm)?;
+    let list = compile(&store, allow_loopback)?;
     COMPILED.with(|m| m.borrow_mut().insert(allow_loopback, list.clone()));
     Ok(list)
 }
 
-/// Compile the rules through the default store, pumping the run loop until the
-/// completion handler answers or the bound elapses.
-fn compile(
-    allow_loopback: bool,
+/// WebKit's default store — where production compiles persist.
+fn default_store(
     mtm: MainThreadMarker,
-) -> Result<Retained<WKContentRuleList>, String> {
-    let store = unsafe { WKContentRuleListStore::defaultStore(mtm) }
-        .ok_or_else(|| format!("{}: no default rule-list store", fail::CONTENT_RULES_FAILED))?;
-    let id = NSString::from_str(&identifier(allow_loopback));
-    let encoded = NSString::from_str(&rules_json(allow_loopback));
+) -> Result<Retained<WKContentRuleListStore>, NativeSurfaceError> {
+    unsafe { WKContentRuleListStore::defaultStore(mtm) }.ok_or_else(|| {
+        NativeSurfaceError::ContentRulesFailed("no default rule-list store".to_string())
+    })
+}
+
+/// Compile the policy for `allow_loopback` through `store`.
+fn compile(
+    store: &WKContentRuleListStore,
+    allow_loopback: bool,
+) -> Result<Retained<WKContentRuleList>, NativeSurfaceError> {
+    compile_list(
+        store,
+        &identifier(allow_loopback),
+        &rules_json(allow_loopback),
+    )
+}
+
+/// Compile `encoded` under `identifier` through `store`, pumping the current
+/// thread's run loop until the completion handler answers or the bound elapses.
+fn compile_list(
+    store: &WKContentRuleListStore,
+    identifier: &str,
+    encoded: &str,
+) -> Result<Retained<WKContentRuleList>, NativeSurfaceError> {
+    let id = NSString::from_str(identifier);
+    let encoded = NSString::from_str(encoded);
     let out: Rc<RefCell<Option<CompileOutcome>>> = Rc::new(RefCell::new(None));
     let sink = out.clone();
     let handler = block2::RcBlock::new(move |list: *mut WKContentRuleList, error: *mut NSError| {
@@ -111,10 +148,14 @@ fn compile(
             Some(&handler),
         )
     };
-    let run_loop = NSRunLoop::mainRunLoop();
+    let run_loop = NSRunLoop::currentRunLoop();
     super::pump_until(&run_loop, COMPILE_TIMEOUT, 0.05, || out.borrow().is_some());
     let outcome = out.borrow_mut().take();
     outcome
         .unwrap_or_else(|| Err("timed out compiling the rule list".to_string()))
-        .map_err(|reason| format!("{}: {reason}", fail::CONTENT_RULES_FAILED))
+        .map_err(NativeSurfaceError::ContentRulesFailed)
 }
+
+#[cfg(test)]
+#[path = "content_rules_native.test.rs"]
+mod native_tests;

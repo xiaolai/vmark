@@ -15,7 +15,7 @@ type Job = Box<dyn FnOnce() + Send + 'static>;
 fn busy_main_thread(
     delay: Duration,
 ) -> (
-    impl FnOnce(Job) -> Result<(), String>,
+    impl FnOnce(Job) -> Result<(), NativeSurfaceError>,
     mpsc::Receiver<thread::JoinHandle<()>>,
 ) {
     let (handles_tx, handles_rx) = mpsc::channel();
@@ -35,7 +35,7 @@ fn busy_main_thread(
 #[test]
 fn a_result_that_arrives_in_time_is_returned() {
     let (schedule, _workers) = busy_main_thread(Duration::ZERO);
-    let out: Result<u32, String> = hop(schedule, Duration::from_secs(5), || Ok(42));
+    let out: Result<u32, NativeSurfaceError> = hop(schedule, Duration::from_secs(5), || Ok(42));
     assert_eq!(out, Ok(42));
 }
 
@@ -44,14 +44,13 @@ fn a_body_the_deadline_beat_never_runs() {
     let ran = Arc::new(AtomicBool::new(false));
     let observed = Arc::clone(&ran);
     let (schedule, workers) = busy_main_thread(Duration::from_millis(800));
-    let out: Result<(), String> = hop(schedule, Duration::from_millis(50), move || {
+    let out: Result<(), NativeSurfaceError> = hop(schedule, Duration::from_millis(50), move || {
         observed.store(true, Ordering::SeqCst);
         Ok(())
     });
     let err = out.expect_err("the deadline fired first");
-    assert_eq!(
-        NativeSurfaceError::parse(&err),
-        NativeSurfaceError::MainThreadTimeout,
+    assert!(
+        matches!(err, NativeSurfaceError::MainThreadTimeout(_)),
         "{err}"
     );
     // The main thread eventually gets to the closure — and must find it abandoned.
@@ -72,15 +71,16 @@ fn a_body_already_running_at_the_deadline_is_awaited_not_abandoned() {
         thread::spawn(job);
         started_rx
             .recv()
-            .map_err(|_| "body never started".to_string())
+            .map_err(|_| NativeSurfaceError::Unclassified("body never started".into()))
     };
     let began = Instant::now();
     let body_duration = Duration::from_millis(300);
-    let out: Result<&'static str, String> = hop(schedule, Duration::from_millis(50), move || {
-        let _ = started_tx.send(());
-        thread::sleep(body_duration);
-        Ok("landed")
-    });
+    let out: Result<&'static str, NativeSurfaceError> =
+        hop(schedule, Duration::from_millis(50), move || {
+            let _ = started_tx.send(());
+            thread::sleep(body_duration);
+            Ok("landed")
+        });
     assert_eq!(out, Ok("landed"));
     assert!(
         began.elapsed() >= body_duration,
@@ -92,26 +92,25 @@ fn a_body_already_running_at_the_deadline_is_awaited_not_abandoned() {
 #[test]
 fn a_scheduler_that_refuses_is_reported_without_waiting() {
     let began = Instant::now();
-    let out: Result<(), String> = hop(
-        |_job: Job| Err("run_on_main_thread: event loop closed".to_string()),
+    let refused = NativeSurfaceError::Unclassified("run_on_main_thread: event loop closed".into());
+    let out: Result<(), NativeSurfaceError> = hop(
+        |_job: Job| Err(refused.clone()),
         Duration::from_secs(5),
         || Ok(()),
     );
-    assert_eq!(
-        out,
-        Err("run_on_main_thread: event loop closed".to_string())
-    );
+    assert_eq!(out, Err(refused));
     assert!(began.elapsed() < Duration::from_secs(1));
 }
 
 #[test]
 fn a_body_that_panics_after_claiming_is_an_error_not_a_hang() {
     let (schedule, workers) = busy_main_thread(Duration::ZERO);
-    let out: Result<(), String> = hop(schedule, Duration::from_secs(5), || {
+    let out: Result<(), NativeSurfaceError> = hop(schedule, Duration::from_secs(5), || {
         panic!("body exploded");
     });
     assert!(
-        out.as_ref().is_err_and(|e| e.contains("without a result")),
+        out.as_ref()
+            .is_err_and(|e| e.detail().contains("without a result")),
         "{out:?}"
     );
     workers.recv().expect("scheduled").join().expect("worker");
@@ -120,7 +119,7 @@ fn a_body_that_panics_after_claiming_is_an_error_not_a_hang() {
 #[test]
 fn a_closure_the_executor_drops_unrun_is_an_error_not_a_hang() {
     // The executor accepted the job, then dropped it (an event loop shutting down).
-    let out: Result<(), String> = hop(
+    let out: Result<(), NativeSurfaceError> = hop(
         |job: Job| {
             drop(job);
             Ok(())
@@ -129,7 +128,8 @@ fn a_closure_the_executor_drops_unrun_is_an_error_not_a_hang() {
         || Ok(()),
     );
     assert!(
-        out.as_ref().is_err_and(|e| e.contains("without a result")),
+        out.as_ref()
+            .is_err_and(|e| e.detail().contains("without a result")),
         "{out:?}"
     );
 }

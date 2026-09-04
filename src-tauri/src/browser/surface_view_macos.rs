@@ -5,6 +5,7 @@
 //! thread-local state.
 
 use crate::browser::eval_outcome::{script_error_message, EvalFailure, MAX_EVAL_RESULT_UTF16};
+use crate::browser::native_failure::NativeSurfaceError;
 use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
 use objc2::{ClassType, MainThreadMarker};
@@ -156,38 +157,26 @@ pub(super) fn content_view(
     app: &AppHandle,
     window_label: &str,
     _mtm: MainThreadMarker,
-) -> Result<Retained<NSView>, String> {
-    use crate::browser::surface::fail;
+) -> Result<Retained<NSView>, NativeSurfaceError> {
     use tauri::Manager;
     let win = app.get_webview_window(window_label).ok_or_else(|| {
-        format!(
-            "{fail}: window '{window_label}' is gone; nothing to attach a browser to",
-            fail = fail::WINDOW_GONE
-        )
+        NativeSurfaceError::WindowGone(format!(
+            "window '{window_label}' is gone; nothing to attach a browser to"
+        ))
     })?;
     let ptr = win.ns_window().map_err(|e| {
-        format!(
-            "{fail}: window '{window_label}' has no NSWindow: {e}",
-            fail = fail::WINDOW_GONE
-        )
+        NativeSurfaceError::WindowGone(format!("window '{window_label}' has no NSWindow: {e}"))
     })?;
     // SAFETY: Tauri owns the NSWindow; we borrow it on the main thread (we are inside
     // on_main) only to read its content view. The pointer is non-null when ns_window()
     // succeeds.
     let ns_window: &NSWindow = unsafe { &*ptr.cast::<NSWindow>() };
     ns_window.contentView().ok_or_else(|| {
-        format!(
-            "{fail}: window '{window_label}' has no contentView",
-            fail = fail::WINDOW_GONE
-        )
+        NativeSurfaceError::WindowGone(format!("window '{window_label}' has no contentView"))
     })
 }
 
-pub(super) fn ns_url(url: &str) -> Result<Retained<NSURL>, String> {
-    NSURL::URLWithString(&NSString::from_str(url)).ok_or_else(|| {
-        format!(
-            "{fail}: invalid URL: {url}",
-            fail = crate::browser::surface::fail::INVALID_URL
-        )
-    })
+pub(super) fn ns_url(url: &str) -> Result<Retained<NSURL>, NativeSurfaceError> {
+    NSURL::URLWithString(&NSString::from_str(url))
+        .ok_or_else(|| NativeSurfaceError::InvalidUrl(format!("invalid URL: {url}")))
 }

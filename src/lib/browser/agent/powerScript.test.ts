@@ -54,6 +54,62 @@ describe("buildQueryScript (WI-P5.1)", () => {
     const res = exec(doc, buildQueryScript(">>bad", 1)) as { error?: string };
     expect(res.error).toBe("invalid-selector");
   });
+
+  // #119 — the query is ONE bounded walk and a bounded summary: the composed
+  // walk is a cursor per open node that stops at the SCAN budget, and a match's
+  // text is a head gathered from its text nodes, never its whole textContent.
+  describe("bounded scan and bounded text (#119)", () => {
+    /** The script's own scan budget, read from the shipped bytes rather than restated. */
+    const SCAN = Number(/var SCAN=(\d+)/.exec(buildQueryScript("*", 1))![1]);
+
+    it("a matched element holding megabytes of text is summarised from a 500-character head — textContent is never read", () => {
+      const doc = parse(`<div id="big"></div>`);
+      const big = doc.getElementById("big")!;
+      big.appendChild(doc.createTextNode(`${"\u200B".repeat(600)}${"x".repeat(5_000_000)}`));
+      let textContentReads = 0;
+      Object.defineProperty(big, "textContent", {
+        get() {
+          textContentReads += 1;
+          return "";
+        },
+      });
+      const res = exec(doc, buildQueryScript("#big", 1)) as { count: number; truncated: boolean; elements: Array<{ text: string }> };
+      expect(res.count).toBe(1);
+      expect(res.truncated).toBe(false);
+      expect(res.elements[0].text).toBe("x".repeat(500));
+      expect(textContentReads).toBe(0);
+    });
+
+    it("text is whitespace-collapsed and format-stripped as it is gathered, across windows and nested nodes", () => {
+      const doc = parse(`<p>${"\u200B".repeat(600)}Head \n\t  line<b>${"\u202E".repeat(10)}!</b></p>`);
+      const res = exec(doc, buildQueryScript("p", 1)) as { elements: Array<{ text: string }> };
+      expect(res.elements[0].text).toBe("Head line!");
+    });
+
+    it("a document a billion elements wide: count stops at the SCAN budget, 50 are kept, truncated is set, and nothing past the budget is read", () => {
+      const doc = parse("");
+      const reads: number[] = [];
+      const kids = new Proxy(
+        {},
+        {
+          get(_t, key) {
+            if (key === "length") return 1_000_000_000;
+            const i = typeof key === "string" ? Number(key) : NaN;
+            if (!Number.isInteger(i)) return undefined;
+            reads.push(i);
+            if (reads.length > SCAN + 1) throw new Error(`read past the budget: ${reads.length} reads`);
+            return doc.createElement("button");
+          },
+        },
+      );
+      Object.defineProperty(doc, "children", { configurable: true, get: () => kids });
+      const res = exec(doc, buildQueryScript("button", 1)) as { count: number; truncated: boolean; elements: unknown[] };
+      expect(res.count).toBe(SCAN);
+      expect(res.elements).toHaveLength(50);
+      expect(res.truncated).toBe(true);
+      expect(reads.length).toBeLessThanOrEqual(SCAN + 1);
+    });
+  });
 });
 
 describe("buildStyleScript (WI-P5.2)", () => {

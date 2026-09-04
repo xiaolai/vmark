@@ -28,6 +28,7 @@
 //! `browser_store_policy.rs`).
 
 use crate::browser::browser_store_policy::{store_policy, StorePolicy, MIN_IDENTIFIED_STORE_MACOS};
+use crate::browser::native_failure::NativeSurfaceError;
 use crate::browser::registry::AutomationMode;
 use objc2::rc::Retained;
 use objc2::{AllocAnyThread, MainThreadMarker};
@@ -107,7 +108,7 @@ fn named_store(
     name: &str,
     mtm: MainThreadMarker,
     persistent: bool,
-) -> Result<Retained<WKWebsiteDataStore>, String> {
+) -> Result<Retained<WKWebsiteDataStore>, NativeSurfaceError> {
     let store = NAMED_STORES.with(|m| {
         let mut map = m.borrow_mut();
         if let Some(existing) = map.get(name) {
@@ -120,7 +121,11 @@ fn named_store(
         map.insert(name.to_string(), store.clone());
         Some(store)
     });
-    store.ok_or_else(|| crate::browser::surface::fail::PROFILE_STORE_LIMIT.to_string())
+    store.ok_or_else(|| {
+        NativeSurfaceError::ProfileStoreLimit(format!(
+            "named profile stores are capped at {MAX_NAMED_STORES}; refusing to share the sandbox store"
+        ))
+    })
 }
 
 /// A fresh isolated store: persistent identified (14+) or a distinct non-persistent
@@ -172,7 +177,7 @@ pub(super) fn configure(
     mtm: MainThreadMarker,
     mode: AutomationMode,
     profile: Option<&str>,
-) -> Result<(), String> {
+) -> Result<(), NativeSurfaceError> {
     match store_policy(mode, profile, current_macos_major()) {
         // Human/AiShared on macOS ≤ 13: leave the config's default persistent store.
         StorePolicy::Default => Ok(()),
@@ -209,7 +214,7 @@ pub(super) fn configure(
 /// and return an error on failure/timeout, so the UI never reports a profile gone
 /// while its login survives on disk. Below macOS 14 the per-profile store is
 /// non-persistent, so dropping the cached handle above is a complete revocation.
-pub(super) fn forget_profile(name: &str, mtm: MainThreadMarker) -> Result<(), String> {
+pub(super) fn forget_profile(name: &str, mtm: MainThreadMarker) -> Result<(), NativeSurfaceError> {
     let evict = || {
         NAMED_STORES.with(|m| {
             m.borrow_mut().remove(name);
@@ -221,9 +226,11 @@ pub(super) fn forget_profile(name: &str, mtm: MainThreadMarker) -> Result<(), St
         return Ok(());
     }
     let Some(uuid) = uuid_for_profile(name) else {
-        return Err("could not derive the profile store identity".into());
+        return Err(NativeSurfaceError::Unclassified(
+            "could not derive the profile store identity".into(),
+        ));
     };
-    let result: Rc<RefCell<Option<Result<(), String>>>> = Rc::new(RefCell::new(None));
+    let result: Rc<RefCell<Option<Result<(), NativeSurfaceError>>>> = Rc::new(RefCell::new(None));
     let sink = result.clone();
     let handler = block2::RcBlock::new(move |err: *mut objc2_foundation::NSError| {
         // The NSError (if any) is a generic file-system error, never a credential; we
@@ -231,7 +238,9 @@ pub(super) fn forget_profile(name: &str, mtm: MainThreadMarker) -> Result<(), St
         let outcome = if err.is_null() {
             Ok(())
         } else {
-            Err("the profile store could not be removed".to_string())
+            Err(NativeSurfaceError::Unclassified(
+                "the profile store could not be removed".into(),
+            ))
         };
         *sink.borrow_mut() = Some(outcome);
     });
@@ -242,10 +251,11 @@ pub(super) fn forget_profile(name: &str, mtm: MainThreadMarker) -> Result<(), St
     super::pump_until(&run_loop, Duration::from_secs(5), 0.05, || {
         result.borrow().is_some()
     });
-    let outcome = result
-        .borrow_mut()
-        .take()
-        .unwrap_or_else(|| Err("timed out confirming the profile store was removed".into()));
+    let outcome = result.borrow_mut().take().unwrap_or_else(|| {
+        Err(NativeSurfaceError::Unclassified(
+            "timed out confirming the profile store was removed".into(),
+        ))
+    });
     // Evict only on CONFIRMED deletion. Evicting first let a failed or timed-out
     // removal leave a live, persistent store uncounted, so repeated failures could
     // walk past MAX_NAMED_STORES.

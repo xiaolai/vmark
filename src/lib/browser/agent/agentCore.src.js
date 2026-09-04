@@ -1,5 +1,8 @@
 // The shared perception core (audit 2026-09-03, S-02) — THE ONLY COPY of the
-// role / accessible-name / visibility rules the AI-facing scripts run in a page.
+// accessible-name / visibility / composed-walk rules the AI-facing scripts run in
+// a page. Role resolution and its vocabulary follow in `agentCoreRoles.src.js`,
+// which every host concatenates straight after this file (one script, so the
+// declarations hoist across the seam in both directions).
 //
 // Two hosts execute these exact bytes:
 //   - the isolated-world agent library: `agentLib.ts` prepends this file (via
@@ -16,24 +19,26 @@
 // Discipline, pinned by `agentCore.test.ts`:
 //   - function declarations ONLY at the top level, every one `__vmark`-prefixed —
 //     no statements, no side effects, nothing a page can observe until a call;
-//   - self-contained ES5 (no let/const/class/arrow/template), nothing imported;
+//   - self-contained ES5 (no let/const/class/arrow/template), nothing imported —
+//     the `\p{Cf}` property escape (ES2018) is the one newer feature in use;
 //   - a field's VALUE property is never read: the recorder shim ships these bytes,
-//     and its Rust include pins that a typed value can never enter its buffer.
+//     and its Rust include pins that a typed value can never enter its buffer;
+//   - every walk is BUDGETED and lazy (#103 / #105 / #119): a cursor per open node
+//     reads children by index — never a copied child list — and text is gathered a
+//     window at a time, so a hostile page can make an answer incomplete but never
+//     make the webview allocate without limit. Budgets are functions, not literals,
+//     so `ariaParity.test.ts` can pin the TS mirror's constants to them.
 
-/** Whitespace-collapse, trim, NFC-normalise, and strip Unicode FORMAT characters
- *  (zero-width, bidi controls, word joiner and invisible operators, BOM, soft
- *  hyphen) — S-09: "Publ<ZWSP>ish" and "Publish" are one name, and a bidi override
- *  can neither split a name from itself nor restyle the approval prompt. */
+/** Whitespace-collapse, trim, NFC-normalise, and strip every Unicode FORMAT
+ *  character (Cf: zero-width space/joiners and marks, bidi embeddings/overrides/
+ *  pop and isolates, word joiner and invisible operators, BOM, soft hyphen) by the
+ *  same property escape as ariaName.ts — S-09: "Publ<ZWSP>ish" and "Publish" are
+ *  one name, and a bidi override can neither split a name nor restyle a prompt. */
 function __vmarkNorm(s) {
   s = s == null ? "" : String(s);
   if (s.normalize) {
     try { s = s.normalize("NFC"); } catch (e) {}
   }
-  // Zero-width space/joiners and marks, bidi embeddings/overrides/pop, bidi
-  // ISOLATES (U+2066–U+2069) and the Arabic letter mark (U+061C), word joiner and
-  // invisible operators, BOM, soft hyphen. The isolates were missing: an isolate
-  // pair reorders a name's display exactly like an override does.
-  // Every Unicode format character (Cf), the same property escape as ariaName.ts.
   return s.replace(/\p{Cf}/gu, "").replace(/\s+/g, " ").trim();
 }
 
@@ -41,6 +46,19 @@ function __vmarkNorm(s) {
  *  matches, so a capped name still targets its element. */
 function __vmarkNameMax() {
   return 200;
+}
+
+/** Collapsed characters a name-from-content walk gathers before it stops: many
+ *  times the cap, so a whitespace-heavy name still fills it, while a hostile
+ *  page's megabyte of text never becomes one string. Mirrors CONTENT_BUDGET. */
+function __vmarkContentBudget() {
+  return __vmarkNameMax() * 16;
+}
+
+/** Elements a composed walk (`__vmarkWalk`) visits before it stops looking. Mirrors
+ *  SNAPSHOT_VISIT_BUDGET, spelled without a digit separator (ES5). */
+function __vmarkVisitBudget() {
+  return 50000;
 }
 
 /** Composed-tree parent: the parent element, or the HOST when `n` is a top-level
@@ -78,81 +96,66 @@ function __vmarkHidden(el) {
   return __vmarkHiddenBy(el) !== null;
 }
 
-/** Implicit role per `<input type>`. Types not listed keep the textbox fallback:
- *  strict ARIA exposes no role for color/date/file, but an agent still has to be
- *  able to target them (a file input is targetable, and refused as an upload, never
- *  filled). `hidden` is the one type with genuinely no role. */
-function __vmarkInputRole(ty) {
-  var map = { checkbox: "checkbox", radio: "radio", submit: "button", button: "button", reset: "button", image: "button",
-    range: "slider", number: "spinbutton", search: "searchbox", hidden: null };
-  return Object.prototype.hasOwnProperty.call(map, ty) ? map[ty] : "textbox";
-}
-
-/** ARIA role, or null when the element has no meaningful role. An explicit `role`
- *  is a token list — the first RECOGNIZED token wins, case-insensitively; a list
- *  with no recognized token falls back to the implicit role (role="bogus button"
- *  used to become the nonexistent role "bogus"). */
-function __vmarkRole(el) {
-  var r = el.getAttribute("role");
-  if (r && r.trim()) {
-    var tokens = r.trim().toLowerCase().split(/\s+/);
-    for (var i = 0; i < tokens.length; i++) {
-      if (!__vmarkKnownRole(tokens[i])) continue;
-      if (tokens[i] === "presentation" || tokens[i] === "none") {
-        // Presentational-role conflict resolution (mirrors ariaRole.ts).
-        if (__vmarkPresentationalConflict(el)) break;
-        return null;
-      }
-      return tokens[i];
-    }
-  }
-  var t = String(el.tagName || "").toLowerCase();
-  if (__vmarkEditingHost(el) && t !== "input" && t !== "textarea" && t !== "select") return "textbox";
-  if (/^h[1-6]$/.test(t)) return "heading";
-  switch (t) {
-    case "button": case "summary": return "button";
-    case "a": return el.hasAttribute("href") ? "link" : null;
-    case "nav": return "navigation";
-    case "main": return "main";
-    case "textarea": return "textbox";
-    case "select": return el.hasAttribute("multiple") || Number(el.getAttribute("size") || "1") > 1 ? "listbox" : "combobox";
-    case "img": return "img";
-    case "input": return __vmarkInputRole((el.getAttribute("type") || "text").toLowerCase());
-    default: return null;
-  }
-}
-
-/** Landmark roles never take a name from content (accname §4.3, S-06). */
-function __vmarkIsLandmark(role) {
-  return /^(main|navigation|banner|contentinfo|complementary|region|form|search)$/.test(String(role));
-}
-
-function __vmarkIsFileInput(el) {
-  return String(el.tagName || "").toLowerCase() === "input" && (el.getAttribute("type") || "").toLowerCase() === "file";
-}
-
 /** The tree that scopes id references for `el`: its shadow root, else its document. */
 function __vmarkRootOf(el) {
   var r = el.getRootNode ? el.getRootNode() : null;
   return r && r.getElementById ? r : el.ownerDocument;
 }
 
+/** Append `text` to `out` up to `budget` characters, whitespace collapsed and
+ *  format characters stripped AS GATHERED, so neither a run of spaces nor a flood
+ *  of bidi controls can spend the budget. The raw text is consumed a window of
+ *  `budget` characters at a time: a text node holding megabytes costs one window
+ *  per pass, never a stripped copy of the whole, and a window that strips to
+ *  nothing is followed by the next, so the visible text after it still names. (A
+ *  format character split across two windows survives this pass at a cost of two
+ *  budget units; every caller's final `__vmarkNorm` removes it.) */
+function __vmarkTake(out, text, budget) {
+  for (var off = 0; off < text.length && out.length < budget; off += budget) {
+    var piece = text.slice(off, off + budget).replace(/\p{Cf}/gu, "").replace(/\s+/g, " ");
+    if (piece.charAt(0) === " " && (!out || out.charAt(out.length - 1) === " ")) piece = piece.slice(1);
+    out += piece.slice(0, budget - out.length);
+  }
+  return out;
+}
+
 /** Text alternative from content (accname 2F/2G subset): text nodes, image alt,
  *  <br> as a space; hidden descendants and script/style/template skipped unless
- *  `all` (a labelledby traversal whose referenced node was itself hidden). */
+ *  `all` (a labelledby traversal whose referenced node was itself hidden). An
+ *  iterative cursor walk — the stack is bounded by depth, never a copied child
+ *  list — that stops once `__vmarkContentBudget()` collapsed characters are in hand. */
 function __vmarkContentText(el, all) {
-  var out = "";
-  for (var c = el.firstChild; c; c = c.nextSibling) {
-    if (c.nodeType === 3) { out += c.data; continue; }
+  var out = "", budget = __vmarkContentBudget(), stack = [{ kids: el.childNodes, i: 0 }];
+  while (stack.length && out.length < budget) {
+    var top = stack[stack.length - 1];
+    if (!top.kids || top.i >= top.kids.length) { stack.pop(); continue; }
+    var c = top.kids[top.i++];
+    if (c.nodeType === 3) { out = __vmarkTake(out, c.data, budget); continue; }
     if (c.nodeType !== 1) continue;
     var t = String(c.tagName || "").toLowerCase();
     if (t === "script" || t === "style" || t === "template" || t === "noscript") continue;
     if (!all && __vmarkSelfHidden(c)) continue;
-    if (t === "br") { out += " "; continue; }
-    if (t === "img") { out += c.getAttribute("alt") || ""; continue; }
-    out += __vmarkContentText(c, all);
+    if (t === "br") { out = __vmarkTake(out, " ", budget); continue; }
+    if (t === "img") { out = __vmarkTake(out, c.getAttribute("alt") || "", budget); continue; }
+    stack.push({ kids: c.childNodes, i: 0 });
   }
   return out;
+}
+
+/** The first `max` characters of an element's text — every descendant text node,
+ *  as textContent would give — normalised like a name. The walk stops once `max`
+ *  characters are in hand, so summarising a match that holds megabytes costs `max`
+ *  characters, and textContent itself is never read (#119). */
+function __vmarkTextHead(el, max) {
+  var out = "", stack = [{ kids: el.childNodes, i: 0 }];
+  while (stack.length && out.length < max) {
+    var top = stack[stack.length - 1];
+    if (!top.kids || top.i >= top.kids.length) { stack.pop(); continue; }
+    var c = top.kids[top.i++];
+    if (c.nodeType === 3) out = __vmarkTake(out, c.data, max);
+    else if (c.nodeType === 1) stack.push({ kids: c.childNodes, i: 0 });
+  }
+  return __vmarkNorm(out).slice(0, max);
 }
 
 /** Text of the elements an id-list attribute references (aria-labelledby). Each
@@ -243,45 +246,55 @@ function __vmarkChecked(el) {
   return el.getAttribute("aria-checked") === "true";
 }
 
-/** Every element under `root` (a Document, ShadowRoot or Element; root itself is
- *  excluded) in composed pre-order: an element, then its OPEN shadow tree, then its
- *  light children (S-05). Closed roots are invisible by definition — see
- *  `__vmarkUnreachable` for what this walk cannot enter. */
-function __vmarkAll(root) {
-  var out = [],
-    stack = [];
-  __vmarkPushKids(stack, root || document);
+/** The composed walk every perception path runs on: each element under `root` (a
+ *  Document, ShadowRoot or Element; root itself excluded) in composed pre-order —
+ *  an element, then its OPEN shadow tree, then its light children (S-05) — is
+ *  handed to `visit`. Lazy in both dimensions (#103): a cursor per open node reads
+ *  children by index (a node a billion wide costs one cursor) and the walk stops
+ *  after `budget` visited elements, returning true when it ran out with elements
+ *  still unvisited so a consumer can say its answer is incomplete. Closed roots are
+ *  invisible by definition — `__vmarkCountUnreachable` tallies what it cannot enter. */
+function __vmarkWalk(root, budget, visit) {
+  var visited = 0, stack = [{ kids: (root || document).children, i: 0 }];
   while (stack.length) {
-    var el = stack.pop();
-    out.push(el);
-    __vmarkPushKids(stack, el);
+    var top = stack[stack.length - 1];
+    if (!top.kids || top.i >= top.kids.length) { stack.pop(); continue; }
+    var el = top.kids[top.i++];
+    if (++visited > budget) return true;
+    visit(el);
+    stack.push({ kids: el.children, i: 0 });
     var sr = null;
     try { sr = el.shadowRoot; } catch (e) {}
-    if (sr) __vmarkPushKids(stack, sr);
+    if (sr) stack.push({ kids: sr.children, i: 0 });
   }
+  return false;
+}
+
+/** Every element the budgeted walk reaches under `root`, as a list, for the
+ *  consumers that need one (`gateScript`, `interactScript`, `__vmarkPageText`) —
+ *  at most `__vmarkVisitBudget()` long, never the whole of a hostile page. */
+function __vmarkAll(root) {
+  var out = [];
+  __vmarkWalk(root, __vmarkVisitBudget(), function (el) { out.push(el); });
   return out;
 }
 
-function __vmarkPushKids(stack, node) {
-  var kids = node && node.children;
-  if (!kids) return;
-  for (var i = kids.length - 1; i >= 0; i--) stack.push(kids[i]);
+/** Tally into `counts` ({closedShadowRoots, frames}) what the composed walk could
+ *  not enter at `el`, so the model knows the snapshot is not the whole page: a
+ *  frame (evals target the main frame only), or a custom-element host exposing no
+ *  open shadow root — where a closed root hides. A closed root cannot be observed
+ *  from outside, so `closedShadowRoots` is a proxy, not a count: a light-DOM custom
+ *  element is counted too, a plain `<div>` hosting a closed root is not. Per
+ *  element, so a walk tallies as it goes with no element list. */
+function __vmarkCountUnreachable(counts, el) {
+  var t = String(el.tagName || "").toLowerCase();
+  if (t === "iframe" || t === "frame") counts.frames++;
+  else if (t.indexOf("-") > 0 && !el.shadowRoot) counts.closedShadowRoots++;
 }
 
-/** What the composed walk could not enter, so the model knows the snapshot is not
- *  the whole page: frames (evals target the main frame only), and custom-element
- *  hosts exposing no open shadow root — the population where a closed root hides.
- *  A closed root cannot be observed from outside, so `closedShadowRoots` is a
- *  proxy, not a count: a light-DOM custom element is counted too, and a plain
- *  `<div>` hosting a closed root is not. */
+/** The tally over an element list (what `__vmarkAll` returns). */
 function __vmarkUnreachable(all) {
-  var closed = 0,
-    frames = 0;
-  for (var i = 0; i < all.length; i++) {
-    var el = all[i],
-      t = String(el.tagName || "").toLowerCase();
-    if (t === "iframe" || t === "frame") frames++;
-    else if (t.indexOf("-") > 0 && !el.shadowRoot) closed++;
-  }
-  return { closedShadowRoots: closed, frames: frames };
+  var counts = { closedShadowRoots: 0, frames: 0 };
+  for (var i = 0; i < all.length; i++) __vmarkCountUnreachable(counts, all[i]);
+  return counts;
 }

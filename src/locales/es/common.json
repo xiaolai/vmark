@@ -158,6 +158,7 @@
   "browser.approval.allowSite": "Permitir en este sitio",
   "browser.approval.allowTab": "Permitir hasta la navegación",
   "browser.approval.sessionNote": "Los permisos de sitio duran hasta que se cierre VMark.",
+  "browser.approval.attachFailed": "No se pudo permitir que la IA use esta pestaña. Inténtalo de nuevo o deniega.",
   "browser.grants.heading": "Permisos de sitio",
   "browser.grants.empty": "Ningún sitio tiene permiso todavía. Las concesiones que apruebes aparecerán aquí.",
   "browser.grants.revoke": "Revocar",

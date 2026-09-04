@@ -24,7 +24,7 @@ use crate::browser::origin_guard::{self, StandingGrant};
 use crate::browser::profile_open::{self, ProfileOpen};
 use crate::browser::refusals::stale_command;
 use crate::browser::script_limit::ensure_script_within_limit;
-use crate::browser::surface::{self, BrowserSurface};
+use crate::browser::surface::{self, AttachmentState, BrowserSurface};
 use crate::command_error::CommandError;
 use tauri::{AppHandle, State};
 
@@ -137,6 +137,19 @@ pub async fn browser_ai_attach(
 ) -> Result<(), CommandError> {
     attach_ai_tab(&state, &tab_id, generation, once.unwrap_or(false))
         .map_err(CommandError::invalid_input)
+}
+
+/// The attachment `tab_id` currently holds, as the authority sees it (round 4,
+/// #37). Read-only, no gate: it reveals nothing the frontend did not mint itself,
+/// and it is how the frontend's mirror learns whether the driver spent a one-use
+/// attachment instead of inferring it from a denylist of refusal tokens
+/// (`attachment_state.rs`). Unknown tab: `attached: false`.
+#[tauri::command]
+pub async fn browser_ai_attachment_state(
+    state: State<'_, BrowserSurface>,
+    tab_id: String,
+) -> Result<AttachmentState, CommandError> {
+    state.attachment_state(&tab_id).map_err(lock_failure)
 }
 
 /// Evaluate `script` in the driver's isolated content world and return its

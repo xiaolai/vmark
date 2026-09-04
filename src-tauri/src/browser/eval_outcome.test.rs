@@ -5,7 +5,6 @@
 
 use super::*;
 use crate::browser::refusals::stale_command;
-use crate::browser::surface::fail;
 
 fn mcp_code(err: &CommandError) -> Option<String> {
     err.detail()
@@ -165,9 +164,10 @@ fn flatten_keeps_the_four_outcomes_apart() {
         EvalError::flatten(Ok(Err(refusal.clone().into()))),
         Err(EvalError::Refused(refusal))
     );
+    let gone = NativeSurfaceError::NoWebview("no webview: t".into());
     assert_eq!(
-        EvalError::flatten(Err("NO_WEBVIEW: no webview: t".into())),
-        Err(EvalError::Surface("NO_WEBVIEW: no webview: t".into()))
+        EvalError::flatten(Err(gone.clone())),
+        Err(EvalError::Surface(gone))
     );
 }
 
@@ -180,7 +180,7 @@ fn a_refusal_inside_the_main_thread_turn_keeps_its_token_and_its_details() {
     // token survived but `tabId` and `when` did not. The typed refusal now crosses
     // the hop as itself.
     let refusal = stale_command("tab-7", "before the script could run");
-    let native: Result<Result<String, EvalError>, String> =
+    let native: Result<Result<String, EvalError>, NativeSurfaceError> =
         Ok(Err(EvalError::Refused(refusal.clone())));
     let err = eval_error(EvalError::flatten(native).unwrap_err());
     assert_eq!(err, refusal, "the refusal must cross the hop unchanged");
@@ -198,11 +198,11 @@ fn a_refusal_inside_the_main_thread_turn_keeps_its_token_and_its_details() {
 fn a_surface_failure_inside_an_eval_error_keeps_its_native_class() {
     // The eval path must not flatten a "no webview" into an eval failure: the
     // caller re-discovers tabs on `not-found`, and retries on `timeout`.
-    let err = eval_error(EvalError::Surface(format!(
-        "{}: no webview: tab-9",
-        fail::NO_WEBVIEW
+    let err = eval_error(EvalError::Surface(NativeSurfaceError::NoWebview(
+        "no webview: tab-9".into(),
     )));
     assert_eq!(err.code(), ErrorCode::NotFound);
+    assert_eq!(detail_str(&err, "kind"), Some("no-webview"));
     let err = eval_error(EvalError::Failure(EvalFailure::Timeout));
     assert_eq!(err.code(), ErrorCode::Timeout);
     assert_eq!(mcp_code(&err).as_deref(), Some("EVAL_TIMEOUT"));

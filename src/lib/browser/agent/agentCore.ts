@@ -2,7 +2,8 @@
  * The shared perception core's typed name (audit 2026-09-03, S-02).
  *
  * Purpose: give the TypeScript side ONE import for the raw ES5 asset
- * `agentCore.src.js` — the role / accessible-name / visibility / composed-walk
+ * `agentCore.src.js` + `agentCoreRoles.src.js` — the accessible-name / visibility /
+ * composed-walk functions and (in the roles file) the role vocabulary and inference —
  * functions that both the isolated-world agent library (`agentLib.ts`) and the
  * page-world recorder shim (`recorderShim.ts`, mirroring Rust's `concat!`)
  * prepend. Same pattern as `consoleShim.ts`: the asset is imported `?raw`, so the

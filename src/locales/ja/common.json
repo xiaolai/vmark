@@ -158,6 +158,7 @@
   "browser.approval.allowSite": "このサイトで許可",
   "browser.approval.allowTab": "次のナビゲーションまで許可",
   "browser.approval.sessionNote": "サイトの許可は VMark を終了するまで有効です。",
+  "browser.approval.attachFailed": "AI にこのタブの使用を許可できませんでした。もう一度お試しいただくか、拒否してください。",
   "browser.grants.heading": "サイトの許可",
   "browser.grants.empty": "権限を持つサイトはまだありません。承認した許可がここに表示されます。",
   "browser.grants.revoke": "取り消す",

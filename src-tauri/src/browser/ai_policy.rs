@@ -3,6 +3,11 @@
 //! This validator is deliberately separate from the human omnibox validator. The
 //! human browser may visit local development services; AI navigation must reject
 //! private and special-use destinations before WebKit receives a request.
+//!
+//! It judges URL TEXT. The resolved-address half — a public-looking name whose
+//! DNS answer is a blocked address — is `ai_policy_dns.rs`, which the AI
+//! transactions run before a navigation is issued and which reuses `blocked_ip`
+//! so both halves apply one judgement.
 
 use std::net::IpAddr;
 
@@ -217,7 +222,9 @@ fn lan_facing_suffix(host: &str) -> bool {
 /// and `BLOCKED_IPV6_RANGES` are the declarative source, and the WebKit content rule
 /// list is derived from the same two tables and parity-tested against them, so a
 /// range can no longer be blocked for navigation and reachable as a subresource.
-fn blocked_ip(address: IpAddr, allow_loopback: bool) -> bool {
+/// Shared with `ai_policy_dns.rs`, which applies it to every address a hostname
+/// RESOLVES to, so a name and its literal are judged by one predicate.
+pub(crate) fn blocked_ip(address: IpAddr, allow_loopback: bool) -> bool {
     match address {
         IpAddr::V4(v4) => blocked_ipv4(v4, allow_loopback),
         IpAddr::V6(v6) => blocked_ipv6(v6, allow_loopback),

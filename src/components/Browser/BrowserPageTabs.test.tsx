@@ -8,7 +8,10 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BrowserPageTabs } from "./BrowserPageTabs";
 import { useTabStore } from "@/stores/tabStore";
+import { usePaneStore } from "@/stores/paneStore";
+import { onTabActivated } from "@/stores/tabActivationBus";
 import { isBrowserTab } from "@/stores/tabStoreTypes";
+import { activateTabInFocusedPane } from "@/services/navigation/activateTabInFocusedPane";
 import { closeTabWithDirtyCheck } from "@/services/tabs/tabOperations";
 
 vi.mock("@/services/tabs/tabOperations", () => ({
@@ -172,5 +175,77 @@ describe("BrowserPageTabs", () => {
     const tabs = useTabStore.getState().tabs.main!;
     expect(tabs.filter(isBrowserTab)).toHaveLength(3);
     expect(useTabStore.getState().activeTabId.main).toBe(tabs[tabs.length - 1].id);
+  });
+});
+
+// Audit 2026-09-03 #162 — the "+" button used to activate the new page TWICE: once
+// inside `createBrowserPage`, which writes the alias and announces on the activation
+// bus, and again through `activateTabInFocusedPane`. The second call was defended as
+// the pane-aware activation a split view needs. Panes hold documents only
+// (paneStore: "browser tabs overlay; panes hold documents"), so there is no pane
+// state a browser activation can converge; the call re-wrote identical state and
+// announced the same activation a second time — to the MRU, and to every other
+// subscriber. Pinned here in the split scenario it was said to serve.
+describe("new-page activation in a split view (#162)", () => {
+  beforeEach(() => usePaneStore.getState().removeWindow("main"));
+
+  /** Two documents side by side, the secondary pane focused, then the browser
+   *  workspace opened over the split — the scenario the second call was for. */
+  function openSplitThenBrowser() {
+    const docA = useTabStore.getState().createTab("main", "/a.md");
+    const docB = useTabStore.getState().createTab("main", "/b.md");
+    useTabStore.getState().setActiveTab("main", docA);
+    usePaneStore.getState().openSplit("main", docB); // primary A, secondary B, secondary focused
+    const { pages, b } = seedPages();
+    return { docA, docB, pages, b };
+  }
+
+  const newestTabId = () => {
+    const tabs = useTabStore.getState().tabs.main!;
+    return tabs[tabs.length - 1]!.id;
+  };
+
+  it("the store's own write activates the new page and announces it exactly once; the split is untouched", () => {
+    const { docA, docB, pages, b } = openSplitThenBrowser();
+    render(<BrowserPageTabs pages={pages} activePageId={b} windowLabel="main" />);
+    const seen = vi.fn();
+    const off = onTabActivated(seen);
+    fireEvent.click(screen.getByRole("button", { name: /new/i }));
+    off();
+
+    const created = newestTabId();
+    expect(useTabStore.getState().activeTabId.main).toBe(created);
+    expect(useTabStore.getState().lastActiveBrowserPageId.main).toBe(created);
+    expect(seen).toHaveBeenCalledTimes(1);
+    expect(seen).toHaveBeenCalledWith("main", created, "user");
+    // Panes hold documents only — a browser activation has nothing to converge there.
+    expect(usePaneStore.getState().getSplit("main")).toMatchObject({
+      enabled: true,
+      primaryTabId: docA,
+      secondaryTabId: docB,
+      focusedPane: "secondary",
+    });
+  });
+
+  it("the activation the button no longer repeats would have changed nothing — only announced again", () => {
+    const { pages, b } = openSplitThenBrowser();
+    render(<BrowserPageTabs pages={pages} activePageId={b} windowLabel="main" />);
+    fireEvent.click(screen.getByRole("button", { name: /new/i }));
+    const created = newestTabId();
+
+    const tabsBefore = useTabStore.getState().tabs;
+    const aliasBefore = { ...useTabStore.getState().activeTabId };
+    const lastPageBefore = { ...useTabStore.getState().lastActiveBrowserPageId };
+    const panesBefore = usePaneStore.getState().byWindow;
+    const seen = vi.fn();
+    const off = onTabActivated(seen);
+    activateTabInFocusedPane("main", created);
+    off();
+
+    expect(useTabStore.getState().tabs).toBe(tabsBefore);
+    expect(useTabStore.getState().activeTabId).toEqual(aliasBefore);
+    expect(useTabStore.getState().lastActiveBrowserPageId).toEqual(lastPageBefore);
+    expect(usePaneStore.getState().byWindow).toBe(panesBefore);
+    expect(seen).toHaveBeenCalledTimes(1); // the duplicate announcement the finding was about
   });
 });

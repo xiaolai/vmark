@@ -158,6 +158,7 @@
   "browser.approval.allowSite": "在此站点上允许",
   "browser.approval.allowTab": "允许直到导航",
   "browser.approval.sessionNote": "站点权限在 VMark 退出前有效。",
+  "browser.approval.attachFailed": "无法允许 AI 使用此标签页。请重试或拒绝。",
   "browser.grants.heading": "站点权限",
   "browser.grants.empty": "尚无站点获得权限。你批准的授权会显示在这里。",
   "browser.grants.revoke": "撤销",

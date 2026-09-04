@@ -20,7 +20,6 @@
 //! @coordinates-with browser/session_commands.rs — the only caller
 //! @coordinates-with src/services/browser/sessionRestoreScript.test.ts — runs the asset
 
-use crate::browser::ai_guards::surface_failure;
 use crate::browser::refusals::stale_command;
 use crate::command_error::{CommandError, ErrorCode};
 
@@ -129,7 +128,7 @@ impl RestoreOutcome {
                 "rollbackFailed": failed,
             }))),
             RestoreOutcome::Unreadable => {
-                Err(surface_failure("session restore returned an unreadable result"))
+                Err(CommandError::internal("session restore returned an unreadable result"))
             }
         }
     }

@@ -9,8 +9,12 @@
  * Key decisions:
  *   - Page ids are the real browser tab ids, so activation/close reuse the
  *     shared tab operations and keep native WebKit / MCP identity.
- *   - New pages and activations route through activateTabInFocusedPane so a
- *     split view targets the focused pane, not the primary active tab.
+ *   - Activating an EXISTING page routes through activateTabInFocusedPane. A NEW
+ *     page is activated by `createBrowserPage` itself, which writes the alias and
+ *     announces once on the activation bus (audit 2026-09-03 #162): a second
+ *     activation re-wrote identical state and announced the same activation
+ *     twice, and converged nothing — panes hold documents only, so a browser
+ *     activation never touches a split.
  *   - APG roving tablist: Arrow/Home/End move focus (shared rovingTabFocus);
  *     Enter/Space activate, handled explicitly as the status-bar strip does.
  *   - The tab is its own element and its close control is a SIBLING inside a
@@ -58,10 +62,14 @@ export function BrowserPageTabs({ pages, activePageId, windowLabel }: BrowserPag
   const leases = useBrowserLeaseStore((s) => s.leases);
 
   const createPage = () => {
-    const id = useTabStore.getState().createBrowserPage(windowLabel, NEW_BROWSER_TAB_URL);
-    // Route through the pane-aware activation so a split view shows the new
-    // page in the focused pane rather than swapping the primary active tab.
-    activateTabInFocusedPane(windowLabel, id);
+    // `createBrowserPage` activates the page it creates: it writes `activeTabId`
+    // and `lastActiveBrowserPageId` and announces ONCE on the activation bus —
+    // the seam paneStore and the MRU listen on. Activating it again here (audit
+    // 2026-09-03 #162) re-wrote the same two fields and announced the same
+    // activation a second time, and converged nothing: panes hold documents only,
+    // so a browser activation never touches the split. Pinned in
+    // BrowserPageTabs.test.tsx, "new-page activation in a split view".
+    useTabStore.getState().createBrowserPage(windowLabel, NEW_BROWSER_TAB_URL);
   };
 
   const closePage = (pageId: string) => {

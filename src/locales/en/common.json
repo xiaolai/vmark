@@ -158,6 +158,7 @@
   "browser.approval.allowSite": "Allow on this site",
   "browser.approval.allowTab": "Allow until navigation",
   "browser.approval.sessionNote": "Site permissions last until VMark quits.",
+  "browser.approval.attachFailed": "Couldn't allow the AI to use this tab. Try again or deny.",
   "browser.grants.heading": "Site permissions",
   "browser.grants.empty": "No site has permission yet. Grants you approve will appear here.",
   "browser.grants.revoke": "Revoke",

@@ -66,21 +66,54 @@ export function resolveValue(value: ActionValue, inputs: Record<string, string>)
 }
 
 /** Map an act script's result object onto a `StepOutcome`. */
+/** The CLOSED shape an act script returns (`agentAct.ts`): every key it can emit,
+ *  with its type. Anything else in the result is page-adjacent garbage. */
+const ACT_RESULT_SCHEMA: Record<string, (v: unknown) => boolean> = {
+  found: (v) => typeof v === "boolean",
+  clicked: (v) => typeof v === "boolean",
+  typed: (v) => typeof v === "boolean",
+  reason: (v) => typeof v === "string",
+  detail: (v) => typeof v === "string",
+  by: (v) => typeof v === "string",
+  matchedTotal: (v) => Number.isInteger(v) && (v as number) >= 0,
+  matchedVisible: (v) => Number.isInteger(v) && (v as number) >= 0,
+  candidates: (v) =>
+    Array.isArray(v) &&
+    v.every((c) => typeof c === "object" && c !== null && typeof (c as { ref?: unknown }).ref === "string" && typeof (c as { text?: unknown }).text === "string"),
+};
+
+/** Validate the whole result against the schema: `found` and the operation's flag
+ *  are required, every other key optional but typed, unknown keys refused. */
+function actResultIsWellFormed(result: Record<string, unknown>, flag: "clicked" | "typed"): boolean {
+  if (typeof result.found !== "boolean" || typeof result[flag] !== "boolean") return false;
+  for (const key of Object.keys(result)) {
+    const check = ACT_RESULT_SCHEMA[key];
+    if (!check || !check(result[key])) return false;
+  }
+  const other = flag === "clicked" ? "typed" : "clicked";
+  return result[other] === undefined;
+}
+
+/** Map an act script's result object onto a `StepOutcome`. */
 function toOutcome(result: Record<string, unknown>, flag: "clicked" | "typed"): StepOutcome {
-  // The act script's result is page-adjacent data and is validated, not trusted: the
-  // flag must be a boolean, and `found:false` with the flag true is a contradiction.
-  // Anything malformed or contradictory is UNKNOWN — the engine asks a human rather
-  // than treating it as success or as a confirmed miss eligible for a write retry.
-  if (typeof result !== "object" || result === null || typeof result[flag] !== "boolean" || typeof result.found !== "boolean") {
+  // The act script's result is page-adjacent data and is validated against its
+  // COMPLETE schema, not trusted (round 4, #193): a key the script never emits, a
+  // wrong type, or the other operation's flag is malformed; a success that also
+  // carries a failure (a reason, an occluder, candidates, found:false) or counts
+  // that disagree is contradictory. Both are UNKNOWN — the engine asks a human
+  // rather than treating them as success or as a confirmed miss eligible for a
+  // write retry.
+  if (typeof result !== "object" || result === null || !actResultIsWellFormed(result, flag)) {
     return { outcome: "unknown", reason: "malformed-act-result" };
   }
-  if (result[flag] === true && result.found === false) return { outcome: "unknown", reason: "contradictory-act-result" };
-  // A success that also carries a failure reason is a contradiction, not a success.
-  if (result[flag] === true && result.reason !== undefined) return { outcome: "unknown", reason: "contradictory-act-result" };
-  // A reason, when present, is a string — `{found:true, clicked:false, reason:42}` is
-  // page-adjacent garbage, not a confirmed failure the engine may retry a write on.
-  if (result.reason !== undefined && typeof result.reason !== "string") return { outcome: "unknown", reason: "malformed-act-result" };
-  if (result[flag] === true) return { outcome: "success", postconditionMet: true };
+  const succeeded = result[flag] === true;
+  const total = result.matchedTotal as number | undefined;
+  const visible = result.matchedVisible as number | undefined;
+  if (total !== undefined && visible !== undefined && visible > total) return { outcome: "unknown", reason: "contradictory-act-result" };
+  if (succeeded && (result.found === false || result.reason !== undefined || result.by !== undefined || result.candidates !== undefined)) {
+    return { outcome: "unknown", reason: "contradictory-act-result" };
+  }
+  if (succeeded) return { outcome: "success", postconditionMet: true };
   const reason = typeof result.reason === "string" ? result.reason : result.found === false ? "not-found" : undefined;
   if (reason === "disabled" || reason === "ambiguous") return { outcome: "failed", reason }; // stop-and-ask
   return { outcome: "failed", postconditionMet: false, ...(reason !== undefined ? { reason } : {}) };

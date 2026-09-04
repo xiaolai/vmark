@@ -4,10 +4,15 @@
  * assembled on the shared perception core. Split from `actScript.ts` (which keeps
  * the script BUILDERS) along that seam; the act half lives in `agentAct.ts`.
  *
- * Assembly order (audit 2026-09-03 S-02): `agentCore.src.js` (role, name,
- * hidden-ness, composed walk — the same bytes the recorder shim runs), then the
- * refs, query and act sections below. `agentLib.test.ts` pins that the library
- * starts with the core and defines each function exactly once.
+ * Assembly order (audit 2026-09-03 S-02): `agentCore.src.js` (name, hidden-ness,
+ * the budgeted composed walk — the same bytes the recorder shim runs) with its
+ * role vocabulary, then the refs, query and act sections below. `agentLib.test.ts`
+ * pins that the library starts with the core and defines each function exactly once.
+ *
+ * Every locator and the snapshot run the core's ONE budgeted walk (`__vmarkWalk`,
+ * #103) and keep only what they emit — never a list of every element — so a
+ * hostile page can make an answer incomplete (reported as truncated) but never
+ * make the webview allocate without limit.
  *
  * Everything here must run standalone in the page's isolated world — no imports,
  * no bundler. `actScript.test.ts`, `agentAct.test.ts` and `agentSnapshot.test.ts`
@@ -55,22 +60,23 @@ function __vmarkQueryByRef(ref,gen){
   return el;
 }`;
 
-/** Locating and rendered visibility. `__vmarkRendered` needs a layout engine and
- *  self-disables without one (jsdom), leaving the attribute tier. Its walks use
- *  the composed parent, so a shadow tree inherits its host's fate. */
+/** Locating and rendered visibility. Every locator streams the core's budgeted
+ *  composed walk (`__vmarkWalk`) and keeps only its matches. `__vmarkRendered`
+ *  needs a layout engine and self-disables without one (jsdom), leaving the
+ *  attribute tier. Its walks use the composed parent, so a shadow tree inherits
+ *  its host's fate. */
 const LIB_QUERY = `
 function __vmarkQueryBy(role,name,includeHidden){
-  var all=__vmarkAll(document),out=[];
-  for(var i=0;i<all.length;i++){
-    var el=all[i];
-    if(__vmarkRole(el)!==role)continue;
+  var out=[];
+  __vmarkWalk(document,__vmarkVisitBudget(),function(el){
+    if(__vmarkRole(el)!==role)return;
     // Rendered visibility, not attributes alone: a stylesheet-hidden control must not
     // be reported present to a wait or offered as a target. (Without a layout engine
     // \`__vmarkRendered\` is true, so the attribute tier still decides.)
-    if(!includeHidden&&(__vmarkHidden(el)||!__vmarkRendered(el)))continue;
-    if(name!=null&&__vmarkName(el)!==name)continue;
+    if(!includeHidden&&(__vmarkHidden(el)||!__vmarkRendered(el)))return;
+    if(name!=null&&__vmarkName(el)!==name)return;
     out.push(el);
-  }
+  });
   return out;
 }
 function __vmarkQuery(role,name){return __vmarkQueryBy(role,name,false);}
@@ -186,11 +192,18 @@ function __vmarkPageText(){
 }
 var __vmarkLevels={H1:1,H2:2,H3:3,H4:4,H5:5,H6:6};
 function __vmarkSnapshot(gen){
-  var all=__vmarkAll(document),out=[],truncated=false;
-  for(var i=0;i<all.length;i++){
-    var el=all[i],role=__vmarkRole(el);
-    if(!role||__vmarkHidden(el)||!__vmarkRendered(el))continue;
-    if(out.length>=2000){truncated=true;break;}
+  var out=[],truncated=false,capped=false,unreachable={closedShadowRoots:0,frames:0};
+  // ONE budgeted composed walk (#103): each element is perceived as it is visited
+  // and only the emitted nodes are kept — no array of every element. Past the node
+  // cap only the unreachable tally continues (so it still covers the whole reachable
+  // page), and a walk that ran out of visit budget is reported as truncated: the
+  // page was not all seen.
+  var exhausted=__vmarkWalk(document,__vmarkVisitBudget(),function(el){
+    __vmarkCountUnreachable(unreachable,el);
+    if(capped)return;
+    var role=__vmarkRole(el);
+    if(!role||__vmarkHidden(el)||!__vmarkRendered(el))return;
+    if(out.length>=2000){capped=true;return;}
     var full=__vmarkNameFull(el);
     if(full.length>__vmarkNameMax())truncated=true;
     var node={role:role,name:full.slice(0,__vmarkNameMax()),ref:__vmarkRefFor(el,gen)};
@@ -199,12 +212,12 @@ function __vmarkSnapshot(gen){
     if(__vmarkDisabled(el))node.disabled=true;
     if(__vmarkIsFileInput(el))node.upload=true;
     out.push(node);
-  }
-  return {nodes:out,truncated:truncated,unreachable:__vmarkUnreachable(all)};
+  });
+  return {nodes:out,truncated:truncated||capped||exhausted,unreachable:unreachable};
 }`;
 
 /** Standalone core/refs/query/snapshot/click/type library, injected verbatim.
  *  Exported so sibling injected-script modules (`interactScript.ts`,
  *  `powerScript.ts`) can prepend it and reuse `__vmarkQueryByRef` / `__vmarkQuery`
- *  / `__vmarkRefFor` / `__vmarkAll`. */
+ *  / `__vmarkRefFor` / `__vmarkWalk` / `__vmarkAll`. */
 export const AGENT_LIB = [AGENT_CORE_SRC, LIB_REFS, LIB_QUERY, AGENT_ACT].join("\n");

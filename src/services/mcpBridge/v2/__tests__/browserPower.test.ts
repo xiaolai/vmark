@@ -10,6 +10,8 @@ vi.mock("@/services/persistence/workspaceStorage", () => ({ getCurrentWindowLabe
 
 import { respond } from "@/services/mcpBridge/utils";
 import { handleBrowserQuery, handleBrowserStyle, handleBrowserExecuteJs } from "@/services/mcpBridge/v2/browserPower";
+import { MAX_SCRIPT_BYTES, utf8ByteLength } from "@/services/mcpBridge/v2/browserHelpers";
+import { buildQueryScript } from "@/lib/browser/agent/powerScript";
 import { useTabStore } from "@/stores/tabStore";
 import { useBrowserApprovalStore } from "@/stores/browserApprovalStore";
 import { useSettingsStore } from "@/stores/settingsStore";
@@ -303,5 +305,92 @@ describe("script size cap is measured in UTF-8 bytes", () => {
       success: false,
       error: expect.stringContaining("wrapped CSS"),
     });
+  });
+});
+
+// Round 3/4 audit, #61 — the selector and style names are embedded in the query
+// script, so the script is SIZED before the attachment gate: an oversized query
+// must be refused before a human-tab attachment is prompted for or spent on it,
+// and before any driver call. The check embeds the widest generation the driver
+// can stamp (twenty digits, the width of u64::MAX), so a boundary-sized query
+// cannot pass here and exceed the limit once rebuilt with the real generation.
+describe("handleBrowserQuery sizes the script before the attachment gate", () => {
+  const SIZE_REFUSAL = `query script exceeds the ${MAX_SCRIPT_BYTES}-byte limit`;
+  const WIDEST_GENERATION = 1e19;
+  /** Bytes the query wrapper adds around an EMPTY selector at the widest generation. */
+  const overhead = utf8ByteLength(buildQueryScript("", WIDEST_GENERATION));
+
+  function seedHuman(): string {
+    useTabStore.setState({ tabs: {}, activeTabId: {}, untitledCounter: 0 });
+    const id = useTabStore.getState().createBrowserTab("main", BLOG, "Blog", "human");
+    useTabStore.getState().updateBrowserTab(id, { generation: 1 });
+    return id;
+  }
+  function attachOnce(id: string) {
+    useBrowserApprovalStore.setState({ attachments: [{ tabId: id, generation: 1, once: true }] });
+  }
+
+  it("the widest generation really prints at the width of u64::MAX", () => {
+    expect(String(WIDEST_GENERATION)).toHaveLength((2n ** 64n - 1n).toString().length);
+  });
+
+  it("refuses an oversized selector on an unattached human tab: no attach prompt, no driver call", async () => {
+    const id = seedHuman();
+    await handleBrowserQuery("q-big", { tabId: id, selector: "a".repeat(MAX_SCRIPT_BYTES + 1) });
+    expect(invoke).not.toHaveBeenCalled();
+    expect(useBrowserApprovalStore.getState().pending).toEqual([]);
+    expect(lastResponse()).toMatchObject({ id: "q-big", success: false, error: SIZE_REFUSAL });
+  });
+
+  it("refuses oversized style names the same way", async () => {
+    const id = seedHuman();
+    const styles = Array.from({ length: 2048 }, (_, i) => `--p${i}-${"x".repeat(40)}`);
+    await handleBrowserQuery("q-styles", { tabId: id, selector: "div", fields: { styles } });
+    expect(invoke).not.toHaveBeenCalled();
+    expect(useBrowserApprovalStore.getState().pending).toEqual([]);
+    expect(lastResponse()).toMatchObject({ id: "q-styles", success: false, error: SIZE_REFUSAL });
+  });
+
+  it("measures bytes, not code units: a CJK selector under the .length cap is still refused", async () => {
+    const id = seedHuman();
+    const cjk = "\u6c49".repeat(30_000);
+    expect(cjk.length).toBeLessThan(MAX_SCRIPT_BYTES);
+    await handleBrowserQuery("q-cjk", { tabId: id, selector: cjk });
+    expect(invoke).not.toHaveBeenCalled();
+    expect(useBrowserApprovalStore.getState().pending).toEqual([]);
+    expect(lastResponse()).toMatchObject({ success: false, error: SIZE_REFUSAL });
+  });
+
+  it("keeps a one-use attachment the oversized query would otherwise have spent", async () => {
+    const id = seedHuman();
+    attachOnce(id);
+    await handleBrowserQuery("q-keep", { tabId: id, selector: "a".repeat(MAX_SCRIPT_BYTES + 1) });
+    expect(invoke).not.toHaveBeenCalled();
+    expect(useBrowserApprovalStore.getState().isHumanTabAttached(id, 1)).toBe(true);
+    expect(lastResponse()).toMatchObject({ success: false, error: SIZE_REFUSAL });
+  });
+
+  it("sizes with the widest generation: a query that fits at generation 1 but not at u64::MAX is refused", async () => {
+    const id = seedHuman();
+    attachOnce(id);
+    const selector = "a".repeat(MAX_SCRIPT_BYTES - overhead + 10);
+    // The fixture: under the cap with the tab's real one-digit generation, over it at twenty digits.
+    expect(utf8ByteLength(buildQueryScript(selector, 1))).toBeLessThanOrEqual(MAX_SCRIPT_BYTES);
+    expect(utf8ByteLength(buildQueryScript(selector, WIDEST_GENERATION))).toBeGreaterThan(MAX_SCRIPT_BYTES);
+    await handleBrowserQuery("q-boundary", { tabId: id, selector });
+    expect(invoke).not.toHaveBeenCalled();
+    expect(useBrowserApprovalStore.getState().isHumanTabAttached(id, 1)).toBe(true);
+    expect(lastResponse()).toMatchObject({ success: false, error: SIZE_REFUSAL });
+  });
+
+  it("lets a query exactly AT the cap through, built with the tab's real generation", async () => {
+    const id = seedHuman();
+    attachOnce(id);
+    invoke.mockResolvedValue(JSON.stringify({ count: 0, elements: [] }));
+    const selector = "a".repeat(MAX_SCRIPT_BYTES - overhead);
+    expect(utf8ByteLength(buildQueryScript(selector, WIDEST_GENERATION))).toBe(MAX_SCRIPT_BYTES);
+    await handleBrowserQuery("q-at-cap", { tabId: id, selector });
+    expect(evalCall()).toMatchObject({ operation: "read", generation: 1, script: buildQueryScript(selector, 1) });
+    expect(lastResponse()).toMatchObject({ id: "q-at-cap", success: true });
   });
 });

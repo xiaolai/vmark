@@ -158,6 +158,7 @@
   "browser.approval.allowSite": "在此網站上允許",
   "browser.approval.allowTab": "允許直到導覽",
   "browser.approval.sessionNote": "網站權限在 VMark 結束前有效。",
+  "browser.approval.attachFailed": "無法允許 AI 使用此分頁。請重試或拒絕。",
   "browser.grants.heading": "網站權限",
   "browser.grants.empty": "尚無網站獲得權限。你核准的授權會顯示在這裡。",
   "browser.grants.revoke": "撤銷",

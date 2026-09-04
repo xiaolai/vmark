@@ -23,13 +23,17 @@
  *     the act path distinguishes it (S-04).
  *   - The walk is the COMPOSED tree: an element, then its open shadow tree, then
  *     its light children (S-05) — so web components are perceived, in the same
- *     order the injected `__vmarkAll` produces. It is LAZY in both dimensions
- *     (round 3): a cursor per open node, so a hostile node with a million
- *     children costs one cursor, and a visited-element budget bounds the walk.
+ *     order the injected `__vmarkWalk` produces. It is LAZY in both dimensions
+ *     (#103): a cursor per open node, so a hostile node with a billion children
+ *     costs one cursor, and `SNAPSHOT_VISIT_BUDGET` bounds the visited elements —
+ *     the same number the core's `__vmarkVisitBudget()` returns, pinned by
+ *     `ariaParity.test.ts`. Every consumer streams the walk; nothing here ever
+ *     holds a list of every element.
  *   - State (checked/disabled) is read from the LIVE DOM (property, `:disabled`),
  *     not from the initial attributes, which never move after user interaction.
  *   - The snapshot is bounded (S-06): at most `SNAPSHOT_NODE_CAP` nodes, names at
- *     most `NAME_CAP` chars; the injected shape says when either cap bit.
+ *     most `NAME_CAP` chars, at most `SNAPSHOT_VISIT_BUDGET` elements looked at;
+ *     the injected shape says when any of the three bit.
  *
  * Known limitations: hiding via a stylesheet rule (rather than `hidden`,
  * `aria-hidden`, `inert`, or an inline style) is not detected — that needs layout,
@@ -66,10 +70,13 @@ export interface AriaNode {
   upload?: boolean;
 }
 
-/** What `buildSnapshotScript` returns (S-05 / S-06): the nodes, whether a cap
- *  bit (2000 nodes or a 200-char name), and what the composed walk could not enter. */
+/** What `buildSnapshotScript` returns (S-05 / S-06): the nodes, whether a bound
+ *  bit, and what the composed walk could not enter. */
 export interface AriaSnapshot {
   nodes: AriaNode[];
+  /** True when the snapshot is not everything perceivable: the node cap (2000)
+   *  or a name cap (200 chars) bit, or the walk ran out of `SNAPSHOT_VISIT_BUDGET`
+   *  before it had seen the whole page (#103). */
   truncated: boolean;
   unreachable: {
     /** Custom-element hosts exposing no open shadow root — where a closed root can
@@ -112,15 +119,18 @@ function isHidden(el: Element): boolean {
   return hiddenBy(el) !== null;
 }
 
-/** Every element under `root` (excluded) in composed pre-order — mirrors `__vmarkAll`. */
-/** Elements a snapshot may visit before it stops looking. Distinct from the
- *  NODE cap on the output: that only bounded what was emitted, while the whole
- *  hostile-page DOM was still materialized as an array first. */
-const SNAPSHOT_VISIT_BUDGET = 50_000;
+/** Elements a composed walk visits before it stops looking (#103). Distinct from
+ *  the NODE cap on the output: that only bounded what was emitted, while the
+ *  whole hostile-page DOM was still materialized as an array first. The injected
+ *  core's `__vmarkVisitBudget()` returns the same number — `ariaParity.test.ts`
+ *  reads the asset text and pins the two equal. */
+export const SNAPSHOT_VISIT_BUDGET = 50_000;
 
+/** Every element under `root` (excluded) in composed pre-order — mirrors
+ *  `__vmarkWalk`, and stops after `SNAPSHOT_VISIT_BUDGET` elements as it does. */
 function* composedDescendants(root: ParentNode): Generator<Element> {
-  // Lazy in BOTH dimensions (round 3): a cursor per open node instead of a copied
-  // child list, so a node with a million children costs one cursor, not a million
+  // Lazy in BOTH dimensions: a cursor per open node instead of a copied child
+  // list, so a node with a billion children costs one cursor, not a billion
   // pushes, before the budget is checked; the stack is bounded by tree depth and
   // every allocation is per VISITED element. Composed order is unchanged: an
   // element, then its open shadow tree, then its light children.
@@ -155,12 +165,15 @@ export function queryByRole(
   opts: { name?: string; exact?: boolean } = {},
 ): Element[] {
   const exact = opts.exact !== false;
-  return [...composedDescendants(root)].filter(
-    (el) =>
-      computeRole(el) === role &&
-      !isHidden(el) &&
-      (opts.name === undefined || nameMatches(accessibleName(el), opts.name, exact)),
-  );
+  // Streamed, like the injected `__vmarkQueryBy`: only the matches are kept, never
+  // a list of every visited element.
+  const out: Element[] = [];
+  for (const el of composedDescendants(root)) {
+    if (computeRole(el) !== role || isHidden(el)) continue;
+    if (opts.name !== undefined && !nameMatches(accessibleName(el), opts.name, exact)) continue;
+    out.push(el);
+  }
+  return out;
 }
 
 /** Effective disabled state — including inherited disablement (a control inside a

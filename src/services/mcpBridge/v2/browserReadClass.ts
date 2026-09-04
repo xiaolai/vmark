@@ -71,7 +71,7 @@ export interface ReadClassOp<T> {
 /**
  * Run a read-class MCP browser op end-to-end: `browserEnabled` gate, tabId
  * validation, tab resolution, the human-attachment gate, the native invoke, the
- * mirrored one-shot-attachment consumption (only on success), and the response.
+ * mirrored attachment spend (reconciled to the driver on a rejection), and the response.
  * The caller supplies only the parts that differ (`op.invoke`, `op.data`).
  */
 export async function runReadClass<T>(
@@ -82,8 +82,8 @@ export async function runReadClass<T>(
   const tab = await resolveBrowserTarget(id, args);
   if (!tab) return;
   if (!(await requireHumanAttachment(id, tab))) return;
-  // The attachment mirror follows the driver's consume exactly — spent on success
-  // and on any post-authorization failure, kept on a pre-authorization refusal
+  // The attachment mirror follows the driver exactly — spent on success, and
+  // after a rejection reconciled to what the driver reports it still holds
   // (`browserAccess`). A rejection propagates to `wrapHandler`, which renders the
   // typed refusal; it is never swallowed into a success envelope.
   const result = await invokeAttached(tab, () => op.invoke(tab));

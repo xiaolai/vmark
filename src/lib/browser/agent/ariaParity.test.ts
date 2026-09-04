@@ -9,16 +9,22 @@
 // keeps it the same algorithm: element by element over a widened fixture, role
 // and accessible name must be identical. A drift here means the AI's
 // unit-tested view and its real view have diverged.
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { AGENT_CORE_SRC } from "./agentCore";
-import { computeRole, accessibleName, ariaSnapshot } from "./aria";
+import { computeRole, accessibleName, ariaSnapshot, SNAPSHOT_VISIT_BUDGET } from "./aria";
+import { CONTENT_BUDGET, NAME_CAP } from "./ariaName";
 
 interface Core {
   role(el: Element): string | null;
   name(el: Element): string;
   all(root: Node): Element[];
+  visitBudget(): number;
+  contentBudget(): number;
 }
-const core = new Function(`${AGENT_CORE_SRC}\nreturn {role:__vmarkRole,name:__vmarkName,all:__vmarkAll};`)() as Core;
+const core = new Function(
+  `${AGENT_CORE_SRC}\nreturn {role:__vmarkRole,name:__vmarkName,all:__vmarkAll,` +
+    `visitBudget:__vmarkVisitBudget,contentBudget:__vmarkContentBudget};`,
+)() as Core;
 
 /** The `actScript.test.ts` fixture plus every shape the audit named. */
 const WIDE_FIXTURE = `
@@ -107,6 +113,9 @@ const WIDE_FIXTURE = `
     <div role="button" title="Helpful\n tip"></div>
     <div role="textbox" aria-label="Fake">x</div>
     <button>${"long ".repeat(60)}</button>
+    <button>${"\u202E".repeat(3200)}Bidi flood</button>
+    <button>${"x".repeat(NAME_CAP * 40)}<span>tail</span></button>
+    <button>${"<i></i>".repeat(4000)}Wide list</button>
     <div hidden><button>Ghost</button></div>
     <div aria-hidden="true"><h2>Ghost heading</h2></div>
     <div style="display: none"><button>Ghost css</button></div>
@@ -147,6 +156,11 @@ describe("aria.ts ⇔ agentCore.src.js parity", () => {
     expect(names).toContain("caf\u00E9");
     expect(names).toContain("Footer links");
     expect(names).toContain("Chain A Referenced name");
+    // The hostile content shapes (#105): a format-character flood before the
+    // name, a node far past the cap, and a very wide child list.
+    expect(names).toContain("Bidi flood");
+    expect(names).toContain("x".repeat(NAME_CAP));
+    expect(names).toContain("Wide list");
   });
 
   describe("inside an open shadow root", () => {
@@ -180,5 +194,83 @@ describe("role vocabulary parity", () => {
     expect(match).not.toBeNull();
     const inCore = JSON.parse(match![1]) as string[];
     expect([...inCore].sort()).toEqual([...KNOWN_ROLES].sort());
+  });
+});
+
+/** A child list a billion wide whose index reads are counted — and which throws
+ *  once read past `limit`, so a walk that copies the whole list or recurses over it
+ *  fails fast instead of hanging the run. */
+function billionWide(limit: number, make: (i: number) => Node, reads: number[]): unknown {
+  return new Proxy(
+    {},
+    {
+      get(_t, key) {
+        if (key === "length") return 1_000_000_000;
+        const i = typeof key === "string" ? Number(key) : NaN;
+        if (!Number.isInteger(i)) return undefined;
+        reads.push(i);
+        if (reads.length > limit) throw new Error(`read past the budget: ${reads.length} reads`);
+        return make(i);
+      },
+    },
+  );
+}
+
+// Rounds 3–4 (#103 / #105): the two sides must not only agree on a hostile page,
+// they must agree while allocating the same bounded amount — the mirror's budgets
+// and the core's are the same numbers, and both walks are cursors over live child
+// lists that stop at those numbers.
+describe("budget parity", () => {
+  it("the composed walk's visit budget is ONE number: the asset text and aria.ts agree", () => {
+    const match = /function __vmarkVisitBudget\(\) \{\n {2}return (\d+);/.exec(AGENT_CORE_SRC);
+    expect(match).not.toBeNull();
+    expect(Number(match![1])).toBe(SNAPSHOT_VISIT_BUDGET);
+    expect(core.visitBudget()).toBe(SNAPSHOT_VISIT_BUDGET);
+  });
+
+  it("the content budget is ONE number: the core and ariaName.ts agree", () => {
+    expect(core.contentBudget()).toBe(CONTENT_BUDGET);
+  });
+
+  it("__vmarkAll is a bounded consumer of the walk: a billion-child root yields SNAPSHOT_VISIT_BUDGET elements after at most budget+1 reads", () => {
+    const reads: number[] = [];
+    const root = { children: billionWide(SNAPSHOT_VISIT_BUDGET + 1, () => document.createElement("i"), reads) } as unknown as Element;
+    expect(core.all(root)).toHaveLength(SNAPSHOT_VISIT_BUDGET);
+    expect(reads.length).toBeLessThanOrEqual(SNAPSHOT_VISIT_BUDGET + 1);
+  });
+});
+
+describe("hostile content walks agree and stay bounded (#105)", () => {
+  const sides: Array<[string, (el: Element) => string]> = [
+    ["aria.ts", accessibleName],
+    ["core", core.name],
+  ];
+
+  it.each(sides)("%s: a button a billion text children wide is named from the first CONTENT_BUDGET characters, reading no more", (_side, name) => {
+    const reads: number[] = [];
+    const btn = document.createElement("button");
+    Object.defineProperty(btn, "childNodes", {
+      get: () => billionWide(CONTENT_BUDGET + 1, () => document.createTextNode("x"), reads),
+    });
+    expect(name(btn)).toBe("x".repeat(NAME_CAP));
+    expect(reads.length).toBeLessThanOrEqual(CONTENT_BUDGET + 1);
+  });
+
+  it.each(sides)("%s: a text node holding megabytes is stripped a window at a time — no replace ever runs over the whole node", (_side, name) => {
+    const btn = document.createElement("button");
+    btn.appendChild(document.createTextNode(`${"\u200B".repeat(CONTENT_BUDGET)}${"y".repeat(5_000_000)}`));
+    const original = String.prototype.replace;
+    const receivers: number[] = [];
+    const spy = vi.spyOn(String.prototype, "replace").mockImplementation(function (this: string, ...args: unknown[]) {
+      receivers.push(this.length);
+      return (original as unknown as (...a: unknown[]) => string).apply(this, args);
+    });
+    try {
+      expect(name(btn)).toBe("y".repeat(NAME_CAP));
+    } finally {
+      spy.mockRestore();
+    }
+    expect(receivers.length).toBeGreaterThan(0);
+    expect(Math.max(...receivers)).toBeLessThanOrEqual(CONTENT_BUDGET);
   });
 });

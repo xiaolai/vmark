@@ -158,6 +158,7 @@
   "browser.approval.allowSite": "Auf dieser Website zulassen",
   "browser.approval.allowTab": "Bis zur nächsten Navigation erlauben",
   "browser.approval.sessionNote": "Website-Berechtigungen gelten, bis VMark beendet wird.",
+  "browser.approval.attachFailed": "Der KI konnte die Verwendung dieses Tabs nicht erlaubt werden. Versuchen Sie es erneut oder lehnen Sie ab.",
   "browser.grants.heading": "Website-Berechtigungen",
   "browser.grants.empty": "Noch keine Website hat Berechtigungen. Genehmigte Freigaben erscheinen hier.",
   "browser.grants.revoke": "Widerrufen",

@@ -8,8 +8,8 @@
 //!
 //! So the native side takes responsibility. On `WindowEvent::Destroyed` we ask the
 //! registry which tabs belonged to that window and tear each one down — the native
-//! view, its delegate, any parked JS dialog, its one-shot authorizations, and its
-//! registry entry.
+//! view, its delegate, any parked JS dialog, its one-shot authorizations, its
+//! attachment, its crash budget, and its registry entry.
 //!
 //! Authority is dropped too, and deliberately: a one-shot is bound to a tab, and a tab
 //! whose window is gone can never be acted on again. Leaving the grant behind would be
@@ -17,8 +17,17 @@
 //! go the same way (audit 20260903 A-03): they were mirrored from THAT window's store,
 //! which no longer exists to revoke them.
 //!
+//! Every tab's state goes under ONE registry guard (audit 20260903 round 4, #35), the
+//! same way `BrowserSurface::forget_tab` does it for one tab. Removing the entries and
+//! then clearing each tab's one-shots, attachment and crash tracker with the guard
+//! released left a gap in which a `create` + `attach_tab` for a reused id could land
+//! and have its fresh attachment erased by this cleanup. Only the NATIVE teardown runs
+//! unlocked — it hops to the main thread, where WebKit callbacks take the registry
+//! themselves.
+//!
 //! @coordinates-with app_setup.rs — WindowEvent::Destroyed calls destroy_window
-//! @coordinates-with browser/registry.rs — tabs_in_window / remove
+//! @coordinates-with browser/registry.rs — tabs_in_window
+//! @coordinates-with browser/surface.rs — `forget_tab_in`, the per-tab cleanup
 //! @module browser/teardown
 
 use std::collections::HashMap;
@@ -26,20 +35,22 @@ use std::collections::HashMap;
 use tauri::{AppHandle, Manager};
 
 use crate::browser::origin_guard::StandingGrant;
-use crate::browser::registry::BrowserRegistry;
 use crate::browser::surface::{self, BrowserSurface};
 
-/// Drop every registry entry belonging to `window_label`, returning the tab ids that
-/// were dropped so the caller can tear down their native views.
+/// Forget every tab belonging to `window_label` — registry entry, crash budget,
+/// one-shots, attachment — under ONE registry guard, returning the tab ids that were
+/// dropped so the caller can tear down their native views.
 ///
-/// Split out from `destroy_window` because it is the whole decision — which tabs die —
-/// and it is the part that can actually be tested without a live AppKit window.
-pub fn forget_window_tabs(registry: &mut BrowserRegistry, window_label: &str) -> Vec<String> {
-    let tabs = registry.tabs_in_window(window_label);
+/// Split out from `destroy_window` because it is the whole decision — which tabs
+/// die, and that nothing of theirs survives — and it is the part that can actually
+/// be tested without a live AppKit window.
+pub fn forget_window(state: &BrowserSurface, window_label: &str) -> Result<Vec<String>, String> {
+    let mut reg = state.registry.lock().map_err(|e| e.to_string())?;
+    let tabs = reg.tabs_in_window(window_label);
     for tab_id in &tabs {
-        registry.remove(tab_id);
+        state.forget_tab_in(&mut reg, tab_id)?;
     }
-    tabs
+    Ok(tabs)
 }
 
 /// Drop the standing grants `window_label` synced. Returns whether there were any.
@@ -68,12 +79,12 @@ pub fn destroy_window(app: &AppHandle, window_label: &str) {
         Err(e) => log::warn!("[browser] grants lock poisoned during window teardown: {e}"),
     }
 
-    // Take the tab list and drop the registry entries under one lock, so a concurrent
-    // command cannot see a window that is half gone.
-    let tabs = match state.registry.lock() {
-        Ok(mut registry) => forget_window_tabs(&mut registry, window_label),
+    // Every tab's state, under one guard: a concurrent command sees the window
+    // whole or gone, never half torn down.
+    let tabs = match forget_window(&state, window_label) {
+        Ok(tabs) => tabs,
         Err(e) => {
-            log::warn!("[browser] registry lock poisoned during window teardown: {e}");
+            log::warn!("[browser] state lock poisoned during window teardown: {e}");
             return;
         }
     };
@@ -86,16 +97,10 @@ pub fn destroy_window(app: &AppHandle, window_label: &str) {
         tabs.len()
     );
     for tab_id in tabs {
-        // Authority dies with the tab: a one-shot is bound to a tab that can never be
-        // acted on again.
-        state.clear_tab_one_shots(&tab_id);
-        state.clear_tab_attachment(&tab_id);
-        if let Ok(mut trackers) = state.crash_trackers.lock() {
-            trackers.remove(&tab_id);
-        }
         // Destroys the native view, detaches its delegate, and releases any page JS
-        // blocked on a dialog. Failures are logged, not propagated: the window is going
-        // away regardless, and there is no one left to report an error to.
+        // blocked on a dialog. Runs with no guard held (see the module doc). Failures
+        // are logged, not propagated: the window is going away regardless, and there
+        // is no one left to report an error to.
         if let Err(e) = surface::destroy(app, tab_id.clone()) {
             log::warn!("[browser] destroying '{tab_id}' during window teardown failed: {e}");
         }

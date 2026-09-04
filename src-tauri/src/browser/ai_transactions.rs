@@ -27,6 +27,9 @@ use crate::browser::ai_guards::{
     lock_failure, require_ai_tab_capacity, require_current_epoch, surface_failure, tab_not_found,
     with_mcp_code,
 };
+use crate::browser::ai_policy_dns::{DestinationResolver, SystemResolver};
+use crate::browser::ai_transactions_preflight::preflight;
+use crate::browser::native_failure::NativeSurfaceError;
 use crate::browser::profile_open::consume_profile_open;
 use crate::browser::registry::{
     AiRequestMismatch, AiReservation, AiReservationRefusal, AiTabRequest, AutomationMode,
@@ -178,14 +181,42 @@ pub(super) fn authorize_profile(
     Ok(Some(name))
 }
 
-/// Run the native creation. On failure every half of the tab's state is
-/// forgotten (`forget_tab`), so a retried id starts clean, and the failure is
-/// classified for the caller.
+/// Run the native creation with the OS resolver (`SystemResolver`).
 pub(super) fn create_native(
     state: &BrowserSurface,
     tab_id: &str,
-    create: impl FnOnce() -> Result<(), String>,
+    create: impl FnOnce() -> Result<(), NativeSurfaceError>,
 ) -> Result<(), CommandError> {
+    create_native_with(state, tab_id, &SystemResolver::default(), create)
+}
+
+/// Run the native creation, after the resolved-address pre-flight of the
+/// ticket's requested url. On EITHER failure every half of the tab's state is
+/// forgotten (`forget_tab`), so a retried id starts clean, and the failure is
+/// classified for the caller. A create with no begun navigation has nothing to
+/// pre-flight: that is an internal failure, never a skipped check.
+pub(super) fn create_native_with(
+    state: &BrowserSurface,
+    tab_id: &str,
+    resolver: &dyn DestinationResolver,
+    create: impl FnOnce() -> Result<(), NativeSurfaceError>,
+) -> Result<(), CommandError> {
+    let requested = state
+        .registry
+        .lock()
+        .map_err(lock_failure)?
+        .navigation_ticket(tab_id)
+        .map(|ticket| ticket.requested_url.clone());
+    let Some(url) = requested else {
+        state.forget_tab(tab_id).map_err(lock_failure)?;
+        return Err(CommandError::internal(
+            "browser_ai_create reached the native call with no navigation ticket",
+        ));
+    };
+    if let Err(refused) = preflight(state, &url, resolver) {
+        state.forget_tab(tab_id).map_err(lock_failure)?;
+        return Err(refused);
+    }
     if let Err(error) = create() {
         state.forget_tab(tab_id).map_err(lock_failure)?;
         return Err(surface_failure(&error));
@@ -193,21 +224,45 @@ pub(super) fn create_native(
     Ok(())
 }
 
-/// Run the native navigation. On failure the state `begin_ai_navigation`
-/// replaced is restored — only while `ticket` is still the active navigation; a
-/// newer one is left in force, since its own native call decides its fate.
+/// Run the native navigation with the OS resolver (`SystemResolver`).
 pub(super) fn navigate_native(
     state: &BrowserSurface,
     tab_id: &str,
     ticket: &NavigationTicket,
     replaced: NavigationSnapshot,
-    navigate: impl FnOnce() -> Result<(), String>,
+    navigate: impl FnOnce() -> Result<(), NativeSurfaceError>,
 ) -> Result<(), CommandError> {
-    if let Err(error) = navigate() {
+    navigate_native_with(
+        state,
+        tab_id,
+        ticket,
+        replaced,
+        &SystemResolver::default(),
+        navigate,
+    )
+}
+
+/// Run the native navigation, after the resolved-address pre-flight of the
+/// ticket's requested url. On EITHER failure the state `begin_ai_navigation`
+/// replaced is restored — only while `ticket` is still the active navigation; a
+/// newer one is left in force, since its own native call decides its fate.
+pub(super) fn navigate_native_with(
+    state: &BrowserSurface,
+    tab_id: &str,
+    ticket: &NavigationTicket,
+    replaced: NavigationSnapshot,
+    resolver: &dyn DestinationResolver,
+    navigate: impl FnOnce() -> Result<(), NativeSurfaceError>,
+) -> Result<(), CommandError> {
+    let outcome = match preflight(state, &ticket.requested_url, resolver) {
+        Err(refused) => Err(refused),
+        Ok(()) => navigate().map_err(|error| surface_failure(&error)),
+    };
+    if let Err(error) = outcome {
         let mut reg = state.registry.lock().map_err(lock_failure)?;
         // `Err` here means the tab has since been forgotten: nothing to restore.
         let _ = reg.restore_navigation(tab_id, &ticket.id, replaced);
-        return Err(surface_failure(&error));
+        return Err(error);
     }
     Ok(())
 }

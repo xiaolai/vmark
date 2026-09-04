@@ -20,6 +20,7 @@
 //! KVO observer dangling on a webview that was about to go live. The next URL change would
 //! message a freed object. (Audit verification round 2, finding 11.)
 
+use crate::browser::native_failure::NativeSurfaceError;
 use tauri::AppHandle;
 
 /// Remove any webview already registered under `tab_id` from the view hierarchy.
@@ -75,7 +76,7 @@ fn detach(webview: &objc2_web_kit::WKWebView, tab_id: &str) {
 }
 
 /// Tear down and drop the native webview.
-pub fn destroy(app: &AppHandle, tab_id: String) -> Result<(), String> {
+pub fn destroy(app: &AppHandle, tab_id: String) -> Result<(), NativeSurfaceError> {
     super::on_main(app, move |_mtm| {
         // Release any page JS blocked on a dialog before the webview goes away.
         super::dialogs::drain_for(&tab_id);

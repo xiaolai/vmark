@@ -1,11 +1,9 @@
 /** Browser approval store — standing grants and page-scoped ephemeral approvals (R5/R7a). */
 
 import { create } from "zustand";
-import {
-  performHumanTabAttach,
-  recordAttachment,
-  consumeOnceAttachment,
-} from "@/services/browser/humanTabAttach";
+import { performHumanTabAttach, consumeOnceAttachment } from "@/services/browser/humanTabAttach";
+import { useTabStore } from "@/stores/tabStore";
+import { isBrowserTab } from "@/stores/tabStoreTypes";
 import {
   addGrant,
   decideApproval,
@@ -23,6 +21,7 @@ import {
   grantPatternFor,
 } from "./browserApprovalStore.helpers";
 import { resolveNonAttach } from "./browserApprovalStore.resolve";
+import { beginAttach, settleAttach } from "./browserApprovalStore.attach";
 import type {
   ActionTarget,
   PendingApproval,
@@ -134,12 +133,15 @@ interface BrowserApprovalActions {
   dismissForNavigation: (tabId: string) => void;
   /** Drop approvals that are valid only for the current app/browser session. */
   clearEphemeral: () => void;
-  /** Record a successful human-tab attachment for the current generation. */
-  /** Record a human-tab attachment. Resolves false if the IPC failed, so the
-   *  caller can keep the prompt raised instead of reporting success. */
-  attachHumanTab: (tabId: string, generation: number, once: boolean) => Promise<boolean>;
   isHumanTabAttached: (tabId: string, generation: number) => boolean;
   consumeHumanTabAttachment: (tabId: string, generation: number) => void;
+}
+
+/** The tab's generation NOW — `0` before its first commit, which is how the bridge
+ *  stamps a prompt (`browserHelpers.ts`) — or undefined for a tab no window holds. */
+function browserTabGeneration(tabId: string): number | undefined {
+  const tab = useTabStore.getState().findTabById(tabId);
+  return tab && isBrowserTab(tab) ? (tab.generation ?? 0) : undefined;
 }
 
 /** Standing grants + pending approvals for AI browser actions (R5). Use selectors. */
@@ -209,7 +211,6 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
       // remembered nor authorized once. Fail closed.
       const pattern = grantPatternFor(request.targetUrl);
       if (request.operation === "attach") {
-        const drop = () => set((s) => ({ pending: s.pending.filter((p) => p.id !== id) }));
         // A denial is final and local. An APPROVAL depends on an IPC that can
         // fail, so the prompt stays raised until the attach is CONFIRMED —
         // dropping it first left a failure with no prompt, no attachment and no
@@ -220,14 +221,17 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
         // the attach still succeeded. The dialog disables its buttons on
         // `resolving`; this is the guard behind it, for every outcome.
         if (get().resolving.includes(id)) return;
-        if (outcome === "deny") return drop();
-        set((s) => ({ resolving: [...s.resolving, id] }));
-        void get()
-          .attachHumanTab(request.tabId, request.generation, outcome === "once")
-          .then((ok) => {
-            if (ok) drop();
-          })
-          .finally(() => set((s) => ({ resolving: s.resolving.filter((r) => r !== id) })));
+        if (outcome === "deny") return set((s) => ({ pending: s.pending.filter((p) => p.id !== id) }));
+        // The entry captured at the click is the TOKEN the outcome is judged against
+        // (#153): a late success records the mirror only if that very entry is still
+        // pending and the tab is still on the prompt's generation; a failure marks the
+        // entry and re-enables the buttons. See browserApprovalStore.attach.ts.
+        const { patch, token } = beginAttach(get(), request);
+        set(patch);
+        const once = outcome === "once";
+        void performHumanTabAttach(token.tabId, token.generation, once).then((ok) =>
+          set((s) => settleAttach(s, token, ok, once, browserTabGeneration)),
+        );
         return;
       }
       set((state) => resolveNonAttach(state, request, outcome, pattern));
@@ -267,14 +271,6 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
     },
 
     clearEphemeral: () => set({ pending: [], resolving: [], oneShots: [], attachments: [], profileOpens: [] }),
-
-    attachHumanTab: (tabId, generation, once) =>
-      performHumanTabAttach(tabId, generation, once).then((ok) => {
-        if (ok) {
-          set((s) => ({ attachments: recordAttachment(s.attachments, { tabId, generation, once }) }));
-        }
-        return ok;
-      }),
 
     isHumanTabAttached: (tabId, generation) =>
       get().attachments.some((a) => a.tabId === tabId && a.generation === generation),

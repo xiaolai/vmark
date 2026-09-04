@@ -144,15 +144,24 @@ that tab. The attachment is bound to the current navigation generation. **Allow 
 spent by the first read or action the browser engine authorizes (a click that then turns
 out to be covered or hidden still spends it); **Allow until navigation** expires on the
 next full or in-page navigation, close, disable, or restart. Until you attach a tab, the
-AI sees only its origin — not its title or path.
+AI sees only its origin — not its title or path. If attaching fails (the driver refused,
+or the page moved while you were deciding), the prompt stays open and says so; you can
+try again or deny.
 
 AI navigation rejects loopback, private-LAN, link-local, metadata, malformed, and
 unsupported-scheme targets by default, and on AI-owned tabs a content rule list applies
 the same refusal to what a page embeds — frames, images, scripts, fetches — so a public
-page cannot use the AI's tab to reach your network. Two things it does not claim: a
-public hostname whose DNS record points at a private address is not resolved before the
-request (VMark never performs DNS itself), and DNS rebinding remains a WebKit-owned
-limitation.
+page cannot use the AI's tab to reach your network. Before an AI-initiated `open` or
+`navigate` is issued, VMark also resolves the destination's hostname and refuses the
+navigation (`SSRF_BLOCKED`, `reason: resolves-private`) when any answer is one of those
+blocked addresses, or (`reason: unresolved`) when the name does not resolve within a
+bounded wait — a public-looking name that points at your LAN or a cloud metadata service
+is caught before WebKit sends a request. Two limits remain, stated plainly: the
+pre-flight covers the navigations the AI issues, not redirect targets, in-page link
+clicks or what a page embeds (those stay URL-text checks plus the content rule list for
+literal private addresses), and a DNS answer that changes after the pre-flight
+(rebinding) is not re-checked, because WKWebView exposes no per-request hook for the
+address a connection actually uses.
 
 ## Co-driving: watch an AI drive the browser from the terminal
 

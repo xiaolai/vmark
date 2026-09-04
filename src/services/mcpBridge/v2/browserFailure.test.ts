@@ -4,7 +4,8 @@
  *
  * The handler-level behaviour lives in `__tests__/browserNavigation.test.ts`;
  * these pin the decisions themselves, including the hazards the substring match
- * they replaced could not avoid. Nothing is mocked — both functions are pure.
+ * they replaced could not avoid — and, since round 4 (#48), that the substring
+ * fallback itself is gone. Nothing is mocked — both functions are pure.
  *
  * @module services/mcpBridge/v2/browserFailure.test
  */
@@ -31,10 +32,26 @@ describe("needsNavigationApproval", () => {
     ).toBe(false);
   });
 
-  it("still recognises the legacy string the unmigrated create path rejects with", () => {
-    expect(needsNavigationApproval("APPROVAL_REQUIRED")).toBe(true);
-    expect(needsNavigationApproval(new Error("APPROVAL_REQUIRED"))).toBe(true);
+  // Round 4, #48 — the substring fallback is GONE. Every browser command returns
+  // a typed CommandError (the ratchet baseline has no `src-tauri/src/browser/`
+  // entry left), so an untyped rejection is never an approval: the only things
+  // that can still arrive untyped are a caller-controlled URL or message that
+  // happens to contain the word, and a thrown `Error` from the webview's own
+  // plumbing — and neither is something a user approval can lift.
+  it("never treats an UNTYPED rejection as approvable, even one that contains the word", () => {
+    expect(needsNavigationApproval("APPROVAL_REQUIRED")).toBe(false);
+    expect(needsNavigationApproval(new Error("APPROVAL_REQUIRED"))).toBe(false);
+    expect(needsNavigationApproval(new Error("navigate to https://evil.example/?APPROVAL_REQUIRED failed"))).toBe(false);
+    expect(needsNavigationApproval({ reason: "APPROVAL_REQUIRED" })).toBe(false);
+    expect(needsNavigationApproval(["APPROVAL_REQUIRED"])).toBe(false);
     expect(needsNavigationApproval("WINDOW_UNAVAILABLE")).toBe(false);
+    expect(needsNavigationApproval(undefined)).toBe(false);
+    expect(needsNavigationApproval(null)).toBe(false);
+  });
+
+  it("a typed error whose MESSAGE is exactly the legacy sentinel still decides by code alone", () => {
+    expect(needsNavigationApproval({ code: "conflict", message: "APPROVAL_REQUIRED" })).toBe(false);
+    expect(needsNavigationApproval({ code: "approval-required", message: "anything" })).toBe(true);
   });
 });
 

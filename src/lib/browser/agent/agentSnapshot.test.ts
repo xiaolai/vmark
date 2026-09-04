@@ -3,7 +3,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { buildSnapshotScript, buildClickScript, buildWaitConditionScript } from "./actScript";
 import { buildQueryScript } from "./powerScript";
-import { ariaSnapshot, SNAPSHOT_NODE_CAP, type AriaSnapshot } from "./aria";
+import { ariaSnapshot, SNAPSHOT_NODE_CAP, SNAPSHOT_VISIT_BUDGET, type AriaSnapshot } from "./aria";
 
 function parse(html: string): Document {
   return new DOMParser().parseFromString(`<body>${html}</body>`, "text/html");
@@ -146,5 +146,74 @@ describe("snapshot bounds (S-06)", () => {
       "complementary=",
       "contentinfo=",
     ]);
+  });
+});
+
+// #103 — the injected snapshot walks the page LAZILY and within a visit budget: a
+// cursor per open node (children read by index), never a copied child list or an
+// array of every element, and it gives up after SNAPSHOT_VISIT_BUDGET elements and
+// says so. The mirror has the same property (aria.test.ts); this is the core.
+describe("snapshot walk budget (#103)", () => {
+  /** Make `doc.children` a list a billion wide whose index reads are counted, and
+   *  which throws once read past `limit` — the old walk copied the whole list, so it
+   *  fails fast here instead of hanging the run. */
+  function billionWide(doc: Document, limit: number, make: () => Element, reads: number[]): void {
+    const kids = new Proxy(
+      {},
+      {
+        get(_t, key) {
+          if (key === "length") return 1_000_000_000;
+          const i = typeof key === "string" ? Number(key) : NaN;
+          if (!Number.isInteger(i)) return undefined;
+          reads.push(i);
+          if (reads.length > limit) throw new Error(`read past the budget: ${reads.length} reads`);
+          return make();
+        },
+      },
+    );
+    Object.defineProperty(doc, "children", { configurable: true, get: () => kids });
+  }
+
+  it("a document a billion elements wide is visited at most SNAPSHOT_VISIT_BUDGET+1 times, still fills the node cap, and is truncated", () => {
+    const doc = parse("");
+    const reads: number[] = [];
+    billionWide(
+      doc,
+      SNAPSHOT_VISIT_BUDGET + 1,
+      () => {
+        const b = doc.createElement("button");
+        b.textContent = "b";
+        return b;
+      },
+      reads,
+    );
+    const snap = snapshot(doc);
+    expect(snap.nodes).toHaveLength(SNAPSHOT_NODE_CAP);
+    expect(snap.truncated).toBe(true);
+    expect(reads.length).toBeLessThanOrEqual(SNAPSHOT_VISIT_BUDGET + 1);
+  });
+
+  it("running out of visit budget with nothing perceivable is still truncated: the page was not all seen", () => {
+    const doc = parse("");
+    const reads: number[] = [];
+    billionWide(doc, SNAPSHOT_VISIT_BUDGET + 1, () => doc.createElement("i"), reads);
+    expect(snapshot(doc)).toEqual({ nodes: [], truncated: true, unreachable: { closedShadowRoots: 0, frames: 0 } });
+    // It looked at the whole budget before giving up — not one element more.
+    expect(reads.length).toBeGreaterThanOrEqual(SNAPSHOT_VISIT_BUDGET);
+    expect(reads.length).toBeLessThanOrEqual(SNAPSHOT_VISIT_BUDGET + 1);
+  });
+
+  it("a capped NAME does not stop the walk: every later node is still emitted, and truncated says so", () => {
+    const snap = snapshot(parse(`<button>${"n".repeat(250)}</button><button>after</button><a href="/x">link</a>`));
+    expect(snap.nodes.map((n) => n.name)).toEqual(["n".repeat(200), "after", "link"]);
+    expect(snap.truncated).toBe(true);
+  });
+
+  it("the unreachable tally still covers the whole reachable page after the node cap", () => {
+    const doc = parse(`${Array.from({ length: SNAPSHOT_NODE_CAP + 1 }, () => `<button>b</button>`).join("")}<iframe></iframe><x-late></x-late>`);
+    const snap = snapshot(doc);
+    expect(snap.nodes).toHaveLength(SNAPSHOT_NODE_CAP);
+    expect(snap.truncated).toBe(true);
+    expect(snap.unreachable).toEqual({ closedShadowRoots: 1, frames: 1 });
   });
 });
