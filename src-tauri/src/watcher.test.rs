@@ -193,3 +193,61 @@ fn test_fs_change_event_serialization() {
     assert!(json.contains("\"rootPath\":\"/Users/test\""));
     assert!(json.contains("\"kind\":\"modify\""));
 }
+
+// ── #1357 live check: events under a symlinked root must stay in scope ────────
+
+#[test]
+fn a_path_reported_under_the_canonical_root_is_rebased_onto_the_requested_root() {
+    // macOS: a root given as /var/… is reported as /private/var/….
+    assert_eq!(
+        rebase_onto_root(
+            "/private/var/folders/x/ws/new.md",
+            "/var/folders/x/ws",
+            "/private/var/folders/x/ws"
+        ),
+        "/var/folders/x/ws/new.md"
+    );
+    // The root itself.
+    assert_eq!(
+        rebase_onto_root("/private/var/ws", "/var/ws", "/private/var/ws"),
+        "/var/ws"
+    );
+}
+
+#[test]
+fn a_canonical_root_leaves_paths_untouched_and_a_sibling_prefix_never_matches() {
+    assert_eq!(
+        rebase_onto_root("/home/me/ws/a.md", "/home/me/ws", "/home/me/ws"),
+        "/home/me/ws/a.md"
+    );
+    // `/root2/…` is not under `/root`.
+    assert_eq!(
+        rebase_onto_root("/real/root2/a.md", "/link/root", "/real/root"),
+        "/real/root2/a.md"
+    );
+    // A path outside the root comes back as reported.
+    assert_eq!(
+        rebase_onto_root("/elsewhere/a.md", "/link/root", "/real/root"),
+        "/elsewhere/a.md"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn a_root_reached_through_a_real_symlink_rebases_the_os_spelling() {
+    let dir = tempfile::tempdir().unwrap();
+    let real = dir.path().join("real");
+    std::fs::create_dir(&real).unwrap();
+    let link = dir.path().join("link");
+    std::os::unix::fs::symlink(&real, &link).unwrap();
+    let requested = link.to_string_lossy().to_string();
+    let canonical = std::fs::canonicalize(&link)
+        .unwrap()
+        .to_string_lossy()
+        .to_string();
+    let reported = format!("{canonical}/note.md");
+    assert_eq!(
+        rebase_onto_root(&reported, &requested, &canonical),
+        format!("{requested}/note.md")
+    );
+}

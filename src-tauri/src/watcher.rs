@@ -7,6 +7,8 @@
 //! debounce + filter → `app.emit("fs:changed", ...)` → frontend `useFileTree`.
 //!
 //! Key decisions:
+//!   - Paths are reported under the root the caller asked to watch, not the
+//!     realpath the OS returns (see `rebase_onto_root`).
 //!   - Debouncing (200ms) keyed by (watch_id, path, kind) suppresses duplicate
 //!     events from macOS FSEvents, which fires multiple events for a single
 //!     write. Kind is part of the key so a `create` followed by a `remove`
@@ -152,7 +154,39 @@ fn should_emit_and_record(
 
 /// Handle a notify event and emit it to the frontend.
 /// Deduplicates same-kind events for the same path within DEBOUNCE_INTERVAL.
-fn handle_event(app: &AppHandle, watch_id: &str, root_path: &str, event: Event) {
+/// Spell a path the watcher reported under the root the caller asked to watch.
+///
+/// The OS reports the REAL path (`/private/var/…` for a root given as
+/// `/var/…`, the target for a root reached through any symlink), while the
+/// window's scope filter compares against the root string it started the watch
+/// with. Every event under a symlinked root therefore fell out of scope, the
+/// explorer never refreshed on fs events there, and only the window-focus refresh
+/// masked it (found by #1357's live check, whose workspace lived under macOS's
+/// `/var` → `/private/var` link). `canonical_root` is the resolved root; a
+/// reported path under it is rebased onto `root`; anything else is returned as
+/// it came. The prefix must end at a path separator so `/root2/x` never matches
+/// `/root`.
+fn rebase_onto_root(path: &str, root: &str, canonical_root: &str) -> String {
+    if canonical_root == root || !path.starts_with(canonical_root) {
+        return path.to_string();
+    }
+    let rest = &path[canonical_root.len()..];
+    if rest.is_empty() {
+        return root.to_string();
+    }
+    if !rest.starts_with(std::path::MAIN_SEPARATOR) && !rest.starts_with('/') {
+        return path.to_string();
+    }
+    format!("{root}{rest}")
+}
+
+fn handle_event(
+    app: &AppHandle,
+    watch_id: &str,
+    root_path: &str,
+    canonical_root: &str,
+    event: Event,
+) {
     let Some(kind_str) = event_kind_to_string(&event.kind) else {
         return;
     };
@@ -173,7 +207,7 @@ fn handle_event(app: &AppHandle, watch_id: &str, root_path: &str, event: Event) 
         .iter()
         .filter(|p| !should_ignore_path(p))
         .filter_map(|p| {
-            let path_str = p.to_string_lossy().to_string();
+            let path_str = rebase_onto_root(&p.to_string_lossy(), root_path, canonical_root);
             should_emit_and_record(map, watch_id, &path_str, kind_str, now).then_some(path_str)
         })
         .collect();
@@ -213,11 +247,21 @@ pub fn start_watching(app: AppHandle, watch_id: String, path: String) -> Result<
     let app_handle = app.clone();
     let watch_id_clone = watch_id.clone();
     let root_path_clone = path.clone();
+    // Resolved once: the spelling the OS will report events under.
+    let canonical_root = std::fs::canonicalize(watch_path)
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|_| path.clone());
 
     let mut watcher = RecommendedWatcher::new(
         move |res: Result<Event, notify::Error>| {
             if let Ok(event) = res {
-                handle_event(&app_handle, &watch_id_clone, &root_path_clone, event);
+                handle_event(
+                    &app_handle,
+                    &watch_id_clone,
+                    &root_path_clone,
+                    &canonical_root,
+                    event,
+                );
             }
         },
         Config::default(),
