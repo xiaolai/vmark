@@ -26,7 +26,16 @@ describe("CcSwitchImportRow", () => {
     expect(openUrlMock).toHaveBeenCalledTimes(1);
     const link = openUrlMock.mock.calls[0][0] as string;
     expect(link).toMatch(/^ccswitch:\/\/v1\/import\?/);
-    expect(decodeURIComponent(link)).toContain("/usr/local/bin/vmark-mcp-server");
+    // The path rides inside the Base64 `config` payload (#1361), so read it the
+    // way CC-Switch does rather than searching the URL text — a substring match
+    // passed only while the payload was raw JSON, which is the bug it missed.
+    const config = new URL(link).searchParams.get("config") ?? "";
+    const decoded: unknown = JSON.parse(
+      new TextDecoder().decode(Uint8Array.from(atob(config), (c) => c.charCodeAt(0))),
+    );
+    expect(decoded).toEqual({
+      mcpServers: { vmark: { command: "/usr/local/bin/vmark-mcp-server" } },
+    });
     expect(toastMock.success).toHaveBeenCalled();
   });
 
