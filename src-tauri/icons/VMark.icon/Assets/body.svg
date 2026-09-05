@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  VMark — icon layer 2 of 3: the body.
+
+  Geometry is the designer's, on the 24-unit artboard of
+  `src-tauri/icons/source/vmark-squircle.svg`, scaled 42.666667x to the 1024 canvas
+  Icon Composer expects. There is no squircle and no gutter on purpose: a `.icon`
+  layer is drawn edge to edge and macOS applies the shape, the inset and the mask
+  itself. Baking our own is exactly what produced the pale seam on the old icon —
+  the system lit our pre-rounded edge a second time.
+
+  One polygon per layer, one layer per group, so the system lights the three
+  planes separately instead of as one flat plate. No text elements; Icon Composer
+  rejects them.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <g transform="scale(42.666667)">
+    <polygon points="0,0 24,0 12,24 0,12" fill="#2D6FCD"/>
+  </g>
+</svg>

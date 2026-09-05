@@ -16,7 +16,10 @@ import { useUpdateOperations } from "@/hooks/useUpdateOperations";
 import { CheckCircle2, AlertCircle, Download, Globe } from "lucide-react";
 import { GithubMark } from "./GithubMark";
 import { UpdateAvailableCard } from "./UpdateAvailableCard";
-import appIcon from "@/assets/app-icon.png";
+// `?no-inline`: the icon is three flat polygons and compresses under Vite's 4 KB
+// inline threshold, so a plain import would base64 it into the Settings chunk
+// and charge ~4.5 kB of image to a JS size budget. Keep it a file.
+import appIcon from "@/assets/app-icon.png?no-inline";
 import { appError } from "@/utils/debug";
 import { confirmAction } from "@/services/dialogs/confirmAction";
 import i18n from "@/i18n";

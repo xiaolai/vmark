@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="88" viewBox="0 0 360 88" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">
+  <g transform="translate(8 20) scale(2)">
+  <polygon points="0,12 12,24 0,24" fill="#4E8CE6"></polygon>
+  <polygon points="0,0 24,0 12,24 0,12" fill="#2D6FCD"></polygon>
+  <polygon points="24,0 24,24 12,24" fill="#12366A"></polygon>
+  </g>
+  <text x="70" y="55" fill="currentColor" font-size="38" letter-spacing="-0.5">vmark</text>
+</svg>

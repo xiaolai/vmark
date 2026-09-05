@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="310" height="150" viewBox="0 0 310 150" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">
+  <rect width="310" height="150" fill="#0D1014"></rect>
+  <g transform="translate(34 37) scale(3.1667)">
+  <polygon points="0,12 12,24 0,24" fill="#4E8CE6"></polygon>
+  <polygon points="0,0 24,0 12,24 0,12" fill="#2D6FCD"></polygon>
+  <polygon points="24,0 24,24 12,24" fill="#12366A"></polygon>
+  </g>
+  <text x="132" y="72" fill="#F6F7F9" font-size="27" letter-spacing="-0.3">vmark</text>
+  <text x="133" y="92" fill="#6B7482" font-size="12">local-first text</text>
+</svg>
