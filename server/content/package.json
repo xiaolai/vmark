@@ -21,15 +21,15 @@
   "author": "VMark",
   "license": "MIT",
   "dependencies": {
-    "@hono/node-server": "^2.1.0",
-    "@slidev/cli": "^52.19.0",
+    "@hono/node-server": "^2.1.1",
+    "@slidev/cli": "^52.19.1",
     "chokidar": "^5.0.0",
-    "dompurify": "^3.4.13",
+    "dompurify": "^3.4.14",
     "hastscript": "^9.0.1",
     "hono": "^4.13.1",
     "ignore": "^7.0.6",
     "jsdom": "^30.0.1",
-    "katex": "^0.18.4",
+    "katex": "^0.18.5",
     "mdast-util-find-and-replace": "^3.0.2",
     "playwright-chromium": "^1.62.1",
     "rehype-katex": "^7.0.1",
@@ -47,10 +47,10 @@
     "@types/jsdom": "^30.0.0",
     "@types/katex": "^0.16.8",
     "@types/node": "^22.20.1",
-    "@vitest/coverage-v8": "^4.1.10",
+    "@vitest/coverage-v8": "^4.1.11",
     "tsup": "^8.5.1",
     "typescript": "~6.0.3",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   },
   "engines": {
     "node": ">=20.12"
