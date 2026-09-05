@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  VMark — application icon, the LEGACY source.
+
+  This is the pre-rounded bitmap's source: the mark from
+  `source/vmark-squircle.svg` placed inside a 1024 canvas as an 824x824 squircle
+  with exactly 100px of transparent gutter on every side (Apple's absolute figure
+  for a 1024 canvas). It feeds `icon.icns`, the PNG ladder, `icon.ico` and the
+  Windows/iOS/Android sets via `scripts/build-app-icons.sh`, and is what macOS 15
+  and earlier, Windows and Linux draw as-is.
+
+  macOS 26 does NOT use this: it draws `VMark.icon` compiled into `Assets.car`
+  (see `scripts/build-macos-glass-icon.sh`), whose layers are edge to edge and
+  whose shape the system applies. Baking the squircle here is correct for the
+  platforms that do not mask; baking it for macOS 26 is what produced the pale
+  seam on the old icon.
+
+  rx=185 is 22.5% of 824, the rounded-rect approximation of the continuous-corner
+  squircle. Scale: 824 / 24 = 34.333333.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <clipPath id="squircle">
+      <rect x="100" y="100" width="824" height="824" rx="185" ry="185"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#squircle)">
+    <g transform="translate(100 100) scale(34.333333)">
+      <polygon points="0,12 12,24 0,24" fill="#4E8CE6"/>
+      <polygon points="0,0 24,0 12,24 0,12" fill="#2D6FCD"/>
+      <polygon points="24,0 24,24 12,24" fill="#12366A"/>
+    </g>
+  </g>
+</svg>
