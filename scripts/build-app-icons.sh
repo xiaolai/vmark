@@ -94,6 +94,10 @@ assert_8bit() {
 # (45% wide, 19% tall, like the badge the previous dev set carried), so it reads
 # the same at every representation.
 #
+# `-strip` matters here as much as in render(): without it ImageMagick embeds
+# creation timestamps, and every regeneration produced byte-different dev PNGs
+# with identical pixels, a spurious diff on files nothing had changed.
+#
 # It must stay INSIDE the squircle. The body ends 9.77% from each edge, and the
 # corner arc (radius 18.07%) cuts further in than that; at a 9% offset the pill
 # crossed both, and macOS 26 judged the silhouette non-conforming and drew the
@@ -106,7 +110,7 @@ badge() { # $1 = in png, $2 = out png
   w=$((px * 45 / 100)); h=$((px * 19 / 100)); r=$((h / 2)); fs=$((h * 72 / 100)); off=$((px * 13 / 100))
   magick "$1" \( -size "${w}x${h}" xc:none -fill "#FF9500" -draw "roundrectangle 0,0 $((w-1)),$((h-1)) $r,$r" \
     -font /System/Library/Fonts/Helvetica.ttc -pointsize "$fs" -fill white -gravity center -annotate +0+$((h/40)) "DEV" \) \
-    -gravity southeast -geometry "+${off}+${off}" -composite -depth 8 "PNG32:$2"
+    -gravity southeast -geometry "+${off}+${off}" -composite -strip -depth 8 "PNG32:$2"
   assert_rgba "$2"
   assert_inside_squircle "$2"
 }
