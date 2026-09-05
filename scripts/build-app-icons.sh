@@ -10,7 +10,10 @@
 #                          icon.ico, Square*Logo.png, StoreLogo.png, ios/, android/
 #   src-tauri/icons-dev/   the same ladder with an orange DEV badge (macOS/Windows/Linux only)
 #   src/assets/app-icon.png            the About page's 48pt image (256px, @2x)
+#   website/public/logo.png            the site's hero image (640px: the hero shows it at
+#                                      up to 320px, so this is its @2x)
 #   website/public/favicon.svg         the designer's favicon, C2PA manifest stripped
+#   website/public/favicon.ico         the same mark for browsers that ask for /favicon.ico
 #
 # The .icns is hand-built with iconutil rather than taken from `tauri icon`, so the
 # 16 and 32 point representations use the designer's simplified small variants
@@ -176,9 +179,22 @@ rm -rf "$icons/ios" "$icons/android"; cp -R "$work/tauri-icons/ios" "$work/tauri
 
 # In-app and website assets.
 cp "$work/release-256.png" "$repo/src/assets/app-icon.png"
+render "$work/mark.svg" 640 "$repo/website/public/logo.png"
+# favicon.ico mirrors favicon.svg (the two-polygon mark, full bleed, no squircle):
+# the .svg is what modern browsers load, the .ico is what the rest request by name.
+for px in 16 32 48; do
+  magick -background none -density 384 "$src/favicon.svg" -resize "${px}x${px}" -strip -depth 8 "PNG32:$work/favicon-$px.png"
+done
+python3 - "$repo/website/public/favicon.ico" "$work/favicon-16.png" "$work/favicon-32.png" "$work/favicon-48.png" <<'PY2'
+import sys
+from PIL import Image
+out, *frames = sys.argv[1:]
+imgs = sorted((Image.open(f).convert("RGBA") for f in frames), key=lambda im: -im.size[0])
+imgs[0].save(out, format="ICO", append_images=imgs[1:], sizes=[im.size for im in imgs])
+PY2
 python3 - "$src/favicon.svg" "$repo/website/public/favicon.svg" <<'PY'
 import re,sys
 s=re.sub(r"<metadata>.*?</metadata>","",open(sys.argv[1]).read(),flags=re.S).replace(' xmlns:c2pa="http://c2pa.org/manifest"','')
 open(sys.argv[2],"w").write(s)
 PY
-echo "build-app-icons: wrote $icons, $dev, src/assets/app-icon.png, website/public/favicon.svg"
+echo "build-app-icons: wrote $icons, $dev, src/assets/app-icon.png, website/public/{logo.png,favicon.svg,favicon.ico}"
