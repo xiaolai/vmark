@@ -107,7 +107,9 @@
     "macOS": {
       "entitlements": "sidecar-entitlements.plist",
       "minimumSystemVersion": "13.4",
-      "files": {}
+      "files": {
+        "Resources/Assets.car": "icons/Assets.car"
+      }
     },
     "windows": {
       "nsis": {

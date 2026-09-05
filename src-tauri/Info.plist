@@ -1,8 +1,26 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
+<!--
+  Merged into the generated Info.plist by the Tauri bundler (it picks up
+  `src-tauri/Info.plist` on its own; the empty CFBundleVersion below is proof —
+  it reaches the shipped bundle). Tauri owns every other key; this file adds only
+  what it has no setting for.
+
+  CFBundleIconName points at the app icon inside Contents/Resources/Assets.car,
+  which is how macOS 26 finds the layered icon and gives it the Liquid Glass
+  treatment. It is the `.icon` document's name — VMark.icon — without the
+  extension, and actool bakes that same name into the catalogue
+  (`scripts/build-macos-glass-icon.sh`): rename one, rename all three.
+
+  Tauri's own CFBundleIconFile (icons/icon.icns) stays and is not redundant:
+  macOS 26 prefers the catalogue, and everything older ignores CFBundleIconName
+  entirely and falls back to the .icns.
+-->
 <dict>
 	<key>CFBundleVersion</key>
 	<string></string>
+	<key>CFBundleIconName</key>
+	<string>VMark</string>
 </dict>
 </plist>

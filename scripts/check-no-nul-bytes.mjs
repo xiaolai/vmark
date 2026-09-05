@@ -48,6 +48,7 @@ import path from "node:path";
 const BINARY_EXTENSIONS = new Set([
   // present in this repository
   "png", "ico", "icns",
+  "car", // a compiled Apple asset catalogue (the macOS 26 layered app icon)
   // forward-looking: binary formats a UI/Tauri repo plausibly gains
   "jpg", "jpeg", "gif", "webp", "avif", "bmp", "tiff", "heic",
   "woff", "woff2", "ttf", "otf", "eot",

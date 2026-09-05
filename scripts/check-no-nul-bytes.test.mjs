@@ -85,6 +85,7 @@ describe("check-no-nul-bytes", () => {
       "assets/icon.png": `PNG${NUL}${NUL}payload`,
       "assets/app.ico": `ICO${NUL}payload`,
       "assets/app.icns": `ICNS${NUL}payload`,
+      "icons/Assets.car": `BOM${NUL}catalogue`,
     });
     expect(runGate(dir).status).toBe(0);
   });
