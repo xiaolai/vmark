@@ -295,6 +295,7 @@ errors:
   # === 저장 경로 (file_write.rs, WI-14 CommandError) ===
   save.parentMissing: "이 파일이 있던 폴더가 더 이상 존재하지 않습니다: %{dir}"
   save.noParentDirectory: "파일 경로에 상위 폴더가 없습니다"
+  save.symlinkLoop: "이 파일의 별칭이 순환하고 있어 실제 파일을 찾을 수 없습니다"
   save.writeFailed: "파일을 저장하지 못했습니다: %{detail}"
   save.taskFailed: "저장 작업이 예기치 않게 종료되었습니다: %{detail}"
 

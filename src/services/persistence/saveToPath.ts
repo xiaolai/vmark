@@ -28,6 +28,8 @@
  * @coordinates-with linebreaks.ts — line ending and hard break normalization
  * @coordinates-with documentStore.ts — markSaved/markAutoSaved state updates
  * @coordinates-with serializeByPath.ts — the per-path save queue
+ * @coordinates-with saveTargetClaim.ts — per-DOCUMENT identity ordering, which
+ *     the per-path queue cannot provide (audit 20260906, F3)
  * @coordinates-with saveHistorySnapshot.ts — version history snapshots
  * @coordinates-with services/coherence/captureFunnel.ts — fire-and-forget provenance capture
  *     (WI-1.6), gated on `general.coherenceCaptureOnSave` (default OFF): capture
@@ -38,12 +40,6 @@ import { invoke } from "@tauri-apps/api/core";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
 import { useDocumentStore } from "@/stores/documentStore";
-import { useTabStore } from "@/stores/tabStore";
-import {
-  reassignTabOwnershipForPath,
-  windowLabelForTab,
-} from "@/services/workspaces/reassignTabOwnershipForPath";
-import { useRecentFilesStore } from "@/stores/workspaceStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import {
   resolveWritableFileOwnership,
@@ -58,6 +54,9 @@ import {
 import { registerPendingSave, clearPendingSave } from "@/utils/pendingSaves";
 import { normalizePath } from "@/utils/paths";
 import { serializeByPath } from "./serializeByPath";
+import { claimSaveTarget, type SaveTargetClaim } from "./saveTargetClaim";
+import { applyPostSaveState } from "./applyPostSaveState";
+import type { NormalizedSaveContent } from "./normalizedSaveContent";
 import { recordHistorySnapshot, type SaveType } from "./saveHistorySnapshot";
 import { captureWrite } from "@/services/coherence/captureFunnel";
 import { saveError } from "@/utils/debug";
@@ -85,11 +84,6 @@ function parseParentMissingError(error: unknown): string | null {
 }
 
 /** Normalized save payload plus the line-ending/hard-break styles applied. */
-interface NormalizedSaveContent {
-  output: string;
-  targetLineEnding: ReturnType<typeof resolveLineEndingOnSave>;
-  targetHardBreakStyle: ReturnType<typeof resolveHardBreakStyle>;
-}
 
 /**
  * Resolve the on-save line-ending and hard-break styles from the document's
@@ -166,57 +160,6 @@ function handleWriteError(
 }
 
 /**
- * Update stores after a successful write: file path, line metadata, saved
- * markers, deferred pending-save clear, tab path sync, and recent files.
- *
- * `editorSnapshot` is the PRE-normalisation content the caller handed to the
- * writer — not a fresh store read, which would defeat the TOCTOU check: an
- * edit landing mid-save must compare against what was actually written, and it
- * cannot be reconstructed from `output` because `normalizeHardBreaks` is not
- * invertible.
- */
-function applyPostSaveState(
-  tabId: string,
-  path: string,
-  editorSnapshot: string,
-  normalized: NormalizedSaveContent,
-  saveToken: ReturnType<typeof registerPendingSave>,
-  saveType: SaveType
-): void {
-  const { output, targetLineEnding, targetHardBreakStyle } = normalized;
-  useDocumentStore.getState().setFilePath(tabId, path);
-  useDocumentStore
-    .getState()
-    .setLineMetadata(tabId, { lineEnding: targetLineEnding, hardBreakStyle: targetHardBreakStyle });
-  const snapshots = { editorSnapshot, diskSnapshot: output };
-  if (saveType === "auto") {
-    useDocumentStore.getState().markAutoSaved(tabId, snapshots);
-  } else {
-    useDocumentStore.getState().markSaved(tabId, snapshots);
-  }
-
-  // Delay clearing pending save to allow late-arriving watcher events
-  // to still match against our save. The full pipeline (Rust debounce 200ms →
-  // emit → JS event loop → async readTextFile → comparison) can exceed 500ms
-  // under heavy I/O, so use 1000ms for safety.
-  setTimeout(() => clearPendingSave(path, saveToken), 1000);
-
-  // Update tab path for title sync
-  useTabStore.getState().updateTabPath(tabId, path);
-  // WI-13.4: Save As across a workspace boundary reassigns ownership; the
-  // visible context follows when this is the active tab.
-  {
-    const ownerWindow = windowLabelForTab(tabId);
-    if (ownerWindow) reassignTabOwnershipForPath(ownerWindow, tabId, path);
-  }
-
-  // Add to recent files (skip for auto-save to avoid noise)
-  if (saveType === "manual") {
-    useRecentFilesStore.getState().addFile(path);
-  }
-}
-
-/**
  * Serialized per path by `saveToPath`. Everything here — the write, the store
  * update, and the history snapshot — belongs to one save and must not
  * interleave with another save to the same file.
@@ -225,7 +168,8 @@ async function performSave(
   tabId: string,
   path: string,
   content: string,
-  saveType: SaveType
+  saveType: SaveType,
+  claim: SaveTargetClaim
 ): Promise<boolean> {
   // Normalized at RUN time, not submission time: a queued save must use the
   // document's convention as of its turn, not as of when it was requested.
@@ -247,7 +191,7 @@ async function performSave(
     return handleWriteError(tabId, path, saveToken, saveType, error);
   }
 
-  applyPostSaveState(tabId, path, content, normalized, saveToken, saveType);
+  applyPostSaveState(tabId, path, content, normalized, saveToken, saveType, claim);
   await recordHistorySnapshot(path, normalized.output, saveType);
 
   // Coherence capture (WI-1.6, human funnel): fire-and-forget — a failed
@@ -288,7 +232,13 @@ export function saveToPath(
   content: string,
   saveType: SaveType = "manual"
 ): Promise<boolean> {
+  // Claimed HERE — at submission, outside the per-path queue. Path
+  // serialization orders writes to one file; it cannot order two saves of one
+  // DOCUMENT to different files, which is exactly the autosave-then-Save-As
+  // case (audit 20260906, F3). Claiming at submission also means the user's
+  // most recent choice wins even if its write finishes first.
+  const claim = claimSaveTarget(tabId);
   return serializeByPath(normalizePath(path), () =>
-    performSave(tabId, path, content, saveType)
+    performSave(tabId, path, content, saveType, claim)
   );
 }

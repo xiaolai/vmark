@@ -295,6 +295,7 @@ errors:
   # === Chemin d'enregistrement (file_write.rs, WI-14 CommandError) ===
   save.parentMissing: "Le dossier de ce fichier n'existe plus : %{dir}"
   save.noParentDirectory: "Le chemin du fichier n'a pas de dossier parent"
+  save.symlinkLoop: "L'alias de ce fichier pointe en boucle, le fichier réel est donc introuvable"
   save.writeFailed: "Impossible d'enregistrer le fichier : %{detail}"
   save.taskFailed: "La tâche d'enregistrement s'est terminée de manière inattendue : %{detail}"
 

@@ -12,6 +12,17 @@ vi.mock("@/services/persistence/saveToPath", () => ({
   saveToPath: vi.fn(),
 }));
 
+// Destination reservation is a collaborator with its own suite
+// (reserveBatchDestinations.test.ts) and its own backend command; these tests
+// are about batch ORCHESTRATION. The stub keeps the uncontended behaviour —
+// one destination per name, in order — so the assertions below still describe
+// what the user gets when nothing collides.
+vi.mock("./reserveBatchDestinations", () => ({
+  reserveBatchDestinations: vi.fn(async (folder: string, names: string[]) =>
+    names.map((name) => `${folder}/${name}`),
+  ),
+}));
+
 const WINDOW_LABEL = "main";
 
 describe("promptSaveForDirtyDocument", () => {

@@ -295,6 +295,7 @@ errors:
   # === 保存路径（file_write.rs，WI-14 CommandError）===
   save.parentMissing: "该文件所在的文件夹已不存在：%{dir}"
   save.noParentDirectory: "文件路径没有上级文件夹"
+  save.symlinkLoop: "此文件的替身指向形成循环，因此找不到真正的文件"
   save.writeFailed: "无法保存文件：%{detail}"
   save.taskFailed: "保存任务意外结束：%{detail}"
 

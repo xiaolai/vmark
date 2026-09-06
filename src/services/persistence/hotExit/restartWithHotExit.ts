@@ -87,6 +87,23 @@ async function clearSessionFile(context: string): Promise<void> {
 /**
  * Capture session, write to disk, then restart app.
  * Session will be automatically restored on next startup via useHotExitRestore.
+ *
+ * A FAILED CAPTURE ABORTS THE RESTART (audit 20260906, F2). What the user
+ * agreed to is "restart and restore my unsaved documents"; if the snapshot
+ * could not be written, the second half is not on offer and the restart is a
+ * different, worse deal than the one they accepted. This used to log the
+ * rejection and relaunch anyway, so unsaved text that had never reached a
+ * recoverable snapshot went with the process.
+ *
+ * Nothing downstream can rescue it either: `relaunch()` goes through
+ * `AppHandle::request_restart()`, and Tauri's `ExitRequestApi::prevent_exit()`
+ * explicitly ignores `RESTART_EXIT_CODE` — so the coordinated normal-quit
+ * handler in `app_setup.rs`, which does save dirty buffers on an ordinary
+ * quit, never gets the chance here.
+ *
+ * @throws the capture failure, so the caller can tell the user and reset its
+ * UI. `useUpdateChecker` already emits `update:restart-cancelled` from its
+ * catch, and the process stays alive with every document still open.
  */
 export async function restartWithHotExit(): Promise<void> {
   try {
@@ -103,10 +120,9 @@ export async function restartWithHotExit(): Promise<void> {
     // OBJECT — `String(error)` on one logs the literal "[object Object]".
     const captureError = error instanceof Error ? error : new Error(commandErrorMessage(error));
     hotExitError('Failed to capture session before restart:', captureError);
-    // Continue to relaunch - user already confirmed restart
+    throw captureError;
   }
 
-  // Relaunch regardless of capture success (user confirmed restart)
   try {
     await relaunch();
   } catch (error) {

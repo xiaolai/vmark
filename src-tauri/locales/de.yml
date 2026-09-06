@@ -295,6 +295,7 @@ errors:
   # === Speicherpfad (file_write.rs, WI-14 CommandError) ===
   save.parentMissing: "Der Ordner dieser Datei existiert nicht mehr: %{dir}"
   save.noParentDirectory: "Der Dateipfad hat keinen übergeordneten Ordner"
+  save.symlinkLoop: "Der Alias dieser Datei verweist im Kreis, daher wurde die eigentliche Datei nicht gefunden"
   save.writeFailed: "Datei konnte nicht gespeichert werden: %{detail}"
   save.taskFailed: "Der Speichervorgang wurde unerwartet beendet: %{detail}"
 

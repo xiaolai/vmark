@@ -17,6 +17,7 @@ import i18n from "@/i18n";
 import { getDefaultSaveFolderWithFallback } from "@/services/files/defaultSaveFolder";
 import { saveToPath } from "@/services/persistence/saveToPath";
 import { joinPath } from "@/utils/pathUtils";
+import { reserveBatchDestinations } from "./reserveBatchDestinations";
 import {
   ensureFormatExtension,
   saveFiltersForFilePath,
@@ -96,17 +97,27 @@ export async function persistDocumentBatch(
         return { action: "cancelled" };
       }
 
-      for (const doc of untitledDocs) {
+      // Reserve every destination BEFORE writing any of them. Building
+      // `folder/title.md` and handing it to the overwrite writer replaced
+      // whatever already sat at that name — a closed document the user never
+      // opened — and gave two same-titled tabs the same path (audit 20260906,
+      // F1). Reservation is one `O_EXCL` create per name, so it settles both
+      // collisions and cannot race a concurrent creator.
+      const filenames = untitledDocs.map((doc) =>
+        ensureFormatExtension(toSafeFilename(doc.title), doc.filePath ?? null),
+      );
+      const destinations = await reserveBatchDestinations(folderPath, filenames);
+
+      for (const [index, doc] of untitledDocs.entries()) {
         current++;
         onProgress?.(current, total, doc.title);
 
-        const filename = ensureFormatExtension(
-          toSafeFilename(doc.title),
-          doc.filePath ?? null,
+        const saved = await saveToPath(
+          doc.tabId,
+          destinations[index],
+          doc.content,
+          "manual",
         );
-        const path = joinPath(folderPath, filename);
-
-        const saved = await saveToPath(doc.tabId, path, doc.content, "manual");
         if (!saved) {
           return { action: "cancelled" };
         }

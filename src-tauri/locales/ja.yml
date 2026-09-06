@@ -295,6 +295,7 @@ errors:
   # === 保存パス（file_write.rs、WI-14 CommandError）===
   save.parentMissing: "このファイルのフォルダはもう存在しません: %{dir}"
   save.noParentDirectory: "ファイルパスに親フォルダがありません"
+  save.symlinkLoop: "このファイルのエイリアスが循環しているため、実際のファイルが見つかりませんでした"
   save.writeFailed: "ファイルを保存できませんでした: %{detail}"
   save.taskFailed: "保存タスクが予期せず終了しました: %{detail}"
 

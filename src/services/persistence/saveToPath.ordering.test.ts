@@ -19,17 +19,33 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { mockInvoke, mockMarkSaved, mockMarkAutoSaved, snapshotOrder } = vi.hoisted(() => {
+const {
+  mockInvoke,
+  mockMarkSaved,
+  mockMarkAutoSaved,
+  mockSetFilePath,
+  mockUpdateTabPath,
+  snapshotOrder,
+  liveDoc,
+} = vi.hoisted(() => {
   const snapshotOrder: string[] = [];
   const record = (_tab: string, snaps: { editorSnapshot: string }) =>
     snapshotOrder.push(snaps.editorSnapshot);
+  // The document's LIVE path, so a Save As actually moves it — the identity a
+  // late autosave must not be able to reset (audit 20260906, F3).
+  const liveDoc: { filePath: string | null } = { filePath: "/w/a.md" };
   return {
     mockInvoke: vi.fn(),
     // An AUTO save records through markAutoSaved, a manual one through
     // markSaved. Watching only one of them makes an ordering assertion vacuous.
     mockMarkSaved: vi.fn(record),
     mockMarkAutoSaved: vi.fn(record),
+    mockSetFilePath: vi.fn((_tab: string, path: string) => {
+      liveDoc.filePath = path;
+    }),
+    mockUpdateTabPath: vi.fn(),
     snapshotOrder,
+    liveDoc,
   };
 });
 
@@ -47,13 +63,13 @@ vi.mock("@/utils/pendingSaves", () => ({
 vi.mock("@/stores/documentStore", () => ({
   useDocumentStore: {
     getState: () => ({
-      setFilePath: vi.fn(),
+      setFilePath: mockSetFilePath,
       markSaved: mockMarkSaved,
       markAutoSaved: mockMarkAutoSaved,
       setLineMetadata: vi.fn(),
       markMissing: vi.fn(),
       getDocument: () => ({
-        filePath: "/w/a.md",
+        filePath: liveDoc.filePath,
         lineEnding: "lf",
         hardBreakStyle: "unknown",
         hasBom: false,
@@ -62,7 +78,9 @@ vi.mock("@/stores/documentStore", () => ({
   },
 }));
 vi.mock("@/stores/tabStore", () => ({
-  useTabStore: { getState: () => ({ updateTabPath: vi.fn(), findTabById: () => ({ id: "t" }) }) },
+  useTabStore: {
+    getState: () => ({ updateTabPath: mockUpdateTabPath, findTabById: () => ({ id: "t" }) }),
+  },
 }));
 vi.mock("@/stores/workspaceStore", () => ({
   useRecentFilesStore: { getState: () => ({ addFile: vi.fn() }) },
@@ -87,6 +105,7 @@ vi.mock("@/services/workspaces/fileOwnership", () => ({
 
 import { saveToPath } from "./saveToPath";
 import { __resetSerializer } from "./serializeByPath";
+import { resetSaveTargetClaims } from "./saveTargetClaim";
 
 /** A promise plus its resolve handle. */
 function deferred<T = void>() {
@@ -98,6 +117,8 @@ function deferred<T = void>() {
 beforeEach(() => {
   vi.clearAllMocks();
   snapshotOrder.length = 0;
+  liveDoc.filePath = "/w/a.md";
+  resetSaveTargetClaims();
   __resetSerializer();
   mockInvoke.mockResolvedValue(undefined);
 });
@@ -207,5 +228,111 @@ describe("saves to different paths", () => {
     expect(bFinished).toBe(true); // did not wait on /w/a.md
     gate.resolve();
     await a;
+  });
+});
+
+/**
+ * Audit 20260906 F3. Per-path serialization puts a save to `/w/a.md` and a
+ * Save As to `/w/b.md` in DIFFERENT queues, so they overlap by design. The
+ * post-save step used to re-point the document unconditionally, so whichever
+ * write finished last named the document — and an autosave that started first
+ * and finished last dragged the user back to the file they had just left.
+ */
+describe("one document, two paths (Save As while a save is in flight)", () => {
+  it("a late autosave to the old path does not revert a completed Save As", async () => {
+    const held = deferred();
+    mockInvoke.mockImplementation(async (_cmd: string, args: { path: string }) => {
+      // The old-path autosave write is held open past the Save As.
+      if (args.path === "/w/a.md") await held.promise;
+    });
+
+    const autosave = saveToPath("t", "/w/a.md", "OLD\n", "auto");
+    const saveAs = saveToPath("t", "/w/b.md", "NEW\n", "manual");
+
+    await saveAs;
+    expect(liveDoc.filePath).toBe("/w/b.md");
+
+    held.resolve();
+    await autosave;
+
+    expect(liveDoc.filePath).toBe("/w/b.md");
+    expect(mockUpdateTabPath).not.toHaveBeenCalledWith("t", "/w/a.md");
+  });
+
+  it("does not record the old file's snapshot over the new destination's", async () => {
+    const held = deferred();
+    mockInvoke.mockImplementation(async (_cmd: string, args: { path: string }) => {
+      if (args.path === "/w/a.md") await held.promise;
+    });
+
+    const autosave = saveToPath("t", "/w/a.md", "OLD\n", "auto");
+    const saveAs = saveToPath("t", "/w/b.md", "NEW\n", "manual");
+    await saveAs;
+    held.resolve();
+    await autosave;
+
+    expect(snapshotOrder).toEqual(["NEW\n"]);
+  });
+
+  // The autosave still WROTE its bytes; only the identity bookkeeping is
+  // withheld. It must report success so callers do not treat it as a failure.
+  it("still reports the superseded save as written", async () => {
+    const held = deferred();
+    mockInvoke.mockImplementation(async (_cmd: string, args: { path: string }) => {
+      if (args.path === "/w/a.md") await held.promise;
+    });
+
+    const autosave = saveToPath("t", "/w/a.md", "OLD\n", "auto");
+    await saveToPath("t", "/w/b.md", "NEW\n", "manual");
+    held.resolve();
+
+    await expect(autosave).resolves.toBe(true);
+  });
+
+  // Completion order must not decide the destination: the user's LAST choice
+  // wins even when its write lands first.
+  it("the second Save As wins even when the first one completes last", async () => {
+    const held = deferred();
+    mockInvoke.mockImplementation(async (_cmd: string, args: { path: string }) => {
+      if (args.path === "/w/b.md") await held.promise;
+    });
+
+    const toB = saveToPath("t", "/w/b.md", "X\n", "manual");
+    const toC = saveToPath("t", "/w/c.md", "X\n", "manual");
+
+    await toC;
+    expect(liveDoc.filePath).toBe("/w/c.md");
+
+    held.resolve();
+    await toB;
+
+    expect(liveDoc.filePath).toBe("/w/c.md");
+  });
+
+  // An ordinary Save As with nothing racing it must still move the document.
+  it("an uncontended Save As still re-points the document", async () => {
+    await saveToPath("t", "/w/b.md", "NEW\n", "manual");
+
+    expect(liveDoc.filePath).toBe("/w/b.md");
+    expect(mockUpdateTabPath).toHaveBeenCalledWith("t", "/w/b.md");
+  });
+
+  // An untitled document has no live path to match, so only its newest save
+  // may name it.
+  it("names an untitled document from its newest save only", async () => {
+    liveDoc.filePath = null;
+    const held = deferred();
+    mockInvoke.mockImplementation(async (_cmd: string, args: { path: string }) => {
+      if (args.path === "/w/first.md") await held.promise;
+    });
+
+    const first = saveToPath("t", "/w/first.md", "X\n", "manual");
+    const second = saveToPath("t", "/w/second.md", "X\n", "manual");
+
+    await second;
+    held.resolve();
+    await first;
+
+    expect(liveDoc.filePath).toBe("/w/second.md");
   });
 });

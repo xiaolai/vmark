@@ -35,6 +35,7 @@ mod fs_scope;
 pub mod genies;
 mod gha_workflow;
 mod hot_exit;
+mod link_target;
 mod live_docs;
 mod mcp_bridge;
 mod mcp_bridge_path_guard;
