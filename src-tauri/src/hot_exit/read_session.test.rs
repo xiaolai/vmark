@@ -1,8 +1,12 @@
-//! Tests for the sibling module (extracted to keep the production
-//! file under the size gate; included via `#[path]`).
+//! Tests for `read_session.rs` — the main/salvage/backup read ladder.
+//!
+//! Split out of `storage.test.rs` alongside the module they cover (size gate).
 
 use super::*;
 use crate::hot_exit::session::*;
+// The delete tests sit in this file because they share the ladder's fixtures;
+// the function itself still lives in `storage`.
+use crate::hot_exit::storage::delete_session_files;
 use tempfile::TempDir;
 
 /// Create a valid minimal SessionData for testing.

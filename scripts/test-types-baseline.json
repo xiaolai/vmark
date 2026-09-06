@@ -261,7 +261,6 @@
   "src/services/files/externalChangeBatchQueue.test.ts": 3,
   "src/services/formats/formatSettingsBridge.test.ts": 11,
   "src/services/history/historyOperations.test.ts": 1,
-  "src/services/history/unifiedHistory.test.ts": 6,
   "src/services/keybinding/bindingConflicts.test.ts": 1,
   "src/services/keybinding/keybindingReferentialIntegrity.test.ts": 2,
   "src/services/keybinding/splitPaneViewShortcut.test.ts": 7,

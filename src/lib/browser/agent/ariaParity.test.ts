@@ -147,12 +147,21 @@ describe("content visit budget parity (#105/#119)", () => {
       },
     }) as unknown as NodeListOf<ChildNode>;
     Object.defineProperty(host, "childNodes", { value: kids });
-    const started = Date.now();
     expect(accessibleName(host)).toBe("");
     expect(reads).toBeLessThanOrEqual(CONTENT_VISIT_BUDGET + 1);
     expect(core.name(host)).toBe("");
     expect(reads).toBeLessThanOrEqual(2 * (CONTENT_VISIT_BUDGET + 1));
-    expect(Date.now() - started).toBeLessThan(5_000);
+    // No wall-clock assertion here, deliberately. There used to be a
+    // `Date.now() - started < 5_000`, and on 2026-09-06 it failed at 5466ms on
+    // a loaded box while the walk was behaving perfectly — 297ms of real work
+    // for the whole file when run alone.
+    //
+    // It was measuring the machine, not the code, and it was redundant: the
+    // READ COUNT above is the guarantee. A walk bounded at 2*(BUDGET+1) reads
+    // cannot be pinned by a claimed billion children, whatever the clock says,
+    // and that bound is exact rather than probabilistic. Timings in this repo
+    // are reported, not asserted — see the pathological suite's header and the
+    // note in `vitest.config.ts` about where real performance budgets live.
   });
 });
 

@@ -120,7 +120,7 @@ vi.mock("@/services/editor/tiptapFocus", () => ({
   scheduleTiptapFocusAndRestore: mocks.scheduleTiptapFocusAndRestore,
 }));
 
-vi.mock("@/services/assembly/tiptapExtensions", () => ({
+vi.mock("@/services/assembly/createTiptapExtensions", () => ({
   createTiptapExtensions: mocks.createTiptapExtensions,
 }));
 

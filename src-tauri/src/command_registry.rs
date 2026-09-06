@@ -148,6 +148,7 @@ macro_rules! all_commands {
             trusted_html::commands::trusted_html_publish,
             trusted_html::commands::trusted_html_revoke,
             file_write::atomic_write_file,
+            file_write::create_file_exclusive,
             webview_edit::trigger_webview_edit,
             #[cfg(debug_assertions)]
             browser::commands::browser_debug_native_tab_ids,

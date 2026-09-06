@@ -23,6 +23,7 @@ import { spawnSync } from "node:child_process";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { pathologicalCases } from "./pathologicalCases";
+import { LIVENESS_TIMEOUT_MS } from "../../../../../vitest.shared";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "../../../../..");
@@ -38,8 +39,15 @@ const ENTRY = join(here, "runCases.ts");
  *  a perfectly healthy run hit 60023ms and was killed as a "hang". Raising the
  *  bound cannot mask a real hang — that is unbounded, and the child is still
  *  killed and its culprit named — it only stops a busy machine from forging
- *  one. */
-const WALL_CEILING_MS = 180_000;
+ *  one.
+ *
+ *  Then 180s did it again: on 2026-09-06 a healthy run was killed at 180048ms
+ *  on a box at load average 105. Two nudges is a pattern, not bad luck — each
+ *  value was picked by measuring healthy runs and adding headroom, which is
+ *  what makes a liveness bound behave like a performance assertion. So it uses
+ *  the SHARED bound now, set from what is unambiguously a hang rather than
+ *  from how long healthy work takes; the whole file runs in ~33s alone. */
+const WALL_CEILING_MS = LIVENESS_TIMEOUT_MS;
 
 /** Kill window for the self-test probe.
  *

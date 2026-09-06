@@ -15,6 +15,8 @@ import { renderMarkdown } from "../render/renderMarkdown";
 import { searchWorkspace } from "./search";
 import { buildCsp, SECURITY_HEADERS } from "./headers";
 import { KB_CSS, KB_JS } from "./assets";
+import { assetHref, createAssetHandler } from "./assetRoute";
+import { containedAbsPath, containedDeck, realContainedPath } from "./pathContainment";
 import { noopLogger, type Logger } from "./logger";
 import { SlidevManager } from "../slidev/manager";
 import { runSlidevExport, type SlidevFormat } from "../slidev/export";
@@ -43,48 +45,6 @@ export interface ContentServer {
   notifyReload: (relPath?: string) => void;
   /** Stop any running Slidev dev servers (called on runtime shutdown). */
   stopSlidev: () => Promise<void>;
-}
-
-/** Resolve a requested note path within root; returns null on escape/garbage. */
-function containedAbsPath(root: string, relRequest: string): string | null {
-  let decoded: string;
-  try {
-    decoded = decodeURIComponent(relRequest); // throws URIError on bad %-encoding
-  } catch {
-    return null; // grill H8 — malformed encoding → 400, not a 500
-  }
-  if (decoded.includes("\0")) return null; // grill M6 — reject NUL bytes
-  decoded = decoded.replace(/^\/+/, "");
-  const abs = path.resolve(root, decoded);
-  const normRoot = path.resolve(root) + path.sep;
-  if (abs !== path.resolve(root) && !abs.startsWith(normRoot)) return null;
-  return abs;
-}
-
-/** Validate an absolute deck path is a markdown file under the real root. */
-async function containedDeck(root: string, deck: string): Promise<string | null> {
-  if (typeof deck !== "string" || !deck) return null;
-  try {
-    const real = await fs.realpath(deck);
-    const realRoot = await fs.realpath(root);
-    if (real !== realRoot && !real.startsWith(realRoot + path.sep)) return null;
-    if (!/\.(md|markdown|mdown|mkd)$/i.test(real)) return null;
-    return real;
-  } catch {
-    return null;
-  }
-}
-
-/** Re-assert containment after following symlinks (grill M11). */
-async function realContainedPath(root: string, abs: string): Promise<string | null> {
-  try {
-    const real = await fs.realpath(abs);
-    const realRoot = (await fs.realpath(root)) + path.sep;
-    if (real !== (await fs.realpath(root)) && !real.startsWith(realRoot)) return null;
-    return real;
-  } catch {
-    return null; // ENOENT etc.
-  }
 }
 
 function htmlShell(title: string, body: string, sessionToken: string): string {
@@ -122,7 +82,11 @@ export function createContentServer(options: ContentServerOptions): ContentServe
   const { root, bootstrapToken, getIndex } = options;
   const log = options.logger ?? noopLogger;
   const csp = buildCsp(options.trusted ?? false);
-  const auth = createAuthGuard({ bootstrapToken });
+  // Namespaced by workspace root: every workspace server shares the
+  // `127.0.0.1` host and cookies are not port-scoped, so one shared cookie
+  // name meant opening a second workspace logged the first one out (audit
+  // 20260906, MCP-C05).
+  const auth = createAuthGuard({ bootstrapToken, cookieNamespace: root });
   const app = new Hono();
   const sseClients = new Set<(relPath?: string) => Promise<void>>();
   // grill M12 — render cache keyed by relPath; entries carry the file mtime so
@@ -266,6 +230,11 @@ export function createContentServer(options: ContentServerOptions): ContentServe
     );
   });
 
+  // Local media, on its own route with its own narrow policy — see
+  // assetRoute.ts for why relaxing /note/'s index gate would be wrong
+  // (audit 20260906, MCP-C03).
+  app.get("/asset/*", createAssetHandler({ root }));
+
   // Render a note.
   app.get("/note/*", async (c) => {
     const relRequest = c.req.path.slice("/note/".length);
@@ -309,6 +278,10 @@ export function createContentServer(options: ContentServerOptions): ContentServe
           ? { href: noteHref(res.relPath), exists: true }
           : { href: `#${encodeURIComponent(target)}`, exists: false };
       },
+      // Local media resolved against /note/ hits the markdown-only index gate
+      // and 404s; point it at the asset route instead (audit 20260906,
+      // MCP-C03).
+      resolveAssetUrl: (url) => assetHref(fromRel, url, auth.sessionToken),
     });
     // Store in the render cache (simple FIFO eviction at the cap).
     if (renderCache.size >= RENDER_CACHE_MAX) {

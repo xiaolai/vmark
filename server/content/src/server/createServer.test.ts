@@ -7,6 +7,7 @@ import * as path from "node:path";
 import { buildIndex, type WorkspaceIndex } from "../index/buildIndex";
 import { createContentServer } from "./createServer";
 import { SESSION_COOKIE } from "./auth";
+import { KB_JS } from "./assets";
 import { SlidevManager } from "../slidev/manager";
 import type { SlidevModule } from "../slidev/server";
 
@@ -46,8 +47,10 @@ async function authedCookie(app: import("hono").Hono): Promise<string> {
   const { nonce } = (await mint.json()) as { nonce: string };
   const res = await app.request(`/__auth?t=${nonce}`, { redirect: "manual" });
   const setCookie = res.headers.get("set-cookie") ?? "";
-  const m = new RegExp(`${SESSION_COOKIE}=([^;]+)`).exec(setCookie);
-  return `${SESSION_COOKIE}=${m![1]}`;
+  // The name is NAMESPACED per workspace root (audit 20260906, MCP-C05), so
+  // match the emitted name rather than the bare base constant.
+  const m = new RegExp(`(${SESSION_COOKIE}[^=]*)=([^;]+)`).exec(setCookie);
+  return `${m![1]}=${m![2]}`;
 }
 
 beforeEach(async () => {
@@ -375,5 +378,264 @@ describe("slidev preview (C2/C4)", () => {
     });
     expect(res.status).toBe(500);
     expect((await res.json()).error).toMatch(/chromium/);
+  });
+});
+
+/**
+ * Audit 20260906 — MCP-C02 and MCP-C03: ordinary markdown links lost their
+ * session, and local images were not served at all.
+ */
+describe("local links and media (audit 20260906)", () => {
+  it("serves a note's local image from the asset route", async () => {
+    await write("note.md", "![pic](picture.png)\n");
+    // A one-pixel PNG is enough — the route's contract is bytes and a type.
+    await fs.writeFile(
+      path.join(root, "picture.png"),
+      Buffer.from("89504e470d0a1a0a", "hex"),
+    );
+    const server = await makeServer();
+    const cookie = await authedCookie(server.app);
+
+    const page = await server.app.request("/note/note.md", { headers: { cookie } });
+    const html = await page.text();
+    // The image URL is rewritten SERVER-SIDE — the browser starts fetching
+    // while the HTML is still parsing, so kb.js could never win that race.
+    expect(html).toContain("/asset/picture.png");
+
+    const asset = await server.app.request("/asset/picture.png", { headers: { cookie } });
+    expect(asset.status).toBe(200);
+    expect(asset.headers.get("content-type")).toBe("image/png");
+  });
+
+  it("serves an image from the note's own subdirectory", async () => {
+    await write("dir/note.md", "![pic](pic.png)\n");
+    await fs.writeFile(path.join(root, "dir/pic.png"), Buffer.from("89504e47", "hex"));
+    const server = await makeServer();
+    const cookie = await authedCookie(server.app);
+
+    const html = await (
+      await server.app.request("/note/dir/note.md", { headers: { cookie } })
+    ).text();
+    expect(html).toContain("/asset/dir/pic.png");
+
+    const asset = await server.app.request("/asset/dir/pic.png", { headers: { cookie } });
+    expect(asset.status).toBe(200);
+  });
+
+  it("requires a session for an asset", async () => {
+    await write("note.md", "![pic](picture.png)\n");
+    await fs.writeFile(path.join(root, "picture.png"), Buffer.from("89504e47", "hex"));
+    const server = await makeServer();
+
+    const asset = await server.app.request("/asset/picture.png");
+    expect(asset.status).toBe(401);
+  });
+
+  // The allowlist is the boundary: relaxing it to "not markdown" would serve
+  // a workspace's .env and private keys.
+  it("refuses a non-media file even with a session", async () => {
+    await write("note.md", "x\n");
+    await fs.writeFile(path.join(root, "secrets.env"), "TOKEN=1");
+    const server = await makeServer();
+    const cookie = await authedCookie(server.app);
+
+    const res = await server.app.request("/asset/secrets.env", { headers: { cookie } });
+    expect(res.status).toBe(404);
+  });
+
+  it("refuses a hidden path", async () => {
+    await write("note.md", "x\n");
+    await fs.mkdir(path.join(root, ".secret"), { recursive: true });
+    await fs.writeFile(path.join(root, ".secret/pic.png"), Buffer.from("89504e47", "hex"));
+    const server = await makeServer();
+    const cookie = await authedCookie(server.app);
+
+    const res = await server.app.request("/asset/.secret/pic.png", { headers: { cookie } });
+    expect(res.status).toBe(404);
+  });
+
+  it("contains path traversal on the asset route", async () => {
+    await write("note.md", "x\n");
+    const server = await makeServer();
+    const cookie = await authedCookie(server.app);
+
+    const res = await server.app.request("/asset/../../etc/hosts.png", {
+      headers: { cookie },
+    });
+    expect([400, 404]).toContain(res.status);
+  });
+
+  it("404s a missing asset rather than erroring", async () => {
+    await write("note.md", "x\n");
+    const server = await makeServer();
+    const cookie = await authedCookie(server.app);
+
+    const res = await server.app.request("/asset/nope.png", { headers: { cookie } });
+    expect(res.status).toBe(404);
+  });
+
+  it("leaves a remote image URL alone", async () => {
+    await write("note.md", "![pic](https://example.com/a.png)\n");
+    const server = await makeServer();
+    const cookie = await authedCookie(server.app);
+
+    const html = await (
+      await server.app.request("/note/note.md", { headers: { cookie } })
+    ).text();
+    expect(html).toContain("https://example.com/a.png");
+    expect(html).not.toContain("/asset/https");
+  });
+
+  /**
+   * MCP-C02: the token propagator only matched `a[href^="/"]`, so an ordinary
+   * relative markdown link kept no session and 401'd inside the cookie-blocked
+   * in-app iframe. Only wiki-links, which emit absolute `/note/` URLs, worked.
+   *
+   * The SHIPPED script is executed against a stub DOM rather than grepped, so
+   * this asserts what the browser would do, not how the source is spelled.
+   */
+  describe("session propagation in the shipped client script", () => {
+    /** Run KB_JS on a page at `pageUrl` holding `hrefs`; return the rewritten hrefs. */
+    function propagate(pageUrl: string, hrefs: string[]): string[] {
+      const url = new URL(pageUrl);
+      const links = hrefs.map((href) => {
+        let value = href;
+        return {
+          getAttribute: () => value,
+          setAttribute: (_name: string, next: string) => {
+            value = next;
+          },
+          get href() {
+            return value;
+          },
+        };
+      });
+      const handlers: Array<() => void> = [];
+      const documentStub = {
+        addEventListener: (_event: string, fn: () => void) => handlers.push(fn),
+        querySelectorAll: (selector: string) =>
+          selector === "a[href]" ? links : [],
+      };
+      const locationStub = {
+        search: url.search,
+        origin: url.origin,
+        href: url.href,
+        reload: () => {},
+      };
+      const windowStub = {};
+      // eslint-disable-next-line @typescript-eslint/no-implied-eval, no-new-func
+      new Function(
+        "document",
+        "location",
+        "window",
+        "EventSource",
+        KB_JS,
+      )(documentStub, locationStub, windowStub, function EventSourceStub() {
+        return { addEventListener: () => {} };
+      });
+      for (const handler of handlers) handler();
+      return links.map((l) => l.href);
+    }
+
+    it("carries the session onto a plain relative link", () => {
+      expect(
+        propagate("http://127.0.0.1:41001/note/dir/A.md?s=tok", ["B.md"]),
+      ).toEqual(["/note/dir/B.md?s=tok"]);
+    });
+
+    it("carries the session onto a parent-relative link", () => {
+      expect(
+        propagate("http://127.0.0.1:41001/note/dir/A.md?s=tok", ["../B.md"]),
+      ).toEqual(["/note/B.md?s=tok"]);
+    });
+
+    it("still handles absolute same-origin links", () => {
+      expect(
+        propagate("http://127.0.0.1:41001/note/A.md?s=tok", ["/note/B.md"]),
+      ).toEqual(["/note/B.md?s=tok"]);
+    });
+
+    it("preserves an existing query and fragment", () => {
+      expect(
+        propagate("http://127.0.0.1:41001/note/A.md?s=tok", ["B.md?x=1#frag"]),
+      ).toEqual(["/note/B.md?x=1&s=tok#frag"]);
+    });
+
+    it("leaves external, protocol-relative and non-navigational links alone", () => {
+      expect(
+        propagate("http://127.0.0.1:41001/note/A.md?s=tok", [
+          "https://example.com/x",
+          "//example.com/x",
+          "mailto:a@b.c",
+          "#section",
+        ]),
+      ).toEqual(["https://example.com/x", "//example.com/x", "mailto:a@b.c", "#section"]);
+    });
+
+    it("does nothing when the page carries no session token", () => {
+      expect(propagate("http://127.0.0.1:41001/note/A.md", ["B.md"])).toEqual(["B.md"]);
+    });
+  });
+});
+
+/**
+ * Audit 20260906 — MCP-C05: cookies are scoped by HOST, not by port, so two
+ * workspace servers on 127.0.0.1 shared one cookie name and the second to
+ * authenticate logged the first one out.
+ */
+describe("per-workspace cookie identity (audit 20260906)", () => {
+  it("gives two workspace roots different cookie names", async () => {
+    const otherRoot = await fs.mkdtemp(path.join(os.tmpdir(), "vmark-srv-b-"));
+    try {
+      await write("note.md", "a\n");
+      await fs.writeFile(path.join(otherRoot, "note.md"), "b\n");
+
+      const a = await makeServer();
+      const bIndex = await buildIndex(otherRoot);
+      const b = createContentServer({
+        root: otherRoot,
+        bootstrapToken: BOOTSTRAP,
+        getIndex: () => bIndex,
+      });
+
+      const nameOf = async (app: import("hono").Hono) => {
+        const mint = await app.request("/__mint", {
+          headers: { authorization: `Bearer ${BOOTSTRAP}` },
+        });
+        const { nonce } = (await mint.json()) as { nonce: string };
+        const res = await app.request(`/__auth?t=${nonce}`, { redirect: "manual" });
+        return /(vmark_cs_session[^=]*)=/.exec(res.headers.get("set-cookie") ?? "")![1];
+      };
+
+      expect(await nameOf(a.app)).not.toBe(await nameOf(b.app));
+    } finally {
+      await fs.rm(otherRoot, { recursive: true, force: true });
+    }
+  });
+
+  // Derived from the root rather than random, so restarting a workspace
+  // REPLACES its cookie instead of leaving another one in the jar.
+  it("gives the same workspace the same cookie name across restarts", async () => {
+    await write("note.md", "a\n");
+    const nameOf = async () => {
+      const server = await makeServer();
+      const mint = await server.app.request("/__mint", {
+        headers: { authorization: `Bearer ${BOOTSTRAP}` },
+      });
+      const { nonce } = (await mint.json()) as { nonce: string };
+      const res = await server.app.request(`/__auth?t=${nonce}`, { redirect: "manual" });
+      return /(vmark_cs_session[^=]*)=/.exec(res.headers.get("set-cookie") ?? "")![1];
+    };
+
+    expect(await nameOf()).toBe(await nameOf());
+  });
+
+  it("still authenticates with its own namespaced cookie", async () => {
+    await write("note.md", "hello\n");
+    const server = await makeServer();
+    const cookie = await authedCookie(server.app);
+
+    const res = await server.app.request("/note/note.md", { headers: { cookie } });
+    expect(res.status).toBe(200);
   });
 });

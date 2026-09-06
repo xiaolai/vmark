@@ -296,6 +296,7 @@ errors:
   # === Save path (file_write.rs, WI-14 CommandError) ===
   save.parentMissing: "The folder for this file no longer exists: %{dir}"
   save.noParentDirectory: "The file path has no containing folder"
+  save.symlinkLoop: "This file's alias points in a circle, so the real file could not be found"
   save.writeFailed: "Could not save the file: %{detail}"
   save.taskFailed: "The save task ended unexpectedly: %{detail}"
 

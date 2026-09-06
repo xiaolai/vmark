@@ -26,6 +26,22 @@ fn is_safe_duplicate(kept: &TabState, candidate: &TabState) -> bool {
     !doc.is_dirty && !doc.is_divergent && doc.content == kept.document.content
 }
 
+/// Build an unused tab id derived from `original`.
+///
+/// Derived rather than random so a repair is reproducible and legible in a
+/// session file: `abc` becomes `abc-dup-2`, then `abc-dup-3`. The counter walks
+/// until it finds a free name, so it cannot collide with an id already present
+/// — including one that happens to look like a previous repair.
+fn allocate_unique_tab_id(original: &str, taken: &HashSet<String>) -> String {
+    for n in 2..usize::MAX {
+        let candidate = format!("{original}-dup-{n}");
+        if !taken.contains(&candidate) {
+            return candidate;
+        }
+    }
+    unreachable!("a free suffix always exists below usize::MAX")
+}
+
 /// Validate and auto-repair a deserialized session.
 ///
 /// Returns a list of warnings describing any repairs that were applied.
@@ -34,16 +50,61 @@ pub fn validate_and_repair(session: &mut SessionData) -> Vec<String> {
     let mut warnings = Vec::new();
 
     for window in &mut session.windows {
-        // 1. Remove duplicate tab IDs (keep first occurrence)
-        let mut seen_ids = HashSet::new();
-        let original_count = window.tabs.len();
-        window.tabs.retain(|tab| seen_ids.insert(tab.id.clone()));
+        // 1. Resolve duplicate tab IDs.
+        //
+        // This used to be `retain(|tab| seen_ids.insert(tab.id))` — every later
+        // tab sharing an ID was dropped without looking at its content, dirty
+        // flag or path. A corrupted or migration-produced session holding two
+        // DIFFERENT unsaved buffers under one ID therefore lost the second one
+        // before the frontend ever saw it, and a successful restore then
+        // deleted the session file, so it could not be recovered by hand
+        // (audit 20260906, B5).
+        //
+        // The careful safe-duplicate rule that step 2 applies to duplicate
+        // PATHS is the right rule here too: drop only what is provably
+        // redundant, and keep anything that carries work. What differs is the
+        // remedy — a genuine duplicate ID cannot simply be kept, because the
+        // frontend keys tabs by ID, so the survivor is given a FRESH identity
+        // instead of being discarded.
+        let mut seen_ids: HashSet<String> = HashSet::new();
+        let mut kept_by_id: Vec<TabState> = Vec::with_capacity(window.tabs.len());
+        let mut dropped_ids = 0usize;
+        let mut reassigned_ids = 0usize;
 
-        let removed = original_count - window.tabs.len();
-        if removed > 0 {
+        for tab in std::mem::take(&mut window.tabs) {
+            if seen_ids.insert(tab.id.clone()) {
+                kept_by_id.push(tab);
+                continue;
+            }
+
+            // Same ID as one already kept. Compare against THAT tab.
+            let original = kept_by_id
+                .iter()
+                .find(|kept| kept.id == tab.id)
+                .expect("an id in seen_ids was kept");
+
+            if is_safe_duplicate(original, &tab) {
+                dropped_ids += 1;
+                continue;
+            }
+
+            let fresh = allocate_unique_tab_id(&tab.id, &seen_ids);
+            seen_ids.insert(fresh.clone());
+            reassigned_ids += 1;
+            kept_by_id.push(TabState { id: fresh, ..tab });
+        }
+        window.tabs = kept_by_id;
+
+        if dropped_ids > 0 {
             warnings.push(format!(
-                "Window '{}': removed {} duplicate tab(s)",
-                window.window_label, removed
+                "Window '{}': removed {} redundant duplicate tab(s)",
+                window.window_label, dropped_ids
+            ));
+        }
+        if reassigned_ids > 0 {
+            warnings.push(format!(
+                "Window '{}': reassigned {} duplicate tab id(s) to preserve their content",
+                window.window_label, reassigned_ids
             ));
         }
 

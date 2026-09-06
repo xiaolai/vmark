@@ -295,6 +295,7 @@ errors:
   # === Caminho de salvamento (file_write.rs, WI-14 CommandError) ===
   save.parentMissing: "A pasta deste arquivo não existe mais: %{dir}"
   save.noParentDirectory: "O caminho do arquivo não tem pasta superior"
+  save.symlinkLoop: "O atalho deste arquivo aponta em círculo, então o arquivo real não foi encontrado"
   save.writeFailed: "Não foi possível salvar o arquivo: %{detail}"
   save.taskFailed: "A tarefa de salvamento terminou inesperadamente: %{detail}"
 

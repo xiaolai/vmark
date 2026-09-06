@@ -1,5 +1,5 @@
 import { defineConfig } from "vitest/config";
-import { maxWorkers, sourceAliases, testGlob } from "./vitest.shared.ts";
+import { LIVENESS_TIMEOUT_MS, maxWorkers, sourceAliases, testGlob } from "./vitest.shared.ts";
 
 /**
  * Gate and harness self-test tier — the tests OF the tooling, not of the app.
@@ -59,25 +59,56 @@ export default defineConfig({
     // a liveness bound, and every one of these tests waits on a real child
     // process, so 5000ms would measure machine load rather than correctness.
     //
-    // 20_000 measured load too, and that is why this is 60_000. This tier is
+    // 20_000 measured load too, and that is why this was 60_000. This tier is
     // also run by `pnpm check:predelta`, which puts it INSIDE an 8-way pool of
     // other gates (a full Vite build among them) on a 10-core box — measured
     // load average 68. `check-ipc-contract` (which parses every TS file in the
     // repo in a child process) and `clean-dev` both blew the 20s bound there,
     // and both finish in 11s wall for the two files together when run alone.
     // Raising the bound does not weaken what it detects: a child process that
-    // has genuinely hung never returns, so it is still caught — just 40s later.
+    // has genuinely hung never returns, so it is still caught — just later.
     //
     // A lower default with per-file overrides for the slow ones was considered
     // and rejected on the measurements: UNLOADED, the slowest single test is
     // 16.5s (the real-Stryker canary), then 12.4s, then five in the 6–8s band.
     // Under predelta's contention those multiply, so a 25s default would sit
-    // close enough to real durations to go flaky — trading a rare 40s delay in
+    // close enough to real durations to go flaky — trading a rare delay in
     // reporting a hang for intermittent red on healthy runs. The list of
     // exceptions would also have to be maintained, and its failure mode is the
-    // same flake. Re-measure before revisiting; do not nudge.
-    testTimeout: 60_000,
-    hookTimeout: 60_000,
+    // same flake.
+    //
+    // ── 300_000, re-measured 2026-09-06 ──────────────────────────────────
+    //
+    // 60_000 was still derived the wrong way round. Every value above was
+    // picked by measuring how long HEALTHY runs take and adding headroom —
+    // which makes the bound a performance assertion wearing a liveness bound's
+    // clothes: it fails on any machine slower than the one it was calibrated
+    // on. A hang is a different thing entirely. It never returns, so it is
+    // caught at ANY finite value, and the only price of a large one is how
+    // long you wait to hear about it.
+    //
+    // So this is now set from "what is unambiguously a hang", not from healthy
+    // durations. Measured on the calibration box while it was genuinely busy
+    // (load average 105 across 31 sessions — other projects' language servers,
+    // browsers, a second agent): `check-design-tokens.mjs` does 2.4s of CPU by
+    // `--cpu-prof` and 4.7s wall when run alone, and the same test took 62s in
+    // a serial tier run and blew past 60s in `check:all`. Other healthy tests
+    // in the same run reached 267s. 300_000 is >100x the script's actual work.
+    //
+    // Two things this bound does NOT do, and neither is a reason to shrink it:
+    //   - It cannot INTERRUPT a hung child. These tests call `execFileSync`,
+    //     which blocks the worker thread, so vitest cannot pre-empt it; the
+    //     timeout is observed only once the call returns. It is a REPORTING
+    //     bound. Real enforcement would need `execFileSync(…, { timeout })` at
+    //     each of the 73 spawn sites — worth doing, and not by nudging a number.
+    //   - It does not measure performance. `pnpm bench` and the size gates do
+    //     that, on purpose, where a regression is the signal rather than noise.
+    //
+    // Re-measure before revisiting; do not nudge. If you are tempted to lower
+    // this because runs feel slow, the honest fix is fewer workers or a quieter
+    // machine — not a bound that reports healthy work as broken.
+    testTimeout: LIVENESS_TIMEOUT_MS,
+    hookTimeout: LIVENESS_TIMEOUT_MS,
     include: [testGlob("scripts"), testGlob(".claude/hooks"), testGlob("e2e")],
     exclude: ["**/node_modules/**", "**/dist/**"],
     // These spawn child processes and then wait. Swept here as well as in the

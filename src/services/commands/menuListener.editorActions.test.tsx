@@ -4,7 +4,7 @@ import { mountMenuCommands } from "./menuListener";
 import { MENU_TO_ACTION } from "@/plugins/actions/actionRegistry";
 import { performWysiwygToolbarAction } from "@/plugins/toolbarActions/wysiwygAdapter";
 import { performSourceToolbarAction } from "@/plugins/toolbarActions/sourceAdapter";
-import { performUnifiedUndo, performUnifiedRedo } from "@/services/history/unifiedHistory";
+import { performUnifiedUndo, performUnifiedRedo } from "@/services/history/unifiedUndoRedo";
 import { useTabStore } from "@/stores/tabStore";
 import {
   __resetRegistry,
@@ -99,7 +99,7 @@ vi.mock("@/plugins/toolbarActions/sourceAdapter", () => ({
   setSourceHeadingLevel: vi.fn(() => true),
 }));
 
-vi.mock("@/services/history/unifiedHistory", () => ({
+vi.mock("@/services/history/unifiedUndoRedo", () => ({
   performUnifiedUndo: vi.fn(() => true),
   performUnifiedRedo: vi.fn(() => true),
 }));

@@ -60,15 +60,20 @@ describe.each(["strike", "bold", "italic"])("edge whitespace under %s", (markNam
   });
 });
 
-it.fails(
-  "OPEN DEFECT (fuzz seed 42, shrunk): strike opening after a word char before punctuation cannot left-flank",
+it(
+  "FIXED (fuzz seed 42, shrunk): strike opening after a word char before punctuation",
   () => {
-    // Serializes as `word~~**w**ord~~`: the opening ~~ is preceded by a word
+    // Serialized as `word~~**w**ord~~`: the opening ~~ was preceded by a word
     // character and followed by punctuation, which GFM's flanking rules read
-    // as a closer-position — so the re-parse sees LITERAL tildes and the
-    // strike is lost. A real serializer defect (delimiter policy must
-    // consider flanking context, not only edge whitespace); pinned here as
-    // expected-to-fail so the fix flips this test RED-to-GREEN deliberately.
+    // as a closer-position — so the re-parse saw LITERAL tildes and the strike
+    // was lost. This was pinned `it.fails` as a known open defect, with the
+    // diagnosis that delimiter policy "must consider flanking context, not
+    // only edge whitespace".
+    //
+    // That is what `serializerStrikethrough.ts` now does (audit 20260906): the
+    // `delete` handler character-references the offending neighbour, the same
+    // remedy mdast-util-to-markdown already applies to emphasis and strong.
+    // Flipped RED-to-GREEN deliberately, as the original note intended.
     const bold = schema.marks.bold.create();
     const strike = schema.marks.strike.create();
     const doc = schema.node("doc", null, [

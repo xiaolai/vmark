@@ -19,9 +19,36 @@
 
 import { createMiddleware } from "hono/factory";
 import { getCookie, setCookie } from "hono/cookie";
-import { randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
+/**
+ * The base session cookie name. Instances append a namespace — see
+ * {@link sessionCookieName}.
+ */
 export const SESSION_COOKIE = "vmark_cs_session";
+
+/**
+ * The session cookie name for one workspace server.
+ *
+ * Cookies are scoped by HOST, never by PORT. Every workspace's content server
+ * runs on `127.0.0.1` with an OS-assigned port and mints its own incompatible
+ * session token, so with one shared cookie name the second workspace to
+ * authenticate overwrote the first's cookie and the first started returning
+ * 401 — with two ordinary previews open and no attacker anywhere (audit
+ * 20260906, MCP-C05).
+ *
+ * The namespace is derived from the workspace ROOT rather than being random,
+ * and that is the point: restarting the same workspace REPLACES its cookie
+ * instead of leaving another one behind, so the jar stays bounded by the
+ * number of workspaces rather than by the number of launches.
+ */
+function sessionCookieName(namespace?: string): string {
+  if (!namespace) return SESSION_COOKIE;
+  // Hashed, so a workspace path never appears in a cookie name, and the name
+  // stays a valid cookie token whatever the path contains.
+  const digest = createHash("sha256").update(namespace).digest("hex").slice(0, 12);
+  return `${SESSION_COOKIE}_${digest}`;
+}
 const BOOTSTRAP_PARAM = "t";
 /** One-time nonce lifetime. */
 export const NONCE_TTL_MS = 120_000;
@@ -45,6 +72,8 @@ export interface AuthGuard {
   /** True if the request carries the correct `Authorization: Bearer <bootstrap>`. */
   checkBearer: (c: import("hono").Context) => boolean;
   readonly sessionToken: string;
+  /** The cookie name this instance reads and sets. */
+  readonly cookieName: string;
 }
 
 export interface AuthOptions {
@@ -52,10 +81,17 @@ export interface AuthOptions {
   redirectTo?: string;
   /** Injectable clock for deterministic TTL tests. */
   now?: () => number;
+  /**
+   * Distinguishes this instance's cookie from every other workspace server on
+   * `127.0.0.1` — normally the workspace root path. Omitted only where a
+   * single server exists (standalone tests).
+   */
+  cookieNamespace?: string;
 }
 
 export function createAuthGuard(options: AuthOptions): AuthGuard {
   const sessionToken = randomBytes(32).toString("hex");
+  const cookieName = sessionCookieName(options.cookieNamespace);
   const redirectTo = options.redirectTo ?? "/";
   const clock = options.now ?? (() => Date.now());
   /** nonce → expiry epoch ms (single-use: deleted on consume). */
@@ -91,7 +127,7 @@ export function createAuthGuard(options: AuthOptions): AuthGuard {
     // cross-site iframe: WKWebView's ITP blocks third-party cookie STORAGE for
     // a cross-site loopback origin, so a cookie can never be set there — the URL
     // session token is the only viable credential (grill M2, found via E2E).
-    const cookie = getCookie(c, SESSION_COOKIE);
+    const cookie = getCookie(c, cookieName);
     const queryToken = c.req.query("s");
     const ok =
       (cookie != null && safeEqual(cookie, sessionToken)) ||
@@ -117,7 +153,7 @@ export function createAuthGuard(options: AuthOptions): AuthGuard {
     }
     // Set the cookie (external browser) AND carry the session token in the
     // redirect URL (the cookie-blocked in-app iframe).
-    setCookie(c, SESSION_COOKIE, sessionToken, {
+    setCookie(c, cookieName, sessionToken, {
       httpOnly: true,
       sameSite: "Strict",
       path: "/",
@@ -135,5 +171,13 @@ export function createAuthGuard(options: AuthOptions): AuthGuard {
     return provided != null && safeEqual(provided, options.bootstrapToken);
   };
 
-  return { middleware, handleMint, handleBootstrap, mintNonce, checkBearer, sessionToken };
+  return {
+    middleware,
+    handleMint,
+    handleBootstrap,
+    mintNonce,
+    checkBearer,
+    sessionToken,
+    cookieName,
+  };
 }

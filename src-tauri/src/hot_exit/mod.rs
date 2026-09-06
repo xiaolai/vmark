@@ -6,8 +6,12 @@
 pub mod commands;
 pub mod coordinator;
 pub mod dedup;
+pub mod loaded;
 pub mod merge;
 pub mod migration;
+pub mod read_session;
+pub mod restore_plan;
+pub mod salvage;
 pub mod session;
 pub mod state;
 pub mod storage;

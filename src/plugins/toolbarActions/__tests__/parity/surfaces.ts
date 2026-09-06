@@ -26,7 +26,7 @@ import { Editor } from "@tiptap/core";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import { EditorSelection, EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { createTiptapExtensions } from "@/services/assembly/tiptapExtensions";
+import { createTiptapExtensions } from "@/services/assembly/createTiptapExtensions";
 import { parseMarkdown, serializeMarkdown } from "@/utils/markdownPipeline";
 import { performWysiwygToolbarAction, setWysiwygHeadingLevel } from "../../wysiwygAdapter";
 import { performSourceToolbarAction, setSourceHeadingLevel } from "../../sourceAdapter";

@@ -68,10 +68,17 @@ jobs:
       - uses: ./.github/actions/setup-node-pnpm
 
       - name: Security audit
-        # pnpm 10 audit broken: npm retired legacy endpoint (410), bulk API lands in pnpm 11
-        # Track: https://github.com/pnpm/pnpm/issues/11265
-        continue-on-error: true
-        run: pnpm audit --audit-level=critical
+        # BLOCKING, against a reviewed allowlist. This used to be
+        # `continue-on-error: true` at `--audit-level=critical`, so a vulnerable
+        # dependency merged with the check visibly red (audit 20260906, C3).
+        # Its stated reason — pnpm 10's audit endpoint returning 410 — no longer
+        # reproduces: the scan runs and returns real findings.
+        #
+        # A new moderate-or-worse advisory fails here; an accepted one is listed
+        # in scripts/npm-audit-baseline.json with the reason it is unreachable
+        # in the shipped app, and that acceptance fails once its advisory is
+        # gone.
+        run: node scripts/check-npm-audit.mjs
 
       - name: Slopsquatting gate (new-dep review)
         # Flags newly-added packages that look hallucinated or freshly-published.
@@ -246,6 +253,27 @@ jobs:
 
       - run: pnpm exec vitest run --config vitest.browser.config.ts
 
+  # Website validation, on the PR rather than after the merge.
+  #
+  # `deploy-website.yml` builds and lints the VitePress site, but it runs on
+  # push-to-main — i.e. once the change is already in. This tier moves that
+  # verification left so a broken site cannot pass a required check and then
+  # fail on main (audit 20260906, C7).
+  website:
+    needs: [changes]
+    if: needs.changes.outputs.website == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-node-pnpm
+
+      - name: Lint website markdown
+        run: pnpm --dir website lint:md
+
+      - name: Build website
+        run: pnpm --dir website build
+
   # Gate job: required by branch protection (exact name "frontend").
   #
   # Fails unless EVERY group succeeded. `if: always()` means this runs even when
@@ -254,36 +282,83 @@ jobs:
   # `needs` alone would let one silently vanish from the gate.
   frontend:
     if: always()
-    needs: [fe-static, fe-test, fe-coverage, fe-servers, fe-build, webkit]
+    needs: [changes, fe-static, fe-test, fe-coverage, fe-servers, fe-build, webkit, website]
     runs-on: ubuntu-latest
     steps:
       - name: Check result
         env:
+          CHANGES: ${{ needs.changes.result }}
+          CODE: ${{ needs.changes.outputs.code }}
           STATIC: ${{ needs.fe-static.result }}
           TESTS: ${{ needs.fe-test.result }}
           COVERAGE: ${{ needs.fe-coverage.result }}
           SERVERS: ${{ needs.fe-servers.result }}
           BUILD: ${{ needs.fe-build.result }}
           WEBKIT: ${{ needs.webkit.result }}
+          WEBSITE: ${{ needs.website.result }}
+          WEBSITE_TOUCHED: ${{ needs.changes.outputs.website }}
         run: |
-          # `skipped` is a PASS. The app tiers are path-filtered off for a
-          # docs-only PR, and this job is a REQUIRED check under
-          # `enforce_admins` — so without this tolerance every prose PR would
-          # report failure here and could never be merged by anyone. The `rust`
-          # aggregate below has carried the same clause since it was written.
+          # A skip is only a pass when the FILTER said so.
           #
-          # `fe-static` is never skipped, so a group reporting `skipped` here
-          # always means the filter fired, never that a gate went missing.
+          # This used to accept `skipped` unconditionally, and `changes` was not
+          # even in `needs` — so if the filter job failed or was cancelled,
+          # every app tier skipped, each one read as a pass, and this REQUIRED
+          # check went green having tested nothing (audit 20260906, C1).
+          # Executing the old block with STATIC=success and every other result
+          # `skipped` returns 0.
+          #
+          # So: the filter must have SUCCEEDED and produced a usable boolean
+          # before its verdict can excuse anything.
+          if [ "$CHANGES" != "success" ]; then
+            echo "changes: $CHANGES — cannot trust any skip without the filter"
+            exit 1
+          fi
+          case "$CODE" in
+            true|false) ;;
+            *)
+              echo "changes.outputs.code: '$CODE' — expected true or false"
+              exit 1
+              ;;
+          esac
+
+          # `fe-static` runs on EVERY PR, prose included: it carries the
+          # markdown gates. It is therefore never legitimately skipped.
           failed=0
-          for pair in "fe-static:$STATIC" "fe-test:$TESTS" "fe-coverage:$COVERAGE" \
+          if [ "$STATIC" != "success" ]; then
+            echo "fe-static: $STATIC"
+            failed=1
+          fi
+
+          # The app tiers are path-filtered off for a docs-only PR, and this is
+          # a REQUIRED check under `enforce_admins` — without that tolerance no
+          # prose PR could be merged by anyone. But it applies ONLY when
+          # `code == false`, which is the filter explicitly excluding them.
+          for pair in "fe-test:$TESTS" "fe-coverage:$COVERAGE" \
                       "fe-servers:$SERVERS" "fe-build:$BUILD" "webkit:$WEBKIT"; do
             name="${pair%%:*}"
             result="${pair#*:}"
-            if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
-              echo "$name: $result"
+            if [ "$result" = "success" ]; then
+              continue
+            fi
+            if [ "$result" = "skipped" ] && [ "$CODE" = "false" ]; then
+              echo "$name: skipped (docs-only change)"
+              continue
+            fi
+            echo "$name: $result"
+            failed=1
+          done
+
+          # The website tier has its OWN filter output, because a PR can touch
+          # the site without touching app code and vice versa.
+          if [ "$WEBSITE" != "success" ]; then
+            if [ "$WEBSITE" = "skipped" ] && [ "$WEBSITE_TOUCHED" = "false" ]; then
+              echo "website: skipped (no website changes)"
+            else
+              echo "website: $WEBSITE"
               failed=1
             fi
-          done
+          fi
+
           [ "$failed" -eq 0 ]
 
   # Perf bench: on every run, src/bench/*.bench.ts must execute without error
@@ -348,6 +423,7 @@ jobs:
     outputs:
       rust: ${{ steps.filter.outputs.rust }}
       code: ${{ steps.filter.outputs.code }}
+      website: ${{ steps.filter.outputs.website }}
     steps:
       - uses: actions/checkout@v7
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
@@ -375,6 +451,16 @@ jobs:
               - '!CLAUDE.md'
               - '!.claude/**/*.md'
               - '!website/**/*.md'
+            # The VitePress site is built and linted only during DEPLOYMENT,
+            # which happens after merge — so a broken website change passed
+            # every required check and failed on main (audit 20260906, C7).
+            # Root `check:build` builds the desktop frontend, not VitePress.
+            # Markdown counts here: `website/**/*.md` is deliberately excluded
+            # from `code` above, so prose changes must reach this filter or the
+            # site would still go unverified on exactly the changes that make up
+            # most of its history.
+            website:
+              - 'website/**'
 
   rust-test:
     needs: [changes]
@@ -473,17 +559,49 @@ jobs:
   # auto-merge with red Rust CI (audit 20260612 H26).
   rust:
     if: always()
-    needs: [changes, rust-test]
+    # rust-audit joined this list in audit 20260906 (C3): cargo audit ran on
+    # every Rust PR but reported into no REQUIRED check, so a RUSTSEC finding
+    # could not block a merge.
+    needs: [changes, rust-test, rust-audit]
     runs-on: ubuntu-latest
     steps:
       - name: Check result
         env:
+          CHANGES: ${{ needs.changes.result }}
+          RUST_TOUCHED: ${{ needs.changes.outputs.rust }}
           RESULT: ${{ needs.rust-test.result }}
+          AUDIT: ${{ needs.rust-audit.result }}
         run: |
-          if [ "$RESULT" != "success" ] && [ "$RESULT" != "skipped" ]; then
-            echo "rust-test: $RESULT"
+          # Same reasoning as the `frontend` aggregate (audit 20260906, C1): a
+          # skip is a pass only when the filter SAID the tier does not apply.
+          # A failed filter skips rust-test and used to read as success here.
+          if [ "$CHANGES" != "success" ]; then
+            echo "changes: $CHANGES — cannot trust a skip without the filter"
             exit 1
           fi
+          case "$RUST_TOUCHED" in
+            true|false) ;;
+            *)
+              echo "changes.outputs.rust: '$RUST_TOUCHED' — expected true or false"
+              exit 1
+              ;;
+          esac
+
+          failed=0
+          for pair in "rust-test:$RESULT" "rust-audit:$AUDIT"; do
+            name="${pair%%:*}"
+            result="${pair#*:}"
+            if [ "$result" = "success" ]; then
+              continue
+            fi
+            if [ "$result" = "skipped" ] && [ "$RUST_TOUCHED" = "false" ]; then
+              echo "$name: skipped (no Rust changes)"
+              continue
+            fi
+            echo "$name: $result"
+            failed=1
+          done
+          [ "$failed" -eq 0 ]
 
   # cargo-audit is a lockfile-only, platform-independent check — one ubuntu
   # job instead of compiling cargo-audit from source on all 3 OSes

@@ -158,6 +158,15 @@ export const MANIFEST = {
       checks: [{ mode: "identity", at: "", shape: "object-keys", onAdd: "report" }],
     },
     {
+      // Reviewed npm advisory acceptances (audit 20260906, C3). An addition
+      // REPORTS rather than fails: a genuinely new advisory in a dev-only
+      // dependency chain is an ordinary event, and the gate that matters —
+      // `check-npm-audit.mjs` — already refuses an entry with no stated reason
+      // and refuses one whose advisory has gone away.
+      path: "scripts/npm-audit-baseline.json",
+      checks: [{ mode: "identity", at: "accepted", shape: "object-keys", onAdd: "report" }],
+    },
+    {
       // Growth here is separately capped by extension-budget's
       // maxKnownViolations scalar, so per-edge additions report.
       path: ".dependency-cruiser-known-violations.json",

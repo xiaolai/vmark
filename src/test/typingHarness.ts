@@ -33,7 +33,7 @@
  */
 import { Editor, type Extensions } from "@tiptap/core";
 import { TextSelection } from "@tiptap/pm/state";
-import { createTiptapExtensions } from "@/services/assembly/tiptapExtensions";
+import { createTiptapExtensions } from "@/services/assembly/createTiptapExtensions";
 import { resetBacktickState } from "@/plugins/autoPair/backtickToggle";
 import { serializeMarkdown, parseMarkdown } from "@/utils/markdownPipeline/adapter";
 
@@ -69,6 +69,38 @@ export interface TypingSession {
   undo(): boolean;
   redo(): boolean;
   destroy(): void;
+}
+
+/**
+ * Run `fn` and return any exception a DOM event listener threw during it.
+ *
+ * Keys are delivered as REAL `KeyboardEvent`s, which is the whole point of
+ * this harness — but it means a listener that throws does not propagate to the
+ * caller. jsdom reports the exception through `window`'s "error" event and
+ * carries on, so `expect(() => press("Enter")).not.toThrow()` passes while the
+ * editor is visibly throwing (audit 20260906, F5: the Enter/splitBlock
+ * exception surfaced only as unrelated console noise, which is why the fuzz
+ * run reported a different failure and shrank the wrong trace).
+ *
+ * Returns `null` when nothing threw.
+ */
+export function captureDispatchError(fn: () => void): unknown {
+  let captured: unknown = null;
+  const onError = (event: ErrorEvent) => {
+    // First error wins: later ones are usually fallout from the first.
+    if (captured === null) captured = event.error ?? new Error(event.message);
+    event.preventDefault();
+  };
+  window.addEventListener("error", onError);
+  try {
+    fn();
+  } catch (error) {
+    // A directly-thrown error counts the same as a dispatched one.
+    if (captured === null) captured = error;
+  } finally {
+    window.removeEventListener("error", onError);
+  }
+  return captured;
 }
 
 export interface SessionOptions {

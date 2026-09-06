@@ -143,7 +143,15 @@ fn removes_duplicate_tab_ids() {
     let warnings = validate_and_repair(&mut session);
 
     assert_eq!(warnings.len(), 1);
-    assert!(warnings[0].contains("removed 2 duplicate tab(s)"));
+    // Wording gained "redundant" when the repair learned to distinguish a
+    // provably-identical duplicate (dropped, as here) from one carrying its own
+    // unsaved content (reassigned a fresh id — audit 20260906, B5). These tabs
+    // are clean and identical, so the behavior is unchanged.
+    assert!(
+        warnings[0].contains("removed 2 redundant duplicate tab(s)"),
+        "got: {}",
+        warnings[0]
+    );
     // Should keep only unique tabs (first occurrence)
     let ids: Vec<&str> = session.windows[0]
         .tabs
@@ -439,4 +447,178 @@ fn untitled_tabs_are_not_deduplicated_by_path() {
 
     assert!(warnings.is_empty());
     assert_eq!(session.windows[0].tabs.len(), 3);
+}
+
+// -- duplicate tab IDs (audit 20260906, B5) --------------------------------
+//
+// Step 1 used to be `retain(|tab| seen_ids.insert(tab.id))`: every later tab
+// sharing an ID was dropped without looking at its content or dirty flag,
+// while the duplicate-PATH rule immediately below carefully preserved anything
+// carrying work. A malformed or migration-produced session with two different
+// unsaved buffers under one ID lost the second one before the frontend saw it,
+// and a successful restore then deleted the session file.
+
+/// A dirty tab with `content`, sharing `id` with another.
+fn make_dirty_tab(id: &str, content: &str) -> TabState {
+    let mut tab = make_tab(id);
+    tab.document.is_dirty = true;
+    tab.document.content = content.to_string();
+    tab
+}
+
+#[test]
+fn duplicate_ids_with_distinct_unsaved_content_keep_both_buffers() {
+    let mut window = make_window("main", &[], None);
+    window.tabs = vec![
+        make_dirty_tab("dup", "first unsaved"),
+        make_dirty_tab("dup", "second unsaved"),
+    ];
+    let mut session = make_session(vec![window]);
+
+    validate_and_repair(&mut session);
+
+    let contents: Vec<_> = session.windows[0]
+        .tabs
+        .iter()
+        .map(|t| t.document.content.as_str())
+        .collect();
+    assert_eq!(
+        contents,
+        vec!["first unsaved", "second unsaved"],
+        "a distinct unsaved buffer must never be discarded by an id repair"
+    );
+}
+
+#[test]
+fn a_reassigned_duplicate_gets_a_unique_id() {
+    let mut window = make_window("main", &[], None);
+    window.tabs = vec![
+        make_dirty_tab("dup", "first"),
+        make_dirty_tab("dup", "second"),
+    ];
+    let mut session = make_session(vec![window]);
+
+    validate_and_repair(&mut session);
+
+    let ids: Vec<_> = session.windows[0]
+        .tabs
+        .iter()
+        .map(|t| t.id.as_str())
+        .collect();
+    assert_eq!(ids[0], "dup", "the first occurrence keeps its identity");
+    assert_ne!(ids[1], "dup");
+    assert_eq!(
+        ids.iter().collect::<std::collections::HashSet<_>>().len(),
+        2,
+        "ids must be unique after repair"
+    );
+}
+
+#[test]
+fn a_reassignment_is_reported_as_a_warning() {
+    let mut window = make_window("main", &[], None);
+    window.tabs = vec![
+        make_dirty_tab("dup", "first"),
+        make_dirty_tab("dup", "second"),
+    ];
+    let mut session = make_session(vec![window]);
+
+    let warnings = validate_and_repair(&mut session);
+
+    assert!(
+        warnings.iter().any(|w| w.contains("reassigned")),
+        "got: {warnings:?}"
+    );
+}
+
+/// The other half of the rule: a genuinely redundant duplicate — clean, and
+/// identical to the tab it shadows — is still dropped, as before.
+#[test]
+fn a_clean_identical_duplicate_is_still_dropped() {
+    let mut window = make_window("main", &[], None);
+    window.tabs = vec![make_tab("dup"), make_tab("dup")];
+    let mut session = make_session(vec![window]);
+
+    let warnings = validate_and_repair(&mut session);
+
+    assert_eq!(session.windows[0].tabs.len(), 1);
+    assert!(
+        warnings.iter().any(|w| w.contains("redundant")),
+        "got: {warnings:?}"
+    );
+}
+
+#[test]
+fn a_dirty_duplicate_is_kept_even_when_its_content_matches() {
+    // Dirty means there is unsaved state the content alone does not capture.
+    let mut window = make_window("main", &[], None);
+    window.tabs = vec![make_dirty_tab("dup", "same"), make_dirty_tab("dup", "same")];
+    let mut session = make_session(vec![window]);
+
+    validate_and_repair(&mut session);
+
+    assert_eq!(session.windows[0].tabs.len(), 2);
+}
+
+#[test]
+fn three_way_duplicate_ids_all_end_up_distinct() {
+    let mut window = make_window("main", &[], None);
+    window.tabs = vec![
+        make_dirty_tab("dup", "a"),
+        make_dirty_tab("dup", "b"),
+        make_dirty_tab("dup", "c"),
+    ];
+    let mut session = make_session(vec![window]);
+
+    validate_and_repair(&mut session);
+
+    let ids: std::collections::HashSet<_> = session.windows[0]
+        .tabs
+        .iter()
+        .map(|t| t.id.clone())
+        .collect();
+    assert_eq!(ids.len(), 3);
+    assert_eq!(session.windows[0].tabs.len(), 3);
+}
+
+/// A repair must not collide with an id that is already present, including one
+/// that looks like a previous repair.
+#[test]
+fn a_reassigned_id_does_not_collide_with_an_existing_tab() {
+    let mut window = make_window("main", &[], None);
+    window.tabs = vec![
+        make_dirty_tab("dup", "a"),
+        make_dirty_tab("dup-dup-2", "already taken"),
+        make_dirty_tab("dup", "b"),
+    ];
+    let mut session = make_session(vec![window]);
+
+    validate_and_repair(&mut session);
+
+    let ids: Vec<_> = session.windows[0]
+        .tabs
+        .iter()
+        .map(|t| t.id.clone())
+        .collect();
+    assert_eq!(
+        ids.iter().collect::<std::collections::HashSet<_>>().len(),
+        ids.len(),
+        "ids collided after repair: {ids:?}"
+    );
+}
+
+#[test]
+fn distinct_ids_are_left_completely_alone() {
+    let window = make_window("main", &["a", "b", "c"], Some("a"));
+    let mut session = make_session(vec![window]);
+
+    let warnings = validate_and_repair(&mut session);
+
+    let ids: Vec<_> = session.windows[0]
+        .tabs
+        .iter()
+        .map(|t| t.id.as_str())
+        .collect();
+    assert_eq!(ids, vec!["a", "b", "c"]);
+    assert!(warnings.is_empty(), "got: {warnings:?}");
 }

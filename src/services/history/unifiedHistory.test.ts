@@ -9,10 +9,12 @@
 import { vi, describe, it, expect, beforeEach } from "vitest";
 
 // Mock CodeMirror commands
-const mockUndo = vi.fn(() => true);
-const mockRedo = vi.fn(() => true);
-const mockUndoDepth = vi.fn(() => 0);
-const mockRedoDepth = vi.fn(() => 0);
+// Typed with a rest parameter: the stubs below forward the real commands'
+// arguments, and a zero-arity mock cannot receive a spread.
+const mockUndo = vi.fn((..._args: unknown[]) => true);
+const mockRedo = vi.fn((..._args: unknown[]) => true);
+const mockUndoDepth = vi.fn((..._args: unknown[]) => 0);
+const mockRedoDepth = vi.fn((..._args: unknown[]) => 0);
 
 vi.mock("@codemirror/commands", () => ({
   undo: (...args: unknown[]) => mockUndo(...args),
@@ -27,16 +29,11 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import type { Tab } from "@/stores/tabStoreTypes";
 import { useEditorStore } from "@/stores/editorStore";
-import {
-  toggleSourceModeWithCheckpoint,
-  canNativeUndo,
-  canNativeRedo,
-  doNativeUndo,
-  doNativeRedo,
-  clearDocumentHistory,
-  performUnifiedUndo,
-  performUnifiedRedo,
-} from "./unifiedHistory";
+// The production factory, so a document fixture cannot drift from the real
+// DocumentState shape.
+import { createInitialDocument } from "@/stores/documentStore/documentState";
+import { toggleSourceModeWithCheckpoint, canNativeUndo, canNativeRedo, doNativeUndo, doNativeRedo, clearDocumentHistory } from "./unifiedHistory";
+import { performUnifiedUndo, performUnifiedRedo } from "./unifiedUndoRedo";
 
 describe("useUnifiedHistory", () => {
   beforeEach(() => {
@@ -57,13 +54,7 @@ describe("useUnifiedHistory", () => {
     // Set up a document in the store
     useDocumentStore.setState({
       documents: {
-        "tab-1": {
-          content: "# Hello World",
-          cursorInfo: null,
-          dirty: false,
-          filePath: "/test/doc.md",
-          title: "doc.md",
-        },
+        "tab-1": createInitialDocument("# Hello World", "/test/doc.md"),
       },
     });
 
@@ -124,11 +115,8 @@ describe("useUnifiedHistory", () => {
       useDocumentStore.setState({
         documents: {
           "tab-1": {
-            content: "# Test",
+            ...createInitialDocument("# Test", "/test/doc.md"),
             cursorInfo: { from: 5, to: 5 } as never,
-            dirty: false,
-            filePath: "/test/doc.md",
-            title: "doc.md",
           },
         },
       });

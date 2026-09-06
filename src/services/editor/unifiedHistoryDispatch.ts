@@ -8,7 +8,7 @@
  */
 
 import { useEditorStore } from "@/stores/editorStore";
-import { performUnifiedUndo, performUnifiedRedo } from "@/services/history/unifiedHistory";
+import { performUnifiedUndo, performUnifiedRedo } from "@/services/history/unifiedUndoRedo";
 import {
   runOrQueueCodeMirrorAction,
   runOrQueueProseMirrorAction,

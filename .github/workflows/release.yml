@@ -28,6 +28,10 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          # For a tag push this is already the tagged commit. For a manual
+          # dispatch it is the DEFAULT branch — the requested version is
+          # resolved and checked out by "Check out the requested tag" below,
+          # once the input has been validated (audit 20260906, C4).
 
       - name: Get version
         id: get-version
@@ -47,8 +51,55 @@ jobs:
             echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
           fi
 
+      # A manual dispatch used to accept a version string with NO relationship to
+      # the code being built: `actions/checkout` took the default branch, so
+      # dispatching `v0.9.60` from a feature branch built that branch and
+      # published it as v0.9.60 (audit 20260906, C4). The tag is the contract —
+      # resolve it, or refuse.
+      - name: Check out the requested tag
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          TAG: ${{ steps.get-version.outputs.version }}
+        run: |
+          if ! git rev-parse --verify "refs/tags/$TAG" >/dev/null 2>&1; then
+            git fetch --no-tags origin "refs/tags/$TAG:refs/tags/$TAG" || true
+          fi
+          if ! git rev-parse --verify "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "::error::tag $TAG does not exist — a release must name a real tag"
+            exit 1
+          fi
+          git checkout --force "refs/tags/$TAG"
+          echo "building $TAG at $(git rev-parse HEAD)"
+
+      # The version the tag NAMES must be the version the tree DECLARES, or the
+      # published assets carry a name the code does not answer to. All five
+      # files are checked, the same set 40-version-bump.md requires be bumped
+      # together.
+      - name: Verify the tree declares the tag's version
+        env:
+          TAG: ${{ steps.get-version.outputs.version }}
+        run: |
+          WANT="${TAG#v}"
+          fail=0
+          check() {
+            local label="$1" got="$2"
+            if [ "$got" != "$WANT" ]; then
+              echo "::error::$label declares '$got', tag says '$WANT'"
+              fail=1
+            fi
+          }
+          check "package.json"            "$(jq -r .version package.json)"
+          check "src-tauri/tauri.conf.json" "$(jq -r .version src-tauri/tauri.conf.json)"
+          check "src-tauri/Cargo.toml"    "$(grep -m1 '^version = ' src-tauri/Cargo.toml | sed 's/.*"\(.*\)".*/\1/')"
+          check "server/mcp/package.json" "$(jq -r .version server/mcp/package.json)"
+          check "server/mcp/src/cli.ts"   "$(grep -m1 'const VERSION' server/mcp/src/cli.ts | sed "s/.*['\"]\(.*\)['\"].*/\1/")"
+          [ "$fail" -eq 0 ]
+
+      # No longer skipped on manual dispatch. Skipping it there was how a
+      # dispatch could silently REPUBLISH an existing version and swap assets
+      # under clients that had already downloaded them — the exact thing this
+      # guard exists to prevent (audit 20260906, C4).
       - name: Guard against stale tags
-        if: github.event_name != 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.get-version.outputs.version }}
@@ -122,6 +173,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          # Pinned to the tag being released. Without this a manual dispatch
+          # built the default branch and published it under the requested
+          # version (audit 20260906, C4). For a tag push it resolves to the
+          # same commit the trigger already carried.
+          ref: refs/tags/${{ needs.create-release.outputs.version }}
 
       - name: Setup Node
         uses: actions/setup-node@v7
@@ -538,6 +595,31 @@ jobs:
             --draft=false \
             --repo "${{ github.repository }}"
           echo "✅ Published release ${{ needs.create-release.outputs.version }}"
+
+      # The `release: published` trigger in release-smoke.yml does NOT fire for
+      # the step above: GitHub deliberately does not start workflows from events
+      # created with `GITHUB_TOKEN`, to stop workflows recursing. The smoke test
+      # therefore never ran once — the GitHub API reported `total_count: 0` for
+      # its entire history (audit 20260906, C2). A release gate nobody runs is
+      # indistinguishable from one that passes.
+      #
+      # So it is dispatched explicitly with the published tag, the same way the
+      # Homebrew update below is. The `release: published` trigger stays for a
+      # release published by hand from the UI, where the event DOES fire.
+      #
+      # NOT `continue-on-error`: a failure here means the smoke test was never
+      # started, which is the exact condition this step exists to end. The smoke
+      # run's own verdict is reported by that workflow.
+      - name: Trigger release smoke test
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.create-release.outputs.version }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh workflow run release-smoke.yml \
+            --repo "$REPO" \
+            -f tag="$VERSION"
+          echo "✅ Dispatched release smoke test for $VERSION"
 
       - name: Trigger Homebrew tap update
         continue-on-error: true

@@ -37,7 +37,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { Editor } from "@tiptap/core";
-import { createTiptapExtensions } from "@/services/assembly/tiptapExtensions";
+import { createTiptapExtensions } from "@/services/assembly/createTiptapExtensions";
 import { serializeMarkdown } from "@/utils/markdownPipeline/adapter";
 
 let editor: Editor;

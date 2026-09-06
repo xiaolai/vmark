@@ -65,25 +65,45 @@ describe('restartWithHotExit', () => {
     expect(mockRelaunch).toHaveBeenCalled();
   });
 
-  it('relaunches even if capture fails', async () => {
+  // Audit 20260906 F2. These two used to assert the OPPOSITE — that a failed
+  // capture still relaunched — which pinned the data-loss contract in place:
+  // the user consented to "restart and restore my unsaved documents", and
+  // without a snapshot the restore half cannot happen. The restart must abort
+  // and the process must stay alive with the documents still open.
+  it('does NOT relaunch when the session capture fails', async () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     mockInvoke.mockRejectedValueOnce(new Error('capture failed'));
-    mockRelaunch.mockResolvedValueOnce(undefined);
 
-    await restartWithHotExit();
+    await expect(restartWithHotExit()).rejects.toThrow('capture failed');
 
-    expect(mockRelaunch).toHaveBeenCalled();
+    expect(mockRelaunch).not.toHaveBeenCalled();
     errorSpy.mockRestore();
   });
 
-  it('relaunches when capture throws non-Error', async () => {
+  it('does NOT relaunch when capture rejects with a non-Error', async () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     mockInvoke.mockRejectedValueOnce('string error');
-    mockRelaunch.mockResolvedValueOnce(undefined);
 
-    await restartWithHotExit();
+    await expect(restartWithHotExit()).rejects.toThrow();
 
-    expect(mockRelaunch).toHaveBeenCalled();
+    expect(mockRelaunch).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
+  // A CommandError is a plain object, so the thrown message must come from
+  // commandErrorMessage rather than String(error)'s "[object Object]".
+  it('surfaces a typed CommandError rejection as a readable message', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockInvoke.mockRejectedValueOnce({
+      code: 'io',
+      message: 'The session file could not be written',
+    });
+
+    await expect(restartWithHotExit()).rejects.toThrow(
+      'The session file could not be written',
+    );
+
+    expect(mockRelaunch).not.toHaveBeenCalled();
     errorSpy.mockRestore();
   });
 

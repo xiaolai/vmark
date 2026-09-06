@@ -1,4 +1,7 @@
 import { defineConfig } from 'vitest/config';
+// The workspace-wide liveness bound. Shared so this number cannot drift
+// from the root tiers again — it already had, three times over.
+import { LIVENESS_TIMEOUT_MS } from '../../vitest.shared.ts';
 
 export default defineConfig({
   test: {
@@ -7,8 +10,8 @@ export default defineConfig({
     include: ['__tests__/**/*.test.ts'],
     // Liveness bound, not a performance assertion — see the root
     // `vitest.config.ts`. Kept in step so the three projects cannot drift.
-    testTimeout: 20_000,
-    hookTimeout: 20_000,
+    testTimeout: LIVENESS_TIMEOUT_MS,
+    hookTimeout: LIVENESS_TIMEOUT_MS,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

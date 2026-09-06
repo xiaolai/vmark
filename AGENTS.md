@@ -681,7 +681,12 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
 
   - **Backtick shortcut escaping**: ProseMirror format `"Ctrl-\`"`, Tauri format `"Ctrl+\`"\`.
 
-  - **Architecture overview**: See `dev-docs/architecture.md` for C4 diagram, entry points, data flows, and module map.
+  - **Architecture overview**: `dev-docs/architecture-metrics.md` (generated coupling
+    metrics — regenerate with `pnpm arch:metrics`) and
+    `dev-docs/20260803-architecture-review-note.md` (the review's action summary,
+    which links the full findings under `dev-docs/deep-researches/`). Both are
+    maintainer-local. There is no `dev-docs/architecture.md`; this used to point
+    at one, and it has never existed (audit 20260906, C9).
 
   - **Three-tier source layout** (ADR-013):
     | Tier | May import | Examples |

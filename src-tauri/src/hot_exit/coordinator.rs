@@ -4,6 +4,7 @@
 //! Supports multi-window restoration with pull-based state retrieval.
 
 use super::migration::{can_migrate, migrate_session, needs_migration};
+use super::restore_plan::{plan_window_restore, RestorePlan};
 use super::session::{SessionData, WindowState, MAX_SESSION_AGE_DAYS, SCHEMA_VERSION};
 use super::state::{HotExitState, RestoreRound};
 use super::{
@@ -371,13 +372,12 @@ pub fn restore_session(app: &AppHandle, session: SessionData) -> Result<(), Stri
         .ok_or("No document window found for restore")?;
     let target_label = target_window.label().to_string();
 
-    // Find main window state: prefer is_main_window, fall back to first window
-    let main_state = session
-        .windows
-        .iter()
-        .find(|w| w.is_main_window)
-        .or_else(|| session.windows.first())
-        .cloned()
+    // Same selection rule as the multi-window path, so the two cannot
+    // disagree about which saved window is "main". This path restores ONLY
+    // that one window, so it never had the B4 duplication — but stating the
+    // rule once is what keeps it that way.
+    let main_state = plan_window_restore(&session.windows)
+        .main_state
         .ok_or("No window state in session")?;
 
     // Store window state for pull-based retrieval (using actual target label)
@@ -430,21 +430,10 @@ pub fn restore_session_multi_window(
         .get_webview_window(MAIN_WINDOW_LABEL)
         .ok_or("Main window not found")?;
 
-    // Find main window state: prefer is_main_window flag, fall back to first window
-    let main_state = session
-        .windows
-        .iter()
-        .find(|w| w.is_main_window)
-        .or_else(|| session.windows.first())
-        .cloned();
-
-    // Collect secondary windows to create
-    let secondary_windows: Vec<_> = session
-        .windows
-        .iter()
-        .filter(|w| !w.is_main_window)
-        .cloned()
-        .collect();
+    let RestorePlan {
+        main_state,
+        secondary_windows,
+    } = plan_window_restore(&session.windows);
 
     // Pre-calculate how many windows we'll have
     let secondary_count = secondary_windows.len();

@@ -72,6 +72,7 @@ import { imageHandlerExtension } from "@/plugins/imageHandler/tiptap";
 import { codePreviewExtension } from "@/plugins/codePreview/tiptap";
 import { blockMathKeymapExtension } from "@/plugins/codePreview/blockMathKeymap";
 import { listContinuationExtension } from "@/plugins/listContinuation/tiptap";
+import { safeBlockSplitExtension } from "@/plugins/safeBlockSplit/tiptap";
 import { listBackspaceExtension } from "@/plugins/listBackspace/tiptap";
 import { listClickFixExtension } from "@/plugins/listClickFix/tiptap";
 import { tableUIExtension } from "@/plugins/tableUI/tiptap";
@@ -115,11 +116,7 @@ import { textDragDropExtension } from "@/plugins/textDragDrop/tiptap";
 import { tocExtension } from "@/plugins/tableOfContents/tiptap";
 import { LintExtension } from "@/plugins/lint/tiptap";
 import { inactiveSelectionExtension } from "@/plugins/inactiveSelection/tiptap";
-import { resolveExtensions } from "@/lib/extensions/resolve";
-import { deriveAfterConstraints, assertCanonicalCoverage, orderingSlice } from "./extensionOrdering";
-import { WYSIWYG_COMPOSITION_ORDER, WYSIWYG_OPTIONAL_IDS } from "./compositionOrder";
 import { blockMediaExtensions } from "./blockMediaExtensions";
-import type { VMarkExtension } from "@/lib/extensions/types";
 
 export interface TiptapExtensionConfig {
   /** Tab ID for lint diagnostics; `| undefined` — assembly can precede any tab. */
@@ -134,7 +131,7 @@ export interface TiptapExtensionConfig {
  * yet resolves to the canonical order. Kept in logical/grouped order here for
  * readability; the sort + constraints make its physical order cosmetic.
  */
-function buildExtensionList(config: TiptapExtensionConfig = {}): Extensions {
+export function buildExtensionList(config: TiptapExtensionConfig = {}): Extensions {
   const { tabId } = config;
   return [
     StarterKit.configure({
@@ -226,6 +223,9 @@ function buildExtensionList(config: TiptapExtensionConfig = {}): Extensions {
     codePreviewExtension,
     blockMathKeymapExtension,
     listContinuationExtension,
+    // Enter on a cross-block selection, ahead of StarterKit's splitBlock,
+    // which throws on that shape (audit 20260906, F5).
+    safeBlockSplitExtension,
     listBackspaceExtension,
     listClickFixExtension,
     // Note: ListKeymap (backspace, arrow keys in list items) is included via StarterKit
@@ -249,51 +249,4 @@ function buildExtensionList(config: TiptapExtensionConfig = {}): Extensions {
     // editor remount (mount-time gating left WYSIWYG stale until remount).
     ...(tabId ? [LintExtension.configure({ tabId, diagnostics: lintDiagnosticsSource })] : []),
   ];
-}
-
-/**
- * Creates the array of Tiptap extensions for the WYSIWYG editor. Composition
- * goes through `resolveExtensions` (ADR-015 D1): the registry IS the composition,
- * so no second representation can drift from it.
- *
- * Each Tiptap extension becomes a descriptor keyed by its own `name` (unique
- * across all 78). Order is pinned by explicit `after` constraints derived from
- * `WYSIWYG_COMPOSITION_ORDER` (WI-3.4), so the descriptors are sorted
- * alphabetically before resolution and the resolver reproduces the canonical
- * order regardless of array position. Resolution errors throw rather than
- * silently dropping an extension — a missing editor extension is a broken editor.
- */
-export function createTiptapExtensions(config: TiptapExtensionConfig = {}): Extensions {
-  const list = buildExtensionList(config);
-  const presentIds = list.map((extension, index) => extension.name || `anonymous-${index}`);
-
-  // Fail loud if an extension was added/removed without updating the canonical
-  // order (WI-3.4), then pin each present entry after its canonical predecessor.
-  assertCanonicalCoverage("wysiwyg", WYSIWYG_COMPOSITION_ORDER, presentIds, WYSIWYG_OPTIONAL_IDS);
-  const after = deriveAfterConstraints(WYSIWYG_COMPOSITION_ORDER, presentIds);
-
-  const descriptors: VMarkExtension[] = list
-    .map((extension, index): VMarkExtension => {
-      const id = extension.name || `anonymous-${index}`;
-      return {
-        id,
-        contributions: [{ kind: "tiptap", factory: () => extension }],
-        ...orderingSlice(after, id),
-      };
-    })
-    .sort((a, b) => a.id.localeCompare(b.id));
-
-  const { ordered, errors } = resolveExtensions(descriptors);
-  if (errors.length > 0) {
-    throw new Error(
-      `Editor extension composition failed:\n${errors
-        .map((error) => `  - [${error.code}] ${error.message}`)
-        .join("\n")}`,
-    );
-  }
-
-  return ordered.map(
-    (descriptor) =>
-      (descriptor.contributions[0] as { factory: () => Extensions[number] }).factory(),
-  );
 }

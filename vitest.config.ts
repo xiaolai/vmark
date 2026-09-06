@@ -1,6 +1,6 @@
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
-import { maxWorkers, sourceAliases, suffixGlob, testGlob } from "./vitest.shared.ts";
+import { LIVENESS_TIMEOUT_MS, maxWorkers, sourceAliases, suffixGlob, testGlob } from "./vitest.shared.ts";
 
 /**
  * Worker count, extension list and the measurements behind them live in
@@ -73,8 +73,13 @@ export default defineConfig({
     // immediately, and only a genuine hang takes longer to report. Actual
     // performance budgets stay explicit and separate (see
     // `fullwidthScaling.test.ts`), where they belong.
-    testTimeout: 20_000,
-    hookTimeout: 20_000,
+    //
+    // The VALUE is shared now (2026-09-06). 20_000 was still derived by
+    // measuring healthy runs and adding headroom, so it kept failing on a busy
+    // machine — jsdom tests that pass in ~5s alone hit 20.5s. See
+    // `LIVENESS_TIMEOUT_MS` for the measurement and why one constant.
+    testTimeout: LIVENESS_TIMEOUT_MS,
+    hookTimeout: LIVENESS_TIMEOUT_MS,
     // App tier only. The gate self-tests — `scripts/**` and `.claude/hooks/**`
     // — moved to `vitest.gates.config.ts` (`pnpm test:gates`, inside
     // `check:static`, so CI's required `frontend` job still blocks on them).

@@ -295,6 +295,7 @@ errors:
   # === Percorso di salvataggio (file_write.rs, WI-14 CommandError) ===
   save.parentMissing: "La cartella di questo file non esiste più: %{dir}"
   save.noParentDirectory: "Il percorso del file non ha una cartella superiore"
+  save.symlinkLoop: "L'alias di questo file punta in circolo, quindi il file reale non è stato trovato"
   save.writeFailed: "Impossibile salvare il file: %{detail}"
   save.taskFailed: "L'attività di salvataggio è terminata in modo imprevisto: %{detail}"
 

@@ -37,7 +37,10 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
  * `resolveExtensions`, and lower `UNMIGRATED_COMPOSITION_ROOTS` to match.
  */
 const BYPASSING_COMPOSITION_ROOTS = [
-  "src/services/assembly/tiptapExtensions.ts",
+  // The WYSIWYG composition root moved to createTiptapExtensions.ts when
+  // tiptapExtensions.ts was split for the size gate (audit 20260906): that
+  // file now DECLARES the extensions, this one RESOLVES them.
+  "src/services/assembly/createTiptapExtensions.ts",
   "src/services/assembly/sourceEditorExtensions.ts",
 ] as const;
 
