@@ -121,7 +121,13 @@ jobs:
           fetch_dmg() {
             local url="$1" out="$2" label="$3"
             echo "Downloading $label DMG..."
-            if ! curl -fL --fail-with-body --retry 3 --retry-delay 5 \
+            # NOT `-f`: that IS `--fail`, and curl refuses `--fail` and
+            # `--fail-with-body` together ("is badly used here"), which failed
+            # the v0.9.65 publish. `--fail-with-body` is the one wanted — it
+            # still exits non-zero on HTTP >= 400 but keeps the response body,
+            # so a diagnosis does not need a second request. Verified against a
+            # real 404 (exit 22) and a real DMG (exit 0).
+            if ! curl -L --fail-with-body --retry 3 --retry-delay 5 \
                  --retry-all-errors -o "$out" "$url"; then
               echo "::error::$label DMG download failed: $url"
               return 1
