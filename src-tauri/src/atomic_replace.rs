@@ -15,6 +15,12 @@
 //! Errors are returned as a typed stage enum so each caller keeps its exact,
 //! externally-pinned error strings.
 
+// `#[cfg(unix)]`: the only remaining user is `preserve_target_permissions`.
+// The Windows branch used `fs::remove_file` until that destructive fallback
+// was removed (audit 20260906, B1), so an ungated import is now dead there —
+// and `-D warnings` makes dead an error on a platform local cargo never
+// builds.
+#[cfg(unix)]
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};

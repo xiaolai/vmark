@@ -5,6 +5,10 @@
 //! these tests pin the core's own contract.
 
 use super::*;
+// Imported here rather than inherited through `use super::*`: the production
+// module's `fs` import is #[cfg(unix)] (its only user is the permission
+// helper), while these tests read and write files on every platform.
+use std::fs;
 use tempfile::tempdir;
 
 #[test]

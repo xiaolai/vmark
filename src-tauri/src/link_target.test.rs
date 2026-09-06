@@ -3,6 +3,8 @@
 //! Split out of `atomic_replace.test.rs` alongside the module they cover.
 
 use super::*;
+// Used only by the #[cfg(unix)] symlink round-trip below.
+#[cfg(unix)]
 use crate::atomic_replace::atomic_replace;
 use std::fs;
 use tempfile::tempdir;
