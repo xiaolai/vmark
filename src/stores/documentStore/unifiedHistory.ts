@@ -22,6 +22,21 @@ export interface HistoryCheckpoint {
   cursorInfo: CursorInfo | null;
   /** Timestamp for debugging */
   timestamp: number;
+  /**
+   * For a REDO entry: the content the document was left holding by the undo
+   * that created this entry — the branch point this redo belongs to.
+   *
+   * Redoing is only meaningful while the document still sits at that point. If
+   * the user typed something instead, history has branched and this entry
+   * describes an abandoned future: applying it would replace what they just
+   * wrote (audit 20260906, F4). Native editor history discards its redo stack
+   * on a new edit; the checkpoint stack could not, because an ordinary edit
+   * never reaches this store.
+   *
+   * Undefined on undo entries and on anything persisted before this field
+   * existed, which is read as "cannot be verified" and therefore safe.
+   */
+  branchBase?: string;
 }
 
 interface DocumentHistory {
@@ -73,6 +88,18 @@ interface UnifiedHistoryActions {
 
   /** Check if there's a checkpoint available for redo. */
   canRedoCheckpoint: (tabId: string) => boolean;
+
+  /**
+   * Whether the top redo entry still belongs to the branch `currentMarkdown`
+   * is on. False once a new edit has branched history away from it.
+   */
+  isRedoOnCurrentBranch: (tabId: string, currentMarkdown: string) => boolean;
+
+  /**
+   * Drop the redo stack, keeping undo intact. Called when a new edit branches
+   * history away from the recorded future.
+   */
+  clearRedo: (tabId: string) => void;
 
   /** Set restoring flag (prevents checkpoint creation during restore). */
   setRestoring: (value: boolean) => void;
@@ -225,6 +252,29 @@ export const useUnifiedHistoryStore = create<UnifiedHistoryState & UnifiedHistor
     canRedoCheckpoint: (tabId) => {
       const docHistory = get().documents[tabId];
       return docHistory ? docHistory.redoStack.length > 0 : false;
+    },
+
+    isRedoOnCurrentBranch: (tabId, currentMarkdown) => {
+      const top = get().documents[tabId]?.redoStack.at(-1);
+      if (!top) return false;
+      // An entry with no recorded base predates this check (or came from a
+      // path that does not set one). Allowing it keeps the previous behavior
+      // for those rather than silently dropping a usable redo.
+      if (top.branchBase === undefined) return true;
+      return top.branchBase === currentMarkdown;
+    },
+
+    clearRedo: (tabId) => {
+      set((state) => {
+        const docHistory = state.documents[tabId];
+        if (!docHistory || docHistory.redoStack.length === 0) return state;
+        return {
+          documents: {
+            ...state.documents,
+            [tabId]: { ...docHistory, redoStack: [] },
+          },
+        };
+      });
     },
 
     setRestoring: (value) => {

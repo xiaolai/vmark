@@ -84,6 +84,10 @@ export const WYSIWYG_COMPOSITION_ORDER: readonly string[] = [
   "codePreview",
   "blockMathKeymap",
   "listContinuation",
+  // Enter on a cross-block selection. After listContinuation so list handling
+  // keeps first refusal; before StarterKit's splitBlock, which throws on that
+  // selection shape (audit 20260906, F5).
+  "safeBlockSplit",
   "listBackspace",
   "listClickFix",
   "editorKeymaps",

@@ -27,6 +27,7 @@
 
 import { unified } from "unified";
 import remarkStringify from "remark-stringify";
+import { handleDelete, repairSplitSurrogateEntities } from "./serializerStrikethrough";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import remarkFrontmatter from "remark-frontmatter";
@@ -72,6 +73,10 @@ function buildSerializer() {
       handlers: {
         image: handleImage,
         link: handleLink,
+        // `~~` obeys the same flanking rules as `*`, but the gfm
+        // strikethrough extension never adopted remark's neighbour-encoding
+        // fix — so `plain~~* word~~` was emitted as literal text on reparse.
+        delete: handleDelete,
         ...tocToMarkdown.handlers,
       } as Record<string, unknown>,
       join: [blankLinesJoin], // re-emit captured blank-line runs (ADR-1a)
@@ -110,6 +115,12 @@ export function serializeMdastToMarkdown(
 ): string {
   const processor = getSerializer();
   let result = processor.stringify(mdast);
+
+  // Correctness, not cosmetics: the attention-encoding that makes a delimiter
+  // flank splits an astral neighbour across its surrogate pair, destroying the
+  // character. Repaired here — before every other pass, and with no size
+  // ceiling.
+  result = repairSplitSurrogateEntities(result);
 
   // A document-leading thematic break can serialize as `---` and then be
   // REPARSED as a frontmatter fence, swallowing structure (CommonMark

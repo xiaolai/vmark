@@ -108,7 +108,7 @@ vi.mock("@/plugins/toolbarActions/multiSelectionContext", () => ({
   getWysiwygMultiSelectionContext: vi.fn(() => ({ enabled: false })),
   getSourceMultiSelectionContext: vi.fn(() => ({ enabled: false })),
 }));
-vi.mock("@/services/history/unifiedHistory", () => ({
+vi.mock("@/services/history/unifiedUndoRedo", () => ({
   performUnifiedUndo: vi.fn(() => true),
   performUnifiedRedo: vi.fn(() => true),
 }));
@@ -128,7 +128,7 @@ import {
   setWysiwygHeadingLevel,
 } from "@/plugins/toolbarActions/wysiwygAdapter";
 import { performSourceToolbarAction } from "@/plugins/toolbarActions/sourceAdapter";
-import { performUnifiedUndo, performUnifiedRedo } from "@/services/history/unifiedHistory";
+import { performUnifiedUndo, performUnifiedRedo } from "@/services/history/unifiedUndoRedo";
 import {
   getWysiwygMultiSelectionContext,
   getSourceMultiSelectionContext,

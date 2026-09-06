@@ -28,7 +28,10 @@ vi.mock("@/plugins/sourcePeekInline", () => ({
   openSourcePeekInline: vi.fn(() => true),
   revertAndCloseSourcePeek: vi.fn(),
 }));
-vi.mock("@/services/history/unifiedHistory", () => ({
+// These two moved to unifiedUndoRedo.ts when unifiedHistory.ts was split for
+// the size gate; mocking the old path leaves the mock INERT and silently runs
+// the real commands.
+vi.mock("@/services/history/unifiedUndoRedo", () => ({
   performUnifiedUndo: vi.fn(() => true),
   performUnifiedRedo: vi.fn(() => true),
 }));

@@ -67,9 +67,40 @@ const opArb: fc.Arbitrary<Op> = fc.oneof(
   { weight: 1, arbitrary: fc.constantFrom<Op>({ kind: "undo" }, { kind: "redo" }) },
 );
 
+/**
+ * A document position for `frac`, never INSIDE a surrogate pair.
+ *
+ * ProseMirror positions count UTF-16 code units, so a raw fraction can land
+ * between the two halves of an astral character. Splitting there — with Enter,
+ * or by typing at the caret — produces a document holding a lone high
+ * surrogate in one block and a lone low surrogate in another: not text any
+ * editor can produce, since a real caret cannot occupy that offset, and not
+ * text that can survive a file round-trip either.
+ *
+ * The fuzz was manufacturing that state and then reporting the round-trip's
+ * inability to preserve it as a defect (audit 20260906, while restoring the
+ * oracle for C8). Nudging FORWARD past the low half keeps every legitimate
+ * position reachable.
+ */
 function posAt(session: TypingSession, frac: number): number {
-  const size = session.editor.state.doc.content.size;
-  return Math.max(0, Math.min(size, Math.round(frac * size)));
+  const doc = session.editor.state.doc;
+  const size = doc.content.size;
+  const pos = Math.max(0, Math.min(size, Math.round(frac * size)));
+
+  const $pos = doc.resolve(pos);
+  const parent = $pos.parent;
+  if (!parent.isTextblock) return pos;
+  const offset = $pos.parentOffset;
+  if (offset <= 0 || offset >= parent.content.size) return pos;
+
+  // `textBetween` over the whole textblock, so the check sees the code unit on
+  // each side of the boundary regardless of which text child it belongs to.
+  const text = parent.textBetween(0, parent.content.size);
+  const before = text.charCodeAt(offset - 1);
+  const after = text.charCodeAt(offset);
+  const insidePair =
+    before >= 0xd800 && before <= 0xdbff && after >= 0xdc00 && after <= 0xdfff;
+  return insidePair ? Math.min(size, pos + 1) : pos;
 }
 
 function moveNear(session: TypingSession, pos: number, to?: number): void {
@@ -118,30 +149,95 @@ const DERIVED_ATTRS = new Set(["sourceLine", "blankLinesBefore", "id"]);
 function isDroppedEmptyTextblock(node: PmNode): boolean {
   return node.isTextblock && node.content.size === 0;
 }
-function edgeTrimmedText(parent: PmNode, index: number, text: string): string {
-  let out = text;
-  if (index === 0) out = out.replace(/^[ \t]+/, "");
-  if (index === parent.childCount - 1) out = out.replace(/[ \t]+$/, "");
-  return out;
+/**
+ * A MARK cannot begin or end with whitespace in markdown, so move any edge
+ * whitespace out of marked runs before comparing.
+ *
+ * GFM's delimiter-flanking rules say a closing run may not be preceded by
+ * whitespace, so `~~word ~~` does not close the strikethrough at all. The
+ * editor's in-memory model can hold `strike("word ")`; the file format has no
+ * spelling for it, and the serializer is obliged to emit `~~word~~ ` — which
+ * reparses with the space outside the mark.
+ *
+ * This is the same declared-normalization family as the two above: a state
+ * markdown cannot represent, normalized identically on both sides rather than
+ * suppressed. It is NOT a weakening of the text-loss check — the
+ * transformation only moves characters ACROSS a mark boundary, never removes
+ * them, so a lost character still changes the fingerprint (audit 20260906, C8;
+ * this was the fuzz's standing seed-0 failure, and the audit correctly refused
+ * to call it corruption without a stated oracle policy).
+ */
+function normalizeMarkEdgeWhitespace(
+  children: Array<{ x?: string; m?: string[] } & Record<string, unknown>>,
+): Array<{ x?: string; m?: string[] } & Record<string, unknown>> {
+  const out: Array<{ x?: string; m?: string[] } & Record<string, unknown>> = [];
+
+  for (const child of children) {
+    // Only marked TEXT runs can carry this ambiguity.
+    if (typeof child.x !== "string" || !child.m?.length) {
+      out.push(child);
+      continue;
+    }
+    const leading = /^[ \t]+/.exec(child.x)?.[0] ?? "";
+    const trailing = /[ \t]+$/.exec(child.x.slice(leading.length))?.[0] ?? "";
+    const core = child.x.slice(leading.length, child.x.length - trailing.length);
+
+    // An all-whitespace marked run has no core to keep the mark on.
+    if (leading) out.push({ t: "text", x: leading });
+    if (core) out.push({ ...child, x: core });
+    if (trailing) out.push({ t: "text", x: trailing });
+    if (!leading && !core && !trailing) out.push({ t: "text", x: child.x });
+  }
+
+  // Re-merge neighbours that now carry the same marks, so the split above
+  // cannot itself become a difference.
+  const merged: typeof out = [];
+  for (const child of out) {
+    const prev = merged[merged.length - 1];
+    const sameMarks =
+      prev &&
+      typeof prev.x === "string" &&
+      typeof child.x === "string" &&
+      JSON.stringify(prev.m ?? []) === JSON.stringify(child.m ?? []);
+    if (sameMarks) {
+      prev.x = (prev.x as string) + child.x;
+    } else {
+      merged.push({ ...child });
+    }
+  }
+  return merged;
 }
+
 function fingerprint(node: PmNode): unknown {
   const attrs = Object.fromEntries(
     Object.entries(node.attrs ?? {}).filter(
       ([k, v]) => !DERIVED_ATTRS.has(k) && v !== null && v !== undefined,
     ),
   );
-  const children = node.content.childCount
+  let children = node.content.childCount
     ? Array.from({ length: node.content.childCount }, (_, i) => {
         const child = node.child(i);
         if (isDroppedEmptyTextblock(child)) return null;
-        const printed = fingerprint(child) as { x?: string } & Record<string, unknown>;
-        if (node.isTextblock && child.isText && typeof printed.x === "string") {
-          printed.x = edgeTrimmedText(node, i, printed.x);
-          if (printed.x === "") return null;
-        }
-        return printed;
-      }).filter((c): c is Record<string, unknown> => c !== null)
+        return fingerprint(child) as { x?: string; m?: string[] } & Record<string, unknown>;
+      }).filter((c): c is { x?: string; m?: string[] } & Record<string, unknown> => c !== null)
     : undefined;
+
+  if (children && node.isTextblock) {
+    // Mark-edge migration FIRST, then line-edge trimming: whitespace pushed out
+    // of a mark at the start or end of the line is then trimmed by the existing
+    // rule, exactly as the serializer's own output would be.
+    children = normalizeMarkEdgeWhitespace(children);
+    const count = children.length;
+    children = children
+      .map((child, i) => {
+        if (typeof child.x !== "string") return child;
+        let x = child.x;
+        if (i === 0) x = x.replace(/^[ \t]+/, "");
+        if (i === count - 1) x = x.replace(/[ \t]+$/, "");
+        return x === "" ? null : { ...child, x };
+      })
+      .filter((c): c is { x?: string; m?: string[] } & Record<string, unknown> => c !== null);
+  }
   return {
     t: node.type.name,
     ...(node.isText ? { x: node.text } : {}),

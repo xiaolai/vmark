@@ -34,7 +34,7 @@
  */
 import { getSchema } from "@tiptap/core";
 import type { Schema } from "@tiptap/pm/model";
-import { createTiptapExtensions } from "@/services/assembly/tiptapExtensions";
+import { createTiptapExtensions } from "@/services/assembly/createTiptapExtensions";
 
 let cached: Schema | null = null;
 

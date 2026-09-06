@@ -45,7 +45,7 @@ import { useFileLoadStore } from "@/stores/documentStore";
 import { getCursorInfoFromTiptap, restoreCursorInTiptap } from "@/utils/cursorSync/tiptap";
 import { getTiptapEditorView } from "@/services/editor/tiptapView";
 import { PROGRAMMATIC_SELECTION_META, scheduleTiptapFocusAndRestore } from "@/services/editor/tiptapFocus";
-import { createTiptapExtensions } from "@/services/assembly/tiptapExtensions";
+import { createTiptapExtensions } from "@/services/assembly/createTiptapExtensions";
 import { useTiptapSettingsSync } from "@/hooks/useTiptapSettingsSync";
 import type { CursorInfo } from "@/stores/documentStore";
 import { useEditorStore } from "@/stores/editorStore";
