@@ -30,7 +30,7 @@ import { UNDO_CHORD, redoChords } from "@/services/keybinding/undoRedoChords";
 import { expandedToggleMark } from "@/plugins/editorPlugins/expandedToggleMark";
 import { triggerPastePlainText } from "@/plugins/markdownPaste/tiptap";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
-import { performUnifiedUndo, performUnifiedRedo } from "@/services/history/unifiedHistory";
+import { performUnifiedUndo, performUnifiedRedo } from "@/services/history/unifiedUndoRedo";
 import { runEditorAction } from "@/services/editor/runEditorAction";
 
 import {
