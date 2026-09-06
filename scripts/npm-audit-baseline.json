@@ -1,0 +1,81 @@
+{
+  "$comment": [
+    "Reviewed npm advisory acceptances. Enforced by scripts/check-npm-audit.mjs.",
+    "Two-way: an unlisted moderate+ advisory fails, and an entry whose advisory is",
+    "gone fails so an acceptance cannot outlive its risk. Every entry needs a",
+    "reason, and the reason must be why the code is UNREACHABLE in the shipped",
+    "desktop app or why no fix exists — never that upgrading is inconvenient.",
+    "Added by audit 20260906 (C3), which found the gate disabled at",
+    "continue-on-error for a pnpm-410 problem that no longer reproduces."
+  ],
+  "accepted": {
+    "GHSA-4mjr-xmp4-gh2g": {
+      "module": "qs",
+      "reason": "Same dev-only Tauri MCP harness chain as GHSA-x5fp-wj9c-mxmx."
+    },
+    "GHSA-4w7w-66w2-5vf9": {
+      "module": "vite",
+      "reason": "Dev-server path traversal in the website's VitePress toolchain. Same non-shipped dev-server surface as GHSA-fx2h-pf6j-xcff."
+    },
+    "GHSA-5jgf-p345-68v8": {
+      "module": "fast-uri",
+      "reason": "Same dev-only Tauri MCP harness chain as GHSA-7p8r-x3mc-p8w7."
+    },
+    "GHSA-5p2g-fcmc-qvqq": {
+      "module": "image-size",
+      "reason": "Same unfixed pptxgenjs>image-size chain as GHSA-w3rx-r6r6-pgpr, with the same unproven reachability."
+    },
+    "GHSA-67mh-4wv8-2f99": {
+      "module": "esbuild",
+      "reason": "esbuild dev server, reached through website>vitepress>vite. Build-time only; no esbuild server runs in the app or in CI's built output."
+    },
+    "GHSA-73wf-gq98-2v4g": {
+      "module": "browserslist",
+      "reason": "Same dev-only Stryker/Babel chain as GHSA-c83g-rgw3-j3cx."
+    },
+    "GHSA-7p8r-x3mc-p8w7": {
+      "module": "fast-uri",
+      "reason": "Reached only through @hypothesi/tauri-mcp-server, a devDependency debug harness (Tauri MCP, debug builds only). Not present in release builds."
+    },
+    "GHSA-c83g-rgw3-j3cx": {
+      "module": "browserslist",
+      "reason": "Reached through @stryker-mutator/core>@babel/core. Dev-time transform only; inputs are this repo's own browserslist config."
+    },
+    "GHSA-f65p-4m7j-42xc": {
+      "module": "fast-uri",
+      "reason": "Same dev-only Tauri MCP harness chain as GHSA-7p8r-x3mc-p8w7."
+    },
+    "GHSA-fph4-wmhf-6fwf": {
+      "module": "fast-uri",
+      "reason": "Same dev-only Tauri MCP harness chain as GHSA-7p8r-x3mc-p8w7."
+    },
+    "GHSA-fx2h-pf6j-xcff": {
+      "module": "vite",
+      "reason": "Dev-server path handling in the website's VitePress toolchain (website>vitepress>vite). Not shipped: the desktop app bundles built assets and never runs a Vite dev server. Fixed by a VitePress line that supports vite>=6.4.3."
+    },
+    "GHSA-g7r4-m6w7-qqqr": {
+      "module": "esbuild",
+      "reason": "esbuild dev-server file read via server__content>tsup. Build-time bundling only; tsup never starts a server here."
+    },
+    "GHSA-jqff-g426-hqxp": {
+      "module": "fast-uri",
+      "reason": "Same dev-only Tauri MCP harness chain as GHSA-7p8r-x3mc-p8w7."
+    },
+    "GHSA-rgw5-rvv9-x895": {
+      "module": "brace-expansion",
+      "reason": "Reached through @stryker-mutator/core, a devDependency used for mutation testing. Its inputs are this repo's own glob patterns, not untrusted data."
+    },
+    "GHSA-v6wh-96g9-6wx3": {
+      "module": "vite",
+      "reason": "launch-editor UNC handling reachable only from Vite's dev-server error overlay in the website toolchain. Not shipped."
+    },
+    "GHSA-w3rx-r6r6-pgpr": {
+      "module": "image-size",
+      "reason": "No patched version exists (advisory lists <0.0.0). Reached via server__content>@slidev/cli>pptxgenjs; the 20260906 MCP audit traced Slidev's PPTX path to Playwright-generated PNG buffers and found no executable image-size call in the installed pptxgenjs dist. Re-check when pptxgenjs bumps image-size."
+    },
+    "GHSA-x5fp-wj9c-mxmx": {
+      "module": "qs",
+      "reason": "express>qs inside the dev-only @hypothesi/tauri-mcp-server harness. No express server ships in VMark."
+    }
+  }
+}

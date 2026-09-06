@@ -221,6 +221,40 @@ jobs:
             echo "No PR found for fix/audit-${{ matrix.issue }}"
           fi
 
+      # Bind the verdict to WHO said it, WHEN, and about WHAT.
+      #
+      # The verdict used to be read from `.comments[].body | last` across ALL
+      # comments, so any commenter could post "✅ **VERIFIED**" and override a
+      # negative verifier result, and an approval from an earlier revision still
+      # counted after the PR head moved (audit 20260906, C5). Recording the
+      # verifier's identity, the moment verification began, and the head SHA
+      # under review gives the reader below three things to check.
+      - name: Open the verification window
+        id: window
+        if: steps.find-pr.outputs.number
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+          PR_NUMBER: ${{ steps.find-pr.outputs.number }}
+        run: |
+          # The account the verifier posts as — PAT_TOKEN's own identity, not a
+          # name hardcoded here that could drift from the credential.
+          LOGIN=$(gh api user --jq .login)
+          if [ -z "$LOGIN" ]; then
+            echo "::error::cannot resolve the verifier identity"
+            exit 1
+          fi
+          HEAD_SHA=$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json headRefOid --jq .headRefOid)
+          if [ -z "$HEAD_SHA" ]; then
+            echo "::error::cannot resolve the PR head"
+            exit 1
+          fi
+          {
+            echo "login=$LOGIN"
+            echo "head=$HEAD_SHA"
+            echo "opened_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } >> "$GITHUB_OUTPUT"
+          echo "verifying $HEAD_SHA, accepting a verdict from $LOGIN only"
+
       # Verify the fix in a separate read-only Claude session
       - name: Verify fix for #${{ matrix.issue }}
         if: steps.find-pr.outputs.number
@@ -263,15 +297,48 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
           PR_NUMBER: ${{ steps.find-pr.outputs.number }}
+          VERIFIER: ${{ steps.window.outputs.login }}
+          OPENED_AT: ${{ steps.window.outputs.opened_at }}
+          VERIFIED_HEAD: ${{ steps.window.outputs.head }}
         run: |
-          # Line-anchored: a ❌ NOT VERIFIED comment that merely QUOTES the
-          # ✅ marker mid-sentence must not pass (cross-model review).
-          VERDICT_LINE=$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json comments \
-            --jq '[.comments[].body | split("\n")[] | select(startswith("✅ **VERIFIED**") or startswith("❌ **NOT VERIFIED**") or startswith("⚠️ **PARTIAL**"))] | last // ""')
+          # Three filters, all necessary (audit 20260906, C5):
+          #
+          #   author  — only the account the verifier posts as. Without it any
+          #             commenter could authorize an auto-merge by typing the
+          #             marker, including after a ❌ verdict, since the old jq
+          #             took the LAST matching line from every comment.
+          #   time    — only comments made after THIS run opened its window, so
+          #             a verdict from an earlier run cannot be replayed.
+          #   head    — the PR must still be the commit that was verified; a
+          #             push after the ✅ invalidates it.
+          #
+          # Line-anchored as before: a ❌ NOT VERIFIED comment that merely
+          # QUOTES the ✅ marker mid-sentence must not pass.
+          VERDICT_LINE=$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" \
+            --json comments \
+            --jq --arg who "$VERIFIER" --arg since "$OPENED_AT" '
+              [ .comments[]
+                | select(.author.login == $who)
+                | select(.createdAt >= $since)
+                | .body | split("\n")[]
+                | select(startswith("✅ **VERIFIED**") or startswith("❌ **NOT VERIFIED**") or startswith("⚠️ **PARTIAL**"))
+              ] | last // ""')
+
+          CURRENT_HEAD=$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json headRefOid --jq .headRefOid)
+          if [ "$CURRENT_HEAD" != "$VERIFIED_HEAD" ]; then
+            echo "verified=false" >> "$GITHUB_OUTPUT"
+            echo "PR head moved from $VERIFIED_HEAD to $CURRENT_HEAD — verdict does not describe this revision."
+            exit 0
+          fi
+
           case "$VERDICT_LINE" in
             "✅ **VERIFIED**"*)
               echo "verified=true" >> "$GITHUB_OUTPUT"
               echo "Verifier confirmed the fix."
+              ;;
+            "")
+              echo "verified=false" >> "$GITHUB_OUTPUT"
+              echo "No verdict from $VERIFIER in this run's window — auto-merge withheld."
               ;;
             *)
               echo "verified=false" >> "$GITHUB_OUTPUT"

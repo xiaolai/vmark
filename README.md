@@ -71,12 +71,17 @@ When you file an issue, AI fixes it with full context of the project's conventio
 
 ## Building from Source
 
-**Prerequisites:** [Node.js](https://nodejs.org/) 20+, [pnpm](https://pnpm.io/) 10+, [Rust](https://www.rust-lang.org/tools/install) (stable), [Tauri v2 prerequisites](https://v2.tauri.app/start/prerequisites/)
+**Prerequisites:** [Node.js](https://nodejs.org/) 22+, [pnpm](https://pnpm.io/) 10+, [Rust](https://www.rust-lang.org/tools/install) (stable), [Tauri v2 prerequisites](https://v2.tauri.app/start/prerequisites/)
 
 ```bash
 git clone https://github.com/xiaolai/vmark.git
 cd vmark
 pnpm install
+
+# Build the MCP sidecar once. Tauri bundles it as an external binary and it is
+# a gitignored build artifact, so a fresh clone does not have it.
+pnpm --dir server/mcp build:sidecar
+
 pnpm tauri dev        # Development
 pnpm tauri build      # Production
 pnpm check:all        # Lint + test + build

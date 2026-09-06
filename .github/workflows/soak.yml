@@ -7,6 +7,14 @@
 # small, plus the `*.soak.test.ts` files the default vitest config excludes.
 name: soak
 
+# liveness-gate: true
+# cadence-days: 8
+# on-failure: rolling-issue
+#   ^ read by scripts/check-gate-liveness.mjs. Added by audit 20260906 (C8):
+#     all four recorded runs had failed, and because the workflow declared no
+#     liveness marker the checker reported every opted-in gate healthy while
+#     this one produced no verdict at all.
+
 on:
   schedule:
     - cron: "17 3 * * 1" # weekly, Monday 03:17 UTC
@@ -19,8 +27,34 @@ on:
         description: "fast-check seed (empty = keep CI default)"
         default: ""
 
+permissions:
+  contents: read
+
 jobs:
+  # The three suites are INDEPENDENT, and the matrix is what makes them so.
+  #
+  # They used to be three sequential steps in one job, so the first failure
+  # ended the run: all four recorded soak runs died in the fuzz step, and the
+  # pathological-input and downloaded-corpus tiers had therefore never
+  # executed at all (audit 20260906, C8). A tier that never runs cannot report
+  # anything, and its silence looked exactly like success.
+  #
+  # `fail-fast: false` keeps a red suite from cancelling its siblings.
   soak:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: fuzz
+            label: Deep editing-op fuzz (scaled)
+            command: pnpm vitest run src/test/editingFuzz.test.ts
+          - name: pathological
+            label: Full-size pathological inputs (killable child)
+            command: pnpm vitest run src/utils/markdownPipeline/__tests__/pathological/
+          - name: corpora
+            label: Runtime-download corpora (Pro Git, editing-traces, OSS-Fuzz)
+            command: pnpm test:soak
+    name: ${{ matrix.label }}
     runs-on: macos-latest
     timeout-minutes: 90
     steps:
@@ -32,26 +66,59 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
 
-      - name: Deep editing-op fuzz (scaled)
+      - name: ${{ matrix.label }}
         env:
+          # Only the fuzz reads these; the others ignore them.
           FUZZ_RUNS: ${{ inputs.fuzz_runs || '500' }}
           FUZZ_SEED: ${{ inputs.fuzz_seed }}
-        run: pnpm vitest run src/test/editingFuzz.test.ts
-
-      - name: Full-size pathological inputs (killable child)
-        env:
           PATHOLOGICAL_SCALE: "8"
-        run: pnpm vitest run src/utils/markdownPipeline/__tests__/pathological/
-
-      - name: Runtime-download corpora (Pro Git, editing-traces, OSS-Fuzz)
-        run: pnpm test:soak
+        run: ${{ matrix.command }}
 
       - name: Upload failure evidence
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: soak-evidence
+          name: soak-evidence-${{ matrix.name }}
           path: |
             e2e/artifacts/
             src/test/__screenshots__/
           if-no-files-found: ignore
+
+  # Failure reporting, modelled on mutation.yml's rolling issue: ONE downstream
+  # job that reads `needs.*.result`, so two simultaneous failures cannot race
+  # each other into creating two tracking issues.
+  #
+  # Without this the soak was red for four consecutive runs with nothing
+  # surfacing it anywhere a maintainer would look.
+  report:
+    name: Report failures in the tracking issue
+    needs: [soak]
+    if: failure()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Create or update the rolling issue
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SOAK_RESULT: ${{ needs.soak.result }}
+        run: |
+          set -euo pipefail
+          if [ "$SOAK_RESULT" != "failure" ]; then
+            echo "soak reported '$SOAK_RESULT' — nothing to report."
+            exit 0
+          fi
+
+          TITLE="Soak workflow failed"
+          BODY="Failed on $(date -u +%Y-%m-%d): $RUN_URL (commit ${GITHUB_SHA})"$'\n\n'"At least one soak suite failed; open the run to see which. Each suite runs independently, so the others' results are real."
+          NUMBER=$(gh issue list --state open --search "\"$TITLE\" in:title" \
+            --json number,title --jq ".[] | select(.title == \"$TITLE\") | .number" | head -n1)
+          if [ -n "$NUMBER" ]; then
+            gh issue comment "$NUMBER" --body "$BODY"
+          else
+            gh issue create --title "$TITLE" --body "$BODY"
+          fi

@@ -12,6 +12,17 @@ on:
 permissions:
   contents: read
 
+# Publication is serialized. This job waits up to 15 minutes for DMGs and then
+# mutates a SHARED repository, so two version dispatches could overlap and the
+# older, slower one could finish last and overwrite the newer cask — pushing
+# every `brew upgrade` user backwards (audit 20260906, C6).
+#
+# NOT `cancel-in-progress`: a run that has already pushed must be allowed to
+# finish rather than be killed mid-mutation.
+concurrency:
+  group: update-homebrew-tap
+  cancel-in-progress: false
+
 jobs:
   update-tap:
     runs-on: ubuntu-latest
@@ -98,15 +109,44 @@ jobs:
           ARM_URL="https://github.com/${REPO}/releases/download/v${VERSION}/VMark_${VERSION}_aarch64.dmg"
           INTEL_URL="https://github.com/${REPO}/releases/download/v${VERSION}/VMark_${VERSION}_x64.dmg"
 
-          echo "Downloading ARM DMG..."
-          curl -L -o vmark-arm.dmg "$ARM_URL"
+          # `curl -L` alone writes an ERROR BODY to the output file and exits
+          # 0, so a 404 or a 503 got hashed and published as the cask's
+          # checksum — every `brew install` would then fail the integrity check
+          # (audit 20260906, C6).
+          #
+          #   --fail-with-body : non-zero exit on any HTTP >= 400
+          #   --retry          : ride out a transient CDN hiccup
+          # plus an explicit sanity check that what arrived is really a disk
+          # image, because a 200 carrying the wrong bytes exits 0 too.
+          fetch_dmg() {
+            local url="$1" out="$2" label="$3"
+            echo "Downloading $label DMG..."
+            if ! curl -fL --fail-with-body --retry 3 --retry-delay 5 \
+                 --retry-all-errors -o "$out" "$url"; then
+              echo "::error::$label DMG download failed: $url"
+              return 1
+            fi
+            # A DMG is tens of megabytes; an error page is kilobytes.
+            local size
+            size=$(stat -c%s "$out")
+            if [ "$size" -lt 1000000 ]; then
+              echo "::error::$label DMG is only $size bytes — not a disk image"
+              head -c 400 "$out" || true
+              return 1
+            fi
+            if ! file "$out" | grep -qiE 'zlib|bzip2|disk image|data'; then
+              echo "::error::$label download is not a disk image: $(file "$out")"
+              return 1
+            fi
+          }
+
+          fetch_dmg "$ARM_URL" vmark-arm.dmg "ARM"
           SHA256_ARM=$(sha256sum vmark-arm.dmg | cut -d ' ' -f 1)
           echo "SHA256 (ARM): $SHA256_ARM"
           echo "sha256_arm=$SHA256_ARM" >> "$GITHUB_OUTPUT"
           rm vmark-arm.dmg
 
-          echo "Downloading Intel DMG..."
-          curl -L -o vmark-intel.dmg "$INTEL_URL"
+          fetch_dmg "$INTEL_URL" vmark-intel.dmg "Intel"
           SHA256_INTEL=$(sha256sum vmark-intel.dmg | cut -d ' ' -f 1)
           echo "SHA256 (Intel): $SHA256_INTEL"
           echo "sha256_intel=$SHA256_INTEL" >> "$GITHUB_OUTPUT"
@@ -118,6 +158,32 @@ jobs:
           repository: xiaolai/homebrew-tap
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           path: homebrew-tap
+
+      # The downgrade guard above ran BEFORE up to 15 minutes of waiting and
+      # downloading, and THIS checkout then refreshed the tap — so the version
+      # that guard approved may no longer be the tap's version (audit 20260906,
+      # C6). Re-check against the freshly-fetched tree, immediately before
+      # mutating it. The concurrency group makes the two runs sequential; this
+      # makes the second one notice what the first published.
+      - name: Re-check tap version against the refreshed checkout
+        run: |
+          CURRENT=$(grep '^  version "' homebrew-tap/Casks/vmark.rb 2>/dev/null \
+            | head -1 | awk -F'"' '{print $2}')
+          if [ -z "$CURRENT" ]; then
+            echo "No existing cask version — first publish, proceeding."
+            exit 0
+          fi
+          if [ "$VERSION" = "$CURRENT" ]; then
+            echo "::error::Tap is already at $CURRENT — refusing to re-publish."
+            exit 1
+          fi
+          NEWEST=$(printf '%s\n%s\n' "$VERSION" "$CURRENT" | sort -V | tail -1)
+          if [ "$NEWEST" != "$VERSION" ]; then
+            echo "::error::Tap is at $CURRENT, newer than $VERSION — refusing to downgrade."
+            echo "::error::Another release published while this run was downloading."
+            exit 1
+          fi
+          echo "Tap at $CURRENT, publishing $VERSION."
 
       - name: Generate cask formula
         env:
