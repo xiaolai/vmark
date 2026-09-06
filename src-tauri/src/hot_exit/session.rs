@@ -4,6 +4,10 @@
 
 use serde::{Deserialize, Serialize};
 
+// Provenance for a session read lives in its own module (size gate) but is
+// re-exported here, which is where every consumer already imports from.
+pub use super::loaded::LoadedSession;
+
 /// Schema version for hot exit sessions
 /// v1: Initial schema
 /// v2: Added undo_history and redo_history to DocumentState
@@ -242,7 +246,18 @@ impl SessionData {
         }
 
         let now = chrono::Utc::now().timestamp();
-        let age_seconds = now - self.timestamp;
+        // CHECKED: `self.timestamp` is untrusted — it comes straight off disk,
+        // and `i64::MIN` deserializes happily. `now - i64::MIN` overflows, which
+        // panics in a debug build (audit 20260906, B7). The neighbouring
+        // `checked_mul` below already guards the other arithmetic here for the
+        // same reason.
+        let Some(age_seconds) = now.checked_sub(self.timestamp) else {
+            log::warn!(
+                "[HotExit] Warning: Session timestamp {} is out of range",
+                self.timestamp
+            );
+            return true; // Unusable timestamp — treat as stale, never restore.
+        };
 
         // Treat future timestamps as stale (clock skew)
         if age_seconds < 0 {
@@ -260,37 +275,6 @@ impl SessionData {
                 );
                 true // Treat as stale on overflow
             }
-        }
-    }
-}
-
-/// A session as it came off disk, paired with WHICH file served it.
-///
-/// `recovered_from_backup` is true when `session.json` could not be parsed,
-/// migrated or validated and `session.prev.json` was substituted (audit
-/// 20260803 §11). The substitution used to be silent, and silence is the
-/// problem: it happens UPSTREAM of the frontend's salvage boundary, so the
-/// payload arriving there is perfectly valid, nothing is quarantined, and a
-/// successful restore clears both files — destroying the corrupt main bytes.
-pub struct LoadedSession {
-    pub session: SessionData,
-    pub recovered_from_backup: bool,
-}
-
-impl LoadedSession {
-    /// The main file was usable.
-    pub fn from_main(session: SessionData) -> Self {
-        Self {
-            session,
-            recovered_from_backup: false,
-        }
-    }
-
-    /// The backup stood in for an unusable main file.
-    pub fn from_backup(session: SessionData) -> Self {
-        Self {
-            session,
-            recovered_from_backup: true,
         }
     }
 }

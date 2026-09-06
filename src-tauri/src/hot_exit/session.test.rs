@@ -85,3 +85,36 @@ fn wi94_opaque_context_fields_round_trip() {
     let old_back = serde_json::to_value(&old_state).unwrap();
     assert!(old_back.get("ui_state_by_instance").is_none());
 }
+
+// -- untrusted timestamps (audit 20260906, B7) -----------------------------
+//
+// `timestamp` comes straight off disk. `now - i64::MIN` overflows, which
+// panics in a debug build; the neighbouring max-age multiplication was already
+// guarded with `checked_mul` for exactly this reason.
+
+#[test]
+fn an_extreme_past_timestamp_is_stale_rather_than_a_panic() {
+    let mut session = SessionData::new(TEST_VERSION.to_string());
+    session.timestamp = i64::MIN;
+
+    assert!(
+        session.is_stale(MAX_SESSION_AGE_DAYS),
+        "an unusable timestamp must be treated as stale, never restored"
+    );
+}
+
+#[test]
+fn an_extreme_future_timestamp_is_stale() {
+    let mut session = SessionData::new(TEST_VERSION.to_string());
+    session.timestamp = i64::MAX;
+
+    assert!(session.is_stale(MAX_SESSION_AGE_DAYS));
+}
+
+#[test]
+fn a_fresh_timestamp_is_not_stale() {
+    let mut session = SessionData::new(TEST_VERSION.to_string());
+    session.timestamp = chrono::Utc::now().timestamp();
+
+    assert!(!session.is_stale(MAX_SESSION_AGE_DAYS));
+}

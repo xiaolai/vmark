@@ -8,9 +8,10 @@ use super::coordinator::{
     RestoreMultiWindowResult,
 };
 use super::merge::merge_partial_capture;
+use super::read_session::read_session;
 use super::session::{LoadedSession, SessionData, WindowState};
 use super::state::HotExitState;
-use super::storage::{delete_session, read_session, write_session_atomic};
+use super::storage::{delete_session, write_session_atomic};
 use crate::command_error::CommandError;
 use tauri::{AppHandle, State};
 
@@ -76,6 +77,16 @@ pub struct InspectedSession {
     session: SessionData,
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     recovered_from_backup: bool,
+    /// The main file parsed only after per-item salvage DROPPED content
+    /// (audit 20260906, B5/B6). Same contract as `recovered_from_backup`: the
+    /// original bytes are still on disk and must be quarantined before the
+    /// restore path clears them. A lossy repair of the main file used to be
+    /// reported as ordinary main data, so the evidence was deleted on success.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    lossy_repair: bool,
+    /// What the repair dropped, for the quarantine record.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    repair_summary: Option<String>,
 }
 
 impl From<LoadedSession> for InspectedSession {
@@ -83,6 +94,8 @@ impl From<LoadedSession> for InspectedSession {
         Self {
             session: loaded.session,
             recovered_from_backup: loaded.recovered_from_backup,
+            lossy_repair: loaded.lossy_repair,
+            repair_summary: loaded.repair_summary,
         }
     }
 }
