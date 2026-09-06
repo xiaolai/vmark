@@ -216,6 +216,7 @@ pub(super) async fn delete_session_files(
     Ok(())
 }
 
-#[cfg(test)]
-#[path = "storage.test.rs"]
-mod tests;
+// No sibling test file: every test that lived here followed the read ladder
+// into `read_session.rs` when this file was split for the size gate. What
+// remains — path resolution, the atomic write, deletion — is covered through
+// `read_session.test.rs`, which drives them end to end.
