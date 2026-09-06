@@ -192,3 +192,51 @@ fn failed_persist_leaves_the_original_file_intact() {
         "a failed replacement must never delete the user's existing file"
     );
 }
+
+/// A transient sharing refusal must be RIDDEN OUT, not turned into a failure —
+/// and not into a deletion either.
+///
+/// `MoveFileExW` returns ERROR_ACCESS_DENIED while another handle holds the
+/// target, which on Windows happens routinely: an antivirus scanner, a backup
+/// agent, or another thread reading the document. The old remove-then-retry
+/// survived this by accident and paid for it with the data loss above; the
+/// replacement rides it out by retrying the ATOMIC move, so the target keeps
+/// its previous bytes throughout.
+///
+/// Reproduced by holding the TARGET open without FILE_SHARE_DELETE from a
+/// second thread and releasing it mid-flight.
+#[cfg(windows)]
+#[test]
+fn a_transient_sharing_conflict_on_the_target_is_ridden_out() {
+    use std::os::windows::fs::OpenOptionsExt;
+    use std::sync::mpsc;
+    use std::thread;
+    use std::time::Duration;
+
+    const FILE_SHARE_READ: u32 = 0x0000_0001;
+
+    let dir = tempdir().unwrap();
+    let target = dir.path().join("contended.md");
+    fs::write(&target, "OLD").unwrap();
+
+    // Hold the target WITHOUT share-delete, so the replacement is refused,
+    // then let go while the retry window is still open.
+    let (holding, held) = mpsc::channel();
+    let path = target.clone();
+    let holder = thread::spawn(move || {
+        let handle = std::fs::OpenOptions::new()
+            .read(true)
+            .share_mode(FILE_SHARE_READ)
+            .open(&path)
+            .expect("open the target");
+        holding.send(()).unwrap();
+        thread::sleep(Duration::from_millis(15));
+        drop(handle);
+    });
+
+    held.recv().unwrap();
+    atomic_replace(&target, dir.path(), b"NEW").expect("the retry must ride out the conflict");
+    holder.join().unwrap();
+
+    assert_eq!(fs::read_to_string(&target).unwrap(), "NEW");
+}
