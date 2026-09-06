@@ -35,6 +35,7 @@ import {
   remarkResolveReferences,
 } from "@vmark/markdown-plugins";
 import { remarkAlerts, type AlertNode } from "./remarkAlerts";
+import { remarkResolveAssets } from "./remarkResolveAssets";
 
 /** How a wiki-link target resolves to a served URL. */
 interface WikiResolution {
@@ -49,6 +50,16 @@ export interface RenderOptions {
    * non-resolving stub used in standalone rendering/tests.
    */
   resolveWikiLink?: (target: string) => WikiResolution;
+  /**
+   * Rewrite a LOCAL image/media URL to a served one. Left undefined in
+   * standalone rendering, where there is no server to serve assets from.
+   *
+   * Server-side rather than in `kb.js`, because the browser begins fetching
+   * images while the HTML is still parsing — a DOMContentLoaded rewrite would
+   * always lose that race in the cookie-blocked in-app iframe (audit 20260906,
+   * MCP-C03).
+   */
+  resolveAssetUrl?: (url: string) => string;
 }
 
 const DEFAULT_RESOLVE = (target: string): WikiResolution => ({
@@ -149,6 +160,7 @@ export async function renderMarkdown(
   options: RenderOptions = {}
 ): Promise<string> {
   const resolve = options.resolveWikiLink ?? DEFAULT_RESOLVE;
+  const resolveAsset = options.resolveAssetUrl;
   const processor = unified()
     .use(remarkParse)
     .use(remarkGfm, { singleTilde: false })
@@ -159,6 +171,7 @@ export async function renderMarkdown(
     .use(remarkDetailsBlock)
     .use(remarkResolveReferences)
     .use(remarkAlerts)
+    .use(remarkResolveAssets, { resolve: resolveAsset })
     .use(remarkRehype, {
       allowDangerousHtml: true,
       handlers: buildHandlers(resolve),

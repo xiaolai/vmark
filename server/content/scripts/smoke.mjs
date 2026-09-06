@@ -42,9 +42,10 @@ async function smokeServerBundle(srv) {
     signal: deadline(),
   });
   const setCookie = boot.headers.get("set-cookie") ?? "";
-  const session = /vmark_cs_session=([^;]+)/.exec(setCookie);
+  // The name is NAMESPACED per workspace root (audit 20260906, MCP-C05).
+  const session = /(vmark_cs_session[^=]*)=([^;]+)/.exec(setCookie);
   assert(session, `auth set no session cookie (status ${boot.status})`);
-  const cookie = "vmark_cs_session=" + session[1];
+  const cookie = `${session[1]}=${session[2]}`;
 
   const res = await fetch(`${srv.url}/note/A.md`, { headers: { cookie }, signal: deadline() });
   const html = await res.text();

@@ -52,7 +52,9 @@ async function liveCookie(url: string): Promise<string> {
   const { nonce } = (await mint.json()) as { nonce: string };
   const boot = await fetch(`${url}/__auth?t=${nonce}`, { redirect: "manual" });
   const setCookie = boot.headers.get("set-cookie") ?? "";
-  return `${SESSION_COOKIE}=${new RegExp(`${SESSION_COOKIE}=([^;]+)`).exec(setCookie)![1]}`;
+  // Namespaced per workspace root (audit 20260906, MCP-C05).
+  const m = new RegExp(`(${SESSION_COOKIE}[^=]*)=([^;]+)`).exec(setCookie)!;
+  return `${m[1]}=${m[2]}`;
 }
 
 beforeEach(async () => {
@@ -96,9 +98,14 @@ describe("startKbServer — live over a real socket", () => {
   it("refreshes the index after a file is added (watcher)", async () => {
     await write("A.md", "a");
     server = await startKbServer({ root, bootstrapToken: BOOTSTRAP });
-    const cookie = await liveCookie(server.url);
+    // Captured into a const: `server` is a nullable `let`, and TypeScript
+    // widens it back inside the polling closure below.
+    const running = server;
+    const cookie = await liveCookie(running.url);
 
-    const before = (await (await fetch(`${server.url}/__health`, { headers: { cookie } })).json()) as { docs: number };
+    const before = (await (
+      await fetch(`${running.url}/__health`, { headers: { cookie } })
+    ).json()) as { docs: number };
     expect(before.docs).toBe(1);
 
     await write("B.md", "b");
@@ -106,7 +113,7 @@ describe("startKbServer — live over a real socket", () => {
     // Poll for the debounced watcher rebuild rather than guessing its duration.
     const after = await until(async () => {
       const health = (await (
-        await fetch(`${server.url}/__health`, { headers: { cookie } })
+        await fetch(`${running.url}/__health`, { headers: { cookie } })
       ).json()) as { docs: number };
       return health.docs;
     }, 2);

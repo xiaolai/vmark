@@ -15,6 +15,14 @@ interface QueuedRequest {
   request: BridgeRequest;
   resolve: (response: BridgeResponse) => void;
   reject: (error: Error) => void;
+  /**
+   * Set the moment `flush()` hands this entry to `send`. Until then the entry
+   * is still WAITING and keeps its own deadline; after it, the in-flight send
+   * governs the wait (#959).
+   */
+  dispatched: boolean;
+  /** Set once settled, so the timer and the flush cannot both act on it. */
+  settled: boolean;
 }
 
 export class OutboundRequestQueue {
@@ -45,24 +53,43 @@ export class OutboundRequestQueue {
     }
 
     return new Promise((resolve, reject) => {
+      const entry: QueuedRequest = {
+        request,
+        dispatched: false,
+        settled: false,
+        resolve: (value: BridgeResponse) => {
+          if (entry.settled) return;
+          entry.settled = true;
+          clearTimeout(timer);
+          (resolve as (response: BridgeResponse) => void)(value);
+        },
+        reject: (err: Error) => {
+          if (entry.settled) return;
+          entry.settled = true;
+          clearTimeout(timer);
+          reject(err);
+        },
+      };
+
       const timer = setTimeout(() => {
-        // Only time out while the request is still queued. Once
-        // flush() has taken ownership of it (idx === -1), the
-        // in-flight send governs the wait via its own timeout —
-        // rejecting here would spuriously fail an operation that is still
-        // succeeding (#959).
-        const idx = this.queue.findIndex((q) => q.request === request);
-        if (idx !== -1) {
-          this.queue.splice(idx, 1);
-          reject(new Error(`Queued request ${request.type} timed out`));
-        }
+        // Time out while the request is still WAITING. Once flush() has handed
+        // it to `send` the in-flight timeout governs the wait, and rejecting
+        // here would spuriously fail an operation that is still succeeding
+        // (#959).
+        //
+        // Keyed on `dispatched`, NOT on membership of `this.queue`. flush()
+        // used to detach the entire queue before sending anything, so every
+        // entry lost its deadline the instant the flush began even though only
+        // the first was actually in flight — a follower could then sit behind
+        // many request timeouts with no deadline of its own (audit 20260906,
+        // MCP-M01).
+        if (entry.dispatched) return;
+        const idx = this.queue.indexOf(entry);
+        if (idx !== -1) this.queue.splice(idx, 1);
+        entry.reject(new Error(`Queued request ${request.type} timed out`));
       }, this.requestTimeout);
 
-      this.queue.push({
-        request,
-        resolve: (value: BridgeResponse) => { clearTimeout(timer); (resolve as (response: BridgeResponse) => void)(value); },
-        reject: (err: Error) => { clearTimeout(timer); reject(err); },
-      });
+      this.queue.push(entry);
 
       this.logger.debug(`Request queued (queue size: ${this.queue.length})`);
     });
@@ -72,7 +99,11 @@ export class OutboundRequestQueue {
    * Flush queued requests after reconnection.
    *
    * The queue is detached BEFORE the first send so entries queued during the
-   * flush are not drained twice.
+   * flush are not drained twice. Each entry keeps its OWN deadline until the
+   * moment it is handed to `send` — the sends are serial, so only the first
+   * entry is actually in flight while the rest are still waiting, and
+   * releasing all of their deadlines at once left the followers able to wait
+   * indefinitely (audit 20260906, MCP-M01).
    */
   async flush(send: (request: BridgeRequest) => Promise<BridgeResponse>): Promise<void> {
     if (this.queue.length === 0) {
@@ -83,12 +114,17 @@ export class OutboundRequestQueue {
     const queue = [...this.queue];
     this.queue = [];
 
-    for (const { request, resolve, reject } of queue) {
+    for (const entry of queue) {
+      // Its deadline may have expired while it waited its turn behind a slow
+      // predecessor. That rejection already settled the caller's promise.
+      if (entry.settled) continue;
+      // Ownership transfers HERE, one entry at a time.
+      entry.dispatched = true;
       try {
-        const response = await send(request);
-        resolve(response);
+        const response = await send(entry.request);
+        entry.resolve(response);
       } catch (error) {
-        reject(error instanceof Error ? error : new Error(String(error)));
+        entry.reject(error instanceof Error ? error : new Error(String(error)));
       }
     }
   }

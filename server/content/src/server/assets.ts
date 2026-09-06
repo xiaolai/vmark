@@ -38,16 +38,27 @@ export const KB_JS = `
     // Propagate the session token to same-origin navigations so links work
     // inside the cookie-blocked iframe (grill M2).
     document.addEventListener("DOMContentLoaded", function () {
-      var links = document.querySelectorAll('a[href^="/"]');
+      // EVERY link, not just 'a[href^="/"]'. An ordinary markdown link is
+      // RELATIVE — [Next](B.md), [Parent](../B.md) — so the old selector
+      // matched none of them, and following one inside the cookie-blocked
+      // in-app iframe dropped ?s and returned 401 (audit 20260906, MCP-C02).
+      // Only wiki-links, which already emit absolute /note/ URLs, ever worked.
+      var links = document.querySelectorAll("a[href]");
       for (var i = 0; i < links.length; i++) {
         var raw = links[i].getAttribute("href");
-        // Skip protocol-relative ("//host") and any cross-origin link — only
-        // rewrite genuine same-origin paths (new URL would otherwise drop the
-        // external host and corrupt the link).
-        if (raw.charAt(1) === "/") continue;
+        if (!raw) continue;
+        // Fragment-only: same document, no request, nothing to carry.
+        if (raw.charAt(0) === "#") continue;
+        // Protocol-relative ("//host") is cross-origin by construction.
+        if (raw.charAt(0) === "/" && raw.charAt(1) === "/") continue;
         try {
-          var u = new URL(raw, location.origin);
+          // Resolved against location.href, NOT location.origin: a relative
+          // href is relative to the DOCUMENT, so "B.md" on /note/dir/A.md is
+          // /note/dir/B.md. Resolving against the origin would send it to /B.md.
+          var u = new URL(raw, location.href);
           if (u.origin !== location.origin) continue;
+          // mailto:, javascript:, data: never carry a session.
+          if (u.protocol !== "http:" && u.protocol !== "https:") continue;
           // Set ?s before any #fragment and preserve existing query params.
           u.searchParams.set("s", s);
           links[i].setAttribute("href", u.pathname + u.search + u.hash);

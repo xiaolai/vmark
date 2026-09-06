@@ -1,4 +1,7 @@
 import { defineConfig } from "vitest/config";
+// The workspace-wide liveness bound. Shared so this number cannot drift
+// from the root tiers again — it already had, three times over.
+import { LIVENESS_TIMEOUT_MS } from "../../vitest.shared.ts";
 import { fileURLToPath } from "node:url";
 
 export default defineConfig({
@@ -20,8 +23,8 @@ export default defineConfig({
     // `vitest.config.ts`. These tests bind real sockets and drive a real file
     // watcher, and the live-socket case timed out at 5072ms against the 5000ms
     // default purely because the machine was busy.
-    testTimeout: 20_000,
-    hookTimeout: 20_000,
+    testTimeout: LIVENESS_TIMEOUT_MS,
+    hookTimeout: LIVENESS_TIMEOUT_MS,
     coverage: {
       provider: "v8",
       include: ["src/**/*.ts"],
