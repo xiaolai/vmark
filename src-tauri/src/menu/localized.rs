@@ -95,7 +95,7 @@ pub fn create_localized_menu(
     let insert_menu = insert_menu::build(app, &accel)?;
     let view_menu = view_menu::build(app, &accel)?;
     #[cfg(target_os = "macos")]
-    let window_menu = window_help_menu::build_window_menu(app)?;
+    let window_menu = window_help_menu::build_window_menu(app, &accel)?;
     let help_menu = window_help_menu::build_help_menu(app)?;
 
     // ========================================================================

@@ -38,6 +38,7 @@ const VIEW_MAP: Array<[string, string]> = [
   ["fileExplorer", "view.toggleFileExplorer"],
   ["viewHistory", "view.toggleHistory"],
   ["knowledgeBase", "view.toggleKnowledgeBase"],
+  ["windowStatus", "view.toggleWindowStatus"],
   ["markdownSplit", "view.toggleMarkdownSplit"],
 ];
 
@@ -99,11 +100,11 @@ describe("KEYBINDINGS — view shortcut migration (WI-3.2)", () => {
     }
   });
 
-  it("has the 11 global + 5 native + 17 view + 2 explorer + 1 containment bindings", () => {
+  it("has the 11 global + 5 native + 18 view + 2 explorer + 1 containment bindings", () => {
     // The second native binding is `lastUsedTab` (WI-TNAV2.3, D7): a DOM
     // binding is dead while the embedded WKWebView browser holds first
     // responder, so the native menu accelerator owns the chord.
-    expect(KEYBINDINGS).toHaveLength(36);
+    expect(KEYBINDINGS).toHaveLength(37);
   });
 
   it("owns lastUsedTab natively, not through the window DOM router", () => {
