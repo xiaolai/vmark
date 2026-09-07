@@ -75,6 +75,7 @@ const VIEW_BINDINGS: Binding[] = [
   viewBinding("fileExplorer", "view.toggleFileExplorer", { suppressInInput: true }),
   viewBinding("viewHistory", "view.toggleHistory", { suppressInInput: true }),
   viewBinding("knowledgeBase", "view.toggleKnowledgeBase", { suppressInInput: true }),
+  viewBinding("windowStatus", "view.toggleWindowStatus", { suppressInInput: true }),
   viewBinding("markdownSplit", "view.toggleMarkdownSplit", { suppressInInput: true }),
   // WI-DSPL1.2 gave these native menu accelerators, so they must be
   // NATIVE-owned: AppKit dispatches a menu accelerator regardless of focus,

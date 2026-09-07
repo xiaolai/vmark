@@ -161,6 +161,7 @@ const DEFAULT_ACCELERATORS: &[(&str, &str)] = &[
     ("video", ""),
     ("view-history", "Ctrl+Shift+3"),
     ("wiki-link", "Alt+CmdOrCtrl+K"),
+    ("window-status", "Ctrl+Shift+5"),
     ("word-wrap", "Alt+Z"),
     ("wysiwyg-mode", ""),
     ("zoom-actual", "CmdOrCtrl+0"),

@@ -53,6 +53,18 @@ describe("DEFAULT_SHORTCUTS", () => {
     expect(byId.get("toggleAllFiles")?.defaultKey).toBe("Mod-Shift-a");
   });
 
+  it("binds the Window Status panel on the 5th slot of the Ctrl+Shift+N panel series", () => {
+    // Sidebar 0, Outline 1, File Explorer 2, History 3, Knowledge Base 4 — the
+    // Window Status panel (#1057) had every wire but the key. `Mod-Shift-5` is
+    // free off macOS too, so no `defaultKeyOther` (same shape as slots 1–4).
+    const def = DEFAULT_SHORTCUTS.find((s) => s.id === "windowStatus");
+    expect(def).toBeDefined();
+    expect(def?.category).toBe("view");
+    expect(def?.defaultKey).toBe("Ctrl-Shift-5");
+    expect(def?.defaultKeyOther).toBeUndefined();
+    expect(def?.menuId).toBe("window-status");
+  });
+
   it("assigns each macOS default chord to at most one shortcut", () => {
     expect(
       duplicates(
