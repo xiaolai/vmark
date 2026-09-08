@@ -10,7 +10,7 @@
  *   - Reveal uses Tauri's revealItemInDir for native Finder integration
  *
  * @coordinates-with imageContextMenuStore.ts — reads menu state (position, nodePos)
- * @coordinates-with useImageOperations.ts — copyImageToAssets for new images
+ * @coordinates-with services/media/imageOperations.ts — copyImageToAssets for new images
  * @module hooks/useImageContextMenu
  */
 

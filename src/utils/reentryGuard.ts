@@ -11,8 +11,9 @@
  *     can silently skip rather than catching errors
  *   - try/finally ensures locks are always released even on error
  *
- * @coordinates-with closeDecision.ts — uses withReentryGuard for close confirmations
- * @coordinates-with saveToPath.ts — uses withReentryGuard for concurrent save prevention
+ * @coordinates-with plugins/imageHandler/tiptap.ts — guards the clipboard-image paste
+ * @coordinates-with plugins/toolbarActions/wysiwygAdapterInsert.ts — guards dialog-backed inserts
+ * @coordinates-with plugins/sourceImagePopup/sourceImageActions.ts — guards the browse dialog
  * @module utils/reentryGuard
  */
 

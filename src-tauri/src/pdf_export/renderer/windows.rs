@@ -22,25 +22,40 @@
 //!     already applied orientation as a swap — the orientation *enum* was
 //!     measurably ignored while explicit width/height were set. Margins stay
 //!     in the CSS, which is where Windows actually reads them (ADR-PDF1a).
+//!   - **Progress is reported at the same three points as macOS (WI-FL6.2):**
+//!     `Loading` before the window is built, `Rendering` when navigation has
+//!     completed and the print starts, `Finishing` when `PrintToPdf` reports
+//!     success. Until then this backend emitted nothing, so the export
+//!     dialog sat on "Preparing…" until the file appeared.
+//!   - **The window, the handlers and the navigation are `windows_nav.rs`'s**
+//!     (#236): one copy for export and print, acting on the DOCUMENT's
+//!     completion — matched by the navigation id its start reported —
+//!     exactly once (#233), claiming the sink inside that decision (#227),
+//!     closing the window on every failure through one path (#234, #237)
+//!     and on the caller's timeout (#224). This file keeps what is export's
+//!     own: the print.
 //!
 //! @coordinates-with mod.rs — dispatches here and awaits the sink
+//! @coordinates-with windows_nav.rs — builds, navigates and hands over the loaded webview
 //! @coordinates-with page_spec.rs — supplies the geometry, in inches
 //! @module pdf_export/renderer/windows
 
 use std::sync::Arc;
 
-use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::{AppHandle, Manager};
 use webview2_com::Microsoft::Web::WebView2::Win32::{
     ICoreWebView2, ICoreWebView2Environment6, ICoreWebView2PrintSettings, ICoreWebView2_2,
     ICoreWebView2_7,
 };
-use webview2_com::{NavigationCompletedEventHandler, PrintToPdfCompletedHandler};
-use windows_core::{Interface, BOOL, HSTRING, PCWSTR};
+use webview2_com::PrintToPdfCompletedHandler;
+use windows_core::{Interface, HSTRING, PCWSTR};
 
 use crate::command_error::{CommandError, ErrorCode};
 use crate::localized_error;
 use crate::pdf_export::page_spec::PageSpec;
 
+use super::progress::PdfProgress;
+use super::windows_nav::navigate_once;
 use super::RenderSink;
 
 /// Label prefix for the throwaway render window. Unique per render so two
@@ -70,91 +85,33 @@ fn start(
     page: PageSpec,
     sink: Arc<RenderSink>,
 ) -> Result<(), CommandError> {
-    let label = format!("{LABEL_PREFIX}{}", uuid::Uuid::new_v4().simple());
-    let file_url = path_to_file_url(html_path)?;
-
-    let blank = "about:blank".parse().expect("about:blank parses");
-    let window = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(blank))
-        .visible(false)
-        .title("VMark PDF render")
-        .build()
-        .map_err(|e| window_error(&e.to_string()))?;
-
+    sink.progress(PdfProgress::Loading);
     let out = output_path.to_string();
-    let app_cb = app.clone();
-    let label_cb = label.clone();
-
-    window
-        .with_webview(move |pw| {
-            // SAFETY: `with_webview` runs on the UI thread that owns the
-            // controller — the apartment every call below requires.
-            let core = match unsafe { pw.controller().CoreWebView2() } {
-                Ok(c) => c,
-                Err(e) => {
-                    sink.settle(Err(com_error("core", &e)));
-                    close(&app_cb, &label_cb);
-                    return;
-                }
-            };
-
-            let sink_nav = sink.clone();
-            let app_nav = app_cb.clone();
-            let label_nav = label_cb.clone();
-            let core_nav = core.clone();
-
-            let handler =
-                NavigationCompletedEventHandler::create(Box::new(move |_sender, args| {
-                    // A FAILED navigation fires this too. Without the flag a
-                    // missing file would print an empty document and report
-                    // success — the shape of failure that is hardest to see.
-                    let ok = args
-                        .as_ref()
-                        .map(|a| {
-                            let mut success = BOOL::default();
-                            unsafe { a.IsSuccess(&mut success) }.is_ok() && success.as_bool()
-                        })
-                        .unwrap_or(false);
-                    if !ok {
-                        sink_nav.settle(Err(localized_error!(
-                            ErrorCode::Io,
-                            "errors.pdf.loadFailed"
-                        )));
-                        close(&app_nav, &label_nav);
-                        return Ok(());
-                    }
-                    if let Err(e) = print_to_pdf(
-                        &core_nav,
-                        &out,
-                        page,
-                        sink_nav.clone(),
-                        &app_nav,
-                        &label_nav,
-                    ) {
-                        sink_nav.settle(Err(e));
-                        close(&app_nav, &label_nav);
-                    }
-                    Ok(())
-                }));
-
-            let mut token = Default::default();
-            if let Err(e) = unsafe { core.add_NavigationCompleted(&handler, &mut token) } {
-                sink.settle(Err(com_error("navigation handler", &e)));
-                close(&app_cb, &label_cb);
-                return;
+    navigate_once(
+        app,
+        html_path,
+        false,
+        "VMark PDF render",
+        sink,
+        Box::new(move |core, app, label, sink| {
+            sink.progress(PdfProgress::Rendering);
+            if let Err(e) = print_to_pdf(core, &out, page, sink.clone(), app, label) {
+                // The window's ONE failure path (#454) — the same one
+                // `RenderWindow::fail` takes, rather than a second copy of
+                // "settle, then close" that a later edit can leave half done.
+                fail_render(app, label, &sink, e);
             }
-
-            let url = HSTRING::from(file_url.as_str());
-            if let Err(e) = unsafe { core.Navigate(PCWSTR(url.as_ptr())) } {
-                sink.settle(Err(com_error("navigate", &e)));
-                close(&app_cb, &label_cb);
-            }
-        })
-        .map_err(|e| window_error(&e.to_string()))?;
-
-    Ok(())
+        }),
+    )
 }
 
 /// Configure page size and start the asynchronous print.
+///
+/// The three steps are separate, and each `unsafe` block is one COM call
+/// (#456). A single block over the whole body covered the safe half too — the
+/// completion closure, the progress reports, the teardown — so nothing in it
+/// carried a claim the compiler was asking for, and every SAFETY note applied
+/// to a region rather than to a call.
 fn print_to_pdf(
     core: &ICoreWebView2,
     output_path: &str,
@@ -163,54 +120,116 @@ fn print_to_pdf(
     app: &AppHandle,
     label: &str,
 ) -> Result<(), CommandError> {
-    unsafe {
-        let env = core
-            .cast::<ICoreWebView2_2>()
-            .and_then(|v| v.Environment())
-            .map_err(|e| com_error("environment", &e))?;
-        let settings: ICoreWebView2PrintSettings = env
-            .cast::<ICoreWebView2Environment6>()
-            .and_then(|e6| e6.CreatePrintSettings())
-            .map_err(|e| com_error("print settings", &e))?;
+    let settings = print_settings_for(core, page)?;
+    let handler = completion_handler(sink, app.clone(), label.to_string());
+    let path = HSTRING::from(output_path);
+    // `cast` is safe (a QueryInterface wrapper); only the call is not.
+    let webview7 = core
+        .cast::<ICoreWebView2_7>()
+        .map_err(|e| com_error("ICoreWebView2_7", &e))?;
+    // SAFETY: `core` is the live webview the navigation completed on, and this
+    // runs on the UI thread that owns its controller (`windows_nav::attach`).
+    // `settings` and `handler` are the objects built above; `path` outlives the
+    // call it is borrowed for.
+    unsafe { webview7.PrintToPdf(PCWSTR(path.as_ptr()), &settings, &handler) }
+        .map_err(|e| com_error("PrintToPdf", &e))
+}
 
-        // Size only. Orientation is already baked into these numbers, and
-        // margins belong to the CSS (ADR-PDF1a).
-        let (w_in, h_in) = page.inches();
+/// Print settings carrying the page GEOMETRY, size only: orientation is
+/// already baked into these numbers, and margins belong to the CSS
+/// (ADR-PDF1a).
+fn print_settings_for(
+    core: &ICoreWebView2,
+    page: PageSpec,
+) -> Result<ICoreWebView2PrintSettings, CommandError> {
+    // `cast` is a safe `QueryInterface` wrapper; the interface METHODS are the
+    // unsafe part, so each one gets its own block and its own reason.
+    let webview2 = core
+        .cast::<ICoreWebView2_2>()
+        .map_err(|e| com_error("environment", &e))?;
+    // SAFETY: `core` is a live webview on the UI thread that owns it, which is
+    // the apartment every call here requires (`windows_nav::attach`).
+    let env = unsafe { webview2.Environment() }.map_err(|e| com_error("environment", &e))?;
+    let env6 = env
+        .cast::<ICoreWebView2Environment6>()
+        .map_err(|e| com_error("print settings", &e))?;
+    // SAFETY: `env6` is the environment the live webview just handed back.
+    let settings: ICoreWebView2PrintSettings =
+        unsafe { env6.CreatePrintSettings() }.map_err(|e| com_error("print settings", &e))?;
+
+    let (w_in, h_in) = page.inches();
+    // SAFETY: `settings` is the object `CreatePrintSettings` just returned;
+    // these are plain property writes on it.
+    unsafe {
         settings
             .SetPageWidth(w_in)
             .and_then(|()| settings.SetPageHeight(h_in))
             .and_then(|()| settings.SetShouldPrintBackgrounds(true))
-            .map_err(|e| com_error("print geometry", &e))?;
-
-        let app_done = app.clone();
-        let label_done = label.to_string();
-        let path = HSTRING::from(output_path);
-        let handler = PrintToPdfCompletedHandler::create(Box::new(move |res, success| {
-            let outcome = match (&res, success) {
-                (Ok(()), true) => Ok(()),
-                (Ok(()), false) => Err(localized_error!(ErrorCode::Io, "errors.pdf.printRefused")),
-                (Err(e), _) => Err(com_error("print", e)),
-            };
-            sink.settle(outcome);
-            close(&app_done, &label_done);
-            Ok(())
-        }));
-
-        core.cast::<ICoreWebView2_7>()
-            .map_err(|e| com_error("ICoreWebView2_7", &e))?
-            .PrintToPdf(PCWSTR(path.as_ptr()), &settings, &handler)
-            .map_err(|e| com_error("PrintToPdf", &e))?;
     }
-    Ok(())
+    .map_err(|e| com_error("print geometry", &e))?;
+    Ok(settings)
+}
+
+/// What `PrintToPdf` calls when the job ends: report `Finishing` on success,
+/// settle the sink, and close the render window. Safe Rust — it builds a
+/// callback rather than performing a COM call.
+fn completion_handler(
+    sink: Arc<RenderSink>,
+    app: AppHandle,
+    label: String,
+) -> webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2PrintToPdfCompletedHandler {
+    PrintToPdfCompletedHandler::create(Box::new(move |res, success| {
+        let outcome = match (&res, success) {
+            (Ok(()), true) => Ok(()),
+            (Ok(()), false) => Err(localized_error!(ErrorCode::Io, "errors.pdf.printRefused")),
+            (Err(e), _) => Err(com_error("print", e)),
+        };
+        if outcome.is_ok() {
+            // Before settling, so the dialog sees "finishing" before
+            // `export_pdf` resumes and emits "done" after post-processing.
+            sink.progress(PdfProgress::Finishing);
+        }
+        sink.settle(outcome);
+        close(&app, &label);
+        Ok(())
+    }))
 }
 
 /// Tear the render window down. Teardown is explicit because a timeout is not
 /// cancellation (ADR-PDF7): without it an abandoned render leaks a hidden
-/// window and its Edge process for the life of the app.
+/// window and its Edge process for the life of the app. Every settle path
+/// calls it, and so does the caller's timeout, through the close
+/// `windows_nav.rs` arms the sink with (#224, #227). Idempotent: a window
+/// already gone is not found, and nothing is done.
 pub(super) fn close(app: &AppHandle, label: &str) {
     if let Some(w) = app.get_webview_window(label) {
-        let _ = w.close();
+        // Reported, not discarded (#458). This close is the only thing standing
+        // between an abandoned render and a hidden window plus its Edge process
+        // living for the rest of the session; a refusal that says nothing turns
+        // that leak into an unexplainable memory report. The label is printed
+        // with `{:?}` so it cannot forge a log line.
+        if let Err(e) = w.close() {
+            log::warn!("[PDF] could not close the render window {label:?}: {e}");
+        }
     }
+}
+
+/// The ONE failure path for a render window: settle, then close (#454).
+///
+/// [`RenderWindow::fail`] is this function; so is the `on_loaded` body's
+/// failure arm in `windows.rs`, which used to spell the same two statements
+/// out for itself. Two spellings of one lifecycle rule is how the close comes
+/// off one of them — and a hidden window plus its Edge process then outlive
+/// the export, which is exactly what #234/#237/#239 were about. Callers that
+/// hold only the `(app, label)` pair `OnLoaded` gives them use this directly.
+pub(super) fn fail_render<T>(
+    app: &AppHandle,
+    label: &str,
+    sink: &RenderSink<T>,
+    err: CommandError,
+) {
+    sink.settle(Err(err));
+    close(app, label);
 }
 
 pub(super) fn window_error(detail: &str) -> CommandError {

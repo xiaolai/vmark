@@ -149,13 +149,14 @@ export function AppearanceSettings() {
         </SettingRow>
       </SettingsGroup>
 
-      {/* Window */}
-      <SettingsGroup title={t("appearance.group.window")}>
-        {/* The toggle governs the app's own title-bar strip, which is drawn
-            only where it covers the native one. Off macOS the filename goes in
-            the native title bar unconditionally, so there is nothing to choose
-            (#1296). */}
-        {usesOverlayTitleBar() && (
+      {/* Window — its only row governs the app's own title-bar strip, which is
+          drawn only where it covers the native one. Off macOS the filename goes
+          in the native title bar unconditionally, so there is nothing to choose
+          (#1296) and the whole group is withheld rather than shown empty. (The
+          "Auto-hide status bar" toggle that used to share this group was wired
+          to nothing and was removed — D8, WI-FL2.2.) */}
+      {usesOverlayTitleBar() && (
+        <SettingsGroup title={t("appearance.group.window")}>
           <SettingRow
             label={t("appearance.showFilenameInTitlebar.label")}
             description={t("appearance.showFilenameInTitlebar.description")}
@@ -165,17 +166,8 @@ export function AppearanceSettings() {
               onChange={(v) => updateSetting("showFilenameInTitlebar", v)}
             />
           </SettingRow>
-        )}
-        <SettingRow
-          label={t("appearance.autoHideStatusBar.label")}
-          description={t("appearance.autoHideStatusBar.description")}
-        >
-          <Toggle
-            checked={appearance.autoHideStatusBar ?? false}
-            onChange={(v) => updateSetting("autoHideStatusBar", v)}
-          />
-        </SettingRow>
-      </SettingsGroup>
+        </SettingsGroup>
+      )}
 
       {/* Focus Mode */}
       <SettingsGroup title={t("appearance.group.focusMode")}>

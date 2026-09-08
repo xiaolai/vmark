@@ -254,7 +254,6 @@ describe("sanitizeSplitForInstance (audit R2-F3)", () => {
     const idB = openDoc("/repo-b/one.md");
     const split = {
       enabled: true,
-      orientation: "horizontal" as const,
       fraction: 0.5,
       primaryTabId: idA,
       secondaryTabId: idB, // owned by wsi-b — must not restore into wsi-a
@@ -274,7 +273,6 @@ describe("sanitizeSplitForInstance (audit R2-F3)", () => {
     expect(sanitizeSplitForInstance(null, "wsi-a", [], [])).toBeNull();
     const single = {
       enabled: false,
-      orientation: "horizontal" as const,
       fraction: 0.5,
       primaryTabId: "t-stale",
       secondaryTabId: null,

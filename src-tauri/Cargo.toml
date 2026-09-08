@@ -1,6 +1,6 @@
 [package]
 name = "vmark"
-version = "0.9.65"
+version = "0.9.66"
 description = "The plain-text workspace where humans and AI collaborate"
 authors = ["Xiaolai"]
 license = "ISC"
@@ -150,6 +150,21 @@ libc = "0.2"
 [target.'cfg(target_os = "macos")'.dependencies]
 xattr = "1"
 keyring = { version = "3", features = ["apple-native"] }
+# WI-FL6.7: the concrete OSStatus behind a keychain failure. keyring 3.6.3 maps
+# four statuses to `NoStorageAccess` and boxes everything else as
+# `PlatformFailure(Box<dyn Error>)`, which hides the one status `secure_store`
+# must tell apart — errSecAuthFailed (-25293), the ACL denial a re-signed dev
+# build hits — behind a type this crate could not name. Downcasting the box
+# needs `security_framework::base::Error`, so the crate is a direct dependency.
+#
+# Not a new package (rule 60 §4 review, 2026-09-07): keyring's `apple-native`
+# backend and rustls-platform-verifier already resolve it at exactly this
+# version (3.7.0), so this adds one edge to the lockfile and downloads nothing.
+# Repository github.com/kornelski/rust-security-framework, owners kornelski and
+# djc, first published 2015-11, 3.7.0 released 2026-02, 356M all-time / 80M
+# recent downloads, MIT OR Apache-2.0. `default-features = false`: only
+# `base::Error` is used — cargo unifies keyring's default set on top regardless.
+security-framework = { version = "3", default-features = false }
 objc2 = "0.6"
 block2 = "0.6" # SPIKE-1/5 probe (throwaway) — remove with src/spike_embed.rs before WI-1.2
 objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSMenu", "NSMenuItem", "NSImage", "NSImageRep", "NSBitmapImageRep", "NSResponder", "NSDocumentController", "NSPrintInfo", "NSPrintOperation", "NSView", "NSWindow", "NSGraphics", "NSEvent"] }

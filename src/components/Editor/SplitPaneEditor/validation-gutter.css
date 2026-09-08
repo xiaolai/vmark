@@ -49,21 +49,41 @@
 }
 
 .validation-gutter__row {
+  border-bottom: var(--border-hairline) solid var(--border-color);
+}
+
+/* The row's content grid — a <button> when the row can jump (#282), a <div>
+ * when it cannot. The 24px floor is the D2 hit target for the button. */
+.validation-gutter__row-content {
+  /* button-shape-ok: the jump button IS the diagnostic row — this padding is
+     the list row's geometry, shared with the non-actionable <div> row, not a
+     control surface; .vm-btn's inline-flex 6/12 box cannot host a
+     three-column location/message/rule grid. */
   display: grid;
   grid-template-columns: max-content 1fr max-content;
   gap: var(--space-2);
   align-items: baseline;
+  min-height: var(--target-min);
   padding: var(--space-1) var(--space-2);
-  cursor: pointer;
-  border-bottom: var(--border-hairline) solid var(--border-color);
-  outline: none;
 }
 
-.validation-gutter__row:hover {
+/* The jump button has no surface of its own: no border, no padding beyond the
+ * row grid's, the row's ink and font — it IS the row. */
+.validation-gutter__jump {
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: var(--cursor-interactive, default);
+}
+
+.validation-gutter__jump:hover {
   background: var(--hover-bg);
 }
 
-.validation-gutter__row:focus-visible {
+.validation-gutter__jump:focus-visible {
+  outline: none;
   background: var(--accent-bg);
 }
 

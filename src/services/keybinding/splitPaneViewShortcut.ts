@@ -8,7 +8,7 @@
  * through to the existing markdown handlers. See ADR-8 in
  * dev-docs/plans/20260703-split-pane-view-modes.md.
  *
- * @coordinates-with useViewShortcuts.ts — sole caller (executors)
+ * @coordinates-with services/commands/viewCommands.ts — sole caller (view.toggleSourceMode / view.toggleMarkdownSplit)
  * @module services/keybinding/splitPaneViewShortcut
  */
 

@@ -1,10 +1,10 @@
-//! Tests for second-launch argv handling (#1330).
+//! Tests for second-launch handling (#1330).
 //!
-//! Only the argv→files decision is unit-testable without a live app; the
-//! window-surfacing half needs a real `AppHandle`. That split is deliberate:
-//! the argv half is where a silent mistake hides (a dropped `skip(1)` opens the
-//! executable; a missing filter opens a `.exe` as a document), while the
-//! surfacing half fails loudly and visibly the first time anyone tries it.
+//! The argv→files decision is pure and pinned first: a dropped `skip(1)`
+//! opens the executable, a missing filter opens a `.exe` as a document. The
+//! routing and the surfacing (#246) run on a mock runtime below: a launch
+//! with a file forwards exactly that file and opens nothing, a bare launch
+//! reveals a hidden window or builds one when none is left.
 
 use super::openable_files_from_argv;
 
@@ -99,4 +99,151 @@ fn drops_paths_this_app_cannot_open() {
     // the cold-start CLI path in `app_setup`, which filters argv identically.
     // Changing it is a product decision, and it belongs in both places at once.
     assert_eq!(files, vec![note]);
+}
+
+// -- #246: routing and surfacing, on a mock runtime --------------------------
+//
+// `tauri::test::MockRuntime` does not exist on Windows (Cargo.toml scopes the
+// `test` feature off it), so these are gated like every mock-runtime suite.
+
+#[cfg(not(target_os = "windows"))]
+mod on_a_mock_app {
+    use super::super::{
+        create_and_reveal_main, reveal_or_retry, second_launch_with, surface_a_window,
+    };
+    use super::Fixture;
+    use std::cell::RefCell;
+    use tauri::Manager;
+
+    fn mock_app() -> tauri::App<tauri::test::MockRuntime> {
+        tauri::test::mock_builder()
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .expect("build mock app")
+    }
+
+    fn hidden_document_window(
+        app: &tauri::App<tauri::test::MockRuntime>,
+        label: &str,
+    ) -> tauri::WebviewWindow<tauri::test::MockRuntime> {
+        tauri::webview::WebviewWindowBuilder::new(app, label, tauri::WebviewUrl::default())
+            .visible(false)
+            .build()
+            .expect("build mock document window")
+    }
+
+    #[test]
+    fn a_launch_with_a_file_forwards_exactly_that_file_and_opens_no_window() {
+        let fx = Fixture::new("forward-mock");
+        let note = fx.file("note.md");
+        let app = mock_app();
+        let forwarded = RefCell::new(None);
+
+        second_launch_with(
+            app.handle(),
+            vec!["/opt/vmark/vmark".into(), note.clone()],
+            |_, files| {
+                *forwarded.borrow_mut() = Some(files);
+            },
+        );
+
+        assert_eq!(forwarded.into_inner(), Some(vec![note]));
+        assert!(
+            app.webview_windows().is_empty(),
+            "forwarding delivers to a window; surfacing here would open a second one"
+        );
+    }
+
+    #[test]
+    fn a_bare_launch_with_no_window_left_creates_the_main_window_and_forwards_nothing() {
+        let app = mock_app();
+        second_launch_with(app.handle(), vec!["/opt/vmark/vmark".into()], |_, _| {
+            panic!("a bare launch has nothing to forward");
+        });
+        assert!(
+            app.get_webview_window("main").is_some(),
+            "no document window was left, so one is built"
+        );
+        assert_eq!(app.webview_windows().len(), 1);
+    }
+
+    #[test]
+    fn a_bare_launch_surfaces_the_existing_document_window_instead_of_building_another() {
+        // MockRuntime reports every window visible and its `show()` is a
+        // no-op, so the reveal itself cannot be observed here; what can be
+        // is the choice — an existing document window is surfaced and no
+        // second one is built, which is the half that goes wrong silently.
+        let app = mock_app();
+        let _window = hidden_document_window(&app, "doc-3");
+
+        surface_a_window(app.handle());
+
+        assert_eq!(app.webview_windows().len(), 1, "no second window");
+        assert!(app.get_webview_window("doc-3").is_some());
+        assert!(app.get_webview_window("main").is_none());
+    }
+
+    #[test]
+    fn a_non_document_window_does_not_count_as_a_window_to_surface() {
+        // Settings is not a document window; with only Settings open, a bare
+        // launch still needs a document window built.
+        let app = mock_app();
+        let _settings = hidden_document_window(&app, "settings");
+        surface_a_window(app.handle());
+        assert!(app.get_webview_window("main").is_some());
+    }
+
+    // ===== #478/#479 — surfacing a window is TOTAL ========================
+
+    #[test]
+    fn a_target_that_closed_while_it_was_being_chosen_surfaces_the_next_one() {
+        // The window list is a snapshot taken under no lock, so the chosen
+        // window can be gone by the time it is looked up. Returning silently
+        // there made the second launch do nothing at all — which, from the
+        // outside, is exactly what "the launch was ignored" looks like.
+        let app = mock_app();
+        let live = hidden_document_window(&app, "doc-2");
+
+        reveal_or_retry(app.handle(), "doc-1-已关闭");
+
+        assert!(
+            app.get_webview_window("doc-2").is_some(),
+            "the live window is what a second launch should surface"
+        );
+        assert_eq!(
+            app.webview_windows().len(),
+            1,
+            "a live window was available, so nothing new is built"
+        );
+        drop(live);
+    }
+
+    #[test]
+    fn a_target_that_closed_with_nothing_left_builds_a_window_rather_than_doing_nothing() {
+        let app = mock_app();
+        reveal_or_retry(app.handle(), "doc-1");
+        assert!(
+            app.get_webview_window("main").is_some(),
+            "nothing was left to surface, so one is built"
+        );
+    }
+
+    #[test]
+    fn a_creation_that_lost_the_label_race_surfaces_the_winners_window() {
+        // Window creation is check-then-create against every other path in
+        // the process. Losing that race is not a failure — the user asked for
+        // a window and there is one — but it used to log
+        // `WindowLabelAlreadyExists` and leave the screen unchanged.
+        let app = mock_app();
+        let winner = hidden_document_window(&app, "main");
+
+        create_and_reveal_main(app.handle());
+
+        assert_eq!(
+            app.webview_windows().len(),
+            1,
+            "the loser must not build a second window beside the winner's"
+        );
+        assert!(app.get_webview_window("main").is_some());
+        drop(winner);
+    }
 }

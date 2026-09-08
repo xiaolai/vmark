@@ -82,6 +82,17 @@ pub(super) fn build(app: &tauri::AppHandle, accel: &AccelFn) -> tauri::Result<Su
             true,
             accel("close", "CmdOrCtrl+W"),
         )?),
+        // Unbound by default (WI-FL3.3, D12): the conventional Cmd+Shift+T is
+        // Insert Table's. The frontend routes menu:reopen-closed-tab to the
+        // tab.reopenClosed command; a user-assigned chord arrives here through
+        // update_menu_accelerators like every other customizable item.
+        Box::new(MenuItem::with_id(
+            app,
+            "reopen-closed-tab",
+            &t!("menu.file.reopenClosedTab"),
+            true,
+            accel("reopen-closed-tab", ""),
+        )?),
         Box::new(MenuItem::with_id(
             app,
             "close-workspace",

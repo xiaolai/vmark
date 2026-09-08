@@ -36,145 +36,163 @@ fn cascade_wraps_correctly() {
     assert_eq!(y1, y2);
 }
 
-// -- build_window_url -----------------------------------------------------
-
-#[test]
-fn url_no_params() {
-    assert_eq!(build_window_url(None, None), "/");
-}
-
-#[test]
-fn url_file_only() {
-    let url = build_window_url(Some("/path/to/file.md"), None);
-    assert!(url.starts_with("/?file="));
-    assert!(url.contains("%2Fpath%2Fto%2Ffile.md"));
-}
-
-#[test]
-fn url_workspace_only() {
-    let url = build_window_url(None, Some("/workspace"));
-    assert!(url.starts_with("/?workspaceRoot="));
-}
-
-#[test]
-fn url_workspace_root_percent_encodes_reserved_chars() {
-    // The dock-reopen path passes a workspace path read off disk straight
-    // into this URL builder. Folder names can legally contain `?`, `#`,
-    // `&`, and spaces on every supported platform — they must be
-    // percent-encoded so the frontend's URLSearchParams parser receives
-    // them intact instead of misinterpreting them as fragment / query
-    // delimiters.
-    let url = build_window_url(None, Some("/path with?x#y&z"));
-    assert!(url.contains("workspaceRoot="), "url was {url}");
-    assert!(!url.contains("?x"), "raw '?' leaked into url: {url}");
-    assert!(!url.contains("#y"), "raw '#' leaked into url: {url}");
-    assert!(!url.contains("&z"), "raw '&' leaked into url: {url}");
-    assert!(url.contains("%3F"), "expected '?' encoded as %3F: {url}");
-    assert!(url.contains("%23"), "expected '#' encoded as %23: {url}");
-    assert!(url.contains("%26"), "expected '&' encoded as %26: {url}");
-    assert!(url.contains("%20"), "expected ' ' encoded as %20: {url}");
-}
-
-#[test]
-fn url_both_params() {
-    let url = build_window_url(Some("/a/b.md"), Some("/a"));
-    assert!(url.contains("file="));
-    assert!(url.contains("workspaceRoot="));
-    assert!(url.contains("&"));
-}
-
-// -- build_window_url_with_files ------------------------------------------
-
-#[test]
-fn url_with_files_empty() {
-    assert_eq!(build_window_url_with_files(&[], None), "/");
-}
-
-#[test]
-fn url_with_files_single() {
-    let url = build_window_url_with_files(&["/a/b.md".to_string()], Some("/a"));
-    assert!(url.contains("workspaceRoot="));
-    assert!(url.contains("files="));
-}
-
-#[test]
-fn url_with_files_multiple() {
-    let files = vec!["/a/x.md".to_string(), "/a/y.md".to_string()];
-    let url = build_window_url_with_files(&files, Some("/a"));
-    assert!(url.contains("files="));
-    // Files are JSON-encoded so they should contain the array
-    assert!(url.contains("x.md"));
-    assert!(url.contains("y.md"));
-}
-
 // -- allocate_window_label ------------------------------------------------
 
+/// The label spells the counter value the cascade parses back out.
+///
+/// This is the allocator's stated contract (`next_window_label`: "the
+/// `doc-{n}` spelling is the allocator's contract with
+/// `create_document_window_with_label_and_url`, which parses the number back
+/// out for the cascade"), and it is deterministic because
+/// `next_window_label` hands back the very count it used — no second
+/// observation of the shared counter is involved.
 #[test]
-fn allocate_label_returns_sequential_labels() {
-    let l1 = allocate_window_label();
-    let l2 = allocate_window_label();
-    assert!(l1.starts_with("doc-"));
-    assert!(l2.starts_with("doc-"));
-    let n1: u32 = l1.strip_prefix("doc-").unwrap().parse().unwrap();
-    let n2: u32 = l2.strip_prefix("doc-").unwrap().parse().unwrap();
-    assert_eq!(n2, n1 + 1);
+fn a_label_spells_the_counter_value_it_was_allocated_from() {
+    let (count, label) = next_window_label();
+    assert_eq!(label, format!("doc-{count}"));
+    assert_eq!(
+        label.strip_prefix("doc-").and_then(|n| n.parse().ok()),
+        Some(count)
+    );
+}
+
+/// What the allocator actually promises: every label is DISTINCT, and the
+/// numbers only ever go up.
+///
+/// This used to assert `n2 == n1 + 1`, which is not a property of
+/// `WINDOW_COUNTER`: it is a process-global `AtomicU32`, and five other sites
+/// in this same test binary allocate from it (`tab_transfer.test.rs` twice,
+/// the sibling test below, plus `hot_exit`/`workspace_transfer` paths reached
+/// from tests). Two allocations are adjacent only when nothing else allocates
+/// in between, which no test can arrange and none should have to — observed
+/// failing on 2026-09-09 with `left: 13, right: 12`, one interleaved
+/// allocation. Uniqueness is what `allocate_window_label`'s own doc promises
+/// ("Allocate a UNIQUE window label"), and it is what a window label is FOR:
+/// two windows sharing one label is the defect. Monotonicity is what makes
+/// uniqueness hold for the life of the process.
+///
+/// Asserting it over a batch rather than a pair is deliberate — a swap or a
+/// repeat anywhere in a run of allocations fails here, where two samples
+/// could not see it.
+#[test]
+fn labels_are_unique_and_strictly_increasing() {
+    let numbers: Vec<u32> = (0..8)
+        .map(|_| {
+            let label = allocate_window_label();
+            let n = label
+                .strip_prefix("doc-")
+                .unwrap_or_else(|| panic!("label must be doc-prefixed, got {label:?}"));
+            n.parse()
+                .unwrap_or_else(|_| panic!("label must carry a u32, got {label:?}"))
+        })
+        .collect();
+
+    for pair in numbers.windows(2) {
+        assert!(
+            pair[1] > pair[0],
+            "labels must strictly increase, got {numbers:?}"
+        );
+    }
+    let mut sorted = numbers.clone();
+    sorted.dedup();
+    assert_eq!(sorted.len(), numbers.len(), "labels must be distinct");
 }
 
 // -- pick_reopen_workspace_root_with --------------------------------------
 
 #[test]
-fn pick_reopen_returns_path_when_exists() {
-    let pick = pick_reopen_workspace_root_with(Some("/some/workspace".to_string()), |_| true);
-    assert_eq!(pick, Some("/some/workspace".to_string()));
+fn pick_reopen_returns_what_the_resolver_judged() {
+    // Not the remembered NAME (#490): the resolver's answer is the value that
+    // travels on, so a recent entry that resolves elsewhere scopes the window
+    // to what it resolves to, and can no longer be re-pointed afterwards.
+    let pick = pick_reopen_workspace_root_with(Some("/some/link".to_string()), |_| {
+        Some("/some/real/workspace".to_string())
+    });
+    assert_eq!(pick, Some("/some/real/workspace".to_string()));
 }
 
 #[test]
 fn pick_reopen_returns_none_when_path_missing() {
     // Path was the user's last workspace but the folder has been deleted
     // or moved — fall back to no-workspace so the new window opens fresh.
-    let pick = pick_reopen_workspace_root_with(Some("/deleted/path".to_string()), |_| false);
+    let pick = pick_reopen_workspace_root_with(Some("/deleted/path".to_string()), |_| None);
     assert_eq!(pick, None);
 }
 
 #[test]
 fn pick_reopen_returns_none_when_snapshot_empty() {
     // Fresh install or all recents cleared — never opened a workspace.
-    let pick = pick_reopen_workspace_root_with(None, |_| true);
+    let pick = pick_reopen_workspace_root_with(None, |p| Some(p.to_string()));
     assert_eq!(pick, None);
 }
 
+/// The real resolver: canonicalize, require a directory, hand on the CANONICAL
+/// path. A symlinked recent entry must reopen the target it names today, and
+/// the value the window is scoped to must be that target — not the link, which
+/// resolves again every time anything touches it (#250, #490).
 #[test]
-fn pick_reopen_picks_real_directory_via_filesystem() {
-    // End-to-end check that the helper integrates correctly with
-    // Path::is_dir — the real wrapper uses this exact predicate.
+fn pick_reopen_resolves_a_symlinked_recent_entry_to_its_target() {
     let dir = tempfile::tempdir().expect("create tempdir");
-    let real = dir.path().to_string_lossy().to_string();
-    let missing = format!("{}/does-not-exist", real);
+    let real = dir.path().join("workspace");
+    std::fs::create_dir(&real).expect("mkdir");
+    // Built through the SAME helper the shipped resolver ends in, so the two
+    // cannot disagree about spelling. A bare `canonicalize()` keeps Windows's
+    // `\\?\` verbatim prefix, which `canonical_string` strips on purpose (#250)
+    // — the expectation, not production, was the wrong one there.
+    let canonical = crate::canonical_path::canonical_string(
+        &real.canonicalize().expect("canonical"),
+        "the test workspace",
+    )
+    .expect("a UTF-8 canonical path");
 
     assert_eq!(
-        pick_reopen_workspace_root_with(Some(real.clone()), |p| std::path::Path::new(p).is_dir(),),
-        Some(real),
+        pick_reopen_workspace_root_with(Some(real.to_string_lossy().into_owned()), resolver),
+        Some(canonical.clone()),
+    );
+
+    #[cfg(unix)]
+    {
+        let link = dir.path().join("link");
+        std::os::unix::fs::symlink(&real, &link).expect("symlink");
+        assert_eq!(
+            pick_reopen_workspace_root_with(Some(link.to_string_lossy().into_owned()), resolver),
+            Some(canonical.clone()),
+            "the TARGET is what the window is scoped to, never the link name"
+        );
+    }
+}
+
+#[test]
+fn pick_reopen_rejects_a_missing_path_and_a_regular_file() {
+    // A regression to a weaker predicate — `exists()` instead of `is_dir()` —
+    // would silently route the dock-reopen URL at a file path.
+    let dir = tempfile::tempdir().expect("create tempdir");
+    let missing = dir
+        .path()
+        .join("does-not-exist")
+        .to_string_lossy()
+        .into_owned();
+    let file = dir.path().join("not-a-workspace.md");
+    std::fs::write(&file, b"hi").expect("write");
+
+    assert_eq!(
+        pick_reopen_workspace_root_with(Some(missing), resolver),
+        None
     );
     assert_eq!(
-        pick_reopen_workspace_root_with(Some(missing), |p| std::path::Path::new(p).is_dir(),),
+        pick_reopen_workspace_root_with(Some(file.to_string_lossy().into_owned()), resolver),
         None,
     );
 }
 
-#[test]
-fn pick_reopen_rejects_path_that_is_a_regular_file() {
-    // A regression from `Path::is_dir()` to a weaker predicate like
-    // `Path::exists()` would silently route the dock-reopen URL to a
-    // file path — locking the rust-side guarantee in place with a test.
-    let dir = tempfile::tempdir().expect("create tempdir");
-    let file = dir.path().join("not-a-workspace.md");
-    std::fs::write(&file, b"hi").expect("write");
-    let file_str = file.to_string_lossy().to_string();
-
-    assert_eq!(
-        pick_reopen_workspace_root_with(Some(file_str), |p| std::path::Path::new(p).is_dir(),),
-        None,
-    );
+/// The exact closure `pick_reopen_workspace_root` passes, so these tests
+/// exercise the shipped resolution rather than a restatement of it.
+fn resolver(p: &str) -> Option<String> {
+    let canonical = std::path::Path::new(p).canonicalize().ok()?;
+    if !canonical.is_dir() {
+        return None;
+    }
+    crate::canonical_path::canonical_string(&canonical, "the recent workspace").ok()
 }
 
 // -- initial_window_title -------------------------------------------------
@@ -201,4 +219,35 @@ fn initial_title_names_the_app_where_the_title_bar_is_visible() {
     // that name and not a blank strip.
     assert_eq!(initial_window_title("VMark"), "VMark");
     assert_eq!(initial_window_title("Renamed"), "Renamed");
+}
+
+/// #487/#489 — the allocator's spelling and the cascade parser's grammar are
+/// ONE contract.
+///
+/// `create_document_window_with_label_and_url` parses the counter back out of
+/// the label to place the window, and falls back to position zero when it
+/// cannot. While the `doc-{n}` format was written out in three places, nothing
+/// checked that the thing produced is the thing parsed — so a change to the
+/// spelling would have silently cascaded every restored window to one corner.
+#[test]
+fn every_allocated_label_parses_back_to_the_counter_that_made_it() {
+    for _ in 0..3 {
+        let (count, label) = next_window_label();
+        assert_eq!(
+            label
+                .strip_prefix("doc-")
+                .and_then(|n| n.parse::<u32>().ok()),
+            Some(count),
+            "the allocator produced {label:?}, which the cascade parser reads as position 0"
+        );
+    }
+}
+
+/// The public allocator and the internal one are the same allocation — a
+/// second counter would hand two windows the same label.
+#[test]
+fn allocate_window_label_is_the_same_allocation_as_the_creation_path() {
+    let a = allocate_window_label();
+    let (_, b) = next_window_label();
+    assert_ne!(a, b, "two allocations must never collide");
 }

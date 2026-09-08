@@ -11,36 +11,66 @@
  * (fixed positioning, `--z-context-menu`, Escape and click-outside dismissal,
  * visible focus per rule 33).
  *
+ * Four things the first version got wrong, all invisible until the menu is
+ * opened twice or by keyboard (audit R3 #655/#657/#658/#659):
+ *
+ *   - The menu is rendered CONDITIONALLY, not keyed, so opening it on another
+ *     entry REUSES this component — the dismiss and the open batch into one
+ *     render and nothing unmounts. Anything captured "on mount" is therefore
+ *     captured once for the life of the rail. The invoker to restore focus to
+ *     is a PROP the parent supplies per opening (a right-click does not focus
+ *     its target in every engine, so `document.activeElement` was frequently
+ *     `<body>` anyway), and the initial item focus re-runs per opening.
+ *   - Tab used to walk focus out of an open menu, leaving it on screen with
+ *     the keyboard somewhere else. It dismisses instead.
+ *   - An action returning a promise was neither awaited nor caught. TypeScript
+ *     accepts an `async` function wherever `() => void` is expected, so the
+ *     type could not forbid it; the contract now says `void | Promise<void>`
+ *     and the rejection is logged rather than becoming an unhandled one.
+ *   - React keys were the TRANSLATED labels, so switching locale remounted
+ *     every item and dropped keyboard focus. `action` is the stable id.
+ *
  * @coordinates-with closeWorkspaceInstance.ts — the close action's safe path
  * @coordinates-with workspaceWindowActions.ts — duplicate / move to new window
+ * @coordinates-with ./workspaceRailMenuLayout.ts — the viewport clamp
  * @module components/WorkspaceRail/WorkspaceRailContextMenu
  */
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { workspaceError } from "@/utils/debug";
+import {
+  useMenuViewportClamp,
+  type MenuPoint as WorkspaceRailMenuPosition,
+} from "./workspaceRailMenuLayout";
 import "./WorkspaceRailContextMenu.css";
 
-/** Keep the menu this far from the viewport edge when clamping. */
-const VIEWPORT_MARGIN = 8;
+export type { MenuPoint as WorkspaceRailMenuPosition } from "./workspaceRailMenuLayout";
 
-export interface WorkspaceRailMenuPosition {
-  x: number;
-  y: number;
-}
+/** An action may be async; this menu does not wait for it, but it does catch. */
+type MenuAction = () => void | Promise<void>;
 
 interface WorkspaceRailContextMenuProps {
   position: WorkspaceRailMenuPosition;
   /** Full workspace name, used for the menu's accessible label. */
   workspaceName: string;
+  /**
+   * The element focus returns to on dismiss — the rail entry that was
+   * right-clicked. Supplied per OPENING because this component is reused
+   * across openings (#655); null when the menu was opened by something with no
+   * element to go back to.
+   */
+  invoker: HTMLElement | null;
   onClose: () => void;
-  onCloseWorkspace: () => void;
-  onDuplicate: () => void;
-  onMoveToNewWindow: () => void;
+  onCloseWorkspace: MenuAction;
+  onDuplicate: MenuAction;
+  onMoveToNewWindow: MenuAction;
 }
 
 export function WorkspaceRailContextMenu({
   position,
   workspaceName,
+  invoker,
   onClose,
   onCloseWorkspace,
   onDuplicate,
@@ -50,44 +80,40 @@ export function WorkspaceRailContextMenu({
   const menuRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const [focused, setFocused] = useState(0);
-  const [clamped, setClamped] = useState(position);
-  // Restore focus here on dismiss — otherwise Escape leaves focus on <body>
-  // and a keyboard user loses their place in the rail.
-  const invokerRef = useRef<Element | null>(
-    typeof document === "undefined" ? null : document.activeElement,
-  );
+  // Clamped against the viewport AND kept clamped as either changes (#656).
+  const clamped = useMenuViewportClamp(position, menuRef);
 
+  // `action` is a stable, locale-independent hook for automation (the e2e
+  // rail helper closes a workspace by it); labels are translated and reorder.
   const items = [
-    { label: t("workspaceRail.menu.close"), run: onCloseWorkspace },
-    { label: t("workspaceRail.menu.duplicate"), run: onDuplicate },
-    { label: t("workspaceRail.menu.moveToNewWindow"), run: onMoveToNewWindow },
-  ];
+    { action: "close", label: t("workspaceRail.menu.close"), run: onCloseWorkspace },
+    { action: "duplicate", label: t("workspaceRail.menu.duplicate"), run: onDuplicate },
+    { action: "move-to-new-window", label: t("workspaceRail.menu.moveToNewWindow"), run: onMoveToNewWindow },
+  ] as const;
 
-  // Clamp against the viewport before paint. Raw clientX/clientY puts a menu
-  // opened near the bottom or right edge partly off-screen.
-  useLayoutEffect(() => {
-    const el = menuRef.current;
-    if (!el) return;
-    const { width, height } = el.getBoundingClientRect();
-    const maxX = globalThis.innerWidth - width - VIEWPORT_MARGIN;
-    const maxY = globalThis.innerHeight - height - VIEWPORT_MARGIN;
-    setClamped({
-      x: Math.max(VIEWPORT_MARGIN, Math.min(position.x, maxX)),
-      y: Math.max(VIEWPORT_MARGIN, Math.min(position.y, maxY)),
-    });
-  }, [position]);
+  // A new OPENING resets the roving-focus index — adjusted DURING RENDER,
+  // React's own "adjust state when a prop changes" pattern, because an effect
+  // that calls setState cascades a render (#1063). `position` is a fresh object
+  // per right-click, so it identifies the opening; opening the menu on another
+  // entry reuses this component rather than remounting it (#655).
+  const [openedAt, setOpenedAt] = useState(position);
+  if (openedAt !== position) {
+    setOpenedAt(position);
+    setFocused(0);
+  }
 
   // Focus the first ITEM, not the container: the container's outline is
-  // suppressed, so focusing it would leave no visible focus at all.
+  // suppressed, so focusing it would leave no visible focus at all. A DOM
+  // side effect, so it stays in an effect — and it runs per opening, not once
+  // on mount, for the reason above.
   useEffect(() => {
     itemRefs.current[0]?.focus();
-  }, []);
+  }, [position]);
 
   const dismiss = useCallback(() => {
-    const invoker = invokerRef.current;
     onClose();
-    if (invoker instanceof HTMLElement && invoker.isConnected) invoker.focus();
-  }, [onClose]);
+    if (invoker?.isConnected === true) invoker.focus();
+  }, [onClose, invoker]);
 
   useEffect(() => {
     const onPointerDown = (event: MouseEvent) => {
@@ -103,6 +129,14 @@ export function WorkspaceRailContextMenu({
       dismiss();
       return;
     }
+    // Tab used to walk straight out of the menu and leave it open behind the
+    // keyboard (#657). Dismissing puts focus back on the rail entry, from
+    // which Tab then continues normally.
+    if (event.key === "Tab") {
+      event.preventDefault();
+      dismiss();
+      return;
+    }
     // Roving focus — the keyboard contract a role="menu" is expected to honour.
     const move = (next: number) => {
       event.preventDefault();
@@ -115,10 +149,16 @@ export function WorkspaceRailContextMenu({
     else if (event.key === "End") move(items.length - 1);
   };
 
-  const run = (action: () => void) => () => {
+  const run = (action: MenuAction) => () => {
     // Dismiss first so focus returns to the rail before the action mutates it.
     dismiss();
-    action();
+    // Not awaited — the menu is already gone and the handlers own their own
+    // toasts — but a rejection is CAUGHT (#658). `() => void` accepts an async
+    // function, so without this an action that throws asynchronously becomes an
+    // unhandled rejection with nothing on screen to show for it.
+    Promise.resolve(action()).catch((error: unknown) => {
+      workspaceError("Workspace rail menu action failed:", error);
+    });
   };
 
   return (
@@ -132,12 +172,13 @@ export function WorkspaceRailContextMenu({
     >
       {items.map((item, index) => (
         <button
-          key={item.label}
+          key={item.action}
           ref={(el) => {
             itemRefs.current[index] = el;
           }}
           type="button"
           role="menuitem"
+          data-menu-action={item.action}
           className="workspace-rail-menu__item"
           tabIndex={index === focused ? 0 : -1}
           onFocus={() => setFocused(index)}

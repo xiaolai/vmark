@@ -1,6 +1,6 @@
 //! Tauri command surface for the GHA workflow viewer.
 //!
-//! Plan: dev-docs/plans/20260504-github-actions-workflow-viewer.md
+//! Origin: GitHub Actions workflow viewer plan (2026-05-04, retired)
 //! WI-5.4 (gha_lint), WI-6.3 (gha_fetch_action_yml).
 
 use super::action_fetch::{default_ttl_secs, fetch_metadata, FetchResult};

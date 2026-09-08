@@ -5,7 +5,7 @@
  *   a new revision ID on each document transaction so MCP clients can detect
  *   when the document has changed.
  *
- * @coordinates-with revisionStore.ts — stores current revision ID
+ * @coordinates-with stores/documentStore/revision.ts — stores current revision ID
  * @coordinates-with components/Editor/TiptapEditor.tsx — calls initializeRevisionTracking on editor creation
  * @module services/mcpBridge/revisionTracker
  */

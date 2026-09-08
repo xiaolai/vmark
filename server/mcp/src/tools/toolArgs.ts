@@ -47,6 +47,11 @@ export function optionalPathSchema(description: string) {
   return z.string().min(1).optional().describe(description);
 }
 
+/** Zod for an optional optimistic-concurrency token: absent, or non-blank. */
+export function optionalRevisionSchema(description: string) {
+  return z.string().trim().min(1).optional().describe(description);
+}
+
 function blankIdError(field: string): string {
   return `${field} must be a non-empty string when provided — omit it to target the focused tab/window`;
 }
@@ -69,6 +74,46 @@ export function readRequiredId(value: unknown, field: string): ArgCheck<string> 
     return { ok: false, error: `${field} must be a non-empty string` };
   }
   return { ok: true, value: value.trim() };
+}
+
+/**
+ * An optional optimistic-concurrency token. Absent means "write
+ * unconditionally"; anything SUPPLIED must be a non-blank string.
+ *
+ * Every tool used to write `typeof args.expected_revision === 'string' ? … :
+ * undefined`, which converts a caller's mistake — a number, a null, an object,
+ * a blank string — into exactly the value that DISABLES stale-write
+ * protection. A guarded write silently became an unconditional one, and only
+ * for callers that got it wrong (audit R2 #226/#231/#237). `callTool` is
+ * reachable without schema validation, so the guard, not the schema, is what
+ * holds.
+ */
+export function readOptionalRevision(value: unknown, field = 'expected_revision'): ArgCheck<string | undefined> {
+  if (value === undefined) return { ok: true, value: undefined };
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    return {
+      ok: false,
+      error: `${field} must be a non-empty revision string when provided — omit it to write unconditionally`,
+    };
+  }
+  return { ok: true, value: value.trim() };
+}
+
+/**
+ * An optional boolean flag. Absent stays absent (the tool's default); anything
+ * SUPPLIED must be a real boolean.
+ *
+ * `args.save === false ? false : undefined` read every non-boolean as "use the
+ * default", so a caller passing the STRING `"false"` — the natural mistake
+ * from a shell or a JSON-ish client — got the disk write it was trying to
+ * prevent (audit R2 #227).
+ */
+export function readOptionalBoolean(value: unknown, field: string): ArgCheck<boolean | undefined> {
+  if (value === undefined) return { ok: true, value: undefined };
+  if (typeof value !== 'boolean') {
+    return { ok: false, error: `${field} must be true or false when provided (got ${typeof value})` };
+  }
+  return { ok: true, value };
 }
 
 /**

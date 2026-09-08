@@ -1,6 +1,6 @@
 // @vitest-environment node
 // Step write-ness classifier — bridges the parsed IR to the engine's write flag (WI-4.2).
-// Plan: dev-docs/plans/20260712-0610-embedded-browser-sites-workflows.md WI-4.2 (R8a)
+// Origin: Embedded browser sites and workflows plan (2026-07-12, retired) WI-4.2 (R8a)
 import { describe, expect, it } from "vitest";
 import { STEP_KINDS, type StepKind, type WorkflowStep } from "./types";
 import { stepWrites, toEngineStep } from "./classify";

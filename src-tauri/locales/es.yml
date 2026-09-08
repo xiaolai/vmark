@@ -22,6 +22,7 @@ menu:
   file.openRecentWorkspace: "Abrir espacio de trabajo reciente"
   file.close: "Cerrar"
   file.closeWorkspace: "Cerrar espacio de trabajo"
+  file.reopenClosedTab: "Reabrir pestaña cerrada"
   file.save: "Guardar"
   file.saveAs: "Guardar como..."
   file.moveTo: "Mover a..."
@@ -156,6 +157,7 @@ menu:
   insert.mindmap: "Mapa mental"
   insert.horizontalLine: "Línea horizontal"
   insert.footnote: "Nota al pie"
+  insert.tableOfContents: "Tabla de contenidos"
   insert.collapsible: "Bloque desplegable"
   insert.infoBox: "Cuadro de información"
   insert.infoBox.note: "Nota"
@@ -269,10 +271,15 @@ errors:
   pdf.badTempPath: "Ruta de documento temporal no válida: %{path}"
   pdf.invalidExtension: "La ruta de salida debe tener la extensión .pdf"
   pdf.dirNotFound: "El directorio de salida no existe"
+  pdf.parentNotDirectory: "El elemento superior de la ruta de salida existe pero no es un directorio"
+  pdf.publishFailed: "No se pudo mover el PDF generado a la ruta de salida: %{detail}"
+  pdf.outputUnreadable: "No se pudo abrir el PDF generado para verificarlo: %{detail}"
   pdf.pathNotAbsolute: "La ruta de salida debe ser absoluta"
   pdf.outputIsDirectory: "La ruta de salida es un directorio"
   pdf.loadTimeout: "Tiempo de espera de carga HTML (10 s)"
   pdf.emptyOutput: "La operación de impresión generó un PDF vacío"
+  pdf.staleOutputNotRemoved: "No se pudo reemplazar el archivo existente en la ruta de salida: %{detail}"
+  pdf.outputNotPdf: "La operación de impresión no produjo un PDF válido"
   pdf.printTimeout: "Tiempo de espera de impresión (60 s)"
   pdf.noPages: "El PDF no tiene páginas"
   pdf.writeFailed: "Error al escribir el PDF con marcadores"
@@ -291,6 +298,7 @@ errors:
   workflow.engineDisabled: "El motor de flujo de trabajo está desactivado en la configuración"
   workflow.noPendingApproval: "Ninguna solicitud de aprobación pendiente coincide"
   workflow.appDataDirUnavailable: "No se pudo resolver el directorio de datos de la aplicación: %{detail}"
+  workflow.snapshotFailed: "No se pudo crear una instantánea de los archivos que este flujo de trabajo modificará, por lo que no se ejecutó: %{detail}"
 
   # === Ruta de guardado (file_write.rs, WI-14 CommandError) ===
   save.parentMissing: "La carpeta de este archivo ya no existe: %{dir}"
@@ -346,6 +354,8 @@ errors:
   genie.pathBlocked: "La ruta de Genie está fuera de los directorios permitidos"
 
   # === MCP ===
+  mcp.bindFailed: "El puente MCP no pudo enlazar %{address}: %{detail}"
+  mcp.localAddrFailed: "El puente MCP enlazó un puerto que no pudo volver a leer: %{detail}"
   mcp.spawnInProgress: "El inicio del sidecar MCP ya está en curso"
   mcp.configMismatch: "Validación de configuración fallida: el contenido escrito no coincide"
 
@@ -390,8 +400,12 @@ errors:
   mcp.writeConfigPartialRemoved: "Error al escribir %{path}: %{detail} (se eliminó el archivo incompleto)"
   mcp.writeConfigPartialOrphaned: "Error al escribir %{path}: %{detail}. Tampoco se pudo eliminar el archivo incompleto (%{cleanup_detail}); elimínelo a mano antes de volver a intentarlo o la próxima instalación lo leerá como una configuración dañada."
 
+  # === Secure store (secure_store.rs) ===
+  secureStore.keychainDenied: "Se denegó el acceso al llavero. Permite VMark en el aviso del llavero o concédele acceso en Acceso a Llaveros y vuelve a intentarlo."
+
 window:
   settings.title: "Ajustes"
+  print.title: "VMark: imprimir"
 
 cli:
   dialogTitle: "Comando de shell"

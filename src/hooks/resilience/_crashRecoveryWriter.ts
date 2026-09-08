@@ -6,7 +6,7 @@
  * (content, path, title) match the last write — compared by value, not by a
  * lossy content hash.
  *
- * @module services/persistence/resilience/_crashRecoveryWriter
+ * @module hooks/resilience/_crashRecoveryWriter
  * @coordinates-with crashRecovery.ts, _crashRecoveryCleanup.ts
  */
 

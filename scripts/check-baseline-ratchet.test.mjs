@@ -11,7 +11,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { spawnSync, execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -102,6 +102,44 @@ describe("per-key-count mode", () => {
     const { status, stdout } = run(dir, manifestOf([entry]));
     expect(status).toBe(0);
     expect(stdout).toContain("new.ts");
+  });
+
+  // Audit 20260907 #12: every per-file count gate here refuses a NEW dirty
+  // file, so adding its key to the baseline in the same change was the one
+  // self-attestation the ratchet still accepted — it reported the key and
+  // passed. Under onAdd "fail" a new key is a raise from 0.
+  describe('onAdd: "fail"', () => {
+    const strict = { ...entry, checks: [{ mode: "per-key-count", at: "files", onAdd: "fail" }] };
+
+    it("refuses a new key as a raise from 0, naming it", () => {
+      const dir = scratchRepo({ "scripts/demo-baseline.json": { files: { "a.ts": 400 } } });
+      mutate(dir, { "scripts/demo-baseline.json": { files: { "a.ts": 400, "new.ts": 320 } } });
+      const { status, stderr } = run(dir, manifestOf([strict]));
+      expect(status).toBe(1);
+      expect(stderr).toContain("files.new.ts");
+      expect(stderr).toContain("0 → 320");
+    });
+
+    it("accepts the new key when an allowRaise from 0 declares it, and expires that entry once landed", () => {
+      const dir = scratchRepo({ "scripts/demo-baseline.json": { files: { "a.ts": 400 } } });
+      mutate(dir, { "scripts/demo-baseline.json": { files: { "a.ts": 400, "new.ts": 320 } } });
+      const allow = [{ path: "scripts/demo-baseline.json", key: "files.new.ts", from: 0, to: 320, reason: "rename: old.ts → new.ts, same debt" }];
+      const ok = run(dir, manifestOf([strict], allow));
+      expect(ok.status, ok.stderr).toBe(0);
+      expect(ok.stdout).toContain("files.new.ts 0 → 320");
+      const landed = scratchRepo({ "scripts/demo-baseline.json": { files: { "a.ts": 400, "new.ts": 320 } } });
+      const stale = run(landed, manifestOf([strict], allow));
+      expect(stale.status).toBe(1);
+      expect(stale.stderr).toMatch(/stale allowRaise/);
+    });
+
+    it("reports (does not refuse) a new key AT zero — nothing rose", () => {
+      const dir = scratchRepo({ "scripts/demo-baseline.json": { files: { "a.ts": 400 } } });
+      mutate(dir, { "scripts/demo-baseline.json": { files: { "a.ts": 400, "clean.ts": 0 } } });
+      const { status, stdout } = run(dir, manifestOf([strict]));
+      expect(status).toBe(0);
+      expect(stdout).toContain("clean.ts");
+    });
   });
 
   it("flattens nested count maps so a per-channel raise is caught", () => {
@@ -722,6 +760,52 @@ describe("pair comparator: contrastFloors (theme-contrast baseline)", () => {
     expect(status).toBe(1);
     expect(stderr).toContain("new/pair");
   });
+
+  // Audit 20260907 #13: the per-theme checks were a hand-kept list of six
+  // names, so a seventh theme's list was unratcheted until someone edited
+  // the manifest. `failing.*` derives them from the file's own keys.
+  describe("`failing.*` derives one identity check per theme key", () => {
+    const wildcard = {
+      path: PATH,
+      checks: [
+        { mode: "identity", at: "failing", shape: "object-keys", onAdd: "report" },
+        { mode: "identity", at: "failing.*", shape: "strings", onAdd: "fail" },
+      ],
+    };
+    const doc2 = (paper, mint) => ({ failing: { paper, mint }, ansiFloor: {}, exempt: {} });
+
+    it("catches a pair added under a theme the manifest never named", () => {
+      const dir = scratchRepo({ [PATH]: doc2(["a/b"], ["c/d"]) });
+      mutate(dir, { [PATH]: doc2(["a/b"], ["c/d", "mint/new"]) });
+      const { status, stderr } = run(dir, manifestOf([wildcard]));
+      expect(status).toBe(1);
+      expect(stderr).toContain("failing.mint");
+      expect(stderr).toContain("mint/new");
+    });
+
+    it("passes an unchanged file and a removed pair, and reports a theme that ARRIVES", () => {
+      const dir = scratchRepo({ [PATH]: doc2(["a/b"], ["c/d"]) });
+      expect(run(dir, manifestOf([wildcard])).status).toBe(0);
+      mutate(dir, { [PATH]: doc2(["a/b"], []) });
+      expect(run(dir, manifestOf([wildcard])).status).toBe(0);
+      mutate(dir, { [PATH]: { failing: { paper: ["a/b"], mint: ["c/d"], seventh: [] }, ansiFloor: {}, exempt: {} } });
+      const arrived = run(dir, manifestOf([wildcard]));
+      expect(arrived.status, arrived.stderr).toBe(0);
+      expect(arrived.stdout).toContain("seventh");
+    });
+
+    it("fails closed when the wildcard's parent is not an object or expands to nothing", () => {
+      const dir = scratchRepo({ [PATH]: doc2(["a/b"], ["c/d"]) });
+      mutate(dir, { [PATH]: { failing: [], ansiFloor: {}, exempt: {} } });
+      const notObject = run(dir, manifestOf([wildcard]));
+      expect(notObject.status).toBe(1);
+      expect(notObject.stderr).toContain('expands "failing.*"');
+      mutate(dir, { [PATH]: { failing: { "//": "prose only" }, ansiFloor: {}, exempt: {} } });
+      const empty = run(dir, manifestOf([wildcard]));
+      expect(empty.status).toBe(1);
+      expect(empty.stderr).toContain("expands to no keys");
+    });
+  });
 });
 
 // ─── the shipped manifest describes the real tree ───
@@ -735,6 +819,28 @@ describe("shipped manifest", () => {
     expect(res.stdout).not.toContain("MISSING");
   });
 
+  it("ratchets EVERY theme's failing list in theme-contrast-baseline.json, derived from the file's keys", async () => {
+    // The root `object-keys` check only sees a theme ARRIVE. A theme whose
+    // `failing.<theme>` list has no per-theme `strings`/`onAdd: "fail"` check
+    // could then grow that list silently on every later change — the
+    // count-like substitution §11 forbids. The manifest used to name six
+    // themes by hand; it now carries `failing.*`, and this runs the engine on
+    // the live file to prove the expansion reaches each theme key.
+    const { MANIFEST } = await import("./baselineRatchetManifest.mjs");
+    const { evaluateCheck } = await import("./baselineRatchetModes.mjs");
+    const entry = MANIFEST.entries.find((e) => e.path === "scripts/theme-contrast-baseline.json");
+    const wildcard = entry.checks.find((c) => c.mode === "identity" && c.at === "failing.*");
+    expect(wildcard).toMatchObject({ shape: "strings", onAdd: "fail" });
+    expect(entry.checks.some((c) => c.mode === "identity" && /^failing\.[a-z]+$/.test(c.at))).toBe(false);
+    const doc = JSON.parse(readFileSync(path.join(REPO, "scripts/theme-contrast-baseline.json"), "utf8"));
+    const themes = Object.keys(doc.failing).filter((k) => !k.startsWith("//") && !k.startsWith("_")).sort();
+    expect(themes.length).toBeGreaterThan(0);
+    // Add one pair under EVERY theme: each must be refused by name.
+    const grown = { ...doc, failing: Object.fromEntries(themes.map((t) => [t, [...doc.failing[t], `${t}/probe-pair`]])) };
+    const { failures } = evaluateCheck(wildcard, doc, grown, entry.path);
+    for (const t of themes) expect(failures.join("\n"), t).toContain(`${t}/probe-pair`);
+  });
+
   it("checks every section of the file-size baseline, not just one", async () => {
     // Registering a file while checking only part of it is the quiet version
     // of not registering it: `--list` would still read as covered.
@@ -743,8 +849,8 @@ describe("shipped manifest", () => {
     expect(entry.checks).toEqual([
       { mode: "scalar", at: "limit" },
       { mode: "scalar", at: "testLimit" },
-      { mode: "per-key-count", at: "files" },
-      { mode: "per-key-count", at: "testFiles" },
+      { mode: "per-key-count", at: "files", onAdd: "fail" },
+      { mode: "per-key-count", at: "testFiles", onAdd: "fail" },
     ]);
   });
 
@@ -792,6 +898,9 @@ describe("shipped manifest", () => {
           expect(["strings", "objects", "object-keys"]).toContain(check.shape);
           expect(["fail", "report"]).toContain(check.onAdd);
         }
+        // A per-file count gate refuses a new dirty file itself, so its
+        // baseline must refuse a new key here too (audit 20260907 #12).
+        if (check.mode === "per-key-count") expect(check.onAdd, `${entry.path}: ${check.at}`).toBe("fail");
       }
     }
   });

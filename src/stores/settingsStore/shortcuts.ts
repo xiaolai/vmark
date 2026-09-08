@@ -163,8 +163,15 @@ export const useShortcutsStore = create<ShortcutsState & ShortcutsActions>()(
           }
 
           const errors: string[] = [];
-          const validBindings: Record<string, string> = {};
+          const bindings: Record<string, string> = {};
 
+          // VALIDATE the whole document first, then apply — never entry by
+          // entry (audit 20260907, #422). Applying as it went meant
+          // `set({ customBindings })`, a whole-map REPLACE, ran before the
+          // errors were returned: one unknown id in an imported file erased
+          // every customization the user already had, while the message
+          // mentioned only the typo. Collecting every problem first also
+          // means the user sees the whole file's faults in one pass.
           for (const [id, key] of Object.entries(data.customBindings)) {
             if (typeof key !== "string") {
               errors.push(`Invalid key for ${id}`);
@@ -174,18 +181,16 @@ export const useShortcutsStore = create<ShortcutsState & ShortcutsActions>()(
               errors.push(`Unknown shortcut: ${id}`);
               continue;
             }
-            validBindings[id] = key;
+            bindings[id] = key;
           }
-
-          set({ customBindings: validBindings });
-          syncMenuShortcuts(get().getAllShortcuts());
 
           // No `errors` key on a clean import — its absence is the "nothing
           // went wrong" signal, distinct from an empty problem list.
-          return {
-            success: errors.length === 0,
-            ...(errors.length > 0 ? { errors } : {}),
-          };
+          if (errors.length > 0) return { success: false, errors };
+
+          set({ customBindings: bindings });
+          syncMenuShortcuts(get().getAllShortcuts());
+          return { success: true };
         } catch (e) {
           /* v8 ignore start -- JSON.parse always throws Error instances; String(e) fallback is defensive */
           // command-error-ok: `e` here is a JSON.parse failure on imported

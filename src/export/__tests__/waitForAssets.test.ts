@@ -14,7 +14,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   getStabilityStatus,
   isImageSettled,
-  waitForAllImages,
   waitForAssets,
 } from "../waitForAssets";
 
@@ -192,69 +191,6 @@ describe("waitForAssets — image stability", () => {
     });
   });
 
-  describe("waitForAllImages", () => {
-    it("resolves immediately when there are no images", async () => {
-      await expect(waitForAllImages(container, 50)).resolves.toBe(true);
-    });
-
-    it("resolves immediately when all images are loaded with a real src", async () => {
-      container.append(makeImg("asset://localhost/foo.png", true));
-      await expect(waitForAllImages(container, 50)).resolves.toBe(true);
-    });
-
-    it("waits for the load event when src is set but not yet complete", async () => {
-      const img = makeImg("asset://localhost/foo.png", false);
-      container.append(img);
-
-      const pending = waitForAllImages(container, 200);
-      img.dispatchEvent(new Event("load"));
-      await expect(pending).resolves.toBe(true);
-    });
-
-    it("waits for the load event even when src starts empty (NodeView resolution race)", async () => {
-      // Empty src + complete=true would pass the naive check and resolve
-      // synchronously without the fix. The waiter must instead attach a
-      // listener and wait for the NodeView to finish resolving.
-      const img = makeImg("", true);
-      container.append(img);
-
-      const pending = waitForAllImages(container, 200);
-
-      // Simulate ImageNodeView finishing async resolution: set the real src
-      // then fire the load event the way the browser would.
-      img.setAttribute("src", "asset://localhost/foo.png");
-      img.dispatchEvent(new Event("load"));
-
-      await expect(pending).resolves.toBe(true);
-    });
-
-    it("returns false when an image never loads within the timeout", async () => {
-      vi.useFakeTimers();
-      try {
-        container.append(makeImg("", true));
-        const pending = waitForAllImages(container, 50);
-        await vi.advanceTimersByTimeAsync(60);
-        await expect(pending).resolves.toBe(false);
-      } finally {
-        vi.useRealTimers();
-      }
-    });
-
-    it("settles immediately for already-errored images without burning the timeout", async () => {
-      vi.useFakeTimers();
-      try {
-        container.append(makeImg("", true, { errored: true }));
-        // 5s timeout would normally mean a pending tick — assert it settles
-        // synchronously by advancing only microtasks (not real wall time).
-        const pending = waitForAllImages(container, 5000);
-        await Promise.resolve();
-        await expect(pending).resolves.toBe(true);
-      } finally {
-        vi.useRealTimers();
-      }
-    });
-  });
-
   describe("waitForAssets", () => {
     it("settles fast when every image is in the terminal error state", async () => {
       // End-to-end coverage of the orchestrator (not just the helpers): a
@@ -281,6 +217,34 @@ describe("waitForAssets — image stability", () => {
         expect(result.success).toBe(true);
         expect(result.status.imagesReady).toBe(true);
         expect(result.warnings).toEqual([]);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    // Audit 20260907 (#348): `document.fonts.ready` was awaited BEFORE the
+    // bounded poll, outside `timeout` — a font load that never settles kept the
+    // export promise pending forever. The wait is now raced against the deadline.
+    it("a font load that never settles cannot outlive the timeout", async () => {
+      vi.useFakeTimers();
+      try {
+        Object.defineProperty(document, "fonts", {
+          configurable: true,
+          value: { status: "loading", ready: new Promise<void>(() => {}) },
+        });
+        const settle = vi.fn();
+        waitForAssets(container, { timeout: 1000, interval: 10 }).then(settle);
+
+        await vi.advanceTimersByTimeAsync(990);
+        expect(settle).not.toHaveBeenCalled();
+
+        await vi.advanceTimersByTimeAsync(20);
+        await Promise.resolve();
+        expect(settle).toHaveBeenCalledTimes(1);
+        const result = settle.mock.calls[0][0];
+        expect(result.success).toBe(false);
+        expect(result.status.fontsReady).toBe(false);
+        expect(result.warnings).toContain("Fonts did not finish loading");
       } finally {
         vi.useRealTimers();
       }
@@ -318,5 +282,198 @@ describe("waitForAssets — image stability", () => {
         vi.useRealTimers();
       }
     });
+  });
+
+  // Audit 20260907 — four gaps in the readiness gate.
+  describe("readiness gates (audit 20260907)", () => {
+    // #349: math readiness keyed on the English placeholder TEXT ("rendering",
+    // "math"), so a localized placeholder read as ready and the error state
+    // ("Failed to render math") waited out the timeout. The lifecycle CLASSES
+    // are the signal.
+    it("a pending LaTeX placeholder is not ready whatever its text says", () => {
+      container.innerHTML =
+        '<div class="code-block-preview latex-preview code-block-preview-placeholder">渲染中…</div>';
+      expect(getStabilityStatus(container).mathReady).toBe(false);
+    });
+
+    it("a terminal math error is ready even though its text mentions math", () => {
+      container.innerHTML =
+        '<div class="code-block-preview latex-preview mermaid-error">Failed to render math</div>';
+      expect(getStabilityStatus(container).mathReady).toBe(true);
+    });
+
+    it("a non-math placeholder does not hold the math gate", () => {
+      container.innerHTML =
+        '<div class="code-block-preview svg-preview code-block-preview-placeholder">Rendering math…</div>';
+      expect(getStabilityStatus(container).mathReady).toBe(true);
+    });
+
+    // #352: an exception from onProgress inside the timer-driven poll escaped
+    // the callback and left the promise pending forever.
+    it("an onProgress that throws does not leave the wait pending", async () => {
+      vi.useFakeTimers();
+      try {
+        const settle = vi.fn();
+        waitForAssets(container, {
+          timeout: 1000,
+          interval: 10,
+          onProgress: () => {
+            throw new Error("consumer bug");
+          },
+        }).then(settle);
+        await vi.runAllTimersAsync();
+        await Promise.resolve();
+        expect(settle).toHaveBeenCalledTimes(1);
+        expect(settle.mock.calls[0][0].success).toBe(true);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    // #353: readiness was captured before the two settling frames and never
+    // rechecked, so an asset invalidated during layout still produced success.
+    it("re-checks after the settling frames and keeps polling when readiness was lost", async () => {
+      vi.useFakeTimers();
+      try {
+        const img = makeImg("asset://localhost/foo.png", true);
+        container.append(img);
+        const settle = vi.fn();
+        waitForAssets(container, { timeout: 1000, interval: 10 }).then(settle);
+        // The first check has run and the frames are pending; now the image
+        // is replaced by one still resolving.
+        for (let i = 0; i < 5; i++) await Promise.resolve();
+        img.setAttribute("src", "");
+        await vi.runAllTimersAsync();
+        await Promise.resolve();
+        expect(settle).toHaveBeenCalledTimes(1);
+        const result = settle.mock.calls[0][0];
+        expect(result.success).toBe(false);
+        expect(result.warnings).toContain("1 image(s) did not load");
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    // #354: once ready, the double-requestAnimationFrame path ignored the
+    // timeout — throttled or suspended frames hung the export.
+    it("resolves by the deadline when animation frames never arrive", async () => {
+      vi.useFakeTimers();
+      const raf = vi.spyOn(window, "requestAnimationFrame").mockImplementation(() => 0);
+      try {
+        const settle = vi.fn();
+        waitForAssets(container, { timeout: 500, interval: 10 }).then(settle);
+        await vi.advanceTimersByTimeAsync(490);
+        expect(settle).not.toHaveBeenCalled();
+        await vi.advanceTimersByTimeAsync(20);
+        await Promise.resolve();
+        expect(settle).toHaveBeenCalledTimes(1);
+        expect(settle.mock.calls[0][0].success).toBe(true);
+      } finally {
+        raf.mockRestore();
+        vi.useRealTimers();
+      }
+    });
+
+    // #354, round 2: the deadline fallback returned `success: true` without
+    // looking — a timed-out wait during which an asset was invalidated shipped
+    // as a success, the very thing the re-check after the frames (#353) exists
+    // to refuse. The deadline reports what it finds, like the poll's own timeout.
+    it("a deadline that finds the assets no longer ready reports failure and what is pending", async () => {
+      vi.useFakeTimers();
+      const raf = vi.spyOn(window, "requestAnimationFrame").mockImplementation(() => 0);
+      try {
+        const img = makeImg("asset://localhost/foo.png", true);
+        container.append(img);
+        const settle = vi.fn();
+        waitForAssets(container, { timeout: 500, interval: 10 }).then(settle);
+        // The first check saw a ready document and is waiting on frames that
+        // never come; the image is then replaced by one still resolving.
+        for (let i = 0; i < 5; i++) await Promise.resolve();
+        img.setAttribute("src", "");
+
+        await vi.advanceTimersByTimeAsync(510);
+        await Promise.resolve();
+        expect(settle).toHaveBeenCalledTimes(1);
+        const result = settle.mock.calls[0][0];
+        expect(result.success).toBe(false);
+        expect(result.status.imagesReady).toBe(false);
+        expect(result.warnings).toContain("Layout did not settle before the deadline");
+        expect(result.warnings).toContain("1 image(s) did not load");
+      } finally {
+        raf.mockRestore();
+        vi.useRealTimers();
+      }
+    });
+  });
+});
+
+// Audit 20260907 round 3 (#707/#709). The numeric options were taken on trust:
+// `timeout: NaN` makes `elapsed >= timeout` false forever, so the poll that is
+// documented to be bounded never ends; a non-positive interval schedules the
+// next poll with no gap at all. And even a valid interval was always waited in
+// FULL, so an interval larger than the remaining budget overshot the deadline
+// the caller asked for.
+describe("waitForAssets — the deadline is a bound, not a suggestion", () => {
+  let container: HTMLElement;
+
+  beforeEach(() => {
+    container = document.createElement("div");
+  });
+
+  it.each([NaN, Infinity, -1])("a timeout of %s still terminates", async (timeout) => {
+    vi.useFakeTimers();
+    try {
+      const img = makeImg("", true);
+      container.append(img);
+      const settle = vi.fn();
+      void waitForAssets(container, { timeout, interval: 10 }).then(settle);
+
+      // The documented default is 10s; nothing may outlive it.
+      await vi.advanceTimersByTimeAsync(10_050);
+      await Promise.resolve();
+      expect(settle).toHaveBeenCalledTimes(1);
+      expect(settle.mock.calls[0][0].success).toBe(false);
+      expect(settle.mock.calls[0][0].warnings).toContain(
+        "Ignored an unusable timeout/interval option; used the defaults",
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a non-positive interval does not become a busy loop", async () => {
+    vi.useFakeTimers();
+    try {
+      container.append(makeImg("", true));
+      const settle = vi.fn();
+      const timeoutSpy = vi.spyOn(globalThis, "setTimeout");
+      void waitForAssets(container, { timeout: 500, interval: 0 }).then(settle);
+
+      await vi.advanceTimersByTimeAsync(600);
+      await Promise.resolve();
+      expect(settle).toHaveBeenCalledTimes(1);
+      // 500ms at the documented 100ms default is a handful of polls, not
+      // thousands of zero-delay ones.
+      expect(timeoutSpy.mock.calls.length).toBeLessThan(30);
+      timeoutSpy.mockRestore();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("never waits past the deadline just because the interval is larger (#709)", async () => {
+    vi.useFakeTimers();
+    try {
+      container.append(makeImg("", true));
+      const settle = vi.fn();
+      void waitForAssets(container, { timeout: 300, interval: 5000 }).then(settle);
+
+      await vi.advanceTimersByTimeAsync(320);
+      await Promise.resolve();
+      expect(settle).toHaveBeenCalledTimes(1);
+      expect(settle.mock.calls[0][0].success).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

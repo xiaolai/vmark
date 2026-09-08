@@ -4,7 +4,7 @@
  *   Enter). The store accumulates the patches; the panel's Save button
  *   serializes them through the Phase 8 CST mutator pipeline.
  *
- * Plan: dev-docs/plans/20260504-github-actions-workflow-viewer.md §6
+ * Origin: GitHub Actions workflow viewer plan (2026-05-04, retired) §6
  *   Phase 7 / WI-7.1 + WI-7.2.
  *
  * Key decisions:
@@ -18,7 +18,7 @@
  *     consistent with the plan: expressions stay text — "no attempt to
  *     GUI them".
  *
- * @coordinates-with src/stores/workflowEditStore.ts — IRPatch sink
+ * @coordinates-with src/stores/workflowStore.ts — IRPatch sink
  * @coordinates-with src/lib/ghaWorkflow/save/mutators.ts — patch shape
  * @module components/Editor/WorkflowEditor/JobForm
  */
@@ -34,9 +34,15 @@ import "./workflow-editor.css";
 
 interface JobFormProps {
   job: JobIR;
+  /** The PRE-EDIT job — what a field compares itself against to decide the
+   *  user has reverted it. `job` is the preview and already carries this
+   *  job's queued edits, so comparing against it cancelled the edit just
+   *  committed (audit R2, #1020). Defaults to `job`, which is only the same
+   *  thing while nothing is queued. */
+  baseline?: JobIR | undefined;
 }
 
-export function JobForm({ job }: JobFormProps): ReactElement {
+export function JobForm({ job, baseline = job }: JobFormProps): ReactElement {
   const { t } = useTranslation("workflowEditor");
 
   const [name, setName] = useState(job.name ?? "");
@@ -52,7 +58,7 @@ export function JobForm({ job }: JobFormProps): ReactElement {
     original: string,
   ): void => {
     if (next === original) {
-      // Revert to original IR value: drop any earlier patch for this
+      // Back at the pre-edit IR value: drop any earlier patch for this
       // target. Without this, typing A → B → A leaves the A→B patch
       // queued, persisting B on Save (cross-validator audit finding).
       cancel({ kind: "job.set", jobId: job.id, path, value: "" });
@@ -68,20 +74,10 @@ export function JobForm({ job }: JobFormProps): ReactElement {
       const labels = next.split("/").map((s) => s.trim()).filter(Boolean);
       const value: string | string[] =
         labels.length > 1 ? labels : labels[0] ?? "";
-      queue({
-        kind: "job.set",
-        jobId: job.id,
-        path,
-        value,
-      });
+      queue({ kind: "job.set", jobId: job.id, path, value });
       return;
     }
-    queue({
-      kind: "job.set",
-      jobId: job.id,
-      path,
-      value: next,
-    });
+    queue({ kind: "job.set", jobId: job.id, path, value: next });
   };
 
   return (
@@ -118,7 +114,7 @@ export function JobForm({ job }: JobFormProps): ReactElement {
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          onBlur={() => commitIfChanged("name", name, job.name ?? "")}
+          onBlur={() => commitIfChanged("name", name, baseline.name ?? "")}
           placeholder={t("form.job.name.placeholder")}
         />
       </label>
@@ -133,7 +129,11 @@ export function JobForm({ job }: JobFormProps): ReactElement {
           value={runsOn}
           onChange={(e) => setRunsOn(e.target.value)}
           onBlur={() =>
-            commitIfChanged("runs-on", runsOn, job.runsOn?.join(" / ") ?? "")
+            commitIfChanged(
+              "runs-on",
+              runsOn,
+              baseline.runsOn?.join(" / ") ?? "",
+            )
           }
           placeholder={t("form.job.runsOn.placeholder")}
         />
@@ -146,7 +146,7 @@ export function JobForm({ job }: JobFormProps): ReactElement {
           value={ifCond}
           rows={2}
           onChange={(e) => setIfCond(e.target.value)}
-          onBlur={() => commitIfChanged("if", ifCond, job.if ?? "")}
+          onBlur={() => commitIfChanged("if", ifCond, baseline.if ?? "")}
           placeholder="github.event_name == 'push'"
         />
       </label>

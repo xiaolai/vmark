@@ -22,6 +22,7 @@ menu:
   file.openRecentWorkspace: "最近開いたワークスペース"
   file.close: "閉じる"
   file.closeWorkspace: "ワークスペースを閉じる"
+  file.reopenClosedTab: "閉じたタブを再度開く"
   file.save: "保存"
   file.saveAs: "名前をつけて保存..."
   file.moveTo: "移動先..."
@@ -156,6 +157,7 @@ menu:
   insert.mindmap: "マインドマップ"
   insert.horizontalLine: "水平線"
   insert.footnote: "脚注"
+  insert.tableOfContents: "目次"
   insert.collapsible: "折りたたみブロック"
   insert.infoBox: "情報ボックス"
   insert.infoBox.note: "注記"
@@ -269,10 +271,15 @@ errors:
   pdf.badTempPath: "一時ドキュメントのパスが不正です: %{path}"
   pdf.invalidExtension: "出力パスは .pdf 拡張子である必要があります"
   pdf.dirNotFound: "出力ディレクトリが存在しません"
+  pdf.parentNotDirectory: "出力先の親は存在しますが、ディレクトリではありません"
+  pdf.publishFailed: "生成された PDF を出力先に移動できませんでした: %{detail}"
+  pdf.outputUnreadable: "生成された PDF を検証のために開けませんでした: %{detail}"
   pdf.pathNotAbsolute: "出力パスは絶対パスである必要があります"
   pdf.outputIsDirectory: "出力パスがディレクトリです"
   pdf.loadTimeout: "HTML の読み込みがタイムアウトしました（10 秒）"
   pdf.emptyOutput: "印刷操作で空の PDF が生成されました"
+  pdf.staleOutputNotRemoved: "出力先にある既存のファイルを置き換えられませんでした: %{detail}"
+  pdf.outputNotPdf: "印刷処理で有効な PDF が生成されませんでした"
   pdf.printTimeout: "印刷操作がタイムアウトしました（60 秒）"
   pdf.noPages: "PDF にページがありません"
   pdf.writeFailed: "しおり付き PDF の書き込みに失敗しました"
@@ -291,6 +298,7 @@ errors:
   workflow.engineDisabled: "ワークフローエンジンは設定でオフになっています"
   workflow.noPendingApproval: "該当する保留中の承認リクエストはありません"
   workflow.appDataDirUnavailable: "アプリデータディレクトリを解決できませんでした: %{detail}"
+  workflow.snapshotFailed: "このワークフローが変更するファイルのスナップショットを作成できなかったため、実行しませんでした: %{detail}"
 
   # === 保存パス（file_write.rs、WI-14 CommandError）===
   save.parentMissing: "このファイルのフォルダはもう存在しません: %{dir}"
@@ -346,6 +354,8 @@ errors:
   genie.pathBlocked: "Genie のパスが許可されたディレクトリの外にあります"
 
   # === MCP ===
+  mcp.bindFailed: "MCP ブリッジは %{address} をバインドできませんでした: %{detail}"
+  mcp.localAddrFailed: "MCP ブリッジはバインドしたポートを読み戻せませんでした: %{detail}"
   mcp.spawnInProgress: "MCP サイドカーの起動がすでに進行中です"
   mcp.configMismatch: "設定の検証に失敗しました: 書き込まれた内容が想定と一致しません"
 
@@ -390,8 +400,12 @@ errors:
   mcp.writeConfigPartialRemoved: "%{path} の書き込みに失敗しました: %{detail}（不完全なファイルは削除されました）"
   mcp.writeConfigPartialOrphaned: "%{path} の書き込みに失敗しました: %{detail}。不完全なファイルも削除できませんでした（%{cleanup_detail}）。再試行する前に手動で削除してください。そのままでは次回のインストールで破損した設定として読み込まれます。"
 
+  # === Secure store (secure_store.rs) ===
+  secureStore.keychainDenied: "キーチェーンへのアクセスが拒否されました。キーチェーンのダイアログで VMark を許可するか、「キーチェーンアクセス」でアクセス権を付与してから、もう一度お試しください。"
+
 window:
   settings.title: "設定"
+  print.title: "VMark 印刷"
 
 cli:
   dialogTitle: "シェルコマンド"

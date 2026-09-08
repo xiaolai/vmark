@@ -4,7 +4,7 @@
  * the engine's `EngineStep.write` flag. Execution tier (api/action/goal) and
  * read-vs-write semantics are ORTHOGONAL: a `goal` step can "find the article"
  * (read) or "publish the draft" (write), so `kind` alone cannot decide write-ness.
- * Plan: dev-docs/plans/20260712-0610-embedded-browser-sites-workflows.md WI-4.2.
+ * Origin: Embedded browser sites and workflows plan (2026-07-12, retired) WI-4.2.
  *
  * Classification is STRUCTURAL and FAIL-SAFE, never a keyword guess:
  *   - `extract` (reader) and `confirm` (human gate) are read-only by construction —

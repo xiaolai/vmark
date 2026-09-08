@@ -11,7 +11,7 @@
  * @coordinates-with workspaceStore.ts — checks/updates workspace state
  * @coordinates-with workspaceBootstrap.ts — pure needsBootstrap() helper
  * @coordinates-with hotExitCoordination.ts — waits for hot exit restore before creating tabs
- * @coordinates-with useReplaceableTab.ts — findExistingTabForPath to skip duplicates
+ * @coordinates-with services/tabs/replaceableTab.ts — findExistingTabForPath to skip duplicates
  * @module hooks/useWorkspaceBootstrap
  */
 import { useEffect, useRef } from "react";

@@ -53,6 +53,9 @@ vi.mock("../pdfHtmlTemplate", () => ({
   getKatexCSS: () => "",
   getForceLightThemeCSS: () => "",
   getSharedContentCSS: () => "",
+  // The print document forces every <details> open in the MARKUP, because the
+  // shared CSS above styles `details[open]` (see printDocument.test.ts).
+  expandDetails: (html: string) => html,
 }));
 
 vi.mock("@/i18n", () => ({
@@ -73,7 +76,8 @@ describe("exportToPdf — print failure surfaces the real error (issue #1343)", 
   beforeEach(() => {
     vi.clearAllMocks();
     document.body.innerHTML = "";
-    mockInvoke.mockResolvedValue(undefined);
+    // The real wire shape (WI-FL6.3); `unknown` is what Windows resolves with.
+    mockInvoke.mockResolvedValue({ status: "unknown" });
   });
 
   it("hands a print_document rejection to errorDetail RAW, under the printFailed headline", async () => {

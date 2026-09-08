@@ -94,7 +94,7 @@ VMark のジーニーには 2 つの種類があります。
 
 ## サンプル
 
-VMark には同梱ジーニーの中にサンプルワークフロー `outline-and-polish.yml` が含まれています。カスタマイズするには、ユーザージーニーディレクトリにコピーしてください。
+VMark にはサンプルワークフロー `triage-and-translate.yml` がアプリバンドル内（`Resources/resources/workflows/examples/`）に同梱されています。ジーニーディレクトリには自動でインストールされないので、カスタマイズするにはそこへコピーしてください。以下はもう一つの例です。
 
 ```yaml
 name: Outline and Polish

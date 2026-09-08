@@ -1,7 +1,7 @@
 /**
  * Bridge types barrel for the pruned 5-tool surface.
  *
- * Plan: dev-docs/plans/20260504-mcp-pruning.md
+ * Origin: MCP pruning plan (2026-05-04, retired)
  */
 
 export * from './core-types.js';

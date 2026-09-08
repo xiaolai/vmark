@@ -65,6 +65,10 @@ same paragraph in view when you switch between Rich Text and Source.
 
 Positions are per document and per session — closing a tab forgets it.
 
+### Undo Across Modes
+
+Undo and redo cross the WYSIWYG ⇄ Source boundary. Every mode switch records a checkpoint, and once the current editor's own history is exhausted, `Mod + Z` keeps going through those checkpoints — restoring the earlier content without switching the view you are in. Redo walks the same chain forward; a redo whose branch you abandoned by making a new edit is refused rather than applied over your work. The chain is kept per tab and cleared when the tab closes.
+
 ### Large Files
 
 VMark auto-opens files over 1 MB in Source mode for a sub-second open, warns before touching files above 5 MB, and refuses files over 50 MB. See the [Large Files](./large-files.md) guide for thresholds and settings.
@@ -114,6 +118,10 @@ Edit multiple locations simultaneously — VMark supports full multi-cursor in b
 All standard editing (typing, deletion, clipboard, navigation) works at every cursor independently. Block-scoped by default to prevent unintended edits across sections.
 
 [Learn more →](/guide/multi-cursor)
+
+## Smart Select All
+
+In WYSIWYG mode, `Mod + A` grows the selection one container at a time instead of jumping straight to the whole document: inside a table it selects the cell, then the row, then the table, then the document. `Mod + Z` steps an expansion back and `Escape` collapses the selection to a cursor. The binding belongs to the editor and is not customizable.
 
 ## Auto-Pair & Tab Escape
 
@@ -205,8 +213,8 @@ Comprehensive image support:
 - Drag & drop from file system
 - Paste from clipboard
 - Auto-copy to project assets folder
-- Resize via context menu
-- Double-click to edit source path, alt text, and dimensions
+- Double-click to edit the source path and alt text — the image's dimensions are shown read-only
+- Right-click for Change Image, Delete Image, Copy Path and Reveal in Finder
 - Toggle between inline and block display
 
 ## Video & Audio
@@ -386,16 +394,17 @@ Right-click anywhere in the editor (WYSIWYG or Source mode) to open a context me
 - **Selection handling:** Right-clicking inside a selection keeps it; right-clicking elsewhere moves the cursor there first (macOS convention).
 - **Keyboard:** Arrow keys navigate (disabled items are skipped), `Right`/`Left` enter and leave submenus, `Escape` closes the submenu first and then the menu. Shortcut hints reflect your custom key bindings.
 
+## Command Palette
+
+Press `Mod + Shift + P` to open the command palette. With an empty query it lists every available command grouped by category — file, workspace, view, export, formatting, headings, lists, tables, lines, selection, transform, CJK, lint, history, AI and more; type to filter and rank by match. `↑`/`↓` move, `Enter` runs the command, `Escape` (or a click on the backdrop) closes. Only commands that apply right now are shown — an editor command disappears when no document is open, a workspace command when no workspace is — and the command runs in the window you opened the palette from. Pages in this guide name their palette commands in quotes ("Toggle Markdown Split View", "Breakdown View", "Window Status"). The palette has no menu item; its shortcut is customizable in **Settings → Shortcuts**.
+
 ## Export Options
 
 VMark offers flexible export options for sharing your documents.
 
 ### HTML Export
 
-Export to standalone HTML with two packaging modes:
-
-- **Folder mode** (default): Creates `Document/index.html` with assets in a subfolder
-- **Single file mode**: Creates a self-contained `.html` file with embedded images
+**File → Export → HTML** writes a folder holding both `index.html` (with a linked `assets/` folder) and `standalone.html` (everything embedded) — there is no mode to pick; use whichever file suits.
 
 Exported HTML includes the [**VMark Reader**](/guide/export#vmark-reader) — interactive controls for settings, table of contents, image lightbox, and more.
 
@@ -403,7 +412,7 @@ Exported HTML includes the [**VMark Reader**](/guide/export#vmark-reader) — in
 
 ### PDF Export
 
-Print to PDF with native system dialog (`Cmd/Ctrl + P`).
+**File → Export → PDF** opens VMark's own export dialog — page size (A4, Letter, A3, Legal) and orientation, margin presets or a draggable custom margin box, font size, line height, Latin and CJK fonts, style presets, and page numbers — then writes the PDF on macOS, Windows and Linux, with a clickable heading outline in the viewer's sidebar. **Print** (`Cmd/Ctrl + P`) is the separate path through the system print dialog. [Learn more →](/guide/export#print-export-pdf)
 
 ### Copy as HTML
 
@@ -544,6 +553,11 @@ VMark automatically checks for updates and can download and install them in-app:
 - Window Status panel — see every open window's live Claude Code / AI status and jump straight to the one that needs you; pin it in this window or across all windows (including ones you open later) to keep it open while you jump between windows
 
 [Learn more →](/guide/workspace-management)
+
+## Coherence, Knowledge Base & Slidev
+
+- **Coherence & Breakdown view** — opt-in provenance tracking records which documents each AI generation read, flags downstream documents when an upstream changes, and adds semantic checks, canon claims and contexts on top. Open it from **Window → Coherence Breakdown**. [Learn more →](/guide/coherence)
+- **Knowledge base** — serves an open workspace as a cross-linked site (wiki links, backlinks, relationship graph, full-text search) on `127.0.0.1`, in a panel (`Ctrl + Shift + 4`) or in your browser, and previews and exports Slidev decks. [Learn more →](/guide/knowledge-base)
 
 ## Customization
 

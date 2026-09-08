@@ -1,17 +1,20 @@
 /**
- * Workflow feature flags (WI-19 split).
+ * Workflow feature flags.
  *
- * Purpose: tell the two workflow features apart. Until WI-19 a single
- * `advanced.workflowEngine` gated both, so a user who wanted GitHub Actions
- * authoring aids had to switch on a runner that spawns AI providers and writes
- * files — and the Rust side honoured neither, because the flag lived only in
- * the webview.
+ * Purpose: the non-reactive reader for the ONE workflow flag that remains. The
+ * yaml-surface fallback the file explorer used to consult went with the viewer
+ * flag (D6): `isVMarkFileName` covers the pre-bootstrap edge unconditionally.
  *
- *   - **Viewer** (`advanced.workflowViewer`): GitHub Actions authoring extras
- *     in the source pane — `${{ }}` expression completion, cursor↔canvas job
- *     sync, `uses:` goto-def. Read-only aids over the `gha` IR; they execute
- *     nothing. NOT the GHA workbench itself, which ships always-on through the
- *     yaml adapter's `gha-workflow` schema renderer and is not flag-gated.
+ * Until WI-19 a single `advanced.workflowEngine` gated two unrelated features:
+ * the GitHub Actions authoring aids and the bespoke execution engine. WI-19
+ * split them; D6 (WI-FL2.6) then removed the viewer flag outright, because the
+ * workbench was always unconditional, the split-pane source aids never
+ * consulted it, and rule 60 §12 wanted it on by 2026-09-15.
+ *
+ *   - **Viewer** — no flag. The GHA workbench (the yaml adapter's
+ *     `gha-workflow` schema renderer) and its source-pane aids — `${{ }}`
+ *     expression completion, cursor↔canvas job sync, `uses:` goto-def — ship
+ *     on. They read; they never run anything.
  *   - **Engine** (`advanced.workflowEngine`): the bespoke YAML execution
  *     engine — the side panel's Run/Cancel controls, the live preview graph
  *     that feeds them, and the `run_workflow` Rust runner. The backend refuses
@@ -20,35 +23,18 @@
  *
  * Non-reactive reads (imperative code, extension assembly) use the functions
  * here. React components read the store selector directly
- * (`useSettingsStore(s => s.advanced.workflowViewer)`).
+ * (`useSettingsStore(s => s.advanced.workflowEngine)`).
  *
  * @coordinates-with src/services/workflow/workflowEnginePolicySync.ts — pushes
  *   the engine flag to Rust, which starts fail-closed
- * @coordinates-with src/stores/settingsStore/migrations.ts — the split migration
+ * @coordinates-with src/stores/settingsStore/migrations.ts — drops a persisted
+ *   viewer flag (`migrateRemoveWorkflowViewer`)
  * @module services/featureFlags/workflowFeatureFlag
  */
 
 import { useSettingsStore } from "@/stores/settingsStore";
 
-/** GitHub Actions viewer extras (completion, cursor sync, goto-def). */
-export function isWorkflowViewerEnabled(): boolean {
-  return useSettingsStore.getState().advanced.workflowViewer ?? false;
-}
-
 /** The bespoke YAML workflow execution engine (Run/Cancel + the Rust runner). */
 export function isWorkflowEngineEnabled(): boolean {
   return useSettingsStore.getState().advanced.workflowEngine ?? false;
-}
-
-/**
- * True when a standalone `.yml` should be treated as a VMark file rather than
- * handed to the OS. Either feature makes that so, which is why this is an OR
- * and not one of the two flags: gating it on the engine alone would hide
- * workflow files from a user who enabled only the viewer.
- *
- * Only reached before the format registry is bootstrapped — once it is,
- * `isSupportedFileName` already covers yaml.
- */
-export function isWorkflowYamlSurfaceEnabled(): boolean {
-  return isWorkflowViewerEnabled() || isWorkflowEngineEnabled();
 }

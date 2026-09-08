@@ -4,89 +4,115 @@
  * workspace; the KB panel consumes these. The hook is the only place that turns
  * service calls into store transitions.
  *
- * It also owns the frontend half of the supervisor policy (WI-1.2, ADR-10):
- * Rust detects an unexpected child exit and emits `content-server:exited`; this
- * hook auto-restarts up to `MAX_CONTENT_SERVER_RESTARTS` times. A manual start
- * (user clicking Start/Retry) resets the budget; auto-restarts never do, so a
- * server that crashes immediately after every spawn cannot loop forever.
+ * The frontend half of the supervisor policy (WI-1.2, ADR-10) lives in the
+ * sibling `useContentServerSupervisor`: Rust detects an unexpected child exit
+ * and emits `content-server:exited`, and that hook auto-restarts up to
+ * `MAX_CONTENT_SERVER_RESTARTS` times. A manual start (user clicking
+ * Start/Retry) resets the budget; auto-restarts never do, so a server that
+ * crashes immediately after every spawn cannot loop forever.
  *
+ * Trust (WI-FL3.6): every start carries the workspace's live trust, which the
+ * server turns into its CSP (`img-src` gains `https:` when trusted) — and the
+ * CSP is baked into the child at spawn. So a trust flip while serving restarts
+ * the server through the same start path (Rust replaces a mismatched child),
+ * and a start whose handle reports stale trust — the flip landed mid-flight —
+ * is issued again with the live value.
+ *
+ * Lifecycle operations are generation-stamped (audit #363–#365, #370): every
+ * start or stop takes the next generation, and a result that arrives after a
+ * later operation began — or after the workspace moved on — is dropped rather
+ * than committed. A superseded start never stops the child it spawned: Rust's
+ * ContentServerManager is app-wide and keyed by root, so another window may be
+ * serving that root, the manager reuses the child on return, and shutdown_all
+ * reaps it at exit.
+ *
+ * A user stop records the ROOT it stopped (#367/#371): that root's exit signal
+ * is the stop's acknowledgement, never a crash to restart — no timer (a 3 s
+ * window reclassified a late exit as a crash), no boolean (blind to the root),
+ * and no release when the stop settles (the echo is not ordered against the
+ * stop's own reply, so releasing there restarted what the user just stopped).
+ * The guard is ONE-SHOT: spent by the exit it absorbs, or re-armed by the next
+ * manual start. At most one exit can predate a stop — an intentional stop emits
+ * none (Rust's supervisor ends quietly once the registration is gone), and a
+ * later exit needs a new child, hence a new start — so the crash after that is
+ * still reported. A refused stop is an error, not "stopped" (#366): the child
+ * may live, so its guard is released and its exit is a crash. The status that
+ * follows it is ASKED, not assumed (#719) — a stop the backend refused while
+ * the child kept serving goes back to `running`, with the failure shown as a
+ * toast, because `useContentServerWorkspaceSync` acts only on `running` and an
+ * `error` over a live child silently disabled the trust-flip restart.
+ *
+ * @coordinates-with src/stores/workspaceStore.ts — `isWorkspaceTrusted`, `trustWorkspace`, `untrustWorkspace`
+ * @coordinates-with hooks/useContentServerWorkspaceSync.ts — workspace switch (#513) and trust flip while serving
+ * @coordinates-with hooks/useContentServerSupervisor.ts — the crash/auto-restart half
+ * @coordinates-with hooks/useSlidevControls.ts — the deck preview/export half of the controls
  * @module hooks/useContentServer
  */
 
 import { commandErrorMessage } from "@/services/commands/commandError";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { openUrl } from "@tauri-apps/plugin-opener";
-import { save } from "@tauri-apps/plugin-dialog";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useContentServerStore } from "@/stores/contentServerStore";
-import { useTabStore, tabFilePath } from "@/stores/tabStore";
-import { getActiveTabId } from "@/services/navigation/activeDocument";
-import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
-import { contentServerWarn } from "@/utils/debug";
+import { useContentServerWorkspaceSync } from "./useContentServerWorkspaceSync";
+import { useContentServerSupervisor } from "./useContentServerSupervisor";
+import { imeToast as toast } from "@/services/ime/imeToast";
 import {
   startContentServer,
   stopContentServer,
+  getContentServerStatus,
   openKbInBrowser,
   getKbAuthUrl,
-  startSlidevPreview,
-  exportSlidev,
-  type SlidevExportFormat,
 } from "@/services/contentServer";
+import { useSlidevControls, type SlidevControls } from "./useSlidevControls";
 
-/** Max consecutive auto-restarts after a crash before giving up (WI-1.2). */
-export const MAX_CONTENT_SERVER_RESTARTS = 3;
+/** Extra starts one user start may issue when trust keeps flipping mid-flight (WI-FL3.6). */
+export const MAX_TRUST_RECONCILES = 2;
 
-/** Window during which a crash signal is treated as part of a user stop (ms).
- *  Bounds the stop-intent guard so it can't get stuck and suppress later crashes. */
-const STOP_INTENT_GUARD_MS = 3000;
-
-/** Whether the supervisor should auto-restart given prior attempts. Pure. */
-export function shouldAutoRestart(
-  attempts: number,
-  max = MAX_CONTENT_SERVER_RESTARTS,
-): boolean {
-  return attempts < max;
-}
-
-interface ExitPayload {
-  workspaceRoot: string;
-  code: number | null;
-}
-
-export interface ContentServerControls {
+export interface ContentServerControls extends SlidevControls {
   start: () => Promise<void>;
   stop: () => Promise<void>;
   openInBrowser: () => Promise<void>;
-  /** Open a Slidev preview of the active deck in the external browser. */
-  previewSlides: () => Promise<void>;
-  /** Export the active deck to PDF (prompts for the output path). */
-  exportSlides: () => Promise<void>;
 }
 
-/** Absolute path of the active tab's file, or null (untitled / no tab). */
-function activeDeckPath(): string | null {
-  const tabId = getActiveTabId(getCurrentWindowLabel());
-  if (!tabId) return null;
-  const tab = useTabStore.getState().findTabById(tabId);
-  return tab ? tabFilePath(tab) : null;
+/** A lifecycle operation's view of being overtaken. */
+interface LifecycleOperation {
+  /** A LATER start or stop began: the store belongs to it now. */
+  overtaken: () => boolean;
+  /** Overtaken, OR the workspace moved on: this operation's results are stale. */
+  superseded: () => boolean;
 }
 
-/** Derive the Slidev export format from the chosen output extension (WI-7.2). */
-export function slidevFormatFromPath(outputPath: string): SlidevExportFormat {
-  const ext = outputPath.slice(outputPath.lastIndexOf(".") + 1).toLowerCase();
-  if (ext === "png") return "png";
-  if (ext === "pptx") return "pptx";
-  return "pdf";
+/**
+ * Take the next lifecycle generation for an operation on `root`, and return the
+ * staleness tests bound to it.
+ *
+ * ONE definition, not two (audit #714). Start and stop each carried their own
+ * copy of the `gen !== lifecycleGen.current || rootPath !== root` expression,
+ * with a comment on the second saying it was "the SAME test the start path
+ * uses" — which is precisely the shape that drifts. It already had: the
+ * workspace half reached `stop` only in #718, after the missing half had
+ * written workspace A's failure over workspace B's store.
+ */
+function beginLifecycleOperation(
+  lifecycleGen: RefObject<number>,
+  root: string | null,
+): LifecycleOperation {
+  const gen = ++lifecycleGen.current;
+  const overtaken = () => gen !== lifecycleGen.current;
+  return {
+    overtaken,
+    superseded: () => overtaken() || useWorkspaceStore.getState().rootPath !== root,
+  };
 }
 
 export function useContentServer(): ContentServerControls {
   const { t } = useTranslation();
   const restartAttempts = useRef(0);
-  // Set when the user stops the server, so a crash signal that races the stop
-  // (a genuine exit at the moment of stopping) does not trigger a restart.
-  const intentionalStopRef = useRef(false);
+  // The root a stop is waiting to see the exit of (header); one-shot.
+  const stopIntentRoot = useRef<string | null>(null);
+  // The generation of the latest lifecycle operation (see the header).
+  const lifecycleGen = useRef(0);
 
   // Core start path, shared by the manual control and the auto-restart monitor.
   // `resetBudget` distinguishes a user-initiated start (fresh restart budget)
@@ -100,24 +126,60 @@ export function useContentServer(): ContentServerControls {
       }
       if (resetBudget) {
         restartAttempts.current = 0;
-        intentionalStopRef.current = false; // a fresh manual start re-arms supervision
+        stopIntentRoot.current = null; // a fresh manual start re-arms supervision
       }
+      const { overtaken, superseded } = beginLifecycleOperation(lifecycleGen, root);
+      // Drop a superseded start. When no later operation took the store over, the
+      // workspace itself moved on: this window knows of no server for the new
+      // root, so say "stopped" rather than leaving it at "starting".
+      const abandon = () => {
+        if (!overtaken()) useContentServerStore.getState().stop();
+      };
       useContentServerStore.getState().setStarting();
-      let started = false;
       try {
-        const handle = await startContentServer(root);
-        useContentServerStore.getState().setRunning(handle.url, handle.port);
-        started = true;
-        // grill M2 — the in-app iframe authenticates via a one-time nonce URL
-        // (SameSite=Strict blocks header/cookie auth on a cross-origin frame).
-        const authUrl = await getKbAuthUrl(root);
-        useContentServerStore.getState().setIframeUrl(authUrl);
+        // Trust flipped while a start was in flight (WI-FL3.6): the server
+        // that came up enforces the old value, which the handle reports. Start
+        // again with the live value — Rust replaces a mismatched child. Bounded,
+        // so a backend that never echoes a boolean cannot keep this spinning.
+        for (let reconcile = 0; ; reconcile++) {
+          const trusted = useWorkspaceStore.getState().isWorkspaceTrusted();
+          const handle = await startContentServer(root, trusted);
+          if (superseded()) return abandon();
+          // Compare trust BEFORE publishing anything (audit #716). Announcing
+          // `running` and minting an auth URL first advertised — and handed the
+          // in-app iframe a live nonce for — a child enforcing the OLD CSP,
+          // which on an untrust is exactly the window that must not exist.
+          const stale =
+            typeof handle.trusted === "boolean" &&
+            handle.trusted !== useWorkspaceStore.getState().isWorkspaceTrusted();
+          if (stale) {
+            if (reconcile < MAX_TRUST_RECONCILES) continue;
+            // FAIL CLOSED (audit #717): trust moved through every reconcile, so
+            // this handle's CSP still contradicts the live setting. Publishing
+            // it is the fail-OPEN the bound was supposed to prevent; the next
+            // settled flip restarts through useContentServerWorkspaceSync.
+            useContentServerStore.getState().setError(t("contentServer.error.trustUnsettled"));
+            return;
+          }
+          useContentServerStore.getState().setRunning(handle.url, handle.port);
+          // grill M2 — the in-app iframe authenticates via a one-time nonce URL
+          // (SameSite=Strict blocks header/cookie auth on a cross-origin frame).
+          // Codex audit: if only the auth URL fails, stay running (the iframe can
+          // retry) — but clear any stale nonce URL so the panel doesn't load a
+          // dead `/__auth` link.
+          let authUrl: string | null;
+          try {
+            authUrl = await getKbAuthUrl(root);
+          } catch {
+            authUrl = null;
+          }
+          if (superseded()) return abandon();
+          useContentServerStore.getState().setIframeUrl(authUrl);
+          break;
+        }
       } catch (e) {
-        // Codex audit: if the server started but only the auth URL failed, stay
-        // running (the iframe can retry) — but clear any stale nonce URL so the
-        // panel doesn't load a dead `/__auth` link.
-        if (started) useContentServerStore.getState().setIframeUrl(null);
-        else useContentServerStore.getState().setError(commandErrorMessage(e));
+        if (superseded()) return abandon();
+        useContentServerStore.getState().setError(commandErrorMessage(e));
       }
     },
     [t],
@@ -126,22 +188,58 @@ export function useContentServer(): ContentServerControls {
   const start = useCallback(() => startServer(true), [startServer]);
 
   const stop = useCallback(async () => {
-    intentionalStopRef.current = true; // suppress a restart if a crash signal races
     const root = useWorkspaceStore.getState().rootPath;
+    stopIntentRoot.current = root; // an exit for THIS root while the stop runs IS the stop
+    // The SAME test the start path uses, from the SAME definition now (#714/#718).
+    // A workspace switch does not touch the generation, so a stop that failed for
+    // workspace A used to write its error over workspace B's store — which the
+    // sync hook had just reset to `stopped` for a root this window is not
+    // serving at all.
+    const { superseded } = beginLifecycleOperation(lifecycleGen, root);
     if (root) {
       try {
         await stopContentServer(root);
-      } catch {
-        /* best-effort; the store still reflects stopped */
+      } catch (e) {
+        // The child may be alive (#366): an error, never "stopped"; a later exit is a crash.
+        if (superseded()) return;
+        stopIntentRoot.current = null;
+        // ASK the backend rather than assume the child died (audit #719). A
+        // refused stop that left the server serving used to be modelled as
+        // `error`, and `useContentServerWorkspaceSync` only reacts to
+        // `running` — so a trust flip after one was silently ignored and the
+        // live child went on serving the old CSP. The status has to describe
+        // the CHILD; the failure is reported beside it as a toast, which is
+        // request-independent and cannot overwrite the lifecycle again.
+        let alive: Awaited<ReturnType<typeof getContentServerStatus>>;
+        try {
+          alive = await getContentServerStatus(root);
+        } catch {
+          alive = null; // cannot tell — fall through to the error status
+        }
+        if (superseded()) return;
+        if (alive) {
+          useContentServerStore.getState().setRunning(alive.url, alive.port);
+          toast.error(commandErrorMessage(e));
+          return;
+        }
+        useContentServerStore.getState().setError(commandErrorMessage(e));
+        return;
       }
     }
+    // A start that began meanwhile owns the store (audit #365): its server must
+    // not be hidden by a superseded stop — and it owns the intent too, so a
+    // superseded stop must not clear the guard the newer operation set.
+    if (superseded()) return;
+    // The guard OUTLIVES this settle (#367, round 4). Rust emits no exit for a
+    // child an intentional stop removed — the supervisor sees `NotCurrent` and
+    // ends silently (`content_server/supervisor.rs`) — so the only exit that can
+    // still arrive for this root was emitted BEFORE the stop, by a poll that
+    // found the child already gone. Nothing orders that event's delivery against
+    // this reply, and released here it read as a crash and restarted the server
+    // the user had just stopped. The guard is spent by the exit it absorbs
+    // instead, or re-armed by the next manual start; at most one exit can
+    // predate a stop, so the crash after that is still reported.
     useContentServerStore.getState().stop();
-    // Bound the guard: it only needs to cover a crash signal racing this stop.
-    // Clearing it shortly after ensures a later genuine crash (e.g. if the stop
-    // didn't actually take) still triggers the restart policy.
-    setTimeout(() => {
-      intentionalStopRef.current = false;
-    }, STOP_INTENT_GUARD_MS);
   }, []);
 
   const openInBrowser = useCallback(async () => {
@@ -150,96 +248,34 @@ export function useContentServer(): ContentServerControls {
     try {
       await openKbInBrowser(root);
     } catch (e) {
-      useContentServerStore.getState().setError(commandErrorMessage(e));
+      // An ACTION failure, not a server failure (#719's class): the server is
+      // still up, so moving its status to `error` would both mislead the panel
+      // and stop the workspace sync from restarting it on a trust flip.
+      toast.error(commandErrorMessage(e));
     }
   }, []);
 
-  // Slidev preview opens the deck in the user's browser via the proxied dev
-  // server. Slidev watches the on-disk deck, so saved editor edits hot-reload
-  // the preview (WI-6.3 — "editing reflects" on save).
-  const previewSlides = useCallback(async () => {
-    const root = useWorkspaceStore.getState().rootPath;
-    const deck = activeDeckPath();
-    if (!root || !deck) {
-      useContentServerStore.getState().setError(t("contentServer.slidev.noDeck"));
-      return;
-    }
-    try {
-      const url = await startSlidevPreview(root, deck);
-      useContentServerStore.getState().setSlidevDeck(deck);
-      await openUrl(url);
-    } catch (e) {
-      useContentServerStore.getState().setError(commandErrorMessage(e));
-    }
-  }, [t]);
+  // The deck controls are the same store, a different subject — sibling hook
+  // so this file stays under the size cap.
+  const slidev = useSlidevControls(t);
 
-  const exportSlides = useCallback(async () => {
-    const root = useWorkspaceStore.getState().rootPath;
-    const deck = activeDeckPath();
-    if (!root || !deck) {
-      useContentServerStore.getState().setError(t("contentServer.slidev.noDeck"));
-      return;
-    }
-    try {
-      // The dialog itself can throw (permission denied, platform dialog
-      // failure) — keep it inside the boundary so the failure lands in the
-      // store instead of rejecting this fire-and-forget control.
-      const output = await save({
-        defaultPath: deck.replace(/\.[^.]+$/, ".pdf"),
-        filters: [
-          { name: "PDF", extensions: ["pdf"] },
-          { name: "PNG", extensions: ["png"] },
-          { name: "PowerPoint", extensions: ["pptx"] },
-        ],
-      });
-      if (!output) return; // user cancelled the save dialog
-      await exportSlidev(root, deck, slidevFormatFromPath(output), output);
-    } catch (e) {
-      useContentServerStore.getState().setError(commandErrorMessage(e));
-    }
-  }, [t]);
-
-  // Supervisor: react to Rust's crash signal with a bounded restart (WI-1.2).
-  // startServer is referenced via a ref so the listener never goes stale and
-  // does not need to re-subscribe on every render.
+  // startServer is referenced via a ref so the sibling hooks' subscriptions
+  // never go stale and do not need to re-subscribe on every render.
   const startServerRef = useRef(startServer);
-  // Synced after commit (read only from the async crash listener below). #1063
+  // Synced after commit (read only from the async listeners below). #1063
   useEffect(() => {
     startServerRef.current = startServer;
   });
-  useEffect(() => {
-    let unlisten: UnlistenFn | undefined;
-    let disposed = false;
-    void listen<ExitPayload>("content-server:exited", (event) => {
-      const root = useWorkspaceStore.getState().rootPath;
-      if (!root || event.payload.workspaceRoot !== root) return;
-      useContentServerStore.getState().stop();
-      // A crash signal that races a user-initiated stop must not restart.
-      if (intentionalStopRef.current) {
-        intentionalStopRef.current = false;
-        return;
-      }
-      if (shouldAutoRestart(restartAttempts.current)) {
-        restartAttempts.current += 1;
-        void startServerRef.current(false);
-      } else {
-        useContentServerStore.getState().setError(t("contentServer.error.crashed"));
-      }
-    })
-      .then((fn) => {
-        if (disposed) fn();
-        else unlisten = fn;
-      })
-      .catch((e) => {
-        // Listener setup failed → supervision is disabled; surface it loudly
-        // rather than letting it become a silent unhandled rejection.
-        contentServerWarn("exit-listener setup failed", e);
-      });
-    return () => {
-      disposed = true;
-      unlisten?.();
-    };
-  }, [t]);
 
-  return { start, stop, openInBrowser, previewSlides, exportSlides };
+  // Workspace switch (audit #513) and trust flip (WI-FL3.6) while serving —
+  // one subscription, root change first (that hook's header says why).
+  useContentServerWorkspaceSync(startServerRef);
+  // Crash supervision (WI-1.2), sibling hook so this file stays under the cap.
+  useContentServerSupervisor({
+    startServer: startServerRef,
+    restartAttempts,
+    stopIntentRoot,
+  });
+
+  return { start, stop, openInBrowser, ...slidev };
 }

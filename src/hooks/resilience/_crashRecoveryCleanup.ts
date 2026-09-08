@@ -6,7 +6,7 @@
  * - When a document transitions from dirty to clean (saved)
  * - When the window unloads normally (deletes only this window's tabs)
  *
- * @module hooks/useCrashRecoveryCleanup
+ * @module hooks/resilience/_crashRecoveryCleanup
  * @coordinates-with crashRecovery.ts, useCrashRecoveryWriter.ts
  */
 

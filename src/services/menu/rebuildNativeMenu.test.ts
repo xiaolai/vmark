@@ -2,7 +2,7 @@
 /**
  * Tests for rebuildNativeMenu helper
  *
- * @module utils/rebuildNativeMenu.test
+ * @module services/menu/rebuildNativeMenu.test
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { rebuildNativeMenu } from "./rebuildNativeMenu";

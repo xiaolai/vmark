@@ -18,7 +18,7 @@
  *   - File size guard skips snapshots for oversized files before any I/O
  *
  * @coordinates-with historyTypes.ts — shared types and constants
- * @coordinates-with useHistoryRecovery.ts — recovery of deleted document history
+ * @coordinates-with historyRecovery.ts — recovery of deleted document history
  * @module services/history/historyOperations
  */
 

@@ -34,7 +34,7 @@
  * @coordinates-with services/coherence/captureFunnel.ts — fire-and-forget provenance capture
  *     (WI-1.6), gated on `general.coherenceCaptureOnSave` (default OFF): capture
  *     rewrites the file to insert a `vmark:` identity block, so it is opt-in
- * @module utils/saveToPath
+ * @module services/persistence/saveToPath
  */
 import { invoke } from "@tauri-apps/api/core";
 import { imeToast as toast } from "@/services/ime/imeToast";

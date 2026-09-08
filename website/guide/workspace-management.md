@@ -34,6 +34,10 @@ The file explorer appears in the sidebar whenever a workspace is open. It shows 
 - Non-markdown files open with your system's default application
 - Folders start collapsed when a workspace is first opened; their open state is preserved while you switch between the Files, Outline, and History views
 
+### Quick Look
+
+Select a file in the tree and press `Space` to preview it in a full-window overlay without opening a tab — images, video and audio render with their native controls; any other file shows a "cannot preview" panel with a button to open it externally. `←`/`↑` and `→`/`↓` step through the tree's visible files in order (no wrap), and `Space`, `Escape` or a click on the backdrop closes the preview. Typing a space in the inline rename field never triggers it.
+
 ### Header Buttons
 
 The Files-view header carries the tree-wide controls:
@@ -119,7 +123,7 @@ When a workspace is open, VMark can search across **file contents** (not just fi
 
 | Action | Shortcut |
 |---|---|
-| Open content search panel | `Mod + Shift + F` |
+| Open content search panel | `Mod + Shift + H` (also **Edit → Find → Find in Files**) |
 | Jump to next result | `Enter` (or arrow keys to navigate) |
 | Open result in new tab | Click the match preview |
 
@@ -129,9 +133,9 @@ Each result shows the file path, line number, and a snippet with the matching te
 2. Heading proximity (matches inside headings before body text)
 3. Recency (recently-modified files surface first)
 
-**Excluded by default**: `node_modules/`, `.git/`, `dist/`, `target/`, `coverage/`, plus any directories you've added to **Excluded folders** in Workspace Settings.
+**Excluded by default**: the folders VMark never descends — `.git`, `node_modules`, `.obsidian`, `.svn`, `__pycache__`, `.DS_Store`, `.vscode`, `.idea`, `target`, `.next`, `dist`, `.superpowers` — plus any names in **Exclude folders** in Workspace Settings (a new workspace starts with `.git` and `node_modules` there).
 
-**Hidden files**: skipped unless **Show hidden files** is enabled in the file explorer.
+**Hidden files**: dotfiles are always skipped by content search, whatever the file explorer's **Show hidden files** toggle says.
 
 This is distinct from [Quick Open](#quick-open) which searches *filenames* only — content search opens the matched file with the cursor placed at the matching line.
 
@@ -287,9 +291,9 @@ The `VMARK_WORKSPACE` environment variable is set to the workspace path in every
 
 VMark can install a `vmark` shell command so you can open files and folders from the terminal.
 
-### Installing
+### Installing and removing
 
-Go to **Help > Install 'vmark' Command**. VMark writes a small launcher script to `/usr/local/bin/vmark` and asks for your administrator password (the same approach VS Code uses for its `code` command).
+**Help → Shell Command: Install 'vmark' in PATH…** is a single item that toggles. When no `vmark` command is installed, it writes a small launcher script to `/usr/local/bin/vmark` and asks for your administrator password (the same approach VS Code uses for its `code` command). When VMark's own script is already there, the same item removes it. A dialog reports the outcome either way. macOS only.
 
 ### Usage
 
@@ -306,6 +310,4 @@ vmark chapter1.md chapter2.md
 
 The command delegates to `open -b app.vmark`, so macOS handles single-instance behavior — files open in your existing VMark window rather than spawning a new process.
 
-### Uninstalling
-
-Go to **Help > Uninstall 'vmark' Command** to remove `/usr/local/bin/vmark`. If the file at that path was not installed by VMark, the operation is blocked and you are asked to remove it manually.
+If the file at `/usr/local/bin/vmark` was not written by VMark, the item touches nothing and asks you to remove it manually.

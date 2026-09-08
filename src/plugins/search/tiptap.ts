@@ -2,10 +2,10 @@
  * Search Plugin (WYSIWYG Mode)
  *
  * Purpose: Highlights find/replace matches in the WYSIWYG editor using ProseMirror
- * decorations. Subscribes to searchStore for query/options and rebuilds decorations
+ * decorations. Subscribes to the uiStore search slice for query/options and rebuilds decorations
  * on every state change where the query or document differs.
  *
- * Pipeline: searchStore query change → rebuild decorations → highlight matches →
+ * Pipeline: search-slice query change → rebuild decorations → highlight matches →
  *           navigate via next/prev/replace dispatched from FindBar
  *
  * Key decisions:
@@ -22,7 +22,7 @@
  *
  * @coordinates-with findMatches.ts — regex construction and match scanning (exact positions)
  * @coordinates-with replaceActions.ts — Replace Current / Replace All handlers
- * @coordinates-with searchStore.ts — query, options, match navigation state
+ * @coordinates-with stores/uiStore/searchSlice.ts — query, options, match navigation state
  * @coordinates-with FindBar.tsx — UI for find/replace controls
  * @coordinates-with sourceEditorSearch.ts — equivalent search for Source mode (CodeMirror)
  * @module plugins/search/tiptap

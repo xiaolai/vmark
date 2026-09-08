@@ -43,7 +43,7 @@ import { respond } from "@/services/mcpBridge/utils";
 import { wrapHandler } from "./wrapHandler";
 import { v2ErrorString } from "./types";
 import type { V2Error } from "./types";
-import { errorMessage } from "@/utils/errorMessage";
+import { commandErrorMessage } from "@/services/commands/commandError";
 
 function structuredError(id: string, err: V2Error): Promise<void> {
   return respond({ id, success: false, error: v2ErrorString(err) });
@@ -67,7 +67,12 @@ function structuredError(id: string, err: V2Error): Promise<void> {
 const ONE_SHOT_CLIENT_ID = "mcp-session";
 
 /** Canonicalize + is-dir validate via Rust (resolves symlinks, returns the
- *  canonical path). Never touches the webview fs surface. */
+ *  canonical path). Never touches the webview fs surface.
+ *
+ *  `commandErrorMessage`, not `errorMessage`: `validate_workspace_dir` returns
+ *  a typed `CommandError` (audit 20260907 #560), which is a plain OBJECT on the
+ *  wire — `String(e)` renders it as `"[object Object]"`, the class rule 50 §10
+ *  records as having shipped to users four times. */
 async function validateWorkspaceDir(
   folderPath: string,
 ): Promise<{ ok: true; canonicalPath: string } | { ok: false; message: string }> {
@@ -75,7 +80,7 @@ async function validateWorkspaceDir(
     const canonicalPath = await invoke<string>("validate_workspace_dir", { path: folderPath });
     return { ok: true, canonicalPath };
   } catch (e) {
-    return { ok: false, message: `Invalid workspace folder: ${errorMessage(e)}` };
+    return { ok: false, message: `Invalid workspace folder: ${commandErrorMessage(e)}` };
   }
 }
 

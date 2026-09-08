@@ -14,11 +14,16 @@
 //! stayed 0644 forever, silently.
 //!
 //! The shape adopted here is Jupyter's `secure_write`, with the ordering
-//! fixed (audit round 1, finding 1): the token is written to a temp file that
-//! is set to 0600 and **re-stat'ed immediately before the rename**, so it is
-//! never reachable under a name at the wrong mode. A bridge that cannot
-//! protect its token does not start, and it does not leave the token behind
-//! when it refuses.
+//! fixed (audit round 1, finding 1): the token goes to a temp file that is set
+//! to 0600 **before a byte of it is written** and **re-stat'ed immediately
+//! before the rename**, so it is never reachable under a name at the wrong
+//! mode and the staging window rests on this file's own enforcement rather
+//! than on `NamedTempFile`'s default (audit 20260907 #388). A bridge that
+//! cannot protect its token does not start, and it does not leave the token
+//! behind when it refuses.
+//!
+//! The publication itself is `atomic_replace::persist_with_retry` — the one
+//! copy of the Windows replacement rule (audit 20260907 #389).
 //!
 //! The half of the threat a file mode cannot cover — another user REPLACING
 //! the file rather than reading it — belongs to the directory, and lives in
@@ -76,7 +81,7 @@ pub(crate) fn write_port_file_at(path: &Path, port: u16, token: &str) -> Result<
 
 /// Remove the port file when the bridge stops.
 /// Logs errors for non-NotFound failures (permission issues, etc.)
-pub fn remove_port_file(app: &AppHandle) {
+pub fn remove_port_file<R: tauri::Runtime>(app: &AppHandle<R>) {
     match app_paths::get_port_file_path(app) {
         Ok(path) => match std::fs::remove_file(&path) {
             Ok(()) => log::debug!("[MCP Bridge] Port file removed: {path:?}"),
@@ -109,6 +114,18 @@ pub fn remove_port_file(app: &AppHandle) {
 fn write_secured(path: &Path, parent: &Path, contents: &[u8]) -> Result<(), String> {
     let mut temp = NamedTempFile::new_in(parent)
         .map_err(|e| format!("Failed to create temp file in {parent:?}: {e}"))?;
+
+    // BEFORE the secret is written, not after it (audit 20260907 #388). The
+    // old order set the mode immediately before the rename, which protects the
+    // published name but leaves the staging window resting on `NamedTempFile`'s
+    // default — the exact dependency this module's header says it exists to
+    // remove. tempfile 3.27 opens with `mode(0o600)` on Unix and a umask can
+    // only clear bits, so the window was never actually wider than 0600; the
+    // point is that the guarantee is now this file's own and re-stat'ed, not
+    // inherited from a dependency's implementation detail.
+    enforce_mode(temp.path(), TOKEN_FILE_MODE)
+        .map_err(|e| format!("Refusing to expose the MCP bridge token: {e}"))?;
+
     temp.write_all(contents)
         .map_err(|e| format!("Failed to write temp file: {e}"))?;
     temp.flush()
@@ -117,31 +134,38 @@ fn write_secured(path: &Path, parent: &Path, contents: &[u8]) -> Result<(), Stri
         .sync_all()
         .map_err(|e| format!("Failed to sync temp file: {e}"))?;
 
-    // Immediately before the rename. `NamedTempFile` already creates 0600 on
-    // Unix, but relying on that default is exactly the accident this module
-    // exists to remove — so it is set and re-stat'ed explicitly.
-    enforce_mode(temp.path(), TOKEN_FILE_MODE)
+    // Re-stat immediately before the rename: `set_permissions` can succeed
+    // nominally on a filesystem that does not honour Unix modes, and the write
+    // above is the only thing between the two checks.
+    verify_mode(temp.path(), TOKEN_FILE_MODE)
         .map_err(|e| format!("Refusing to expose the MCP bridge token: {e}"))?;
 
-    // `persist` is the atomic rename. On Unix it REPLACES an existing target,
-    // so a failure is genuine (permission, I/O, target-is-a-dir) and removing
-    // the target first would risk losing it for nothing. Windows `rename`
-    // refuses an existing target, hence the remove-then-retry there — the
-    // same split `atomic_replace` makes, repeated here because this path must
-    // not inherit that module's permission preservation.
-    match temp.persist(path) {
-        Ok(_) => Ok(()),
-        #[cfg(windows)]
-        Err(persist_err) => {
-            let temp = persist_err.file;
-            let _ = std::fs::remove_file(path);
-            temp.persist(path)
-                .map(|_| ())
-                .map_err(|e| format!("Failed to persist {path:?}: {}", e.error))
-        }
-        #[cfg(not(windows))]
-        Err(e) => Err(format!("Failed to persist {path:?}: {}", e.error)),
-    }
+    // `persist` is the atomic rename, and it REPLACES an existing target on
+    // EVERY platform: Unix `rename(2)` does, and on Windows `NamedTempFile`
+    // calls `MoveFileExW` with `MOVEFILE_REPLACE_EXISTING` (tempfile 3.27.0
+    // `file/imp/windows.rs`, reached with `overwrite: true`).
+    //
+    // There used to be a Windows-only `remove_file(path)` + retry here, on the
+    // premise that Windows `rename` refuses an existing target. That premise is
+    // false, and the fallback was DESTRUCTIVE (audit 20260907 #389): it fired on
+    // ANY persist failure — a transient sharing refusal from an antivirus
+    // scanner included — so it deleted the live token file and then failed to
+    // rewrite it, leaving the bridge's only credential gone. `atomic_replace.rs`
+    // had the identical defect and the identical false premise (audit 20260906
+    // B1); removing it there without a retry turned CI's Windows leg red with
+    // `os error 5`, because the second attempt was the thing that had been
+    // absorbing the contention by accident.
+    //
+    // So this uses the ONE retry that survived that: `persist_with_retry`
+    // retries the atomic move itself, which means the previous token file holds
+    // its bytes until a move succeeds, and if every attempt fails it is exactly
+    // as it was.
+    crate::atomic_persist::persist_with_retry(temp, path).map_err(|e| {
+        format!(
+            "Failed to persist {path:?}: {}",
+            crate::command_error::CommandError::from(e).message()
+        )
+    })
 }
 
 /// Delete a token file whose published mode could not be verified, folding a

@@ -20,6 +20,7 @@
 //! @coordinates-with lib.rs — `.manage(McpBridgeState::default())`
 //! @module mcp_bridge::managed
 
+use super::lifecycle::BridgeLifecycle;
 use super::principal::BridgePrincipal;
 use super::state::{BridgeState, ClientConnection};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -56,6 +57,10 @@ pub struct McpBridgeState {
     /// both. A boolean "accepting" flag would not do — it cannot tell a stray
     /// from the OLD bridge apart from a legitimate peer of the new one.
     connection_generation: AtomicU64,
+    /// The server's start/stop lifecycle — running flag, bound port and the
+    /// start generation — which used to be three statics in `mcp_server.rs`
+    /// (audit 20260907 #177).
+    lifecycle: BridgeLifecycle,
 }
 
 impl Default for McpBridgeState {
@@ -69,11 +74,17 @@ impl Default for McpBridgeState {
             write_lock: Mutex::new(()),
             webview_alive: AtomicBool::new(true),
             connection_generation: AtomicU64::new(0),
+            lifecycle: BridgeLifecycle::default(),
         }
     }
 }
 
 impl McpBridgeState {
+    /// The server's start/stop lifecycle.
+    pub(crate) fn lifecycle(&self) -> &BridgeLifecycle {
+        &self.lifecycle
+    }
+
     /// Lock the connection/pending tables.
     pub(crate) async fn lock(&self) -> MutexGuard<'_, BridgeState> {
         self.tables.lock().await

@@ -5,7 +5,7 @@
  *   checks (dev mode), keyboard shortcut detection (production mode),
  *   and terminal focus detection (to let Ctrl+R pass through to the shell).
  *
- * @coordinates-with closeDecision.ts — similar dirty-check logic for window close
+ * @coordinates-with services/windowClose/windowCloseFlow.ts — the window-close counterpart of the dirty check
  * @coordinates-with documentStore.ts — provides dirty tab IDs
  * @coordinates-with useReloadGuard.ts — hook that consumes these helpers
  * @module utils/reloadGuard

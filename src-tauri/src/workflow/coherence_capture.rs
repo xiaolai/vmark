@@ -8,9 +8,9 @@
 //! failures log and never fail the workflow step.
 
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, Runtime};
 
 use crate::coherence::capture::{capture, CaptureInputSpec, CaptureRequest};
 use crate::coherence::commands::CoherenceState;
@@ -46,51 +46,110 @@ fn referenced_ids(value: &str, known_ids: &HashSet<&str>) -> Vec<String> {
         }
         scan = &region[close..];
     }
-    // Bare whole-value alias `X.output` (legacy grammar).
-    let trimmed = value.trim();
-    if let Some((head, _tail)) = trimmed.split_once('.') {
-        if known_ids.contains(head)
-            && trimmed
-                .chars()
-                .all(|c| c.is_ascii_alphanumeric() || "._-".contains(c))
-        {
-            out.push(head.to_string());
+    // Bare whole-value alias `X.output` (legacy grammar), judged by the
+    // EXECUTOR's own rule (#512). This used to accept any `known_id.<anything>`
+    // whose whole value was `[A-Za-z0-9._-]`, so a step named `read` turned the
+    // literal `read.text` — and even a plain filename like `read.md` — into a
+    // dependency edge. `resolve` substitutes neither, so those edges recorded a
+    // dataflow that never happened.
+    if let Some(id) = super::expressions::bare_alias_id(value) {
+        if known_ids.contains(id) {
+            out.push(id.to_string());
         }
     }
     out
 }
 
-/// Transitive `action/read-file` paths feeding `target_id` (BFS over
-/// template references).
-pub fn direct_input_paths(steps: &[StepSlice], target_id: &str) -> Vec<String> {
+/// Every step `target_id` transitively depends on, by template reference —
+/// including `target_id` itself (BFS).
+///
+/// One walk, two questions (#516): which reads feed the save, and whether a
+/// model was among the steps that produced it. Asking them separately would be
+/// two traversals that can disagree about what "feeding this step" means.
+fn reachable_from(steps: &[StepSlice], target_id: &str) -> HashSet<String> {
     let by_id: HashMap<&str, &StepSlice> = steps.iter().map(|s| (s.0.as_str(), s)).collect();
     let known_ids: HashSet<&str> = by_id.keys().copied().collect();
-    let mut seen: HashSet<String> = HashSet::new();
-    let mut queue: VecDeque<&str> = VecDeque::from([target_id]);
-    let mut paths = Vec::new();
+    let mut seen: HashSet<String> = HashSet::from([target_id.to_string()]);
+    let mut queue: VecDeque<String> = VecDeque::from([target_id.to_string()]);
     while let Some(id) = queue.pop_front() {
-        let Some((_, uses, with)) = by_id.get(id) else {
+        let Some((_, _, with)) = by_id.get(id.as_str()) else {
             continue;
         };
-        if uses == "action/read-file" {
-            if let Some(path) = with.get("path") {
-                if !paths.contains(path) {
-                    paths.push(path.clone());
-                }
-            }
-        }
         for value in with.values() {
             for referenced in referenced_ids(value, &known_ids) {
-                if seen.insert(referenced.clone()) {
-                    if let Some((id_ref, _, _)) = by_id.get(referenced.as_str()) {
-                        queue.push_back(id_ref);
-                    }
+                if by_id.contains_key(referenced.as_str()) && seen.insert(referenced.clone()) {
+                    queue.push_back(referenced);
                 }
             }
         }
     }
+    seen
+}
+
+/// Transitive `action/read-file` paths feeding `target_id`.
+pub fn direct_input_paths(steps: &[StepSlice], target_id: &str) -> Vec<String> {
+    let reachable = reachable_from(steps, target_id);
+    let mut paths: Vec<String> = steps
+        .iter()
+        .filter(|(id, uses, _)| reachable.contains(id) && uses == "action/read-file")
+        .filter_map(|(_, _, with)| with.get("path").cloned())
+        .collect();
     paths.sort();
+    paths.dedup();
     paths
+}
+
+/// A workspace path as coherence keys it: relative to `workspace_root`, with
+/// `/` separators and no `./` prefix, or `None` when it resolves outside.
+///
+/// Resolution is by CANONICALIZATION where the file exists, so two spellings
+/// of one object — an alias, an absolute path, a `./` prefix — normalize to
+/// the same key. A path that does not exist yet cannot be canonicalized, so it
+/// is normalized lexically instead: a save target is written moments later,
+/// and refusing to record it would lose the edge entirely.
+fn normalize_in_workspace(path: &str, workspace_root: &Path) -> Option<String> {
+    let root = workspace_root
+        .canonicalize()
+        .unwrap_or_else(|_| workspace_root.to_path_buf());
+    let joined = if Path::new(path).is_absolute() {
+        PathBuf::from(path)
+    } else {
+        root.join(path)
+    };
+    let resolved = joined.canonicalize().unwrap_or(joined);
+    let relative = resolved.strip_prefix(&root).ok()?;
+    let text = relative.to_str()?.replace('\\', "/");
+    (!text.is_empty()).then_some(text)
+}
+
+/// Who a save-file step's content should be attributed to (#516).
+///
+/// Not always the model. A workflow may be actions only — read a file,
+/// transform it, save it — and the kernel then recorded `AgentType::Model` /
+/// `workflow-genie` over content no model ever saw, which is a provenance
+/// ledger asserting something false about how a document came to be. The
+/// distinction is what the workflow's steps USE: a `genie/*` step calls a
+/// provider, an `action/*` step does not.
+///
+/// `External` is the class `coherence/adopt.rs` already uses for content a
+/// process outside VMark's editor produced, which is what an action-only
+/// workflow run is.
+fn agent_for(steps: &[StepSlice], reachable: &HashSet<String>) -> Agent {
+    let model_ran = steps
+        .iter()
+        .filter(|(id, _, _)| reachable.contains(id))
+        .any(|(_, uses, _)| uses.starts_with("genie/"));
+    if model_ran {
+        Agent {
+            kind: AgentType::Model,
+            id: Some("workflow-genie".into()),
+        }
+    } else {
+        Agent {
+            kind: AgentType::External,
+            id: Some("workflow".into()),
+        }
+    }
 }
 
 /// Capture one successful save-file step into a workspace kernel.
@@ -101,13 +160,23 @@ pub fn capture_save_file(
     content: &str,
     input_paths: &[String],
     step_id: &str,
+    agent: Agent,
 ) -> Result<(), String> {
-    let _ = workspace_root;
+    // Coherence keys objects on a NORMALIZED workspace-relative path, so a
+    // raw `with.path` cannot be handed to it as written (audit #514).
+    // `action/read-file` accepts `./notes.md`, `notes.md`, an absolute path
+    // inside the workspace and a symlink alias for any of them — all valid,
+    // all the same object, and all previously recorded as distinct names. The
+    // consequences are two: an edge to a name no object carries, and a
+    // self-edge that fails to suppress because `./out.md` did not compare
+    // equal to `out.md`.
+    let target = normalize_in_workspace(rel_path, workspace_root);
     let inputs = input_paths
         .iter()
-        .filter(|p| p.as_str() != rel_path)
+        .filter_map(|p| normalize_in_workspace(p, workspace_root))
+        .filter(|p| Some(p.as_str()) != target.as_deref())
         .map(|p| CaptureInputSpec {
-            path: Some(p.clone()),
+            path: Some(p),
             object_id: None,
             revision: None,
             role: InputRole::Direct,
@@ -117,13 +186,10 @@ pub fn capture_save_file(
     capture(
         kernel,
         CaptureRequest {
-            path: rel_path.to_string(),
+            path: target.unwrap_or_else(|| rel_path.to_string()),
             content: content.to_string(),
             inputs,
-            agent: Agent {
-                kind: AgentType::Model,
-                id: Some("workflow-genie".into()),
-            },
+            agent,
             intent: Intent {
                 kind: "workflow".into(),
                 summary: format!("action/save-file ({step_id})"),
@@ -140,8 +206,8 @@ pub fn capture_save_file(
 /// Runner-facing entry: runs off-thread but is AWAITED by the runner
 /// (audit A11 — captures land in step order; a same-path later step can
 /// never record before an earlier one). Failures log; steps never fail.
-pub async fn capture_save_file_ordered(
-    app: &AppHandle,
+pub async fn capture_save_file_ordered<R: Runtime>(
+    app: &AppHandle<R>,
     workspace_root: &Path,
     steps: Vec<StepSlice>,
     step_id: String,
@@ -166,10 +232,18 @@ pub async fn capture_save_file_ordered(
             log::warn!("coherence: workflow capture skipped: kernel poisoned");
             return;
         };
+        let reachable = reachable_from(&steps, &step_id);
         let inputs = direct_input_paths(&steps, &step_id);
-        if let Err(e) =
-            capture_save_file(&mut kernel, &root, &rel_path, &content, &inputs, &step_id)
-        {
+        let agent = agent_for(&steps, &reachable);
+        if let Err(e) = capture_save_file(
+            &mut kernel,
+            &root,
+            &rel_path,
+            &content,
+            &inputs,
+            &step_id,
+            agent,
+        ) {
             log::warn!("coherence: workflow capture failed (step untouched): {e}");
         }
     });

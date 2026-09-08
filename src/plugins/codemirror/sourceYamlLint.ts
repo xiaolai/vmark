@@ -12,7 +12,7 @@
  *   arrays. The package already runs in VMark for workflow detection,
  *   so this adds zero new dependencies.
  *
- * @coordinates-with src/utils/sourceEditorExtensions.ts — wired for any YAML
+ * @coordinates-with src/services/assembly/sourceEditorExtensions.ts — wired for any YAML
  * @module plugins/codemirror/sourceYamlLint
  */
 

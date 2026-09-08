@@ -2,85 +2,52 @@
  * E05 noSpaceInEmphasis — detects emphasis/strong with inner spaces.
  *
  * Purpose: Flag `** bold **`, `* italic *`, `__ bold __`, `_ italic _` where
- * the author added spaces after the opening or before the closing delimiter.
- * Skips fenced code blocks, inline code spans, and star pairs in an
- * arithmetic (infix-multiplication) context like `3 * 4 * 5` or `x * y * z`.
+ * the author added spaces after the opening AND before the closing delimiter.
+ *
+ * SYMMETRIC only, deliberately. A one-sided opener (`* italic*`) is the same
+ * shape as a LIST BULLET followed by real emphasis — `* some *emph* here`
+ * matches `\* (.+?)\*` exactly — and as ordinary prose preceding an emphasis
+ * run, so detecting it by regex flags correct documents. Distinguishing them
+ * needs the inline parser, not another pattern (audit 20260907 round 2).
+ *
+ * What counts as scannable text is `sourceMask`'s answer, shared with E01, E04
+ * and W03. This rule used to carry its own fence tracker (blind to a fence a
+ * container prefixes) and its own per-LINE code-span scanner, which could not
+ * see a span that crossed a line ending and only tested a match's START
+ * against it — so `a ** b ``c ** d`` e`, whose closing marker is inside code,
+ * was reported (audit round 3, #831/#836/#837). Masking answers all three: a
+ * masked delimiter cannot be matched at either end.
+ *
+ * @coordinates-with src/lib/lintEngine/rules/sourceMask.ts — which text is prose
+ * @coordinates-with src/lib/lintEngine/rules/labelUtils.ts — backslash-escape parity
+ * @module lib/lintEngine/rules/noSpaceInEmphasis
  */
 
-import type { LintRule } from "../types";
+import type { LintDiagnostic, LintRule } from "../types";
+import { ruleEmission } from "../ruleMeta";
 import { createDiagnostic } from "../types";
-import { CodeBlockTracker } from "./codeBlockTracker";
+import { isEscapedAt } from "./labelUtils";
+import { maskedLines } from "./sourceMask";
 
-interface Span {
-  start: number;
-  end: number;
-}
-
-/**
- * Find inline code spans in a line using CommonMark backtick-run matching:
- * a span opens with a run of N backticks and closes at the next run of
- * exactly N backticks (a run of a different length is span content).
- * Backslash-escaped backticks outside a span are literal text; backslashes
- * inside a span are literal because code spans have no escapes.
- */
-function findInlineCodeSpans(line: string): Span[] {
-  const spans: Span[] = [];
-  let i = 0;
-  while (i < line.length) {
-    const ch = line[i];
-    if (ch === "\\") {
-      i += 2; // escape consumes the next char (e.g. a literal backtick)
-      continue;
-    }
-    if (ch !== "`") {
-      i += 1;
-      continue;
-    }
-    let openLen = 1;
-    while (line[i + openLen] === "`") openLen += 1;
-    // Search for a closing run of exactly openLen backticks.
-    let j = i + openLen;
-    let closeStart = -1;
-    while (j < line.length) {
-      if (line[j] !== "`") {
-        j += 1;
-        continue;
-      }
-      let runLen = 1;
-      while (line[j + runLen] === "`") runLen += 1;
-      if (runLen === openLen) {
-        closeStart = j;
-        break;
-      }
-      j += runLen; // different-length run is content inside the span
-    }
-    if (closeStart === -1) {
-      i += openLen; // unmatched run is literal text, keep scanning after it
-    } else {
-      spans.push({ start: i, end: closeStart + openLen });
-      i = closeStart + openLen;
-    }
-  }
-  return spans;
-}
-
-/** Returns true if `index` falls inside any of the given spans. */
-function isInsideSpan(spans: Span[], index: number): boolean {
-  return spans.some((s) => index >= s.start && index < s.end);
-}
-
-// Matches ** text ** or * text * style patterns
+/** Matches ** text ** or * text * style patterns. */
 const STAR_RE = /(\*{1,2}) (.+?) \1/g;
-// Matches __ text __ or _ text _ style patterns
+/** Matches __ text __ or _ text _ style patterns. */
 const UNDER_RE = /(_{1,2}) (.+?) \1/g;
 
 /**
- * A plausible arithmetic operand: a number or a short (≤ 3 chars)
- * identifier, allowing common wrapping punctuation like `(x` or `5.`.
+ * A plausible arithmetic operand: a number (sign and decimals allowed) or a
+ * SHORT identifier, tolerating wrapping punctuation like `(x` or `5.`.
+ *
+ * The ≤ 3-character cap is load-bearing and stays. Widening it to "any
+ * identifier", which is the obvious reading of "be Unicode-aware", makes
+ * `some * emphasized * text` operand-like on all three flanks and silences the
+ * rule on exactly the shape it exists to catch. What round 3 fixed is the
+ * ALPHABET, not the length: `\w` is ASCII-only, so `甲 * 乙 * 丙` read as
+ * emphasis, and no sign was allowed, so `x * -4 * y` did too (#834).
  */
 function isOperandLike(token: string): boolean {
   const core = token.replace(/^[([{]+|[)\]}.,;:!?]+$/g, "");
-  return /^(?:\d+(?:\.\d+)?|\w{1,3})$/.test(core);
+  return /^(?:[+-]?\d+(?:\.\d+)?|[\p{L}\p{N}_]{1,3})$/u.test(core);
 }
 
 /**
@@ -90,69 +57,51 @@ function isOperandLike(token: string): boolean {
  * (`chapter 2 * important * 3 examples`) or a wordy flank
  * (`some * emphasized * text`) is emphasis and still flags.
  */
-function isArithmeticContext(
-  line: string,
-  start: number,
-  end: number,
-  inner: string,
-): boolean {
+function isArithmeticContext(line: string, start: number, end: number, inner: string): boolean {
   const left = line.slice(0, start).match(/(\S+)\s+$/);
   const right = line.slice(end).match(/^\s+(\S+)/);
   if (!left || !right) return false;
-  return (
-    isOperandLike(left[1]) && isOperandLike(right[1]) && isOperandLike(inner)
-  );
+  return isOperandLike(left[1]) && isOperandLike(right[1]) && isOperandLike(inner);
 }
 
-export const noSpaceInEmphasis: LintRule = (_source, _mdast, { lines }) => {
-  const diagnostics = [];
-  const tracker = new CodeBlockTracker();
-  let lineOffset = 0;
+/** The spaced-emphasis matches on one already-masked line, as diagnostics. */
+function scanLine(line: string, lineNumber: number, lineOffset: number): LintDiagnostic[] {
+  const diagnostics: LintDiagnostic[] = [];
+  for (const re of [STAR_RE, UNDER_RE]) {
+    re.lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = re.exec(line)) !== null) {
+      const end = match.index + match[0].length;
+      // A BACKSLASH before the opening delimiter makes it a literal character,
+      // so `a \* text * b` is one escaped star and one real one, not emphasis
+      // (#833). Parity is counted, not a single character tested: `\\*` is an
+      // escaped backslash followed by a real delimiter.
+      if (isEscapedAt(line, match.index)) continue;
+      if (re === STAR_RE && isArithmeticContext(line, match.index, end, match[2])) continue;
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const inCode = tracker.processLine(line);
-
-    if (!inCode) {
-      const codeSpans = findInlineCodeSpans(line);
-      for (const re of [STAR_RE, UNDER_RE]) {
-        re.lastIndex = 0;
-        let match;
-        while ((match = re.exec(line)) !== null) {
-          if (
-            re === STAR_RE &&
-            isArithmeticContext(
-              line,
-              match.index,
-              match.index + match[0].length,
-              match[2],
-            )
-          ) {
-            continue;
-          }
-          if (!isInsideSpan(codeSpans, match.index)) {
-            const col = match.index + 1;
-            const offset = lineOffset + match.index;
-            diagnostics.push(
-              createDiagnostic({
-                ruleId: "E05",
-                severity: "warning",
-                messageKey: "lint.E05",
-                messageParams: {},
-                line: i + 1,
-                column: col,
-                offset,
-                endOffset: offset + match[0].length,
-                uiHint: "sourceOnly",
-              })
-            );
-          }
-        }
-      }
+      const offset = lineOffset + match.index;
+      diagnostics.push(
+        createDiagnostic({
+          ...ruleEmission("E05"),
+          messageKey: "lint.E05",
+          messageParams: {},
+          line: lineNumber,
+          column: match.index + 1,
+          offset,
+          endOffset: offset + match[0].length,
+          uiHint: "sourceOnly",
+        }),
+      );
     }
-
-    lineOffset += line.length + 1;
   }
+  return diagnostics;
+}
 
+export const noSpaceInEmphasis: LintRule = (_source, mdast, { lines, lineOffsets }) => {
+  const diagnostics: LintDiagnostic[] = [];
+  const scannable = maskedLines(lines, mdast);
+  for (let i = 0; i < scannable.length; i++) {
+    diagnostics.push(...scanLine(scannable[i], i + 1, lineOffsets[i]));
+  }
   return diagnostics;
 };

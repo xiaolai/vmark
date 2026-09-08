@@ -11,18 +11,19 @@
  *                the parse-error gutter apply to every YAML file (MED-2).
  *   - `viewer` — GitHub Actions authoring aids: `${{ }}` completion,
  *                cursor↔canvas sync, `uses:` goto-def. They read; they never run.
- *   - `engine` — the bespoke execution engine's live preview parse.
+ *                Unconditional for YAML since D6 (WI-FL2.6): the viewer has no
+ *                flag. Still its own family because the composition wires
+ *                three extensions off it and the engine beside it stays gated.
+ *   - `engine` — the bespoke execution engine's live preview parse, behind
+ *                `advanced.workflowEngine` — the one gate left.
  *
  * @coordinates-with services/assembly/sourceEditorExtensions.ts — the sole caller
- * @coordinates-with services/featureFlags/workflowFeatureFlag.ts — the flags
+ * @coordinates-with services/featureFlags/workflowFeatureFlag.ts — the engine flag
  * @module services/assembly/workflowExtensionGates
  */
 
 import { isYamlFileName } from "@/utils/dropPaths";
-import {
-  isWorkflowEngineEnabled,
-  isWorkflowViewerEnabled,
-} from "@/services/featureFlags/workflowFeatureFlag";
+import { isWorkflowEngineEnabled } from "@/services/featureFlags/workflowFeatureFlag";
 
 export interface WorkflowExtensionGates {
   yaml: boolean;
@@ -40,7 +41,7 @@ export function workflowExtensionGates(
     : false;
   return {
     yaml,
-    viewer: yaml && isWorkflowViewerEnabled(),
+    viewer: yaml,
     engine: yaml && isWorkflowEngineEnabled(),
   };
 }

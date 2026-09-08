@@ -18,7 +18,7 @@
  *
  * @coordinates-with vitest.gates.config.ts — the tier whose coverage this pins
  * @coordinates-with scripts/check-scripts-parity.test.mjs — the guard this backstops
- * @module test/gateTierCoverage
+ * @module test/gateTierCoverage.test
  */
 import { describe, expect, it } from "vitest";
 import { readdirSync, readFileSync } from "node:fs";

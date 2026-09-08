@@ -19,7 +19,7 @@
  * @coordinates-with stores/mcpStore.ts — checkpoint state
  * @coordinates-with stores/mcpCheckpointPersistence.ts — disk rewrite on restore
  * @coordinates-with stores/documentStore.ts — setContent for restore
- * @coordinates-with stores/revisionStore.ts — bump on restore
+ * @coordinates-with stores/documentStore/revision.ts — bump on restore
  * @module components/McpHistory/McpHistoryButton
  */
 

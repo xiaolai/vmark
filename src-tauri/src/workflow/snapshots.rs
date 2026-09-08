@@ -3,19 +3,32 @@
 //! Before any workflow execution that modifies files, snapshot all affected
 //! files. Snapshots preserve the full relative path from the workspace root
 //! to prevent filename collisions between files in different directories.
+//!
+//! The copy is bounded and cancellable (#267, `snapshot_copy.rs`): a cancel
+//! that lands while the snapshot is being taken is observed within one
+//! chunk, and a file past `MAX_SNAPSHOT_FILE_BYTES` — or a snapshot past
+//! `MAX_SNAPSHOT_TOTAL_BYTES` — refuses the run rather than copying without
+//! end. A snapshot directory is CREATED, never reused (#264): an execution
+//! id that already has one is refused, so a repeated id cannot overwrite or
+//! mix with an earlier run's files.
 
+use super::snapshot_copy::{
+    copy_bounded, CopyRefusal, MAX_SNAPSHOT_FILE_BYTES, MAX_SNAPSHOT_TOTAL_BYTES,
+};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+
+pub use super::snapshot_restore::{list_snapshots, restore_snapshot};
 
 const MAX_SNAPSHOTS: usize = 50;
 
 /// Max accepted id length (a UUID is 36 chars; `snap-` + UUID is 41).
-const MAX_ID_LEN: usize = 64;
+pub(super) const MAX_ID_LEN: usize = 64;
 
 /// Validate a caller-supplied execution/snapshot id before it is embedded in
 /// a filesystem path. Only ASCII alphanumerics, `-` and `_` are allowed, so
 /// path separators and `..` traversal are structurally impossible.
-fn validate_id(id: &str) -> Result<(), String> {
+pub(super) fn validate_id(id: &str) -> Result<(), String> {
     if id.is_empty() || id.len() > MAX_ID_LEN {
         return Err(format!("Invalid snapshot id length: {}", id.len()));
     }
@@ -49,14 +62,83 @@ pub async fn create_snapshot(
     file_paths: &[PathBuf],
     workspace_root: &Path,
 ) -> Result<String, String> {
+    create_snapshot_unless(
+        app_data_dir,
+        execution_id,
+        file_paths,
+        workspace_root,
+        &|| false,
+    )
+    .await
+}
+
+/// [`create_snapshot`] that stops as soon as `should_stop` says so (#267) —
+/// the runner's cancel flag, checked between chunks of every copy.
+pub async fn create_snapshot_unless(
+    app_data_dir: &Path,
+    execution_id: &str,
+    file_paths: &[PathBuf],
+    workspace_root: &Path,
+    should_stop: &(dyn Fn() -> bool + Sync),
+) -> Result<String, String> {
     validate_id(execution_id)?;
     let snapshot_id = format!("snap-{}", execution_id);
-    let snapshot_dir = app_data_dir.join("workflow-snapshots").join(&snapshot_id);
+    let snapshots_root = app_data_dir.join("workflow-snapshots");
+    let snapshot_dir = snapshots_root.join(&snapshot_id);
 
-    tokio::fs::create_dir_all(&snapshot_dir)
+    tokio::fs::create_dir_all(&snapshots_root)
         .await
         .map_err(|e| format!("Failed to create snapshot directory: {}", e))?;
+    // `create_dir`, not `create_dir_all`: this id's directory must not exist
+    // yet (#264). Reusing an id would write this run's files over — and
+    // among — an earlier run's.
+    tokio::fs::create_dir(&snapshot_dir)
+        .await
+        .map_err(|e| match e.kind() {
+            std::io::ErrorKind::AlreadyExists => format!(
+                "a snapshot for execution id {execution_id:?} already exists; an execution id is used once"
+            ),
+            _ => format!("Failed to create snapshot directory: {}", e),
+        })?;
 
+    // Everything from here can fail, and until `metadata.json` lands the
+    // directory is not a recovery point — it is a partial copy of the user's
+    // files under an id nothing can reuse, because the `create_dir` above is
+    // the reuse guard (audit #554). So the body is fallible-in-one-place and
+    // the directory is removed unless it completes.
+    let outcome = fill_snapshot(
+        &snapshot_dir,
+        execution_id,
+        &snapshot_id,
+        file_paths,
+        workspace_root,
+        should_stop,
+    )
+    .await;
+    if outcome.is_err() {
+        if let Err(e) = tokio::fs::remove_dir_all(&snapshot_dir).await {
+            log::warn!("Failed to clean up the partial snapshot {snapshot_dir:?}: {e}");
+        }
+        return outcome;
+    }
+
+    // Cleanup after the new metadata is written so the retention count
+    // includes this snapshot (never leaves MAX_SNAPSHOTS + 1 behind).
+    cleanup_old_snapshots(app_data_dir).await;
+    outcome
+}
+
+/// Copy every file into an already-created `snapshot_dir` and write its
+/// metadata. Split out so the whole fallible span has one exit for the
+/// caller's cleanup to hang on (#554).
+async fn fill_snapshot(
+    snapshot_dir: &Path,
+    execution_id: &str,
+    snapshot_id: &str,
+    file_paths: &[PathBuf],
+    workspace_root: &Path,
+    should_stop: &(dyn Fn() -> bool + Sync),
+) -> Result<String, String> {
     // Canonical root for strip_prefix: validate_path returns canonicalized
     // paths (/private/tmp on macOS), which won't strip against a raw /tmp root.
     let canonical_root = workspace_root
@@ -65,6 +147,7 @@ pub async fn create_snapshot(
 
     let mut saved_files = Vec::new();
     let mut created_files = Vec::new();
+    let mut total_bytes: u64 = 0;
 
     for path in file_paths {
         // Sandbox validation: same containment rules as workflow file actions
@@ -100,15 +183,33 @@ pub async fn create_snapshot(
                 .map_err(|e| format!("Failed to create snapshot subdirectory: {}", e))?;
         }
 
-        tokio::fs::copy(&path, &dest)
+        // Bounded on the bytes copied, by the per-file cap or by what is
+        // left of the total, and cancellable between chunks (#267).
+        let remaining = MAX_SNAPSHOT_TOTAL_BYTES.saturating_sub(total_bytes);
+        let limit = MAX_SNAPSHOT_FILE_BYTES.min(remaining);
+        let copied = copy_bounded(&path, &dest, limit, should_stop)
             .await
-            .map_err(|e| format!("Failed to snapshot '{}': {}", path.display(), e))?;
+            .map_err(|e| match e {
+                CopyRefusal::Cancelled => {
+                    "cancelled while the snapshot was being taken".to_string()
+                }
+                CopyRefusal::TooLarge { .. } if remaining < MAX_SNAPSHOT_FILE_BYTES => format!(
+                    "snapshot would exceed {MAX_SNAPSHOT_TOTAL_BYTES} bytes in total at '{}'",
+                    path.display()
+                ),
+                CopyRefusal::TooLarge { limit } => format!(
+                    "'{}' is over the {limit}-byte snapshot limit",
+                    path.display()
+                ),
+                CopyRefusal::Io(e) => format!("Failed to snapshot '{}': {}", path.display(), e),
+            })?;
+        total_bytes += copied;
         saved_files.push(path.to_string_lossy().to_string());
     }
 
     // Write metadata
     let info = SnapshotInfo {
-        id: snapshot_id.clone(),
+        id: snapshot_id.to_string(),
         execution_id: execution_id.to_string(),
         timestamp: std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -124,140 +225,7 @@ pub async fn create_snapshot(
         .await
         .map_err(|e| format!("Failed to write metadata: {}", e))?;
 
-    // Cleanup after the new metadata is written so the retention count
-    // includes this snapshot (never leaves MAX_SNAPSHOTS + 1 behind).
-    cleanup_old_snapshots(app_data_dir).await;
-
-    Ok(snapshot_id)
-}
-
-/// Restore all files from a snapshot.
-///
-/// Reserved for the workflow-undo feature (roadmap: workflow-engine WI-5.4
-/// "File Snapshots for Undo"). The write side (`create_snapshot`) is already
-/// live in the runner; this read side is not yet wired to a Tauri command.
-/// Kept deliberately per audit-remediation WI-1.5.
-#[allow(dead_code)]
-pub async fn restore_snapshot(
-    app_data_dir: &Path,
-    snapshot_id: &str,
-    workspace_root: &Path,
-) -> Result<(), String> {
-    validate_id(snapshot_id)?;
-    let snapshot_dir = app_data_dir.join("workflow-snapshots").join(snapshot_id);
-
-    let meta_path = snapshot_dir.join("metadata.json");
-    let meta_str = tokio::fs::read_to_string(&meta_path)
-        .await
-        .map_err(|e| format!("Snapshot not found: {}", e))?;
-    let info: SnapshotInfo =
-        serde_json::from_str(&meta_str).map_err(|e| format!("Invalid snapshot metadata: {}", e))?;
-
-    // Canonical root so strip_prefix agrees with the canonicalized paths
-    // that create_snapshot stores (e.g. /private/tmp vs /tmp on macOS).
-    let canonical_root = workspace_root
-        .canonicalize()
-        .unwrap_or_else(|_| workspace_root.to_path_buf());
-
-    for original_path_str in &info.files {
-        let original_path = PathBuf::from(original_path_str);
-
-        // Validate restore path with the same sandbox rules — catches symlink
-        // escapes and metadata tampering (relative/absolute traversal). Stored
-        // paths are canonicalized by create_snapshot → check canonical root.
-        if let Err(e) = super::sandbox::validate_path(original_path_str, &canonical_root) {
-            log::warn!("Skipping restore of '{}' — {}", original_path_str, e);
-            continue;
-        }
-
-        // Find the snapshot file using relative path
-        let Ok(relative) = original_path.strip_prefix(&canonical_root) else {
-            log::warn!(
-                "Skipping restore of '{}' — outside workspace",
-                original_path_str
-            );
-            continue;
-        };
-        let snapshot_file = snapshot_dir.join(relative);
-
-        if snapshot_file.exists() {
-            // Create parent directory if needed
-            if let Some(parent) = original_path.parent() {
-                let _ = tokio::fs::create_dir_all(parent).await;
-            }
-            tokio::fs::copy(&snapshot_file, &original_path)
-                .await
-                .map_err(|e| format!("Failed to restore '{}': {}", original_path_str, e))?;
-        } else {
-            log::warn!(
-                "Snapshot file missing for '{}' — skipping",
-                original_path_str
-            );
-        }
-    }
-
-    // Delete files that were created by the workflow (didn't exist before)
-    for created_path_str in &info.created_files {
-        if let Err(e) = super::sandbox::validate_path(created_path_str, &canonical_root) {
-            log::warn!(
-                "Skipping delete of created file '{}' — {}",
-                created_path_str,
-                e
-            );
-            continue;
-        }
-        let created_path = PathBuf::from(created_path_str);
-        if created_path.exists() {
-            if let Err(e) = tokio::fs::remove_file(&created_path).await {
-                log::warn!(
-                    "Failed to delete created file '{}': {}",
-                    created_path_str,
-                    e
-                );
-            }
-        }
-    }
-
-    Ok(())
-}
-
-/// List recent snapshots, sorted by timestamp descending.
-///
-/// Reserved for the workflow-undo UI (roadmap: workflow-engine WI-5.4); not yet
-/// wired to a Tauri command. Kept deliberately per audit-remediation WI-1.5.
-#[allow(dead_code)]
-pub async fn list_snapshots(app_data_dir: &Path) -> Result<Vec<SnapshotInfo>, String> {
-    let snapshots_dir = app_data_dir.join("workflow-snapshots");
-    if !snapshots_dir.exists() {
-        return Ok(vec![]);
-    }
-
-    let mut snapshots = Vec::new();
-    let mut dir = tokio::fs::read_dir(&snapshots_dir)
-        .await
-        .map_err(|e| format!("Failed to read snapshots directory: {}", e))?;
-
-    while let Some(entry) = dir
-        .next_entry()
-        .await
-        .map_err(|e| format!("Failed to read entry: {}", e))?
-    {
-        let meta_path = entry.path().join("metadata.json");
-        if meta_path.exists() {
-            match tokio::fs::read_to_string(&meta_path).await {
-                Ok(meta_str) => match serde_json::from_str::<SnapshotInfo>(&meta_str) {
-                    Ok(info) => snapshots.push(info),
-                    Err(e) => log::warn!("Corrupt snapshot metadata at {:?}: {}", meta_path, e),
-                },
-                Err(e) => log::warn!("Unreadable snapshot at {:?}: {}", meta_path, e),
-            }
-        }
-    }
-
-    snapshots.sort_by_key(|s| std::cmp::Reverse(s.timestamp));
-    snapshots.truncate(MAX_SNAPSHOTS);
-
-    Ok(snapshots)
+    Ok(snapshot_id.to_string())
 }
 
 #[cfg(test)]

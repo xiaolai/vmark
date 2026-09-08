@@ -39,7 +39,7 @@
  *
  * @coordinates-with scripts/measure-open-latency.mjs — consumes the manifest.
  * @coordinates-with src/utils/fileSizeThresholds.ts — tier boundaries.
- * @coordinates-with dev-docs/plans/20260422-large-file-open-ux.md — deliverable.
+ * Origin: Large-file open UX plan (2026-04-22, retired) — this generator was one of its deliverables.
  */
 
 import { mkdirSync, writeFileSync, statSync } from "node:fs";

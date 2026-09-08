@@ -26,18 +26,18 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Runtime};
 use tokio_util::sync::CancellationToken;
 
 // Resource limits for file actions
 const MAX_OUTPUT_SIZE_BYTES: usize = 5 * 1024 * 1024; // 5MB per step output in IPC
 
 /// Emit a Tauri event, logging failures instead of silently dropping them.
-fn emit_event<S: serde::Serialize + Clone>(app: &AppHandle, event: &str, payload: S) {
-    if let Err(e) = app.emit(event, payload.clone()) {
+fn emit_event<R: Runtime>(app: &AppHandle<R>, event: &str, data: impl serde::Serialize + Clone) {
+    if let Err(e) = app.emit(event, data.clone()) {
         log::error!("Failed to emit '{}': {}", event, e);
         if event == "workflow:complete" {
-            if let Err(e2) = app.emit(event, payload) {
+            if let Err(e2) = app.emit(event, data) {
                 log::error!("Retry failed for '{}': {}", event, e2);
             }
         }
@@ -46,15 +46,15 @@ fn emit_event<S: serde::Serialize + Clone>(app: &AppHandle, event: &str, payload
 
 /// A resolved step with its ID and dependencies.
 #[derive(Debug)]
-struct ResolvedStep {
+pub(super) struct ResolvedStep {
     id: String,
     step: RawStep,
     needs: Vec<String>,
 }
 
-/// Topologically sort steps by `needs:` dependencies.
-/// Returns steps in execution order. Steps with no deps come first.
-fn topological_sort(steps: Vec<RawStep>) -> Result<Vec<ResolvedStep>, String> {
+/// Topologically sort steps by `needs:`; no-dep steps first. `run_workflow`
+/// runs it at ADMISSION too (#522), so this `?` never fails a spawned run.
+pub(super) fn topological_sort(steps: Vec<RawStep>) -> Result<Vec<ResolvedStep>, String> {
     // Build resolved steps with IDs
     let mut resolved: Vec<ResolvedStep> = Vec::new();
     let mut id_set: HashSet<String> = HashSet::new();
@@ -233,8 +233,8 @@ fn spawn_cancel_bridge(
 /// (lets the runner exercise action-only workflows from contexts where no
 /// AI provider has been selected yet).
 #[allow(clippy::too_many_arguments)]
-pub async fn run_workflow_sequential(
-    app: &AppHandle,
+pub async fn run_workflow_sequential<R: Runtime>(
+    app: &AppHandle<R>,
     workflow: RawWorkflow,
     env: HashMap<String, String>,
     workspace_root: &Path,

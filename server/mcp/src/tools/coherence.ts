@@ -13,7 +13,7 @@
  * `coherence_resolve`, so the name, the header and the annotation agree again
  * and a client can auto-approve the reads.
  *
- * Plan: dev-docs/plans/20260718-coherence-layer.md WI-1.10.
+ * Origin: Coherence layer plan (2026-07-18, retired) WI-1.10.
  *
  * @coordinates-with tools/coherenceResolve.ts (the one mutating action)
  */
@@ -22,12 +22,13 @@ import { z } from 'zod';
 import { VMarkMcpServer } from '../server.js';
 import { RECOVERY } from '../utils/toolOutput.js';
 
-const READ_ACTIONS = ['status', 'edges', 'claims', 'contexts'] as const;
+export const COHERENCE_TOOL = 'coherence' as const;
+export const COHERENCE_ACTIONS = ['status', 'edges', 'claims', 'contexts'] as const;
 
 export function registerCoherenceTool(server: VMarkMcpServer): void {
   server.registerTool(
     {
-      name: 'coherence',
+      name: COHERENCE_TOOL,
       title: 'VMark Workspace Coherence',
       // Every action reads the kernel and writes nothing. Closed-world: the
       // ledger lives inside the workspace's own `.vmark/` directory.
@@ -46,7 +47,7 @@ export function registerCoherenceTool(server: VMarkMcpServer): void {
         '- contexts: The context set (the implicit default is always present). Returns an array of {id, name, parent, enforcement, visibleClaims, errors}.\n\n' +
         'All actions require `workspace_root`: the absolute path of the workspace to query (learn it from the workspace/session tools).',
       inputSchema: {
-        action: z.enum(READ_ACTIONS).describe('The action to perform'),
+        action: z.enum(COHERENCE_ACTIONS).describe('The action to perform'),
         workspace_root: z
           .string()
           .min(1)
@@ -57,10 +58,10 @@ export function registerCoherenceTool(server: VMarkMcpServer): void {
       const action = args.action;
       if (
         typeof action !== 'string' ||
-        !(READ_ACTIONS as readonly string[]).includes(action)
+        !(COHERENCE_ACTIONS as readonly string[]).includes(action)
       ) {
         return VMarkMcpServer.errorResult(
-          `Invalid action: ${String(action)}. Expected: ${READ_ACTIONS.join(', ')}`,
+          `Invalid action: ${String(action)}. Expected: ${COHERENCE_ACTIONS.join(', ')}`,
         );
       }
       if (
@@ -79,9 +80,17 @@ export function registerCoherenceTool(server: VMarkMcpServer): void {
           | 'vmark.coherence.contexts',
         workspace_root: args.workspace_root,
       });
+      // Action-specific, and never the default: this tool takes only a
+      // `workspace_root`, so "target a specific tabId, or ask for one part at
+      // a time" names two things it does not have (audit R2 #219). `status`
+      // returns five counters and cannot overflow, so it keeps the default.
       return VMarkMcpServer.successJsonResult(
         data,
-        action === 'edges' ? RECOVERY.coherenceEdges : RECOVERY.default,
+        action === 'edges'
+          ? RECOVERY.coherenceEdges
+          : action === 'claims' || action === 'contexts'
+            ? RECOVERY.coherenceList
+            : RECOVERY.default,
       );
     },
   );

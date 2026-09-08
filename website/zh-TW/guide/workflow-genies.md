@@ -94,7 +94,7 @@ VMark 的精靈（Genies）有兩種型態：
 
 ## 範例
 
-VMark 隨附一份範例工作流程，位於內建精靈中的 `outline-and-polish.yml`。將它複製到您的使用者精靈目錄即可自訂：
+VMark 在應用程式套件內（`Resources/resources/workflows/examples/`）隨附範例工作流程 `triage-and-translate.yml`，它不會自動安裝到您的精靈目錄；若要自訂，請將它複製到該目錄。下面的工作流程是另一個範例：
 
 ```yaml
 name: Outline and Polish

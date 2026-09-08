@@ -30,10 +30,18 @@ vi.mock("@/stores/settingsStore", () => ({
   prosemirrorToTauri: (key: string) => prosemirrorToTauriMock(key),
 }));
 
+// Only `genieWarn` is replaced; the rest of the debug surface stays real.
+const genieWarn = vi.fn();
+vi.mock("@/utils/debug", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/debug")>()),
+  genieWarn: (...args: unknown[]) => genieWarn(...args),
+}));
+
 // Import AFTER mocks so the SUT picks up the mocked stores.
 import { getMenuShortcuts } from "./useGenieShortcuts";
 
 beforeEach(() => {
+  genieWarn.mockReset();
   getAllShortcutsMock.mockReset();
   prosemirrorToTauriMock.mockReset();
   prosemirrorToTauriMock.mockImplementation((key: string) => `TAURI(${key})`);
@@ -73,5 +81,27 @@ describe("getMenuShortcuts", () => {
       throw new Error("store boom");
     });
     expect(getMenuShortcuts()).toBeNull();
+  });
+
+  // Audit #734 — the fallback is right, the SILENCE was not: a shortcut
+  // reverting to the backend default because a store read threw looks
+  // identical to one that was never customized.
+  it("reports the failure instead of swallowing it", () => {
+    const boom = new Error("store boom");
+    getAllShortcutsMock.mockImplementation(() => {
+      throw boom;
+    });
+
+    getMenuShortcuts();
+
+    expect(genieWarn).toHaveBeenCalledWith(expect.any(String), boom);
+  });
+
+  it("says nothing when the binding is simply absent", () => {
+    getAllShortcutsMock.mockReturnValue({});
+
+    getMenuShortcuts();
+
+    expect(genieWarn).not.toHaveBeenCalled();
   });
 });

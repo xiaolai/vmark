@@ -120,4 +120,17 @@ describe("contentServerStore — panel, iframe, view, errors", () => {
     expect(selectIframeUrl(st)).toBe("http://i");
     expect(selectViewMode(st)).toBe("graph");
   });
+  // Audit #715 — the previous run's `/__auth?t=<nonce>` link names a dead port
+  // and a spent nonce. Left in place it stayed observable right through
+  // `setRunning`, until the fresh auth URL settled — and if that fetch failed,
+  // the KB panel would have loaded the dead link.
+  it("setStarting drops the previous run's iframe URL", () => {
+    useContentServerStore.getState().setRunning("http://127.0.0.1:7", 7);
+    useContentServerStore.getState().setIframeUrl("http://127.0.0.1:7/__auth?t=old");
+
+    useContentServerStore.getState().setStarting();
+
+    expect(useContentServerStore.getState().iframeUrl).toBeNull();
+    expect(useContentServerStore.getState().status).toBe("starting");
+  });
 });

@@ -577,7 +577,7 @@ body {
    `animationend` listeners exist), and because this is UNLAYERED it also
    neutralises Tailwind's layered `animate-*` utilities. Per-file blocks are
    deleted — the only sanctioned exceptions RESTORE a resting state
-   (multi-cursor.css, syntax-reveal.css, StatusBar.css), each commented at
+   (multi-cursor.css, StatusBar.css), each commented at
    the site. src/test/reducedMotionGlobal.test.ts pins all of this.
    =========================================== */
 @media (prefers-reduced-motion: reduce) {

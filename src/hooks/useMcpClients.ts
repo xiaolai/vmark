@@ -5,7 +5,7 @@
  *   to the MCP bridge — listens to real-time connect/disconnect events
  *   for status bar display.
  *
- * @coordinates-with mcpHealthStore.ts — stores client list for UI
+ * @coordinates-with stores/mcpStore.ts — stores client list for UI
  * @module hooks/useMcpClients
  */
 

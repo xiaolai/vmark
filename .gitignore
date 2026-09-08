@@ -206,3 +206,7 @@ CLAUDE.local.md
 .cc-suite/original-claude.md
 # <<< cc-suite <<<
 
+
+# Python bytecode caches (scripts/lib/ptyRun.py) — a .pyc is binary and would trip lint:no-nul-bytes
+__pycache__/
+*.pyc

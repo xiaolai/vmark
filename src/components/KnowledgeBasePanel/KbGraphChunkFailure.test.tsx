@@ -30,6 +30,16 @@ vi.mock("./KbGraphView", () => {
 });
 vi.mock("@/services/contentServer", () => ({
   getKbGraph: () => Promise.resolve({ nodes: [], edges: [] }),
+  // The panel probes the runtime on open (WI-FL1.1); this file is about the
+  // graph chunk, so the runtime is simply ready.
+  getContentServerRuntime: () =>
+    Promise.resolve({
+      node: "ready",
+      nodePath: "/usr/local/bin/node",
+      cli: "ready",
+      cliSource: "provisioned",
+      detail: null,
+    }),
 }));
 
 import { KnowledgeBasePanel } from "./KnowledgeBasePanel";

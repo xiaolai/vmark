@@ -11,9 +11,9 @@
  * useContentSearchScheduler; the option buttons and result list are split
  * into ContentSearchToggles / ContentSearchResults.
  *
- * @coordinates-with contentSearchStore.ts — search state
+ * @coordinates-with stores/uiStore/contentSearchSlice.ts — search state
  * @coordinates-with contentSearchNavigation.ts — pending scroll on file open
- * @coordinates-with useFileOpen.ts — opens file in tab
+ * @coordinates-with services/navigation/fileOpen.ts — opens file in tab
  * @coordinates-with useContentSearchScheduler.ts — debounced search dispatch
  * @coordinates-with ContentSearchToggles.tsx — option buttons + status text
  * @coordinates-with ContentSearchResults.tsx — grouped file/match list

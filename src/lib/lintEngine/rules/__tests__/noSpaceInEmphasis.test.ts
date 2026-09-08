@@ -133,3 +133,42 @@ describe("E05 noSpaceInEmphasis", () => {
     expect(result.some((d) => d.ruleId === "E05")).toBe(false);
   });
 });
+
+// Audit 20260907 round 3 (#831/#833/#834/#836/#837). Each case was a false
+// positive produced by this rule's private idea of where code is, or by a
+// regex that ignored escapes. It now reads `sourceMask`, the same model E01
+// and W03 use.
+describe("E05 — text that only LOOKS like spaced emphasis", () => {
+  const flagged = (input: string) => lintMarkdown(input).some((d) => d.ruleId === "E05");
+
+  it.each([
+    { name: "inside a code span that crosses a line ending (#831)", input: "`code\n** bold **\nmore`\n" },
+    { name: "inside a double-backtick span (#831)", input: "a ``x\n** bold **\ny`` b\n" },
+    { name: "inside a fence a blockquote prefixes (#836)", input: "> ```\n> ** bold **\n> ```\n" },
+    { name: "inside a fence a list item prefixes (#836)", input: "- item\n\n  ```\n  ** bold **\n  ```\n" },
+    { name: "a match whose closing marker is inside a code span (#837)", input: "a ** b `c ** d` e\n" },
+    { name: "an ESCAPED opening delimiter (#833)", input: "a \\* text * b\n" },
+    { name: "CJK identifiers around infix multiplication (#834)", input: "甲 * 乙 * 丙\n" },
+    { name: "a negative operand (#834)", input: "x * -4 * y\n" },
+  ])("$name is not flagged", ({ input }) => {
+    expect(flagged(input)).toBe(false);
+  });
+
+  // The other direction, which is what makes the operand rule worth keeping:
+  // a WORDY flank is emphasis, and widening the operand rule far enough to
+  // accept it would silence the rule's own purpose.
+  it.each([
+    { name: "a wordy flank is still emphasis", input: "some * emphasized * text\n" },
+    { name: "an unescaped delimiter beside an escaped one", input: "a \\* b ** c ** d\n" },
+    { name: "emphasis after a fenced block closes", input: "```\ncode\n```\n\n** bold **\n" },
+  ])("$name", ({ input }) => {
+    expect(flagged(input)).toBe(true);
+  });
+
+  it("reports the offset of the real source, not of a recount", () => {
+    const source = "line one\n\n** bold **\n";
+    const d = lintMarkdown(source).find((x) => x.ruleId === "E05");
+    expect(d).toBeDefined();
+    expect(source.slice(d!.offset, d!.offset + 2)).toBe("**");
+  });
+});

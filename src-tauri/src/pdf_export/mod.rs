@@ -13,6 +13,7 @@
 //! the finished file is the only route that behaves identically on all three.
 
 pub mod commands;
+pub mod export_gate;
 pub mod heading;
 pub mod outline;
 mod outline_match;

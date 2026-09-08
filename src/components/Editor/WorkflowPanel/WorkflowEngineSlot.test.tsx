@@ -33,7 +33,7 @@ globalThis.ResizeObserver ??= class {
 
 const initialAdvanced = useSettingsStore.getState().advanced;
 
-function setFlags(patch: { workflowViewer?: boolean; workflowEngine?: boolean }) {
+function setFlags(patch: { workflowEngine?: boolean }) {
   useSettingsStore.setState({
     advanced: { ...useSettingsStore.getState().advanced, ...patch },
   });
@@ -62,7 +62,7 @@ function openPanelWithGraph() {
 }
 
 beforeEach(() => {
-  setFlags({ workflowViewer: false, workflowEngine: false });
+  setFlags({ workflowEngine: false });
   openPanelWithGraph();
 });
 
@@ -80,14 +80,14 @@ describe("WorkflowEngineSlot", () => {
   it("stays closed with the VIEWER on and the engine off — the split's whole point", () => {
     // A user who wants expression completion must not thereby get a Run button
     // wired to a runner that executes YAML.
-    setFlags({ workflowViewer: true, workflowEngine: false });
+    setFlags({ workflowEngine: false });
     const { container } = render(<WorkflowEngineSlot />);
     expect(container.firstChild).toBeNull();
     expect(screen.queryByRole("toolbar")).toBeNull();
   });
 
   it("mounts the engine panel once the engine flag is on", async () => {
-    setFlags({ workflowViewer: false, workflowEngine: true });
+    setFlags({ workflowEngine: true });
     render(<WorkflowEngineSlot />);
     // React.lazy: the panel resolves on a microtask.
     await waitFor(() => expect(screen.getByRole("toolbar")).toBeTruthy());

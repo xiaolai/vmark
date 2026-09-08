@@ -27,11 +27,19 @@ export default {
 
       try {
         await emitMenu(client, "find-replace", ctx.windowLabel);
-        // Stable control classes from src/components/FindBar/FindBar.tsx:
-        // 2 .find-bar-input (find + replace), 2 .find-bar-nav-btn (prev/next),
-        // 2 .find-bar-icon-btn (replace / replace all), 1 .find-bar-close,
+        // Structure from src/components/FindBar/FindBar.tsx: 2 .find-bar-input
+        // (find + replace), 2 buttons in .find-bar-nav (prev/next), 2 buttons in
+        // .find-bar-replace-actions (replace / replace all), 1 .find-bar-close,
         // 2-3 .find-bar-toggle (case + whole-word always; regex is
         // settings-gated behind enableRegexSearch).
+        //
+        // The nav and replace buttons are counted by their CONTAINER, not by a
+        // per-button class: the UI-consistency migration (4b40be27b, 2026-08-29)
+        // moved every one of them onto the shared `.vm-icon-btn` primitive and
+        // retired `.find-bar-nav-btn` / `.find-bar-icon-btn`, and this journey
+        // kept counting the retired names — 0 of 2 — until the suite was next
+        // run against a live app (2026-09-07). A container class names a role
+        // the primitive migration has no reason to touch.
         const bar = await poll(
           () =>
             evalJs(
@@ -43,8 +51,8 @@ export default {
                    present: true,
                    inputs: el.querySelectorAll('.find-bar-input').length,
                    toggles: el.querySelectorAll('.find-bar-toggle').length,
-                   navBtns: el.querySelectorAll('.find-bar-nav-btn').length,
-                   replaceBtns: el.querySelectorAll('.find-bar-icon-btn').length,
+                   navBtns: el.querySelectorAll('.find-bar-nav button').length,
+                   replaceBtns: el.querySelectorAll('.find-bar-replace-actions button').length,
                    closeBtn: !!el.querySelector('.find-bar-close'),
                  };
                })()`

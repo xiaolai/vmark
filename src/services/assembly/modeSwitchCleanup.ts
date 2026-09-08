@@ -16,7 +16,7 @@
  *
  * @coordinates-with wysiwygFlush.ts — flushActiveWysiwygNow ensures content is serialized
  * @coordinates-with editorStore.ts — sourceMode flag controls which editor is active
- * @module utils/modeSwitchCleanup
+ * @module services/assembly/modeSwitchCleanup
  */
 
 import { useEditorContextMenuStore } from "@/stores/editorContextMenuStore";

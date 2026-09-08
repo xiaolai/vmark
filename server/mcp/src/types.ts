@@ -21,7 +21,7 @@ import type { ZodTypeAny } from 'zod';
  * keyword the in-house converter did not model (`minimum`, `maximum`,
  * `pattern`, `format`, `minLength`, `anyOf`, `allOf`, `const`, `$ref`).
  */
-export type ToolShape = Record<string, ZodTypeAny>;
+type ToolShape = Record<string, ZodTypeAny>;
 
 /**
  * Behavioural hints a client can show or gate on (MCP `annotations`).
@@ -29,7 +29,7 @@ export type ToolShape = Record<string, ZodTypeAny>;
  * All five are HINTS, not guarantees — the spec is explicit that clients must
  * not make trust decisions on annotations from an untrusted server.
  *
- * NOTE ON COMPOSITE TOOLS: VMark exposes seven tools that each multiplex many
+ * NOTE ON COMPOSITE TOOLS: VMark exposes nine tools, most multiplexing several
  * actions behind an `action` enum. A single tool cannot be both
  * `readOnlyHint: true` (for `document.read`) and `destructiveHint: true` (for
  * `document.write`). Every tool here therefore declares the SAFEST accurate

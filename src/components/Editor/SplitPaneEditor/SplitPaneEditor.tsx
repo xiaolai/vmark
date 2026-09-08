@@ -14,9 +14,11 @@
 //                          resize handle
 //                          (keyboard ArrowLeft/Right)
 //
-// Skeleton today: validator slot is reserved on FormatConfig but the
-// gutter rendering lives inside SourcePane in WI-1A.8. The split fraction
-// is held in component state and clamped to [0.2, 0.8].
+// Validation: SourcePane runs the adapter's validator and reports its
+// diagnostics (`onDiagnostics`); this component renders them in
+// ValidationGutter beside the source pane, with click-to-jump back into the
+// source. The split fraction is held in component state and clamped to
+// [0.2, 0.8].
 
 import { useCallback, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";

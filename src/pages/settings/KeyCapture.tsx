@@ -15,14 +15,19 @@ import { captureChord } from "@/pages/settings/captureChord";
 
 interface KeyCaptureProps {
   shortcut: ShortcutDefinition;
-  conflict: ShortcutDefinition | null;
+  /** The shortcut that already owns `key`, or null. Resolved for the CAPTURED
+   *  chord (audit #425): the parent used to pass the shortcut's existing
+   *  binding's conflict, so a freshly pressed chord another shortcut owned
+   *  showed no warning, or a stale one. */
+  getConflict: (key: string) => ShortcutDefinition | null;
   onCapture: (key: string) => void;
   onCancel: () => void;
 }
 
-export function KeyCapture({ shortcut, conflict, onCapture, onCancel }: KeyCaptureProps) {
+export function KeyCapture({ shortcut, getConflict, onCapture, onCancel }: KeyCaptureProps) {
   const { t } = useTranslation("settings");
   const [capturedKey, setCapturedKey] = useState<string | null>(null);
+  const conflict = capturedKey ? getConflict(capturedKey) : null;
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (isImeKeyEvent(e)) return;

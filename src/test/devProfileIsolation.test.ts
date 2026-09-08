@@ -29,7 +29,7 @@
  * @coordinates-with src-tauri/tauri.dev.conf.json — the dev override
  * @coordinates-with e2e/lib/vmarkMcp.mjs — resolves the dev profile from it
  * @coordinates-with server/mcp/src/utils/portFile.ts — resolves the release one
- * @module test/devProfileIsolation
+ * @module test/devProfileIsolation.test
  */
 
 import { readFileSync } from "node:fs";

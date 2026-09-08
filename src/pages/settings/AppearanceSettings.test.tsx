@@ -163,13 +163,33 @@ describe("AppearanceSettings — the titlebar filename toggle is macOS-only", ()
     ).toBeNull();
   });
 
-  it("keeps the rest of the Window group off macOS", () => {
-    // The gate must take one row, not the group around it.
+  it("withholds the whole Window group off macOS rather than showing it empty", () => {
+    // The titlebar toggle is the group's only row (WI-FL2.2 removed the other
+    // one), so a gate on the row alone would leave a heading over nothing.
     platform.isMac = false;
     render(<AppearanceSettings />);
-    expect(
-      screen.getByRole("switch", { name: /auto-?hide status bar/i })
-    ).toBeInTheDocument();
+    expect(screen.queryByText("Window")).toBeNull();
+  });
+
+  it("shows the Window group on macOS", () => {
+    render(<AppearanceSettings />);
+    expect(screen.getByText("Window")).toBeInTheDocument();
+  });
+});
+
+// D8 / WI-FL2.2 — `appearance.autoHideStatusBar` had a default, a type, a
+// row and ten translations, and no consumer: nothing read it, so the toggle
+// did nothing. It is gone, with `migrateRemoveAutoHideStatusBar` cleaning
+// persisted blobs; this pins that no surface offers it again.
+describe("AppearanceSettings — the dead auto-hide status bar toggle is gone", () => {
+  it("offers no auto-hide status bar switch on any platform", () => {
+    for (const isMac of [true, false]) {
+      platform.isMac = isMac;
+      const { unmount } = render(<AppearanceSettings />);
+      expect(screen.queryByRole("switch", { name: /auto-?hide status bar/i })).toBeNull();
+      expect(screen.queryByText(/auto-?hide status bar/i)).toBeNull();
+      unmount();
+    }
   });
 });
 

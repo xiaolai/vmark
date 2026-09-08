@@ -13,6 +13,9 @@ interface PromptHistoryDropdownProps {
   selectedIndex: number;
   onSelect(index: number): void;
   onClose(): void;
+  /** Forget every recorded prompt — the store's `clearHistory`, which had no
+   *  surface until this footer (WI-FL3.5). */
+  clearHistory(): void;
 }
 
 /** Renders a searchable dropdown of previous freeform prompts above the GeniePicker textarea. */
@@ -21,6 +24,7 @@ export function PromptHistoryDropdown({
   selectedIndex,
   onSelect,
   onClose,
+  clearHistory,
 }: PromptHistoryDropdownProps) {
   const { t } = useTranslation("ai");
   const listRef = useRef<HTMLDivElement>(null);
@@ -88,6 +92,11 @@ export function PromptHistoryDropdown({
             </div>
           );
         })}
+      </div>
+      <div className="prompt-history-dropdown-footer">
+        <button type="button" className="vm-btn vm-btn--plain vm-btn--compact" onClick={clearHistory}>
+          {t("history.clear")}
+        </button>
       </div>
     </div>
   );

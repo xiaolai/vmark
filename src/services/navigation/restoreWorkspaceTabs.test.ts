@@ -29,12 +29,23 @@ vi.mock("@/stores/tabStore", () => ({
   },
   tabFilePath: (t: { filePath: string | null }) => t.filePath,
 }));
-const mockTryOpenMediaFile = vi.fn(() => false);
+const mockTryOpenMediaFile = vi.fn<(windowLabel: string, path: string) => boolean>(() => false);
 vi.mock("@/services/navigation/openMediaFile", () => ({
-  tryOpenMediaFile: (...a: unknown[]) => mockTryOpenMediaFile(...a),
+  tryOpenMediaFile: (windowLabel: string, path: string) =>
+    mockTryOpenMediaFile(windowLabel, path),
 }));
 vi.mock("@/services/tabs/replaceableTab", () => ({
   getReplaceableTab: (...a: unknown[]) => mockGetReplaceableTab(...a),
+}));
+// Only `workspaceWarn` is replaced; the rest of the debug surface stays real.
+const workspaceWarn = vi.fn();
+vi.mock("@/utils/debug", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/debug")>()),
+  workspaceWarn: (...args: unknown[]) => workspaceWarn(...args),
+}));
+const mockApplyFileOwnershipAfterOpen = vi.fn();
+vi.mock("@/services/workspaces/fileOwnership", () => ({
+  applyFileOwnershipAfterOpen: (...a: unknown[]) => mockApplyFileOwnershipAfterOpen(...a),
 }));
 vi.mock("@/stores/documentStore", () => ({
   useDocumentStore: {
@@ -47,11 +58,14 @@ vi.mock("@/stores/documentStore", () => ({
 }));
 
 import { restoreWorkspaceTabs } from "./restoreWorkspaceTabs";
+import { useClosedTabScopesStore } from "@/stores/tabStoreClosedScopes";
 
 beforeEach(() => {
   [mockReadTextFile, mockFindExistingTabForPath, mockCreateTab, mockIngestExternalContent,
-   mockSetLineMetadata, mockCloseTab, mockGetReplaceableTab, mockTryOpenMediaFile]
+   mockSetLineMetadata, mockCloseTab, mockGetReplaceableTab, mockTryOpenMediaFile,
+   mockApplyFileOwnershipAfterOpen, workspaceWarn]
     .forEach((m) => m.mockReset());
+  useClosedTabScopesStore.getState().resetClosedScopes();
   mockTryOpenMediaFile.mockReturnValue(false);
   mockGetReplaceableTab.mockReturnValue(null);
   mockTabs = [{ id: "blank-1", kind: "document", filePath: null }];
@@ -295,5 +309,162 @@ describe("#1313 audit — media files are not read as text on restore", () => {
     mockTryOpenMediaFile.mockReturnValue(false);
     await restoreWorkspaceTabs("main", ["/w/a.md"]);
     expect(mockReadTextFile).toHaveBeenCalledWith("/w/a.md");
+  });
+});
+
+// Audit 20260907 (#480): every other open path — fileOpen, Finder, media,
+// replace-tab — runs applyFileOwnershipAfterOpen after ingest, which claims the
+// tab for its workspace instance and marks a copy that is already writable in
+// another window read-only. Restored text tabs skipped it, so a workspace
+// reopened in a second window could hold a second WRITABLE copy of a file.
+describe("#480 — restored text tabs get file ownership like every other open", () => {
+  it("applies ownership after a successful ingest, for the created tab and path", async () => {
+    await restoreWorkspaceTabs("main", ["/a.md"]);
+    expect(mockApplyFileOwnershipAfterOpen).toHaveBeenCalledWith("tab-/a.md", "/a.md");
+    const ingestOrder = mockIngestExternalContent.mock.invocationCallOrder[0];
+    const ownershipOrder = mockApplyFileOwnershipAfterOpen.mock.invocationCallOrder[0];
+    expect(ownershipOrder).toBeGreaterThan(ingestOrder);
+  });
+
+  it("does not claim ownership for a path that could not be read", async () => {
+    mockReadTextFile.mockRejectedValue(new Error("ENOENT"));
+    await restoreWorkspaceTabs("main", ["/gone.md"]);
+    expect(mockApplyFileOwnershipAfterOpen).not.toHaveBeenCalled();
+  });
+
+  it("rolls the tab back when the ownership step throws, like an ingest failure", async () => {
+    mockApplyFileOwnershipAfterOpen.mockImplementation(() => {
+      throw new Error("claim failed");
+    });
+    const created = await restoreWorkspaceTabs("main", ["/a.md"]);
+    expect(created).toBe(0);
+    expect(mockCloseTab).toHaveBeenCalledWith("main", "tab-/a.md");
+  });
+});
+
+// Audit #979/#980 — the two dedup rules are DIFFERENT rules.
+// `findExistingTabForPath` matches on the DOCUMENT's filePath, `createTab` on
+// the TAB's, so a tab another opener created but has not ingested yet is
+// invisible to the first check and deduplicated by the second: `createTab`
+// hands back THEIR tab id, and this loop then overwrote its contents — or, on
+// an ingest failure, CLOSED it, complete with a false "recently closed" entry.
+describe("restoreWorkspaceTabs — createTab deduplication (audit #979/#980)", () => {
+  it("does not ingest into, or count, a tab createTab deduplicated onto", async () => {
+    mockTabs = [{ id: "theirs", kind: "document", filePath: "/a.md" }];
+    // The document has not been created yet, so the path-level check is blind…
+    mockFindExistingTabForPath.mockReturnValue(null);
+    // …and createTab returns the EXISTING tab id.
+    mockCreateTab.mockReturnValue("theirs");
+
+    const created = await restoreWorkspaceTabs("main", ["/a.md"]);
+
+    expect(created).toBe(0);
+    expect(mockIngestExternalContent).not.toHaveBeenCalled();
+    expect(mockApplyFileOwnershipAfterOpen).not.toHaveBeenCalled();
+  });
+
+  it("never closes a pre-existing tab when initialisation fails", async () => {
+    mockTabs = [{ id: "theirs", kind: "document", filePath: "/a.md" }];
+    mockFindExistingTabForPath.mockReturnValue(null);
+    mockCreateTab.mockReturnValue("theirs");
+    mockIngestExternalContent.mockImplementation(() => {
+      throw new Error("ingest blew up");
+    });
+
+    await restoreWorkspaceTabs("main", ["/a.md"]);
+
+    expect(mockCloseTab).not.toHaveBeenCalled();
+  });
+
+  it("still rolls back a tab it really did create", async () => {
+    mockTabs = [];
+    mockCreateTab.mockReturnValue("mine");
+    mockIngestExternalContent.mockImplementation(() => {
+      throw new Error("ingest blew up");
+    });
+
+    const created = await restoreWorkspaceTabs("main", ["/a.md"]);
+
+    expect(created).toBe(0);
+    expect(mockCloseTab).toHaveBeenCalledWith("main", "mine");
+  });
+});
+
+// Audit #976 — media routing ran outside either catch, so a throw from it
+// rejected restoreOnePath and, through it, the whole loop: every sibling path
+// after the bad one was abandoned.
+describe("a media file that cannot be opened costs one tab, not the session", () => {
+  it("restores the siblings after a throwing media open", async () => {
+    mockTryOpenMediaFile.mockImplementation((_windowLabel, path) => {
+      if (path === "/broken.png") throw new Error("media surface unavailable");
+      return false;
+    });
+
+    const created = await restoreWorkspaceTabs("main", ["/broken.png", "/a.md", "/b.md"]);
+
+    expect(created).toBe(2);
+    expect(mockCreateTab).toHaveBeenCalledTimes(2);
+  });
+
+  it("reports the cause instead of failing silently", async () => {
+    const cause = new Error("media surface unavailable");
+    mockTryOpenMediaFile.mockImplementation(() => {
+      throw cause;
+    });
+
+    await restoreWorkspaceTabs("main", ["/broken.png"]);
+
+    expect(workspaceWarn).toHaveBeenCalledWith(expect.stringContaining("/broken.png"), cause);
+  });
+});
+
+// Audit #978 — permission, encoding and filesystem failures all land in the
+// read catch, and the message alone said "could not restore" with the cause
+// discarded, so none of them could be told apart from a moved file.
+describe("a read failure carries its cause", () => {
+  it("passes the error to the warning", async () => {
+    const cause = new Error("EACCES: permission denied");
+    mockReadTextFile.mockRejectedValue(cause);
+
+    const created = await restoreWorkspaceTabs("main", ["/locked.md"]);
+
+    expect(created).toBe(0);
+    expect(workspaceWarn).toHaveBeenCalledWith(expect.stringContaining("/locked.md"), cause);
+  });
+});
+
+// Audit #983 — the startup blank is removed through the USER's close, which
+// files it under "recently closed". As the newest entry it then shadowed the
+// file the user actually closed last, and Reopen Closed Tab handed back a
+// blank Untitled instead.
+describe("the startup blank does not enter the reopen history", () => {
+  const BLANK = { id: "blank-1", kind: "document" as const, filePath: null, title: "Untitled" };
+
+  it("takes the cleanup's entry back out", async () => {
+    mockGetReplaceableTab.mockReturnValue({ tabId: "blank-1" });
+    // What closeTab's own bus listener records; closeTab is a mock here, so the
+    // entry is seeded through the store that would have received it.
+    useClosedTabScopesStore.getState().recordClosedTab("main", BLANK as never);
+
+    await restoreWorkspaceTabs("main", ["/a.md"]);
+
+    expect(mockCloseTab).toHaveBeenCalledWith("main", "blank-1");
+    const scopes = useClosedTabScopesStore.getState().scopesByWindow["main"] ?? {};
+    const ids = Object.values(scopes).flat().map((entry) => entry.tab.id);
+    expect(ids).not.toContain("blank-1");
+  });
+
+  it("leaves the user's own closed tabs alone", async () => {
+    mockGetReplaceableTab.mockReturnValue({ tabId: "blank-1" });
+    useClosedTabScopesStore.getState().recordClosedTab("main", {
+      id: "real-1", kind: "document", filePath: "/notes.md", title: "notes.md",
+    } as never);
+    useClosedTabScopesStore.getState().recordClosedTab("main", BLANK as never);
+
+    await restoreWorkspaceTabs("main", ["/a.md"]);
+
+    const scopes = useClosedTabScopesStore.getState().scopesByWindow["main"] ?? {};
+    const ids = Object.values(scopes).flat().map((entry) => entry.tab.id);
+    expect(ids).toEqual(["real-1"]);
   });
 });

@@ -39,6 +39,9 @@
 //! - `sequential` — 20 exports in a row leak no window.
 //! - `concurrent` — 2 at once collide on neither a window label nor each
 //!   other's output, checked by distinct content sentinels.
+//! - `progress_case` — the `pdf-export-progress` stages come out of THIS
+//!   platform's backend in the one shared order (WI-FL6.2). Windows and Linux
+//!   emitted nothing before it, and no `cargo test` can see that.
 //!
 //! @coordinates-with pdf_export/renderer — the code under test
 //! @module bin/pdf_smoke
@@ -62,7 +65,13 @@ fn main() {
     };
     std::fs::create_dir_all(&out_dir).expect("create out dir");
 
+    // `export_pdf` refuses with `Internal` unless `ExportGate` is managed
+    // (`pdf_export/commands.rs`), so the `progress-command` case could never
+    // reach a render — it failed on every platform, for a reason that had
+    // nothing to do with the renderer. The smoke app has to compose the same
+    // managed state `lib.rs` does for the commands it calls.
     let app = tauri::Builder::default()
+        .manage(vmark_lib::pdf_export::export_gate::ExportGate::default())
         .build(tauri::generate_context!())
         .expect("build tauri app");
 
@@ -99,6 +108,7 @@ async fn run_cases(app: &tauri::AppHandle, out: &Path) -> usize {
     failures += scenarios::bad_path(app).await;
     failures += scenarios::sequential(app, out).await;
     failures += scenarios::concurrent(app, out).await;
+    failures += progress_case::run(app, out).await;
     failures
 }
 
@@ -120,8 +130,10 @@ async fn render(
 
 mod fixtures;
 mod html_text;
+mod missing_path;
 mod page_number_fixture;
 mod page_numbers_case;
+mod progress_case;
 mod render_one;
 mod scenarios;
 mod verify;

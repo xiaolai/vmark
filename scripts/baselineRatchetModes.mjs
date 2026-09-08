@@ -137,6 +137,34 @@ export function evaluateCheck(check, baseDoc, headDoc, filePath) {
     return diffIdentity(baseSet, headSet, check, where);
   }
 
+  // `at: "<parent>.*"` — one check per key of the object at <parent>, derived
+  // from the HEAD document at comparison time rather than listed by hand in
+  // the manifest. A key that arrives later (a seventh theme) is ratcheted
+  // from its first change with no manifest edit; a hand-kept list could omit
+  // it and read as coverage (audit 20260907 #13). A key absent at the base is
+  // the same shape-change notice a hand-listed key gets; the parent's own
+  // arrival or removal is the business of an `object-keys` check on it.
+  if (typeof check.at === "string" && check.at.endsWith(".*")) {
+    const parent = check.at.slice(0, -2);
+    const headParent = getAt(headDoc, parent);
+    if (!isPlainObject(headParent)) {
+      failures.push(`${filePath}: the manifest expands "${check.at}", but "${parent || "<root>"}" is not an object in this file`);
+      return { failures, notices, raises };
+    }
+    const keys = Object.keys(headParent).filter((k) => !isCommentKey(k));
+    if (keys.length === 0) {
+      failures.push(`${filePath}: "${check.at}" expands to no keys — an empty object is not a set of ratchets; update the manifest in the same change.`);
+      return { failures, notices, raises };
+    }
+    for (const key of keys) {
+      const r = evaluateCheck({ ...check, at: parent ? `${parent}.${key}` : key }, baseDoc, headDoc, filePath);
+      failures.push(...r.failures);
+      notices.push(...r.notices);
+      raises.push(...r.raises);
+    }
+    return { failures, notices, raises };
+  }
+
   const headValue = getAt(headDoc, check.at);
   if (headValue === undefined) {
     failures.push(
@@ -167,8 +195,16 @@ export function evaluateCheck(check, baseDoc, headDoc, filePath) {
     for (const [key, count] of headCounts) {
       const prefix = check.at ? `${check.at}.` : "";
       const before = baseCounts.get(key);
-      if (before === undefined) added.push(`${prefix}${key} @ ${count}`);
-      else if (count > before) {
+      if (before === undefined) {
+        // A NEW key is a count that rose from nothing. Under `onAdd: "fail"`
+        // it is a raise from 0 — refused like any other raise, and explained
+        // the same way (an `allowRaise` from 0, with a reason): a file added
+        // to a per-file baseline in the change that made it dirty was the
+        // self-attestation §11 exists to close (audit 20260907 #12). A new
+        // key AT zero raises nothing and is reported either way.
+        if (check.onAdd === "fail" && count > 0) raises.push({ path: filePath, key: `${prefix}${key}`, from: 0, to: count });
+        else added.push(`${prefix}${key} @ ${count}`);
+      } else if (count > before) {
         raises.push({ path: filePath, key: `${prefix}${key}`, from: before, to: count });
       }
     }

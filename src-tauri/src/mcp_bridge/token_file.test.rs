@@ -320,3 +320,69 @@ fn a_successful_cleanup_reports_only_the_cause() {
     assert!(err.contains("mode 0644"), "{err}");
     assert!(!err.contains("could not be removed"), "{err}");
 }
+
+// --- publication: the one atomic replacement (audit 20260907 #389) ---------
+
+/// The publish must never delete the live token file first.
+///
+/// The defect this pins was WINDOWS-ONLY and destructive: a fallback that
+/// deleted the target and retried, on the false premise that Windows `rename`
+/// refuses an existing target. It fired on ANY `persist` failure — a transient
+/// sharing refusal included — so it removed the bridge's only credential and
+/// then failed to rewrite it. `atomic_replace.rs` carried the identical fallback on
+/// the identical false premise (audit 20260906 B1), which is what makes this a
+/// class rather than an instance.
+///
+/// It is asserted against the SOURCE because it cannot be reproduced from a
+/// unit test: forcing a `persist` failure needs a target the removal also
+/// cannot delete, and that is precisely the case the old fallback survived.
+/// A source assertion runs on every platform, including the one the defect
+/// lives on.
+#[test]
+fn the_publish_neither_removes_the_target_nor_rolls_its_own_retry() {
+    // NORMALISE FIRST. `include_str!` reproduces the file's bytes verbatim and
+    // this repo has no `.gitattributes`, so a Windows checkout is CRLF: the
+    // text is `\r\n}\r\n` and the `"\n}\n"` literal below never matches there.
+    // Same remedy `browser/native_failure.test.rs` and
+    // `browser/script_limit.test.rs` already carry.
+    let source = include_str!("token_file.rs").replace("\r\n", "\n");
+    let after = source
+        .split_once("fn write_secured(")
+        .expect("write_secured is defined in this module")
+        .1;
+    // Terminated at the function's own closing brace — the first `}` in
+    // column zero. Splitting at the next `fn` instead swept in that item's doc
+    // comment, which names `remove_file` in prose.
+    //
+    // `split_once`, never `split(..).next()`: the latter hands back the WHOLE
+    // remaining file when the terminator does not match, so an extraction that
+    // stops being bounded silently WIDENS rather than failing. That is exactly
+    // how the CRLF break presented — the "body" ran on into
+    // `abandon_unprotected_token`, whose `remove_file` is legitimate, and the
+    // assertion below read the defect out of correct code.
+    let body = after
+        .split_once("\n}\n")
+        .expect("the function body ends at a closing brace in column zero")
+        .0;
+    // CODE only. The body explains the removed fallback in prose, and a check
+    // that reads its own explanation as the defect is the trap
+    // `check-ipc-contract` records: strip comments before matching.
+    let code: String = body
+        .lines()
+        .filter(|l| !l.trim_start().starts_with("//"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let body = code.as_str();
+
+    assert!(
+        !body.contains("remove_file"),
+        "write_secured must not delete the published token file on a failed \
+         publish — that is audit 20260907 #389 (and 20260906 B1) returning:\n{body}"
+    );
+    assert!(
+        body.contains("persist_with_retry"),
+        "write_secured must publish through atomic_replace::persist_with_retry, \
+         the one copy of the replacement rule — a hand-rolled `temp.persist` \
+         here is how the destructive fallback survived the first fix:\n{body}"
+    );
+}

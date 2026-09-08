@@ -21,6 +21,14 @@
  * `fn` returning `Result<T, String>` must not count (ordinary Rust is not this
  * gate's business).
  *
+ * The lex is `scripts/lib/rustSource.mjs`'s, not a second copy. This file
+ * carried its own `stripCommentsAndStrings`, and it had already DRIFTED from
+ * the shared one in both directions a duplicated lexer drifts: it capped
+ * raw-string delimiter detection at a 16-character slice (Rust allows 255
+ * hashes, so a longer one was mis-tokenised as code — audit R2 #18/#192) and
+ * it had never heard of the C string literals `c"…"` / `cr#"…"#` stable since
+ * Rust 1.77. Two lexers over one language is the defect; there is one now.
+ *
  * The attribute is matched with BALANCED arguments, not as the exact string
  * `#[tauri::command]`: `#[tauri::command(rename_all = "snake_case")]` and
  * `#[tauri::command(async)]` are the same attribute, and an exact-string match
@@ -30,12 +38,16 @@
  * `std::result::Result<_, String>` and `Result<_, ::std::string::String>` count
  * exactly as the bare spelling does.
  *
- * KNOWN LIMITATION — type aliases are not resolved. `type CmdResult<T> =
- * Result<T, String>;` followed by `-> CmdResult<u8>` is a legacy signature this
- * gate does not see, because resolving it needs real name resolution (a `syn`
- * pass over the crate), which is out of scope for a JS-side lexer. The crate
- * has no such alias today; if one is introduced, extend the lexer with the
- * alias names rather than pretending the count is complete.
+ * TYPE ALIASES ARE RESOLVED, crate-wide. `type CmdResult<T> = Result<T,
+ * String>;` followed by `-> CmdResult<u8>` used to be a legacy signature this
+ * gate could not see, and the header said so — which made the documented
+ * limitation a documented BYPASS: adding one alias would have taken every
+ * future legacy command off the ratchet's books while it reported green. Full
+ * name resolution needs `syn`; naming the aliases does not. Every `type X<…> =
+ * …;` in the crate is collected and the set that expands (transitively) to
+ * `Result<_, String>` counts exactly as the bare spelling does. Measured at
+ * zero aliases today, so nothing about the current count changes — the point
+ * is that introducing one now fails the gate instead of silencing it.
  *
  * Usage:
  *   node scripts/check-command-error-ratchet.mjs [--root <dir>] [--baseline <file>]
@@ -46,112 +58,19 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import ts from "typescript";
 
+import { rustCode } from "./lib/rustSource.mjs";
+
 // ─── Pure, testable core ───
 
 const SCAN_ROOT = ["src-tauri", "src"];
-/** `#[tauri::command`, tolerating the whitespace rustfmt would never write but
- *  the language allows. `\b` stops it matching `#[tauri::command_bogus]`. */
-const COMMAND_ATTRIBUTE_START = /#\[\s*tauri\s*::\s*command\b/g;
-
-/**
- * Blank out comments so nothing inside them can be counted, preserving byte
- * offsets and newlines so reported positions stay meaningful.
- *
- * Handles what this crate actually contains: nested block comments (Rust
- * allows them), `"…"` and `b"…"` strings with escapes, `r#"…"#` raw strings,
- * and `'c'` char literals — which must be told apart from lifetimes (`'_`,
- * `'static`), or `State<'_, Surface>` would swallow the rest of the file.
- */
-export function stripCommentsAndStrings(source) {
-  const out = new Array(source.length).fill("");
-  const keep = (i) => {
-    out[i] = source[i];
-  };
-  let i = 0;
-  while (i < source.length) {
-    const ch = source[i];
-    const next = source[i + 1];
-
-    if (ch === "/" && next === "/") {
-      while (i < source.length && source[i] !== "\n") {
-        out[i] = source[i] === "\n" ? "\n" : " ";
-        i++;
-      }
-      continue;
-    }
-
-    if (ch === "/" && next === "*") {
-      let depth = 0;
-      while (i < source.length) {
-        if (source[i] === "/" && source[i + 1] === "*") {
-          depth++;
-          out[i] = " ";
-          out[i + 1] = " ";
-          i += 2;
-          continue;
-        }
-        if (source[i] === "*" && source[i + 1] === "/") {
-          depth--;
-          out[i] = " ";
-          out[i + 1] = " ";
-          i += 2;
-          if (depth === 0) break;
-          continue;
-        }
-        out[i] = source[i] === "\n" ? "\n" : " ";
-        i++;
-      }
-      continue;
-    }
-
-    // Raw string: r"…", r#"…"#, br##"…"##
-    const raw = /^b?r(#*)"/.exec(source.slice(i, i + 16));
-    if (raw && (i === 0 || !/[A-Za-z0-9_]/.test(source[i - 1]))) {
-      const hashes = raw[1];
-      const terminator = `"${hashes}`;
-      let j = i + raw[0].length;
-      const end = source.indexOf(terminator, j);
-      const stop = end === -1 ? source.length : end + terminator.length;
-      for (; i < stop; i++) out[i] = source[i] === "\n" ? "\n" : " ";
-      continue;
-    }
-
-    if (ch === '"') {
-      out[i] = " ";
-      i++;
-      while (i < source.length) {
-        if (source[i] === "\\") {
-          out[i] = " ";
-          out[i + 1] = source[i + 1] === "\n" ? "\n" : " ";
-          i += 2;
-          continue;
-        }
-        const done = source[i] === '"';
-        out[i] = source[i] === "\n" ? "\n" : " ";
-        i++;
-        if (done) break;
-      }
-      continue;
-    }
-
-    // `'x'` / `'\n'` is a char literal; `'a` / `'_` / `'static` is a lifetime.
-    if (ch === "'") {
-      const escaped = next === "\\";
-      const closeAt = escaped ? source.indexOf("'", i + 2) : i + 2;
-      const isChar = escaped
-        ? closeAt !== -1 && closeAt - i <= 8
-        : source[closeAt] === "'";
-      if (isChar) {
-        for (; i <= closeAt; i++) out[i] = " ";
-        continue;
-      }
-    }
-
-    keep(i);
-    i++;
-  }
-  return out.join("");
-}
+/** `#[tauri::command` OR the imported `#[command` (`use tauri::command;` —
+ *  17 sites in this crate, e.g. mcp_server.rs, genies/commands.rs), tolerating
+ *  the whitespace rustfmt would never write but the language allows. The IPC
+ *  contract gate matches both forms for the same reason; matching only the
+ *  qualified one left three legacy `Result<_, String>` commands invisible to
+ *  this ratchet (audit-fix 2026-09-07). `\b` stops it matching
+ *  `#[tauri::command_bogus]` / `#[command_bogus]`. */
+const COMMAND_ATTRIBUTE_START = /#\[\s*(?:tauri\s*::\s*)?command\b/g;
 
 /** Split `A, B` at depth 0 of `<>`/`()`/`[]`. */
 function splitGenericArgs(inner) {
@@ -172,14 +91,24 @@ function splitGenericArgs(inner) {
 }
 
 /**
- * The declared return type of the `fn` beginning at or after `from`, or null.
- * Reads to the body brace at depth 0, so a multi-line signature and a generic
- * `Ok` type are both fine.
+ * The `fn` beginning at or after `from`: `{ name, returnType }`, where
+ * `returnType` is `""` for a fn declaring none, or null when no named `fn`
+ * follows at all. Reads to the body brace at depth 0, so a multi-line
+ * signature and a generic `Ok` type are both fine.
+ *
+ * ONE scan answers both questions. The NAME used to be re-found by a second
+ * regex over a fixed 400-character slice of the same text, while the return
+ * type was found by scanning without any cap — so one declaration had two
+ * answers, and a command carrying enough attributes between
+ * `#[tauri::command]` and its `fn` was counted by `countLegacyCommands` and
+ * dropped by `typedCommandNames` (audit R2 #20). A fixed-distance cutoff is
+ * the defect; there is no cutoff now.
  */
-function returnTypeOf(text, from) {
-  const fn = /\bfn\b/.exec(text.slice(from));
+function declAfter(text, from) {
+  const fn = /\bfn\s+([A-Za-z_]\w*)/.exec(text.slice(from));
   if (!fn) return null;
-  let i = from + fn.index + 2;
+  const name = fn[1];
+  let i = from + fn.index + fn[0].length;
   let depth = 0;
   let arrow = -1;
   for (; i < text.length; i++) {
@@ -189,15 +118,23 @@ function returnTypeOf(text, from) {
     else if (depth === 0 && ch === "-" && text[i + 1] === ">") {
       arrow = i + 2;
       break;
-    } else if (depth === 0 && (ch === "{" || ch === ";")) return "";
+    } else if (depth === 0 && (ch === "{" || ch === ";")) return { name, returnType: "" };
   }
   if (arrow === -1) return null;
   let angle = 0;
+  const identChar = (c) => c !== undefined && /[A-Za-z0-9_]/.test(c);
   for (let j = arrow; j < text.length; j++) {
     const ch = text[j];
     if (ch === "<") angle++;
     else if (ch === ">") angle--;
-    else if (angle === 0 && (ch === "{" || ch === ";")) return text.slice(arrow, j).trim();
+    else if (angle === 0 && (ch === "{" || ch === ";")) return { name, returnType: text.slice(arrow, j).trim() };
+    // A `where` clause is not part of the return TYPE. Swallowing it produced
+    // `"Result<T, String> where T: Clone"`, which no longer ends in `>`, so
+    // `isLegacyStringResult` did not match and the legacy signature was
+    // invisible to the ratchet (audit R2 #19).
+    else if (angle === 0 && ch === "w" && text.startsWith("where", j) && !identChar(text[j - 1]) && !identChar(text[j + 5])) {
+      return { name, returnType: text.slice(arrow, j).trim() };
+    }
   }
   return null;
 }
@@ -208,13 +145,61 @@ function unqualify(type) {
   return type.replace(/^(?:::)?(?:[A-Za-z_]\w*\s*::\s*)+/, "");
 }
 
+const NO_ALIASES = new Set();
+
 /** True when a return type is `Result<_, String>` — the legacy shape, in any
- *  path spelling (`std::result::Result<_, ::std::string::String>` counts). */
-export function isLegacyStringResult(returnType) {
-  const match = /^Result\s*<([\s\S]*)>$/.exec(unqualify((returnType ?? "").trim()));
+ *  path spelling (`std::result::Result<_, ::std::string::String>` counts), or
+ *  the name of an `aliases` member (`CmdResult<u8>`; see `legacyResultAliases`). */
+export function isLegacyStringResult(returnType, aliases = NO_ALIASES) {
+  const type = unqualify((returnType ?? "").trim());
+  if (aliases.size > 0) {
+    const head = /^([A-Za-z_]\w*)\s*(?:<[\s\S]*>)?$/.exec(type);
+    if (head && aliases.has(head[1])) return true;
+  }
+  const match = /^Result\s*<([\s\S]*)>$/.exec(type);
   if (!match) return false;
   const args = splitGenericArgs(match[1]);
   return args.length === 2 && unqualify(args[1]) === "String";
+}
+
+/**
+ * `type Name<…> = <rhs>;` declarations in one file's CODE, as `name -> rhs`.
+ *
+ * A default type parameter (`type X<T = u8> = …`) is not matched and so is not
+ * collected — the same blindness as before this existed, never a new one.
+ */
+export function typeAliases(text) {
+  const out = new Map();
+  for (const m of text.matchAll(/\btype\s+([A-Za-z_]\w*)\s*(?:<[^=;{}]*>)?\s*=\s*([^;]+);/g)) {
+    out.set(m[1], m[2].trim());
+  }
+  return out;
+}
+
+/**
+ * Alias names that expand to `Result<_, String>`, over the CODE of every file
+ * in the crate — `type CmdResult<T> = Result<T, String>;` and any chain of
+ * aliases ending there (`type A<T> = Result<T, String>; type B<T> = A<T>;`).
+ *
+ * Crate-wide rather than per-file because an alias is normally declared once,
+ * in an error module, and used everywhere else. Resolution is a fixpoint, so
+ * declaration order does not matter.
+ */
+export function legacyResultAliases(codeTexts) {
+  const declared = new Map();
+  for (const text of codeTexts) for (const [name, rhs] of typeAliases(text)) declared.set(name, rhs);
+  const legacy = new Set();
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const [name, rhs] of declared) {
+      if (legacy.has(name)) continue;
+      if (isLegacyStringResult(rhs, legacy)) {
+        legacy.add(name);
+        grew = true;
+      }
+    }
+  }
+  return legacy;
 }
 
 /**
@@ -247,31 +232,39 @@ export function commandAttributeEnds(text) {
   return ends;
 }
 
-/** Count `#[tauri::command]` fns returning `Result<_, String>` in one file. */
-export function countLegacyCommands(source) {
-  const text = stripCommentsAndStrings(source);
+/** Count `#[tauri::command]` fns returning `Result<_, String>` in one file's CODE. */
+function countLegacyIn(text, aliases) {
   let count = 0;
   for (const at of commandAttributeEnds(text)) {
-    if (isLegacyStringResult(returnTypeOf(text, at))) count++;
+    const decl = declAfter(text, at);
+    if (decl && isLegacyStringResult(decl.returnType, aliases)) count++;
   }
   return count;
 }
 
-/** Names of `#[tauri::command]` fns whose error type is `CommandError`. */
-export function typedCommandNames(source) {
-  const text = stripCommentsAndStrings(source);
+/** Count `#[tauri::command]` fns returning `Result<_, String>` in one file. */
+export function countLegacyCommands(source, aliases = NO_ALIASES) {
+  return countLegacyIn(rustCode(source), aliases);
+}
+
+/** Names of `#[tauri::command]` fns whose error type is `CommandError`, from CODE. */
+function typedCommandNamesIn(text) {
   const names = [];
   for (const at of commandAttributeEnds(text)) {
-    const returnType = returnTypeOf(text, at);
-    const match = /^Result\s*<([\s\S]*)>$/.exec(unqualify((returnType ?? "").trim()));
+    const decl = declAfter(text, at);
+    if (!decl) continue;
+    const match = /^Result\s*<([\s\S]*)>$/.exec(unqualify(decl.returnType.trim()));
     if (!match) continue;
     const args = splitGenericArgs(match[1]);
     if (args.length !== 2 || unqualify(args[1]) !== "CommandError") continue;
-    // The fn name sits between the attribute and the parameter list.
-    const decl = /\bfn\s+([A-Za-z_]\w*)/.exec(text.slice(at, at + 400));
-    if (decl) names.push(decl[1]);
+    names.push(decl.name);
   }
   return names;
+}
+
+/** Names of `#[tauri::command]` fns whose error type is `CommandError`. */
+export function typedCommandNames(source) {
+  return typedCommandNamesIn(rustCode(source));
 }
 
 /**
@@ -301,12 +294,30 @@ export function findStringifiedTypedErrors(files, typedCommands) {
     // simple compile-time constants — a `const X = "cmd"` and the properties of
     // a `const M = { K: "cmd" }` — which is how every such call in this repo is
     // written. Anything less tractable stays unresolved rather than guessed.
+    // ONLY `const` declarations, and only names declared ONCE in the file.
+    // Collecting `let`/`var` too meant a reassigned binding resolved to its
+    // initializer, and a file-global map meant two same-named consts in
+    // different scopes resolved to whichever was visited last — a guessed
+    // command name either enables this gate on the wrong file or attributes a
+    // finding to a command the file never invokes (audit R2 #22). An ambiguous
+    // name is left UNRESOLVED rather than guessed.
     const constStrings = new Map();
+    const ambiguous = new Set();
+    const record = (key, value) => {
+      if (constStrings.has(key) && constStrings.get(key) !== value) ambiguous.add(key);
+      constStrings.set(key, value);
+    };
     const collectConsts = (node) => {
-      if (ts.isVariableDeclaration(node) && node.initializer && ts.isIdentifier(node.name)) {
+      if (
+        ts.isVariableDeclaration(node) &&
+        node.initializer &&
+        ts.isIdentifier(node.name) &&
+        ts.isVariableDeclarationList(node.parent) &&
+        (node.parent.flags & ts.NodeFlags.Const) !== 0
+      ) {
         const init = node.initializer;
         if (ts.isStringLiteralLike(init)) {
-          constStrings.set(node.name.text, init.text);
+          record(node.name.text, init.text);
         } else if (ts.isAsExpression(init) || ts.isObjectLiteralExpression(init)) {
           const obj = ts.isAsExpression(init) ? init.expression : init;
           if (ts.isObjectLiteralExpression(obj)) {
@@ -316,7 +327,7 @@ export function findStringifiedTypedErrors(files, typedCommands) {
                 (ts.isIdentifier(prop.name) || ts.isStringLiteralLike(prop.name)) &&
                 ts.isStringLiteralLike(prop.initializer)
               ) {
-                constStrings.set(`${node.name.text}.${prop.name.text}`, prop.initializer.text);
+                record(`${node.name.text}.${prop.name.text}`, prop.initializer.text);
               }
             }
           }
@@ -325,6 +336,7 @@ export function findStringifiedTypedErrors(files, typedCommands) {
       ts.forEachChild(node, collectConsts);
     };
     collectConsts(sf);
+    for (const key of ambiguous) constStrings.delete(key);
 
     /** The command name an argument denotes, or null when it cannot be resolved. */
     const commandNameOf = (arg) => {
@@ -341,12 +353,13 @@ export function findStringifiedTypedErrors(files, typedCommands) {
     const findInvoke = (node) => {
       if (command !== null) return;
       if (ts.isCallExpression(node)) {
+        // Tauri's `invoke` is imported and called as a BARE identifier
+        // (`@tauri-apps/api/core`). Accepting `x.invoke(...)` made any method
+        // of that name the IPC entry point — `src/test/statefulFsFake.ts`
+        // exposes exactly one — so an unrelated call could arm this gate on a
+        // file that invokes no command at all (audit R2 #24).
         const callee = node.expression;
-        const name = ts.isIdentifier(callee)
-          ? callee.text
-          : ts.isPropertyAccessExpression(callee)
-            ? callee.name.text
-            : null;
+        const name = ts.isIdentifier(callee) ? callee.text : null;
         if (name === "invoke") {
           const resolved = commandNameOf(node.arguments[0]);
           if (resolved !== null && typedCommands.has(resolved)) command = resolved;
@@ -378,9 +391,15 @@ export function findStringifiedTypedErrors(files, typedCommands) {
         const nameNode = node.variableDeclaration.name;
         if (ts.isIdentifier(nameNode)) next = new Set(bound).add(nameNode.text);
       } else if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)) {
-        const cb = node.arguments[0];
+        // A promise binds its rejection in two places, not one: `.catch(cb)`
+        // and `.then(onFulfilled, onRejected)`. Only the first was recognised,
+        // so a two-argument `.then` stringified a typed CommandError with the
+        // gate silent — a false NEGATIVE, the direction that matters here
+        // (audit R2 #25).
+        const method = node.expression.name.text;
+        const cb =
+          method === "catch" ? node.arguments[0] : method === "then" ? node.arguments[1] : undefined;
         if (
-          node.expression.name.text === "catch" &&
           cb &&
           (ts.isArrowFunction(cb) || ts.isFunctionExpression(cb)) &&
           cb.parameters[0] &&
@@ -431,10 +450,34 @@ export function findStringifiedTypedErrors(files, typedCommands) {
   return hits;
 }
 
-/** JSX must be parsed as JSX, or `<Foo/>` is a syntax error and the file is skipped. */
+/**
+ * JSX must be parsed as JSX, or `<Foo/>` is a syntax error and the file is
+ * skipped; TypeScript must be parsed as TypeScript, or a type annotation is.
+ *
+ * Switched on the actual EXTENSION. The substring test this replaced asked
+ * whether the path `includes(".ts")`, which is false for `foo.mts` and
+ * `foo.cts` — both of which `FRONTEND_SOURCE` scans — so every ESM/CJS
+ * TypeScript module in `src/` was handed to the parser as JavaScript, and a
+ * stringified typed error inside one was invisible (audit R2 #26).
+ */
 function scriptKindFor(file) {
-  if (file.endsWith("x")) return file.includes(".ts") ? ts.ScriptKind.TSX : ts.ScriptKind.JSX;
-  return file.includes(".ts") ? ts.ScriptKind.TS : ts.ScriptKind.JS;
+  const ext = /\.([cm]?[jt]sx?)$/.exec(file)?.[1];
+  switch (ext) {
+    case "ts":
+    case "mts":
+    case "cts":
+      return ts.ScriptKind.TS;
+    case "tsx":
+    case "mtsx":
+    case "ctsx":
+      return ts.ScriptKind.TSX;
+    case "jsx":
+    case "mjsx":
+    case "cjsx":
+      return ts.ScriptKind.JSX;
+    default:
+      return ts.ScriptKind.JS;
+  }
 }
 
 function walk(dir, rootLen, out) {
@@ -450,16 +493,32 @@ function walk(dir, rootLen, out) {
   return out;
 }
 
-/** Scan a repo root and return `{ "src-tauri/src/x.rs": count }` for count > 0. */
-export function scanTree(root) {
+/**
+ * ONE crate walk: `{ counts, typed }` — the per-file legacy counts (count > 0)
+ * and every typed command name.
+ *
+ * The crate used to be walked, read and lexed TWICE, once per question, which
+ * is the same work done twice and — since the two passes are what feed the two
+ * halves of this gate — two chances for them to disagree about which files the
+ * crate contains (audit R2 #27). It is also where the alias set has to be
+ * built: an alias is declared once and used elsewhere, so nothing per-file can
+ * see it.
+ */
+export function scanCrate(root) {
   const scanDir = path.join(root, ...SCAN_ROOT);
-  if (!existsSync(scanDir)) return {};
+  if (!existsSync(scanDir)) return { counts: {}, typed: new Set() };
+  const files = walk(scanDir, root.length + 1, [])
+    .sort()
+    .map((rel) => ({ rel, code: rustCode(readFileSync(path.join(root, rel), "utf8")) }));
+  const aliases = legacyResultAliases(files.map((f) => f.code));
   const counts = {};
-  for (const rel of walk(scanDir, root.length + 1, []).sort()) {
-    const count = countLegacyCommands(readFileSync(path.join(root, rel), "utf8"));
+  const typed = new Set();
+  for (const { rel, code } of files) {
+    const count = countLegacyIn(code, aliases);
     if (count > 0) counts[rel] = count;
+    for (const name of typedCommandNamesIn(code)) typed.add(name);
   }
-  return counts;
+  return { counts, typed };
 }
 
 /**
@@ -485,16 +544,9 @@ function walkFrontend(dir, rootLen, out) {
   return out;
 }
 
-/** Every typed command name in the crate, and the frontend files that stringify one. */
-export function scanStringifiedTypedErrors(root) {
-  const crateDir = path.join(root, ...SCAN_ROOT);
-  if (!existsSync(crateDir)) return [];
-  const typed = new Set();
-  for (const rel of walk(crateDir, root.length + 1, [])) {
-    for (const name of typedCommandNames(readFileSync(path.join(root, rel), "utf8"))) {
-      typed.add(name);
-    }
-  }
+/** The frontend files that stringify one of `typed`'s command rejections. */
+export function scanStringifiedTypedErrors(root, typed) {
+  if (typed.size === 0) return [];
   const files = walkFrontend(path.join(root, "src"), root.length + 1, []).map((rel) => ({
     path: rel,
     source: readFileSync(path.join(root, rel), "utf8"),
@@ -548,22 +600,45 @@ const BASELINE_HEADER = [
   "Registered in the WI-16 ratchet manifest (scripts/check-baseline-ratchet.mjs), which re-compares this file against the merge base in CI — so a commit cannot raise its own floor.",
 ];
 
-function parseArgs(argv) {
+/**
+ * Parse argv, or throw with the message to print.
+ *
+ * A value-taking flag MUST be followed by a value. `--root` with nothing after
+ * it read `argv[++i]` as `undefined` and then fell through to `args.root ??
+ * <default>` — so a mistyped invocation silently scanned the repository the
+ * script lives in rather than the tree the caller named, and reported a verdict
+ * about the wrong tree (audit R2 #28). A following `--flag` is the same
+ * mistake spelled differently, so it is refused too.
+ */
+export function parseArgs(argv) {
   const args = { root: null, baseline: null, write: false };
-  for (let i = 0; i < argv.length; i++) {
-    if (argv[i] === "--root") args.root = argv[++i];
-    else if (argv[i] === "--baseline") args.baseline = argv[++i];
-    else if (argv[i] === "--write-baseline") args.write = true;
-    else {
-      console.error(`❌ Unknown argument: ${argv[i]}`);
-      process.exit(1);
+  const value = (flag, i) => {
+    const next = argv[i + 1];
+    if (next === undefined || next.startsWith("--")) {
+      throw new Error(`${flag} needs a value (got ${next === undefined ? "nothing" : JSON.stringify(next)})`);
     }
+    return next;
+  };
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === "--root") args.root = value("--root", i++);
+    else if (argv[i] === "--baseline") args.baseline = value("--baseline", i++);
+    else if (argv[i] === "--write-baseline") args.write = true;
+    else throw new Error(`Unknown argument: ${argv[i]}`);
   }
   return args;
 }
 
 function main() {
-  const args = parseArgs(process.argv.slice(2));
+  let args;
+  try {
+    args = parseArgs(process.argv.slice(2));
+  } catch (error) {
+    console.error(`❌ ${error.message}`);
+    console.error(
+      "   Usage: node scripts/check-command-error-ratchet.mjs [--root <dir>] [--baseline <file>] [--write-baseline]",
+    );
+    process.exit(1);
+  }
   const root = path.resolve(
     args.root ?? path.join(path.dirname(fileURLToPath(import.meta.url)), ".."),
   );
@@ -571,7 +646,7 @@ function main() {
     args.baseline ?? path.join(root, "scripts", "command-error-baseline.json"),
   );
 
-  const actual = scanTree(root);
+  const { counts: actual, typed } = scanCrate(root);
   const total = Object.values(actual).reduce((sum, n) => sum + n, 0);
 
   if (args.write) {
@@ -594,7 +669,7 @@ function main() {
 
   const { raised, lowered, gone } = compareCounts(actual, baseline);
 
-  const stringified = scanStringifiedTypedErrors(root);
+  const stringified = scanStringifiedTypedErrors(root, typed);
 
   if (raised.length === 0 && lowered.length === 0 && gone.length === 0 && stringified.length === 0) {
     console.log(

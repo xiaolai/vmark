@@ -172,6 +172,28 @@ constructors! {
 }
 
 impl CommandError {
+    /// The class an `std::io::Error` deserves, rather than whichever code the
+    /// call site happened to reach for.
+    ///
+    /// Three kinds are worth telling apart because a caller acts differently on
+    /// each — the file is not there, the user may not touch it, something is
+    /// already at the name — and everything else is the OS refusing, which is
+    /// `io`. This exists because two independent call sites had flattened every
+    /// filesystem failure into ONE code and each got it wrong in a different
+    /// direction: `dock_recent` reported a permission failure as `not-found`
+    /// (#335), and `genies::read_genie` reported a vanished file as `io` while
+    /// reporting the same file's canonicalize failure as `not-found` (#344),
+    /// contradicting its own documented contract.
+    pub fn from_io(error: &std::io::Error, message: impl Into<String>) -> Self {
+        let code = match error.kind() {
+            std::io::ErrorKind::NotFound => ErrorCode::NotFound,
+            std::io::ErrorKind::PermissionDenied => ErrorCode::PermissionDenied,
+            std::io::ErrorKind::AlreadyExists => ErrorCode::Conflict,
+            _ => ErrorCode::Io,
+        };
+        Self::new(code, message)
+    }
+
     /// Build an error with `code` and a human-readable `message`.
     pub fn new(code: ErrorCode, message: impl Into<String>) -> Self {
         Self {

@@ -10,8 +10,32 @@
 //! that have nothing to do with the code — which is exactly what the first
 //! run of this harness did.
 //!
-//! @coordinates-with main.rs — the only consumer
+//! @coordinates-with scenarios.rs, progress_case.rs — the consumers
 //! @module bin/pdf_smoke/fixtures
+
+use vmark_lib::pdf_export::page_spec::PageSpec;
+
+/// Every page size the harness renders, in points, portrait — each defined
+/// ONCE, here (#108). Landscape is the swap, never a second constant
+/// (ADR-PDF1a). `scenarios.rs` used to carry its own copy of A4's numbers
+/// in its size matrix; two definitions of one fixture drift.
+pub const A4: PageSpec = PageSpec::new(595.28, 841.89);
+pub const A5: PageSpec = PageSpec::new(419.53, 595.28);
+pub const A3: PageSpec = PageSpec::new(841.89, 1190.55);
+pub const LETTER: PageSpec = PageSpec::new(612.0, 792.0);
+pub const LEGAL: PageSpec = PageSpec::new(612.0, 1008.0);
+
+/// The rounded point dimensions a `PageSpec` should show up as in the PDF's
+/// MediaBox — DERIVED, never written out beside the spec (#108, audit 20260907
+/// #258).
+///
+/// `geometry_matrix` already computed them this way; every other case wrote the
+/// integers by hand, so A4's `(595, 842)` appeared at four sites and A5's at a
+/// fifth. Retuning a constant here would have left those five asserting the old
+/// paper and passing — the exact drift `A4` was made a single constant to end.
+pub fn expected_pt(spec: PageSpec) -> Option<(u32, u32)> {
+    Some((spec.width_pt.round() as u32, spec.height_pt.round() as u32))
+}
 
 /// Build the document the way production does: an `@page` rule carrying the
 /// geometry AND the same geometry sent as `PageSpec`.

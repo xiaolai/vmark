@@ -20,17 +20,16 @@
  * claim this split exists to remove. It lives on `browser` as `console_clear`.
  *
  * The schema and this registration live here; the per-action handlers are the
- * table in `browserReadActions.ts`. The `action` enum below stays a LITERAL
- * array rather than deriving from that table's `BROWSER_READ_ACTIONS`: the
- * docs-drift gate (`scripts/check-mcp-docs.mjs`) regex-reads the FIRST
- * `z.enum([...])` that follows an `action` key in every tool file, and a derived
- * enum blinds it silently (measured: 8 → 0 actions). So does a comment that
- * spells the pattern out in the gate's own shape — hence this wording. The two
- * lists are pinned equal, in order, by `browserReadActions.test.ts`.
+ * table in `browserReadActions.ts`, and the `action` enum DERIVES from that
+ * table's `BROWSER_READ_ACTIONS` — one list, owned by the table. It used to be
+ * a copied literal because the docs-drift gate (`scripts/check-mcp-docs.mjs`)
+ * could only read an enum declared in the same file; the gate now follows a
+ * sibling import to the const it names, and the tool registry (`index.ts`)
+ * reads the same list for its action count (audit 20260907 #100).
  *
  * @coordinates-with tools/browserReadActions.ts (the action table this registers)
  * @coordinates-with tools/browser.ts (the mutating half — shares browserArgs/browserDispatch)
- * @coordinates-with scripts/check-mcp-docs.mjs (reads the `action` enum literal below)
+ * @coordinates-with scripts/check-mcp-docs.mjs (reads the `action` enum through the import)
  * @coordinates-with src/services/mcpBridge/v2/browserConsole.ts (the app-side console read)
  */
 
@@ -39,12 +38,14 @@ import { VMarkMcpServer } from '../server.js';
 import type { ToolArgs } from './toolArgs.js';
 import { optionalIdSchema, readOptionalId } from './toolArgs.js';
 import { MAX_WAIT_MS } from './browserArgs.js';
-import { runBrowserReadAction } from './browserReadActions.js';
+import { BROWSER_READ_ACTIONS, runBrowserReadAction } from './browserReadActions.js';
+
+export const BROWSER_READ_TOOL = 'browser_read' as const;
 
 export function registerBrowserReadTool(server: VMarkMcpServer): void {
   server.registerTool(
     {
-      name: 'browser_read',
+      name: BROWSER_READ_TOOL,
       title: 'VMark Embedded Browser (read-only)',
       // Every action is a pure observation: no page mutation, no navigation,
       // no keychain access. Open-world because the content comes off the live
@@ -76,25 +77,28 @@ export function registerBrowserReadTool(server: VMarkMcpServer): void {
         `- wait: Wait for an existing navigation ticket (from \`browser\` open/navigate — pass its navigationId, or omit it for the latest) without starting a new navigation and without changing focus or the active tab. AI-owned tabs only. Bounded to ${MAX_WAIT_MS / 1000} seconds.\n` +
         `- wait_for: Poll until a page condition holds or the timeout elapses — pass exactly one of {ref} (from a read), {role, name?}, {text} (a substring of visible text), or {urlContains} (a substring of the tab's URL WITHOUT its query string or fragment — confirms a navigation landed; a needle containing ? or # is refused because it can never match). Returns {matched: true|false} so you can tell "found" from "timed out". Use it to make a flow deterministic (act → wait_for the result → read) instead of guessing. On a human tab attached with "Allow once" it is refused (ATTACHMENT_ONCE_INSUFFICIENT) — polling is many reads; ask for "Allow until navigation". Bounded to ${MAX_WAIT_MS / 1000} seconds.`,
       inputSchema: {
-        action: z
-          .enum(['read', 'screenshot', 'query', 'extract', 'console', 'wait', 'wait_for', 'workflow_status'])
-          .describe('The action to perform'),
+        action: z.enum(BROWSER_READ_ACTIONS).describe('The action to perform'),
         tabId: optionalIdSchema(
           'Target browser tab id (from session.get_state). Omit to use the focused tab.',
         ),
-        selector: z.string().optional().describe('CSS selector (query only).'),
+        // Every optional identifier-ish string on this tool goes through
+        // `optionalIdSchema` — absent, or non-blank after trimming — because
+        // that is what the HANDLERS already enforce (`readOptionalId`, and the
+        // `.trim()` truthiness tests in `browserReadActions.ts`). The schemas
+        // said `z.string().optional()`, so a whitespace-only `ref`, `role`,
+        // `selector`, `navigationId` or `runId` validated against the
+        // ADVERTISED contract and was refused one layer later, with a
+        // different message and only on the paths that check it (audit R2
+        // #214/#216). `toolArgs.ts` documents the two layers: the schema is
+        // what the SDK enforces before a handler runs, the guard is what holds
+        // for `callTool`, which validates nothing.
+        selector: optionalIdSchema('CSS selector (query only).'),
         fields: z
           .record(z.string(), z.unknown())
           .optional()
           .describe('Extra data per element: {attributes:bool, box:bool, styles:[cssProp,...]} (query only).'),
-        ref: z
-          .string()
-          .optional()
-          .describe('Stable element handle from a prior read, e.g. "e5" (wait_for only).'),
-        role: z
-          .string()
-          .optional()
-          .describe('ARIA role to wait for, e.g. button/link/textbox (wait_for only).'),
+        ref: optionalIdSchema('Stable element handle from a prior read, e.g. "e5" (wait_for only).'),
+        role: optionalIdSchema('ARIA role to wait for, e.g. button/link/textbox (wait_for only).'),
         name: z
           .string()
           .optional()
@@ -107,14 +111,8 @@ export function registerBrowserReadTool(server: VMarkMcpServer): void {
           .string()
           .optional()
           .describe('Substring the tab URL must contain (wait_for only) — confirms a navigation landed.'),
-        navigationId: z
-          .string()
-          .optional()
-          .describe('Existing navigation ticket from browser open/navigate (wait only).'),
-        runId: z
-          .string()
-          .optional()
-          .describe('A run id from `browser` action workflow_run (workflow_status only).'),
+        navigationId: optionalIdSchema('Existing navigation ticket from browser open/navigate (wait only).'),
+        runId: optionalIdSchema('A run id from `browser` action workflow_run (workflow_status only).'),
         timeoutMs: z
           .number()
           .int()

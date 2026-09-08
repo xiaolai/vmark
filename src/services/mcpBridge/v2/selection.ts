@@ -24,9 +24,9 @@
  *     doc-level revision catches keystrokes; pure cursor movement is
  *     not arbitrated by the server.
  *
- * @coordinates-with stores/activeEditorStore.ts — focused editor instances
+ * @coordinates-with stores/editorStore.ts — focused editor instances
  * @coordinates-with stores/editorStore.ts — sourceMode flag picks the dispatcher
- * @coordinates-with stores/revisionStore.ts — optimistic concurrency
+ * @coordinates-with stores/documentStore/revision.ts — optimistic concurrency
  * @coordinates-with stores/mcpStore.ts — selection.set checkpoints
  * @module services/mcpBridge/v2/selection
  */

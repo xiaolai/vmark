@@ -216,3 +216,7 @@ where
         result = f(sink_for_call) => result,
     }
 }
+
+#[cfg(test)]
+#[path = "dispatch.test.rs"]
+mod tests;

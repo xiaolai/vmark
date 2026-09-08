@@ -25,7 +25,7 @@ Open **Settings → Integrations** and enable the MCP Server:
 
 - **Enable MCP Server** - Turn on to allow AI connections
 - **Start on launch** - Auto-start when VMark opens
-- **Auto-approve edits** - Apply AI changes without preview (see below)
+- **Auto-approve saves to a new location and genie results** - Off by default. Lets an AI save a document to a *new* path without asking, and lets a genie apply its result directly instead of as a suggestion. Ordinary AI writes are never gated by it — their safety net is the [edit checkpoint history](#edit-checkpoints) (see [How Edits Work](#how-edits-work))
 
 ### 2. Install Configuration
 
@@ -53,6 +53,10 @@ Antigravity instead.
 ::: info Other MCP-Compatible Clients
 Other MCP-compatible clients such as Cursor, Windsurf, and similar tools can also connect to VMark's MCP server. Configure them manually by pointing to the MCP server binary path (see [Manual Configuration](#manual-configuration) below).
 :::
+
+#### CC-Switch
+
+If you manage your AI CLIs with CC-Switch, the installer also shows a **CC-Switch** row. **Add to CC-Switch** opens a `ccswitch://v1/import` link that hands VMark's MCP server — its binary path — to CC-Switch, which then writes the `vmark` entry into whichever CLIs you manage there; a copy button gives you the link itself if you would rather paste it. The row is disabled until VMark has resolved its own MCP binary.
 
 #### Status Icons
 
@@ -212,7 +216,7 @@ The MCP server binary supports a small set of flags for diagnostics and legacy s
 | Flag | What it does |
 |---|---|
 | `--version` (or `-v`) | Print the version (must match the running VMark) and exit. |
-| `--health-check` | Run a self-test against the running VMark bridge and exit. Use this to verify your install before wiring an AI assistant. |
+| `--health-check` | Run a self-test of the binary and exit: it starts the MCP server against a built-in mock bridge, prints its version and tool count as JSON, and exits non-zero if the tool count is not what this build expects. It does **not** contact a running VMark — use it to confirm the binary runs; use **Settings → Integrations** to check the live bridge. |
 | `--port <number>` | Manual port override. Skip the auto-discovery handshake and connect on the given port. Only useful for legacy setups where the bridge port is fixed externally; the auto-discovery path is preferred. |
 
 Example:
@@ -237,18 +241,19 @@ AI Assistant <--stdio--> MCP Server <--WebSocket--> VMark Editor
 
 ## Available Capabilities
 
-When connected, your AI assistant can:
+When connected, your AI assistant has nine tools:
 
-| Category | Capabilities |
-|----------|-------------|
-| **Document** | Read/write content, search, replace |
-| **Selection** | Get/set selection, replace selected text |
-| **Formatting** | Bold, italic, code, links, and more |
-| **Blocks** | Headings, paragraphs, code blocks, quotes |
-| **Lists** | Bullet, ordered, and task lists |
-| **Tables** | Insert, modify rows/columns |
-| **Special** | Math equations, Mermaid diagrams, wiki links |
-| **Workspace** | Open/save documents, manage windows |
+| Tool | What it covers |
+|------|----------------|
+| `session` | Windows, tabs, the active document and browser tabs (read-only) |
+| `workspace` | New, open, save, save-as, close, switch tabs, focus a window, open a workspace |
+| `document` | Read and write the whole document as Markdown; CJK formatting transforms |
+| `selection` | Read and replace the selected text |
+| `workflow` | CST-safe patches and validation for GitHub Actions YAML |
+| `browser` / `browser_read` | Embedded-browser automation on macOS — the mutating and read-only halves |
+| `coherence` / `coherence_resolve` | Read the coherence layer; resolve stale edges under a delegation you granted |
+
+Formatting is not a separate tool: the assistant writes Markdown, so headings, tables, math and diagrams are whatever it writes.
 
 See the [MCP Tools Reference](/guide/mcp-tools) for complete documentation.
 
@@ -260,7 +265,8 @@ VMark provides multiple ways to check the MCP server status:
 
 The status bar shows an **MCP** indicator on the right side. When something
 needs your attention, a small state word appears beside the satellite icon;
-a healthy connection is just the green icon:
+a healthy connection is just the green icon. Hovering it lists the AI clients
+currently connected, by name and version:
 
 | Color | Word | Status |
 |-------|------|--------|
@@ -271,27 +277,11 @@ a healthy connection is just the green icon:
 
 Startup typically completes within 1-2 seconds.
 
-Click the indicator to open the detailed status dialog.
-
-### Status Dialog
-
-Access via **Help → MCP Server Status** or click the status bar indicator.
-
-The dialog shows:
-- Connection health (Healthy / Error / Stopped)
-- Bridge running state and port
-- Server version
-- Available tools and resources
-- Last health check time
-- Full list of available tools with copy button
+Click the indicator to open **Settings → Integrations**.
 
 ### Settings Panel
 
-In **Settings → Integrations**, when the server is running you'll see:
-- Version number
-- Tool and resource counts
-- **Test Connection** button — runs a health check
-- **View Details** button — opens the status dialog
+**Settings → Integrations** is the other status surface — there is no separate status dialog. While the bridge is running it shows the address it listens on (`localhost:<port>`, with a copy button) and how many AI clients are connected, refreshed every few seconds. The **Test Connection** button (labelled **Check sidecar** while the bridge is stopped) runs the sidecar's own `--health-check` and reports the sidecar version, its tool count and when it was last checked — it confirms the installed binary works, not that a client is connected.
 
 ## Troubleshooting
 
@@ -329,12 +319,19 @@ The pruned MCP surface follows the read-write spine: AI assistants call `documen
 
 For GitHub Actions workflow YAML files, the AI uses `workflow.apply_patch` instead — VMark's CST-aware mutators preserve comments, anchors, and key order that a raw text rewrite would lose.
 
-There is no preview/approval step in the new surface. If you want to review every change, run an external git workflow (work on a branch, review the diff, commit when satisfied) — this gives you the same control with industry-standard tools.
+There is no preview step for `document.write`, `selection.set` or `workflow.apply_patch` — the change lands in the editor as soon as the revision check passes. The safety net is the [edit checkpoint history](#edit-checkpoints) below; if you want to review before anything lands, keep the document under git and review the diff. The one approval gate is **Auto-approve saves to a new location and genie results**: with it off (the default), an AI cannot save a document to a new path — `workspace.save_as` returns `APPROVAL_REQUIRED` and VMark shows a toast naming the file. Even with it on, `save_as` refuses to overwrite a different existing file.
+
+## Edit Checkpoints
+
+Every AI document mutation — `document.write`, `document.transform`, `selection.set` and `workflow.apply_patch` — first snapshots the content it is about to replace. The **history** button in the status bar opens a popover listing, for the focused tab, when each AI write happened and which tool made it, with a one-click **Restore to before this write** on every row and a **Clear history for this tab** action. Restoring puts the earlier content back and bumps the document's revision, so an AI client still holding the old revision gets `STALE` on its next write instead of overwriting your restore.
+
+Checkpoints are kept per file — 50 per file and 5 MiB in total — and persisted to `mcp-checkpoints.jsonl` in VMark's app data directory, so they survive a restart. Untitled documents are checkpointed per tab.
 
 ## Security Notes
 
 - The MCP server only accepts local connections (localhost)
 - No data is sent to external servers
+- AI file operations are confined to the open workspace root and the folders of open documents — see [Privacy](/guide/privacy#what-an-ai-assistant-can-reach)
 - All processing happens on your machine
 - The WebSocket bridge is only accessible locally
 

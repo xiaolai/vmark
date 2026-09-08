@@ -87,18 +87,44 @@ fn timeout_kills_and_reaps_the_child() {
     let dir = tempfile::tempdir().expect("tempdir");
     let pid_file = dir.path().join("child.pid");
     // The script records its own pid then blocks; `exec` keeps the pid.
+    //
+    // The `--vmark-warmup` branch exits immediately and writes nothing. It
+    // exists for the warm-up exec below; `build_pandoc_args` starts the real
+    // invocation with `-f`, so the real run can never take it.
     let script = write_script(
         dir.path(),
         "sleeper.sh",
         &format!(
-            "#!/bin/sh\necho $$ > '{}'\nexec sleep 30\n",
+            "#!/bin/sh\ncase \"$1\" in --vmark-warmup) exit 0;; esac\necho $$ > '{}'\nexec sleep 30\n",
             pid_file.display()
         ),
     );
     let out = dir.path().join("out.docx").to_string_lossy().into_owned();
 
+    // WARM THE EXEC PATH before the timed run, or the timeout is racing macOS
+    // rather than the child (measured 2026-09-09 on this machine): the FIRST
+    // `execve` of a freshly written, unsigned file pays the system's
+    // executable evaluation, and spawn→pid-file then costs p50 409ms / max
+    // 622ms idle and **max 1.51s under this suite's own load** — against a 2s
+    // budget. Re-exec'ing the same inode costs p50 9ms / max 78ms, a 45×
+    // reduction, because the evaluation is already cached for it. That is the
+    // whole flake: the kill was real and on time, the child had simply not
+    // reached its first line yet, and the poll below then reported "child
+    // never launched" — a launch failure that had not happened.
+    std::process::Command::new(&script)
+        .arg("--vmark-warmup")
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .expect("warm-up exec of the fixture script");
+    assert!(
+        !pid_file.exists(),
+        "the warm-up must not launch the sleeper — it would hand the test a stale pid"
+    );
+
     // Run on a thread so we can confirm the child actually launched (pid file
-    // written) independently of the 2s timeout racing a loaded test host.
+    // written) independently of the timeout.
     let (tx, rx) = std::sync::mpsc::channel();
     std::thread::spawn(move || {
         let _ = tx.send(run_pandoc(
@@ -106,12 +132,20 @@ fn timeout_kills_and_reaps_the_child() {
             "input",
             &out,
             None,
-            Duration::from_secs(2),
+            // A liveness bound, not a performance assertion: it only has to be
+            // large enough that nothing but a HANG can consume it. With the
+            // warm-up above the child reaches its first line in ~9ms, so 5s is
+            // ~64× the measured worst case while still failing a wedged child
+            // in seconds.
+            Duration::from_secs(5),
         ));
     });
 
-    // Poll until the child has written a parseable pid (or give up loudly).
-    let deadline = Instant::now() + Duration::from_secs(10);
+    // Poll until the child has written a parseable pid. If it never does, say
+    // what actually happened — the run's OWN result — instead of asserting a
+    // launch failure this loop cannot observe. An absent pid file means only
+    // that the child did not reach its first line; it does not say why.
+    let deadline = Instant::now() + Duration::from_secs(30);
     let pid: u32 = loop {
         if let Some(pid) = std::fs::read_to_string(&pid_file)
             .ok()
@@ -119,10 +153,12 @@ fn timeout_kills_and_reaps_the_child() {
         {
             break pid;
         }
-        assert!(
-            Instant::now() < deadline,
-            "child never launched (no pid file)"
-        );
+        if Instant::now() >= deadline {
+            panic!(
+                "no pid file after 30s; run_pandoc returned {:?}",
+                rx.recv_timeout(Duration::from_secs(30))
+            );
+        }
         std::thread::sleep(Duration::from_millis(10));
     };
 

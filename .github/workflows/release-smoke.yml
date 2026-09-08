@@ -69,7 +69,7 @@ jobs:
           # DMG-less release pass this gate.
           gh release download "$TAG" --dir dl --pattern '*aarch64*.dmg' \
             || gh release download "$TAG" --dir dl --pattern '*.dmg'
-          DMG="$(ls dl/*.dmg | head -1)"
+          DMG="$(find dl -maxdepth 1 -name '*.dmg' | head -n 1)"
           [ -n "$DMG" ] || { echo "::error::no .dmg published for $TAG"; exit 1; }
           echo "DMG=$DMG" >> "$GITHUB_ENV"
           ls -la dl
@@ -88,13 +88,94 @@ jobs:
         run: |
           MOUNT="$(hdiutil attach "$DMG" -nobrowse -readonly | grep -o '/Volumes/.*' | head -1)"
           echo "mount=$MOUNT" >> "$GITHUB_OUTPUT"
-          APP="$(ls -d "$MOUNT"/*.app | head -1)"
+          APP="$(find "$MOUNT" -maxdepth 1 -name '*.app' | head -n 1)"
           [ -n "$APP" ] || { echo "::error::no .app inside the DMG"; exit 1; }
           echo "app=$APP" >> "$GITHUB_OUTPUT"
           echo "app: $APP"
           # Gatekeeper accepts the launchable bundle — the exact check macOS runs
           # on first open.
           spctl --assess --type execute -v "$APP"
+
+      - name: The staged app records its Knowledge Base runtime state
+        id: kb-runtime-state
+        # WI-FL0.8 / WI-FL1.1. Every release up to v0.9.65 shipped View → Knowledge
+        # Base while no packaged build could start it: `resolve_cli` looked for a
+        # bundled `content-server-dist/cli.js` that no build step produces, and
+        # nothing ran the shipped app to notice. The app now logs one line at
+        # startup — `content_server runtime: node=… cli=…`
+        # (src-tauri/src/content_server/runtime.rs) — so the truth is observable
+        # without a user. This launches the STAGED binary from the mounted DMG the
+        # way a fresh machine would: `env -i` drops the runner's environment, so
+        # there is no `node` on PATH (/usr/bin:/bin has none), no repo
+        # `node_modules`, and no `VMARK_CONTENT_SERVER_CLI` override — then reads
+        # the line back from the app's log directory.
+        # scripts/release-smoke-kb-runtime.test.mjs pins the clean environment
+        # and executes the assertion function below against sample lines.
+        #
+        # INTERIM under plan decision D1: the expected state is `cli=missing`,
+        # because the release genuinely does not carry the content server and the
+        # panel now says so. When D1 option (b) lands (bundle Node plus the
+        # dependency payload), flip assert_kb_runtime_state to `cli=ready` in the
+        # same PR — a release that still logs missing would then be the defect.
+        timeout-minutes: 3
+        shell: bash
+        env:
+          APP: ${{ steps.mount.outputs.app }}
+        run: |
+          # The assertion, as a function so the gates-tier test can execute it
+          # against sample lines instead of grepping for its spelling.
+          assert_kb_runtime_state() {
+            case "$1" in
+              *"cli=missing"*) return 0 ;;
+            esac
+            echo "::error::expected cli=missing (D1 interim: no release ships the content server) but the app logged: $1"
+            return 1
+          }
+
+          PLIST="$APP/Contents/Info.plist"
+          EXE="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$PLIST")"
+          BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$PLIST")"
+          [ -n "$EXE" ] && [ -n "$BUNDLE_ID" ] || { echo "::error::Info.plist lacks CFBundleExecutable or CFBundleIdentifier"; exit 1; }
+          # tauri's app_log_dir is $HOME/Library/Logs/<identifier> on macOS. The
+          # artefact's own identifier is authoritative; the checkout's
+          # tauri.conf.json should agree, and a mismatch means this run is not
+          # checked out at the release tag (workflow_dispatch against an old tag).
+          CONF_ID="$(sed -n 's/^ *"identifier": *"\([^"]*\)".*/\1/p' src-tauri/tauri.conf.json | head -1)"
+          [ "$CONF_ID" = "$BUNDLE_ID" ] || echo "::warning::tauri.conf.json identifier '$CONF_ID' differs from the artefact's '$BUNDLE_ID'"
+          LOG_DIR="$HOME/Library/Logs/$BUNDLE_ID"
+          rm -rf "$LOG_DIR"
+
+          # Clean launch: only HOME (where the log goes), a node-less PATH, USER
+          # and TMPDIR reach the app. Its stdout is kept for the failure report.
+          env -i HOME="$HOME" PATH=/usr/bin:/bin USER="${USER:-runner}" TMPDIR="${TMPDIR:-/tmp}" "$APP/Contents/MacOS/$EXE" >kb-runtime-app.log 2>&1 &
+          APP_PID=$!
+
+          LINE=""
+          for _ in $(seq 1 60); do
+            LINE="$(grep -h -F 'content_server runtime:' "$LOG_DIR"/*.log 2>/dev/null | head -n 1 || true)"
+            [ -n "$LINE" ] && break
+            if ! kill -0 "$APP_PID" 2>/dev/null; then
+              echo "::error::the app exited before logging its runtime state"
+              break
+            fi
+            sleep 1
+          done
+
+          kill "$APP_PID" 2>/dev/null || true
+          sleep 1
+          pkill -f "$APP/Contents/MacOS/$EXE" 2>/dev/null || true
+          wait "$APP_PID" 2>/dev/null || true
+
+          if [ -z "$LINE" ]; then
+            echo "::error::no 'content_server runtime:' line in $LOG_DIR within 60s"
+            echo "--- app stdout/stderr ---"; tail -n 50 kb-runtime-app.log || true
+            echo "--- $LOG_DIR ---"; ls -la "$LOG_DIR" 2>/dev/null || true
+            tail -n 50 "$LOG_DIR"/*.log 2>/dev/null || true
+            exit 1
+          fi
+          echo "runtime state: $LINE"
+          echo "line=$LINE" >> "$GITHUB_OUTPUT"
+          assert_kb_runtime_state "$LINE"
 
       - name: The bundled MCP sidecar reports its version
         shell: bash
@@ -108,7 +189,7 @@ jobs:
           APP: ${{ steps.mount.outputs.app }}
           TAG: ${{ steps.tag.outputs.tag }}
         run: |
-          SIDECAR="$(ls "$APP/Contents/MacOS/"vmark-mcp-server* | head -1)"
+          SIDECAR="$(find "$APP/Contents/MacOS" -maxdepth 1 -name 'vmark-mcp-server*' | head -n 1)"
           [ -n "$SIDECAR" ] || { echo "::error::no vmark-mcp-server in the bundle"; exit 1; }
           VER="$("$SIDECAR" --version)"
           echo "sidecar version: $VER"
@@ -125,3 +206,163 @@ jobs:
         env:
           MOUNT: ${{ steps.mount.outputs.mount }}
         run: hdiutil detach "$MOUNT" || true
+
+  windows-installer:
+    name: Windows NSIS installer
+    runs-on: windows-latest
+    # WI-FL6.6. src-tauri/windows/installer-hooks.nsh re-creates the
+    # `HKCR\.txt\ShellNew` key — the one behind "New > Text Document" for EVERY
+    # application — after a VMark uninstall once removed it (#1142). It was
+    # authored on macOS and its own header says it had never run on Windows.
+    # This job installs the published installer silently, uninstalls it, and
+    # reads the registry back from the outside. Two cycles, because the current
+    # Tauri uninstaller does not delete ShellNew by itself, so a plain cycle
+    # cannot show the hook doing anything:
+    #   1. plain — afterwards ShellNew is present and the `.txt` association is
+    #      what it was before the install (no collateral damage);
+    #   2. the #1142 damage first — the ShellNew key is deleted before the
+    #      uninstall, so its presence afterwards can only mean the
+    #      POSTUNINSTALL hook wrote it.
+    # The runner is ephemeral; the key it deletes is gone with it. Independent
+    # of the macOS job on purpose: one platform's failure must not skip the
+    # other's evidence.
+    timeout-minutes: 15
+    steps:
+      - name: Resolve the tag under test
+        id: tag
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          # Event-supplied values go through env, never interpolated into the
+          # shell body (workflow-injection safety).
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          TAG="${INPUT_TAG:-$RELEASE_TAG}"
+          if [ -z "$TAG" ]; then
+            TAG="$(gh release view --json tagName -q .tagName)"
+          fi
+          case "$TAG" in
+            v[0-9]*) ;;
+            *) echo "::error::unexpected tag '$TAG'"; exit 1 ;;
+          esac
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "resolved tag: $TAG"
+
+      - name: Download the published NSIS installer
+        id: installer
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          mkdir -p dl
+          # release.yml publishes VMark_<version>_x64-setup.exe (NSIS) beside the
+          # MSI. Fail loudly if it is missing — a release without it would pass
+          # this gate by never running it.
+          gh release download "$TAG" --dir dl --pattern '*-setup.exe'
+          EXE="$(find dl -maxdepth 1 -name '*-setup.exe' | head -n 1)"
+          [ -n "$EXE" ] || { echo "::error::no NSIS installer (*-setup.exe) published for $TAG"; exit 1; }
+          echo "exe=$(cygpath -w "$EXE")" >> "$GITHUB_OUTPUT"
+          ls -la dl
+
+      - name: Install, uninstall, and read the registry back (two cycles)
+        timeout-minutes: 10
+        shell: pwsh
+        env:
+          INSTALLER: ${{ steps.installer.outputs.exe }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installer = $env:INSTALLER
+          if (-not (Test-Path $installer)) { throw "installer not found: $installer" }
+          # Cycle 2 deletes a machine-wide key; verify elevation instead of
+          # assuming it, so a permissions failure reads as one.
+          $principal = [Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
+          if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+            throw "this job must run elevated: cycle 2 deletes HKLM\SOFTWARE\Classes\.txt\ShellNew"
+          }
+
+          $hkcrTxt = 'Registry::HKEY_CLASSES_ROOT\.txt'
+          $shellNewKeys = @(
+            'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Classes\.txt\ShellNew',
+            'Registry::HKEY_CURRENT_USER\Software\Classes\.txt\ShellNew'
+          )
+
+          # Tauri's NSIS template writes the uninstall entry under
+          # Software\Microsoft\Windows\CurrentVersion\Uninstall\<productName>,
+          # in HKCU for the default currentUser install mode.
+          function Get-UninstallEntry {
+            foreach ($hive in 'HKCU', 'HKLM') {
+              $key = "${hive}:\Software\Microsoft\Windows\CurrentVersion\Uninstall\VMark"
+              if (Test-Path $key) { return Get-ItemProperty $key }
+            }
+            return $null
+          }
+
+          function Assert-ShellNew([string]$stage) {
+            $key = "$hkcrTxt\ShellNew"
+            if (-not (Test-Path $key)) {
+              throw "${stage}: HKCR\.txt\ShellNew is missing - 'New > Text Document' is broken system-wide"
+            }
+            $props = Get-ItemProperty $key
+            if ($null -eq $props.PSObject.Properties['NullFile']) {
+              throw "${stage}: HKCR\.txt\ShellNew has no NullFile value"
+            }
+            Write-Host "${stage}: HKCR\.txt\ShellNew\NullFile present"
+          }
+
+          function Install-Silently {
+            $p = Start-Process -FilePath $installer -ArgumentList '/S' -Wait -PassThru
+            if ($p.ExitCode -ne 0) { throw "installer exited $($p.ExitCode)" }
+            $entry = Get-UninstallEntry
+            if ($null -eq $entry) { throw "installed, but no Uninstall registry entry for VMark" }
+            $dir = $entry.InstallLocation.Trim('"')
+            $exe = Join-Path $dir $entry.MainBinaryName
+            if (-not (Test-Path $exe)) { throw "installed, but the main binary is missing: $exe" }
+            Write-Host "installed $($entry.DisplayVersion) to $dir"
+            return $entry
+          }
+
+          function Uninstall-Silently($entry) {
+            $dir = $entry.InstallLocation.Trim('"')
+            $uninst = $entry.UninstallString.Trim('"')
+            # `_?=<dir>` makes the NSIS uninstaller run in place instead of from
+            # a temp copy of itself — which is what makes -Wait actually wait.
+            $p = Start-Process -FilePath $uninst -ArgumentList '/S', "_?=$dir" -Wait -PassThru
+            if ($p.ExitCode -ne 0) { throw "uninstaller exited $($p.ExitCode)" }
+            if ($null -ne (Get-UninstallEntry)) { throw "uninstalled, but the Uninstall registry entry is still there" }
+            $exe = Join-Path $dir $entry.MainBinaryName
+            if (Test-Path $exe) { throw "uninstalled, but the main binary is still there: $exe" }
+            # An in-place uninstaller cannot delete itself; clear the leftover so
+            # the next cycle starts from nothing.
+            Remove-Item -Recurse -Force $dir -ErrorAction SilentlyContinue
+            Write-Host "uninstalled cleanly"
+          }
+
+          $defaultBefore = (Get-ItemProperty $hkcrTxt).'(default)'
+          Write-Host "HKCR\.txt (default) before: '$defaultBefore'"
+          Assert-ShellNew 'before install'
+
+          # Cycle 1 - plain: the uninstaller must leave the system as it found it.
+          $entry = Install-Silently
+          Assert-ShellNew 'after install'
+          Uninstall-Silently $entry
+          Assert-ShellNew 'after uninstall (cycle 1)'
+          $defaultAfter = (Get-ItemProperty $hkcrTxt).'(default)'
+          if ($defaultAfter -ne $defaultBefore) {
+            throw "uninstall changed the .txt association: '$defaultBefore' -> '$defaultAfter'"
+          }
+
+          # Cycle 2 - the #1142 damage, then the hook: delete ShellNew wherever it
+          # lives, uninstall, and require it back. Only the POSTUNINSTALL hook
+          # can have put it there.
+          $entry = Install-Silently
+          foreach ($key in $shellNewKeys) {
+            if (Test-Path $key) { Remove-Item -Path $key -Recurse -Force }
+          }
+          if (Test-Path "$hkcrTxt\ShellNew") { throw "precondition: could not remove .txt\ShellNew before the uninstall" }
+          Write-Host "removed .txt\ShellNew (the #1142 damage)"
+          Uninstall-Silently $entry
+          Assert-ShellNew 'after uninstall (cycle 2): restored by the POSTUNINSTALL hook'

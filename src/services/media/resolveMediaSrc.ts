@@ -23,7 +23,7 @@
  * @coordinates-with plugins/shared/mediaSecurity.ts — path validation and URL classification
  * @coordinates-with stores/documentStore.ts — document file path lookup
  * @coordinates-with stores/tabStore.ts — active tab lookup
- * @module utils/resolveMediaSrc
+ * @module services/media/resolveMediaSrc
  */
 
 import { convertFileSrc } from "@tauri-apps/api/core";

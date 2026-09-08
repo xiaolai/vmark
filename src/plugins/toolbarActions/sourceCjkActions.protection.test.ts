@@ -182,15 +182,31 @@ describe("handleFormatCJK — boundaries", () => {
     expect(out).toBe("中文 English\n第二行 English");
   });
 
-  it("treats a mid-document --- delimited block as frontmatter (over-protection, deliberate)", () => {
-    // `findProtectedRegions` anchors frontmatter at offset 0 of the text it is
-    // given, and a block span is a SLICE. So a `---`-delimited block that
-    // happens to start a span is protected. That is the safe direction — it
-    // formats less, never more — and it is pinned so the behaviour is a
-    // decision rather than an accident.
+  // `formatMarkdown` anchors frontmatter at offset 0 of the text it is given,
+  // and a block span is a SLICE — so which slice the span resolves to decides
+  // whether the metadata is protected. Both directions are pinned, because
+  // getting either wrong is a silent rewrite of the user's document.
+  it("formats a mid-document --- delimited block: those are thematic breaks, not frontmatter", () => {
+    // Since #440/#443 the opening `---` is a one-line block of its own, so the
+    // span is the paragraph between the two breaks — ordinary prose, and CJK
+    // spacing applies to it. It used to be protected only because the span
+    // accidentally started on the `---`.
     const doc = "前言English\n\n---\nkey: 中文English\n---\n\n后记English";
     const v = view(doc, doc.indexOf("key"), doc.indexOf("key") + 3);
     handleFormatCJK(v);
-    expect(v.state.doc.toString()).toContain("key: 中文English");
+    expect(v.state.doc.toString()).toContain("key: 中文 English");
+    // The breaks themselves are untouched.
+    expect(v.state.doc.toString()).toContain("\n---\nkey:");
+  });
+
+  it("leaves REAL leading frontmatter alone even when the selection is inside it", () => {
+    // `blockSpan` extends such a span back to line 0 precisely so the slice
+    // still starts with `---`; without that the keys read as prose and the
+    // separator became a fullwidth `：`.
+    const doc = "---\ntitle: 中文English\nslug: my-post\n---\n\n正文English";
+    const v = view(doc, doc.indexOf("title"), doc.indexOf("title") + 5);
+    handleFormatCJK(v);
+    expect(v.state.doc.toString()).toContain("title: 中文English");
+    expect(v.state.doc.toString()).not.toContain("：");
   });
 });

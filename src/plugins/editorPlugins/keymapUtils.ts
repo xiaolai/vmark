@@ -9,7 +9,7 @@
  * - wrapWithMultiSelectionGuard: Guard a command with multi-selection policy
  *
  * @coordinates-with editorPlugins.tiptap.ts (main keymap builder)
- * @coordinates-with shortcutsStore.ts (shortcut key format)
+ * @coordinates-with stores/settingsStore/shortcutDefinitions.ts (shortcut key format)
  * @coordinates-with multiSelectionPolicy.ts (multi-selection guard)
  */
 

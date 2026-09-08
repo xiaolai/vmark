@@ -1,7 +1,7 @@
 /**
  * PTY Transport Benchmarks (WI-0.1)
  *
- * Plan: dev-docs/plans/20260531-terminal-industrial-best.md
+ * Origin: Terminal industrial-best plan (2026-05-31, retired)
  * Audit: dev-docs/audit/20260531-terminal-integration.md (finding T1)
  *
  * Run: pnpm bench src/bench/terminal.bench.ts
@@ -16,15 +16,16 @@
  * xterm.write) requires the manual app flow documented in
  * dev-docs/grills/terminal/throughput-baseline.md and the WI-0.2 Channel spike.
  *
- * @module bench/terminal
+ * @module bench/terminal.bench
  */
 
 import { bench, describe } from "vitest";
 import { generateTerminalOutput, encodeAsJsonNumberArray } from "./helpers";
 
-// Representative payloads. 4 KB is the current single reader chunk
-// (pty.rs:253); the larger sizes represent an aggregated burst (build logs,
-// `cat`, AI redraws) before flow-control intervenes.
+// Representative payloads. The reader buffer is 64 KB (`pty/reader.rs`,
+// WI-1.2); it was 4 KB when this bench was written, so 4 KB now stands for a
+// small partial read. The larger sizes represent an aggregated burst (build
+// logs, `cat`, AI redraws) before flow-control intervenes.
 const out4K = generateTerminalOutput(4 * 1024);
 const out256K = generateTerminalOutput(256 * 1024);
 const out1M = generateTerminalOutput(1024 * 1024);

@@ -242,6 +242,8 @@ Configure in **Settings → Editor → Typography → CJK Letter Spacing**:
 | Light | 0.03em | Light spacing |
 | Normal | 0.05em | Recommended for most use cases |
 | Wide | 0.08em | More pronounced spacing |
+| Wider | 0.10em | Wider still, for large display sizes |
+| Extra | 0.12em | The widest setting |
 
 ### How It Works
 

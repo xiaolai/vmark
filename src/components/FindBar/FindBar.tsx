@@ -5,56 +5,53 @@
  * Supports case-sensitive, whole-word, and regex search modes with match navigation.
  *
  * User interactions:
- *   - Cmd+F opens (via searchStore), Escape closes
+ *   - Cmd+F opens (via the uiStore search slice), Escape closes
+ *   - Mod+E (Edit → Use Selection for Find) seeds the query from the editor selection and opens
  *   - Enter/Shift+Enter navigates forward/backward through matches
  *   - Tab moves focus from find input to replace input
  *   - Toggle buttons for case sensitivity, whole word, and regex modes
  *   - Replace/Replace All buttons for substitution
  *
  * Key decisions:
- *   - All state lives in searchStore — FindBar is a pure view that delegates actions
+ *   - All state lives in the uiStore search slice — FindBar is a pure view that delegates actions
  *     via getState() calls, keeping the component stateless beyond refs.
  *   - IME guard prevents Enter during CJK composition from triggering find operations;
  *     uses useImeComposition grace period for macOS WebKit post-composition keydown.
+ *     The keyboard behaviour lives in useFindBarKeyboard, the focus and Mod+E
+ *     seeding effects in useFindBarFocus, and the two text fields plus the three
+ *     button groups — mode toggles, navigation, replace actions — in
+ *     FindBarControls. What is left here is the store subscriptions, the three
+ *     dispatch callbacks and the composition (audit 20260907, #301).
  *   - Regex toggle is conditionally shown based on settings (enableRegexSearch).
+ *   - A query or mode change resets currentIndex to -1 while the editor recounts, and
+ *     both search backends report an index >= 0 whenever they report matches — so
+ *     (matchCount > 0, currentIndex < 0) is "recount pending" (`hasCurrentMatch`) and
+ *     renders as no matches rather than "0 of N" over the previous query's count; the
+ *     keyboard hook consults the same predicate before Enter (audit 20260907, #302).
  *
- * @coordinates-with stores/searchStore.ts — all search state and operations
+ * @coordinates-with stores/uiStore/searchSlice.ts — all search state and operations
+ * @coordinates-with components/FindBar/useFindBarKeyboard.ts — Enter/Escape/Tab + IME guard
+ * @coordinates-with components/FindBar/useFindBarFocus.ts — open-focus + the Mod+E relay
+ * @coordinates-with components/FindBar/FindBarControls.tsx — the text fields and the three button groups
  * @coordinates-with utils/sourceEditorSearch.ts — CodeMirror search integration
  * @module components/FindBar/FindBar
  */
-import { useCallback, useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import {
-  Search,
-  ChevronLeft,
-  ChevronRight,
-  CaseSensitive,
-  WholeWord,
-  Regex,
-  X,
-  Replace,
-  ReplaceAll,
-} from "lucide-react";
-import { ICON_MD } from "@/utils/iconSizes";
+import { useCallback, useRef } from "react";
+import { Search, X, Replace } from "lucide-react";
+import { ICON_SM } from "@/utils/iconSizes";
 import { useTranslation } from "react-i18next";
 import { useUIStore } from "@/stores/uiStore";
-import { useSettingsStore } from "@/stores/settingsStore";
-import { isImeKeyEvent } from "@/utils/imeGuard";
 import { useImeComposition } from "@/hooks/useImeComposition";
+import { preventSelectAllOnButtons } from "./preventSelectAllOnButtons";
+import { useFindBarFocus } from "./useFindBarFocus";
+import { hasCurrentMatch, useFindBarKeyboard } from "./useFindBarKeyboard";
+import {
+  FindBarField,
+  FindBarNavigation,
+  FindBarReplaceActions,
+  FindBarToggles,
+} from "./FindBarControls";
 import "./FindBar.css";
-
-/**
- * Prevent Cmd+A from selecting all page content when focus is on non-input elements.
- * Only prevents when active element is a button or similar non-text element.
- */
-function preventSelectAllOnButtons(e: ReactKeyboardEvent) {
-  if ((e.metaKey || e.ctrlKey) && e.key === "a") {
-    const target = e.target as HTMLElement;
-    /* v8 ignore next -- @preserve tagName INPUT/TEXTAREA branch not exercised in jsdom tests */
-    if (target.tagName !== "INPUT" && target.tagName !== "TEXTAREA") {
-      e.preventDefault();
-    }
-  }
-}
 
 /** Renders an inline search-and-replace bar with case, whole-word, and regex toggle support. */
 export function FindBar() {
@@ -62,25 +59,14 @@ export function FindBar() {
   const isOpen = useUIStore((state) => state.search.isOpen);
   const query = useUIStore((state) => state.search.query);
   const replaceText = useUIStore((state) => state.search.replaceText);
-  const caseSensitive = useUIStore((state) => state.search.caseSensitive);
-  const wholeWord = useUIStore((state) => state.search.wholeWord);
-  const useRegex = useUIStore((state) => state.search.useRegex);
   const matchCount = useUIStore((state) => state.search.matchCount);
-  /* v8 ignore next -- @preserve ?? fallback: enableRegexSearch is always set in tests */
-  const enableRegexSearch = useSettingsStore((state) => state.markdown.enableRegexSearch ?? true);
   const currentIndex = useUIStore((state) => state.search.currentIndex);
 
   const ime = useImeComposition();
   const findInputRef = useRef<HTMLInputElement>(null);
   const replaceInputRef = useRef<HTMLInputElement>(null);
 
-  // Focus find input when opening
-  useEffect(() => {
-    if (isOpen && findInputRef.current) {
-      findInputRef.current.focus();
-      findInputRef.current.select();
-    }
-  }, [isOpen]);
+  useFindBarFocus(isOpen, findInputRef);
 
   const handleQueryChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     useUIStore.getState().searchSetQuery(e.target.value);
@@ -97,197 +83,57 @@ export function FindBar() {
     }
   }, []);
 
-  const handleFindKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (isImeKeyEvent(e.nativeEvent) || ime.isComposing()) return;
-    /* v8 ignore start -- @preserve reason: else-if chain branches (Escape, Tab) not fully exercised in tests */
-    if (e.key === "Enter") {
-      e.preventDefault();
-      if (e.shiftKey) {
-        useUIStore.getState().searchFindPrevious();
-      } else {
-        useUIStore.getState().searchFindNext();
-      }
-    } else if (e.key === "Escape") {
-      handleClose();
-    } else if (e.key === "Tab" && !e.shiftKey) {
-      e.preventDefault();
-      replaceInputRef.current?.focus();
-    }
-    /* v8 ignore stop */
-  }, [ime, handleClose]);
-
-  const handleReplaceKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (isImeKeyEvent(e.nativeEvent) || ime.isComposing()) return;
-    /* v8 ignore start -- @preserve reason: else-if chain branches (Escape, Shift+Tab) not fully exercised in tests */
-    if (e.key === "Enter") {
-      e.preventDefault();
-      useUIStore.getState().searchReplaceCurrent();
-    } else if (e.key === "Escape") {
-      handleClose();
-    } else if (e.key === "Tab" && e.shiftKey) {
-      e.preventDefault();
-      findInputRef.current?.focus();
-    }
-    /* v8 ignore stop */
-  }, [ime, handleClose]);
-
-  const handleFindNext = useCallback(() => {
-    useUIStore.getState().searchFindNext();
-  }, []);
-
-  const handleFindPrevious = useCallback(() => {
-    useUIStore.getState().searchFindPrevious();
-  }, []);
-
-  const handleToggleCaseSensitive = useCallback(() => {
-    useUIStore.getState().searchToggleCaseSensitive();
-  }, []);
-
-  const handleToggleWholeWord = useCallback(() => {
-    useUIStore.getState().searchToggleWholeWord();
-  }, []);
-
-  const handleToggleRegex = useCallback(() => {
-    useUIStore.getState().searchToggleRegex();
-  }, []);
-
-  const handleReplaceCurrent = useCallback(() => {
-    useUIStore.getState().searchReplaceCurrent();
-  }, []);
-
-  const handleReplaceAll = useCallback(() => {
-    useUIStore.getState().searchReplaceAll();
-  }, []);
+  const { handleFindKeyDown, handleReplaceKeyDown } = useFindBarKeyboard({
+    ime,
+    findInputRef,
+    replaceInputRef,
+    onClose: handleClose,
+  });
 
   if (!isOpen) return null;
 
-  const matchDisplay =
-    matchCount === 0
-      ? query
-        ? t("findbar.noResults")
-        : ""
-      : t("findbar.matchCount", { current: currentIndex + 1, total: matchCount });
+  // A count without a current index is the previous query's, still being
+  // recounted — the same predicate the keyboard consults before Enter (#302).
+  const hasMatches = hasCurrentMatch({ matchCount, currentIndex });
+  const matchDisplay = hasMatches
+    ? t("findbar.matchCount", { current: currentIndex + 1, total: matchCount })
+    : matchCount === 0 && query
+      ? t("findbar.noResults")
+      : "";
 
   return (
     <div className="find-bar" onKeyDown={preventSelectAllOnButtons}>
       <div className="find-bar-row">
-        {/* Toggles first */}
-        <div className="find-bar-toggles">
-          {enableRegexSearch && (
-            <button
-              className={`find-bar-toggle ${useRegex ? "active" : ""}`}
-              onClick={handleToggleRegex}
-              aria-pressed={useRegex}
-              title={t("findbar.toggleRegex")}
-              aria-label={t("findbar.toggleRegex")}
-            >
-              <Regex size={ICON_MD} />
-            </button>
-          )}
-          <button
-            className={`find-bar-toggle ${caseSensitive ? "active" : ""}`}
-            onClick={handleToggleCaseSensitive}
-            aria-pressed={caseSensitive}
-            title={t("findbar.toggleCase")}
-            aria-label={t("findbar.toggleCase")}
-          >
-            <CaseSensitive size={ICON_MD} />
-          </button>
-          <button
-            className={`find-bar-toggle ${wholeWord ? "active" : ""}`}
-            onClick={handleToggleWholeWord}
-            aria-pressed={wholeWord}
-            title={t("findbar.toggleWholeWord")}
-            aria-label={t("findbar.toggleWholeWord")}
-          >
-            <WholeWord size={ICON_MD} />
-          </button>
-        </div>
+        <FindBarToggles />
 
-        {/* Find Input */}
-        <div className="find-bar-input-group">
-          <Search className="find-bar-icon" size={14} />
-          <input
-            ref={findInputRef}
-            type="text"
-            className="find-bar-input"
-            placeholder={t("findbar.find.placeholder")}
-            // WI-2.4 (a11y) — explicit accessible name. Placeholder text is
-            // not a reliable label for screen readers.
-            aria-label={t("findbar.find.label")}
-            value={query}
-            onChange={handleQueryChange}
-            onKeyDown={handleFindKeyDown}
-            onCompositionStart={ime.onCompositionStart}
-            onCompositionEnd={ime.onCompositionEnd}
-          />
-        </div>
+        <FindBarField
+          inputRef={findInputRef}
+          icon={<Search className="find-bar-icon" size={ICON_SM} />}
+          placeholder={t("findbar.find.placeholder")}
+          label={t("findbar.find.label")}
+          value={query}
+          onChange={handleQueryChange}
+          onKeyDown={handleFindKeyDown}
+          ime={ime}
+        />
 
-        {/* Navigation */}
-        <div className="find-bar-nav">
-          <button
-            className="vm-icon-btn vm-icon-btn--sm"
-            onClick={handleFindPrevious}
-            disabled={matchCount === 0}
-            title={t("findbar.prev")}
-            aria-label={t("findbar.prev")}
-          >
-            <ChevronLeft size={14} />
-          </button>
-          <span className="find-bar-count">{matchDisplay}</span>
-          <button
-            className="vm-icon-btn vm-icon-btn--sm"
-            onClick={handleFindNext}
-            disabled={matchCount === 0}
-            title={t("findbar.next")}
-            aria-label={t("findbar.next")}
-          >
-            <ChevronRight size={14} />
-          </button>
-        </div>
+        <FindBarNavigation hasMatches={hasMatches} matchDisplay={matchDisplay} />
 
-        {/* Replace Input */}
-        <div className="find-bar-input-group">
-          <Replace className="find-bar-icon" size={14} />
-          <input
-            ref={replaceInputRef}
-            type="text"
-            className="find-bar-input"
-            placeholder={t("findbar.replace.placeholder")}
-            // WI-2.4 (a11y) — explicit accessible name.
-            aria-label={t("findbar.replace.label")}
-            value={replaceText}
-            onChange={handleReplaceChange}
-            onKeyDown={handleReplaceKeyDown}
-            onCompositionStart={ime.onCompositionStart}
-            onCompositionEnd={ime.onCompositionEnd}
-          />
-        </div>
+        <FindBarField
+          inputRef={replaceInputRef}
+          icon={<Replace className="find-bar-icon" size={ICON_SM} />}
+          placeholder={t("findbar.replace.placeholder")}
+          label={t("findbar.replace.label")}
+          value={replaceText}
+          onChange={handleReplaceChange}
+          onKeyDown={handleReplaceKeyDown}
+          ime={ime}
+        />
 
-        {/* Replace Actions */}
-        <div className="find-bar-replace-actions">
-          <button
-            className="vm-icon-btn vm-icon-btn--bordered"
-            onClick={handleReplaceCurrent}
-            disabled={matchCount === 0}
-            title={t("findbar.replace")}
-            aria-label={t("findbar.replace")}
-          >
-            <Replace size={14} />
-          </button>
-          <button
-            className="vm-icon-btn vm-icon-btn--bordered"
-            onClick={handleReplaceAll}
-            disabled={matchCount === 0}
-            title={t("findbar.replaceAll")}
-            aria-label={t("findbar.replaceAll")}
-          >
-            <ReplaceAll size={14} />
-          </button>
-        </div>
+        <FindBarReplaceActions hasMatches={hasMatches} />
 
         <button className="vm-icon-btn vm-icon-btn--sm find-bar-close" onClick={handleClose} title={t("findbar.close")} aria-label={t("findbar.close")}>
-          <X size={14} />
+          <X size={ICON_SM} />
         </button>
       </div>
     </div>

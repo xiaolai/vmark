@@ -8,13 +8,13 @@
  *   easy to get wrong via single-line inputs and is better expressed
  *   in source.
  *
- * Plan: dev-docs/plans/20260504-github-actions-workflow-viewer.md §6
+ * Origin: GitHub Actions workflow viewer plan (2026-05-04, retired) §6
  *   Phase 7 / WI-7.1 + Phase 9 finish.
  *
  * Edit mechanics: each editable list is a comma-separated input with
  * a blur-to-commit handler. Empty input = clear the filter.
  *
- * @coordinates-with src/stores/workflowEditStore.ts — IRPatch sink
+ * @coordinates-with src/stores/workflowStore.ts — IRPatch sink
  * @coordinates-with src/lib/ghaWorkflow/save/mutators.ts — TriggerSetFiltersPatch
  * @module components/Editor/WorkflowEditor/TriggerForm
  */

@@ -28,7 +28,7 @@
  */
 
 import type { StepIR } from "@/lib/ghaWorkflow/types";
-import type { IRPatch } from "@/stores/workflowStore";
+import type { IRPatch } from "@/lib/ghaWorkflow/save/mutators";
 import { stringifyUnknown } from "@/utils/stringifyUnknown";
 
 export interface WithRow {
@@ -95,8 +95,10 @@ function cancelSet(ctx: WithRowContext, key: string): IRPatch {
 /**
  * Plan the patches for committing `row` (key or value blur).
  * `others` carries every OTHER row's current key (duplicate detection) and
- * committedKey (patch-ownership guard). `stepWith` is the step's IR `with:`
- * block, the source of truth for "did the value actually change".
+ * committedKey (patch-ownership guard). `stepWith` is the PRE-EDIT `with:`
+ * block, the source of truth for "did the value actually change" — pass the
+ * preview's and a row that was just committed reads as unchanged, cancelling
+ * the edit it had queued (audit R2, #1020).
  */
 export function planWithRowCommit(
   ctx: WithRowContext,

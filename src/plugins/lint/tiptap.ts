@@ -24,7 +24,7 @@
  *
  * @coordinates-with lineMap.ts — source-line → top-level-block mapping
  * @coordinates-with docEpoch.ts — doc-revision guard against stale async completions
- * @coordinates-with services/assembly/lintDiagnosticsSource.ts — the app's adapter
+ * @coordinates-with services/assembly/hostAdapters.ts — the app's adapter (lintDiagnosticsSource)
  * @coordinates-with plugins/shared/hostSettings.ts — lintEnabled gates decorations
  * @module plugins/lint/tiptap
  */

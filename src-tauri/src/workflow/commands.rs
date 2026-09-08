@@ -4,56 +4,74 @@
 //!   - `run_workflow` spawns the runner as a background tokio task and returns
 //!     the execution ID immediately — so the frontend can subscribe to events
 //!     before any step runs.
-//!   - Concurrency guard: only one workflow at a time via AtomicBool.
+//!   - Concurrency guard: only one workflow at a time via AtomicBool, claimed
+//!     through `state::AdmissionGuard` so every refusal releases it (#259).
 //!   - Cancellation via shared CancellationToken (AtomicBool checked per step).
-//!   - Snapshots created before execution for file-modifying steps.
+//!   - Snapshots created before execution for file-modifying steps — and
+//!     REQUIRED: a snapshot that fails refuses the run (`prepare.rs`, #266).
+//!   - `run_workflow` is four steps in order (#262): admit (`admit_run`),
+//!     settle the id (`prepare::execution_id_for`, then
+//!     `state.begin_execution`, which refuses a reused one — #264), prepare
+//!     (`prepare::prepare_run`: snapshot, cancel check, genies directory),
+//!     spawn (`launch::spawn_run`, which owns the flag from then on).
 //!   - **The feature flag is enforced here, not only in the UI (WI-19).**
-//!     `run_workflow` opens with `require_workflow_engine_enabled` and the
-//!     state starts fail-closed. Only the command that STARTS work is gated:
-//!     `cancel_workflow` and `respond_workflow_approval` are not, because
-//!     gating them made a running workflow unstoppable by the very user who
-//!     had just switched the feature off (audit 20260803 §3).
-//!     `workflow_engine_policy` is not gated either — it IS the setter.
+//!     `run_workflow` admits through `admit_run`, whose first check is the
+//!     gate (`require_workflow_engine_enabled`); the state starts fail-closed.
+//!     The gate and the claim run under the state's admission lock, the same
+//!     one `workflow_engine_policy(false)` holds across its flag write and its
+//!     cancel (#260). Only the command that STARTS work is gated:
+//!     `cancel_workflow` and `respond_workflow_approval` are not; gating them
+//!     made a running workflow unstoppable by the user who just switched it
+//!     off (audit 20260803 §3). `workflow_engine_policy` is not gated either —
+//!     it IS the setter.
 //!   - Errors are `CommandError` (WI-14), not `String`: the frontend has to be
 //!     able to tell `feature-disabled` from `conflict` (already running) from
 //!     `invalid-input` (bad YAML) without matching prose.
 
-use super::genie_step::{resolve_genies_dir, ProviderConfig};
+use super::genie_step::ProviderConfig;
 use super::guards::require_workflow_engine_enabled;
+use super::launch::spawn_run;
+use super::prepare::{execution_id_for, prepare_run};
 use super::runner::run_workflow_sequential;
-use super::snapshots;
-use super::state::{CancelDecision, WorkflowRunnerState};
+use super::state::{AdmissionGuard, CancelDecision, WorkflowRunnerState};
 use super::types::RawWorkflow;
+use super::validate::validate_document;
 use crate::command_error::{CommandError, ErrorCode};
 use crate::localized_error;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
-use tauri::{AppHandle, Manager, State};
-use uuid::Uuid;
+use tauri::{AppHandle, State};
 
-/// RAII guard that releases the workflow `running` concurrency flag on drop.
-///
-/// Whether the spawned runner returns normally, returns `Err`, or panics,
-/// `Drop::drop` runs and resets `running` to `false`. Without this, a panic
-/// inside `run_workflow_sequential` (caught by `spawn_logged`) would leave
-/// `running == true` forever and permanently block every subsequent
-/// workflow start.
-struct RunningGuard {
-    app: AppHandle,
-}
+/// The pre-spawn half of `run_workflow`, against the managed state alone: the
+/// engine gate, then the one-run-at-a-time claim, then input validation.
+/// Split from the command because a `State<'_, T>` needs a Tauri runtime and
+/// the ORDER here is what has to be pinned: gate before claim, and a refused
+/// start must neither latch `running` nor touch a live run's flags. Every
+/// refusal after the claim releases it by dropping the guard.
+fn admit_run<'s>(
+    state: &'s WorkflowRunnerState,
+    yaml: &str,
+    workspace_root: &str,
+    execution_id: &str,
+) -> Result<(RawWorkflow, PathBuf, AdmissionGuard<'s>), CommandError> {
+    let admission = {
+        // Gate and claim under one lock (#260): the feature gate comes FIRST —
+        // before the concurrency claim, so a refused call cannot leave
+        // `running` latched true for the rest of the session.
+        let _serial = state.admission_lock();
+        require_workflow_engine_enabled(state)?;
+        // Claim and publish in one step (#559): `request_cancel` matches
+        // against the published id, so a cancel landing between a separate
+        // claim and publication saw `None`, answered `NotRunning`, and was
+        // dropped — leaving a run the frontend had already asked to stop.
+        state.claim_and_publish(execution_id).ok_or_else(|| {
+            localized_error!(ErrorCode::Conflict, "errors.workflow.alreadyRunning")
+        })??
+    };
 
-impl RunningGuard {
-    fn new(app: AppHandle) -> Self {
-        Self { app }
-    }
-}
-
-impl Drop for RunningGuard {
-    fn drop(&mut self) {
-        self.app.state::<WorkflowRunnerState>().clear_running();
-    }
+    let (workflow, workspace) = validate_document(yaml, workspace_root)?;
+    Ok((workflow, workspace, admission))
 }
 
 /// Execute a workflow from YAML string.
@@ -65,9 +83,15 @@ impl Drop for RunningGuard {
 /// `provider` is optional: action-only workflows don't need it. Workflows
 /// containing `genie/*` steps will fail those steps with a clear error if
 /// no provider is supplied.
+///
+/// Generic over the runtime — like the runner it spawns (#263) — so
+/// `commands.test.rs` drives the whole composition on a mock app: what the
+/// command returns, what it publishes before it spawns, and what a refusal
+/// leaves behind. `admit_run` alone could be tested without an app, and that
+/// left the four joins around it untested.
 #[tauri::command]
-pub async fn run_workflow(
-    app: AppHandle,
+pub async fn run_workflow<R: tauri::Runtime>(
+    app: AppHandle<R>,
     yaml: String,
     env: HashMap<String, String>,
     workspace_root: String,
@@ -79,185 +103,37 @@ pub async fn run_workflow(
     execution_id: Option<String>,
     state: State<'_, WorkflowRunnerState>,
 ) -> Result<String, CommandError> {
-    // The feature gate comes FIRST — before the concurrency CAS, so a refused
-    // call cannot leave `running` latched true for the rest of the session.
-    require_workflow_engine_enabled(&state)?;
+    // The caller's id — pre-generated so the frontend can subscribe to events
+    // before invoke() resolves — validated (#264), or a fresh one. Settled
+    // BEFORE admission (#559) so the claim and the publication happen in one
+    // critical section: a cancel that arrives while the snapshot is being
+    // taken, or while the YAML is still being parsed, already matches. Every
+    // `?` from here drops `admission`, which clears the id with the flag, so
+    // an early return can never leave a stale id behind.
+    let execution_id = execution_id_for(execution_id)?;
+    let (workflow, workspace, admission) =
+        admit_run(&state, &yaml, &workspace_root, &execution_id)?;
 
-    // Concurrency guard
-    if state
-        .running
-        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-        .is_err()
-    {
-        return Err(localized_error!(
-            ErrorCode::Conflict,
-            "errors.workflow.alreadyRunning"
-        ));
-    }
-
-    // Reset cancellation flag
-    state.cancel_requested.store(false, Ordering::SeqCst);
-
-    // Validate inputs
-    if yaml.trim().is_empty() {
-        state.running.store(false, Ordering::SeqCst);
-        return Err(localized_error!(
-            ErrorCode::InvalidInput,
-            "errors.workflow.emptyYaml"
-        ));
-    }
-
-    let workspace = PathBuf::from(&workspace_root);
-    if !workspace.is_dir() {
-        state.running.store(false, Ordering::SeqCst);
-        return Err(localized_error!(
-            ErrorCode::InvalidInput,
-            "errors.workflow.invalidWorkspace",
-            path = workspace_root
-        ));
-    }
-
-    let workflow: RawWorkflow = match serde_yaml_ng::from_str(&yaml) {
-        Ok(w) => w,
-        Err(e) => {
-            state.running.store(false, Ordering::SeqCst);
-            return Err(localized_error!(
-                ErrorCode::InvalidInput,
-                "errors.workflow.parseFailed",
-                detail = e.to_string()
-            ));
-        }
-    };
-
-    // Validate step count
-    if workflow.steps.len() > 50 {
-        state.running.store(false, Ordering::SeqCst);
-        return Err(localized_error!(
-            ErrorCode::InvalidInput,
-            "errors.workflow.tooManySteps",
-            count = workflow.steps.len().to_string()
-        ));
-    }
-
-    // Validate supported features — reject only what the runner truly can't
-    // handle yet. `genie/*` is supported (WI-2.2); webhooks are not.
-    for (i, step) in workflow.steps.iter().enumerate() {
-        let step_id = step.id.as_deref().unwrap_or("(unnamed)");
-        if step.uses.starts_with("webhook/") {
-            state.running.store(false, Ordering::SeqCst);
-            return Err(localized_error!(
-                ErrorCode::Unsupported,
-                "errors.workflow.webhookNotImplemented",
-                index = (i + 1).to_string(),
-                id = step_id
-            ));
-        }
-    }
-
-    // Use the caller-supplied execution ID if present (avoids a race where the
-    // frontend can't filter events by ID until invoke() resolves). Otherwise
-    // generate a fresh one.
-    let execution_id = execution_id.unwrap_or_else(|| Uuid::new_v4().to_string());
-    let exec_id_clone = execution_id.clone();
-    let cancel_token = Arc::clone(&state.cancel_requested);
-    let app_clone = app.clone();
-
-    // Create snapshot of files that may be modified. This is the last fallible
-    // pre-spawn step; on error we must release the `running` concurrency flag
-    // (the RunningGuard that normally does this only exists once we spawn).
-    let app_data_dir = match app.path().app_data_dir() {
-        Ok(d) => d,
-        Err(e) => {
-            state.running.store(false, Ordering::SeqCst);
-            return Err(localized_error!(
-                ErrorCode::Io,
-                "errors.workflow.appDataDirUnavailable",
-                detail = e.to_string()
-            ));
-        }
-    };
-    let snapshot_workspace = workspace.clone();
-
-    // Collect file paths from save-file steps for snapshotting
-    let files_to_snapshot: Vec<PathBuf> = workflow
-        .steps
-        .iter()
-        .filter(|s| s.uses == "action/save-file")
-        .filter_map(|s| {
-            s.with.get("path").map(|p| {
-                if std::path::Path::new(p).is_absolute() {
-                    PathBuf::from(p)
-                } else {
-                    snapshot_workspace.join(p)
-                }
-            })
-        })
-        .collect();
-
-    if !files_to_snapshot.is_empty() {
-        if let Err(e) = snapshots::create_snapshot(
-            &app_data_dir,
-            &execution_id,
-            &files_to_snapshot,
-            &snapshot_workspace,
-        )
-        .await
-        {
-            log::warn!("Failed to create pre-execution snapshot: {}", e);
-            // Continue execution — snapshot failure shouldn't block the workflow
-        }
-    }
-
-    // Resolve genies dir up-front so the runner doesn't need a Tauri handle
-    // for filesystem I/O. `app.path().app_data_dir()` can fail on rare
-    // sandbox configurations; in that case genie steps will report a clean
-    // error and action-only workflows still run.
-    let genies_dir = app
-        .path()
-        .app_data_dir()
-        .ok()
-        .map(|d| resolve_genies_dir(&d));
+    let genies_dir = prepare_run(&app, &state, &workflow, &workspace, &execution_id).await?;
 
     // Approval registry is per-app, shared across executions.
     let approvals = Arc::clone(&state.approvals);
-
-    // Publish the running execution id only now — after every fallible
-    // pre-spawn step has succeeded — so an early-return error path can never
-    // leave a stale id behind. From here, RunningGuard::drop clears it on every
-    // exit path of the spawned task. A cancel arriving right after invoke()
-    // resolves still matches, because we return execution_id immediately below.
-    *state
-        .current_execution
-        .lock()
-        .unwrap_or_else(|p| p.into_inner()) = Some(execution_id.clone());
-
-    // Spawn runner as background task — return ID immediately.
-    //
-    // Wrapped in spawn_logged so a panic inside the runner is logged instead
-    // of silently swallowed by the tokio runtime. The RunningGuard below
-    // clears `WorkflowRunnerState.running` on Drop so even an unwind path
-    // releases the concurrency lock — preventing a stuck-true flag from
-    // permanently blocking subsequent workflow runs.
-    crate::task::spawn_logged("workflow-runner", async move {
-        let _guard = RunningGuard::new(app_clone.clone());
-
-        let result = run_workflow_sequential(
-            &app_clone,
+    let cancel_token = Arc::clone(&state.cancel_requested);
+    let runner_app = app.clone();
+    let id = execution_id.clone();
+    spawn_run(app, execution_id.clone(), admission, async move {
+        run_workflow_sequential(
+            &runner_app,
             workflow,
             env,
             &workspace,
-            &exec_id_clone,
+            &id,
             &cancel_token,
             provider,
             genies_dir,
             approvals,
         )
-        .await;
-
-        if let Err(e) = result {
-            log::error!("Workflow execution failed: {}", e);
-        }
-        // _guard drops here on the happy path and clears the flag.
+        .await
     });
 
     Ok(execution_id)
@@ -275,9 +151,14 @@ pub async fn run_workflow(
 /// workflow unstoppable: the UI vanished and the only command that could stop
 /// it started returning `feature-disabled`. A gate whose job is "do not START
 /// things" has no business refusing to stop one.
+///
+/// It took an unused `AppHandle` until audit 20260907 #523. Tauri injects that
+/// parameter, so the frontend never sent it and nothing broke by asking — but a
+/// command's parameter list is its ABI as read by anyone maintaining it, and an
+/// argument declared for no reason reads as a dependency this command does not
+/// have. The cancel is decided entirely on `WorkflowRunnerState`.
 #[tauri::command]
 pub async fn cancel_workflow(
-    _app: AppHandle,
     execution_id: String,
     state: State<'_, WorkflowRunnerState>,
 ) -> Result<(), CommandError> {
@@ -340,15 +221,19 @@ pub async fn respond_workflow_approval(
 ///
 /// The `false` transition also asks any in-flight run to stop: the user who
 /// turns the engine off is asking for it to be off, and the panel that carries
-/// the cancel button is exactly what disappears.
+/// the cancel button is exactly what disappears. Flag and cancel are applied
+/// under the admission lock, so a start cannot slip between them (#260).
 #[tauri::command]
 pub async fn workflow_engine_policy(
     enabled: bool,
     state: State<'_, WorkflowRunnerState>,
 ) -> Result<(), CommandError> {
-    state.set_engine_enabled(enabled);
-    if !enabled && state.request_cancel_if_running() {
+    if state.apply_engine_policy(enabled) {
         log::info!("Workflow engine switched off — cancelling the running workflow");
     }
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "commands.test.rs"]
+mod tests;

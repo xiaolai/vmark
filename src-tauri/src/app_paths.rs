@@ -30,12 +30,12 @@ const LEGACY_MCP_SETTINGS_FILE: &str = "mcp-settings.json";
 /// Resolve the app data directory, mapping the Tauri path error to a `String`.
 /// Replaces the repeated `app.path().app_data_dir().map_err(|e| e.to_string())?`
 /// across the backend (WI-3.6 / D7).
-pub fn app_data_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+pub fn app_data_dir<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf, String> {
     app.path().app_data_dir().map_err(|e| e.to_string())
 }
 
 /// Get the path to the port file in the app data directory.
-pub fn get_port_file_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+pub fn get_port_file_path<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf, String> {
     Ok(app_data_dir(app)?.join(MCP_PORT_FILE))
 }
 

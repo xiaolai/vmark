@@ -13,9 +13,12 @@
 //! - `rest_api`       -- API key testing, model listing, model validation
 //! - `cli`            -- CLI provider spawning and stdout streaming
 //! - `spawn`          -- Process-spawn platform utilities (no-console-window)
+//! - `rest_request`   -- REST request builders (URL, headers, body, timeout), unsent
 //! - `rest_providers` -- REST provider prompt execution
 //! - `dispatch`       -- `ProviderRequest` + provider dispatch shared by both entry points
+//! - `cancel`         -- Per-request cancel registry + `cancel_ai_prompt` (streaming path)
 
+pub(crate) mod cancel;
 mod cli;
 mod cli_path_guard;
 mod detection;
@@ -24,6 +27,7 @@ mod endpoint;
 mod http_client;
 mod rest_api;
 mod rest_providers;
+mod rest_request;
 pub mod sink;
 pub(crate) mod spawn;
 mod types;
@@ -45,7 +49,7 @@ pub(crate) use {
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use tauri::{command, WebviewWindow};
+use tauri::{command, State, WebviewWindow};
 use tokio_util::sync::CancellationToken;
 
 use dispatch::{dispatch_to_provider, ProviderRequest};
@@ -76,11 +80,14 @@ const COLLECT_CHANNEL_CAPACITY: usize = 1024;
 /// For REST providers: sends HTTP request via reqwest.
 /// `cli_path` is the resolved absolute path from detection (used on
 /// Windows where bare command names may not find `.cmd`/`.bat` shims).
-// The parameter list is the frontend `invoke()` IPC contract.
+/// Cancellable under `request_id` through `cancel_ai_prompt` (`cancel.rs`).
+// The parameter list is the frontend `invoke()` IPC contract; `State` is
+// injected by Tauri and not part of it.
 #[allow(clippy::too_many_arguments)]
 #[command]
 pub async fn run_ai_prompt(
     window: WebviewWindow,
+    cancel_registry: State<'_, cancel::AiPromptCancelRegistry>,
     request_id: String,
     provider: String,
     prompt: String,
@@ -94,15 +101,14 @@ pub async fn run_ai_prompt(
     // boundary; internal callers stay injectable.
     cli_path_guard::validate_cli_path(&provider, cli_path.as_deref())?;
 
-    let sink: Arc<dyn AiSink> = Arc::new(WindowSink::new(window, request_id));
-    // The streaming editor path doesn't currently expose a per-request cancel
-    // token; the legacy `aiInvocationStore.cancel` flow drops the listener
-    // instead. Wire a fresh, never-fired token here. (When the editor path
-    // gains real cancellation, a token from the caller can replace this.)
-    let cancel = CancellationToken::new();
-    dispatch_to_provider(
+    let sink: Arc<dyn AiSink> = Arc::new(WindowSink::new(window, request_id.clone()));
+    // Dispatched under a token registered for exactly the dispatch's lifetime,
+    // so `cancel_ai_prompt` can fire it — killing a CLI child or dropping the
+    // in-flight REST request (audit #375).
+    cancel::dispatch_registered(
+        &cancel_registry,
+        &request_id,
         sink,
-        cancel,
         ProviderRequest {
             provider: &provider,
             prompt: &prompt,

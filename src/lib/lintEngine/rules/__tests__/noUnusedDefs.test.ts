@@ -76,6 +76,39 @@ describe("W03 noUnusedDefs", () => {
       input: "[wrong][]\n\n[ref]: https://example.com",
       expected: 1,
     },
+    // Audit 20260907 round 2 — an INLINE link is not a shortcut reference.
+    {
+      name: "flagged: [foo](url) is an inline link, not a use of [foo]: …",
+      input: "[foo](https://example.com)\n\n[foo]: https://other.com",
+      expected: 1,
+    },
+    {
+      name: "flagged: ![foo](url) is an inline image, not a use of [foo]: …",
+      input: "![foo](image.png)\n\n[foo]: https://other.com",
+      expected: 1,
+    },
+    {
+      name: "clean: a space breaks the inline form, so [foo] (url) IS a shortcut",
+      input: "[foo] (https://example.com)\n\n[foo]: https://other.com",
+      expected: 0,
+    },
+    // Audit 20260907 round 2 — a definition must not count as its own usage,
+    // wherever the parser found it.
+    {
+      name: "flagged: a definition inside a blockquote is not its own usage",
+      input: "> [ref]: https://example.com",
+      expected: 1,
+    },
+    {
+      name: "flagged: an escaped bracket is a literal, not a use of [foo]: …",
+      input: "Write \\[foo] to show brackets\n\n[foo]: https://other.com",
+      expected: 1,
+    },
+    {
+      name: "flagged: a title on a continuation line is not a usage",
+      input: '[text][foo]\n\n[foo]: /url\n  "see [bar]"\n\n[bar]: /other',
+      expected: 1,
+    },
   ])("$name → $expected W03 diagnostic(s)", ({ input, expected }) => {
     const result = lintMarkdown(input);
     const matches = result.filter((d) => d.ruleId === "W03");
@@ -173,5 +206,81 @@ describe("W03 noUnusedDefs", () => {
     const diagnostics = noUnusedDefs("", mdast, EMPTY_INDEX);
     expect(diagnostics).toHaveLength(1);
     expect(diagnostics[0].offset).toBe(0);
+  });
+
+  // Audit R2 (#854): the fallback was a literal 0, so a definition anywhere but
+  // the first character underlined the START OF THE DOCUMENT — someone else's
+  // text. The engine's own line index says where each line begins.
+  it("derives the missing offset from the line index, not from zero", () => {
+    const source = "para\n\n  [ref]: https://example.com";
+    const mdast: Root = {
+      type: "root",
+      children: [
+        {
+          type: "definition",
+          identifier: "ref",
+          label: "ref",
+          url: "https://example.com",
+          position: { start: { line: 3, column: 3 }, end: { line: 3, column: 29 } },
+        } as unknown as Definition,
+      ],
+    };
+    const index = { lines: source.split("\n"), lineOffsets: [0, 5, 6] };
+
+    const diagnostics = noUnusedDefs(source, mdast, index);
+    expect(diagnostics[0].offset).toBe(8);
+    expect(source.slice(diagnostics[0].offset, diagnostics[0].offset + 5)).toBe("[ref]");
+  });
+});
+
+// Audit R2 (#847/#850): the fence tracker only recognises a fence that starts
+// its own line, and CommonMark does not resolve references inside a raw HTML
+// block — so bracket text in either place counted as a USAGE and silenced this
+// rule for a definition nothing actually references.
+describe("W03 — bracket text that is not markdown", () => {
+  it.each([
+    {
+      name: "fenced code inside a blockquote",
+      input: "> ```\n> [ref]\n> ```\n\n[ref]: https://example.com",
+    },
+    {
+      name: "fenced code inside a list item",
+      input: "- item\n\n  ```\n  [ref]\n  ```\n\n[ref]: https://example.com",
+    },
+    {
+      name: "an indented code block",
+      input: "para\n\n    [ref]\n\n[ref]: https://example.com",
+    },
+    {
+      name: "a raw HTML block",
+      input: "<div>\n[ref]\n</div>\n\n[ref]: https://example.com",
+    },
+  ])("$name does not count as a usage", ({ input }) => {
+    expect(lintMarkdown(input).filter((d) => d.ruleId === "W03")).toHaveLength(1);
+  });
+
+  // The opposite mistake, and the louder one: masking the LINE of an inline
+  // `<b>` would take a real reference beside it with it.
+  it("still sees a reference on a line that also carries inline HTML", () => {
+    const input = "See <b>this</b> [ref] here\n\n[ref]: https://example.com";
+    expect(lintMarkdown(input).filter((d) => d.ruleId === "W03")).toHaveLength(0);
+  });
+});
+
+// Audit 20260907 round 3 (#849): the reference scan stripped `` `…` `` only —
+// same line, single backtick — so a definition "used" only inside a wider or a
+// multi-line code span was never reported. E01 and W03 share `sourceMask` now,
+// so they cannot disagree about which text is code.
+describe("W03 — a usage inside a code span is not a usage", () => {
+  it.each([
+    { name: "a double-backtick span", input: "Use ``[ref]`` here\n\n[ref]: https://example.com" },
+    { name: "a span across a line ending", input: "Use `x\n[ref]` here\n\n[ref]: https://example.com" },
+  ])("$name", ({ input }) => {
+    expect(lintMarkdown(input).filter((d) => d.ruleId === "W03")).toHaveLength(1);
+  });
+
+  it("still sees a real usage beside a code span", () => {
+    const input = "Use `code` and [ref] here\n\n[ref]: https://example.com";
+    expect(lintMarkdown(input).filter((d) => d.ruleId === "W03")).toHaveLength(0);
   });
 });

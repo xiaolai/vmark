@@ -1,6 +1,6 @@
 // WI-1.1 — GitHub Actions Workflow IR types.
 //
-// Plan: dev-docs/plans/20260504-github-actions-workflow-viewer.md §4
+// Origin: GitHub Actions workflow viewer plan (2026-05-04, retired) §4
 // Tested via: WI-1.2 / WI-1.3 (parser tests exercise every type).
 //
 // The IR is the canonical pivot between the YAML source and every renderer

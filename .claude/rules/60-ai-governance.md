@@ -93,9 +93,9 @@ Currently scoped to:
 | Feature | Paths |
 |---|---|
 | GHA workflow viewer | `src/lib/ghaWorkflow/**`, `src/components/Editor/WorkflowPanel/**`, `src/components/Editor/WorkflowEditor/**` |
-| Bespoke workflow engine | `src/lib/workflow/**`, `src/plugins/workflowPreview/**`, `src/components/WorkflowApproval/**`, `src/services/workflow/**`, `src/stores/workflowStore.ts` |
+| Bespoke workflow engine | `src/lib/workflow/**`, `src/plugins/workflowPreview/**`, `src/components/WorkflowApproval/**`, `src/stores/workflowStore.ts`, and `src/services/workflow/workflowEnginePolicySync.ts` (the flag push) |
 | Source-pane workflow extensions | `src/plugins/codemirror/` modules whose name matches `*[Ww]orkflow*` or `*Gha*` (covers `sourceGhaIrSync.ts`; the guard's test globs the directory so a new workflow module cannot silently escape) |
-| Embedded browser | `src/lib/browser/**`, `src/lib/sites/**`, `src/components/Browser/**`, `src/services/browser/**`, `src/stores/browserApprovalStore.ts` |
+| Embedded browser | `src/lib/browser/**`, `src/lib/sites/**`, `src/components/Browser/**`, `src/services/browser/**`, `src/services/workflow/**` (the browser's workflow RUN engine — executor, registry, approvals, recorder session; WI-NB6/NB7 — not the YAML engine, despite the directory name), `src/stores/browserApprovalStore.ts` |
 | Browser automation (MCP handlers) | `src/services/mcpBridge/v2/browser*` |
 
 Allow-list within scope: `*.test.ts(x)`, `types.ts`, `*.d.ts`, `*.css`.
@@ -417,16 +417,26 @@ everywhere) — by **2026-09-15**. The risk is small and bounded: these extensio
 are read-only, they no-op on non-YAML files, and the workbench they assist is
 already unconditional.
 
+**Workflow VIEWER — outcome (2026-09-07).** Done ahead of the 2026-09-15 date,
+and the flag is gone rather than flipped: `advanced.workflowViewer` gated only
+the markdown assembly's `viewer: yaml` extensions and hid the YAML-formatting
+control, so the split left nothing worth a switch. Those extensions are now
+unconditional (the engine gate is untouched), the formatting control is a plain
+Developer Tools row, and `migrateRemoveWorkflowViewer` drops persisted values;
+`migrateSplitWorkflowFlags`, which re-created the flag from the engine flag on
+every load, is retired with it (feature-ledger plan, WI-FL2.6).
+
 **Workflow ENGINE — EXTRACT, exit criterion 2026-10-01.** The bespoke YAML
 runner is the weakest case of the three and the one with the most machinery per
 unit of demonstrated demand. It executes a workflow language VMark invented,
 spawns AI providers, writes files, and takes filesystem snapshots — and until
 WI-19 the Rust side did none of that behind a flag check, so anything that could
 reach the IPC boundary ran it regardless of the setting. Its frontend is thinner
-than the viewer's (`src/plugins/workflowPreview/WorkflowPreview.tsx` still has
-no test), it duplicates a capability the AI genies already provide for the
-single-step case, and its "language" competes with the GitHub Actions syntax the
-viewer half of the same feature already speaks fluently. The recommendation is
+than the viewer's (`src/plugins/workflowPreview/WorkflowPreview.tsx` gained its
+first test, `__tests__/WorkflowPreview.test.tsx`, only in 2026-08), it duplicates a
+capability the AI genies already provide for the single-step case, and its
+"language" competes with the GitHub Actions syntax the viewer half of the same
+feature already speaks fluently. The recommendation is
 **extract**: move the runner (`src-tauri/src/workflow/`, `src/lib/workflow/`,
 `src/plugins/workflowPreview/`, `src/components/WorkflowApproval/`) behind a
 cargo feature plus a build-time frontend flag by **2026-10-01**, so a default

@@ -7,8 +7,8 @@ import {
 } from "./splitLayoutPersistence";
 
 const ROOT = "/Users/me/project";
+const LAYOUT_PLATFORM_WINDOWS = "windows" as const;
 const LAYOUT: SplitLayoutConfig = {
-  orientation: "vertical",
   fraction: 0.4,
   syncScroll: true,
   primaryPath: "/Users/me/project/a.md",
@@ -71,12 +71,97 @@ describe("splitLayoutPersistence (#1081 Phase 4)", () => {
     expect(loadSplitLayout(ROOT)).toBeNull();
   });
 
-  it("rejects an unknown orientation value", () => {
+  it("ignores a legacy orientation field — a persisted vertical split loads as the one side-by-side layout (WI-FL3.10)", () => {
     localStorage.setItem(
       `vmark-split-layout:${ROOT}`,
-      JSON.stringify({ ...LAYOUT, orientation: "diagonal" }),
+      JSON.stringify({ ...LAYOUT, orientation: "vertical" }),
+    );
+    expect(loadSplitLayout(ROOT)).toEqual(LAYOUT);
+  });
+
+  // Audit 20260907 (#482): a well-typed record can still be malformed — a NaN
+  // or Infinity fraction, a fraction outside the pane clamp, an empty pane path,
+  // or the same path in both panes — and restore used to accept all of them.
+  it("rejects a non-finite fraction (JSON has no NaN, but 1e999 parses to Infinity)", () => {
+    for (const literal of ["1e999", "-1e999"]) {
+      const raw = JSON.stringify(LAYOUT).replace('"fraction":0.4', `"fraction":${literal}`);
+      expect(JSON.parse(raw).fraction).not.toBeNaN();
+      expect(Number.isFinite(JSON.parse(raw).fraction)).toBe(false);
+      localStorage.setItem(`vmark-split-layout:${ROOT}`, raw);
+      expect(loadSplitLayout(ROOT)).toBeNull();
+    }
+  });
+
+  it("clamps an out-of-range fraction into the pane bounds", () => {
+    localStorage.setItem(`vmark-split-layout:${ROOT}`, JSON.stringify({ ...LAYOUT, fraction: 0.01 }));
+    expect(loadSplitLayout(ROOT)?.fraction).toBe(0.2);
+    localStorage.clear(); // the load above migrated the legacy key to the stable one
+    localStorage.setItem(`vmark-split-layout:${ROOT}`, JSON.stringify({ ...LAYOUT, fraction: 7 }));
+    expect(loadSplitLayout(ROOT)?.fraction).toBe(0.8);
+  });
+
+  it("rejects an empty pane path", () => {
+    localStorage.setItem(`vmark-split-layout:${ROOT}`, JSON.stringify({ ...LAYOUT, primaryPath: "" }));
+    expect(loadSplitLayout(ROOT)).toBeNull();
+    localStorage.setItem(`vmark-split-layout:${ROOT}`, JSON.stringify({ ...LAYOUT, secondaryPath: "  " }));
+    expect(loadSplitLayout(ROOT)).toBeNull();
+  });
+
+  it("rejects the same path in both panes", () => {
+    localStorage.setItem(
+      `vmark-split-layout:${ROOT}`,
+      JSON.stringify({ ...LAYOUT, secondaryPath: LAYOUT.primaryPath }),
     );
     expect(loadSplitLayout(ROOT)).toBeNull();
+  });
+
+  // Round 3: the two pane paths were compared as RAW strings, so two spellings
+  // of one file passed — and the restore then showed that document twice, the
+  // A/A split `toggleSplitDocuments` (D9) and `resolveWindowSplit` both refuse.
+  // The comparison uses the same platform identity the ROOT key already uses.
+  it("windows: rejects two spellings of one pane file", () => {
+    localStorage.setItem(
+      "vmark-split-layout:id:path:windows:c:\\repo",
+      JSON.stringify({
+        ...LAYOUT,
+        primaryPath: "C:\\Repo\\a.md",
+        secondaryPath: "c:/repo/a.md",
+      }),
+    );
+    expect(loadSplitLayout("C:\\Repo", LAYOUT_PLATFORM_WINDOWS)).toBeNull();
+  });
+
+  it("windows: keeps two genuinely different pane files", () => {
+    const layout = {
+      ...LAYOUT,
+      primaryPath: "C:\\Repo\\a.md",
+      secondaryPath: "c:/repo/b.md",
+    };
+    saveSplitLayout("C:\\Repo", layout, LAYOUT_PLATFORM_WINDOWS);
+    expect(loadSplitLayout("C:\\Repo", LAYOUT_PLATFORM_WINDOWS)).toEqual(layout);
+  });
+
+  it("macos: a case-different pane path is a DIFFERENT file, and stays", () => {
+    // Byte-exact on POSIX, exactly as the root key is (WI-17.2).
+    const layout = { ...LAYOUT, secondaryPath: "/Users/me/project/A.md" };
+    saveSplitLayout(ROOT, layout, "macos");
+    expect(loadSplitLayout(ROOT, "macos")).toEqual(layout);
+  });
+
+  it("rejects a trailing-separator spelling of the same pane file", () => {
+    localStorage.setItem(
+      `vmark-split-layout:${ROOT}`,
+      JSON.stringify({ ...LAYOUT, secondaryPath: `${LAYOUT.primaryPath}/` }),
+    );
+    expect(loadSplitLayout(ROOT)).toBeNull();
+  });
+
+  it("drops unknown fields rather than carrying them into the restored layout", () => {
+    localStorage.setItem(
+      `vmark-split-layout:${ROOT}`,
+      JSON.stringify({ ...LAYOUT, orientation: "diagonal", stray: 1 }),
+    );
+    expect(loadSplitLayout(ROOT)).toEqual(LAYOUT);
   });
 });
 

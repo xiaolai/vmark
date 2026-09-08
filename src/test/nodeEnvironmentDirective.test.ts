@@ -24,7 +24,7 @@
  * the cause.
  *
  * @coordinates-with vitest.config.ts — `environment: "jsdom"` is the default this opts out of
- * @module test/nodeEnvironmentDirective
+ * @module test/nodeEnvironmentDirective.test
  */
 import { describe, expect, it } from "vitest";
 

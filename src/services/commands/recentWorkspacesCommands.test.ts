@@ -17,7 +17,11 @@ const mockRestoreWorkspaceTabs = vi.fn();
 const mockToastError = vi.fn();
 const mockPersistWorkspaceSession = vi.fn();
 
-vi.mock("@tauri-apps/plugin-fs", () => ({ exists: (...a: unknown[]) => mockExists(...a) }));
+const mockStat = vi.fn();
+vi.mock("@tauri-apps/plugin-fs", () => ({
+  exists: (...a: unknown[]) => mockExists(...a),
+  stat: (...a: unknown[]) => mockStat(...a),
+}));
 vi.mock("@tauri-apps/plugin-dialog", () => ({
   ask: (...a: unknown[]) => mockAsk(...a),
   open: (...a: unknown[]) => mockOpenPicker(...a),
@@ -36,14 +40,8 @@ vi.mock("@/services/navigation/restoreWorkspaceTabs", () => ({
 vi.mock("@/services/ime/imeToast", () => ({ imeToast: { error: (...a: unknown[]) => mockToastError(...a) } }));
 
 import { executeCommand, listCommands, _resetCommandBus } from "./CommandBus";
-import {
-  registerRecentWorkspacesCommands,
-  __resetRecentWorkspacesCommandsRegistration,
-} from "./recentWorkspacesCommands";
-import {
-  registerWorkspaceCommands,
-  __resetWorkspaceCommandsRegistration,
-} from "./workspaceCommands";
+import { registerRecentWorkspacesCommands } from "./recentWorkspacesCommands";
+import { registerWorkspaceCommands } from "./workspaceCommands";
 import { useRecentWorkspacesStore } from "@/stores/workspaceStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
@@ -56,12 +54,11 @@ const realGetDocument = useDocumentStore.getState().getDocument;
 
 beforeEach(() => {
   _resetCommandBus();
-  __resetRecentWorkspacesCommandsRegistration();
-  __resetWorkspaceCommandsRegistration();
-  [mockExists, mockAsk, mockOpenPicker, mockInvoke, mockOpenWorkspaceWithConfig,
+  [mockExists, mockStat, mockAsk, mockOpenPicker, mockInvoke, mockOpenWorkspaceWithConfig,
     mockRestoreWorkspaceTabs, mockToastError, mockPersistWorkspaceSession]
     .forEach((m) => m.mockReset());
   mockExists.mockResolvedValue(true);
+  mockStat.mockResolvedValue({ isDirectory: true });
   mockOpenWorkspaceWithConfig.mockResolvedValue(null);
   mockRestoreWorkspaceTabs.mockResolvedValue(0);
   mockInvoke.mockResolvedValue(undefined);
@@ -75,17 +72,14 @@ beforeEach(() => {
   registerRecentWorkspacesCommands();
 });
 
-afterEach(() => {
-  _resetCommandBus();
-  __resetWorkspaceCommandsRegistration();
-});
+afterEach(() => _resetCommandBus());
 
 describe("HMR re-registration (dev-only Vite reload)", () => {
-  it("does not throw when the module flag resets but the bus registry survives", () => {
+  it("re-registering the owner batch replaces it instead of throwing", () => {
     const before = listCommands().length;
-    // Simulate Vite HMR: the registrar module re-instantiates (module-local
-    // `registered` flag resets) while CommandBus's REGISTRY survives.
-    __resetRecentWorkspacesCommandsRegistration();
+    // Vite HMR re-runs the registrar module against a REGISTRY that survives.
+    // `registerCommands` replaces the owner's own previous batch, which is the
+    // whole idempotence guard — there is no module-level flag to reset.
     expect(() => registerRecentWorkspacesCommands()).not.toThrow();
     expect(listCommands().length).toBe(before);
   });
@@ -201,5 +195,74 @@ describe("workspace.openRecent", () => {
     await executeCommand("workspace.openRecent", "/repo", { windowLabel: "main" });
 
     expect(mockToastError).toHaveBeenCalled();
+  });
+});
+
+// Audit #937 — `exists()` is true for a regular FILE, and
+// `openWorkspaceWithConfig` falls back to store defaults on any read failure,
+// so a file standing where the folder used to be would have been installed as
+// the workspace root.
+describe("workspace.openRecent requires a DIRECTORY (#937)", () => {
+  it("treats a file at the recorded path as a missing workspace", async () => {
+    mockExists.mockResolvedValue(true);
+    mockStat.mockResolvedValue({ isDirectory: false });
+    mockAsk.mockResolvedValue(true);
+
+    await executeCommand("workspace.openRecent", "/repo", { windowLabel: "main" });
+
+    expect(mockOpenWorkspaceWithConfig).not.toHaveBeenCalled();
+    expect(useRecentWorkspacesStore.getState().workspaces).toEqual([]);
+  });
+
+  it("still opens a real directory", async () => {
+    mockExists.mockResolvedValue(true);
+    mockStat.mockResolvedValue({ isDirectory: true });
+
+    await executeCommand("workspace.openRecent", "/repo", { windowLabel: "main" });
+
+    expect(mockOpenWorkspaceWithConfig).toHaveBeenCalledWith("/repo", { windowLabel: "main" });
+  });
+
+  it("a stat that cannot RUN keeps the older verdict: continue, do not offer removal", async () => {
+    // Offering to remove a workspace that exists is the worse outcome — the
+    // same reasoning the exists() probe already carries.
+    mockExists.mockResolvedValue(true);
+    mockStat.mockRejectedValue(new Error("forbidden path"));
+
+    await executeCommand("workspace.openRecent", "/repo", { windowLabel: "main" });
+
+    expect(mockOpenWorkspaceWithConfig).toHaveBeenCalledWith("/repo", { windowLabel: "main" });
+    expect(useRecentWorkspacesStore.getState().workspaces).toEqual([{ path: "/repo" }]);
+  });
+});
+
+// Audit #938 — the in-window transition is `openWorkspaceByPath`, not a local
+// re-implementation of it. The copy this command used to keep had no top-level
+// error boundary, so a throw from anywhere inside the sequence escaped the
+// command; the shared one logs and reports "did not open" instead.
+describe("workspace.openRecent delegates the accepted transition", () => {
+  it("does not reject when the transition throws", async () => {
+    mockExists.mockResolvedValue(true);
+    mockStat.mockResolvedValue({ isDirectory: true });
+    mockOpenWorkspaceWithConfig.mockRejectedValue(new Error("config unreadable"));
+
+    await expect(
+      executeCommand("workspace.openRecent", "/repo", { windowLabel: "main" }),
+    ).resolves.toBe(true);
+
+    expect(mockRestoreWorkspaceTabs).not.toHaveBeenCalled();
+  });
+
+  it("records the workspace in recents through the shared transition", async () => {
+    useRecentWorkspacesStore.setState({ workspaces: [] } as never);
+    mockExists.mockResolvedValue(true);
+    mockStat.mockResolvedValue({ isDirectory: true });
+    mockOpenWorkspaceWithConfig.mockResolvedValue(null);
+
+    await executeCommand("workspace.openRecent", "/repo", { windowLabel: "main" });
+
+    expect(useRecentWorkspacesStore.getState().workspaces).toContainEqual(
+      expect.objectContaining({ path: "/repo" }),
+    );
   });
 });

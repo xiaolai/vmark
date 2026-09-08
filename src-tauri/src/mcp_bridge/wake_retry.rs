@@ -9,9 +9,9 @@
 use super::delivery::fail_pending;
 use super::managed::bridge;
 use super::routing::wake_webview;
-use super::state::PendingRequest;
+use super::state::{PendingRequest, REQUEST_TIMEOUT, REQUEST_TIMEOUT_TOTAL};
 use super::types::{McpRequestEvent, McpResponse};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use tauri::AppHandle;
 use tauri::Emitter;
 use tauri::Manager;
@@ -40,8 +40,11 @@ pub(super) async fn wake_retry_after_timeout<R: tauri::Runtime>(
     let webview_was_alive = bridge.is_webview_alive();
     bridge.set_webview_alive(false);
     log::warn!(
-        "[MCP Bridge] Client {} request {} timed out after 10s (webview_alive={}), attempting wake + retry",
-        client_id, request_type_for_log, webview_was_alive
+        "[MCP Bridge] Client {} request {} timed out after {}s (webview_alive={}), attempting wake + retry",
+        client_id,
+        request_type_for_log,
+        REQUEST_TIMEOUT.as_secs(),
+        webview_was_alive
     );
 
     // Install the retry channel BEFORE waking: once the webview
@@ -104,8 +107,8 @@ pub(super) async fn wake_retry_after_timeout<R: tauri::Runtime>(
         return None;
     }
 
-    // Wait another 10 seconds for the retry
-    let response = match tokio::time::timeout(Duration::from_secs(10), retry_rx).await {
+    // Wait one more attempt's worth for the retry.
+    let response = match tokio::time::timeout(REQUEST_TIMEOUT, retry_rx).await {
         Ok(Ok(response)) => {
             log::info!(
                 "[MCP Bridge] Retry succeeded for client {} request {}",
@@ -135,9 +138,10 @@ pub(super) async fn wake_retry_after_timeout<R: tauri::Runtime>(
         Err(_) => {
             // Final timeout after retry — give up
             log::warn!(
-                "[MCP Bridge] Client {} request {} timed out after retry (20s total)",
+                "[MCP Bridge] Client {} request {} timed out after retry ({}s total)",
                 client_id,
-                request_type_for_log
+                request_type_for_log,
+                REQUEST_TIMEOUT_TOTAL.as_secs()
             );
             fail_pending(
                 bridge,
@@ -145,7 +149,10 @@ pub(super) async fn wake_retry_after_timeout<R: tauri::Runtime>(
                 client_id,
                 client_tx,
                 msg_id,
-                "Request timeout after 20s (including retry with webview wake)",
+                &format!(
+                    "Request timeout after {}s (including retry with webview wake)",
+                    REQUEST_TIMEOUT_TOTAL.as_secs()
+                ),
             )
             .await;
             return None;

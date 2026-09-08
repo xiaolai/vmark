@@ -106,11 +106,15 @@ vi.mock("@/stores/quickOpenStore", () => ({
 
 const mockInvokeGenie = vi.fn();
 const mockInvokeFreeform = vi.fn();
+// The hook's FULL cancel — unlistens and reaches the provider. The picker used
+// to call the invocation store's state reset instead (audit R2, #613).
+const mockGenieCancel = vi.fn();
 
 vi.mock("@/hooks/useGenieInvocation", () => ({
   useGenieInvocation: () => ({
     invokeGenie: mockInvokeGenie,
     invokeFreeform: mockInvokeFreeform,
+    cancel: mockGenieCancel,
   }),
 }));
 
@@ -119,12 +123,13 @@ let mockElapsedSeconds = 0;
 const mockAiCancel = vi.fn();
 let mockFocusedSuggestionId: string | null = null;
 const mockAcceptSuggestion = vi.fn();
+const mockRejectSuggestion = vi.fn();
 
 vi.mock("@/stores/aiStore", () => {
   const geniesFullState = () => ({
     ...geniesState,
     loadGenies: mockLoadGenies,
-    getRecent: () => mockRecentGenies,
+    recentGenieNames: mockRecentGenies.map((g) => g.metadata.name), // #608
   });
   return {
     useGeniesStore: Object.assign(
@@ -167,6 +172,7 @@ vi.mock("@/stores/aiStore", () => {
         getState: () => ({
           focusedSuggestionId: mockFocusedSuggestionId,
           acceptSuggestion: mockAcceptSuggestion,
+          rejectSuggestion: mockRejectSuggestion,
         }),
         subscribe: vi.fn(() => () => {}),
       },
@@ -227,6 +233,9 @@ function resetState() {
   mockDisplayValue = "";
   mockElapsedSeconds = 0;
   mockFocusedSuggestionId = null;
+  mockGenieCancel.mockClear();
+  mockAcceptSuggestion.mockClear();
+  mockRejectSuggestion.mockClear();
   vi.clearAllMocks();
 }
 
@@ -528,7 +537,7 @@ describe("GeniePicker — keyboard navigation", () => {
     fireEvent.keyDown(container, { key: "Enter" });
 
     expect(mockInvokeGenie).toHaveBeenCalledTimes(1);
-    expect(mockClosePicker).toHaveBeenCalledTimes(1);
+    expect(mockClosePicker).not.toHaveBeenCalled(); // stays open for the invocation (#309)
   });
 
   it("Tab cycles through scopes", () => {
@@ -592,6 +601,7 @@ describe("GeniePicker — click outside", () => {
 
     expect(mockClosePicker).not.toHaveBeenCalled();
   });
+
 });
 
 // ============================================================================
@@ -729,7 +739,7 @@ describe("GeniePicker — two-step freeform", () => {
 
     expect(mockRecordAndReset).toHaveBeenCalledWith("xyznonexistent");
     expect(mockInvokeFreeform).toHaveBeenCalledWith("xyznonexistent", expect.any(String));
-    expect(mockClosePicker).toHaveBeenCalled();
+    expect(mockClosePicker).not.toHaveBeenCalled(); // stays open for the invocation (#310)
   });
 
   it("typing after first Enter resets freeform confirmation", async () => {
@@ -846,7 +856,10 @@ describe("GeniePicker — mode integration", () => {
     const container = document.querySelector(".genie-picker") as HTMLElement;
     fireEvent.keyDown(container, { key: "Escape" });
 
-    expect(mockAiCancel).toHaveBeenCalled();
+    // The HOOK's cancel: it unlistens and asks Rust to stop the provider, then
+    // resets the store. The store's own `cancel()` does only the last of those
+    // (audit R2, #613).
+    expect(mockGenieCancel).toHaveBeenCalled();
     expect(mockResetToInput).toHaveBeenCalled();
     expect(mockClosePicker).not.toHaveBeenCalled();
   });
@@ -901,19 +914,6 @@ describe("GeniePicker — mode integration", () => {
 
     await user.click(screen.getByText("Accept"));
 
-    expect(mockClosePicker).toHaveBeenCalled();
-  });
-
-  it("Accept button calls acceptSuggestion when a suggestion is focused", async () => {
-    const user = userEvent.setup();
-    pickerState.mode = "preview";
-    pickerState.responseText = "AI result";
-    mockFocusedSuggestionId = "suggestion-123";
-    render(<GeniePicker />);
-
-    await user.click(screen.getByText("Accept"));
-
-    expect(mockAcceptSuggestion).toHaveBeenCalledWith("suggestion-123");
     expect(mockClosePicker).toHaveBeenCalled();
   });
 
@@ -982,7 +982,7 @@ describe("GeniePicker — mode integration", () => {
 
     await user.click(screen.getByText("Cancel"));
 
-    expect(mockAiCancel).toHaveBeenCalled();
+    expect(mockGenieCancel).toHaveBeenCalled();
     expect(mockResetToInput).toHaveBeenCalled();
   });
 });

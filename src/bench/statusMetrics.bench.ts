@@ -18,7 +18,7 @@
  * Run:
  *   pnpm bench src/bench/statusMetrics.bench.ts
  *
- * @module bench/statusMetrics
+ * @module bench/statusMetrics.bench
  */
 
 import { bench, describe } from "vitest";

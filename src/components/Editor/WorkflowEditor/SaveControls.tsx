@@ -5,7 +5,7 @@
  *   does the disk write) and `onDiscard` handler (which reloads
  *   from source).
  *
- * Plan: dev-docs/plans/20260504-github-actions-workflow-viewer.md §6
+ * Origin: GitHub Actions workflow viewer plan (2026-05-04, retired) §6
  *   Phase 7 / WI-7.2.
  *
  * Key decisions:
@@ -16,7 +16,7 @@
  *     queue before calling the caller's onDiscard so the caller never
  *     has to think about it.
  *
- * @coordinates-with src/stores/workflowEditStore.ts — pendingPatches
+ * @coordinates-with src/stores/workflowStore.ts — pendingPatches
  * @module components/Editor/WorkflowEditor/SaveControls
  */
 

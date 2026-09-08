@@ -10,7 +10,7 @@
  * The caller still owns dismissing the menu; this owns the transfer.
  *
  * @coordinates-with components/Tabs/useTabContextMenuActions.ts — the caller
- * @coordinates-with services/workspaces/workspace_transfer — the claim protocol
+ * @coordinates-with workspace_transfer.rs — the claim protocol
  * @module services/tabs/moveTabToNewWindow
  */
 import { invoke } from "@tauri-apps/api/core";

@@ -13,7 +13,7 @@
  *
  * @coordinates-with documentStore.ts — reads readOnly flag
  * @coordinates-with activeDocument.ts — resolves active tab ID
- * @module utils/readOnlyGuard
+ * @module services/editor/readOnlyGuard
  */
 
 import { useDocumentStore } from "@/stores/documentStore";

@@ -2,7 +2,7 @@
 //!
 //! The same 64 KiB number lives in two CLIENT-side places —
 //! `server/mcp/src/tools/browser.ts` (the MCP sidecar) and
-//! `src/hooks/mcpBridge/v2/browserPower.ts` (the webview handler) — and both
+//! `src/services/mcpBridge/v2/browserPower.ts` (the webview handler) — and both
 //! measure it in UTF-8 bytes. Those two are **advisory**: they sit ABOVE the
 //! Tauri command boundary, so anything that invokes a browser command directly
 //! (a compromised webview, a bug in the bridge dispatch, a future caller that
@@ -19,7 +19,7 @@
 //!
 //! @coordinates-with browser/commands_auth.rs — the command entry points that call this
 //! @coordinates-with server/mcp/src/tools/browser.ts — advisory client-side mirror
-//! @coordinates-with src/hooks/mcpBridge/v2/browserPower.ts — advisory client-side mirror
+//! @coordinates-with src/services/mcpBridge/v2/browserPower.ts — advisory client-side mirror
 
 /// 64 KiB, measured in UTF-8 **bytes**.
 ///

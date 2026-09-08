@@ -14,16 +14,25 @@
  *   format    "json" (default) or "text" (compared by a custom comparator)
  *   checks    one or more:
  *     { mode: "scalar",        at }                    raising the number fails
- *     { mode: "per-key-count", at }                    raising any count fails;
+ *     { mode: "per-key-count", at, onAdd }             raising any count fails;
  *                                                      nested maps flatten to
- *                                                      dotted keys
+ *                                                      dotted keys; a NEW key
+ *                                                      is a raise from 0 under
+ *                                                      onAdd "fail"
  *     { mode: "identity",      at, shape, key?, onAdd } a SET; "strings" |
  *                                                      "objects" (with `key`
  *                                                      fields) | "object-keys"
  *     { mode: "custom",        comparator, onAdd }     a named comparator
- *   `at` is a dotted path; "" is the document itself.
+ *   `at` is a dotted path; "" is the document itself. An `at` ending in `.*`
+ *   expands to one check per key of that object, read from the file itself at
+ *   comparison time — for a baseline keyed by something the manifest should
+ *   not have to restate (the theme catalog).
  *   `onAdd` is "fail" for lists whose own contract forbids additions, else
  *   "report" — additions are visible in the diff; raises and swaps are not.
+ *   Every per-file COUNT baseline here is "fail": each of those gates already
+ *   refuses a new dirty file, so a key added to the baseline in the same
+ *   change is the self-attestation this script exists to catch. A rename that
+ *   carries old debt under a new key is declared with an allowRaise from 0.
  *
  * allowRaise entries permit exactly ONE re-measurement each and expire by
  * themselves: the declared from→to must match what actually happened, a reason
@@ -45,14 +54,35 @@ export const MANIFEST = {
       checks: [
         { mode: "scalar", at: "limit" },
         { mode: "scalar", at: "testLimit" },
-        { mode: "per-key-count", at: "files" },
-        { mode: "per-key-count", at: "testFiles" },
+        { mode: "per-key-count", at: "files", onAdd: "fail" },
+        { mode: "per-key-count", at: "testFiles", onAdd: "fail" },
       ],
     },
     {
-      // Which baselines are debt (WI-AF3.2). An IDENTITY list, so a baseline
-      // cannot quietly stop being tracked — dropping a key is the loosening
-      // that matters here. There are no deadlines to ratchet: an earlier
+      // WI-FL0.1: modules unreachable from every production root, measured by
+      // scripts/check-test-only-modules.mjs over knip's production graph. An
+      // IDENTITY list that only shrinks: a module only its tests reach is a
+      // defect, so an addition fails here as well as in the gate itself.
+      path: "scripts/test-only-modules-baseline.json",
+      checks: [{ mode: "identity", at: "entries", shape: "strings", onAdd: "fail" }],
+    },
+    {
+      // WI-FL0.2: header references (@coordinates-with, @module, Plan:) that
+      // resolve to nothing, measured by scripts/check-header-references.mjs.
+      // IDENTITY list, only shrinks: a new dangling reference is a comment
+      // written against a file that does not exist, so additions fail.
+      path: "scripts/header-references-baseline.json",
+      checks: [{ mode: "identity", at: "entries", shape: "strings", onAdd: "fail" }],
+    },
+    {
+      // Which baselines are debt (WI-AF3.2). Registered as an IDENTITY list so
+      // the diff of its keys is REPORTED here; the loosening that matters — a
+      // baseline quietly dropping out of `tracked` — is refused by
+      // scripts/check-review-schedule.mjs, whose two-way coverage fails when a
+      // manifest entry is neither tracked nor exempt (and when a key names no
+      // baseline). That gate, not this check, is what makes a drop loud: an
+      // identity check without `direction: "no-remove"` sees additions only.
+      // There are no deadlines to ratchet: an earlier
       // revision carried invented per-baseline dates, and inventing a date is
       // not made rigorous by policing it. `exempt` carries prose reasons and is
       // validated for shape by scripts/check-review-schedule.mjs, which also
@@ -63,7 +93,7 @@ export const MANIFEST = {
     {
       // Six warn-tier knip families, each a plain count at the root.
       path: "scripts/knip-baseline.json",
-      checks: [{ mode: "per-key-count", at: "" }],
+      checks: [{ mode: "per-key-count", at: "", onAdd: "fail" }],
     },
     {
       // Per-file type-error counts for the TEST corpus, which `tsconfig.json`
@@ -74,7 +104,7 @@ export const MANIFEST = {
       // baseline people delete. The unit that matters — this file is dirty,
       // and by how much — survives.
       path: "scripts/test-types-baseline.json",
-      checks: [{ mode: "per-key-count", at: "" }],
+      checks: [{ mode: "per-key-count", at: "", onAdd: "fail" }],
     },
     {
       // Counts only. The collectors (collectBespokeButtons /
@@ -94,12 +124,12 @@ export const MANIFEST = {
       path: "scripts/extension-budget.json",
       checks: [
         { mode: "scalar", at: "maxKnownViolations" },
-        { mode: "per-key-count", at: "maxRuleExemptions" },
+        { mode: "per-key-count", at: "maxRuleExemptions", onAdd: "fail" },
       ],
     },
     {
       path: "scripts/command-error-baseline.json",
-      checks: [{ mode: "per-key-count", at: "files" }],
+      checks: [{ mode: "per-key-count", at: "files", onAdd: "fail" }],
     },
     {
       // file → rule → count, so flattening compares each (file, rule) pair
@@ -109,12 +139,12 @@ export const MANIFEST = {
       // move on every unrelated edit, and a baseline that churns is one people
       // regenerate without reading.
       path: "scripts/type-aware-baseline.json",
-      checks: [{ mode: "per-key-count", at: "files" }],
+      checks: [{ mode: "per-key-count", at: "files", onAdd: "fail" }],
     },
     {
       // unit → channel → count; flattening compares each channel separately.
       path: "scripts/plugin-store-coupling-baseline.json",
-      checks: [{ mode: "per-key-count", at: "units" }],
+      checks: [{ mode: "per-key-count", at: "units", onAdd: "fail" }],
     },
     {
       // minWords/minChars gate WHICH values count: raising either shrinks the
@@ -182,24 +212,21 @@ export const MANIFEST = {
     },
     {
       // WI-UI0.1 — the catalog contrast gate's identity baseline. Each theme's
-      // failing-pair list is registered SEPARATELY (shape "strings", onAdd:
-      // "fail") because `object-keys` at `failing` would only see theme names —
-      // a pair added under an existing theme would pass silently, the exact
-      // count-like substitution §11 forbids (Codex objection #13, verified by
-      // fixture in check-baseline-ratchet.test.mjs). The object-keys check
-      // remains for the ARRIVAL of a theme (report — a 7th theme legitimately
-      // adds a key, and adding its per-theme entry here is part of adding it).
-      // `ansiFloor`/`exempt` go through the contrastFloors PAIR comparator:
-      // value may only rise, reason required.
+      // failing-pair list is a SEPARATE identity check (shape "strings",
+      // onAdd: "fail") because `object-keys` at `failing` would only see theme
+      // names — a pair added under an existing theme would pass silently, the
+      // exact count-like substitution §11 forbids (Codex objection #13,
+      // verified by fixture in check-baseline-ratchet.test.mjs). The per-theme
+      // checks are DERIVED from the file's own `failing` keys (`failing.*`),
+      // not named here: a hand-kept list of six themes left a seventh's list
+      // unratcheted until someone remembered the manifest (audit 20260907 #13).
+      // The object-keys check remains for the ARRIVAL of a theme (report — a
+      // 7th theme legitimately adds a key). `ansiFloor`/`exempt` go through the
+      // contrastFloors PAIR comparator: value may only rise, reason required.
       path: "scripts/theme-contrast-baseline.json",
       checks: [
         { mode: "identity", at: "failing", shape: "object-keys", onAdd: "report" },
-        ...["white", "paper", "mint", "sepia", "night", "solarized"].map((theme) => ({
-          mode: "identity",
-          at: `failing.${theme}`,
-          shape: "strings",
-          onAdd: "fail",
-        })),
+        { mode: "identity", at: "failing.*", shape: "strings", onAdd: "fail" },
         { mode: "custom", comparator: "contrastFloors", onAdd: "report" },
       ],
     },
@@ -296,7 +323,7 @@ export const MANIFEST = {
     // Pre-existing ledgers that predate the spec tier, previously
     // unregistered (self-attesting): now pinned via source-text parsing.
     {
-      path: "src/utils/markdownPipeline/conformance/expectedDeltas.ts",
+      path: "src/utils/markdownPipeline/__tests__/conformance/expectedDeltas.ts",
       format: "text",
       checks: [{ mode: "custom", comparator: "tsExpectedDeltas", onAdd: "report" }],
     },
@@ -306,5 +333,24 @@ export const MANIFEST = {
       checks: [{ mode: "custom", comparator: "tsFidelityLedger", onAdd: "report" }],
     },
   ],
-  allowRaise: [],
+  allowRaise: [
+    // 2026-09-07: check-command-error-ratchet learned the imported `#[command]`
+    // attribute form (17 sites). These three files were legacy all along and
+    // simply invisible — additions of visibility, not regressions (the
+    // baseline's own header note). Each is a NEW key under onAdd "fail", i.e.
+    // a raise from 0; delete these once the base carries them.
+    ...[
+      ["src-tauri/src/ai_provider/mod.rs", 1],
+      ["src-tauri/src/ai_provider/rest_api.rs", 3],
+      ["src-tauri/src/pandoc/commands.rs", 1],
+    ].map(([file, count]) => ({
+      path: "scripts/command-error-baseline.json",
+      key: `files.${file}`,
+      from: 0,
+      to: count,
+      reason:
+        "re-measurement: the gate started seeing the imported `#[command]` attribute form; " +
+        "this file's legacy signatures existed before and were invisible, not introduced",
+    })),
+  ],
 };

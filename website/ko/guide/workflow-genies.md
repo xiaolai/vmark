@@ -94,7 +94,7 @@ VMark 지니에는 두 가지 종류가 있습니다.
 
 ## 샘플
 
-VMark는 번들된 지니에 `outline-and-polish.yml` 샘플 워크플로를 포함합니다. 사용자 지니 디렉터리에 복사하여 커스터마이즈하세요.
+VMark는 샘플 워크플로 `triage-and-translate.yml`을 앱 번들 안(`Resources/resources/workflows/examples/`)에 포함합니다. 지니 디렉터리에는 자동으로 설치되지 않으므로, 커스터마이즈하려면 그곳으로 복사하세요. 아래 워크플로는 또 다른 예시입니다:
 
 ```yaml
 name: Outline and Polish

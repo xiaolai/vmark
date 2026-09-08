@@ -7,7 +7,6 @@ import {
   generateEmbeddedFontCSS,
   getKaTeXFontCSS,
   getUserFontFile,
-  getGoogleFontUrl,
   contentHasMath,
   downloadFont,
   fontDataToDataUri,
@@ -387,40 +386,6 @@ describe("getUserFontFile", () => {
       expect(file!.weight).toBe("normal");
       expect(file!.style).toBe("normal");
     }
-  });
-});
-
-// ---------------------------------------------------------------------------
-// getGoogleFontUrl
-// ---------------------------------------------------------------------------
-describe("getGoogleFontUrl", () => {
-  it("returns URL for known font family (Inter)", () => {
-    const url = getGoogleFontUrl("Inter");
-    expect(url).not.toBeNull();
-    expect(url).toMatch(/^https:\/\/fonts\.gstatic\.com/);
-  });
-
-  it("returns URL for known font family (JetBrains Mono)", () => {
-    const url = getGoogleFontUrl("JetBrains Mono");
-    expect(url).not.toBeNull();
-  });
-
-  it("returns URL for CJK font (Noto Sans SC)", () => {
-    const url = getGoogleFontUrl("Noto Sans SC");
-    expect(url).not.toBeNull();
-  });
-
-  it("returns null for unknown font family", () => {
-    expect(getGoogleFontUrl("Comic Sans MS")).toBeNull();
-  });
-
-  it("returns null for empty string", () => {
-    expect(getGoogleFontUrl("")).toBeNull();
-  });
-
-  it("is case-sensitive (inter vs Inter)", () => {
-    expect(getGoogleFontUrl("inter")).toBeNull();
-    expect(getGoogleFontUrl("Inter")).not.toBeNull();
   });
 });
 

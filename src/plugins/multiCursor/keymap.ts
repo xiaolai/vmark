@@ -15,7 +15,7 @@
  * - Mod-Shift-l: Select all occurrences
  * - Escape: Collapse to single cursor
  *
- * @coordinates-with shortcutsStore.ts (reads current shortcut bindings)
+ * @coordinates-with plugins/shared/hostShortcuts.ts (reads current shortcut bindings through the host seam)
  * @coordinates-with utils/keybinding/proseMirrorKey.ts (toProseMirrorKey helper)
  */
 import { hostShortcuts } from "@/plugins/shared/hostShortcuts";

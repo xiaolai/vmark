@@ -2,7 +2,9 @@
  * Block Image Tiptap Node
  *
  * Purpose: Defines the block_image node type — standalone images rendered as `<figure>`
- * elements with a custom NodeView for interactive features (resize, context menu, tooltip).
+ * elements with a custom NodeView for interactive features (async src resolution,
+ * double-click-to-popup, context menu, tooltip). There is no resize handling — the
+ * image renders at its natural size.
  *
  * Key decisions:
  *   - `ownerTabId` names the document these nodes belong to, so a relative
@@ -13,7 +15,7 @@
  *   - Arrow key handlers allow navigation into/out of block images from adjacent blocks
  *   - Enter on a selected block image creates a paragraph below for continued typing
  *
- * @coordinates-with BlockImageNodeView.ts — custom NodeView with image loading, resize, and menus
+ * @coordinates-with BlockImageNodeView.ts — custom NodeView: async src resolution, double-click popup, context menu, tooltip
  * @coordinates-with shared/sourceLineAttr.ts — source line tracking for cursor sync
  * @module plugins/blockImage/tiptap
  */

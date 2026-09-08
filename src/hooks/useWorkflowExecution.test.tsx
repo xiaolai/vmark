@@ -147,6 +147,57 @@ describe("useWorkflowExecution — invoke rollback", () => {
 
     expect(useWorkflowStore.getState().preview.executionId).toBeNull();
   });
+
+  // Audit #374 (the same class as useGenieInvocation's runWorkflowGenie, which
+  // mirrors this start): the rollback clears only the execution THIS start
+  // registered, never one registered after it. The genie path writes the same
+  // store slot without going through `start`, so it is the realistic second
+  // writer now that `start` itself refuses to overwrite a live run (#770).
+  it("a rejected start does not clear an execution registered after it", async () => {
+    let rejectFirst: (err: unknown) => void = () => undefined;
+    invokeMock.mockImplementationOnce(
+      () =>
+        new Promise<string>((_resolve, reject) => {
+          rejectFirst = reject;
+        }),
+    );
+    const { result } = renderHook(() => useWorkflowExecution());
+    await waitForListeners();
+
+    const first = result.current.start({ yaml: "name: a", workspaceRoot: "/w" });
+    await Promise.resolve();
+    // The genie's own register-then-dispatch step, landing while this start is
+    // still in flight.
+    useWorkflowStore.getState().setExecution("genie-execution");
+
+    rejectFirst(new Error("concurrency guard"));
+    await expect(first).rejects.toThrow("concurrency guard");
+    expect(useWorkflowStore.getState().preview.executionId).toBe("genie-execution");
+  });
+
+  // Audit #770 — a second start used to overwrite the live run's execution id
+  // before the backend had answered, which made the RUNNING workflow's own
+  // events unroutable; if the second dispatch was then refused (the likely
+  // outcome, since the runner allows one at a time) its rollback cleared the
+  // store while the first run carried on invisibly.
+  it("refuses a second start while a run is registered, leaving the first intact", async () => {
+    invokeMock.mockResolvedValue("first-id");
+    const { result } = renderHook(() => useWorkflowExecution());
+    await waitForListeners();
+
+    await result.current.start({ yaml: "name: a", workspaceRoot: "/w" });
+    const firstId = useWorkflowStore.getState().preview.executionId;
+    expect(firstId).not.toBeNull();
+    invokeMock.mockClear();
+
+    await expect(
+      result.current.start({ yaml: "name: b", workspaceRoot: "/w" }),
+    ).rejects.toThrow(/already running/i);
+
+    // Nothing dispatched, and the live run's registration is untouched.
+    expect(invokeMock).not.toHaveBeenCalled();
+    expect(useWorkflowStore.getState().preview.executionId).toBe(firstId);
+  });
 });
 
 describe("useWorkflowExecution — pre-emptive setExecution (race fix)", () => {
@@ -222,8 +273,8 @@ describe("useWorkflowExecution — completion dismisses pending approval", () =>
     useWorkflowStore.getState().enqueueApproval({
       executionId: "exec-42",
       stepId: "step-1",
-      actionType: "shell",
       summary: "deploy",
+      preview: "shell: deploy",
     });
     expect(useWorkflowStore.getState().approval.pending).not.toBeNull();
 
@@ -347,5 +398,147 @@ describe("useWorkflowExecution — cleanup", () => {
         });
       }
     }).not.toThrow();
+  });
+});
+
+describe("useWorkflowExecution — event scoping and subscription (audit round 2)", () => {
+  // #765 / #1003 — the old predicate ("reject only when a current id exists and
+  // differs") accepted EVERY event while no run was registered. That is exactly
+  // the state a finished run leaves behind, so a late frame recreated its step
+  // statuses and re-raised its approval dialog after completion.
+  it("ignores every event once no execution is registered", async () => {
+    renderHook(() => useWorkflowExecution());
+    await waitForListeners();
+    expect(useWorkflowStore.getState().preview.executionId).toBeNull();
+
+    act(() => {
+      listeners.get("workflow:step-update")?.({
+        payload: { executionId: "ghost", stepId: "s1", status: "success" },
+      });
+      listeners.get("workflow:approval-request")?.({
+        payload: { executionId: "ghost", stepId: "s1", summary: "x", preview: "y" },
+      });
+    });
+
+    expect(useWorkflowStore.getState().preview.stepStatuses).toEqual({});
+    expect(useWorkflowStore.getState().approval.pending).toBeNull();
+  });
+
+  // #767 — `setExecution(null)` cleared every step status at the moment the run
+  // ended, so the canvas lost its success/failure colouring exactly when the
+  // user wanted to read it, and completed/failed/cancelled became identical.
+  it("completion keeps the run's step statuses and records how it ended", async () => {
+    renderHook(() => useWorkflowExecution());
+    await waitForListeners();
+    act(() => {
+      useWorkflowStore.getState().setExecution("run-1");
+      listeners.get("workflow:step-update")?.({
+        payload: { executionId: "run-1", stepId: "s1", status: "error", error: "boom" },
+      });
+    });
+
+    act(() => {
+      listeners.get("workflow:complete")?.({
+        payload: { executionId: "run-1", status: "failed" },
+      });
+    });
+
+    const preview = useWorkflowStore.getState().preview;
+    expect(preview.executionId).toBeNull();
+    expect(preview.lastRunOutcome).toBe("failed");
+    expect(preview.stepStatuses.s1?.status).toBe("error");
+  });
+
+  // #763 / #768 — the unlisteners ref stays EMPTY across three awaits, so
+  // without an in-flight claim StrictMode's setup/cleanup/setup registers a
+  // second listener set and orphans the first.
+  it("does not register a second listener set while the first is still resolving", async () => {
+    const { unmount } = renderHook(() => useWorkflowExecution());
+    const { unmount: unmount2 } = renderHook(() => useWorkflowExecution());
+    await waitForListeners();
+
+    // Two hook instances share nothing, but one instance must never register
+    // twice: three events, once each, per mounted hook.
+    expect(listenMock).toHaveBeenCalledTimes(6);
+    unmount();
+    unmount2();
+  });
+
+  it("drops listeners that finish registering after unmount", async () => {
+    let release: (() => void) | undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    listenMock.mockImplementationOnce(async (event, handler) => {
+      listeners.set(event, handler);
+      await gate;
+      const unlisten = vi.fn();
+      unlistenMocks.push(unlisten);
+      return unlisten;
+    });
+
+    const { unmount } = renderHook(() => useWorkflowExecution());
+    unmount();
+    await act(async () => {
+      release?.();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // The cleanup already ran against an empty ref, so the registrations that
+    // completed afterwards have to drop themselves — otherwise they stay live
+    // for the process's lifetime with nothing holding their unlisteners.
+    expect(unlistenMocks.length).toBeGreaterThan(0);
+    for (const fn of unlistenMocks) expect(fn).toHaveBeenCalled();
+  });
+
+  // #764 — a rejection from the second or third `listen` left the earlier ones
+  // installed and unreachable, and the `void` call turned it into an unhandled
+  // rejection.
+  it("rolls back every acquired listener when a later listen() rejects", async () => {
+    const firstUnlisten = vi.fn();
+    listenMock
+      .mockImplementationOnce(async (event, handler) => {
+        listeners.set(event, handler);
+        return firstUnlisten;
+      })
+      .mockImplementationOnce(async () => {
+        throw new Error("listen refused");
+      });
+
+    const { unmount } = renderHook(() => useWorkflowExecution());
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(firstUnlisten).toHaveBeenCalledTimes(1);
+    unmount();
+  });
+
+  // #769 — a fast workflow can emit its whole stream before `invoke` resolves.
+  // The pre-generated id makes those events routable, but only if something is
+  // already listening for them.
+  it("start() waits for the listeners before dispatching run_workflow", async () => {
+    let listenersReady = false;
+    listenMock.mockImplementation(async (event, handler) => {
+      listeners.set(event, handler);
+      const unlisten = vi.fn();
+      unlistenMocks.push(unlisten);
+      if (listeners.size === 3) listenersReady = true;
+      return unlisten;
+    });
+    invokeMock.mockImplementation(async () => {
+      expect(listenersReady).toBe(true);
+      return "id";
+    });
+
+    const { result } = renderHook(() => useWorkflowExecution());
+    await act(async () => {
+      await result.current.start({ yaml: "name: a", workspaceRoot: "/w" });
+    });
+    expect(invokeMock).toHaveBeenCalled();
   });
 });

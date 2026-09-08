@@ -14,7 +14,7 @@
  * @coordinates-with sourcePeekStore.ts — stores peek state (range, content)
  * @coordinates-with sourcePeekInline/tiptap.ts — renders the inline peek editor
  * @coordinates-with markdownPipeline/ — markdown ↔ PM conversion
- * @module utils/sourcePeek
+ * @module services/editor/sourcePeek
  */
 
 import { NodeSelection, Selection, type EditorState } from "@tiptap/pm/state";

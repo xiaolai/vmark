@@ -8,7 +8,7 @@
  * lives here, in the thin thing App mounts, and `GeniePicker` stays untouched.
  *
  * @coordinates-with hooks/useBrowserOccluder — freezes mounted browser tabs while open
- * @coordinates-with services/browser/overlayPolicies — declares this overlay's policy
+ * @coordinates-with services/browser/__tests__/overlayPolicies — declares this overlay's policy
  * @module components/GeniePicker/GeniePickerOverlay
  */
 import { useGeniePickerStore } from "@/stores/geniePickerStore";

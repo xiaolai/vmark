@@ -1,63 +1,91 @@
 /**
- * E04 noMissingSpaceAtx — detects ATX headings without a space after #.
+ * E04 noMissingSpaceAtx — detects ATX headings without a space after `#`.
  *
- * Purpose: Flag `#heading` patterns at line start (with 0-3 optional leading
- * spaces) where no space follows the hash sequence. Lines with 4+ leading
- * spaces are indented code blocks and are skipped. Fenced code blocks are
- * also skipped.
+ * Purpose: flag `#heading` where no space follows the hash run. Three things
+ * decide whether a line is even a candidate, and each was wrong before round 3:
+ *
+ *   - the BLOCK must be prose. The rule tracked fences itself, so it saw only
+ *     the ones that start their own line — and nothing at all about YAML front
+ *     matter or a raw HTML block, where `#comment:` and `#notaheading` were
+ *     both reported as headings. `sourceMask` asks the parser instead.
+ *   - a CONTAINER may precede the hash. `> #heading` and `- #heading` are the
+ *     same defect one indent in, and matching at the physical line start missed
+ *     both. The prefix is consumed and the reported COLUMN stays absolute.
+ *   - the offset comes from the engine's `lineOffsets`, not from a second
+ *     accumulator this rule kept in step by hand.
+ *
+ * Lines with 4+ leading spaces (after any container prefix) are indented code
+ * and are skipped.
+ *
+ * @coordinates-with src/lib/lintEngine/rules/sourceMask.ts — which blocks are prose
+ * @module lib/lintEngine/rules/noMissingSpaceAtx
  */
 
-import type { LintRule } from "../types";
+import type { LintDiagnostic, LintRule } from "../types";
+import { ruleEmission } from "../ruleMeta";
 import { createDiagnostic } from "../types";
-import { CodeBlockTracker } from "./codeBlockTracker";
+import { unparsedLines } from "./sourceMask";
 
-// Matches 0-3 spaces then 1-6 hashes then a non-space, non-hash character.
-// The negative lookahead (?!#) prevents `######` from matching: `#{1,6}` can
-// match 1-5 hashes, then (?!#) would fail on the 6th `#` as \S, so `######`
-// (all hashes, no following non-hash) is correctly excluded.
+/**
+ * Matches 0-3 spaces then 1-6 hashes then a non-space, non-hash character.
+ * The negative lookahead (?!#) prevents `######` from matching: `#{1,6}` can
+ * match 1-5 hashes, then (?!#) would fail on the 6th `#` as \S, so `######`
+ * (all hashes, no following non-hash) is correctly excluded.
+ */
 const ATX_NO_SPACE_RE = /^([ ]{0,3})(#{1,6})(?!#)(\S)/;
 
-export const noMissingSpaceAtx: LintRule = (_source, _mdast, { lines }) => {
-  const diagnostics = [];
-  const tracker = new CodeBlockTracker();
-  let lineOffset = 0;
+/**
+ * Blockquote markers and list markers a heading may legally sit behind.
+ *
+ * Anchored and repeated by the caller so `- > #x` is consumed segment by
+ * segment; a list marker takes 1-4 spaces of padding, because 5+ means the
+ * content starts one space in and the rest is indented code.
+ */
+const CONTAINER_PREFIX_RE = /^(?: {0,3}>[ \t]?| {0,3}(?:[-*+]|\d{1,9}[.)])(?:\t| {1,4}(?! )))/;
+
+/** How much of `line` is container prefix — blockquote markers and list markers. */
+function containerPrefixLength(line: string): number {
+  let consumed = 0;
+  for (;;) {
+    const match = CONTAINER_PREFIX_RE.exec(line.slice(consumed));
+    if (!match || match[0].length === 0) return consumed;
+    consumed += match[0].length;
+  }
+}
+
+/** The E04 diagnostic for a hash run starting at `column` (1-based) on `line`. */
+function malformedHeading(line: number, column: number, offset: number, hashes: string): LintDiagnostic {
+  return createDiagnostic({
+    ...ruleEmission("E04"),
+    messageKey: "lint.E04",
+    messageParams: {},
+    line,
+    column,
+    offset,
+    endOffset: offset + hashes.length + 1,
+    uiHint: "sourceOnly",
+  });
+}
+
+export const noMissingSpaceAtx: LintRule = (_source, mdast, { lines, lineOffsets }) => {
+  const diagnostics: LintDiagnostic[] = [];
+  const skip = unparsedLines(mdast);
 
   for (let i = 0; i < lines.length; i++) {
+    if (skip.has(i + 1)) continue;
+
     const line = lines[i];
-    const inCode = tracker.processLine(line);
+    const prefix = containerPrefixLength(line);
+    const rest = line.slice(prefix);
 
-    if (!inCode) {
-      // Skip indented code blocks (4+ spaces)
-      const leadingSpaces = line.match(/^( *)/)?.[1].length ?? 0;
-      if (leadingSpaces >= 4) {
-        lineOffset += line.length + 1;
-        continue;
-      }
+    // 4+ spaces past the container prefix is an indented code block.
+    if ((rest.match(/^ */)?.[0].length ?? 0) >= 4) continue;
 
-      const match = ATX_NO_SPACE_RE.exec(line);
-      if (match) {
-        const leadingPart = match[1]; // 0-3 spaces
-        const hashes = match[2];
-        // column is right after the leading spaces, at the first #
-        const col = leadingPart.length + 1;
-        const offset = lineOffset + leadingPart.length;
-        diagnostics.push(
-          createDiagnostic({
-            ruleId: "E04",
-            severity: "error",
-            messageKey: "lint.E04",
-            messageParams: {},
-            line: i + 1,
-            column: col,
-            offset,
-            endOffset: offset + hashes.length + 1,
-            uiHint: "sourceOnly",
-          })
-        );
-      }
-    }
+    const match = ATX_NO_SPACE_RE.exec(rest);
+    if (!match) continue;
 
-    lineOffset += line.length + 1;
+    const start = prefix + match[1].length;
+    diagnostics.push(malformedHeading(i + 1, start + 1, lineOffsets[i] + start, match[2]));
   }
 
   return diagnostics;

@@ -11,7 +11,7 @@
  *   That invariant is scoped to the file-open path: a launch window with no file
  *   at all is legitimately tabless and renders the WelcomeScreen (#1313).
  *
- * @coordinates-with useFileOpen.ts — openFileInNewTabCore does the heavy lifting
+ * @coordinates-with services/navigation/fileOpen.ts — openFileInNewTabCore does the heavy lifting
  * @coordinates-with WindowContext.tsx — sole production caller (init effect)
  * @module contexts/startupFileOpen
  */

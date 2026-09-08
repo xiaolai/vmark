@@ -34,7 +34,6 @@ import {
 import { createRecentsStore, type RecentEntry } from "@/stores/createRecentsStore";
 
 export type RecentFile = RecentEntry;
-export type RecentWorkspace = RecentEntry;
 
 /** Manages recently opened files (max 10) with persistence and native menu sync. */
 export const useRecentFilesStore = createRecentsStore({

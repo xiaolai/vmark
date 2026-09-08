@@ -10,7 +10,7 @@
  *   - Uses relative paths in markdown for portability
  *   - Tauri filesystem APIs for all I/O
  *
- * @coordinates-with useImageOperations.ts — reuses ensureAssetsFolder, hash registry
+ * @coordinates-with imageOperations.ts — reuses ensureAssetsFolder, hash registry
  * @coordinates-with plugins/mediaHandler/tiptap.ts — drop/paste handler
  * @module services/media/mediaOperations
  */

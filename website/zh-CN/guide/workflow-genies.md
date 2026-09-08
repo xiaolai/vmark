@@ -94,7 +94,7 @@ VMark 精灵分为两种形式：
 
 ## 示例
 
-VMark 内置了一个示例工作流 `outline-and-polish.yml`，位于内置精灵目录中。可将其复制到你的用户精灵目录进行自定义：
+VMark 在应用包内（`Resources/resources/workflows/examples/`）附带示例工作流 `triage-and-translate.yml`，它不会自动安装到你的精灵目录；如需自定义，请将其复制到该目录。下面的工作流是另一个示例：
 
 ```yaml
 name: Outline and Polish

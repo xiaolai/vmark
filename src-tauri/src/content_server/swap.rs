@@ -12,6 +12,7 @@ use std::path::{Path, PathBuf};
 /// Keeping this pure makes the ordering (which guarantees no half-installed
 /// tree is ever `Ready`) testable without touching the filesystem.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(dead_code)] // ADR-2 runtime upgrade path: unit-tested, no production caller yet (rule 60 §12).
 pub struct SwapPlan {
     /// Where extraction wrote the new tree.
     pub staging: PathBuf,
@@ -22,6 +23,7 @@ pub struct SwapPlan {
 }
 
 /// Compute the staging/target/backup paths for a bundle under `root`.
+#[allow(dead_code)] // ADR-2 runtime upgrade path: unit-tested, no production caller yet (rule 60 §12).
 pub fn plan_swap(root: &Path, kind: BundleKind) -> SwapPlan {
     let dir = kind.dir_name();
     SwapPlan {
@@ -67,6 +69,7 @@ fn copy_dir_all(src: &Path, dst: &Path) -> std::io::Result<()> {
 /// Execute the swap: backup existing target, move staging→target, drop backup.
 /// On failure the original target is restored AND the staging tree is cleaned
 /// up (grill H9 — no orphaned 451 MB `.staging` accumulating on disk).
+#[allow(dead_code)] // ADR-2 runtime upgrade path: unit-tested, no production caller yet (rule 60 §12).
 pub fn execute_swap(plan: &SwapPlan) -> std::io::Result<PathBuf> {
     let _ = std::fs::remove_dir_all(&plan.backup);
     if plan.target.exists() {
@@ -92,6 +95,7 @@ pub fn execute_swap(plan: &SwapPlan) -> std::io::Result<PathBuf> {
 /// Startup reconciliation (grill H9 — "interrupted-extraction recovery"). If a
 /// crash happened mid-swap leaving no `target` but a `backup` (the old good
 /// tree), promote the backup back. Also clears any stale `staging`. Idempotent.
+#[allow(dead_code)] // ADR-2 runtime upgrade path: unit-tested, no production caller yet (rule 60 §12).
 pub fn reconcile(plan: &SwapPlan) -> std::io::Result<()> {
     if !plan.target.exists() && plan.backup.exists() {
         std::fs::rename(&plan.backup, &plan.target)?;
@@ -103,6 +107,7 @@ pub fn reconcile(plan: &SwapPlan) -> std::io::Result<()> {
 
 /// Streaming checksum over a file on disk (grill L3 — avoids holding a 451 MB
 /// tarball in memory; the in-memory `verify_checksum` remains for small inputs).
+#[allow(dead_code)] // ADR-2 runtime upgrade path: unit-tested, no production caller yet (rule 60 §12).
 pub fn verify_file_checksum(path: &Path, expected_hex: &str) -> std::io::Result<bool> {
     use std::io::Read;
     let mut file = std::fs::File::open(path)?;

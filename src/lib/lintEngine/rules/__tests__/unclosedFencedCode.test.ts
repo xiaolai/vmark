@@ -79,4 +79,42 @@ describe("E08 unclosedFencedCode", () => {
     const result = lintMarkdown(source);
     expect(result.some((d) => d.ruleId === "E08")).toBe(false);
   });
+  // Audit R3 #861/#862/#863.
+
+  it("does NOT close a fence on a line whose suffix is Unicode whitespace", () => {
+    // CommonMark permits only spaces and tabs after a closing fence; `trim()`
+    // also ate NBSP, U+2003 and friends, silently closing a fence that is open.
+    const source = "```\nsome code\n```\u00a0\nmore text";
+    const result = lintMarkdown(source);
+    expect(result.some((d) => d.ruleId === "E08")).toBe(true);
+  });
+
+  it("DOES close a fence when the line ends with a retained CR (CRLF input)", () => {
+    const source = "```\r\nsome code\r\n```\r\n";
+    const result = lintMarkdown(source);
+    expect(result.some((d) => d.ruleId === "E08")).toBe(false);
+  });
+
+  it("does NOT treat a backtick opener with a backtick in its info string as a fence", () => {
+    // CommonMark: an info string after ``` may not contain a backtick, so this
+    // line opens nothing and the document has no unclosed fence.
+    const source = "```js`\nnot code\n";
+    const result = lintMarkdown(source);
+    expect(result.some((d) => d.ruleId === "E08")).toBe(false);
+  });
+
+  it("still allows a backtick in a TILDE opener's info string", () => {
+    const source = "~~~js`\nstill open\n";
+    const result = lintMarkdown(source);
+    expect(result.some((d) => d.ruleId === "E08")).toBe(true);
+  });
+
+  it("reports an offset that indexes the source at the opening fence", () => {
+    const source = "para\n\n  ```ts\nunclosed";
+    const d = lintMarkdown(source).find((x) => x.ruleId === "E08");
+    expect(d).toBeDefined();
+    expect(source.slice(d!.offset, d!.offset + 3)).toBe("```");
+    expect(d!.line).toBe(3);
+    expect(d!.column).toBe(3);
+  });
 });

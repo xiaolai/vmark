@@ -103,7 +103,7 @@ VMark surfaces parse + lint diagnostics next to the source:
 | `GHA-SEC-*` | Security warnings (e.g., `pull_request_target` checkout patterns) |
 | `GHA-ACTIONLINT-*` | Forwarded from `actionlint` if installed |
 
-Install `actionlint` for richer expression diagnostics — it runs automatically when the binary is on your PATH. The **Use actionlint when available** toggle in Settings → Advanced (Workflow files) turns this off.
+Install `actionlint` for richer expression diagnostics. With **Use actionlint when available** on — in Settings → Advanced (Workflow files), on by default — VMark runs the binary from your login-shell PATH each time a workflow file's source changes and appends its findings to the workbench's Diagnostics banner, tagged `GHA-ACTIONLINT-<rule>`; the built-in checks above never wait for it. If the toggle is on but the binary is not installed, VMark tells you once per session and otherwise stays quiet; if the binary is present but fails to run, the failure is reported once with actionlint's own message. Turn the toggle off to skip actionlint entirely. The MCP `workflow.validate` operation runs the same check on demand.
 
 ## Action metadata
 

@@ -60,6 +60,27 @@ export function formatLookupKeys(filePath: string): string[] {
 }
 
 /**
+ * The BARE EXTENSION of a file path, or null when it has none (`Dockerfile`,
+ * `.gitignore`, and the extensionless file literally named `md`).
+ *
+ * The registry's built-in `byExt` map must be consulted with THIS, not with the
+ * whole key list: those keys include the full basename, so a file named `md` or
+ * `html` with no extension at all resolved to that format — against the
+ * registry's own contract that markdown matches only via its registered
+ * `.md`-family extensions (audit 20260907 round 2). A user ASSOCIATION still
+ * matches on every key; `dockerfile` as a full name is the point there.
+ *
+ * Derived from `formatLookupKeys` rather than re-parsing the path, so the two
+ * cannot disagree: the bare extension is the LAST key, emitted only when the
+ * basename has a non-leading dot.
+ */
+export function formatExtensionKey(filePath: string): string | null {
+  const keys = formatLookupKeys(filePath);
+  const last = keys.length > 1 ? keys[keys.length - 1] : undefined;
+  return last !== undefined && !last.startsWith(".") ? last : null;
+}
+
+/**
  * The canonical key to persist a user association on for a given file —
  * chosen so a single "Set File Type" override applies to the whole family
  * the user would intuitively expect:

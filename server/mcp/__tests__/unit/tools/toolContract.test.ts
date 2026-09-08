@@ -16,8 +16,8 @@
 
 import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
-import { createVMarkMcpServer, EXPECTED_TOOL_COUNT } from '../../../src/index.js';
-import { toolInputJsonSchema, toolOutputJsonSchema } from '../../../src/utils/toolSchema.js';
+import { createVMarkMcpServer, describeActionCount, EXPECTED_TOOL_COUNT, TOOL_CATEGORIES, TOOL_REGISTRY } from '../../../src/index.js';
+import { toolInputJsonSchema, toolOutputJsonSchema } from '../../utils/toolSchema.js';
 import type { ToolAnnotations, ToolDefinition } from '../../../src/types.js';
 import { MockBridge } from '../../mocks/mockBridge.js';
 
@@ -108,6 +108,62 @@ describe('tool annotations and titles', () => {
       'session', 'document', 'selection', 'workflow', 'coherence', 'coherence_resolve',
     ]) {
       expect(tool(name).annotations?.openWorldHint, name).toBe(false);
+    }
+  });
+});
+
+describe('the tool registry is the one source of the surface', () => {
+  it('registers exactly the registry, in order, and the count and categories derive from it', () => {
+    expect(tools().map((t) => t.name)).toEqual(TOOL_REGISTRY.map((t) => t.name));
+    expect(EXPECTED_TOOL_COUNT).toBe(TOOL_REGISTRY.length);
+    expect(TOOL_CATEGORIES.map((c) => c.tools)).toEqual(TOOL_REGISTRY.map((t) => [t.name]));
+    expect(new Set(TOOL_REGISTRY.map((t) => t.name)).size).toBe(TOOL_REGISTRY.length);
+  });
+
+  it("each entry's `actions` IS the enum the SDK advertises, and its descriptor's `(N actions)` is derived from it", () => {
+    // The counts used to be prose, and prose drifted twice (7/5/2 vs 8/13/5;
+    // 8/6 vs 12/8). The registry now carries the same constant each tool
+    // registers with, so the list is asserted as an identity — and the count
+    // a descriptor shows is computed from it, never typed (audit #100).
+    for (const [i, entry] of TOOL_REGISTRY.entries()) {
+      const schema = toolInputJsonSchema(tool(entry.name)) as {
+        properties: Record<string, { enum?: string[] }>;
+      };
+      expect(schema.properties.action.enum, entry.name).toEqual([...entry.actions]);
+      expect(/\(\d+ actions?\)/.test(entry.description), `${entry.name}: the count is derived, not written into the prose`).toBe(false);
+      expect(TOOL_CATEGORIES[i].description.endsWith(describeActionCount(entry.actions)), entry.name).toBe(true);
+    }
+    expect(describeActionCount(['a'])).toBe('(1 action)');
+    expect(describeActionCount(['a', 'b'])).toBe('(2 actions)');
+  });
+
+  // audit R2 #203 — three entries spelled their actions out in prose (the
+  // workspace verbs, and all twelve/eight of the browser halves), which is the
+  // drift channel this registry exists to close, reopened inside the registry
+  // itself. The descriptor DERIVES the list; a `description` may not carry one.
+  //
+  // Two checks, both sharp enough not to fire on ordinary English: the list
+  // verbatim, and any snake_case action identifier (`open_workspace`,
+  // `wait_for`, `session_save` — none of which is a word). "Read, write,
+  // transform document content" stays legal, because it is a sentence rather
+  // than a list of identifiers. Prose that genuinely has to NAME one action —
+  // "all but close and workflow_cancel are approval-gated" — belongs in
+  // `note`, which is not enumerative and is not checked here.
+  it('enumerates each tool\'s actions from `actions`, never from its prose', () => {
+    for (const entry of TOOL_REGISTRY) {
+      expect(
+        entry.description.includes(entry.actions.join(', ')),
+        `${entry.name}: description carries the action list verbatim; the descriptor derives it`,
+      ).toBe(false);
+      for (const action of entry.actions.filter((a) => a.includes('_'))) {
+        expect(
+          entry.description.includes(action),
+          `${entry.name}: description names the action identifier ${action}; put non-enumerative prose in \`note\``,
+        ).toBe(false);
+      }
+    }
+    for (const [i, entry] of TOOL_REGISTRY.entries()) {
+      expect(TOOL_CATEGORIES[i].description, entry.name).toContain(`: ${entry.actions.join(', ')}`);
     }
   });
 });

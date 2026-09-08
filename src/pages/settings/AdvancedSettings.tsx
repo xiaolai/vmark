@@ -18,7 +18,6 @@ export function AdvancedSettings() {
   const devTools = useSettingsStore((state) => state.advanced.developerMode);
   const customLinkProtocols = useSettingsStore((state) => state.advanced.customLinkProtocols);
   const keepBothEditorsAlive = useSettingsStore((state) => state.advanced.keepBothEditorsAlive);
-  const workflowViewer = useSettingsStore((state) => state.advanced.workflowViewer);
   const workflowEngine = useSettingsStore((state) => state.advanced.workflowEngine);
   const workflowEditorPreserveYamlFormatting = useSettingsStore(
     (state) => state.advanced.workflowEditorPreserveYamlFormatting,
@@ -169,41 +168,24 @@ export function AdvancedSettings() {
       {/* Developer features - only visible when developer mode is enabled */}
       {devTools && (
         <SettingsGroup title={t("advanced.group.experimental")}>
-          {/* Two switches, not one (WI-19). The viewer is read-only GitHub
-              Actions authoring help; the engine executes YAML — it spawns AI
-              providers, writes files, and takes snapshots. One flag for both
-              meant wanting completion required arming the runner, and the
-              runner's Rust commands ignored the flag entirely. */}
+          {/* The GitHub Actions viewer has no switch (D6, WI-FL2.6): the
+              workbench and its source-pane aids ship on. Its one preference —
+              how the structured editor writes YAML back — stays here under the
+              developer section, no longer behind the viewer flag that used to
+              reveal it. It never hung off the engine flag and must not: that is
+              what made it unreachable for a viewer-only user before WI-19. */}
           <SettingRow
-            label={t("advanced.workflowViewer.label")}
-            description={t("advanced.workflowViewer.description")}
+            label={t("advanced.workflowEditorPreserveYamlFormatting.label")}
+            description={t("advanced.workflowEditorPreserveYamlFormatting.description")}
           >
             <Toggle
-              checked={workflowViewer}
-              onChange={(v) => updateAdvancedSetting("workflowViewer", v)}
+              checked={workflowEditorPreserveYamlFormatting}
+              onChange={(v) => updateAdvancedSetting("workflowEditorPreserveYamlFormatting", v)}
             />
           </SettingRow>
-          {/* A viewer dependent: it governs how the structured GitHub Actions
-              editor writes YAML back. Hanging it off the engine flag is what
-              made it unreachable for a viewer-only user. */}
-          {workflowViewer && (
-            <SettingRow
-              label={t("advanced.workflowEditorPreserveYamlFormatting.label")}
-              description={t(
-                "advanced.workflowEditorPreserveYamlFormatting.description",
-              )}
-            >
-              <Toggle
-                checked={workflowEditorPreserveYamlFormatting}
-                onChange={(v) =>
-                  updateAdvancedSetting(
-                    "workflowEditorPreserveYamlFormatting",
-                    v,
-                  )
-                }
-              />
-            </SettingRow>
-          )}
+          {/* The engine is a different feature (WI-19): it executes YAML — it
+              spawns AI providers, writes files, and takes snapshots — and its
+              Rust commands refuse while this is off. */}
           <SettingRow
             label={t("advanced.workflowEngine.label")}
             description={t("advanced.workflowEngine.description")}

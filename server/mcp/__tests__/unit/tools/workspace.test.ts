@@ -7,6 +7,7 @@ import { VMarkMcpServer } from '../../../src/server.js';
 import {
   registerWorkspaceTool,
   isWorkspaceApprovalNeeded,
+  WORKSPACE_TAB_KINDS,
 } from '../../../src/tools/workspace.js';
 import { MockBridge } from '../../mocks/mockBridge.js';
 import { toolJson, toolText } from '../../utils/toolResult.js';
@@ -328,5 +329,63 @@ describe('workspace — blank identifiers (round-2 audit finding 4)', () => {
 
     expect(result.isError).toBe(true);
     expect(bridge.requests).toHaveLength(0);
+  });
+});
+
+// audit R3 #240 — `typeof args.kind === 'string' ? args.kind : undefined` turns
+// a caller's mistake into exactly the value that means "use the default", so
+// `new` silently made a Markdown tab for a caller who asked for something else.
+// `callTool` runs NO schema validation, so this guard is what holds.
+describe('workspace new — a supplied but invalid `kind` is refused, never dropped', () => {
+  const newTab = (kind: unknown) => {
+    const { server } = harness('vmark.workspace.new', (request) => ({
+      success: true,
+      data: { tabId: 't1', kind: (request as unknown as { kind?: unknown }).kind ?? null },
+    }));
+    return server.callTool('workspace', { action: 'new', ...(kind === undefined ? {} : { kind }) });
+  };
+
+  it.each(WORKSPACE_TAB_KINDS)('forwards the valid kind %s', async (kind) => {
+    expect(toolJson(await newTab(kind))).toMatchObject({ kind });
+  });
+
+  it('omits an absent kind so the app applies its default', async () => {
+    expect(toolJson(await newTab(undefined))).toMatchObject({ kind: null });
+  });
+
+  it.each([
+    ['an unknown string', 'md'],
+    ['a number', 7],
+    ['null', null],
+    ['a boolean', true],
+    ['an object', {}],
+  ])('refuses %s instead of creating the default tab', async (_label, kind) => {
+    const text = toolText(await newTab(kind));
+    expect(text).toContain('kind must be one of markdown, yaml-workflow');
+    expect(text).toContain(JSON.stringify(kind));
+  });
+
+  it('spells the live list into the refusal rather than a stale literal', async () => {
+    expect(toolText(await newTab('md'))).toContain(WORKSPACE_TAB_KINDS.join(', '));
+  });
+});
+
+// audit R3 #241 — the description told clients the first call "returns
+// {needsApproval: true}". It does not: the tool renders that envelope as an
+// ERROR (deliberately, Codex M11), so a client branching on the documented
+// field found nothing. The advertised contract now matches the result.
+describe('workspace open_workspace — the advertised contract is the observed one', () => {
+  it('describes the refusal a client actually receives', async () => {
+    const { server } = harness('vmark.workspace.open_workspace', () => ({
+      success: false,
+      error: 'APPROVAL_REQUIRED',
+      data: { needsApproval: true, folderPath: '/proj' },
+    }));
+    const observed = toolText(await server.callTool('workspace', { action: 'open_workspace', folderPath: '/proj' }));
+    const described = server.listTools().find((t) => t.name === 'workspace')?.description ?? '';
+    const advertised = described.slice(described.indexOf('- open_workspace:'), described.indexOf('- save:'));
+    expect(observed).toContain('approval required to open workspace');
+    expect(advertised).toContain('approval required to open workspace');
+    expect(advertised).not.toContain('{needsApproval: true}');
   });
 });

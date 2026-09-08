@@ -4,13 +4,17 @@
  *   IR that the form layer renders, so freshly-added jobs/steps are
  *   visible before the user clicks Save.
  *
- *   Non-structural patches (job.set, with.set, trigger.setFilters,
- *   workflow.permissions.set, workflow.concurrency.set) are skipped:
- *   the corresponding form components track these via local React
- *   state, so the IR doesn't need to lag-update.
+ *   CONTENT patches (job.set, step.set, with.set/remove) are applied too —
+ *   see `isContent`. The ones left out are the workflow-level patches
+ *   (trigger.setFilters, workflow.permissions.set,
+ *   workflow.concurrency.set), whose forms hold their own React state.
  *
- *   Returns the same IR reference when no structural patches apply,
- *   keeping React's referential-equality short-circuits intact.
+ *   `applyStructuralPatches` is the same walk with the content patches
+ *   left out: it is the IR the edit forms measure their edits AGAINST,
+ *   and it must not carry the edit being measured (audit R2, #1020).
+ *
+ *   Returns the same IR reference when no patch applies, keeping React's
+ *   referential-equality short-circuits intact.
  *
  * @coordinates-with src/lib/ghaWorkflow/save/mutators.ts — patch types
  * @coordinates-with src/components/Editor/WorkflowEditor/WorkflowEditorPanel.tsx — consumer
@@ -209,6 +213,17 @@ function applyStepScalar(
   return step;
 }
 
+/** Apply the accepted patches in queue order; same IR reference if none apply. */
+function applyMatching(
+  ir: WorkflowIR,
+  patches: readonly IRPatch[],
+  accepts: (patch: IRPatch) => boolean,
+): WorkflowIR {
+  if (patches.length === 0) return ir;
+  if (!patches.some(accepts)) return ir;
+  return patches.reduce((acc, p) => (accepts(p) ? applyOne(acc, p) : acc), ir);
+}
+
 /**
  * Apply structural + content patches in queue order. Returns the
  * original IR reference when no patch applies (preserves React equality).
@@ -217,7 +232,25 @@ export function applyPreviewPatches(
   ir: WorkflowIR,
   patches: readonly IRPatch[],
 ): WorkflowIR {
-  if (patches.length === 0) return ir;
-  if (!patches.some((p) => isStructural(p) || isContent(p))) return ir;
-  return patches.reduce((acc, p) => applyOne(acc, p), ir);
+  return applyMatching(ir, patches, (p) => isStructural(p) || isContent(p));
+}
+
+/**
+ * The PRE-EDIT IR: structural patches applied, content patches not.
+ *
+ * This is what an edit form compares a field against to decide whether the
+ * user has reverted it — so it must not carry that field's own queued edit.
+ * Comparing against the preview instead made a second blur on an
+ * already-committed field look like a revert, cancelling it (audit R2, #1020).
+ *
+ * Structural patches ARE applied so that jobs and steps line up with the
+ * preview one-for-one: same ids, same step order, so the form's index and id
+ * select the same entity in both. A freshly created job or step therefore has
+ * a baseline too — the entity as `job.create` / `step.insert` made it.
+ */
+export function applyStructuralPatches(
+  ir: WorkflowIR,
+  patches: readonly IRPatch[],
+): WorkflowIR {
+  return applyMatching(ir, patches, isStructural);
 }

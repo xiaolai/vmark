@@ -46,6 +46,7 @@ pub struct BundleManifest {
 /// Lifecycle of a provisioned bundle (review D2.1 — explicit state machine).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "state", rename_all = "kebab-case")]
+#[allow(dead_code)] // ADR-2 runtime upgrade path: unit-tested, no production caller yet (rule 60 §12).
 pub enum ProvisionState {
     Missing,
     Downloading { received: u64, total: u64 },
@@ -57,6 +58,7 @@ pub enum ProvisionState {
 
 /// Events that drive the state machine.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(dead_code)] // ADR-2 runtime upgrade path: unit-tested, no production caller yet (rule 60 §12).
 pub enum ProvisionEvent {
     StartDownload { total: u64 },
     Progress { received: u64 },
@@ -69,6 +71,7 @@ pub enum ProvisionEvent {
 
 /// Pure transition function. Invalid transitions yield `Failed` rather than
 /// panicking — provisioning must fail loud but never crash the app.
+#[allow(dead_code)] // ADR-2 runtime upgrade path: unit-tested, no production caller yet (rule 60 §12).
 pub fn transition(state: &ProvisionState, event: ProvisionEvent) -> ProvisionState {
     use ProvisionEvent as E;
     use ProvisionState as S;
@@ -94,9 +97,11 @@ pub fn transition(state: &ProvisionState, event: ProvisionEvent) -> ProvisionSta
 }
 
 impl ProvisionState {
+    #[allow(dead_code)] // ADR-2 runtime upgrade path: unit-tested, no production caller yet (rule 60 §12).
     pub fn is_ready(&self) -> bool {
         matches!(self, ProvisionState::Ready { .. })
     }
+    #[allow(dead_code)] // ADR-2 runtime upgrade path: unit-tested, no production caller yet (rule 60 §12).
     pub fn is_terminal(&self) -> bool {
         matches!(
             self,
@@ -107,6 +112,7 @@ impl ProvisionState {
 
 /// Verify tarball bytes against a manifest's SHA-256 (constant work, no early
 /// length shortcut needed — hashing dominates).
+#[allow(dead_code)] // ADR-2 runtime upgrade path: unit-tested, no production caller yet (rule 60 §12).
 pub fn verify_checksum(bytes: &[u8], expected_hex: &str) -> bool {
     let mut hasher = Sha256::new();
     hasher.update(bytes);
@@ -116,6 +122,7 @@ pub fn verify_checksum(bytes: &[u8], expected_hex: &str) -> bool {
     actual.eq_ignore_ascii_case(expected_hex.trim())
 }
 
+#[allow(dead_code)] // ADR-2 runtime upgrade path: unit-tested, no production caller yet (rule 60 §12).
 pub(crate) fn hex_encode(bytes: &[u8]) -> String {
     let mut s = String::with_capacity(bytes.len() * 2);
     for b in bytes {

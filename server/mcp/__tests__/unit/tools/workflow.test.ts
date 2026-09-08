@@ -155,3 +155,25 @@ describe('workflow — blank tabId (round-2 audit finding 4)', () => {
     expect(bridge.requests).toHaveLength(0);
   });
 });
+
+describe('workflow.apply_patch — supplied-but-invalid expected_revision (audit R2 #237)', () => {
+  it.each([
+    ['a number', 3],
+    ['null', null],
+    ['a blank string', '  '],
+  ])('refuses expected_revision that is %s instead of patching unconditionally', async (_label, revision) => {
+    const { server, bridge } = harness({
+      'vmark.workflow.apply_patch': () => ({ success: true, data: {} }),
+    });
+
+    const result = await server.callTool('workflow', {
+      action: 'apply_patch',
+      patches: [],
+      expected_revision: revision,
+    });
+
+    expect(result.isError).toBe(true);
+    expect(toolText(result)).toContain('expected_revision');
+    expect(bridge.requests).toHaveLength(0);
+  });
+});

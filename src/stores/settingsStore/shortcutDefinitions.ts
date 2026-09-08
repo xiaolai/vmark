@@ -80,6 +80,7 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   { id: "taskList", label: "Task List", category: "blocks", defaultKey: "Alt-Mod-x", menuId: "task-list" },
   { id: "insertTable", label: "Insert Table", category: "blocks", defaultKey: "Mod-Shift-t", menuId: "insert-table" },
   { id: "horizontalLine", label: "Horizontal Line", category: "blocks", defaultKey: "Alt-Mod--", menuId: "horizontal-line" },
+  { id: "insertToc", label: "Table of Contents", category: "blocks", defaultKey: "", menuId: "insert-toc", description: "Insert a live table of contents ([TOC])" },
   { id: "insertImage", label: "Insert Image", category: "blocks", defaultKey: "Shift-Mod-i", menuId: "image" },
   { id: "insertVideo", label: "Insert Video", category: "blocks", defaultKey: "", menuId: "video" },
   { id: "insertAudio", label: "Insert Audio", category: "blocks", defaultKey: "", menuId: "audio" },
@@ -143,7 +144,7 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   { id: "focusMode", label: "Focus Mode", category: "view", defaultKey: "F8", menuId: "focus-mode" },
   { id: "typewriterMode", label: "Typewriter Mode", category: "view", defaultKey: "F9", menuId: "typewriter-mode" },
   { id: "wordWrap", label: "Toggle Word Wrap", category: "view", defaultKey: "Alt-z", menuId: "word-wrap" },
-  { id: "lineNumbers", label: "Toggle Line Numbers", category: "view", defaultKey: "Alt-Mod-l", menuId: "line-numbers", description: "Show/hide line numbers in code blocks" },
+  { id: "lineNumbers", label: "Toggle Line Numbers", category: "view", defaultKey: "Alt-Mod-l", menuId: "line-numbers", description: "Show/hide the line-number gutter in Source and Split view" },
   { id: "toggleTerminal", label: "Toggle Terminal", category: "view", defaultKey: "Ctrl-`", menuId: "toggle-terminal" },
   { id: "diagramPreview", label: "Toggle Diagram Preview", category: "view", defaultKey: "Alt-Mod-p", menuId: "diagram-preview", description: "Show/hide diagram preview" },
   { id: "fitTables", label: "Fit Tables to Width", category: "view", defaultKey: "", menuId: "fit-tables", description: "Force tables to fit editor width with word wrapping" },
@@ -179,6 +180,10 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   { id: "saveAs", label: "Save As", category: "file", defaultKey: "Mod-Shift-s", menuId: "save-as" },
   { id: "moveTo", label: "Move to", category: "file", defaultKey: "", menuId: "move-to" },
   { id: "closeFile", label: "Close", category: "file", defaultKey: "Mod-w", menuId: "close" },
+  // Unbound by default (D12, WI-FL3.3): the conventional Mod-Shift-T is
+  // insertTable's, Ctrl-Shift-T is transformTitleCase's and Alt-Mod-Shift-T is
+  // insertTip's. The Shortcuts pane lists it as Unassigned so it can be bound.
+  { id: "reopenClosedTab", label: "Reopen Closed Tab", category: "file", defaultKey: "", menuId: "reopen-closed-tab", description: "Reopen the most recently closed tab" },
   { id: "exportHTML", label: "Export HTML", category: "file", defaultKey: "", menuId: "export-html" },
   { id: "print", label: "Print", category: "file", defaultKey: "Mod-p", menuId: "export-pdf" },
   { id: "exportPdf", label: "Export PDF", category: "file", defaultKey: "", menuId: "export-pdf-native" },
@@ -195,7 +200,7 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   // (src/plugins/actions/menuMapping.ts).
   { id: "formatTable", label: "Format Table", category: "blocks", defaultKey: "Alt-Mod-t", menuId: "format-table", description: "Align table columns with proper spacing" },
 
-  // === Future: Alerts (Phase 3) ===
+  // === Alerts (menu-backed: Insert → Alerts, insert_submenus.rs) ===
   { id: "insertNote", label: "Insert Note", category: "blocks", defaultKey: "Alt-Mod-n", menuId: "info-note" },
   { id: "insertTip", label: "Insert Tip", category: "blocks", defaultKey: "Mod-Alt-Shift-t", menuId: "info-tip" },
   { id: "insertWarning", label: "Insert Warning", category: "blocks", defaultKey: "Mod-Shift-w", menuId: "info-warning" },

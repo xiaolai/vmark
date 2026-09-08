@@ -13,7 +13,7 @@
 //! We deliberately do NOT parse PTY output for a run-state.
 //!
 //! @coordinates-with src/stores/windowStatusStore.ts — frontend listener
-//! @coordinates-with src/hooks/useWindowStatusReporter.ts — per-window reporter
+//! @coordinates-with src/hooks/useWindowStatus.ts — per-window reporter
 //! @module window_status
 
 use serde::{Deserialize, Serialize};

@@ -56,7 +56,6 @@ export function extractMenuIdsFromRust(source: string): string[] {
 export const EXCLUDED_MENU_IDS: ReadonlySet<string> = new Set([
   // App/native (handled in Rust or by the OS)
   "about",
-  "bring-all-to-front",
   "install-cli",
   "preferences",
   "quit",
@@ -81,6 +80,13 @@ export const EXCLUDED_MENU_IDS: ReadonlySet<string> = new Set([
   "new-window",
   // Routed through the CommandBus (menu:last-used-tab -> tab.lastUsed).
   "last-used-tab",
+  // Routed through the CommandBus (menu:reopen-closed-tab -> tab.reopenClosed, WI-FL3.3).
+  "reopen-closed-tab",
+  // Routed through the CommandBus (menu:bring-all-to-front -> window.bringAllToFront,
+  // WI-FL3.10). It was listed under "handled natively" above, which was the
+  // premise the feature ledger found false: Rust classifies it as Generic and
+  // emits menu:bring-all-to-front, and nothing was bound to it.
+  "bring-all-to-front",
   // Genie submenu, built dynamically in menu/dynamic.rs. These were INVISIBLE
   // to this list until the extraction regex learned the `&app` form — each is
   // handled, just not through the action registry:

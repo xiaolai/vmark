@@ -1,20 +1,33 @@
 /**
  * Recent-files commands — ADR-012 migration of useRecentFilesMenuEvents.
  *
- * Two commands: clear-recent-files and open-recent-file (with full
- * resolveOpenAction routing: activate / create / replace / new window).
+ * Two commands: clear-recent-files and open-recent-file.
  *
- * The open-recent branches are extracted into small, individually testable
- * helpers (parseRecentFileArgs / openRecentInNewTab / replaceTabWithRecentFile
- * / openRecentInNewWindow) so the high-complexity command callback stays a thin
- * dispatcher and the replace flow reuses the same code path as Cmd+O.
+ * The open path is a PREFLIGHT plus the shared open-decision executor (audit
+ * #930). It used to be a five-way dispatcher of its own, and the copy had
+ * already drifted from `executeOpenDecision` in two ways that reached users:
+ * it activated with a plain `setActiveTab`, leaving the sidebar on a different
+ * workspace from the document it had just shown (#931), and it swallowed a
+ * failed workspace claim into a log line, so the file opened under the previous
+ * context with nothing on screen to say so (#932).
+ *
+ * What is genuinely recents-specific is the ONE question the executor cannot
+ * ask: is this entry still openable? That is asked once, before routing (#928),
+ * for every action that names the file on disk — so the new-window route offers
+ * removal like the others instead of leaving a dead entry forever. Asking it up
+ * front also retires the old per-branch guesswork: a replace that failed for any
+ * reason at all used to be reported as "file not found" and offered for removal,
+ * although ingestion, ownership and workspace-switch failures land there too
+ * (#927). Those are now the executor's error toast, which is what they are.
+ *
+ * @coordinates-with services/navigation/executeOpenDecision.ts — the shared executor
+ * @coordinates-with utils/openPolicy.ts — resolveOpenAction produces the decision
+ * @module services/commands/recentFilesCommands
  */
 
-import { exists } from "@tauri-apps/plugin-fs";
-import { invoke } from "@tauri-apps/api/core";
-import { imeToast as toast } from "@/services/ime/imeToast";
+import { exists, stat } from "@tauri-apps/plugin-fs";
 import i18n from "@/i18n";
-import { hasCommand, registerCommand } from "./CommandBus";
+import { registerCommands, type CommandDefinition } from "./CommandBus";
 import { useRecentFilesStore } from "@/stores/workspaceStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useSettingsStore } from "@/stores/settingsStore";
@@ -22,12 +35,12 @@ import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { withReentryGuard } from "@/utils/reentryGuard";
 import { resolveOpenAction } from "@/utils/openPolicy";
 import { getReplaceableTab, isWindowEmpty } from "@/services/tabs/replaceableTab";
-import { openFileInNewTabCore, replaceTabWithFile } from "@/services/navigation/fileOpen";
-import { openWorkspaceWithConfig } from "@/services/workspaces/openWorkspaceWithConfig";
+import { openFileInNewTabCore } from "@/services/navigation/fileOpen";
+import { executeOpenDecision } from "@/services/navigation/executeOpenDecision";
 import { menuError } from "@/utils/debug";
-import { getFileName } from "@/utils/pathUtils";
 import { parseRecentPathArgs } from "./recentPathArgs";
 import { confirmAction } from "@/services/dialogs/confirmAction";
+import type { OpenActionResult } from "@/utils/openPolicy/types";
 
 type Ctx = { windowLabel?: string };
 
@@ -42,7 +55,7 @@ export function parseRecentFileArgs(args: unknown): string | null {
 
 /**
  * Prompt to remove a recent file that could not be opened. Used by the
- * create/replace paths when the underlying file is missing or unreadable.
+ * preflight when the underlying file is gone.
  */
 async function promptRemoveRecentFile(filePath: string): Promise<void> {
   const remove = await confirmAction({
@@ -57,77 +70,52 @@ async function promptRemoveRecentFile(filePath: string): Promise<void> {
 }
 
 /**
- * Open a recent file in a new tab. Preflights existence so that a missing file
- * is offered for removal from the recents list — `openFileInNewTabCore` swallows
- * read failures internally (toast + tab cleanup), so without the preflight a
- * stale recent entry would silently survive a failed open.
+ * Is this recents entry still a file we could open? (audit #926)
+ *
+ * Three things this has to get right, and the old `await exists(path)` got none
+ * of them:
+ *
+ *   - **A rejection is not an answer.** `exists()` REJECTS with "forbidden
+ *     path" for a path outside the fs scope, and that rejection escaped the
+ *     command — the menu item did nothing at all, with no message. Same defect
+ *     `recentWorkspacesCommands` fixed for folders (#1252 / audit #936).
+ *   - **A probe that could not RUN is not evidence of absence.** Offering to
+ *     remove a file that exists is the worse outcome, so an unreadable probe
+ *     says "present" and lets the open surface any real failure (audit #937's
+ *     rule, applied to files).
+ *   - **`exists()` is true for a DIRECTORY too.** A folder standing where the
+ *     file used to be is reported as gone, which is what it is.
  */
-export async function openRecentInNewTab(
-  windowLabel: string,
-  filePath: string,
-): Promise<void> {
-  if (!(await exists(filePath))) {
-    await promptRemoveRecentFile(filePath);
-    return;
+async function recentFileIsPresent(filePath: string): Promise<boolean> {
+  try {
+    if (!(await exists(filePath))) return false;
+    return (await stat(filePath)).isFile;
+  } catch (error) {
+    menuError("Could not probe recent file:", error);
+    return true;
   }
-  await openFileInNewTabCore(windowLabel, filePath);
 }
 
 /**
- * Replace a clean tab with a recent file. Reuses the shared replace flow so
- * Open and Open Recent can't drift, and offers removal from recents on failure.
+ * Whether carrying out `decision` will read `filePath` from disk.
+ *
+ * `activate_tab` reads an already-open tab — a file whose disk copy vanished
+ * while its tab is open must still activate — and `no_op` reads nothing.
+ * Everything else hands the path to a reader or to another window.
  */
-export async function replaceTabWithRecentFile(params: {
-  windowLabel: string;
-  tabId: string;
-  targetPath: string;
-  sourcePath: string;
-  workspaceRoot?: string | null;
-}): Promise<void> {
-  const result = await replaceTabWithFile(params);
-  if (result.ok || result.cancelled) return;
-  menuError("Failed to replace tab with recent file:", result.error);
-  await promptRemoveRecentFile(params.sourcePath);
+function decisionNeedsTheFile(decision: OpenActionResult): boolean {
+  return decision.action !== "activate_tab" && decision.action !== "no_op";
 }
 
-/**
- * Open an external recent file's resolved workspace before creating its tab
- * (#946 parity with Cmd+O's `openWorkspaceForNewTab`): the new tab must be
- * claimed by the file's own workspace, not attached to the current context.
- * Failure is logged but non-fatal — the file still opens.
- */
-async function openRecentWorkspaceForNewTab(
-  windowLabel: string,
-  workspaceRoot: string | null | undefined,
-): Promise<void> {
-  if (!workspaceRoot) return;
-  try {
-    await openWorkspaceWithConfig(workspaceRoot, { windowLabel });
-  } catch (error) {
-    menuError("Failed to open workspace for recent file tab:", error);
-  }
-}
+/** Owner token this batch registers under (HMR-safe, atomic — see viewCommands). */
+const RECENT_FILES_COMMANDS_OWNER = "recent-files-commands";
 
-/** Open a recent file's workspace in a new window, with localized failure toast. */
-export async function openRecentInNewWindow(
-  workspaceRoot: string | null | undefined,
-  filePath: string,
-): Promise<void> {
-  try {
-    await invoke("open_workspace_in_new_window", { workspaceRoot, filePath });
-  } catch (error) {
-    menuError("Failed to open workspace in new window:", error);
-    const filename = getFileName(filePath) || filePath;
-    toast.error(i18n.t("dialog:toast.failedToOpen", { filename }));
-  }
-}
+/** Build the recent-files command specs (pure — no registration). */
+function buildRecentFilesCommandSpecs(): CommandDefinition[] {
+  const specs: CommandDefinition[] = [];
+  const add = (command: CommandDefinition): void => void specs.push(command);
 
-let registered = false;
-export function registerRecentFilesCommands(): void {
-  // HMR: the module-local flag resets on reload, but the bus registry survives.
-  if (registered || hasCommand("file.clearRecent")) return;
-
-  registerCommand({
+  add({
     id: "file.clearRecent",
     title: () => i18n.t("commands:file.clearRecent"),
     category: "file",
@@ -150,7 +138,7 @@ export function registerRecentFilesCommands(): void {
     },
   });
 
-  registerCommand({
+  add({
     id: "file.openRecent",
     title: () => i18n.t("commands:file.openRecent"),
     category: "file",
@@ -180,43 +168,36 @@ export function registerRecentFilesCommands(): void {
       });
 
       await withReentryGuard(windowLabel, "open-recent", async () => {
-        switch (result.action) {
-          case "activate_tab":
-            useTabStore.getState().setActiveTab(windowLabel, result.tabId);
-            break;
-
-          case "create_tab":
-            // An external file opened in a new tab carries its own resolved
-            // root; claim that workspace first (mirrors Cmd+O's handleOpen).
-            await openRecentWorkspaceForNewTab(windowLabel, result.workspaceRoot);
-            await openRecentInNewTab(windowLabel, result.filePath);
-            break;
-
-          case "replace_tab":
-            await replaceTabWithRecentFile({
-              windowLabel,
-              tabId: result.tabId,
-              targetPath: result.filePath,
-              sourcePath: filePath,
-              workspaceRoot: result.workspaceRoot,
-            });
-            break;
-
-          case "open_workspace_in_new_window":
-            await openRecentInNewWindow(result.workspaceRoot, result.filePath);
-            break;
-
-          case "no_op":
-            break;
+        if (decisionNeedsTheFile(result) && !(await recentFileIsPresent(filePath))) {
+          await promptRemoveRecentFile(filePath);
+          return;
         }
+        // `result.filePath` is never a transformed path — the policy threads the
+        // caller's own string through every action — so this is the same value.
+        //
+        // The opener's `OpenOutcome` is deliberately NOT consulted: absence is
+        // the preflight's question, and `"failed"` here means the read broke
+        // AFTER the file was there (permission, encoding, a mid-flight delete),
+        // which `openFileInNewTabCore` already reports and which is not grounds
+        // to offer the entry for removal — that is exactly the misreport #927
+        // names.
+        await executeOpenDecision(windowLabel, filePath, result, async (label, path) => {
+          await openFileInNewTabCore(label, path);
+        });
       });
     },
   });
 
-  registered = true;
+  return specs;
 }
 
-/** Test-only: clears the one-time registration guard so a fresh bus re-registers. */
-export function __resetRecentFilesCommandsRegistration(): void {
-  registered = false;
+/**
+ * Register both recent-file commands as ONE owner batch (audit #929).
+ *
+ * A `hasCommand("file.clearRecent")` sentinel silently skipped
+ * `file.openRecent` whenever that first id was already registered, and offered
+ * no atomicity for a standalone (non-bootstrap) call.
+ */
+export function registerRecentFilesCommands(): void {
+  registerCommands(RECENT_FILES_COMMANDS_OWNER, buildRecentFilesCommandSpecs());
 }

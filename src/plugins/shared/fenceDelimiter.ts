@@ -38,6 +38,27 @@ export interface FenceDelimiter {
 /** Leading blockquote markers, which a fence may legally sit behind. */
 const CONTAINER_PREFIX_RE = /^(?: {0,3}>[ \t]?)*/;
 
+/** CommonMark expands a tab to the next multiple of four COLUMNS. */
+export const TAB_STOP = 4;
+
+/**
+ * The column reached after writing `text` starting at column `start`.
+ *
+ * A tab is one CHARACTER and up to four COLUMNS, and every structural rule in
+ * CommonMark — how deep an item is nested, whether a line is indented code —
+ * is stated in columns. Counting characters made `>` + TAB + `- x` (marker at
+ * column 4) compare equal to `> - x` (marker at column 2), so a NESTED item
+ * read as a sibling and ended the enclosing item's fence early (audit R2,
+ * #868).
+ */
+export function columnAfter(text: string, start = 0): number {
+  let column = start;
+  for (const ch of text) {
+    column = ch === "\t" ? column + TAB_STOP - (column % TAB_STOP) : column + 1;
+  }
+  return column;
+}
+
 /** Number of `>` markers in a container prefix. */
 export function quoteDepth(prefix: string): number {
   return (prefix.match(/>/g) ?? []).length;
@@ -87,34 +108,72 @@ const LIST_ITEM_PREFIX_RE = /^ {0,3}(?:[-*+]|\d{1,9}[.)])(?:\t| {1,4}(?! ))/;
  */
 export type FenceIndentPolicy = "commonmark" | "deep-indent";
 
+/** One segment of a line's container prefix, in the order it appears. */
+export interface ContainerPart {
+  /** The literal text consumed, including a list marker's own leading indent. */
+  text: string;
+  /** A LIST MARKER (`- `, `1. `) rather than a blockquote run. */
+  list: boolean;
+}
+
+/**
+ * The container prefix of `line`, segment by segment.
+ *
+ * Containers nest in ANY order: `- > ``` ` is a fence inside a blockquote
+ * inside a list item. Stripping one quote run and then one list marker read
+ * that as no fence at all, so every cursor guard stayed off inside it.
+ *
+ * The walk is exported because a THIRD consumer needs the segments themselves,
+ * not a summary of them: unfencing a list-opened fence has to put the opener's
+ * markers back, and that is the one thing `startsListItem` (a boolean) and
+ * `listItemStart` (the last marker's column) both throw away. Re-deriving it is
+ * how this grammar came to be implemented twice before.
+ */
+export function containerPrefixParts(line: string): ContainerPart[] {
+  const parts: ContainerPart[] = [];
+  let rest = line;
+  for (;;) {
+    const quote = CONTAINER_PREFIX_RE.exec(rest)?.[0] ?? "";
+    const list = LIST_ITEM_PREFIX_RE.exec(rest.slice(quote.length))?.[0] ?? "";
+    if (!quote && !list) break;
+    if (quote) parts.push({ text: quote, list: false });
+    if (list) parts.push({ text: list, list: true });
+    rest = rest.slice(quote.length + list.length);
+  }
+  return parts;
+}
+
+/**
+ * The delimiter pattern per indent policy, compiled ONCE.
+ *
+ * `parseFenceDelimiter` runs per LINE — the cursor guards scan a whole document
+ * on every keystroke — and it built this regex from a template string on every
+ * call. There are exactly two of them, and they are constants.
+ */
+const DELIMITER_RE: Record<FenceIndentPolicy, RegExp> = {
+  commonmark: /^( {0,3})([`~])(\2*)([^\n]*)$/,
+  "deep-indent": /^( *)([`~])(\2*)([^\n]*)$/,
+};
+
 /** Parse a line as a fence delimiter, or null. Whitespace is spaces/tabs only. */
 export function parseFenceDelimiter(
   line: string,
   indentPolicy: FenceIndentPolicy = "commonmark"
 ): FenceDelimiter | null {
-  // Containers nest in ANY order: `- > ```` is a fence inside a blockquote
-  // inside a list item. Stripping one quote run and then one list marker read
-  // that as no fence at all, so every cursor guard stayed off inside it.
-  let rest = line;
-  let quotePrefix = "";
-  let consumed = 0;
-  let startsListItem = false;
-  for (;;) {
-    const quote = CONTAINER_PREFIX_RE.exec(rest)?.[0] ?? "";
-    const list = LIST_ITEM_PREFIX_RE.exec(rest.slice(quote.length))?.[0] ?? "";
-    if (!quote && !list) break;
-    quotePrefix += quote;
-    if (list) startsListItem = true;
-    consumed += quote.length + list.length;
-    rest = rest.slice(quote.length + list.length);
-  }
+  const parts = containerPrefixParts(line);
+  const quotePrefix = parts
+    .filter((p) => !p.list)
+    .map((p) => p.text)
+    .join("");
+  const consumed = parts.reduce((n, p) => n + p.text.length, 0);
+  const startsListItem = parts.some((p) => p.list);
+  const rest = line.slice(consumed);
 
   // SPACES only, and at most three under CommonMark: a tab expands to four
   // COLUMNS, which is indented code, not a fence. `[ \t]{0,3}` let a single tab
   // through and a "fence" toggle then deleted literal lines from an indented
   // code block.
-  const indent = indentPolicy === "deep-indent" ? "*" : "{0,3}";
-  const match = new RegExp(`^( ${indent})([\`~])(\\2*)([^\n]*)$`).exec(rest);
+  const match = DELIMITER_RE[indentPolicy].exec(rest);
   if (!match) return null;
 
   const marker = match[2] as "`" | "~";
@@ -150,21 +209,21 @@ export function parseFenceDelimiter(
  * remark-parse reads a marker indented 0-3 columns as continuing the same list
  * — a sibling. Getting this wrong leaves the previous item's fence open across
  * text that is not in it.
+ *
+ * COLUMNS, with tabs expanded (`columnAfter`): a character index is the same
+ * number only while the prefix holds no tab, and a blockquote marker may
+ * legally be followed by one (audit R2, #868).
  */
 export function listItemStart(line: string): number | null {
-  let rest = line;
-  let consumed = 0;
+  let column = 0;
   let markerColumn: number | null = null;
-  for (;;) {
-    const quote = CONTAINER_PREFIX_RE.exec(rest)?.[0] ?? "";
-    const list = LIST_ITEM_PREFIX_RE.exec(rest.slice(quote.length))?.[0] ?? "";
-    if (!quote && !list) break;
-    if (list) {
-      // The regex leads with ` {0,3}` — the indent BEFORE the marker.
-      markerColumn = consumed + quote.length + (list.length - list.trimStart().length);
+  for (const part of containerPrefixParts(line)) {
+    // A list segment leads with ` {0,3}` — the indent BEFORE the marker.
+    if (part.list) {
+      const indent = part.text.length - part.text.trimStart().length;
+      markerColumn = columnAfter(part.text.slice(0, indent), column);
     }
-    consumed += quote.length + list.length;
-    rest = rest.slice(quote.length + list.length);
+    column = columnAfter(part.text, column);
   }
   return markerColumn;
 }

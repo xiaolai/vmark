@@ -132,6 +132,13 @@ function resetStores() {
   mockWindowLabel = "main";
 }
 
+/** A fake editor in BOTH slots: the apply path reads the TAB-BOUND one (#963). */
+function installEditor(editor = makeFakeEditor()) {
+  useEditorStore.setState((s) => ({ tiptap: { ...s.tiptap, editor: editor as never } }));
+  useEditorStore.getState().setActiveWysiwygEditor(editor as never, "tab-1");
+  return editor;
+}
+
 function setupProviderAndEditor() {
   // Ensure provider check passes
   useAiProviderStore.setState({
@@ -145,11 +152,7 @@ function setupProviderAndEditor() {
     ensureProvider: vi.fn(async () => true),
   } as never);
 
-  // Set up a fake editor
-  const fakeEditor = makeFakeEditor();
-  useEditorStore.setState((s) => ({ tiptap: { ...s.tiptap, editor: fakeEditor as never } }));
-
-  return fakeEditor;
+  return installEditor();
 }
 
 // ---------------------------------------------------------------------------
@@ -514,8 +517,7 @@ describe("useGenieInvocation — picker store wiring", () => {
   // =========================================================================
 
   it("shows error for unavailable CLI provider", async () => {
-    const fakeEditor = makeFakeEditor();
-    useEditorStore.setState((s) => ({ tiptap: { ...s.tiptap, editor: fakeEditor as never } }));
+    installEditor();
     useAiProviderStore.setState({
       activeProvider: "claude-cli",
       restProviders: [],
@@ -540,8 +542,7 @@ describe("useGenieInvocation — picker store wiring", () => {
   // =========================================================================
 
   it("invokes with null model/apiKey/endpoint for CLI provider", async () => {
-    const fakeEditor = makeFakeEditor();
-    useEditorStore.setState((s) => ({ tiptap: { ...s.tiptap, editor: fakeEditor as never } }));
+    installEditor();
     useAiProviderStore.setState({
       activeProvider: "claude-cli",
       restProviders: [],
@@ -568,10 +569,16 @@ describe("useGenieInvocation — picker store wiring", () => {
   });
 
   // =========================================================================
-  // Fallback: tabId defaults to "unknown" when window has no active tab
+  // No active tab: REFUSED, not filed under a sentinel (audit #972)
+  //
+  // This used to assert the opposite — that the run went ahead and filed its
+  // suggestion against the tabId `"unknown"`. Nothing downstream treats that
+  // string as "no tab": the suggestion was addressed to a tab that cannot be
+  // activated, so the user could neither see it nor reject it, and the
+  // auto-apply path failed with "editor unavailable" instead.
   // =========================================================================
 
-  it("uses 'unknown' tabId when window has no active tab", async () => {
+  it("refuses the invocation when the window has no active tab", async () => {
     setupProviderAndEditor();
     useSettingsStore.setState({
       advanced: { mcpServer: { autoApproveEdits: false } } as never,
@@ -585,18 +592,11 @@ describe("useGenieInvocation — picker store wiring", () => {
       await result.current.invokeGenie(makeGenie());
     });
 
-    const requestId = useAiInvocationStore.getState().requestId;
-    act(() => {
-      listenCallback?.({ payload: { requestId, chunk: "text", done: false, error: null } });
-    });
-    act(() => {
-      listenCallback?.({ payload: { requestId, chunk: "", done: true, error: null } });
-    });
-
-    const suggestions = useAiSuggestionStore.getState().suggestions;
-    expect(suggestions.size).toBe(1);
-    const [, suggestion] = [...suggestions.entries()][0];
-    expect(suggestion.tabId).toBe("unknown");
+    expect(useAiSuggestionStore.getState().suggestions.size).toBe(0);
+    // Refused BEFORE the lock, so the next genie can still run.
+    expect(useAiInvocationStore.getState().isRunning).toBe(false);
+    expect(useAiInvocationStore.getState().requestId).toBeNull();
+    expect(toast.error).toHaveBeenCalled();
   });
 
   // =========================================================================
@@ -604,8 +604,7 @@ describe("useGenieInvocation — picker store wiring", () => {
   // =========================================================================
 
   it("shows error for REST provider without API key", async () => {
-    const fakeEditor = makeFakeEditor();
-    useEditorStore.setState((s) => ({ tiptap: { ...s.tiptap, editor: fakeEditor as never } }));
+    installEditor();
     useAiProviderStore.setState({
       activeProvider: "openai",
       restProviders: [
@@ -626,8 +625,7 @@ describe("useGenieInvocation — picker store wiring", () => {
   });
 
   it("falls back to provider type when REST config has no name", async () => {
-    const fakeEditor = makeFakeEditor();
-    useEditorStore.setState((s) => ({ tiptap: { ...s.tiptap, editor: fakeEditor as never } }));
+    installEditor();
     useAiProviderStore.setState({
       activeProvider: "openai",
       restProviders: [
@@ -1054,7 +1052,7 @@ describe("useGenieInvocation — picker store wiring", () => {
     const fakeEditor = makeFakeEditor();
     // Override to have empty selection
     fakeEditor.state.selection = { from: 2, to: 2, empty: true } as never;
-    useEditorStore.setState((s) => ({ tiptap: { ...s.tiptap, editor: fakeEditor as never } }));
+    installEditor(fakeEditor);
     useAiProviderStore.setState({
       activeProvider: "openai",
       restProviders: [
@@ -1135,34 +1133,6 @@ describe("useGenieInvocation — picker store wiring", () => {
   });
 
   // =========================================================================
-  // MCP bridge custom event triggers invokeGenie
-  // =========================================================================
-
-  it("responds to mcp:invoke-genie custom event", async () => {
-    setupProviderAndEditor();
-    renderHook(() => useGenieInvocation());
-
-    // Wait for effect to register
-    await act(async () => {});
-
-    // Dispatch the MCP bridge event
-    await act(async () => {
-      window.dispatchEvent(
-        new CustomEvent("mcp:invoke-genie", {
-          detail: {
-            id: "req-1",
-            genie: makeGenie(),
-            scopeOverride: undefined,
-          },
-        })
-      );
-    });
-
-    // Should have started processing through invokeGenie
-    expect(useGeniePickerStore.getState().mode).toBe("processing");
-  });
-
-  // =========================================================================
   // Freeform: warns when no content extracted
   // =========================================================================
 
@@ -1233,6 +1203,7 @@ describe("useGenieInvocation — picker store wiring", () => {
 
     // Remove editor after streaming has started (simulates race condition)
     useEditorStore.setState((s) => ({ tiptap: { ...s.tiptap, editor: null as never } }));
+    useEditorStore.getState().clearActiveEditors();
 
     act(() => {
       listenCallback?.({

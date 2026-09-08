@@ -34,7 +34,7 @@
  * @coordinates-with terminalSessionStoreSync.ts — theme / workspace / settings sync effects
  * @coordinates-with terminalSessionInputWiring.ts — IME and onData → PTY wiring
  * @coordinates-with spawnPty.ts — shell process creation
- * @coordinates-with terminalSessionStore — store driving session list and active ID
+ * @coordinates-with stores/uiStore/terminalSlice.ts — store slice driving session list and active ID
  * @module components/Terminal/useTerminalSessions
  */
 import { useRef, useEffect, useCallback } from "react";

@@ -141,7 +141,7 @@ fn every_registered_workflow_command_consults_the_gate() {
             .unwrap_or(rest.len());
         let body = &rest[..body_end];
         assert!(
-            body.contains("require_workflow_engine_enabled"),
+            consults_gate(source, body),
             "workflow command `{name}` does not check the engine flag — \
              backend enforcement is the point of WI-19"
         );
@@ -181,4 +181,53 @@ fn the_gate_does_not_reach_the_cancel_path() {
         "cancel_workflow is gated again — a running workflow becomes \
          unstoppable the moment the user switches the engine off"
     );
+}
+
+/// True when `body` calls the gate directly, or calls a private helper in
+/// the same file whose body does (one level: `run_workflow` admits through
+/// `admit_run`, whose FIRST check is the gate — WI-FL5.6 split it out so the
+/// admission rules are testable without a mock runtime). Two levels would let
+/// the gate drift arbitrarily far from the command, so the search stops here.
+fn consults_gate(source: &str, body: &str) -> bool {
+    const GATE: &str = "require_workflow_engine_enabled";
+    if body.contains(GATE) {
+        return true;
+    }
+    // Every `name(` the body invokes; resolve each against a `fn name(` in
+    // this file and look for the gate in that helper's own body.
+    let mut rest = body;
+    while let Some(open) = rest.find('(') {
+        let head = &rest[..open];
+        let name: String = head
+            .chars()
+            .rev()
+            .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect();
+        rest = &rest[open + 1..];
+        if name.is_empty() || name == GATE {
+            continue;
+        }
+        // `fn name(` or `fn name<` — a helper with a lifetime or type
+        // parameter (`fn admit_run<'s>(`) is the same helper.
+        let decl = [format!("fn {name}("), format!("fn {name}<")]
+            .into_iter()
+            .find(|d| source.contains(d.as_str()));
+        if let Some(decl) = decl {
+            let at = source.find(&decl).expect("found above");
+            let helper = &source[at..];
+            let end = helper[decl.len()..]
+                .find("\nfn ")
+                .or_else(|| helper[decl.len()..].find("\npub "))
+                .or_else(|| helper[decl.len()..].find("#[tauri::command]"))
+                .map(|o| o + decl.len())
+                .unwrap_or(helper.len());
+            if helper[..end].contains(GATE) {
+                return true;
+            }
+        }
+    }
+    false
 }

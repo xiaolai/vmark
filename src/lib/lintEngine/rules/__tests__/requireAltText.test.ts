@@ -4,6 +4,9 @@ import { lintMarkdown } from "../../linter";
 import { requireAltText } from "../requireAltText";
 import type { Root, Image } from "mdast";
 
+/** The orchestrator always supplies a line index; direct-call tests need one too. */
+const INDEX = { lines: [""], lineOffsets: [0] };
+
 describe("W02 requireAltText", () => {
   it.each([
     {
@@ -39,6 +42,16 @@ describe("W02 requireAltText", () => {
     {
       name: "clean: imageReference with alt is not flagged",
       input: "![alt text][img-ref]\n\n[img-ref]: image.png",
+      expected: 0,
+    },
+    {
+      name: "flagged: imageReference with empty alt (#855)",
+      input: "![][img-ref]\n\n[img-ref]: image.png",
+      expected: 1,
+    },
+    {
+      name: "clean: shortcut imageReference uses its label as alt",
+      input: "![img-ref]\n\n[img-ref]: image.png",
       expected: 0,
     },
     {
@@ -85,7 +98,7 @@ describe("W02 requireAltText", () => {
       ],
     };
 
-    const diagnostics = requireAltText("", mdast);
+    const diagnostics = requireAltText("", mdast, INDEX);
     expect(diagnostics).toHaveLength(0);
   });
 
@@ -110,12 +123,14 @@ describe("W02 requireAltText", () => {
       ],
     };
 
-    const diagnostics = requireAltText("", mdast);
+    const diagnostics = requireAltText("", mdast, INDEX);
     expect(diagnostics).toHaveLength(1);
     expect(diagnostics[0].ruleId).toBe("W02");
   });
 
-  it("uses offset fallback when position.start.offset is undefined", () => {
+  it("derives the offset from the line index when position.start.offset is absent (#856)", () => {
+    // A positioned node whose optional offset is missing used to be reported at
+    // offset 0, sending F2 navigation to the top of the document.
     const mdast: Root = {
       type: "root",
       children: [
@@ -127,8 +142,8 @@ describe("W02 requireAltText", () => {
               url: "image.png",
               alt: "",
               position: {
-                start: { line: 1, column: 1 },
-                end: { line: 1, column: 15 },
+                start: { line: 3, column: 5 },
+                end: { line: 3, column: 19 },
               },
             } as unknown as Image,
           ],
@@ -136,8 +151,11 @@ describe("W02 requireAltText", () => {
       ],
     };
 
-    const diagnostics = requireAltText("", mdast);
+    const diagnostics = requireAltText("", mdast, {
+      lines: ["one", "two", "    ![](image.png)"],
+      lineOffsets: [0, 4, 8],
+    });
     expect(diagnostics).toHaveLength(1);
-    expect(diagnostics[0].offset).toBe(0);
+    expect(diagnostics[0].offset).toBe(12);
   });
 });

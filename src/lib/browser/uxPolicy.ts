@@ -3,8 +3,9 @@
  *
  * WIRED (WI-NB8): `aiMayChooseUploadFile()` is the source for `grants.ts`'s
  * `NEVER_AUTOMATED` upload prohibition — a real production consumer, not a
- * dormant record. And `uxPolicyLedger.ts` states the shipped conformance of
- * each surface against these decisions, with a two-way identity test, so a new
+ * dormant record. And `__tests__/uxPolicyLedger.ts` states the shipped
+ * conformance of each surface against these decisions, with a two-way identity
+ * test (test infrastructure, so it lives with the tests), so a new
  * surface / a removed one / a retint cannot land without a conformance
  * decision. The native delegates still implement their dispositions
  * independently; the ledger is where that agreement is now asserted rather than

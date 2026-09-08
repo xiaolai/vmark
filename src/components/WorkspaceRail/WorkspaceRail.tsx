@@ -49,9 +49,15 @@ export function WorkspaceRail({ windowLabel }: { windowLabel: string }) {
   // follows doesn't ALSO treat the gesture as a move-to-new-window. Reset at
   // the start of each drag and consumed in dragend.
   const droppedInternallyRef = useRef(false);
-  const [menu, setMenu] = useState<
-    { instanceId: string; name: string; position: WorkspaceRailMenuPosition } | null
-  >(null);
+  const [menu, setMenu] = useState<{
+    instanceId: string;
+    name: string;
+    position: WorkspaceRailMenuPosition;
+    /** The entry that was right-clicked — where focus returns on dismiss.
+     *  Captured per OPENING: the menu component is reused across openings, so
+     *  it cannot capture this itself (audit R3 #655). */
+    invoker: HTMLElement | null;
+  } | null>(null);
 
   // Clear a lingering context menu when the rail is disabled (R3-11) —
   // re-enabling must not resurrect a stale menu over an instance that may be
@@ -164,6 +170,7 @@ export function WorkspaceRail({ windowLabel }: { windowLabel: string }) {
                     instanceId,
                     name: displayLabel,
                     position: { x: event.clientX, y: event.clientY },
+                    invoker: event.currentTarget,
                   });
                 }}
               >
@@ -201,6 +208,7 @@ export function WorkspaceRail({ windowLabel }: { windowLabel: string }) {
         <WorkspaceRailContextMenu
           position={menu.position}
           workspaceName={menu.name}
+          invoker={menu.invoker}
           onClose={() => setMenu(null)}
           onCloseWorkspace={() => {
             void handleCloseWorkspace(windowLabel, menu.instanceId, t);

@@ -174,7 +174,7 @@ describe("aiProviderStore", () => {
         if (cmd === "detect_ai_providers") {
           return [
             { type: "claude", name: "Claude Code", command: "claude", available: true, path: "/usr/local/bin/claude" },
-            { type: "ollama", name: "Ollama", command: "ollama", available: false },
+            { type: "gemini", name: "Gemini CLI", command: "gemini", available: false },
           ];
         }
         if (cmd === "read_env_api_keys") return {};

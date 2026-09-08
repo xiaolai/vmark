@@ -1,6 +1,6 @@
 # Link Check
 
-VMark verifies that local link and image targets in your markdown actually exist on disk. Runs alongside the [markdown lint engine](/guide/lint) on `Cmd-Shift-L` or **Tools → Check Markdown**.
+VMark verifies that local link and image targets in your markdown actually exist on disk. Runs alongside the [markdown lint engine](/guide/lint) on `Alt + Mod + V` or **View → Check Markdown**.
 
 ## What it checks
 
@@ -10,7 +10,7 @@ For every local link and image in the document:
 - `![alt](./image.png)` — the image file exists
 - `[text](./other.md#section)` — the file exists (anchor checking is handled by the [`linkFragments` rule](/guide/lint#rule-reference))
 
-When a target is missing, the link's text is underlined with a red squiggle and an entry appears in the lint badge / F2 navigation.
+When a target is missing, an entry appears in the lint badge and in `F2` / `Shift + F2` navigation. How it is drawn depends on the mode: in Source mode the link gets CodeMirror's red diagnostic underline and a gutter marker; in WYSIWYG mode the whole block containing the link is marked with a red bar along its left edge and a faint tint — WYSIWYG lint marks are block-level, never an inline underline.
 
 ## What it skips
 

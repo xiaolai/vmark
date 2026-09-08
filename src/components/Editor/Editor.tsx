@@ -21,9 +21,9 @@
  *     the user's format associations takes effect without touching the tab. An
  *     UNTITLED tab (filePath === null) dispatches on its own Tab.formatId —
  *     dispatchEditor(null) can only ever answer "markdown", so the tab record is
- *     the sole source of truth for an untitled JSON/txt/… document (created via
- *     createUntitledTab(formatId) or restored by hot-exit, which persists
- *     format_id precisely because the path cannot recover it).
+ *     the sole source of truth for an untitled JSON/txt/… document (restored by
+ *     hot-exit, which persists format_id precisely because the path cannot
+ *     recover it).
  *   - Markdown rendering surface lives in
  *     src/lib/formats/adapters/markdownSurface.tsx; this dispatcher pulls the
  *     import THUNK out of the FormatConfig (WI-13) so the registry stays the

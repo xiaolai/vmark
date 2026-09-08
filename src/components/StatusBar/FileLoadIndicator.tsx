@@ -14,7 +14,7 @@
  *   - Active only when `useFileLoadStore.active` is true.
  *   - CSS fades in after a 150 ms delay so fast opens never flash the indicator.
  *
- * @coordinates-with stores/fileLoadStore.ts — reads active/filename/sizeBytes.
+ * @coordinates-with stores/documentStore/fileLoad.ts — reads active/filename/sizeBytes.
  * @coordinates-with utils/fileSizeThresholds.ts — formatFileSize for the label.
  * @module components/StatusBar/FileLoadIndicator
  */

@@ -35,7 +35,8 @@ pub(crate) fn machine_id_hash() -> String {
 }
 
 /// One-time application setup: menus, macOS fixes, legacy cleanup, default
-/// genies, CLI/Finder file-arg queueing, and the frontend "ready" listener.
+/// genies, CLI/Finder file-arg queueing, the content-server runtime probe, and
+/// the frontend "ready" listener.
 ///
 /// Extracted from `run`'s former inline `.setup` closure so the setup steps are
 /// individually readable and the builder chain stays declarative.
@@ -98,6 +99,18 @@ pub(crate) fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::
             }
         }
     }
+
+    // Record, once per launch, whether the Knowledge Base could start here:
+    // one `content_server runtime: node=… cli=…` log line (WI-FL1.1). A
+    // packaged build's log file is the only place this truth is observable
+    // without a user opening the panel; release-smoke reads it from the staged
+    // DMG. Detached and blocking-off-thread — setup never waits on `which`.
+    crate::content_server::runtime::log_runtime_state(app.handle().clone());
+
+    // Linux without a session bus runs unguarded (WI-FL6.1); say so where a
+    // user reading the log will look, now that the log plugin exists.
+    #[cfg(target_os = "linux")]
+    crate::single_instance::warn_if_unguarded();
 
     // Listen for "ready" events from frontend windows
     // This is used by menu_events to know when it's safe to emit events
@@ -241,3 +254,7 @@ pub fn window_close_log(message: String) {
 pub fn update_log(message: String) {
     log::info!("[Update] {}", message);
 }
+
+#[cfg(test)]
+#[path = "app_setup.test.rs"]
+mod tests;

@@ -5,7 +5,7 @@
  * the main component file under the ~300-line guideline.
  *
  * @coordinates-with ContentSearch.tsx — UI consumer
- * @coordinates-with contentSearchStore.ts — FileSearchResult types
+ * @coordinates-with stores/uiStore/types.ts — FileSearchResult types
  * @module components/ContentSearch/contentSearchUtils
  */
 

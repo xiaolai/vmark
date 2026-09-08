@@ -7,17 +7,25 @@
  * them. Exposed as one tool with two actions instead of seven separate
  * mutator tools.
  *
- * Plan: dev-docs/plans/20260504-mcp-pruning.md ADR-5.
+ * Origin: MCP pruning plan (2026-05-04, retired) ADR-5.
  */
 
 import { z } from 'zod';
 import { VMarkMcpServer } from '../server.js';
-import { optionalIdSchema, readOptionalId } from './toolArgs.js';
+import {
+  optionalIdSchema,
+  optionalRevisionSchema,
+  readOptionalId,
+  readOptionalRevision,
+} from './toolArgs.js';
+
+export const WORKFLOW_TOOL = 'workflow' as const;
+export const WORKFLOW_ACTIONS = ['apply_patch', 'validate'] as const;
 
 export function registerWorkflowTool(server: VMarkMcpServer): void {
   server.registerTool(
     {
-      name: 'workflow',
+      name: WORKFLOW_TOOL,
       title: 'VMark GitHub Actions Workflow',
       // `validate` reads; `apply_patch` mutates the buffer through the CST
       // mutators. Annotated for the mutating action. Closed-world: it only
@@ -42,7 +50,7 @@ export function registerWorkflowTool(server: VMarkMcpServer): void {
         '  • {kind: "trigger.setFilters", event, filter, value: string[]}\n' +
         '- validate: Run actionlint and return diagnostics. Args: {tabId?}. Returns {ok, diagnostics: [{line, col, message, severity}], binaryAvailable}.',
       inputSchema: {
-        action: z.enum(['apply_patch', 'validate']).describe('The action to perform'),
+        action: z.enum(WORKFLOW_ACTIONS).describe('The action to perform'),
         tabId: optionalIdSchema(
           'Target tab id (from session.get_state). Omit to use the focused tab.',
         ),
@@ -52,10 +60,9 @@ export function registerWorkflowTool(server: VMarkMcpServer): void {
           .describe(
             'IRPatch[] — see the action description for the discriminated-union shapes.',
           ),
-        expected_revision: z
-          .string()
-          .optional()
-          .describe('Optimistic-concurrency token from the most recent read (apply_patch only).'),
+        expected_revision: optionalRevisionSchema(
+          'Optimistic-concurrency token from the most recent read (apply_patch only).',
+        ),
       },
     },
     async (args) => {
@@ -69,10 +76,11 @@ export function registerWorkflowTool(server: VMarkMcpServer): void {
         if (!Array.isArray(args.patches)) {
           return VMarkMcpServer.errorResult('patches (array) is required');
         }
-        const expected_revision =
-          typeof args.expected_revision === 'string'
-            ? args.expected_revision
-            : undefined;
+        // Refuse a supplied-but-invalid revision instead of converting it to
+        // "write unconditionally" (audit R2 #237).
+        const revision = readOptionalRevision(args.expected_revision);
+        if (!revision.ok) return VMarkMcpServer.errorResult(revision.error);
+        const expected_revision = revision.value;
         const data = await server.sendBridgeRequest({
           type: 'vmark.workflow.apply_patch',
           tabId,

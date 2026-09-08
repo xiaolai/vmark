@@ -1,31 +1,15 @@
 /**
  * Shared Toolbar Context Types
  *
- * Common types for toolbar intent resolution across WYSIWYG (Tiptap) and Source (CodeMirror).
- * These types enable a unified priority-based routing system.
+ * The cursor context each editing surface (Tiptap WYSIWYG, CodeMirror Source)
+ * derives for the toolbar, plus the per-context info shapes. Consumed by the
+ * toolbar adapters' enable rules and the WYSIWYG context extractor. The
+ * `ToolbarIntent` union that once lived here went with its only producer,
+ * `resolveToolbarIntent` (feature-ledger plan, WI-FL3.12).
  */
 
 /**
- * Toolbar intent - what toolbar mode should be shown.
- * This is the output of the intent resolver.
- */
-export type ToolbarIntent =
-  | { type: "code"; info: CodeBlockInfo }
-  | { type: "blockMath"; info: BlockMathInfo }
-  | { type: "table"; info: TableInfo }
-  | { type: "list"; info: ListInfo }
-  | { type: "blockquote"; info: BlockquoteInfo }
-  | { type: "format"; selection: SelectionInfo; autoSelected?: boolean; linkContext?: LinkInfo }
-  | { type: "link"; info: LinkInfo }
-  | { type: "image"; info: ImageInfo }
-  | { type: "inlineMath"; info: InlineMathInfo }
-  | { type: "footnote"; info: FootnoteInfo }
-  | { type: "heading"; info: HeadingInfo }
-  | { type: "insert"; contextMode: "insert" | "insert-block" }
-  | { type: "none" }; // No toolbar should be shown (e.g., image has own popup in WYSIWYG)
-
-/**
- * Cursor context - input to the intent resolver.
+ * Cursor context — what the toolbar knows about the caret.
  * Adapters for each surface (Tiptap/CodeMirror) produce this.
  */
 export interface CursorContext {

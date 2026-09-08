@@ -44,6 +44,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { getPersistedWorkspaceRoot, poll } from "../lib/vmark.mjs";
 import { openWorkspaceViaMcp, closeWorkspace } from "../lib/workspace.mjs";
+import { getRailInstances, restoreRail } from "../lib/rail.mjs";
 import {
   isTerminalOpen,
   openTerminal,
@@ -66,9 +67,19 @@ export default {
   async run(client, ctx) {
     const terminalWasOpen = await isTerminalOpen(client);
     const existingRoot = await getPersistedWorkspaceRoot(client, ctx.windowLabel);
+    // The rail as found. On a rail-on profile, open_workspace below ADDS an
+    // instance and activates it; teardown must take that back and prove it
+    // (restoreRail) — until 2026-09-07 the menu close left it registered and
+    // active with no root, after which no later journey could see a document
+    // tab.
+    const railBefore = await getRailInstances(client);
     let tempDir = null;
     let root = existingRoot;
     let createdSession = false;
+    let bodyError = null;
+    // Infinity until measured: if the body fails before the terminal is
+    // touched, teardown must not close sessions in a scope that is not ours.
+    let sessionsBaseline = Infinity;
 
     try {
       if (!root) {
@@ -81,6 +92,13 @@ export default {
         ctx.log(`using the already-open workspace read-only: ${root}`);
       }
 
+      // Sessions visible in this scope BEFORE the terminal is touched. Under the
+      // rail, opening the terminal in an empty scope AUTO-CREATES a session
+      // (journey 35 relies on it); it is this journey's to dispose of, and the
+      // rail close in teardown does not kill a scope's PTYs — an undisposed one
+      // became a window-scoped leftover that made journey 35 skip on every
+      // rail-on run. Everything above this count is closed in teardown.
+      sessionsBaseline = (await getTerminalSessions(client)).total;
       await openTerminal(client, ctx.windowLabel);
 
       // The session cap is a real product limit, not a harness limitation.
@@ -102,12 +120,35 @@ export default {
       );
       const match = shells.find((s) => !pidsBefore.has(s.pid) && s.cwd === root);
       ctx.log(`newly spawned shell ${match.comm} (pid ${match.pid}) has cwd ${match.cwd}`);
+    } catch (err) {
+      bodyError = err;
+      throw err;
     } finally {
       // Dispose only what this journey created, then restore panel visibility.
       if (createdSession) await closeActiveTerminalSession(client).catch(() => {});
+      if (tempDir) {
+        // The scope is this journey's own (it opened the workspace): close the
+        // rest of what opening the terminal here created, down to the baseline.
+        for (let i = 0; i < 8; i++) {
+          const remaining = await getTerminalSessions(client).catch(() => null);
+          if (!remaining || remaining.total <= sessionsBaseline) break;
+          await closeActiveTerminalSession(client).catch(() => {});
+        }
+      }
       if (!terminalWasOpen) await closeTerminal(client, ctx.windowLabel).catch(() => {});
       if (tempDir) {
+        // The menu close first — the product path, which under the rail removes
+        // the active instance (workspaceCommands.ts) — then the rail restore for
+        // anything it did not reach, ending in the identity check. A restore
+        // failure is LOUD when the body succeeded (R2-17): a silently leaked
+        // instance is what this teardown exists to prevent.
         await closeWorkspace(client, { windowLabel: ctx.windowLabel }).catch(() => {});
+        try {
+          await restoreRail(client, railBefore);
+        } catch (restoreErr) {
+          if (!bodyError) throw restoreErr;
+          ctx.log(`warning: rail restore failed after a body error: ${restoreErr?.message ?? restoreErr}`);
+        }
         await rm(tempDir, { recursive: true, force: true }).catch(() => {});
       }
     }

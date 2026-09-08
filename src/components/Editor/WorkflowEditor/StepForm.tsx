@@ -4,7 +4,7 @@
  *   rows; users can add, edit, or remove individual keys, each
  *   producing a typed IRPatch.
  *
- * Plan: dev-docs/plans/20260504-github-actions-workflow-viewer.md §6
+ * Origin: GitHub Actions workflow viewer plan (2026-05-04, retired) §6
  *   Phase 7 / WI-7.1 + WI-7.2.
  *
  * Key decisions:
@@ -20,7 +20,7 @@
  *     deferred to Phase 9 polish — the registry exists but threading
  *     the async fetch through this synchronous form needs more design.
  *
- * @coordinates-with src/stores/workflowEditStore.ts — IRPatch sink
+ * @coordinates-with src/stores/workflowStore.ts — IRPatch sink
  * @module components/Editor/WorkflowEditor/StepForm
  */
 
@@ -46,6 +46,12 @@ interface StepFormProps {
   jobId: string;
   stepIndex: number;
   step: StepIR;
+  /** The PRE-EDIT step — what a field (and a `with:` row) compares itself
+   *  against to decide the user has reverted it. `step` is the preview and
+   *  already carries this step's queued edits, so comparing against it
+   *  cancelled the edit just committed (audit R2, #1020). Defaults to `step`,
+   *  which is only the same thing while nothing is queued. */
+  baseline?: StepIR | undefined;
   /** Total number of steps in this job — used to render N of M.
    *  Optional for unit tests that render the form in isolation; production
    *  callers (WorkflowEditorPanel) always provide it. Defaults to
@@ -61,6 +67,7 @@ export function StepForm({
   jobId,
   stepIndex,
   step,
+  baseline = step,
   stepCount,
   prevStepId = null,
   nextStepId = null,
@@ -135,28 +142,25 @@ export function StepForm({
   const queue = useWorkflowStore((s) => s.queuePatch);
   const cancel = useWorkflowStore((s) => s.cancelPatchForTarget);
 
+  const commitField = (path: string, next: string, original: string): void => {
+    if (next === original) {
+      // Back at the pre-edit IR value: drop any queued patch for this target.
+      cancel({ kind: "step.set", jobId, stepIndex, path, value: "" });
+      return;
+    }
+    queue({ kind: "step.set", jobId, stepIndex, path, value: next });
+  };
+
   const handleExpandSave = (value: string): void => {
     if (!expand) return;
-    if (expand.field === "if") {
-      setIfCond(value);
-      if (value !== (step.if ?? "")) {
-        queue({ kind: "step.set", jobId, stepIndex, path: "if", value });
-      } else {
-        // Modal-saved value matches the IR original — drop any stale
-        // queued patch for this field. Without this, opening the
-        // modal on a previously-edited field and saving the original
-        // value back leaves the prior patch in the queue
-        // (cross-validator audit round 2 finding).
-        cancel({ kind: "step.set", jobId, stepIndex, path: "if", value: "" });
-      }
-    } else {
-      setRun(value);
-      if (value !== (step.run ?? "")) {
-        queue({ kind: "step.set", jobId, stepIndex, path: "run", value });
-      } else {
-        cancel({ kind: "step.set", jobId, stepIndex, path: "run", value: "" });
-      }
-    }
+    const field = expand.field;
+    if (field === "if") setIfCond(value);
+    else setRun(value);
+    // The modal is just another way to edit the field, so it commits by the
+    // same rule as a blur: saving the pre-edit value back drops the stale
+    // queued patch (cross-validator audit round 2 finding).
+    const was = field === "if" ? baseline.if : baseline.run;
+    commitField(field, value, was ?? "");
     setExpand(null);
   };
 
@@ -186,22 +190,13 @@ export function StepForm({
     );
   };
 
-  const commitField = (path: string, next: string, original: string): void => {
-    if (next === original) {
-      // Revert to original: drop any queued patch for this target.
-      cancel({ kind: "step.set", jobId, stepIndex, path, value: "" });
-      return;
-    }
-    queue({ kind: "step.set", jobId, stepIndex, path, value: next });
-  };
-
   // Every OTHER row — duplicate detection + patch-ownership guards.
   const otherRows = (idx: number): WithRow[] =>
     withRows.filter((_, i) => i !== idx);
 
   const commitWithRow = (idx: number): void => {
     const row = withRows[idx];
-    const plan = planWithRowCommit({ jobId, stepIndex }, row, otherRows(idx), step.with);
+    const plan = planWithRowCommit({ jobId, stepIndex }, row, otherRows(idx), baseline.with);
     if (plan.kind === "noop") return;
     for (const patch of plan.cancels) cancel(patch);
     if (plan.kind === "duplicate") {
@@ -233,7 +228,7 @@ export function StepForm({
     <form className="workflow-form" onSubmit={(e) => e.preventDefault()}>
       <header className="workflow-form__header workflow-form__header--step">
         <button
-          type="button"
+          type="button" data-step-nav="back-to-job"
           className="vm-icon-btn vm-icon-btn--sm workflow-form__nav-btn"
           onClick={backToJob}
           aria-label={t("form.step.nav.backToJob", {
@@ -244,7 +239,7 @@ export function StepForm({
           <ArrowUp size={14} />
         </button>
         <button
-          type="button"
+          type="button" data-step-nav="prev"
           className="vm-icon-btn vm-icon-btn--sm workflow-form__nav-btn"
           onClick={() => goToStep(prevStepId)}
           disabled={!prevStepId}
@@ -265,7 +260,7 @@ export function StepForm({
           })}
         </span>
         <button
-          type="button"
+          type="button" data-step-nav="next"
           className="vm-icon-btn vm-icon-btn--sm workflow-form__nav-btn"
           onClick={() => goToStep(nextStepId)}
           disabled={!nextStepId}
@@ -290,7 +285,7 @@ export function StepForm({
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          onBlur={() => commitField("name", name, step.name ?? "")}
+          onBlur={() => commitField("name", name, baseline.name ?? "")}
         />
       </label>
 
@@ -309,7 +304,7 @@ export function StepForm({
             rows={3}
             value={run}
             onChange={(e) => setRun(e.target.value)}
-            onBlur={() => commitField("run", run, step.run ?? "")}
+            onBlur={() => commitField("run", run, baseline.run ?? "")}
           />
           <button
             type="button"
@@ -334,7 +329,7 @@ export function StepForm({
             commitField(
               "working-directory",
               workingDir,
-              step.workingDirectory ?? "",
+              baseline.workingDirectory ?? "",
             )
           }
         />
@@ -347,7 +342,7 @@ export function StepForm({
           rows={2}
           value={ifCond}
           onChange={(e) => setIfCond(e.target.value)}
-          onBlur={() => commitField("if", ifCond, step.if ?? "")}
+          onBlur={() => commitField("if", ifCond, baseline.if ?? "")}
         />
         <button
           type="button"

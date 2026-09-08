@@ -4,7 +4,7 @@
 import { describe, it, expect } from "vitest";
 import type { WorkflowIR } from "@/lib/ghaWorkflow/types";
 import type { IRPatch } from "./mutators";
-import { applyPreviewPatches } from "./previewIR";
+import { applyPreviewPatches, applyStructuralPatches } from "./previewIR";
 
 function makeIR(): WorkflowIR {
   return {
@@ -155,5 +155,47 @@ describe("applyPreviewPatches", () => {
       { kind: "step.delete", jobId: "build", stepIndex: 0 },
     ]);
     expect(ir.jobs[0].steps).toHaveLength(2);
+  });
+});
+
+// Audit R2 #1020 — the IR the edit forms measure an edit AGAINST. It must not
+// carry the edit, or a field that was just committed reads as unchanged and
+// its patch is cancelled.
+describe("applyStructuralPatches", () => {
+  it("leaves content patches out", () => {
+    const ir = makeIR();
+    const out = applyStructuralPatches(ir, [
+      { kind: "job.set", jobId: "build", path: "name", value: "Renamed" },
+      { kind: "step.set", jobId: "build", stepIndex: 1, path: "run", value: "x" },
+      { kind: "with.set", jobId: "build", stepIndex: 0, key: "ref", value: "v1" },
+    ]);
+    expect(out).toBe(ir);
+    expect(out.jobs[0].name).toBeUndefined();
+    expect(out.jobs[0].steps[1].run).toBe("pnpm test");
+    expect(out.jobs[0].steps[0].with).toBeUndefined();
+  });
+
+  it("applies structural patches, so entities line up with the preview", () => {
+    const ir = makeIR();
+    const patches: IRPatch[] = [
+      { kind: "job.create", jobId: "lint" },
+      { kind: "step.move", jobId: "build", fromIndex: 0, toIndex: 1 },
+      { kind: "job.set", jobId: "lint", path: "name", value: "Lint" },
+    ];
+    const preview = applyPreviewPatches(ir, patches);
+    const baseline = applyStructuralPatches(ir, patches);
+    expect(baseline.jobs.map((j) => j.id)).toEqual(preview.jobs.map((j) => j.id));
+    expect(baseline.jobs[0].steps.map((s) => s.id)).toEqual(
+      preview.jobs[0].steps.map((s) => s.id),
+    );
+    // A freshly created job HAS a baseline — the job as job.create made it.
+    const lint = baseline.jobs.find((j) => j.id === "lint")!;
+    expect(lint.runsOn).toEqual(["ubuntu-latest"]);
+    expect(lint.name).toBeUndefined();
+  });
+
+  it("returns the original IR when there are no patches", () => {
+    const ir = makeIR();
+    expect(applyStructuralPatches(ir, [])).toBe(ir);
   });
 });

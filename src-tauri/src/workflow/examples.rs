@@ -5,8 +5,10 @@
 //!
 //! Proves the v0-genie -> workflow path end-to-end at the parse/resolve layer:
 //!   1. The bundled YAML parses into a `RawWorkflow`.
-//!   2. Its structure is valid (declared `id`s, `needs:` references resolve,
-//!      the dependency graph is acyclic and yields a sensible order).
+//!   2. Its structure is valid, judged by the runner's OWN `topological_sort`
+//!      (#542): declared `id`s, `needs:` references that resolve, an acyclic
+//!      graph. The Kahn sort this file used to carry was a second copy of that
+//!      rule, so the sample could agree with the copy and not with production.
 //!   3. Every `uses: genie/<name>` step references a genie that is actually
 //!      bundled with the app — checked against `genies::default_genie_names()`,
 //!      the single source of truth for the shipped catalog.
@@ -14,14 +16,20 @@
 //!      template relies on `{{content}}` — exercising the ADR-2 aliasing that
 //!      lets the sample supply `with: { input: ... }` and still bind the
 //!      template.
+//!   5. The sample is EXECUTED (`examples.test.rs`, #271): through the real
+//!      runner on a mock runtime, against a fake OpenAI-compatible endpoint
+//!      answering on loopback, in a temp workspace — and the file the last
+//!      step saves is read back. Structure is not a run; this is the run.
 //!
 //! This is a test-only module (`#[cfg(test)]` in `mod.rs`); it ships no
 //! runtime code.
 
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::HashSet;
 
 use crate::genies::{default_genie_names, parse_genie_for_runner};
-use crate::workflow::types::RawWorkflow;
+use crate::workflow::actions::required_params;
+use crate::workflow::runner::topological_sort;
+use crate::workflow::types::{NeedsDef, RawWorkflow};
 
 /// The bundled sample workflow, embedded at compile time so the test is
 /// hermetic and travels with the binary.
@@ -33,54 +41,16 @@ const SAMPLE_WORKFLOW: &str =
 const GENIE_REWRITE: &str = include_str!("../../resources/genies/tools/rewrite-in-english.md");
 const GENIE_TRANSLATE: &str = include_str!("../../resources/genies/tools/translate.md");
 
-/// Derive a step's effective id the same way the runner does
-/// (`runner::topological_sort`): explicit `id`, else the last `/`-segment of
-/// `uses`.
-fn step_id(step: &crate::workflow::types::RawStep) -> String {
-    step.id
-        .clone()
-        .unwrap_or_else(|| step.uses.rsplit('/').next().unwrap_or("step").to_string())
-}
-
-/// Minimal acyclic-order check mirroring the runner's Kahn topo sort, so the
-/// test asserts the sample is runnable-shaped without reaching into the
-/// runner's private functions.
-fn topo_order(workflow: &RawWorkflow) -> Result<Vec<String>, String> {
-    let ids: Vec<String> = workflow.steps.iter().map(step_id).collect();
-    let id_set: HashSet<&String> = ids.iter().collect();
-
-    let mut in_degree: HashMap<String, usize> = ids.iter().map(|i| (i.clone(), 0)).collect();
-    let mut adjacency: HashMap<String, Vec<String>> = HashMap::new();
-
-    for (step, id) in workflow.steps.iter().zip(&ids) {
-        for dep in step.needs.to_vec() {
-            if !id_set.contains(&dep) {
-                return Err(format!("Step '{id}' depends on unknown step '{dep}'"));
-            }
-            adjacency.entry(dep).or_default().push(id.clone());
-            *in_degree.get_mut(id).unwrap() += 1;
-        }
-    }
-
-    let mut queue: VecDeque<String> = ids.iter().filter(|i| in_degree[*i] == 0).cloned().collect();
-    let mut order = Vec::new();
-    while let Some(id) = queue.pop_front() {
-        order.push(id.clone());
-        if let Some(deps) = adjacency.get(&id) {
-            for d in deps {
-                let deg = in_degree.get_mut(d).unwrap();
-                *deg -= 1;
-                if *deg == 0 {
-                    queue.push_back(d.clone());
-                }
-            }
-        }
-    }
-
-    if order.len() != ids.len() {
-        return Err("Workflow has a circular dependency".to_string());
-    }
-    Ok(order)
+/// The id the sample DECLARES for a step.
+///
+/// The runner falls back to the last `/`-segment of `uses` when a step omits
+/// `id:`; re-deriving that here was a second copy of production behaviour a
+/// test could pass against while the runner did something else (#542), so the
+/// fallback is not reproduced — `sample_workflow_structure_is_valid` asserts
+/// instead that every sample step declares its id explicitly, which is what
+/// makes this total.
+fn declared_id(step: &crate::workflow::types::RawStep) -> &str {
+    step.id.as_deref().unwrap_or("<step declares no id>")
 }
 
 #[test]
@@ -99,14 +69,38 @@ fn sample_workflow_parses() {
 fn sample_workflow_structure_is_valid() {
     let workflow: RawWorkflow = serde_yaml_ng::from_str(SAMPLE_WORKFLOW).unwrap();
 
-    let ids: Vec<String> = workflow.steps.iter().map(step_id).collect();
+    // Every step names itself, so `declared_id` needs no fallback and the
+    // sample stays readable as documentation.
+    let ids: Vec<&str> = workflow.steps.iter().map(declared_id).collect();
     assert_eq!(ids, vec!["rewrite", "translate", "save"]);
 
-    let order = topo_order(&workflow).expect("sample workflow must be acyclic and resolvable");
-    // Each step must appear after its declared dependency.
-    let pos = |id: &str| order.iter().position(|x| x == id).unwrap();
-    assert!(pos("rewrite") < pos("translate"));
-    assert!(pos("translate") < pos("save"));
+    // Judged by the PRODUCTION resolver (#542), not by a Kahn sort copied into
+    // this file: a copy can only prove the sample agrees with the copy.
+    let resolved = topological_sort(workflow.steps.clone())
+        .expect("sample workflow must be acyclic and resolvable by the runner's own sort");
+    assert_eq!(
+        resolved.len(),
+        workflow.steps.len(),
+        "the runner's sort must place every step"
+    );
+}
+
+#[test]
+fn the_production_sort_the_sample_is_judged_by_refuses_a_broken_graph() {
+    // Without this, `sample_workflow_structure_is_valid` would pass just as
+    // well against a sort that returned `Ok` unconditionally — and the sample
+    // would be "valid" by a rule that judges nothing.
+    let workflow: RawWorkflow = serde_yaml_ng::from_str(SAMPLE_WORKFLOW).unwrap();
+
+    let mut unknown_dep = workflow.steps.clone();
+    unknown_dep[1].needs = NeedsDef::Single("no-such-step".into());
+    let err = topological_sort(unknown_dep).expect_err("a `needs:` naming no step must be refused");
+    assert!(err.contains("no-such-step"), "{err}");
+
+    let mut cycle = workflow.steps.clone();
+    cycle[0].needs = NeedsDef::Single("save".into());
+    let err = topological_sort(cycle).expect_err("a dependency cycle must be refused");
+    assert!(err.to_lowercase().contains("circular"), "{err}");
 }
 
 #[test]
@@ -124,21 +118,47 @@ fn sample_workflow_genie_refs_resolve_against_bundled_catalog() {
             );
         }
     }
-    // The sample must exercise the genie->workflow path with at least one
-    // bundled v0 genie; otherwise it proves nothing for RW-8.
-    assert!(genie_steps >= 1, "sample must use at least one genie step");
+    // The sample must exercise the genie->workflow path; the exact count is
+    // the assertion, since it subsumes "at least one" (#544).
     assert_eq!(genie_steps, 2, "sample chains two bundled v0 genies");
+}
+
+/// The genie assets embedded above, by the name a `uses: genie/<name>` step
+/// writes. `include_str!` takes a literal path and nothing else, so this list
+/// cannot be derived from the parsed sample — which is exactly why the test
+/// below asserts the two agree (#541). Without that, changing the sample to
+/// chain a different genie leaves these tests silently checking the old pair.
+const EMBEDDED_GENIES: [(&str, &str, &str); 2] = [
+    (
+        "rewrite-in-english",
+        GENIE_REWRITE,
+        "tools/rewrite-in-english.md",
+    ),
+    ("translate", GENIE_TRANSLATE, "tools/translate.md"),
+];
+
+#[test]
+fn the_embedded_genie_assets_are_exactly_the_ones_the_sample_uses() {
+    let workflow: RawWorkflow = serde_yaml_ng::from_str(SAMPLE_WORKFLOW).unwrap();
+    let referenced: HashSet<&str> = workflow
+        .steps
+        .iter()
+        .filter_map(|step| step.uses.strip_prefix("genie/"))
+        .collect();
+    let embedded: HashSet<&str> = EMBEDDED_GENIES.iter().map(|(name, _, _)| *name).collect();
+    assert_eq!(
+        referenced, embedded,
+        "the sample's `uses: genie/…` steps and the `include_str!` assets above have drifted; \
+         add or remove a constant so the genie the sample actually chains is the one checked"
+    );
 }
 
 #[test]
 fn referenced_genies_are_v0_and_use_content_alias() {
-    // The two genies the sample chains must be real, parseable v0 genies whose
+    // The genies the sample chains must be real, parseable v0 genies whose
     // templates depend on `{{content}}` — the ADR-2 alias that the sample binds
     // by supplying `with: { input: ... }`.
-    for (raw, path) in [
-        (GENIE_REWRITE, "tools/rewrite-in-english.md"),
-        (GENIE_TRANSLATE, "tools/translate.md"),
-    ] {
+    for (_, raw, path) in EMBEDDED_GENIES {
         let genie = parse_genie_for_runner(raw, path)
             .unwrap_or_else(|e| panic!("bundled genie {path} must parse: {e}"));
         // v0 genies declare no `version` (treated as text-in/text-out).
@@ -152,3 +172,40 @@ fn referenced_genies_are_v0_and_use_content_alias() {
         );
     }
 }
+
+#[test]
+fn sample_action_steps_supply_every_parameter_the_executor_requires() {
+    // 2026-09-07: the shipped sample passed `content:` to action/save-file, whose
+    // executor demands `input`, so the sample's last step failed at run time
+    // while every structural test here stayed green. Structure is not a run.
+    let workflow: RawWorkflow = serde_yaml_ng::from_str(SAMPLE_WORKFLOW).unwrap();
+    let mut checked = 0;
+    for step in &workflow.steps {
+        let Some(action) = step.uses.strip_prefix("action/") else {
+            continue;
+        };
+        for param in required_params(action) {
+            assert!(
+                step.with.contains_key(*param),
+                "step `{}` uses action/{action} but supplies no `{param}` (the executor refuses it)",
+                declared_id(step)
+            );
+            checked += 1;
+        }
+    }
+    assert!(
+        checked > 0,
+        "the sample has no action step with required parameters; this test checked nothing"
+    );
+}
+
+#[test]
+fn the_required_params_table_is_the_contract_the_sample_is_checked_against() {
+    // `actions.test.rs` proves the executor refuses without each of these;
+    // this pins that the table the sample test reads is not empty for the
+    // one action the sample uses, so the test above cannot check nothing.
+    assert_eq!(required_params("save-file"), ["path", "input"]);
+}
+
+#[path = "examples.test.rs"]
+mod run;

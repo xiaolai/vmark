@@ -386,8 +386,8 @@ describe("Editor", () => {
     });
 
     it("honors an UNTITLED tab's formatId instead of falling back to markdown", () => {
-      // Regression: createUntitledTab("main", "json") and hot-exit restore both
-      // record a non-markdown formatId on a tab with filePath === null.
+      // Regression: hot-exit restore records a non-markdown formatId on a tab
+      // with filePath === null.
       // dispatchEditor(null) can only answer "markdown", so resolving from the
       // path alone mounted the markdown WYSIWYG for an untitled JSON document.
       mockTabStore.findTabById = (id: string) =>

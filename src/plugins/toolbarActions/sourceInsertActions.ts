@@ -2,8 +2,10 @@
  * Source Insert Actions
  *
  * Purpose: Insertion handlers for source (CodeMirror) mode toolbar actions —
- * simple insertions (footnote, code block, divider, table, list markers) and
- * selection-aware block builders (details, alerts, math, diagram fences).
+ * simple insertions (footnote, code block, divider, `[TOC]`, table, list
+ * markers) and selection-aware block builders (details, math, diagram fences).
+ * The alert inserts live in `sourceAlertActions.ts` and come back through
+ * `handleBuildInsert`.
  *
  * Key decisions:
  *   - WHERE a block lands is `sourceBlockPlacement`'s concern, not this file's.
@@ -26,67 +28,32 @@
  * `<details>` is a CONTAINER whose markdown stays markdown.
  *
  * @coordinates-with sourceAdapter.ts — dispatcher routes insert actions here
+ * @coordinates-with sourceAlertActions.ts — the alert vocabulary, built through handleBuildInsert
+ * @coordinates-with sourceUnfence.ts — the toggle's way OUT of a fence, list marker restored
  * @coordinates-with sourceBlockPlacement.ts — the placement helpers
  * @coordinates-with sourceInsertions.ts — pure block builders (selection-preserving)
  * @module plugins/toolbarActions/sourceInsertActions
  */
 
 import type { EditorView } from "@codemirror/view";
-import {
-  buildAlertBlock,
-  type AlertType,
-  type InsertionResult,
-} from "@/plugins/sourceContextDetection/sourceInsertions";
+import type { InsertionResult } from "@/plugins/sourceContextDetection/sourceInsertions";
 import { toggleBlockquote } from "@/plugins/sourceContextDetection/blockquoteActions";
 import { newTableMarkdown } from "@/plugins/shared/blockTemplates";
 import { applyInlineFormat } from "./sourceAdapterHelpers";
 import { insertBlockText, prependLineMarker, replaceLinesWithBlock } from "./sourceBlockPlacement";
 import { selectionBlockSpan } from "@/plugins/shared/blockSpan";
 import { stripBlockMarkup } from "@/plugins/shared/lineContent";
-import { enclosingFence, type EnclosingFence } from "@/plugins/shared/fenceScanner";
+import { enclosingFence } from "@/plugins/shared/fenceScanner";
+import { quoteDepth } from "@/plugins/shared/fenceDelimiter";
+import { unfence } from "./sourceUnfence";
 
 /** Caret lands inside the first header cell: `| ` is two characters. */
 const FIRST_CELL_OFFSET = 2;
-
-/** Alert insert action IDs handled in source mode. */
-type SourceAlertAction =
-  | "insertAlertNote"
-  | "insertAlertTip"
-  | "insertAlertImportant"
-  | "insertAlertWarning"
-  | "insertAlertCaution";
-
-const ALERT_TYPE_BY_ACTION: Record<SourceAlertAction, AlertType> = {
-  insertAlertNote: "NOTE",
-  insertAlertTip: "TIP",
-  insertAlertImportant: "IMPORTANT",
-  insertAlertWarning: "WARNING",
-  insertAlertCaution: "CAUTION",
-};
 
 export function insertFootnote(view: EditorView): boolean {
   return applyInlineFormat(view, "footnote");
 }
 
-/**
- * Convert the current block — or the selected lines — into one code block.
- *
- * This action is a block TOGGLE, not an insertion: the public id is `codeBlock`,
- * the command registry maps it here, and the user guide promises "Convert to
- * code". Only this adapter's internal name says "insert". Source used to open an
- * empty fence and leave the paragraph alone, contradicting all three, while
- * WYSIWYG converted.
- *
- * A caret expands to the surrounding block (the contiguous run of non-blank
- * lines), matching what `setCodeBlock` converts in WYSIWYG. An empty paragraph
- * naturally yields an empty fence, which is what the old behavior produced and
- * why that case is unchanged.
- *
- * The `plaintext` language is deliberate, not noise: the WYSIWYG code-block
- * extension is configured with `defaultLanguage: "plaintext"` to stop
- * `lowlight.highlightAuto()` mis-detecting, so omitting it here would leave the
- * two surfaces producing different documents for the same action.
- */
 /**
  * The lines of a block reduced to the CONTENT a wrapper should contain.
  *
@@ -114,6 +81,25 @@ function blockBodyForWrapping(lines: string[]): { quote: string; body: string } 
   return { quote, body };
 }
 
+/**
+ * Convert the current block — or the selected lines — into one code block.
+ *
+ * This action is a block TOGGLE, not an insertion: the public id is `codeBlock`,
+ * the command registry maps it here, and the user guide promises "Convert to
+ * code". Only this adapter's internal name says "insert". Source used to open an
+ * empty fence and leave the paragraph alone, contradicting all three, while
+ * WYSIWYG converted.
+ *
+ * A caret expands to the surrounding block (the contiguous run of non-blank
+ * lines), matching what `setCodeBlock` converts in WYSIWYG. An empty paragraph
+ * naturally yields an empty fence, which is what the old behavior produced and
+ * why that case is unchanged.
+ *
+ * The `plaintext` language is deliberate, not noise: the WYSIWYG code-block
+ * extension is configured with `defaultLanguage: "plaintext"` to stop
+ * `lowlight.highlightAuto()` mis-detecting, so omitting it here would leave the
+ * two surfaces producing different documents for the same action.
+ */
 export function insertCodeBlock(view: EditorView): boolean {
   const { all, span, blockFrom, blockTo } = resolveBlockRange(view);
 
@@ -158,6 +144,16 @@ export function insertDivider(view: EditorView): boolean {
   return true;
 }
 
+/**
+ * The `[TOC]` line the pipeline parses into a toc block (WI-FL3.10). It is
+ * paragraph-level markdown, so it needs a blank line above it — otherwise it
+ * continues the paragraph and the pipeline never sees a `[TOC]`-only paragraph.
+ */
+export function insertToc(view: EditorView): boolean {
+  insertBlockText(view, "[TOC]\n", undefined, { standalone: true });
+  return true;
+}
+
 export function insertTable(view: EditorView): boolean {
   insertBlockText(view, newTableMarkdown(), FIRST_CELL_OFFSET);
   return true;
@@ -180,8 +176,7 @@ export function insertListMarker(view: EditorView, marker: string, pos?: number)
  * silently deleted the rest of the line: selecting `brown` in
  * `The quick brown fox` and inserting a note left `> [!NOTE]\n> brown` and
  * nothing else.
- */
-/**
+ *
  * @param literalContent - Whether the built block holds PLAIN TEXT rather than
  *   markdown. A code fence, `$$` math block, mermaid/graphviz/markmap diagram
  *   holds literal source, so `### Title` must enter it as `Title` — the markup
@@ -263,36 +258,7 @@ function resolveBlockRange(view: EditorView): {
   };
 }
 
-/** Replace a fenced block with its literal contents. */
-function unfence(view: EditorView, all: string[], fence: EnclosingFence): boolean {
-  const { doc } = view.state;
-  const body = all.slice(fence.open + 1, fence.closed ? fence.close : fence.close + 1);
-  const from = doc.line(fence.open + 1).from;
-  const to = doc.line(fence.close + 1).to;
-
-  view.dispatch({
-    changes: { from, to, insert: body.join("\n") },
-    selection: { anchor: Math.min(from, doc.length) },
-  });
-  view.focus();
-  return true;
-}
-
 /** Longest run of consecutive backticks anywhere in `text`. */
 function longestBacktickRun(text: string): number {
   return (text.match(/`+/g) ?? []).reduce((max, run) => Math.max(max, run.length), 0);
-}
-
-/** Nesting depth of a `stripBlockMarkup` quote wrapper — one per `>` marker. */
-function quoteDepth(quote: string): number {
-  return (quote.match(/>/g) ?? []).length;
-}
-
-/**
- * Insert a GitHub-style alert. A non-empty selection is quoted line-by-line
- * under the alert marker instead of being discarded.
- */
-export function handleInsertAlert(view: EditorView, action: SourceAlertAction): boolean {
-  const alertType = ALERT_TYPE_BY_ACTION[action];
-  return handleBuildInsert(view, (selection) => buildAlertBlock(alertType, selection));
 }

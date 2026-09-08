@@ -44,7 +44,12 @@ export function extractSurroundingContext(
     const child = doc.child(i);
     const nodeEnd = offset + child.nodeSize; // includes wrapper
 
-    if (fromIndex === -1 && contentRange.from <= nodeEnd) {
+    // Strict: a range that STARTS exactly at a block boundary belongs to the
+    // block that begins there, not to the one that just ended. Every block /
+    // empty-selection range comes from getExpandedSourcePeekRange, which
+    // starts at `$from.before(depth)` — the boundary — so `<=` put every such
+    // range one block early and the "before" context skipped its neighbour.
+    if (fromIndex === -1 && contentRange.from < nodeEnd) {
       fromIndex = i;
     }
     if (contentRange.to <= nodeEnd && toIndex === -1) {

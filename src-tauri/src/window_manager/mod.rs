@@ -58,6 +58,7 @@ mod settings_window;
 #[cfg(target_os = "macos")]
 mod traffic_lights;
 mod window_events;
+mod window_url;
 
 pub use commands::*;
 pub use document_windows::*;

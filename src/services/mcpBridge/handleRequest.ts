@@ -8,7 +8,7 @@
  * (issue #900) is identifiable from the error string alone, without
  * grepping logs.
  *
- * Plan: dev-docs/plans/20260504-mcp-pruning.md (WI-1.5).
+ * Origin: MCP pruning plan (2026-05-04, retired) (WI-1.5).
  *
  * @coordinates-with utils.ts — respond()
  * @coordinates-with v2/dispatch.ts — dispatchV2

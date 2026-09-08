@@ -4,6 +4,9 @@ import { lintMarkdown } from "../../linter";
 import { tableColumnCount } from "../tableColumnCount";
 import type { Root, Table, TableRow, TableCell } from "mdast";
 
+/** A synthetic mdast carries no source, so the line index it is linted with is empty. */
+const EMPTY_INDEX = { lines: [], lineOffsets: [] };
+
 describe("E02 tableColumnCount", () => {
   it.each([
     {
@@ -100,7 +103,7 @@ describe("E02 tableColumnCount", () => {
 
     const mdast: Root = { type: "root", children: [table] };
 
-    const diagnostics = tableColumnCount("", mdast);
+    const diagnostics = tableColumnCount("", mdast, EMPTY_INDEX);
     // Only the row with position should produce a diagnostic
     expect(diagnostics).toHaveLength(1);
     expect(diagnostics[0].line).toBe(3);
@@ -137,8 +140,37 @@ describe("E02 tableColumnCount", () => {
 
     const mdast: Root = { type: "root", children: [table] };
 
-    const diagnostics = tableColumnCount("", mdast);
+    const diagnostics = tableColumnCount("", mdast, EMPTY_INDEX);
     expect(diagnostics).toHaveLength(1);
     expect(diagnostics[0].offset).toBe(0);
+  });
+});
+
+// Audit 20260907 round 3 (#858): the same `offset ?? 0` as W01, on a row that
+// is never the first thing in the document.
+describe("E02 — a missing parser offset falls back to the line index, not to 0", () => {
+  it("locates the row on its own line", () => {
+    const row = (line: number, cells: number, withOffset: boolean) => ({
+      type: "tableRow",
+      children: Array.from({ length: cells }, () => ({ type: "tableCell", children: [] })),
+      position: {
+        start: withOffset ? { line, column: 1, offset: 0 } : { line, column: 1 },
+        end: { line, column: 10 },
+      },
+    });
+    const mdast = {
+      type: "root",
+      children: [
+        {
+          type: "table",
+          children: [row(1, 2, true), row(3, 1, false)],
+          position: { start: { line: 1, column: 1, offset: 0 }, end: { line: 3, column: 10 } },
+        },
+      ],
+    } as unknown as Root;
+
+    const diagnostics = tableColumnCount("", mdast, { lines: ["| a | b |", "| - | - |", "| 1 |"], lineOffsets: [0, 10, 20] });
+    expect(diagnostics).toHaveLength(1);
+    expect(diagnostics[0].offset).toBe(20);
   });
 });

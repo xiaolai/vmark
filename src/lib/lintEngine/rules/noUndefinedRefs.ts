@@ -2,130 +2,70 @@
  * E01 — noUndefinedRefs
  *
  * Purpose: Flag reference-style links/images that have no matching definition.
- * Uses source-text regex to find reference patterns, and MDAST to find definitions.
- * This hybrid approach is necessary because remark does not parse
- * [text][unknown-ref] as a linkReference node when no definition exists —
- * it falls back to literal text per CommonMark spec.
+ * Definitions come from the MDAST (they always parse); the references come from
+ * the SOURCE, because remark does not keep `[text][unknown]` as a
+ * `linkReference` when no definition exists — it falls back to literal text per
+ * the CommonMark spec.
  *
- * CommonMark label normalization: lowercase, collapse whitespace, trim.
+ * What counts as scannable text is `sourceMask`'s answer, and what counts as a
+ * reference is `referenceScanner`'s — both shared with W03. Until round 3 this
+ * rule had its own fence tracker (blind to a fence a container prefixes), its
+ * own `` `…` `` strip (blind to a double-backtick or multi-line span) and its
+ * own definition-line regex (blind to a definition in a blockquote and to a
+ * title carried onto a continuation line). W03 had already moved to the
+ * parser's positions, so the two reported different things about one document.
+ *
+ * @coordinates-with src/lib/lintEngine/rules/sourceMask.ts — what is prose
+ * @coordinates-with src/lib/lintEngine/rules/referenceScanner.ts — what is a reference
+ * @coordinates-with src/lib/lintEngine/rules/noUnusedDefs.ts — the other half of the pair
+ * @module lib/lintEngine/rules/noUndefinedRefs
  */
 
 import { visit } from "unist-util-visit";
 import type { Root, Definition } from "mdast";
 import { createDiagnostic, type LintDiagnostic, type LintLineIndex } from "../types";
+import { ruleEmission } from "../ruleMeta";
 import { normalizeLabel } from "./labelUtils";
-
-/**
- * Matches all reference forms (hoisted to module scope so it isn't recompiled
- * per line — reset `.lastIndex` before each line's scan):
- *   Full:      [text][label]  — g1 = "[text]", g3 = "[label]", g4 = "label"
- *   Collapsed: [text][]       — g1 = "[text]", g3 = "[]",      g4 = ""
- *   Shortcut:  [text]         — g1 = "[text]", g3 = undefined
- * Also matches image variants: ![alt][label], ![alt][], ![alt].
- */
-const REF_PATTERN = /(!?\[([^\]\\]|\\.)*?\])(\[([^\]]*?)\])?/g;
+import { definitionLines, isDefinitionLine } from "./definitionLines";
+import { referenceTokens } from "./referenceScanner";
+import { maskedLines } from "./sourceMask";
 
 export function noUndefinedRefs(
   _source: string,
   mdast: Root,
   { lines, lineOffsets }: LintLineIndex,
 ): LintDiagnostic[] {
-  const diagnostics: LintDiagnostic[] = [];
-
-  // Collect all definition labels from MDAST (reliable — definitions always parse)
-  const definedLabels = new Set<string>();
+  const defined = new Set<string>();
   visit(mdast, "definition", (node: Definition) => {
-    const raw = node.label ?? node.identifier ?? "";
-    definedLabels.add(normalizeLabel(raw));
+    defined.add(normalizeLabel(node.label ?? node.identifier ?? ""));
   });
 
-  // Scan source text for reference-style links: [text][label] and ![alt][label]
-  // Also handle collapsed refs: [text][] and ![alt][]
-  // We skip references inside code spans and fenced code blocks.
-  let inFencedBlock = false;
-  let fenceChar = "";
-  let fenceLen = 0;
+  const diagnostics: LintDiagnostic[] = [];
+  const skip = definitionLines(mdast);
+  const scannable = maskedLines(lines, mdast);
 
-  for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
-    const lineText = lines[lineIdx];
-    const lineNum = lineIdx + 1;
+  for (let i = 0; i < scannable.length; i++) {
+    if (skip.has(i + 1) || isDefinitionLine(scannable[i])) continue;
 
-    // Track fenced code blocks (skip their content)
-    const trimmed = lineText.replace(/\r$/, "");
-    if (!inFencedBlock) {
-      const openMatch = trimmed.match(/^ {0,3}(`{3,}|~{3,})/);
-      if (openMatch) {
-        inFencedBlock = true;
-        fenceChar = openMatch[1][0];
-        fenceLen = openMatch[1].length;
-        continue;
-      }
-    } else {
-      const closeRe = new RegExp(`^ {0,3}\\${fenceChar}{${fenceLen},}\\s*$`);
-      if (closeRe.test(trimmed)) {
-        inFencedBlock = false;
-        fenceChar = "";
-        fenceLen = 0;
-      }
-      continue;
-    }
+    for (const ref of referenceTokens(scannable[i])) {
+      // A shortcut `[text]` is a reference only when a definition exists — and
+      // then it resolves, so it is never an error. Without one CommonMark reads
+      // it as literal text, which is not this rule's business either way.
+      if (ref.kind === "shortcut" || defined.has(ref.label)) continue;
 
-    // Skip definition lines: `[label]: url` — not a reference usage
-    if (/^ {0,3}\[[^\]]+\]:[ \t]/.test(trimmed)) continue;
-
-    // Strip inline code spans before scanning for refs
-    const strippedLine = lineText.replace(/`[^`]*`/g, (m) => " ".repeat(m.length));
-
-    // Hoisted `REF_PATTERN` (module scope) — reset its lastIndex per line since
-    // the global-flag regex is reused across lines (O6 / WI-2.5).
-    REF_PATTERN.lastIndex = 0;
-    let match: RegExpExecArray | null;
-
-    while ((match = REF_PATTERN.exec(strippedLine)) !== null) {
-      const fullBracket = match[1]; // e.g. "[text]" or "![alt]"
-      const hasBracket = match[3] !== undefined; // second [...] present
-      const bracketContent = match[4]; // content of second [...]; "" for collapsed
-
-      let label: string;
-
-      if (!hasBracket) {
-        // Shortcut reference [label]: only a reference when a definition exists.
-        // If no definition, CommonMark treats it as literal text — skip it.
-        const textContent = fullBracket.replace(/^!?\[/, "").replace(/\]$/, "");
-        if (!definedLabels.has(normalizeLabel(textContent))) continue;
-        // Definition found → it IS a valid shortcut reference, no error.
-        continue;
-      } else if (bracketContent === "") {
-        // Collapsed reference [text][] — link text is the label
-        label = fullBracket.replace(/^!?\[/, "").replace(/\]$/, "");
-      } else {
-        // Full reference [text][label]
-        label = bracketContent;
-      }
-
-      const normalizedLabel = normalizeLabel(label);
-      if (!definedLabels.has(normalizedLabel)) {
-        const fullMatch = match[0];
-        const column = match.index + 1;
-        // O(1) offset via the precomputed per-line start offsets (O6 / WI-2.5)
-        // instead of re-scanning the source for every reference match.
-        const offset = lineOffsets[lineNum - 1] + column - 1;
-        const endOffset = offset + fullMatch.length;
-
-        diagnostics.push(
-          createDiagnostic({
-            ruleId: "E01",
-            severity: "error",
-            messageKey: "lint.E01",
-            messageParams: { ref: label },
-            line: lineNum,
-            column,
-            offset,
-            endOffset,
-            uiHint: "exact",
-          })
-        );
-      }
+      const offset = lineOffsets[i] + ref.index;
+      diagnostics.push(
+        createDiagnostic({
+          ...ruleEmission("E01"),
+          messageKey: "lint.E01",
+          messageParams: { ref: ref.raw },
+          line: i + 1,
+          column: ref.index + 1,
+          offset,
+          endOffset: offset + ref.text.length,
+          uiHint: "exact",
+        }),
+      );
     }
   }
 

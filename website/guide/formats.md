@@ -202,14 +202,15 @@ Three properties worth knowing:
   was last published for that file, so it says so rather than claiming to be
   up to date. **Reload** re-publishes the file as it stands now.
 
-::: warning macOS and Linux only
-Trusted preview is unavailable on Windows in this build. Tauri exposes a custom
-protocol under a different URL form there, which this feature does not yet
-handle. The safe preview works on every platform.
+::: info Windows serves it over a local http origin
+WebView2 has no custom URL schemes, so on Windows the trusted document is served
+from `http://vmark-trusted.localhost` instead of `vmark-trusted://` — the same
+grant, the same sandbox and the same CSP, under the URL form Tauri uses for every
+custom protocol there. The safe preview works on every platform.
 :::
 
-Trusted content is served from a `vmark-trusted://` origin with its own
-restrictive CSP. That indirection is required rather than decorative: a
+Trusted content is served from a `vmark-trusted://` origin
+(`http://vmark-trusted.localhost` on Windows) with its own restrictive CSP. That indirection is required rather than decorative: a
 `srcdoc`, `blob:` or `data:` frame inherits VMark's own `script-src 'self'`
 policy, and a CSP inside the frame can only tighten an inherited one, never
 relax it — so no iframe attribute alone can make an inline script run.

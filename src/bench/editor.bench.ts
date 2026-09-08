@@ -29,7 +29,7 @@
  *     floor for "real" change. See vitest's bench output for the per-bench
  *     stddev and margin of error.
  *
- * @module bench/editor
+ * @module bench/editor.bench
  */
 
 import { bench, describe } from "vitest";

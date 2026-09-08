@@ -40,7 +40,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { getPersistedWorkspaceRoot, poll } from "../lib/vmark.mjs";
 import { openWorkspaceViaMcp, closeWorkspace } from "../lib/workspace.mjs";
-import { withRailMode } from "../lib/rail.mjs";
+import { withRailMode, getRailInstances, restoreRail } from "../lib/rail.mjs";
 import {
   isTerminalOpen,
   openTerminal,
@@ -79,15 +79,27 @@ export default {
     // Rail OFF, explicitly (WI-TS5.2): I15 is the window-scoped cd-follow.
     return withRailMode(client, false, async () => {
     const terminalWasOpen = await isTerminalOpen(client);
+    // Rail off means no rail is rendered and this snapshot is empty, so the
+    // restore below is a no-op here — it is kept for symmetry with 17/35, so a
+    // future rail-on variant of this journey cannot leak an instance.
+    const railBefore = await getRailInstances(client);
     let dirA = null;
     let dirB = null;
     let createdSession = false;
+    let bodyError = null;
+    // Sessions visible before this journey touches the terminal; Infinity
+    // until measured so a body that fails earlier closes nothing. Opening the
+    // terminal in a session-less window auto-creates one, which is this
+    // journey's to dispose of — left behind, it is a window-scoped leftover
+    // that makes journey 35 skip. Same class as journey 17's cleanup.
+    let sessionsBaseline = Infinity;
 
     try {
       // A. Workspace A, then a shell inside it (the terminal gate requires a
       //    workspace before it will open at all).
       dirA = await makeWorkspace();
       await openWorkspaceViaMcp(client, dirA, { windowLabel: ctx.windowLabel });
+      sessionsBaseline = (await getTerminalSessions(client)).total;
       await openTerminal(client, ctx.windowLabel);
       if (!(await canCreateSession(client))) {
         const s = await getTerminalSessions(client);
@@ -121,10 +133,28 @@ export default {
         { timeoutMs: 15000, intervalMs: 500 }
       );
       ctx.log(`live shell (pid ${shell.pid}) followed the workspace switch — cd-sync intact`);
+    } catch (err) {
+      bodyError = err;
+      throw err;
     } finally {
       if (createdSession) await closeActiveTerminalSession(client).catch(() => {});
+      // Everything above the baseline was created by this journey's own
+      // openTerminal/createTerminalSession (window-scoped under rail off).
+      for (let i = 0; i < 8; i++) {
+        const remaining = await getTerminalSessions(client).catch(() => null);
+        if (!remaining || remaining.total <= sessionsBaseline) break;
+        await closeActiveTerminalSession(client).catch(() => {});
+      }
       if (!terminalWasOpen) await closeTerminal(client, ctx.windowLabel).catch(() => {});
-      if (dirA || dirB) await closeWorkspace(client, { windowLabel: ctx.windowLabel }).catch(() => {});
+      if (dirA || dirB) {
+        await closeWorkspace(client, { windowLabel: ctx.windowLabel }).catch(() => {});
+        try {
+          await restoreRail(client, railBefore);
+        } catch (restoreErr) {
+          if (!bodyError) throw restoreErr;
+          ctx.log(`warning: rail restore failed after a body error: ${restoreErr?.message ?? restoreErr}`);
+        }
+      }
       for (const d of [dirA, dirB]) {
         if (d) await rm(d, { recursive: true, force: true }).catch(() => {});
       }

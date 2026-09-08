@@ -10,7 +10,7 @@
 A **genie workflow** is a YAML file that chains several AI steps into one pipeline. Where a single [AI Genie](/guide/ai-genies) runs one prompt against your text, a workflow runs an ordered graph of steps — each step can call a genie, pass its output to the next step, ask for your approval, or run a small built-in action — and shows you the whole pipeline as a live diagram while it runs.
 
 ::: tip Feature flag
-Genie workflows are gated behind an opt-in setting. Turn on **Settings → Advanced → Workflow Engine** to make `.yml` / `.yaml` files open as workflows with a Run / Cancel side panel. With the flag off, YAML files open as plain text.
+Genie workflows are gated behind an opt-in setting. In **Settings → Advanced**, turn on **Developer tools** to reveal the experimental group, then **Workflow Engine**, to make `.yml` / `.yaml` files open as workflows with a Run / Cancel side panel. With the flag off, YAML files open as plain text, and a workflow genie in the picker refuses to run.
 :::
 
 ## When to use a workflow
@@ -27,29 +27,40 @@ If one prompt does the job, write a markdown genie. Reach for a workflow only wh
 
 ## Writing a workflow
 
-A workflow is a YAML file with a name, optional defaults, and an ordered list of steps. Here is a complete, runnable example — it mirrors the `outline-and-polish.yml` sample that ships with VMark:
+A workflow is a YAML file with a name, optional defaults, and an ordered list of steps. Here is a complete, runnable example — it mirrors `triage-and-translate.yml`, the sample bundled with VMark:
 
 ```yaml
-name: Outline and Polish
-description: Generate an outline, then polish the output for clarity.
+name: Triage and Translate
+description: Rewrite rough notes into clean English, then translate the result.
 
 defaults:
   approval: auto
 
 steps:
-  - id: outline
-    uses: genie/outline
+  - id: rewrite
+    uses: genie/rewrite-in-english
     with:
-      input: "Replace this seed with your topic before running."
+      input: "Replace this seed text with the notes you want rewritten before running."
 
-  - id: polish
-    uses: genie/polish
-    needs: outline
+  - id: translate
+    uses: genie/translate
+    needs: rewrite
     with:
-      input: ${{ steps.outline.outputs.text }}
+      input: ${{ steps.rewrite.outputs.text }}
+
+  - id: save
+    uses: action/save-file
+    needs: translate
+    with:
+      path: triage-and-translate.out.md
+      input: ${{ steps.translate.outputs.text }}
 ```
 
-This workflow has two steps. `outline` calls the bundled `genie/outline` markdown genie on the seed text. `polish` waits for `outline` to finish (`needs: outline`), then feeds `outline`'s text output into `genie/polish`. The result is a two-node graph that runs left to right.
+This workflow has three steps. `rewrite` runs the bundled `genie/rewrite-in-english` markdown genie on the seed text. `translate` waits for it (`needs: rewrite`) and feeds its text output into `genie/translate`. `save` writes the translation to `triage-and-translate.out.md` in the workspace. The result is a three-node graph that runs left to right.
+
+::: info Where the bundled sample lives
+The sample ships inside the app bundle — `VMark.app/Contents/Resources/resources/workflows/examples/triage-and-translate.yml` on macOS, the app's `resources` folder elsewhere — and in the [source repository](https://github.com/xiaolai/vmark/blob/main/src-tauri/resources/workflows/examples/triage-and-translate.yml). It is not copied into your genies folder: to run it as a [workflow genie](/guide/workflow-genies), copy it there yourself and edit the seed text.
+:::
 
 ### Top-level fields
 
@@ -108,7 +119,7 @@ The binding rules, in precedence order:
 
 Whitespace inside braces is tolerated: `{{ key }}` works the same as `{{key}}`.
 
-**The `{{content}}` alias is the key to compatibility.** Markdown genies written for the editor use `{{content}}` for the selected text. In a workflow there is no selection, so you supply `with: { input: "..." }` and the `{{content}}` placeholder picks it up through the alias chain. That is exactly what the sample above relies on — `genie/outline` and `genie/polish` both use `{{content}}` in their templates, yet the workflow only ever sets `input`.
+**The `{{content}}` alias is the key to compatibility.** Markdown genies written for the editor use `{{content}}` for the selected text. In a workflow there is no selection, so you supply `with: { input: "..." }` and the `{{content}}` placeholder picks it up through the alias chain. That is exactly what the sample above relies on — `genie/rewrite-in-english` and `genie/translate` both use `{{content}}` in their templates, yet the workflow only ever sets `input`.
 
 ::: danger Unbound placeholders are fatal
 If a template contains a placeholder that nothing in `with:` resolves — for example `{{topic}}` with no `with.topic` — the step fails **before any AI call is made**, with an error listing every unresolved name (`Unbound placeholders: {{topic}}`). This is deliberate: shipping a prompt that still contains literal `{{topic}}` would silently produce garbage and falsely report success. The only safe relaxations are the two aliases above (`{{content}}` and `{{context}}`).

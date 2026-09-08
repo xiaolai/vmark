@@ -14,6 +14,11 @@ Common issues and where to look for the fix:
 | Menu still in English after language change | Menu rebuilds on launch | [Menu Bar Shows English](#menu-bar-shows-english-after-language-change) |
 | PDF export incomplete | Image paths or write permissions | [Export/Print Issues](#export-print-issues) |
 | Slow startup on Windows | WebView2 + antivirus scanning | [App Launches Slowly on Windows](#app-launches-slowly-on-windows) |
+| `Cmd + R` / `Ctrl + R` does nothing | Reload is blocked by design | [Reload Is Blocked](#reload-is-blocked) |
+| Double-clicking a file opened it in the running VMark | Single-instance forwarding on Windows and Linux | [One VMark at a Time on Windows and Linux](#one-vmark-at-a-time-on-windows-and-linux) |
+| Blank window on Linux | WebKitGTK DMABUF renderer | [Blank Window on Linux](#blank-window-on-linux) |
+| Straight quotes and `--` stay literal on macOS | System smart substitutions are turned off for VMark | [Smart Quotes and Dashes on macOS](#smart-quotes-and-dashes-on-macos) |
+| VMark never "naps" in Activity Monitor | App Nap is disabled so AI assistants keep working | [VMark Stays Awake in the Background](#vmark-stays-awake-in-the-background-app-nap) |
 
 For anything not listed above, see [Reporting Bugs](#reporting-bugs).
 
@@ -126,3 +131,25 @@ AI Genies require a configured AI provider to function.
 - Open Settings and verify that an AI provider (e.g., Ollama, OpenAI, Anthropic) is configured with a valid model name.
 - The provider CLI must be available in your PATH. On macOS, GUI apps have a minimal PATH — if the CLI was installed via Homebrew, ensure your shell profile exports the correct path.
 - Check the model name for typos. An incorrect model name will silently fail or return an error.
+
+### Reload Is Blocked
+
+`Cmd + R`, `Ctrl + R` and `Ctrl + Shift + R` do nothing, on purpose. Reloading the webview would throw away every open editor, its undo history and any unsaved state, so VMark blocks the shortcuts, the page-unload path and the webview's own context menu. Two exceptions: `Ctrl + R` reaches the shell when the integrated terminal is focused (reverse-i-search), and `F5` is never blocked because it is the Source Peek shortcut. Development builds only warn about unsaved documents instead.
+
+### One VMark at a Time on Windows and Linux
+
+Double-clicking a file, or launching VMark again from a launcher, hands the file to the VMark that is already running and brings a window forward instead of starting a second copy. A second process would share the first one's app data, session and window storage, and the two would overwrite each other's state — the data loss behind #1330. macOS has always behaved this way through the operating system. A development (`tauri dev`) build uses its own identifier and so counts as a different app.
+
+On Linux this relies on the D-Bus session bus; in a session with no `DBUS_SESSION_BUS_ADDRESS`, VMark may fail to start at all. Launch it from a desktop session, or from a shell where that variable is set.
+
+### Blank Window on Linux
+
+On some AMD / Mesa / WebKitGTK combinations (Arch with KDE Plasma 6 was the reported case, #1058) WebKitGTK's DMABUF renderer fails and the content area stays blank. VMark sets `WEBKIT_DISABLE_DMABUF_RENDERER=1` before the webview starts so this does not happen. If you want the DMABUF renderer back, launch with `WEBKIT_DISABLE_DMABUF_RENDERER=0` — VMark only sets the variable when you have not.
+
+### Smart Quotes and Dashes on macOS
+
+Typing `--` or `"` in VMark stays literal even if your Mac has *Use smart quotes and dashes* turned on. The system would otherwise rewrite text underneath the editor — `-->` in a Mermaid block became `—>` — so VMark turns off the automatic dash, quote and period substitutions for its own process only. Other apps are unaffected, as are input methods and your own text replacements. For typographic quotes inside VMark, use the [CJK formatter's smart-quote rules](/guide/cjk-formatting#smart-quote-styles) or the quote-style toggle (`Shift + Mod + '`).
+
+### VMark Stays Awake in the Background (App Nap)
+
+On macOS, VMark opts out of App Nap for as long as it runs, so Activity Monitor shows it as never napping even when its windows are hidden. App Nap would freeze the webview — and with it every AI-assistant (MCP) request — until you brought a window forward; staying awake is what lets an assistant keep working while you are in another app. The system may still sleep when idle; VMark only asks not to be napped.

@@ -16,7 +16,7 @@
  *   - Security: relative paths validated against directory traversal attacks
  *
  * @coordinates-with tiptap.ts — registers this NodeView for the block_video node type
- * @coordinates-with utils/resolveMediaSrc.ts — shared media path resolution
+ * @coordinates-with services/media/resolveMediaSrc.ts — shared media path resolution
  * @coordinates-with stores/mediaPopupStore.ts — media popup state for click editing
  * @module plugins/blockVideo/BlockVideoNodeView
  */

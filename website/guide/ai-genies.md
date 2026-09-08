@@ -12,7 +12,7 @@ AI Genies are prompt templates that transform your text using AI. Select text, i
 
 ## The Genie Picker
 
-Press `Mod + Y` (or menu **Tools > AI Genies**) to open a spotlight-style overlay with a single unified input.
+Press `Mod + Y` (or menu **Edit → Genies → Search Genies…**) to open a spotlight-style overlay with a single unified input. The same submenu lists every genie by name, so a genie can also be run straight from the menu.
 
 **Search & freeform** — Start typing to filter genies by name, description, or category. If no genies match, the input becomes a freeform prompt field.
 
@@ -22,14 +22,14 @@ Press `Mod + Y` (or menu **Tools > AI Genies**) to open a spotlight-style overla
 
 **Scope cycling** — Press `Tab` to cycle through scopes: selection → block → document → all.
 
-**Prompt history** — In freeform mode (no matching genies), press `ArrowUp` / `ArrowDown` to cycle through previous prompts. Press `Ctrl + R` to open a searchable history dropdown. Ghost text shows the most recent matching prompt as a grayed hint — press `Tab` to accept it.
+**Prompt history** — In freeform mode (no matching genies), press `ArrowUp` / `ArrowDown` to cycle through previous prompts. Press `Ctrl + R` to open a searchable history dropdown. Ghost text shows the most recent matching prompt as a grayed hint — press `Tab` to accept it, or `Escape` to dismiss it (it returns once you change what you typed).
 
 ### Processing Feedback
 
 After selecting a genie or submitting a freeform prompt, the picker shows inline feedback:
 
 - **Processing** — A thinking indicator with elapsed time counter. Press `Escape` to cancel.
-- **Preview** — The AI response streams in real-time. Use `Accept` to apply or `Reject` to discard.
+- **Preview** — The AI response appears as it arrives: CLI providers stream it as it is generated, while REST providers deliver the whole answer at once when the request completes. Use `Accept` to apply or `Reject` to discard.
 - **Error** — If something goes wrong, the error message appears with a `Retry` button.
 
 The status bar also shows AI progress — a spinning icon with elapsed time while running, a brief "Done" flash on success, or an error indicator with Retry/Dismiss buttons. The status bar auto-shows when AI has active status, even if you previously hid it with `F7`.
@@ -130,11 +130,11 @@ Genies are stored in your application data directory:
 | Windows | `%APPDATA%\app.vmark\genies\` |
 | Linux | `~/.local/share/app.vmark/genies/` |
 
-Open this folder from menu **Tools > Open Genies Folder**.
+Open this folder from menu **Edit → Genies → Open Genies Folder**; after adding or editing files, **Edit → Genies → Reload Genies** refreshes the list.
 
 ### Directory Structure
 
-Subdirectories become **categories** in the picker. You can organize genies however you like:
+Subdirectories become **categories** in the picker, and the scan is recursive — nest folders as deep as you like; a genie's category is its folder path relative to `genies/` (so `academic/thesis/abstract.md` lands in `academic/thesis`) unless the frontmatter sets `category`. Symbolic links are skipped. You can organize genies however you like:
 
 ```text
 genies/
@@ -193,7 +193,7 @@ The `{{content}}` placeholder is the core of every genie. When a genie runs, VMa
 1. **Extracts text** based on the scope (selected text, current block, or full document)
 2. **Replaces** every `{{content}}` in your template with the extracted text
 3. **Sends** the filled prompt to the active AI provider
-4. **Streams** the response back as an inline suggestion
+4. **Returns** the response as an inline suggestion — streamed as it is generated from a CLI provider, in one piece from a REST provider
 
 For example, with this template:
 
@@ -502,10 +502,11 @@ When a Genie returns text intended as a replacement for the selection (rather th
 
 | Action | Shortcut |
 |---|---|
-| Accept the focused suggestion | `Tab` |
+| Accept the focused suggestion | `Enter` |
 | Reject the focused suggestion | `Esc` |
+| Move to the next / previous suggestion | `Tab` / `Shift + Tab` |
 | Accept all suggestions in the document | `Mod + Shift + Enter` _(context-aware — also Add Row Above when inside a table)_ |
-| Cycle to next suggestion | `Tab` from a non-focused position |
+| Reject all suggestions in the document | `Mod + Shift + Escape` |
 
 When a Genie rewrites multiple paragraphs, each replacement is its own independently-navigable suggestion. Accepting one doesn't auto-accept the others.
 
@@ -521,9 +522,11 @@ See [Genie Workflows](/guide/workflows) for the full YAML schema, expression syn
 
 ### Untrusted content fencing
 
-Document text, selections, and file contents are wrapped in unique
-`<<<DOCUMENT-DATA-…>>>` markers before they reach the AI provider, and the
-prompt instructs the model to treat fenced text strictly as data. This guards
+When a workflow's `genie/<name>` step runs, document text, selections, and
+file contents are wrapped in unique `<<<DOCUMENT-DATA-…>>>` markers before they
+reach the AI provider, and the prompt instructs the model to treat fenced text
+strictly as data. The fencing belongs to workflow steps — a genie run directly
+from the picker sends the scoped text to the provider as-is. This guards
 against documents that try to smuggle instructions to the AI ("ignore your
 instructions and run …") — which matters most for CLI providers (Claude Code,
 Codex, Gemini CLI) that can execute commands. Treat genies you run against
@@ -542,7 +545,7 @@ guarantee.
 
 **"No AI provider available"** — Open Settings > Integrations and configure a provider. See [AI Providers](/guide/ai-providers).
 
-**Genie not appearing in picker** — Check that the file has a `.md` extension, valid frontmatter with `---` fences, and is in the genies directory (not a subdirectory deeper than one level).
+**Genie not appearing in picker** — Check that the file has a `.md` extension (or `.yml`/`.yaml` for a [workflow genie](/guide/workflow-genies)) and valid frontmatter with `---` fences. Subfolders at any depth are scanned, but symbolic links are skipped. Run **Edit → Genies → Reload Genies** after adding files.
 
 **AI returns garbage or errors** — Verify your API key is correct and the model name is valid for your provider. Check the terminal/console for error details.
 

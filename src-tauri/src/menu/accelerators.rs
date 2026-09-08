@@ -44,7 +44,7 @@
 //!
 //! @coordinates-with `commands.rs` (exposes `update_menu_accelerators`)
 //! @coordinates-with `localized.rs` (commits the accelerator snapshot post-build)
-//! @coordinates-with `src/stores/shortcutsStore.ts` (calls the differential path)
+//! @coordinates-with `src/stores/settingsStore/shortcuts.ts` (calls the differential path)
 
 use crate::command_error::CommandError;
 use std::collections::HashMap;

@@ -9,7 +9,7 @@
  * to xterm's `ITheme` shape.
  *
  * @coordinates-with theme/themes/* — provides the terminal block
- * @coordinates-with components/Terminal/createTerminalInstance.ts — consumer
+ * @coordinates-with components/Terminal/terminalOptions.ts — consumer (the ITheme a new instance starts with)
  * @coordinates-with components/Terminal/terminalSessionStoreSync.ts — consumer
  * @module theme/buildXtermTheme
  */

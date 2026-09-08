@@ -19,7 +19,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { BRIDGE_OPERATIONS, operationsWhere } from "@/services/mcpBridge/v2/operationManifest";
+import { BRIDGE_OPERATIONS, operationsWhere } from "./operationManifest";
 
 const ROOT = process.cwd();
 

@@ -8,7 +8,7 @@
  * that widens the stale-revision retry loop, and a faithfulness risk on
  * the bytes the AI didn't change.
  *
- * Plan: dev-docs/plans/20260504-mcp-pruning.md ADR-7.
+ * Origin: MCP pruning plan (2026-05-04, retired) ADR-7.
  */
 
 import { z } from 'zod';
@@ -19,12 +19,20 @@ import {
   structuredJsonResult,
 } from '../utils/toolOutput.js';
 import { bridgeErrorResult } from './staleError.js';
-import { optionalIdSchema, readOptionalId } from './toolArgs.js';
+import {
+  optionalIdSchema,
+  optionalRevisionSchema,
+  readOptionalId,
+  readOptionalRevision,
+} from './toolArgs.js';
+
+export const SELECTION_TOOL = 'selection' as const;
+export const SELECTION_ACTIONS = ['get', 'set'] as const;
 
 export function registerSelectionTool(server: VMarkMcpServer): void {
   server.registerTool(
     {
-      name: 'selection',
+      name: SELECTION_TOOL,
       title: 'VMark Editor Selection',
       // `get` reads, `set` replaces the selected text irreversibly (from the
       // AI's side — the user still has undo). One annotation set, so it states
@@ -41,7 +49,7 @@ export function registerSelectionTool(server: VMarkMcpServer): void {
         '- get: Return {text, isEmpty, range, mode, kind, tabId, revision} for the current selection. Pass `tabId` to target a specific tab; omit to use the focused tab. When nothing is selected, `text` is "" and `isEmpty` is true. `text` is the markdown serialization of the selected slice (in WYSIWYG mode) or the raw selected text (in source mode). `mode` is "wysiwyg" or "source" — `range.{from,to}` lives in PM positions or character offsets respectively. The `revision` token must be passed back in `set`.\n' +
         '- set: Replace the current selection with new content. Args: {tabId?, content, expected_revision?}. Returns {revision, replaced_chars} — carry the new `revision` into your next call. In WYSIWYG mode, `content` is parsed as markdown when it carries markdown structure, otherwise inserted as a literal text node so leading/trailing whitespace round-trips exactly. In source mode, `content` is always inserted as raw text — the source surface is already markdown bytes. If `expected_revision` does not match the current revision, returns a STALE error carrying the up-to-date `current_revision` BOTH in the message and in the error\'s `structuredContent` (so you can branch on it without parsing prose); re-read with `selection.get` and retry rather than writing the stale content back. Operates on the editor selection at call time — if the user moved the cursor between get and set, the edit lands at the new position.',
       inputSchema: {
-        action: z.enum(['get', 'set']).describe('The action to perform'),
+        action: z.enum(SELECTION_ACTIONS).describe('The action to perform'),
         tabId: optionalIdSchema(
           'Target tab id (from session.get_state). Omit to use the focused tab. Selection only operates on the focused tab; mismatch returns INVALID_TAB.',
         ),
@@ -49,12 +57,9 @@ export function registerSelectionTool(server: VMarkMcpServer): void {
           .string()
           .optional()
           .describe('Replacement content (set only). Empty string deletes the selection.'),
-        expected_revision: z
-          .string()
-          .optional()
-          .describe(
-            'Optimistic-concurrency token from the most recent read or selection.get (set only).',
-          ),
+        expected_revision: optionalRevisionSchema(
+          'Optimistic-concurrency token from the most recent read or selection.get (set only).',
+        ),
       },
       // Declared on the same terms as `document`'s (see the long note there):
       // ONE schema serves get and set, every field is optional, and `{}`
@@ -111,10 +116,12 @@ export function registerSelectionTool(server: VMarkMcpServer): void {
       const tab = readOptionalId(args.tabId, 'tabId');
       if (!tab.ok) return VMarkMcpServer.errorResult(tab.error);
       const tabId = tab.value;
-      const expected_revision =
-        typeof args.expected_revision === 'string'
-          ? args.expected_revision
-          : undefined;
+      // Refuse a supplied-but-invalid revision rather than dropping it to
+      // `undefined`, which silently disables stale-write protection on the one
+      // action that REPLACES the user's selected text (audit R2 #231).
+      const revision = readOptionalRevision(args.expected_revision);
+      if (!revision.ok) return VMarkMcpServer.errorResult(revision.error);
+      const expected_revision = revision.value;
 
       try {
         if (action === 'get') {
@@ -142,8 +149,13 @@ export function registerSelectionTool(server: VMarkMcpServer): void {
         // `Tool error: {"error":"STALE",…}` — the retry token glued into prose.
         return bridgeErrorResult(error, 'selection.get');
       }
+      // The list comes from SELECTION_ACTIONS, the same constant the schema
+      // enum and the tool registry read. Spelling it out here was contract
+      // data written twice, so adding a third action would have left this
+      // message telling the caller the surface has two (audit R2 #233) —
+      // exactly how `coherence.ts` already builds its refusal.
       return VMarkMcpServer.errorResult(
-        `Invalid action: ${String(action)}. Expected: get or set`,
+        `Invalid action: ${String(action)}. Expected: ${SELECTION_ACTIONS.join(', ')}`,
       );
     },
   );

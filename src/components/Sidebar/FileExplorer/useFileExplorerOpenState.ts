@@ -213,5 +213,37 @@ export function useFileExplorerOpenState(
   };
 }
 
+/**
+ * Restore the incoming instance's saved scroll offset ONCE per workspace
+ * generation.
+ *
+ * The tree reloads on every watcher event and on every window focus, and each
+ * of those raises and drops `isLoading`. Restoring whenever a load finished
+ * therefore yanked the user back to the persisted offset after any external
+ * file change — over a position they had scrolled to and the throttle had not
+ * written yet (audit R2, #635).
+ *
+ * `ready` is the caller's "this instance's rows are on screen", not merely
+ * "not loading": on the first render after a rail switch `isLoading` is still
+ * the PREVIOUS root's `false`, and latching there would spend the one restore
+ * on an empty tree and never fire again. `useFileTree` reports an empty tree
+ * until the new root's listing lands, which is what makes that distinction
+ * available.
+ */
+export function useRestoredScroll(
+  workspaceInstanceId: string | null,
+  ready: boolean,
+  treeElRef: RefObject<HTMLElement | null>,
+  restoreScroll: (container: HTMLElement | null) => void,
+): void {
+  const restoredFor = useRef<string | null>(null);
+  useEffect(() => {
+    const generation = workspaceInstanceId ?? "";
+    if (!ready || restoredFor.current === generation) return;
+    restoredFor.current = generation;
+    restoreScroll(treeElRef.current);
+  }, [workspaceInstanceId, ready, treeElRef, restoreScroll]);
+}
+
 /** @internal exported for testing */
 export const __ARBORIST_ROOT_ID = ARBORIST_ROOT_ID;

@@ -5,6 +5,15 @@
  * before proceeding with export or print.
  */
 
+import { checkImages, getStabilityStatus, type StabilityStatus } from "./assetReadiness";
+
+/**
+ * The readiness predicates stay importable from HERE. `ExportSurface` and the
+ * test suite reach `isImageSettled`/`getStabilityStatus` through this module,
+ * and the split is about where the code lives, not about moving every caller.
+ */
+export { getStabilityStatus, isImageSettled } from "./assetReadiness";
+
 export interface StabilityOptions {
   /** Maximum time to wait in milliseconds (default: 10000) */
   timeout?: number;
@@ -14,15 +23,6 @@ export interface StabilityOptions {
   onProgress?: (status: StabilityStatus) => void;
 }
 
-/** Per-category readiness flags for async content (fonts, images, math, mermaid). */
-export interface StabilityStatus {
-  fontsReady: boolean;
-  imagesReady: boolean;
-  mathReady: boolean;
-  mermaidReady: boolean;
-  allReady: boolean;
-}
-
 /** Result of asset stability polling with final status and any warnings. */
 export interface StabilityResult {
   success: boolean;
@@ -30,159 +30,80 @@ export interface StabilityResult {
   warnings: string[];
 }
 
+/** The documented defaults, in one place — `StabilityOptions` names them too. */
+const DEFAULT_TIMEOUT_MS = 10_000;
+const DEFAULT_INTERVAL_MS = 100;
+
+/** Said once, in `warnings`, so a caller passing nonsense can SEE that it did. */
+const UNUSABLE_BOUNDS_WARNING = "Ignored an unusable timeout/interval option; used the defaults";
+
 /**
- * Wait for all fonts to be loaded.
+ * The poll's two bounds, refused rather than trusted.
+ *
+ * A non-finite or non-positive `timeout` is not a shorter deadline — it is NO
+ * deadline: `elapsed >= NaN` is false forever, so the poll this module
+ * documents as bounded never ends, which is the export hang #348 fixed from the
+ * other side. A non-positive `interval` schedules the next poll with no gap at
+ * all and spins the main thread. Neither is a value the caller can have meant,
+ * so both fall back to the documented default — and say so in `warnings`,
+ * because silently substituting a number is how the next caller never learns
+ * (audit round 3, #707).
  */
-async function waitForFonts(): Promise<boolean> {
+function usableBounds({ timeout, interval }: StabilityOptions): {
+  timeout: number;
+  interval: number;
+  usable: boolean;
+} {
+  const positive = (value: number | undefined): boolean =>
+    value === undefined || (Number.isFinite(value) && value > 0);
+  return {
+    timeout: positive(timeout) ? (timeout ?? DEFAULT_TIMEOUT_MS) : DEFAULT_TIMEOUT_MS,
+    interval: positive(interval) ? (interval ?? DEFAULT_INTERVAL_MS) : DEFAULT_INTERVAL_MS,
+    usable: positive(timeout) && positive(interval),
+  };
+}
+
+/**
+ * Wait for the fonts to load, but never past `timeout`: `document.fonts.ready`
+ * is not bounded by anything, and an export that awaited it unraced hung for
+ * as long as a stalled font fetch did (audit 20260907). On the deadline the
+ * poll below reports `fontsReady: false` and a warning, like any other asset.
+ */
+async function waitForFonts(timeout: number): Promise<void> {
+  let deadline: ReturnType<typeof setTimeout> | undefined;
   try {
-    await document.fonts.ready;
-    return true;
+    await Promise.race([
+      document.fonts.ready,
+      new Promise<void>((resolve) => {
+        deadline = setTimeout(resolve, timeout);
+      }),
+    ]);
   } catch {
     // Font API not available in some environments
-    return true;
+  } finally {
+    clearTimeout(deadline);
   }
 }
 
 /**
- * Class set by ImageNodeView (and BlockImageNodeView) on the underlying `<img>`
- * once async path resolution has terminally failed. Treated as a final state by
- * the stability poller so we don't burn the full timeout waiting on something
- * that will never finish (issue #837 follow-up).
- */
-const IMAGE_ERROR_CLASS = "image-error";
-
-/**
- * Decide whether a single image counts as "settled" for export readiness.
+ * A status, as the sentences a caller can act on.
  *
- * Three states matter:
- *   - **Loaded**: non-empty `src` AND `img.complete === true` → settled.
- *   - **Errored**: NodeView marked the element with `image-error` after a
- *     failed resolve → settled (further waiting won't change anything).
- *   - **Pending**: empty `src` (NodeView still resolving the path) OR the
- *     browser is still fetching the asset → not settled.
- *
- * Empty `src` alone is NOT settled because `img.complete` returns `true` for
- * empty src, which would cause the poller to extract HTML before ImageNodeView
- * finished setting the real `asset://` URL — the original bug from #837.
- *
- * Exported for unit tests so the predicate stays in lockstep with the
- * NodeView lifecycle even when the rest of the pipeline can't be exercised.
+ * Pure and module-level — status-to-warning is a mapping, not part of the
+ * deadline race it used to be nested inside (audit round 3, #706). The four
+ * closures left in the poll below ARE the state machine: they share exactly
+ * two mutable cells and a `resolve` that only exists inside the promise
+ * executor, so hoisting them into a class would move that state behind `this.`
+ * and give it a lifetime that outlives the promise.
  */
-export function isImageSettled(img: HTMLImageElement): boolean {
-  if (img.classList.contains(IMAGE_ERROR_CLASS)) return true;
-  const src = img.getAttribute("src") ?? "";
-  if (!src) return false;
-  return img.complete;
-}
-
-/**
- * Check if all images in a container have loaded or errored.
- */
-function checkImages(container: HTMLElement): { ready: boolean; pending: number } {
-  const images = container.querySelectorAll("img");
-  let pending = 0;
-
-  for (const img of images) {
-    if (!isImageSettled(img)) {
-      pending++;
-    }
+function pendingWarnings(status: StabilityStatus, container: HTMLElement): string[] {
+  const warnings: string[] = [];
+  if (!status.fontsReady) warnings.push("Fonts did not finish loading");
+  if (!status.imagesReady) {
+    warnings.push(`${checkImages(container).pending} image(s) did not load`);
   }
-
-  return { ready: pending === 0, pending };
-}
-
-/**
- * Wait for all images to load or error.
- */
-function waitForImages(container: HTMLElement, timeout: number): Promise<boolean> {
-  return new Promise((resolve) => {
-    const images = Array.from(container.querySelectorAll("img"));
-    if (images.length === 0) {
-      resolve(true);
-      return;
-    }
-
-    let loaded = 0;
-    const total = images.length;
-    const timeoutId = setTimeout(() => resolve(false), timeout);
-
-    const checkDone = () => {
-      loaded++;
-      if (loaded >= total) {
-        clearTimeout(timeoutId);
-        resolve(true);
-      }
-    };
-
-    for (const img of images) {
-      // Use the same settled predicate as the poller so a NodeView that has
-      // already errored out (or finished loading) is recognised immediately
-      // — otherwise we'd attach listeners that never fire and time out.
-      if (isImageSettled(img)) {
-        checkDone();
-      } else {
-        img.addEventListener("load", checkDone, { once: true });
-        img.addEventListener("error", checkDone, { once: true });
-      }
-    }
-  });
-}
-
-/**
- * Check if Math (KaTeX) has finished rendering.
- * Looks for placeholder elements that indicate pending renders.
- */
-function checkMathReady(container: HTMLElement): boolean {
-  // Check for "Rendering math..." placeholders
-  const placeholders = container.querySelectorAll(
-    ".code-block-preview-placeholder"
-  );
-
-  for (const placeholder of placeholders) {
-    const text = placeholder.textContent?.toLowerCase() ?? "";
-    if (text.includes("rendering") || text.includes("math")) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-/**
- * Check if Mermaid diagrams have finished rendering.
- */
-function checkMermaidReady(container: HTMLElement): boolean {
-  // Check for loading placeholders (mermaid and graphviz share this gate)
-  const loading = container.querySelectorAll(".mermaid-loading, .graphviz-loading");
-  if (loading.length > 0) return false;
-
-  // Check for error states (still considered "ready" — error is final state)
-  // const errors = container.querySelectorAll(".mermaid-error");
-
-  return true;
-}
-
-/**
- * Get current stability status for a container.
- */
-export function getStabilityStatus(container: HTMLElement): StabilityStatus {
-  const imagesCheck = checkImages(container);
-  // document.fonts is typed non-optional but the Font Loading API can be
-  // absent at runtime; waitForFonts already treats that as "ready", and the
-  // polling path must not throw where waitForFonts would not.
-  const fonts: FontFaceSet | undefined = document.fonts;
-  const fontsReady = !fonts || fonts.status === "loaded";
-  const imagesReady = imagesCheck.ready;
-  const mathReady = checkMathReady(container);
-  const mermaidReady = checkMermaidReady(container);
-
-  return {
-    fontsReady,
-    imagesReady,
-    mathReady,
-    mermaidReady,
-    allReady: fontsReady && imagesReady && mathReady && mermaidReady,
-  };
+  if (!status.mathReady) warnings.push("Some math blocks did not finish rendering");
+  if (!status.mermaidReady) warnings.push("Some Mermaid diagrams did not finish rendering");
+  return warnings;
 }
 
 /**
@@ -217,64 +138,98 @@ export async function waitForAssets(
   container: HTMLElement,
   options: StabilityOptions = {}
 ): Promise<StabilityResult> {
-  const { timeout = 10000, interval = 100, onProgress } = options;
+  const { onProgress } = options;
+  const { timeout, interval, usable } = usableBounds(options);
 
   const warnings: string[] = [];
+  if (!usable) warnings.push(UNUSABLE_BOUNDS_WARNING);
   const startTime = Date.now();
 
-  // Wait for fonts first
-  await waitForFonts();
+  // Wait for fonts first — bounded by the same deadline as everything else.
+  await waitForFonts(timeout);
 
   // Poll for other assets
   return new Promise((resolve) => {
-    const check = () => {
+    let done = false;
+    const finish = (result: StabilityResult): void => {
+      if (done) return;
+      done = true;
+      resolve(result);
+    };
+
+    // A consumer callback that throws must not leave the export pending
+    // (audit #352): the failure is recorded once and the poll goes on.
+    let progressFailed = false;
+    const report = (status: StabilityStatus): void => {
+      try {
+        onProgress?.(status);
+      } catch (error) {
+        if (progressFailed) return;
+        progressFailed = true;
+        warnings.push(
+          `Progress callback failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    };
+
+    // What is still pending, recorded the way the caller can act on it. Shared
+    // by the poll's own timeout and the layout deadline below, because a
+    // deadline that reports nothing is a timeout that looks like a success.
+    const reportPending = (status: StabilityStatus): void => {
+      warnings.push(...pendingWarnings(status, container));
+    };
+
+    // Two frames for layout, then a RE-CHECK (#353): an asset invalidated
+    // during layout resumes polling instead of shipping a stale "ready". The
+    // frames are bounded by the deadline (#354) — throttled or suspended
+    // frames used to hang the export indefinitely once it was ready.
+    //
+    // The deadline REPORTS WHAT IT FINDS, it does not assume the readiness the
+    // poll saw before the frames (#354, round 2). An asset invalidated while
+    // the frames never arrived is exactly the case the re-check exists to
+    // refuse, and answering `success: true` there shipped it anyway.
+    const settle = (elapsed: number): void => {
+      const deadline = setTimeout(() => {
+        warnings.push("Layout did not settle before the deadline");
+        const status = getStabilityStatus(container);
+        if (!status.allReady) reportPending(status);
+        finish({ success: status.allReady, status, warnings });
+      }, Math.max(0, timeout - elapsed));
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          clearTimeout(deadline);
+          const status = getStabilityStatus(container);
+          if (status.allReady) finish({ success: true, status, warnings });
+          else check();
+        });
+      });
+    };
+
+    const check = (): void => {
+      if (done) return;
       const elapsed = Date.now() - startTime;
       const status = getStabilityStatus(container);
 
-      onProgress?.(status);
+      report(status);
 
       if (status.allReady) {
-        // Extra frame for layout stability
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            resolve({ success: true, status, warnings });
-          });
-        });
+        settle(elapsed);
         return;
       }
 
       if (elapsed >= timeout) {
-        // Timeout reached — report what's still pending
-        if (!status.imagesReady) {
-          const { pending } = checkImages(container);
-          warnings.push(`${pending} image(s) did not load`);
-        }
-        if (!status.mathReady) {
-          warnings.push("Some math blocks did not finish rendering");
-        }
-        if (!status.mermaidReady) {
-          warnings.push("Some Mermaid diagrams did not finish rendering");
-        }
-
-        resolve({ success: false, status, warnings });
+        reportPending(status);
+        finish({ success: false, status, warnings });
         return;
       }
 
-      // Continue polling
-      setTimeout(check, interval);
+      // Never longer than what is LEFT (#709): this poll is what detects the
+      // deadline, so waiting a full interval past it is how a documented 10s
+      // maximum became 10s plus one interval. `elapsed < timeout` here, so the
+      // remainder is positive.
+      setTimeout(check, Math.min(interval, timeout - elapsed));
     };
 
     check();
   });
-}
-
-/**
- * Wait for images with a promise that resolves when all are loaded.
- * Useful for simpler cases where you only need image loading.
- */
-export async function waitForAllImages(
-  container: HTMLElement,
-  timeout: number = 5000
-): Promise<boolean> {
-  return waitForImages(container, timeout);
 }

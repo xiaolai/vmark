@@ -16,7 +16,7 @@
  *     the round-trip gate and by mutators that need to verify their
  *     output equals the IR-level expectation.
  *
- * @coordinates-with src/lib/ghaWorkflow/save/mutators/* — uses these
+ * @coordinates-with src/lib/ghaWorkflow/save/mutators.ts — uses these
  *   primitives to apply IRPatches to a Document
  * @module lib/ghaWorkflow/save/cstParser
  */

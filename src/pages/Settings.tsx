@@ -136,7 +136,7 @@ export function SettingsPage() {
   useAiProviderSync();
   // Handle Cmd+W to close settings
   useSettingsClose();
-  // Handle Cmd+Shift+D to toggle dev section
+  // Handle Ctrl+Option+Cmd+D to toggle dev section
   useDevSectionShortcut();
   // Bidirectional sync with the main window's updateStore. Settings now
   // runs Check / Download locally (so the button stays responsive when
@@ -146,7 +146,9 @@ export function SettingsPage() {
   useUpdateBroadcast();
   useUpdateListener();
 
-  // Listen for navigation events (e.g., from "Check for Updates" menu)
+  // Listen for section jumps: `open_settings_window(section)` emits this when
+  // the window already exists (status bar → Integrations, the update toast →
+  // About, the formats nudge → Formats).
   useEffect(() => {
     const unlistenPromise = listen<string>("settings:navigate", (event) => {
       const targetSection = event.payload;

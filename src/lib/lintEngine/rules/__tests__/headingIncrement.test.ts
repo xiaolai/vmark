@@ -4,6 +4,9 @@ import { lintMarkdown } from "../../linter";
 import { headingIncrement } from "../headingIncrement";
 import type { Root, Heading } from "mdast";
 
+/** A synthetic mdast carries no source, so the line index it is linted with is empty. */
+const EMPTY_INDEX = { lines: [], lineOffsets: [] };
+
 describe("W01 headingIncrement", () => {
   it.each([
     {
@@ -102,7 +105,7 @@ describe("W01 headingIncrement", () => {
       ],
     };
 
-    const diagnostics = headingIncrement("", mdast);
+    const diagnostics = headingIncrement("", mdast, EMPTY_INDEX);
     // The h3 (no position) is skipped for diagnostic, but prevDepth is updated to 3.
     // h5 follows h3 (skip of 2) and has position, so it produces one diagnostic.
     expect(diagnostics).toHaveLength(1);
@@ -136,8 +139,37 @@ describe("W01 headingIncrement", () => {
       ],
     };
 
-    const diagnostics = headingIncrement("", mdast);
+    const diagnostics = headingIncrement("", mdast, EMPTY_INDEX);
     expect(diagnostics).toHaveLength(1);
     expect(diagnostics[0].offset).toBe(0);
+  });
+});
+
+// Audit 20260907 round 3 (#808): `offset ?? 0` pointed the squiggle at the top
+// of the document whenever mdast omitted an offset. The engine's line index has
+// always had the answer.
+describe("W01 — a missing parser offset falls back to the line index, not to 0", () => {
+  it("locates the heading on its own line", () => {
+    const mdast: Root = {
+      type: "root",
+      children: [
+        {
+          type: "heading",
+          depth: 1,
+          children: [{ type: "text", value: "H1" }],
+          position: { start: { line: 1, column: 1, offset: 0 }, end: { line: 1, column: 5, offset: 4 } },
+        } as Heading,
+        {
+          type: "heading",
+          depth: 3,
+          children: [{ type: "text", value: "H3" }],
+          position: { start: { line: 3, column: 1 }, end: { line: 3, column: 7 } },
+        } as unknown as Heading,
+      ],
+    };
+
+    const diagnostics = headingIncrement("", mdast, { lines: ["# H1", "", "### H3"], lineOffsets: [0, 5, 6] });
+    expect(diagnostics).toHaveLength(1);
+    expect(diagnostics[0].offset).toBe(6);
   });
 });

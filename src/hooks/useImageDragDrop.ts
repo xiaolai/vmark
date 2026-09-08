@@ -12,7 +12,7 @@
  *   - Distinguishes image drops from file-open drops (useDragDropOpen handles non-images)
  *   - Supports both WYSIWYG (ProseMirror node) and Source (markdown text) insertion
  *
- * @coordinates-with useImageOperations.ts — saveImageToAssets for file I/O
+ * @coordinates-with services/media/imageOperations.ts — saveImageToAssets for file I/O
  * @coordinates-with useDragDropOpen.ts — handles non-image file drops
  * @coordinates-with dropZoneStore.ts — visual drop zone state
  * @module hooks/useImageDragDrop

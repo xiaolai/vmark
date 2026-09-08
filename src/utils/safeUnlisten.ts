@@ -11,7 +11,8 @@
  *   - safeUnlistenAsync handles the common case of cleanup running before
  *     the listen() promise resolves
  *
- * @coordinates-with menuListenerHelper.ts — uses safeUnlisten for cleanup
+ * @coordinates-with hooks/useSourceOutlineSync.ts — uses safeUnlisten for cleanup
+ * @coordinates-with hooks/useUpdateChecker.ts — uses safeUnlistenAsync for cleanup
  * @module utils/safeUnlisten
  */
 

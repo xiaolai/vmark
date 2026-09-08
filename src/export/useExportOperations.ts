@@ -5,116 +5,32 @@
  * (helper webview + system print dialog). HTML Export: ExportSurface.
  */
 
-import { save } from "@tauri-apps/plugin-dialog";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { imeToast as toast } from "@/services/ime/imeToast";
 
-import { exportWarn, exportError, pdfError, printError } from "@/utils/debug";
+import { exportError, pdfError, printError } from "@/utils/debug";
 import i18n from "@/i18n";
-import { exportHtml } from "./htmlExport";
 import { renderMarkdownToHtml } from "./renderMarkdownToHtml";
-import { captureThemeCSS } from "./themeSnapshot";
-import { useSettingsStore } from "@/stores/settingsStore";
-import { joinPath } from "@/utils/pathUtils";
 import { showError, FileErrors } from "@/services/dialogs/errorDialog";
-import { commandErrorMessage } from "@/services/commands/commandError";
-import { warnMissingResources } from "./exportResourceWarnings";
+import { getActiveTabId } from "@/services/navigation/activeDocument";
+import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
+import { readPrintStatus } from "./printOutcome";
+import { hasExportableContent } from "./exportGuards";
 
-/** Options for the exportToHtml operation. */
-export interface ExportToHtmlOptions {
-  /** Markdown content */
-  markdown: string;
-  /** Default folder name (document title) */
-  defaultName?: string | undefined;
-  /** Default parent directory; `| undefined` — unsaved docs have no path to derive it from. */
-  defaultDirectory?: string | undefined;
-  /** Source file path for resource resolution */
-  sourceFilePath?: string | null | undefined;
-}
-
-/**
- * Export markdown to HTML folder.
- *
- * Creates:
- * - DocumentName/index.html (external CSS/JS/images)
- * - DocumentName/standalone.html (all embedded)
- * - DocumentName/assets/ (CSS, JS, images)
- */
-export async function exportToHtml(
-  options: ExportToHtmlOptions
-): Promise<boolean> {
-  const {
-    markdown,
-    defaultName = "document",
-    defaultDirectory,
-    sourceFilePath,
-  } = options;
-
-  // Check for empty content
-  const trimmedContent = markdown.trim();
-  if (!trimmedContent) {
-    toast.error(i18n.t("dialog:toast.exportNoContent"));
-    return false;
-  }
-
-  try {
-    // User picks/creates a folder
-    // Note: On macOS, the save panel requires a file-like path to populate the filename field.
-    // We append a placeholder extension that will be stripped from the final folder name.
-    const safeName = `${defaultName}.html`;
-    const defaultPath = defaultDirectory
-      ? joinPath(defaultDirectory, safeName)
-      : safeName;
-
-    // Strip filters per macOS Tahoe parity rule (saveDialogWithFallback).
-    // The default filename already carries .html, and the user can edit it.
-    const selectedPath = await save({
-      defaultPath,
-      title: i18n.t("dialog:toast.exportHtmlDialogTitle"),
-    });
-
-    if (!selectedPath) return false;
-
-    // Strip the .html extension if present (user might have edited the name)
-    const folderPath = selectedPath.replace(/\.html$/i, "");
-
-    // Render markdown to HTML
-    const html = await renderMarkdownToHtml(markdown, true);
-
-    // Get font settings
-    const settings = useSettingsStore.getState();
-    const fontSettings = {
-      fontFamily: settings.appearance.latinFont,
-      monoFontFamily: settings.appearance.monoFont,
-    };
-
-    // Export with options
-    const result = await exportHtml(html, {
-      title: defaultName.replace(/\.[^.]+$/, ""),
-      sourceFilePath,
-      outputPath: folderPath,
-      fontSettings,
-      forceLightTheme: true,
-    });
-
-    if (!result.success) {
-      throw new Error(result.error ?? "Export failed");
-    }
-
-    if (result.warnings.length > 0) {
-      exportWarn("Warnings:", result.warnings);
-      const count = result.warnings.length;
-      toast.warning(i18n.t("dialog:toast.exportHtmlResourceWarning", { count }));
-    }
-
-    toast.success(i18n.t("dialog:toast.exportHtmlSuccess"));
-    return true;
-  } catch (error) {
-    exportError("Failed to export HTML:", error);
-    await showError(FileErrors.exportFailed("HTML"), commandErrorMessage(error));
-    return false;
-  }
-}
+// Re-exported, not moved away: `services/commands/exportCommands.ts` and the
+// export test suite reach the folder export through this module, and the split
+// is about file size, not about relocating a public entry point.
+export {
+  exportFolderPath,
+  exportToHtml,
+  type ExportToHtmlOptions,
+} from "./exportToHtmlFolder";
+import {
+  buildPrintHtml,
+  prepareExportBody,
+  liveEditorElement,
+  renderPrintableHtml,
+} from "./printDocument";
 
 /** Options for the exportToPdf (print) operation. */
 export interface ExportToPdfOptions {
@@ -133,52 +49,34 @@ export interface ExportToPdfOptions {
  */
 export async function exportToPdf(options: ExportToPdfOptions): Promise<void> {
   const { markdown, sourceFilePath } = options;
-
-  const trimmedContent = markdown.trim();
-  if (!trimmedContent) {
-    toast.error(i18n.t("dialog:toast.exportNoContent"));
-    return;
-  }
+  if (!hasExportableContent(markdown)) return;
 
   await exportToPdfBrowser(markdown, sourceFilePath ?? null);
 }
 
-/**
- * Export PDF: opens a preview dialog with Paged.js pagination, then exports
- * via WKWebView's native createPDF API (macOS only).
- */
+/** Export PDF: opens the settings window; the native renderer writes the file (all platforms). */
 export async function exportToPdfNative(options: ExportToPdfOptions): Promise<void> {
   const { markdown, defaultName, sourceFilePath } = options;
-
-  const trimmedContent = markdown.trim();
-  if (!trimmedContent) {
-    toast.error(i18n.t("dialog:toast.exportNoContent"));
-    return;
-  }
+  if (!hasExportableContent(markdown)) return;
 
   try {
-    // Render markdown to HTML (always light theme)
-    const renderedHtml = await renderMarkdownToHtml(markdown, true);
-
-    // Resolve images to data URIs for self-contained HTML
-    const { resolveResources, getDocumentBaseDir } = await import(
-      "./resourceResolver"
-    );
-    const baseDir = sourceFilePath
-      ? await getDocumentBaseDir(sourceFilePath)
-      : "/";
-    const { html: resolvedHtml, report } = await resolveResources(renderedHtml, { baseDir, mode: "single" });
-    warnMissingResources(report);
+    // Light-theme render with images inlined as data URIs (self-contained).
+    const renderedHtml = await renderPrintableHtml(markdown, sourceFilePath ?? null);
 
     // Open PDF export in native window
     const { openPdfExportWindow } = await import("@/services/navigation/pdfExportWindow");
     await openPdfExportWindow({
-      renderedHtml: resolvedHtml,
+      renderedHtml,
       defaultName,
     });
   } catch (error) {
     pdfError("Failed to open PDF dialog:", error);
-    toast.error(i18n.t("dialog:toast.failedToPreparePdf"));
+    // The detail, not just the headline: the HTML and print paths both hand the
+    // raw error on (`errorDetail` normalizes a typed CommandError through
+    // `commandErrorMessage`), and this one discarded it — so a refused render
+    // or a missing window said only "could not prepare PDF" (audit round 3,
+    // #701).
+    toast.errorDetail(i18n.t("dialog:toast.failedToPreparePdf"), error);
   }
 }
 
@@ -210,80 +108,41 @@ export function pickPrintHtmlSource(
  * `print_document` command builds a separate hidden webview, loads the
  * rendered HTML, and shows the platform's print dialog — same approach as
  * PDF export but with the print panel visible (all three platforms since
- * WI-PDF4.1). Local images are inlined as data-URIs first (#999): the helper
- * webview has no Tauri asset:// handler.
+ * WI-PDF4.1). Only a `completed` outcome toasts (WI-FL6.3).
+ *
+ * The HTML comes from the focused pane's live editor when it is showing the
+ * window's active tab — the document `export.pdf` resolved (fast path,
+ * WYSIWYG) — and from an ExportSurface render of the markdown otherwise:
+ * Source mode, or a split whose focused pane is not WYSIWYG (#346). Either
+ * way the local images are inlined first (#999): the helper webview has no
+ * Tauri asset:// handler. See printDocument.ts for each step.
  */
 async function exportToPdfBrowser(
   markdown: string,
   sourceFilePath: string | null = null,
 ): Promise<void> {
   try {
-    // Read HTML directly from the live editor DOM for instant print in
-    // WYSIWYG mode. This bypasses ExportSurface (used by Export PDF) for
-    // speed. Local images in the live DOM use asset:// URLs which the
-    // off-screen WKWebView created by `print_document` cannot resolve (it
-    // loads a plain file URL and has no Tauri asset protocol handler), so
-    // they must be inlined as data URIs below (issue #999). For
-    // visual-parity export, use Export PDF.
-    //
-    // In Source mode there is no `.ProseMirror` element, so the source
-    // resolver returns a "render" decision and we fall back to
-    // ExportSurface — slower but correct, instead of showing a misleading
-    // "no content to print" error.
-    const source = pickPrintHtmlSource(document.querySelector(".ProseMirror"), markdown);
-    let html: string;
-    if (source.kind === "live") {
-      html = source.html;
-    } else if (source.kind === "render") {
-      html = await renderMarkdownToHtml(source.markdown, true);
-    } else {
+    const activeTabId = getActiveTabId(getCurrentWindowLabel());
+    const source = pickPrintHtmlSource(liveEditorElement(activeTabId), markdown);
+    if (source.kind === "empty") {
       toast.error(i18n.t("dialog:toast.noEditorContentToPrint"));
       return;
     }
 
-    // Inline local images (relative/absolute/asset:// paths) as data URIs so
-    // the off-screen print WKWebView can load them; remote http(s) URLs pass
-    // through untouched. Resolved relative to the source document's directory.
-    const { resolveResources, getDocumentBaseDir } = await import("./resourceResolver");
-    const baseDir = await getDocumentBaseDir(sourceFilePath);
-    const { html: resolvedHtml, report } = await resolveResources(html, { baseDir, mode: "single" });
-    html = resolvedHtml;
-    warnMissingResources(report);
-
-    const themeCSS = captureThemeCSS();
-    const { getEditorContentCSS } = await import("./htmlExportStyles");
-    const contentCSS = getEditorContentCSS();
-    const { getKatexCSS, getForceLightThemeCSS, getSharedContentCSS } = await import("./pdfHtmlTemplate");
-
-    // Build a self-contained HTML document for the print WKWebView
-    // Always force light theme — dark backgrounds waste ink and look wrong on paper
-    const fullHtml = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Print</title>
-  <style>
-${getKatexCSS()}
-${themeCSS}
-${getForceLightThemeCSS()}
-${contentCSS}
-
-@page { margin: 1.5cm; }
-body { background: var(--bg-color); color: var(--text-color); margin: 0; padding: 2em; }
-${getSharedContentCSS()}
-  </style>
-</head>
-<body>
-  <div class="export-surface">
-    <div class="export-surface-editor tiptap-editor">
-${html}
-    </div>
-  </div>
-</body>
-</html>`;
+    // `renderPrintableHtml` IS render-then-inline, and the native-PDF path
+    // already calls it. Spelling the two steps out here left one printable-body
+    // recipe in two places, free to drift (audit round 3, #702); the LIVE
+    // branch is the only one that differs, because its HTML is already
+    // rendered and needs the inlining half alone.
+    const body =
+      source.kind === "live"
+        ? await prepareExportBody(source.html, sourceFilePath)
+        : await renderPrintableHtml(source.markdown, sourceFilePath);
+    const fullHtml = await buildPrintHtml(body);
 
     const { invoke } = await import("@tauri-apps/api/core");
-    await invoke("print_document", { html: fullHtml });
+    const outcome = await invoke<unknown>("print_document", { html: fullHtml });
+    if (readPrintStatus(outcome) === "completed") toast.success(i18n.t("dialog:toast.printCompleted"));
   } catch (error) {
     printError("Failed to print:", error);
     // "Print failed", not "failed to open print dialog": on Linux a CONFIRMED
@@ -295,23 +154,21 @@ ${html}
 }
 
 /**
- * Copy rendered HTML to clipboard.
+ * Copy rendered HTML to clipboard. Unstyled by design: the optional branch that
+ * prefixed the captured theme CSS had no caller and was removed (WI-FL3.9).
+ * Empty content is refused with the same toast as the export operations.
+ *
+ * The markup is the same BODY every other export path produces (audit R2,
+ * #703/#704): unsanitized and unresolved, it carried ProseMirror's artifacts
+ * and `asset://` URLs that resolve nowhere outside VMark, so every image broke
+ * on paste. `sourceFilePath` is what a relative image is relative TO.
  */
-export async function copyAsHtml(
-  markdown: string,
-  includeStyles: boolean = false
-): Promise<boolean> {
+export async function copyAsHtml(markdown: string, sourceFilePath: string | null = null): Promise<boolean> {
+  if (!hasExportableContent(markdown)) return false;
   try {
-    // Render markdown to HTML
-    const html = await renderMarkdownToHtml(markdown, true);
-
-    if (includeStyles) {
-      const themeCSS = captureThemeCSS();
-      const styledHtml = `<style>${themeCSS}</style>\n${html}`;
-      await writeText(styledHtml);
-    } else {
-      await writeText(html);
-    }
+    const rendered = await renderMarkdownToHtml(markdown, true);
+    const html = await prepareExportBody(rendered, sourceFilePath);
+    await writeText(html);
 
     toast.success(i18n.t("dialog:toast.htmlCopied"));
     return true;

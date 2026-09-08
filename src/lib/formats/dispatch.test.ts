@@ -18,7 +18,7 @@ import {
 import type { FormatConfig } from "./types";
 
 const baseAdapters: FormatConfig["adapters"] = {
-  saveDialogFilters: [{ name: "Plain", extensions: ["txt"] }],
+  saveDialogFilters: [{ nameI18nKey: "format.txt", extensions: ["txt"] }],
   untitledExtension: "txt",
   readOnlyDefault: false,
   closeSavePolicy: "prompt-on-close",
@@ -30,7 +30,7 @@ const baseAdapters: FormatConfig["adapters"] = {
   },
 };
 
-const StubComponent = (() => null) as unknown as FormatConfig["wysiwygComponent"];
+const StubComponent = (() => null) as unknown as NonNullable<FormatConfig["wysiwygComponent"]>;
 
 const md: FormatConfig = {
   id: "markdown",
@@ -168,13 +168,13 @@ describe("dispatchEditor — markdown allowlist guarantee", () => {
   it("never returns markdown for a pathed file when txt is unavailable but the ext is unknown", () => {
     __resetRegistry();
     // Only markdown registered — a pathed unknown file has no txt to fall
-    // back to. The contract still forbids the markdown editor here; the
-    // last-resort is the markdown fallback ONLY because nothing else
-    // exists. With txt present (the real app), it never reaches markdown.
+    // back to. The contract forbids the markdown editor here, and until
+    // audit 20260907 (#404) the fallback chain ended on it anyway. A missing
+    // txt is a bootstrap defect (the trio is registered unconditionally), so
+    // the dispatch now fails loudly instead of granting WYSIWYG to a file
+    // nothing recognised.
     registerFormat(md);
-    // markdown is the only registered format, so the fallback chain ends
-    // there — documents the degenerate single-format case.
-    expect(dispatchEditor("/x/.env.local").id).toBe("markdown");
+    expect(() => dispatchEditor("/x/.env.local")).toThrowError(/plain-text fallback "txt" is not registered/);
     __resetRegistry();
     bootstrapTrio();
   });

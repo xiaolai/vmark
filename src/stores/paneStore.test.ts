@@ -87,9 +87,7 @@ describe("paneStore (#1081)", () => {
     expect(usePaneStore.getState().getSplit(W).fraction).toBe(MAX_PANE_FRACTION);
   });
 
-  it("setOrientation and toggleSyncScroll work", () => {
-    usePaneStore.getState().setOrientation(W, "vertical");
-    expect(usePaneStore.getState().getSplit(W).orientation).toBe("vertical");
+  it("toggleSyncScroll flips the flag", () => {
     usePaneStore.getState().toggleSyncScroll(W);
     expect(usePaneStore.getState().getSplit(W).syncScroll).toBe(true);
   });
@@ -152,6 +150,20 @@ describe("paneStore (#1081)", () => {
 // WI-10.1 — atomic pane replacement: the ONE validated action that applies a
 // (possibly stashed) split and performs the single final activeTabId sync
 // (ADR-1 alias invariant). Used by the rail-switch coordinator (WI-2R/10.2).
+// Audit 20260907 (#490): `getSplit` hands DEFAULT_SPLIT itself to every window
+// without state, so a consumer mutating "its" split would have corrupted the
+// default for every window, with no store update to notice it. Frozen now.
+describe("DEFAULT_SPLIT is immutable (#490)", () => {
+  it("is frozen, so an accidental mutation throws instead of leaking", () => {
+    expect(Object.isFrozen(DEFAULT_SPLIT)).toBe(true);
+    const split = usePaneStore.getState().getSplit("no-such-window") as { enabled: boolean };
+    expect(() => {
+      split.enabled = true;
+    }).toThrow(TypeError);
+    expect(usePaneStore.getState().getSplit("another-window").enabled).toBe(false);
+  });
+});
+
 describe("replaceWindowSplit (WI-10.1)", () => {
   function split(over: Partial<typeof DEFAULT_SPLIT>) {
     return { ...DEFAULT_SPLIT, ...over };

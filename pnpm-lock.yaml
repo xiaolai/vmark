@@ -30,9 +30,6 @@ importers:
 
   .:
     dependencies:
-      '@actions/languageservice':
-        specifier: 0.3.61
-        version: 0.3.61
       '@actions/workflow-parser':
         specifier: 0.3.61
         version: 0.3.61
@@ -306,12 +303,6 @@ importers:
       unist-util-visit:
         specifier: ^5.1.0
         version: 5.1.0
-      vscode-languageserver-textdocument:
-        specifier: ^1.0.12
-        version: 1.0.12
-      vscode-languageserver-types:
-        specifier: ^3.18.0
-        version: 3.18.0
       yaml:
         specifier: 2.9.0
         version: 2.9.0
@@ -599,10 +590,6 @@ packages:
 
   '@actions/expressions@0.3.61':
     resolution: {integrity: sha512-Ig+tXELvTjlqxQAWBQnLNn2dPpNraLMdSnT+vDzDPmJtbNUhIAH/Z9kVT8pZ8UtJi9vUGs8hwHE8JFJmbOnLEA==}
-    engines: {node: '>= 20'}
-
-  '@actions/languageservice@0.3.61':
-    resolution: {integrity: sha512-PoBYhLZ3JG74ZBTAwvrs/V6JdpscCpXv8rprc4yzEQN7Z0FMEso0rewdmMUqwUxYKe7nq6J4RPp+ZVCRL82Zfg==}
     engines: {node: '>= 20'}
 
   '@actions/workflow-parser@0.3.61':
@@ -9172,12 +9159,6 @@ packages:
       jsdom:
         optional: true
 
-  vscode-languageserver-textdocument@1.0.12:
-    resolution: {integrity: sha512-cxWNPesCnQCcMPeenjKKsOCKQZ/L6Tv19DTRIGuLWe32lyzWhihGVJ/rcckZXJxfdKCFvRLS3fpBIsV/ZGX4zA==}
-
-  vscode-languageserver-types@3.18.0:
-    resolution: {integrity: sha512-8TsGPNMIMiiBdkORgRSvLjuiEIiAFtO+KssmYWxQ+uSVvlf7RjK8YKCOjPzZ+YA04jXEV7+7LvkSmHkhpNS99g==}
-
   vscode-uri@3.1.0:
     resolution: {integrity: sha512-/BpdSx+yCQGnCvecbyXdxHDkuk55/G3xwnC0GqY4gmQ3j+A+g8kzzgB4Nk/SINjqn6+waqw3EgbVF2QKExkRxQ==}
 
@@ -9485,15 +9466,6 @@ packages:
 snapshots:
 
   '@actions/expressions@0.3.61': {}
-
-  '@actions/languageservice@0.3.61':
-    dependencies:
-      '@actions/expressions': 0.3.61
-      '@actions/workflow-parser': 0.3.61
-      vscode-languageserver-textdocument: 1.0.12
-      vscode-languageserver-types: 3.18.0
-      vscode-uri: 3.1.0
-      yaml: 2.9.0
 
   '@actions/workflow-parser@0.3.61':
     dependencies:
@@ -19502,10 +19474,6 @@ snapshots:
       jsdom: 30.0.1
     transitivePeerDependencies:
       - msw
-
-  vscode-languageserver-textdocument@1.0.12: {}
-
-  vscode-languageserver-types@3.18.0: {}
 
   vscode-uri@3.1.0: {}
 

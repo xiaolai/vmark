@@ -1,31 +1,21 @@
-//! # File Tree
+//! # File Tree — hidden-entry detection
 //!
-//! Purpose: Lists directory contents for the sidebar file explorer.
+//! Purpose: decides whether a directory entry is hidden, for the file
+//! explorer's one-call tree listing (`file_tree_walk.rs`, #1357).
 //!
-//! Pipeline: Frontend invoke("list_directory_entries") → this module → filesystem readdir.
-//! `file_tree_walk.rs` (the one-call tree listing, #1357) reuses `compute_is_hidden`.
+//! History: this module was the per-directory `list_directory_entries` IPC
+//! (one invoke per expanded folder, serially awaited). #1357 replaced that
+//! with the single `list_directory_tree` call and the command stayed
+//! registered with zero callers until WI-FL3.2 deleted it. The hidden-detection
+//! rule it carried was the only part still load-bearing, so that is what
+//! remains.
 //!
 //! Key decisions:
-//!   - Hidden file detection is cross-platform: dot-prefix on all OSes,
-//!     plus FILE_ATTRIBUTE_HIDDEN/SYSTEM on Windows.
-//!   - Errors on individual entries are silently skipped so one bad symlink
-//!     doesn't break the entire listing.
-//!   - Results are capped at MAX_DIR_ENTRIES (10,000) to prevent unbounded
-//!     memory use on directories with millions of files.
+//!   - Hidden detection is cross-platform: dot-prefix on all OSes, plus
+//!     FILE_ATTRIBUTE_HIDDEN/SYSTEM on Windows — and the Windows stat happens
+//!     only when the cheap name check did not already decide.
 
-use serde::Serialize;
 use std::fs;
-
-/// A single file or directory entry returned by `list_directory_entries`.
-#[derive(Debug, Serialize)]
-pub struct DirectoryEntry {
-    pub name: String,
-    pub path: String,
-    #[serde(rename = "isDirectory")]
-    pub is_directory: bool,
-    #[serde(rename = "isHidden")]
-    pub is_hidden: bool,
-}
 
 fn is_hidden_by_name(name: &str) -> bool {
     name.starts_with('.')
@@ -58,127 +48,43 @@ pub(crate) fn compute_is_hidden(name: &str, entry: &fs::DirEntry) -> bool {
     false
 }
 
-/// Maximum directory entries to return (safety limit for huge directories).
-pub const MAX_DIR_ENTRIES: usize = 10_000;
-// Compile-time sanity bounds: large enough for real workspaces, small enough
-// to keep a single IPC payload bounded.
-const _: () = assert!(MAX_DIR_ENTRIES >= 1000 && MAX_DIR_ENTRIES <= 100_000);
-
-/// List immediate children of a directory for the file explorer sidebar.
-///
-/// Returns name, path, directory flag, and hidden flag for each entry.
-/// Individual entry errors (e.g., broken symlinks) are silently skipped.
-///
-/// `async` + `spawn_blocking` so a large-directory expand (up to
-/// `MAX_DIR_ENTRIES` `readdir` results) runs off the IPC thread (O4 / WI-2.3).
-///
-/// # Errors
-/// Returns `Err` if the directory itself cannot be read.
-#[tauri::command]
-pub async fn list_directory_entries(path: String) -> Result<Vec<DirectoryEntry>, String> {
-    tokio::task::spawn_blocking(move || list_directory_entries_blocking(&path))
-        .await
-        .map_err(|e| format!("Directory listing task failed: {e}"))?
-}
-
-/// Synchronous core of `list_directory_entries` (runs inside `spawn_blocking`).
-fn list_directory_entries_blocking(path: &str) -> Result<Vec<DirectoryEntry>, String> {
-    let entries = fs::read_dir(path).map_err(|e| format!("Failed to read dir: {e}"))?;
-    let mut results = Vec::new();
-
-    let mut truncated = false;
-    for entry in entries {
-        if results.len() >= MAX_DIR_ENTRIES {
-            truncated = true;
-            break;
-        }
-
-        let entry = match entry {
-            Ok(entry) => entry,
-            Err(_) => continue,
-        };
-
-        let name = entry.file_name().to_string_lossy().to_string();
-        let path = entry.path().to_string_lossy().to_string();
-
-        // `file_type()` comes from the `readdir` `d_type` field on most
-        // platforms — cheap, no extra stat.
-        let is_directory = entry
-            .file_type()
-            .map(|file_type| file_type.is_dir())
-            .unwrap_or(false);
-
-        // Avoid the per-entry `metadata()` stat where it isn't needed:
-        //   - dot-prefixed names are hidden by name on every OS;
-        //   - on Unix nothing else can mark a file hidden, so no stat at all;
-        //   - only non-dotfiles on Windows need a stat for HIDDEN/SYSTEM attrs.
-        let is_hidden = compute_is_hidden(&name, &entry);
-
-        results.push(DirectoryEntry {
-            name,
-            path,
-            is_directory,
-            is_hidden,
-        });
-    }
-
-    if truncated {
-        log::warn!(
-            "directory listing truncated at {} entries for: {}",
-            MAX_DIR_ENTRIES,
-            path
-        );
-    }
-
-    Ok(results)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::fs;
+    use std::path::Path;
     use tempfile::tempdir;
 
-    #[test]
-    fn list_directory_entries_under_limit_returns_all() {
-        let dir = tempdir().unwrap();
-        let root = dir.path();
-
-        for i in 0..5 {
-            fs::write(root.join(format!("file_{i}.md")), "content").unwrap();
-        }
-
-        let entries = list_directory_entries_blocking(root.to_str().unwrap()).unwrap();
-        assert_eq!(entries.len(), 5);
+    fn entry_named(root: &Path, name: &str) -> fs::DirEntry {
+        fs::read_dir(root)
+            .unwrap()
+            .map(|e| e.unwrap())
+            .find(|e| e.file_name() == name)
+            .expect("entry exists")
     }
 
     #[test]
-    fn list_directory_entries_marks_dotfiles_hidden() {
+    fn dot_prefixed_names_are_hidden_everywhere() {
         let dir = tempdir().unwrap();
-        let root = dir.path();
-
-        fs::write(root.join(".hidden.md"), "secret").unwrap();
-        fs::write(root.join("visible.md"), "hello").unwrap();
-
-        let entries = list_directory_entries_blocking(root.to_str().unwrap()).unwrap();
-
-        let hidden = entries.iter().find(|entry| entry.name == ".hidden.md");
-        let visible = entries.iter().find(|entry| entry.name == "visible.md");
-
-        assert!(hidden.is_some());
-        assert!(visible.is_some());
-        assert!(hidden.unwrap().is_hidden);
-        assert!(!visible.unwrap().is_hidden);
+        fs::write(dir.path().join(".hidden.md"), "secret").unwrap();
+        fs::write(dir.path().join("visible.md"), "hello").unwrap();
+        assert!(compute_is_hidden(
+            ".hidden.md",
+            &entry_named(dir.path(), ".hidden.md")
+        ));
+        assert!(!compute_is_hidden(
+            "visible.md",
+            &entry_named(dir.path(), "visible.md")
+        ));
     }
 
     #[cfg(windows)]
     #[test]
-    fn list_directory_entries_marks_windows_hidden_attribute() {
+    fn windows_hidden_attribute_marks_an_entry_hidden() {
         let dir = tempdir().unwrap();
-        let root = dir.path();
-        let hidden = root.join("attr-hidden.md");
+        let hidden = dir.path().join("attr-hidden.md");
         fs::write(&hidden, "hidden by attribute").unwrap();
-        fs::write(root.join("plain.md"), "visible").unwrap();
+        fs::write(dir.path().join("plain.md"), "visible").unwrap();
 
         // Set FILE_ATTRIBUTE_HIDDEN via attrib (no direct std API).
         let status = std::process::Command::new("attrib")
@@ -188,29 +94,13 @@ mod tests {
             .expect("attrib must be available on Windows");
         assert!(status.success());
 
-        let entries = list_directory_entries_blocking(root.to_str().unwrap()).unwrap();
-        let by_attr = entries
-            .iter()
-            .find(|entry| entry.name == "attr-hidden.md")
-            .unwrap();
-        let plain = entries
-            .iter()
-            .find(|entry| entry.name == "plain.md")
-            .unwrap();
-        assert!(by_attr.is_hidden, "FILE_ATTRIBUTE_HIDDEN must mark hidden");
-        assert!(!plain.is_hidden);
-    }
-
-    #[test]
-    fn list_directory_entries_caps_at_max() {
-        let dir = tempdir().unwrap();
-        let root = dir.path();
-        // A few hundred entries is enough to exercise the loop without being slow.
-        for i in 0..600 {
-            fs::write(root.join(format!("f_{i}.md")), "x").unwrap();
-        }
-        let entries = list_directory_entries_blocking(root.to_str().unwrap()).unwrap();
-        assert_eq!(entries.len(), 600);
-        assert!(entries.len() <= MAX_DIR_ENTRIES);
+        assert!(
+            compute_is_hidden("attr-hidden.md", &entry_named(dir.path(), "attr-hidden.md")),
+            "FILE_ATTRIBUTE_HIDDEN must mark hidden"
+        );
+        assert!(!compute_is_hidden(
+            "plain.md",
+            &entry_named(dir.path(), "plain.md")
+        ));
     }
 }

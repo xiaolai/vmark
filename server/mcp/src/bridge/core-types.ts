@@ -7,7 +7,7 @@
  * bridge parser extracts `type` as the request_type and forwards every other
  * key as args, so all extra fields here are flat (not nested under `args`).
  *
- * Plan: dev-docs/plans/20260504-mcp-pruning.md
+ * Origin: MCP pruning plan (2026-05-04, retired)
  */
 
 /**

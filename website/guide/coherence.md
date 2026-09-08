@@ -33,7 +33,7 @@ Nothing is ever auto-updated; you stay the editor-in-chief.
 
 ## The Breakdown view
 
-Open it from **Window → Breakdown** (or the command palette:
+Open it from **Window → Coherence Breakdown** (or the command palette:
 "Breakdown View"). It is strictly **pull-based**: it refreshes when you
 open it or press refresh — it never nags in the background.
 
@@ -64,6 +64,52 @@ Each item offers three honest actions — none of them rewrites history:
 Accept-newer and waive are disabled when the upstream has multiple
 current versions — there is no single revision to resolve against;
 revise (or reconcile the versions) first.
+
+## Quieting flags you do not need
+
+Two controls on each Breakdown row narrow what the layer asks about. Both
+are human-only — no MCP tool can set them.
+
+**Mark finished (document lifecycle).** When a downstream document is done —
+a published chapter, a delivered report — choose **Mark finished** on any of
+its rows. It silences every dependency into that document, including ones not
+currently listed, which is why it asks for confirmation. Its edges move to the
+collapsed **Not Asking About These** group at the bottom of the panel, labelled
+*finished document*: still tracked, still visible on request, just no longer
+interrupting you. **Reopen** brings them back with a single click and no
+confirmation, since reopening only ever adds interruptions back. Lifecycle is
+recorded in the ledger, not in frontmatter, so marking a document finished does
+not create a new revision of it.
+
+**Section anchors.** An unanchored edge asks "did the upstream file change?".
+**Anchor to a section** narrows it to "did the section I depend on change?":
+pick a heading from the upstream document and the edge is pinned to that
+heading path. While the anchored section is unchanged, an upstream edit
+elsewhere leaves the edge in the suppressed group as *depended-on section
+unchanged*; an edit inside the section surfaces it as *anchored section
+changed*. If the heading disappears, the edge is flagged *anchor lost* rather
+than quietly reverting to whole-file behaviour. **Change anchor** re-pins it
+and **Whole file** clears it. Anchors are their own revisable ledger entries,
+so they follow the edge through later revisions.
+
+## The coherence log and flag judgment
+
+**Coherence Log** (a disclosure in the Breakdown panel) is the per-edge history
+the ledger holds: every check, ratification and waiver, how many times each
+edge has been resolved (*resolved 3x*), and how many edges have been resolved
+more than once — churn, which is the real burden of a noisy dependency graph.
+A semantic check the model answered below the confidence threshold is shown
+with its preserved verdict and confidence (*model said … at …, below
+threshold*), so "no signal" and "answered, but not confidently enough" stay
+distinguishable. The log is read from the whole ledger, so it loads only when
+you expand it and reloads on each expand.
+
+**Was this worth flagging?** Each surfaced row offers **Worth flagging?** with
+three answers — **Yes**, **No**, **Unsure** — and deliberately no default. Your
+answers are recorded as their own ledger entries and tallied in the log
+(*Judged relevant … · noise … · unsure … · unjudged …*). This is the
+staleness-relevance measure the layer is tuned against: a flag you judge noise
+is a candidate for a section anchor or a finished mark.
 
 ## Semantic checking, claims, and contexts
 

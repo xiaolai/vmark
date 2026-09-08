@@ -5,11 +5,33 @@ base, and preview/export [Slidev](https://sli.dev) presentation decks — both
 powered by a single local content server that VMark starts on demand.
 
 ::: warning Status
-This feature is rolling out in phases. The content server (knowledge-base
-rendering, relationship graph, search, live reload) and Slidev preview run on a
-bundled Node runtime. Slidev export additionally provisions a headless Chromium
-on first use. See the in-app **Knowledge Base** panel.
+This feature is rolling out in phases, and **today's release builds do not
+include the content-server runtime** it depends on — see
+[Requirements](#requirements). Open the in-app **Knowledge Base** panel to see
+what your machine has and what is missing.
 :::
+
+## Requirements
+
+The knowledge base, its relationship graph, search, live reload and Slidev
+preview all run on one local content server — a separate Node.js program that
+VMark starts on demand. Two things must be present before it can start:
+
+- **Node.js.** VMark resolves `node` through your login shell's `PATH`, the way
+  a terminal would, so a Node.js that only a project-local tool can see does not
+  count. Install it so that `node` is on your login-shell `PATH`.
+- **The content server itself** (`server/content` in the VMark repository,
+  built to a `cli.js`). **Packaged VMark builds do not include it yet**: the app
+  bundle ships no content-server runtime, so on a release install this half is
+  always missing. Until a release story lands, the feature requires a
+  development setup — a checkout of VMark with the content server built, made
+  available through the `VMARK_CONTENT_SERVER_CLI` environment variable (or a
+  provisioned `base-kb` runtime in VMark's application data).
+
+The panel checks both when it opens. When either is missing it says which one,
+and what would provide it, instead of attempting a start that cannot succeed.
+The **View → Knowledge Base** menu item and the command palette entry stay
+available so the panel can tell you this.
 
 ## Opening the panel
 
@@ -38,8 +60,7 @@ Capabilities:
 You can view the knowledge base inside VMark (embedded panel) or **open it in
 your browser** — the "Open in browser" action performs a one-time authenticated
 handshake so your browser receives a session cookie. The server is loopback-only
-and cookie-gated; it never exposes your workspace beyond your machine, and only
-trusted workspaces are served.
+and cookie-gated; it never exposes your workspace beyond your machine.
 
 ## Slidev presentations
 
@@ -65,5 +86,11 @@ exporter at it instead.
   as an HttpOnly, SameSite=Strict cookie).
 - File access is contained to the workspace root; path traversal is rejected and
   symlinks are not followed.
-- Rendered HTML is sanitized; remote resources follow a content-security policy
-  that tightens for untrusted workspaces.
+- Rendered HTML is sanitized and served under a content security policy.
+  **Workspace trust changes exactly one thing here: whether remote images
+  render.** VMark passes the workspace's trust to the server when it starts
+  it; for a trusted workspace the policy relaxes `img-src` so `https:` images
+  load, for an untrusted workspace only local and inline images render. Trust
+  does not decide whether a workspace is served — any open workspace can be.
+  Changing a workspace's trust while its knowledge base is running restarts
+  the server, so the policy follows the change.

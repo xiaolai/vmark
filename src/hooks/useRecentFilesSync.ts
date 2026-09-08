@@ -4,7 +4,7 @@
  * Purpose: Syncs the recent files list to the native macOS menu on app startup —
  *   needed because Zustand persist rehydration runs before Tauri APIs are ready.
  *
- * @coordinates-with recentFilesStore.ts — syncToNativeMenu action
+ * @coordinates-with stores/recentsStore.ts — useRecentFilesStore.syncToNativeMenu
  * @module hooks/useRecentFilesSync
  */
 

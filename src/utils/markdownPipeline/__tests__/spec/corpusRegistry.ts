@@ -17,7 +17,7 @@
  *
  * @coordinates-with specConformance.test.ts — parse-conformance consumer
  * @coordinates-with specRoundtrip.test.ts — roundtrip consumer
- * @coordinates-with ../../conformance/fixtures.ts — the VMark dialect manifest
+ * @coordinates-with ../conformance/fixtures.ts — the VMark dialect manifest
  * @coordinates-with scripts/vendor-spec-corpus.mjs — how corpus files are made
  * @module utils/markdownPipeline/__tests__/spec/corpusRegistry
  */
@@ -25,7 +25,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { FIXTURES } from "../../conformance/fixtures";
+import { FIXTURES } from "../conformance/fixtures";
 
 export interface CorpusRoutes {
   /** Compared against the stock remark reference parser. */

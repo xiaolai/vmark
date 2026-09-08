@@ -232,6 +232,13 @@
   padding: var(--space-1);
 }
 
+.prompt-history-dropdown-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--space-1) var(--space-1-5);
+  border-top: var(--border-thin) solid var(--border-color);
+}
+
 .prompt-history-dropdown-item {
   padding: 5px var(--space-2);
   border-radius: var(--radius-sm);

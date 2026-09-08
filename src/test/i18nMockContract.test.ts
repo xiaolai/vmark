@@ -22,7 +22,7 @@
  *    never held it.
  *
  * @coordinates-with src/test/setup.ts — the mock this pins
- * @module test/i18nMockContract
+ * @module test/i18nMockContract.test
  */
 import { describe, expect, it, vi } from "vitest";
 import { renderHook } from "@testing-library/react";

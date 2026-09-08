@@ -22,6 +22,7 @@ menu:
   file.openRecentWorkspace: "Zuletzt geöffneter Arbeitsbereich"
   file.close: "Schließen"
   file.closeWorkspace: "Arbeitsbereich schließen"
+  file.reopenClosedTab: "Geschlossenen Tab wieder öffnen"
   file.save: "Speichern"
   file.saveAs: "Speichern unter..."
   file.moveTo: "Verschieben nach..."
@@ -156,6 +157,7 @@ menu:
   insert.mindmap: "Mindmap"
   insert.horizontalLine: "Horizontale Linie"
   insert.footnote: "Fußnote"
+  insert.tableOfContents: "Inhaltsverzeichnis"
   insert.collapsible: "Zusammenklappbarer Block"
   insert.infoBox: "Infobox"
   insert.infoBox.note: "Hinweis"
@@ -269,10 +271,15 @@ errors:
   pdf.badTempPath: "Ungültiger Pfad zum temporären Dokument: %{path}"
   pdf.invalidExtension: "Ausgabepfad muss die Endung .pdf haben"
   pdf.dirNotFound: "Ausgabeverzeichnis existiert nicht"
+  pdf.parentNotDirectory: "Das übergeordnete Element des Ausgabepfads existiert, ist aber kein Verzeichnis"
+  pdf.publishFailed: "Das erzeugte PDF konnte nicht an den Ausgabepfad verschoben werden: %{detail}"
+  pdf.outputUnreadable: "Das erzeugte PDF konnte zur Prüfung nicht geöffnet werden: %{detail}"
   pdf.pathNotAbsolute: "Der Ausgabepfad muss absolut sein"
   pdf.outputIsDirectory: "Der Ausgabepfad ist ein Verzeichnis"
   pdf.loadTimeout: "HTML-Ladezeitüberschreitung (10 s)"
   pdf.emptyOutput: "Druckvorgang erzeugte leere PDF"
+  pdf.staleOutputNotRemoved: "Die vorhandene Datei am Ausgabepfad konnte nicht ersetzt werden: %{detail}"
+  pdf.outputNotPdf: "Der Druckvorgang hat keine gültige PDF-Datei erzeugt"
   pdf.printTimeout: "Druckvorgang-Zeitüberschreitung (60 s)"
   pdf.noPages: "PDF enthält keine Seiten"
   pdf.writeFailed: "Schreiben der PDF mit Lesezeichen fehlgeschlagen"
@@ -291,6 +298,7 @@ errors:
   workflow.engineDisabled: "Die Workflow-Engine ist in den Einstellungen deaktiviert"
   workflow.noPendingApproval: "Keine offene Genehmigungsanfrage stimmt überein"
   workflow.appDataDirUnavailable: "Das App-Datenverzeichnis konnte nicht ermittelt werden: %{detail}"
+  workflow.snapshotFailed: "Die Dateien, die dieser Workflow ändern würde, konnten nicht gesichert werden; er wurde daher nicht ausgeführt: %{detail}"
 
   # === Speicherpfad (file_write.rs, WI-14 CommandError) ===
   save.parentMissing: "Der Ordner dieser Datei existiert nicht mehr: %{dir}"
@@ -346,6 +354,8 @@ errors:
   genie.pathBlocked: "Genie-Pfad liegt außerhalb der erlaubten Verzeichnisse"
 
   # === MCP ===
+  mcp.bindFailed: "Die MCP-Bridge konnte %{address} nicht binden: %{detail}"
+  mcp.localAddrFailed: "Die MCP-Bridge hat einen Port gebunden, den sie nicht auslesen konnte: %{detail}"
   mcp.spawnInProgress: "MCP-Sidecar-Start bereits in Arbeit"
   mcp.configMismatch: "Konfigurationsvalidierung fehlgeschlagen: geschriebener Inhalt stimmt nicht überein"
 
@@ -390,8 +400,12 @@ errors:
   mcp.writeConfigPartialRemoved: "%{path} konnte nicht geschrieben werden: %{detail} (die unvollständige Datei wurde entfernt)"
   mcp.writeConfigPartialOrphaned: "%{path} konnte nicht geschrieben werden: %{detail}. Die unvollständige Datei ließ sich ebenfalls nicht entfernen (%{cleanup_detail}) — löschen Sie sie von Hand, bevor Sie es erneut versuchen, sonst liest die nächste Installation sie als beschädigte Konfiguration."
 
+  # === Secure store (secure_store.rs) ===
+  secureStore.keychainDenied: "Der Zugriff auf den Schlüsselbund wurde verweigert. Erlauben Sie VMark in der Schlüsselbund-Abfrage oder gewähren Sie den Zugriff in der Schlüsselbundverwaltung, und versuchen Sie es erneut."
+
 window:
   settings.title: "Einstellungen"
+  print.title: "VMark – Drucken"
 
 cli:
   dialogTitle: "Shell-Befehl"

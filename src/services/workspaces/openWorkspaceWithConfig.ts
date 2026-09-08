@@ -6,7 +6,7 @@
  *   that need to restore tabs or apply settings.
  *
  * @coordinates-with workspaceStore.ts — openWorkspace action
- * @coordinates-with utils/macQuarantineNotice.ts — clears quarantine on macOS
+ * @coordinates-with services/macos/macQuarantineNotice.ts — clears quarantine on macOS
  * @module services/workspaces/openWorkspaceWithConfig
  */
 

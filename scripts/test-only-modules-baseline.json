@@ -1,0 +1,13 @@
+{
+  "//": [
+    "WI-FL0.1 — modules unreachable from every production root (scripts/knip-production.json),",
+    "measured by scripts/check-test-only-modules.mjs. IDENTITY list, two-way: an unlisted",
+    "finding fails the gate, and so does an entry that is no longer a finding. Entries only",
+    "leave; Phase 3 of the feature-ledger plan deletes or wires each one. Never add by hand:",
+    "`node scripts/check-test-only-modules.mjs --update` records the measured set."
+  ],
+  "entries": [
+    "src/services/coherence/mergeAuditService.ts",
+    "src/services/operators/operatorService.ts"
+  ]
+}

@@ -14,39 +14,33 @@
 //! @coordinates-with verify.rs — every assertion lands there
 //! @module bin/pdf_smoke/scenarios
 
+use std::collections::BTreeSet;
 use std::path::Path;
 use std::time::Duration;
 
 use tauri::Manager;
 use vmark_lib::pdf_export::page_spec::PageSpec;
 
-use super::fixtures::{doc_for, large_doc};
+use super::fixtures::{doc_for, expected_pt, large_doc, A3, A4, A5, LEGAL, LETTER};
+use super::missing_path::{missing_parent, refusal_verdict};
 use super::render;
-use super::verify::{check, contains_text};
-
-/// A4 and A5 in points, portrait.
-const A4: PageSpec = PageSpec::new(595.28, 841.89);
-const A5: PageSpec = PageSpec::new(419.53, 595.28);
+use super::verify::{check, contains_text, lacks_text, pages_at_least};
 
 /// Every size × orientation the dialog offers.
 ///
 /// Until WI-PDF1.4 every one of them produced the system default paper on
-/// macOS, so this asserts the whole surface rather than a sample. Points are the
-/// portrait dimensions; landscape is the swap, never a flag (ADR-PDF1a).
+/// macOS, so this asserts the whole surface rather than a sample. The sizes
+/// are the fixtures' (#108); landscape is the swap, never a flag (ADR-PDF1a).
 pub async fn geometry_matrix(app: &tauri::AppHandle, out: &Path) -> usize {
-    const SIZES: [(&str, f64, f64); 4] = [
-        ("A4", 595.28, 841.89),
-        ("letter", 612.0, 792.0),
-        ("A3", 841.89, 1190.55),
-        ("legal", 612.0, 1008.0),
-    ];
+    const SIZES: [(&str, PageSpec); 4] =
+        [("A4", A4), ("letter", LETTER), ("A3", A3), ("legal", LEGAL)];
     let mut failures = 0usize;
-    for (css, w, h) in SIZES {
+    for (css, portrait) in SIZES {
         for landscape in [false, true] {
             let spec = if landscape {
-                PageSpec::new(h, w)
+                PageSpec::new(portrait.height_pt, portrait.width_pt)
             } else {
-                PageSpec::new(w, h)
+                portrait
             };
             let name = format!("{css}{}", if landscape { "-landscape" } else { "" });
             let css_size = if landscape {
@@ -59,7 +53,7 @@ pub async fn geometry_matrix(app: &tauri::AppHandle, out: &Path) -> usize {
                 &name,
                 render(app, &doc_for(&css_size, "<p>matrix</p>"), &path, spec).await,
                 &path,
-                Some((spec.width_pt.round() as u32, spec.height_pt.round() as u32)),
+                expected_pt(spec),
             );
         }
     }
@@ -78,18 +72,22 @@ pub async fn pagination(app: &tauri::AppHandle, out: &Path) -> usize {
     let mut failures = 0usize;
 
     let basic = out.join("basic.pdf");
-    failures += check(
-        "basic",
-        render(
-            app,
-            &doc_for("A4", "<div class='b'>one</div><div class='b'>two</div>"),
-            &basic,
-            A4,
-        )
-        .await,
+    let rendered = render(
+        app,
+        &doc_for("A4", "<div class='b'>one</div><div class='b'>two</div>"),
         &basic,
-        Some((595, 842)),
-    );
+        A4,
+    )
+    .await;
+    let ok = rendered.is_ok();
+    failures += check("basic", rendered, &basic, expected_pt(A4));
+    // The fixture is 360 mm of content on a 297 mm page, so it MUST paginate.
+    // Nothing checked that: `check` prints an approximate page count and
+    // asserts only the header and the first MediaBox, so a renderer that
+    // clipped everything past page one passed the case named for pagination.
+    if ok {
+        failures += pages_at_least("basic", &basic, 2);
+    }
 
     let a5 = out.join("a5.pdf");
     failures += check(
@@ -98,7 +96,7 @@ pub async fn pagination(app: &tauri::AppHandle, out: &Path) -> usize {
         &a5,
         // The whole point: a backend ignoring PageSpec still emits a valid PDF,
         // just at the platform default.
-        Some((420, 595)),
+        expected_pt(A5),
     );
 
     // Over 2 MiB — wry's `.with_html` caps there, so this proves navigation is
@@ -109,7 +107,7 @@ pub async fn pagination(app: &tauri::AppHandle, out: &Path) -> usize {
     let large = out.join("large.pdf");
     let rendered = render(app, &large_doc("A4"), &large, A4).await;
     let ok = rendered.is_ok();
-    failures += check("large", rendered, &large, Some((595, 842)));
+    failures += check("large", rendered, &large, expected_pt(A4));
     if ok {
         failures += contains_text("large", &large, "SENTINEL-PAST-2MIB");
     }
@@ -124,51 +122,84 @@ pub async fn pagination(app: &tauri::AppHandle, out: &Path) -> usize {
 /// the document to the DEFAULT PRINTER. An earlier version of this harness put
 /// four blank pages through a real one.
 pub async fn bad_path(app: &tauri::AppHandle) -> usize {
-    // ABSOLUTE-but-missing, and a POSIX literal is not absolute on Windows: a
-    // leading separator with no drive letter is root-RELATIVE, so validation
-    // refused it at the is_absolute check and returned InvalidInput, never
-    // reaching the missing-directory guard. `commands.test.rs` had already hit
-    // and documented that trap; this is its temp_dir answer.
-    //
-    // The directory name is UNIQUE per process: a fixed name under the shared
-    // temp dir can be left behind by an earlier run or created by a concurrent
-    // one, and then the case silently exercises a VALID destination and passes
-    // for the wrong reason.
-    let dir = std::env::temp_dir().join(format!("vmark-no-such-dir-{}", std::process::id()));
-    if dir.exists() {
-        println!("SMOKE badpath FAIL scratch dir {dir:?} already exists");
-        return 1;
-    }
-    let path = dir.join("x.pdf");
+    // The fixture and the refusal rule are `missing_path`'s, shared with
+    // `progress_case::refused` (#251, #253).
+    let fixture = match missing_parent() {
+        Ok(fixture) => fixture,
+        Err(e) => {
+            println!("SMOKE badpath FAIL could not build the fixture: {e}");
+            return 1;
+        }
+    };
 
-    match vmark_lib::pdf_export::renderer::render_pdf(
+    let result = vmark_lib::pdf_export::renderer::render_pdf(
         app.clone(),
         String::new(),
-        path.to_string_lossy().into_owned(),
+        fixture.path.to_string_lossy().into_owned(),
         A4,
     )
-    .await
-    {
-        Err(e) if e.code() == vmark_lib::command_error::ErrorCode::NotFound => {
+    .await;
+
+    match refusal_verdict(result) {
+        Ok(()) => {
             println!("SMOKE badpath PASS refused up front, code=NotFound");
             0
         }
-        Err(e) => {
-            // Refused, but not by the guard — a timeout here means the print
-            // operation STARTED, which is the dangerous path.
-            println!("SMOKE badpath FAIL refused late, code={:?}", e.code());
-            1
-        }
-        Ok(()) => {
-            println!("SMOKE badpath FAIL accepted an impossible path");
+        Err(why) => {
+            println!("SMOKE badpath FAIL {why}");
             1
         }
     }
 }
 
+/// The set of window labels the app currently holds.
+///
+/// A COUNT cannot see the failure this is here for. The old check compared
+/// `after > before`, so a renderer that closed one of the baseline windows
+/// while leaking a replacement of its own reported `after == before` and
+/// passed — and a renderer that simply destroyed a pre-existing window made
+/// `after < before` and passed too. Identity distinguishes all three.
+fn window_labels(app: &tauri::AppHandle) -> BTreeSet<String> {
+    app.webview_windows().into_keys().collect()
+}
+
+/// Wait for the window set to return to `before`, then report the difference.
+///
+/// The renderer settles the sink and THEN closes its window, so the caller
+/// resumes before the close has been processed — comparing immediately
+/// measures a close in flight, not a leak. The contract is that windows return
+/// to the baseline promptly, so poll for that with a bound: if they never do,
+/// it is a real leak and this still fails.
+async fn windows_returned_to(
+    name: &str,
+    app: &tauri::AppHandle,
+    before: &BTreeSet<String>,
+) -> usize {
+    let deadline = std::time::Instant::now() + Duration::from_secs(10);
+    let mut after = window_labels(app);
+    while after != *before && std::time::Instant::now() < deadline {
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        after = window_labels(app);
+    }
+    if after == *before {
+        // Printed, not silent: the transcript is what a caller asserts on, and
+        // a check that says nothing when it passes is indistinguishable from
+        // one that never ran.
+        println!(
+            "SMOKE {name} windows PASS back to the {} at the start",
+            before.len()
+        );
+        return 0;
+    }
+    let added: Vec<&String> = after.difference(before).collect();
+    let removed: Vec<&String> = before.difference(&after).collect();
+    println!("SMOKE {name} FAIL windows after 10s: leaked {added:?}, lost {removed:?}");
+    1
+}
+
 /// 20 exports in a row leak no window.
 pub async fn sequential(app: &tauri::AppHandle, out: &Path) -> usize {
-    let before = app.webview_windows().len();
+    let before = window_labels(app);
     let mut completed = 0usize;
     let mut failures = 0usize;
     for i in 0..20 {
@@ -184,54 +215,75 @@ pub async fn sequential(app: &tauri::AppHandle, out: &Path) -> usize {
         completed += 1;
     }
 
-    // The renderer settles the sink and THEN closes its window, so the caller
-    // resumes before the close has been processed — counting immediately
-    // measures a close in flight, not a leak. The contract is that windows
-    // return to baseline promptly, so poll for that with a bound: if they never
-    // do, it is a real leak and this still fails.
-    let mut after = app.webview_windows().len();
-    let deadline = std::time::Instant::now() + Duration::from_secs(10);
-    while after > before && std::time::Instant::now() < deadline {
-        tokio::time::sleep(Duration::from_millis(100)).await;
-        after = app.webview_windows().len();
-    }
-    if after > before {
-        println!(
-            "SMOKE sequential FAIL leaked {} window(s) after 10s",
-            after - before
-        );
-        failures += 1;
+    let leaked = windows_returned_to("sequential", app, &before).await;
+    failures += leaked;
+    if leaked > 0 {
+        // Already reported by the helper, with the labels.
     } else if completed == 20 {
-        println!("SMOKE sequential PASS 20 exports, windows {before} -> {after}");
+        println!("SMOKE sequential PASS 20 exports");
     } else {
         // Reporting "PASS 20 exports" here is what the old shared-counter
         // version did after breaking out early.
-        println!("SMOKE sequential FAIL only {completed}/20 exports rendered");
+        //
+        // `INCOMPLETE`, not a second `FAIL` (audit 20260907 #262). The render
+        // error above already printed `FAIL at {i}` and already counted one, so
+        // a second FAIL marker made the transcript claim two failures where the
+        // count says one — and the transcript is what a caller greps. This line
+        // is CONTEXT for the failure already reported, not another one.
+        println!("SMOKE sequential INCOMPLETE only {completed}/20 exports rendered");
     }
     failures
 }
 
 /// Two at once must not collide on a window label — or on each other's output.
-pub async fn concurrent(app: &tauri::AppHandle, out: &Path) -> usize {
-    // The docs and paths are bound first: `tokio::join!` borrows across an await
-    // point, so temporaries created inside it do not live long enough.
-    let (d1, d2) = (doc_for("A4", "<p>c1</p>"), doc_for("A4", "<p>c2</p>"));
-    let (p1, p2) = (out.join("con-1.pdf"), out.join("con-2.pdf"));
-    let (a, b) = tokio::join!(render(app, &d1, &p1, A4), render(app, &d2, &p2, A4),);
+///
+/// Run in ROUNDS: `tokio::join!` polls both futures from one task, so a single
+/// pass does not guarantee the two renders ever reach label allocation or
+/// output setup in the same instant, and a collision window a few syscalls
+/// wide can go unvisited. Repeating cheaply raises the chance of landing in
+/// it; it does not make the case deterministic, which would need a barrier
+/// inside the renderer itself.
+const CONCURRENT_ROUNDS: usize = 3;
 
+pub async fn concurrent(app: &tauri::AppHandle, out: &Path) -> usize {
+    // Long and distinct. Two-character markers ("c1"/"c2") could not see the
+    // failure this case is named for: an output holding BOTH documents still
+    // contains its own marker, so a presence check passed on exactly the
+    // crossed-output bug. Each side now also asserts the ABSENCE of the other.
+    const S1: &str = "CONCURRENT-SENTINEL-ONE";
+    const S2: &str = "CONCURRENT-SENTINEL-TWO";
+
+    let before = window_labels(app);
     let mut failures = 0usize;
-    let (ok1, ok2) = (a.is_ok(), b.is_ok());
-    failures += check("concurrent-1", a, &p1, Some((595, 842)));
-    failures += check("concurrent-2", b, &p2, Some((595, 842)));
-    // Two `Ok`s were the whole assertion before. They cannot see the failure
-    // this case is named for: a shared window label or a crossed output path
-    // makes both renders succeed while one document overwrites the other, and
-    // both files are valid A4 PDFs afterwards. The distinct sentinels can.
-    if ok1 {
-        failures += contains_text("concurrent-1", &p1, "c1");
+    for round in 0..CONCURRENT_ROUNDS {
+        // The docs and paths are bound first: `tokio::join!` borrows across an
+        // await point, so temporaries created inside it do not live long enough.
+        let (d1, d2) = (
+            doc_for("A4", &format!("<p>{S1}</p>")),
+            doc_for("A4", &format!("<p>{S2}</p>")),
+        );
+        let (p1, p2) = (
+            out.join(format!("con-{round}-1.pdf")),
+            out.join(format!("con-{round}-2.pdf")),
+        );
+        let (a, b) = tokio::join!(render(app, &d1, &p1, A4), render(app, &d2, &p2, A4));
+
+        let (ok1, ok2) = (a.is_ok(), b.is_ok());
+        let (n1, n2) = (
+            format!("concurrent-{round}-1"),
+            format!("concurrent-{round}-2"),
+        );
+        failures += check(&n1, a, &p1, expected_pt(A4));
+        failures += check(&n2, b, &p2, expected_pt(A4));
+        if ok1 {
+            failures += contains_text(&n1, &p1, S1) + lacks_text(&n1, &p1, S2);
+        }
+        if ok2 {
+            failures += contains_text(&n2, &p2, S2) + lacks_text(&n2, &p2, S1);
+        }
     }
-    if ok2 {
-        failures += contains_text("concurrent-2", &p2, "c2");
-    }
-    failures
+    // The final window-producing scenario, and until now the only one with no
+    // leak check at all: a window leaked specifically by concurrent rendering
+    // was invisible.
+    failures + windows_returned_to("concurrent", app, &before).await
 }

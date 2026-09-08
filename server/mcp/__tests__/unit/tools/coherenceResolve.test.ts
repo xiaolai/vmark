@@ -10,7 +10,7 @@ import { describe, it, expect } from 'vitest';
 import type { BridgeRequest, BridgeResponse } from '../../../src/bridge/core-types.js';
 import { createVMarkMcpServer, EXPECTED_TOOL_COUNT } from '../../../src/index.js';
 import { VMarkMcpServer } from '../../../src/server.js';
-import { registerCoherenceResolveTool } from '../../../src/tools/coherenceResolve.js';
+import { COHERENCE_RESOLVE_ACTIONS, registerCoherenceResolveTool } from '../../../src/tools/coherenceResolve.js';
 import { MockBridge } from '../../mocks/mockBridge.js';
 import { toolJson } from '../../utils/toolResult.js';
 
@@ -138,5 +138,66 @@ describe('coherence_resolve tool — registration consistency', () => {
     const names = server.listTools().map((t) => t.name);
     expect(names).toContain('coherence_resolve');
     expect(names).toHaveLength(EXPECTED_TOOL_COUNT);
+  });
+});
+
+describe('coherence_resolve — required fields and the waive reason (audit R2 #221/#222)', () => {
+  // The write is non-undoable and audit-logged. `txf`, `input` and
+  // `resolution` were declared OPTIONAL, so a request missing any of them was
+  // valid against the advertised schema and the handler forwarded `undefined`;
+  // `reason` could be blank for a waiver, which is an unauditable audit entry.
+  const base = { action: 'resolve', workspace_root: ROOT, txf: TXF, input: 0, resolution: 'accept-newer' };
+  const noBridge = () => harness(() => ({ success: true, data: {} }));
+
+  it.each([
+    ['txf missing', { ...base, txf: undefined }],
+    ['txf blank', { ...base, txf: '  ' }],
+    ['txf non-string', { ...base, txf: 7 }],
+    ['input missing', { ...base, input: undefined }],
+    ['input negative', { ...base, input: -1 }],
+    ['input fractional', { ...base, input: 1.5 }],
+    ['resolution missing', { ...base, resolution: undefined }],
+    ['resolution unknown', { ...base, resolution: 'accept-older' }],
+    ['waive with no reason', { ...base, resolution: 'waive' }],
+    ['waive with a blank reason', { ...base, resolution: 'waive', reason: '   ' }],
+  ])('refuses %s without touching the bridge', async (_label, args) => {
+    const { server, bridge } = noBridge();
+    const result = await server.callTool('coherence_resolve', args);
+    expect(result.isError).toBe(true);
+    expect(bridge.requests).toHaveLength(0);
+  });
+
+  it('still forwards a waiver that carries a reason', async () => {
+    const { server, bridge } = harness(() => ({ success: true, data: { entryId: 'e' } }));
+    await server.callTool('coherence_resolve', { ...base, resolution: 'waive', reason: 'superseded by ch. 4' });
+    expect(bridge.requests).toHaveLength(1);
+    expect(bridge.requests[0].request).toMatchObject({ resolution: 'waive', reason: 'superseded by ch. 4' });
+  });
+});
+
+// audit R3 #223 — the guard tested `!== 'resolve'` and the refusal spelled the
+// action again, so a second action would have been accepted by the schema and
+// refused by the handler, with a message naming only the first.
+describe('coherence_resolve — the action check reads COHERENCE_RESOLVE_ACTIONS', () => {
+  it('refuses an unknown action, naming the declared list', async () => {
+    const { server, bridge } = harness(() => ({ success: true, data: {} }));
+    const result = await server.callTool('coherence_resolve', { action: 'waive-all' });
+    expect(result.isError).toBe(true);
+    expect(String(result.content?.[0]?.text)).toContain(`Expected: ${COHERENCE_RESOLVE_ACTIONS.join(', ')}`);
+    expect(bridge.requests).toHaveLength(0);
+  });
+
+  it('accepts every declared action', async () => {
+    for (const action of COHERENCE_RESOLVE_ACTIONS) {
+      const { server, bridge } = harness(() => ({ success: true, data: { entryId: 'e' } }));
+      await server.callTool('coherence_resolve', {
+        action,
+        workspace_root: '/w',
+        txf: 't',
+        input: 0,
+        resolution: 'accept-newer',
+      });
+      expect(bridge.requests, action).toHaveLength(1);
+    }
   });
 });

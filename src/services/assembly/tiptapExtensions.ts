@@ -23,7 +23,7 @@
  * @coordinates-with markdownPipeline/ — schema nodes must match pipeline converters
  * @coordinates-with editorPlugins.tiptap.ts — additional ProseMirror plugins
  * @coordinates-with hostAdapters.ts — the app-side values plugins are configured with
- * @module utils/tiptapExtensions
+ * @module services/assembly/tiptapExtensions
  */
 
 import type { Extensions } from "@tiptap/core";

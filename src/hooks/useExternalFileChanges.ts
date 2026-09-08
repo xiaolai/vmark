@@ -28,7 +28,7 @@
  *     them in the filesystem's favour
  *
  * @coordinates-with useWindowFileWatcher.ts — starts/stops the Rust watcher
- * @coordinates-with useWorkspaceEventBus.ts — subscribes to the shared normalized fs-event source
+ * @coordinates-with services/workspaceEvents/subscribeWorkspaceEvents.ts — subscribes to the shared normalized fs-event source
  * @coordinates-with services/windowClose/fsChangeHandlers.ts — handleSemanticBatch routes each batch to the per-kind handlers
  * @coordinates-with documentStore.ts — reads dirty state, updates content on reload
  * @coordinates-with services/files/applyModifyPolicy.ts — the reaction policy for changed bytes

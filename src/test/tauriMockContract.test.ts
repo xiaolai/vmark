@@ -21,7 +21,7 @@
  * would assert a falsehood.
  *
  * @coordinates-with src/test/setup.ts — the mocks this pins
- * @module test/tauriMockContract
+ * @module test/tauriMockContract.test
  */
 import { describe, expect, it } from "vitest";
 import * as fs from "@tauri-apps/plugin-fs";

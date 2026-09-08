@@ -5,7 +5,7 @@
  *   to activate when cycling forward/backward with wrap-around. Pure so the
  *   shortcut hook stays thin wiring.
  *
- * @coordinates-with hooks/useTabShortcuts.ts — Mod+Shift+[ / ] handlers
+ * @coordinates-with services/commands/tabCommands.ts — the next/previous tab commands (Mod+Shift+[ / ])
  * @module utils/tabCycling
  */
 

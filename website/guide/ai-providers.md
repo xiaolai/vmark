@@ -49,7 +49,7 @@ If you're also using these tools for vibe-coding (Claude Code, Codex CLI, Gemini
 
 ## REST API Providers
 
-REST providers connect directly to cloud APIs. Each requires an endpoint, API key, and model name.
+REST providers connect directly to cloud (or local) APIs. Each requires an endpoint, API key, and model name. Responses arrive in one piece when the request completes — REST providers do not stream tokens; CLI providers do.
 
 | Provider | Default Endpoint | Env Variable |
 |----------|-----------------|--------------|
@@ -64,7 +64,7 @@ REST providers connect directly to cloud APIs. Each requires an endpoint, API ke
 When you select a REST provider, three fields appear:
 
 - **API Endpoint** — The base URL (hidden for Google AI, which uses a fixed endpoint). A trailing `/v1` is fine — VMark normalizes it so the path isn't doubled (e.g. `https://host/v1` and `https://host` both work)
-- **API Key** — Your secret key (stored in the app data directory, not in browser localStorage)
+- **API Key** — Your secret key. It is kept in your operating system's credential store, never in `localStorage` or a plaintext settings file — see [Where API keys live](#where-api-keys-live)
 - **Model** — The model identifier (e.g., `claude-sonnet-4-5-20250929`, `gpt-4o`, `gemini-2.0-flash`)
 
 ### Environment Variable Auto-Fill
@@ -165,10 +165,16 @@ VMark guards every provider call so a hung CLI or a malformed API response can n
 - **Shared HTTP client**: REST providers share a single connection-pooled `reqwest` client, so back-to-back genie runs don't pay the TCP/TLS handshake cost each time.
 - **Windows path discovery**: on Windows, VMark reads the user's full `PATH` (including PowerShell-only entries) when detecting CLIs, so user-installed tools that work in a terminal also work inside VMark.
 
+## Where API keys live
+
+API keys are held in the operating system's credential store — macOS Keychain, Windows Credential Manager, or Linux Secret Service — under the service name `app.vmark.secrets`, one entry per provider. VMark keeps a copy in memory only for the running session; the persisted provider settings never contain a key, and nothing is written to `localStorage`. A key saved by an older VMark in a plaintext settings file is moved into the keychain the first time the newer version loads it, and the plaintext copy is dropped only after the keychain write has been read back successfully.
+
+If the keychain refuses a write, VMark shows an error toast rather than silently keeping the key in memory. On macOS, an ad-hoc-signed development build may re-prompt for keychain access after every re-sign; a release build asks once.
+
 ## Security Notes
 
-- **API keys are ephemeral** — stored in memory only, never written to disk or `localStorage`
-- **Environment variables** are read once on launch and cached in memory
+- **API keys live in the OS keychain** — see above; they are never written to VMark's settings files or `localStorage`
+- **Environment variables** are read when you select a provider and only fill an empty key field
 - **CLI providers** use your existing CLI authentication — VMark never sees your credentials
 - **All requests go directly** from your machine to the provider — no VMark servers in between
 

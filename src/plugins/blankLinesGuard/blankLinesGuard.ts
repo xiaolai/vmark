@@ -25,7 +25,7 @@
  *
  * @coordinates-with plugins/shared/sourceLineAttr.ts — blankLinesBefore attr
  * @coordinates-with utils/markdownPipeline/mdastToProseMirror.ts — capture
- * @module plugins/blankLinesGuard
+ * @module plugins/blankLinesGuard/blankLinesGuard
  */
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import type { Transaction } from "@tiptap/pm/state";

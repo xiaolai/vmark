@@ -5,12 +5,22 @@
 //! for the same workspace (review D2.2, mirroring the MCP bridge generation
 //! counter). It owns the spawned `Child` processes so shutdown — and the `Drop`
 //! on app exit — can terminate them, and exposes `poll_current_child` for the
-//! supervisor monitor in `spawn.rs`.
+//! supervisor monitor in `supervisor.rs`.
+//!
+//! The mutex is held only to DECIDE. Every method that removes a record hands
+//! it back as a `cleanup::Detached` (or cleans it up itself after releasing
+//! the lock), because killing and reaping a child under the registry lock let
+//! one slow reap block every other workspace's status, stop, start and
+//! supervisor poll (audit 20260907 #121). A child a teardown could not stop
+//! is kept as an orphan rather than forgotten (`retain_orphan`, #122); the
+//! orphans, `shutdown_all` and `Drop` live in `manager_teardown.rs`.
 
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process::Child;
 use std::sync::Mutex;
+
+use super::cleanup::Detached;
 
 /// A running content server for one workspace (metadata clone for queries).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -18,6 +28,10 @@ pub struct RunningServer {
     pub workspace_root: String,
     pub port: u16,
     pub generation: u64,
+    /// The workspace trust the child was spawned with (`--trusted`), which its
+    /// CSP enforces for the rest of its life — a start with the other value
+    /// must restart it (WI-FL3.6).
+    pub trusted: bool,
 }
 
 /// Liveness of the managed child for a given (workspace, generation), as
@@ -37,29 +51,35 @@ pub enum ChildState {
 /// Outcome of `register_or_existing`.
 #[derive(Debug)]
 pub enum RegisterOutcome {
-    /// The child was registered as the current server for the root.
+    /// The child was registered as the current server for the root — either
+    /// the root was free, or the server already there enforced the OTHER
+    /// trust value and was replaced (killed + reaped) by this one (#120).
     Registered,
-    /// A concurrent start already won: its server is returned, and the child
-    /// handed in was killed + reaped.
+    /// A concurrent start already won with the SAME trust: its server is
+    /// returned, and the child handed in was killed + reaped.
     Existing(RunningServer),
     /// `shutdown_all` already ran (quit in progress): nothing was registered,
     /// and the child handed in was killed + reaped.
     ShuttingDown,
 }
 
-/// Consecutive `Child::try_wait` failures after which the child is treated as
-/// dead — a permanently un-pollable child would otherwise leave a stale
-/// registration + port file behind forever.
-const MAX_POLL_FAILURES: u32 = 3;
-
 /// Internal record: metadata + the spawned child + bootstrap token + port-file.
-struct Managed {
-    server: RunningServer,
-    token: String,
-    child: Option<Child>,
-    port_file: Option<PathBuf>,
+pub(super) struct Managed {
+    pub(super) server: RunningServer,
+    pub(super) token: String,
+    pub(super) child: Option<Child>,
+    pub(super) port_file: Option<PathBuf>,
     /// Consecutive `try_wait` failures observed by `poll_current_child`.
-    poll_failures: u32,
+    pub(super) poll_failures: u32,
+}
+
+impl Managed {
+    pub(super) fn detach(self) -> Detached {
+        Detached {
+            child: self.child,
+            port_file: self.port_file,
+        }
+    }
 }
 
 /// Tracks one server per workspace, keyed by root, with monotonic generations.
@@ -70,203 +90,161 @@ pub struct ContentServerManager {
 }
 
 #[derive(Default)]
-struct ManagerState {
-    servers: HashMap<String, Managed>,
-    next_generation: u64,
+pub(super) struct ManagerState {
+    pub(super) servers: HashMap<String, Managed>,
+    pub(super) next_generation: u64,
     /// Set (permanently) by `shutdown_all`: registration afterwards is
     /// rejected so an in-flight spawn cannot orphan a child at exit.
-    shutting_down: bool,
+    pub(super) shutting_down: bool,
+    /// Children a teardown could not stop or reap without proof they are
+    /// gone (#122, `ChildFailure::retains_handle`), keyed by root: no longer
+    /// servers, still this app's processes. `shutdown_all` tries each once
+    /// more at quit.
+    pub(super) orphans: Vec<(String, Child)>,
 }
+
+impl ManagerState {
+    fn insert(
+        &mut self,
+        root: &str,
+        port: u16,
+        token: String,
+        child: Child,
+        pf: PathBuf,
+        trusted: bool,
+    ) {
+        self.next_generation += 1;
+        let generation = self.next_generation;
+        self.servers.insert(
+            root.to_string(),
+            Managed {
+                server: RunningServer {
+                    workspace_root: root.to_string(),
+                    port,
+                    generation,
+                    trusted,
+                },
+                token,
+                child: Some(child),
+                port_file: Some(pf),
+                poll_failures: 0,
+            },
+        );
+    }
+}
+
+#[path = "manager_poll.rs"]
+mod poll;
+#[path = "manager_teardown.rs"]
+mod teardown;
 
 impl ContentServerManager {
     pub fn new() -> Self {
         Self::default()
     }
 
+    pub(super) fn state(&self) -> std::sync::MutexGuard<'_, ManagerState> {
+        self.inner.lock().unwrap_or_else(|p| p.into_inner())
+    }
+
     /// Look up the running server metadata for a workspace.
     pub fn get(&self, workspace_root: &str) -> Option<RunningServer> {
-        self.inner
-            .lock()
-            .unwrap_or_else(|p| p.into_inner())
+        self.state()
             .servers
             .get(workspace_root)
             .map(|m| m.server.clone())
     }
 
-    /// The bootstrap token for a workspace's server (for nonce minting).
-    pub fn token(&self, workspace_root: &str) -> Option<String> {
-        self.inner
-            .lock()
-            .unwrap_or_else(|p| p.into_inner())
+    /// The server AND its token from ONE lock acquisition. Reading them in
+    /// two calls let a restart in between pair the old port with the new
+    /// token — and send that token to whatever listens on the old port (#128).
+    pub fn server_and_token(&self, workspace_root: &str) -> Option<(RunningServer, String)> {
+        self.state()
             .servers
             .get(workspace_root)
-            .map(|m| m.token.clone())
+            .map(|m| (m.server.clone(), m.token.clone()))
     }
 
     /// Atomically register a freshly-spawned server UNLESS one already exists
-    /// for the root (a concurrent-start race winner) or the manager is
-    /// shutting down. In both non-`Registered` outcomes the handed-in child is
-    /// killed + reaped here (std::process::Child does NOT kill on drop), so
-    /// the caller never orphans a process; port-file cleanup stays the
-    /// caller's job.
+    /// for the root with the same trust (a concurrent-start race winner) or
+    /// the manager is shutting down. A resident server with the OTHER trust
+    /// value is replaced: it enforces the wrong CSP, and returning it would
+    /// hand the caller a server it must immediately restart (#120). Whichever
+    /// child loses — the one handed in, or the one replaced — is killed +
+    /// reaped here AFTER the lock is released (std::process::Child does NOT
+    /// kill on drop), or kept as an orphan if it could not be (#122);
+    /// port-file cleanup for the handed-in child stays the caller's job.
     pub fn register_or_existing(
         &self,
         workspace_root: &str,
         port: u16,
         token: String,
-        mut child: Child,
+        child: Child,
         port_file: PathBuf,
+        trusted: bool,
     ) -> RegisterOutcome {
-        let mut state = self.inner.lock().unwrap_or_else(|p| p.into_inner());
-        if state.shutting_down {
-            // Shutdown already drained the map; registering now would orphan
-            // this child at exit (nothing would ever kill it again).
-            let _ = child.kill();
-            let _ = child.wait();
-            return RegisterOutcome::ShuttingDown;
-        }
-        if let Some(m) = state.servers.get(workspace_root) {
-            // A concurrent start already won — kill the child we were handed.
-            let _ = child.kill();
-            let _ = child.wait();
-            return RegisterOutcome::Existing(m.server.clone());
-        }
-        state.next_generation += 1;
-        let generation = state.next_generation;
-        state.servers.insert(
-            workspace_root.to_string(),
-            Managed {
-                server: RunningServer {
-                    workspace_root: workspace_root.to_string(),
-                    port,
-                    generation,
-                },
-                token,
-                child: Some(child),
-                port_file: Some(port_file),
-                poll_failures: 0,
-            },
-        );
-        RegisterOutcome::Registered
-    }
-
-    /// Poll the managed child for a (root, generation) without blocking. On an
-    /// unexpected exit the registration is removed and its port-file deleted, so
-    /// the supervisor can surface the crash exactly once. A `take()`/stop that
-    /// already removed the entry reports `NotCurrent` (no false crash signal).
-    /// `try_wait` failures are counted, not swallowed: transient errors keep
-    /// the child `Running`, but `MAX_POLL_FAILURES` consecutive failures treat
-    /// it as dead (see `handle_poll_failure`) instead of leaving a stale
-    /// registration + port file behind forever.
-    pub fn poll_current_child(&self, workspace_root: &str, generation: u64) -> ChildState {
-        let mut state = self.inner.lock().unwrap_or_else(|p| p.into_inner());
-        let polled = match state.servers.get_mut(workspace_root) {
-            Some(m) if m.server.generation == generation => match m.child.as_mut() {
-                // Metadata-only registration (tests): nothing to poll.
-                None => return ChildState::Running,
-                Some(child) => match child.try_wait() {
-                    Ok(None) => {
-                        m.poll_failures = 0;
-                        return ChildState::Running;
+        let (outcome, loser) = {
+            let mut state = self.state();
+            if state.shutting_down {
+                // Shutdown already drained the map; registering now would
+                // orphan this child at exit (nothing would ever kill it again).
+                (
+                    RegisterOutcome::ShuttingDown,
+                    Some(Detached::child_only(child)),
+                )
+            } else if let Some(m) = state.servers.get(workspace_root) {
+                if m.server.trusted == trusted {
+                    // A concurrent start already won — the handed-in child loses.
+                    (
+                        RegisterOutcome::Existing(m.server.clone()),
+                        Some(Detached::child_only(child)),
+                    )
+                } else {
+                    log::info!(
+                        "[content-server {workspace_root}] replacing the running server: its trust ({}) is not the requested {trusted}",
+                        m.server.trusted
+                    );
+                    let mut displaced = state.servers.remove(workspace_root).map(Managed::detach);
+                    // Both records name the same port-file path; it belongs
+                    // to the newcomer now.
+                    if let Some(d) = displaced.as_mut() {
+                        if d.port_file.as_deref() == Some(port_file.as_path()) {
+                            d.port_file = None;
+                        }
                     }
-                    Ok(Some(status)) => Ok(status.code()),
-                    Err(e) => Err(e.to_string()),
-                },
-            },
-            _ => return ChildState::NotCurrent,
-        };
-        match polled {
-            Ok(code) => {
-                if let Some(mut removed) = state.servers.remove(workspace_root) {
-                    if let Some(pf) = removed.port_file.take() {
-                        let _ = std::fs::remove_file(pf);
-                    }
+                    state.insert(workspace_root, port, token, child, port_file, trusted);
+                    (RegisterOutcome::Registered, displaced)
                 }
-                ChildState::Exited(code)
+            } else {
+                state.insert(workspace_root, port, token, child, port_file, trusted);
+                (RegisterOutcome::Registered, None)
             }
-            Err(detail) => handle_poll_failure(&mut state, workspace_root, &detail),
+        };
+        if let Some(loser) = loser {
+            self.retain_orphan(workspace_root, loser.cleanup(workspace_root));
         }
+        outcome
     }
 
-    /// Remove a workspace's record and return its child + port-file for cleanup.
-    pub fn take(&self, workspace_root: &str) -> Option<(Option<Child>, Option<PathBuf>)> {
-        self.inner
-            .lock()
-            .unwrap_or_else(|p| p.into_inner())
+    /// Remove a workspace's record and return it for cleanup.
+    pub fn take(&self, workspace_root: &str) -> Option<Detached> {
+        self.state()
             .servers
             .remove(workspace_root)
-            .map(|m| (m.child, m.port_file))
+            .map(Managed::detach)
     }
 
-    /// Kill every managed child and remove its port-file. Called explicitly on
-    /// the quit path: `app.exit` terminates the process via
-    /// `std::process::exit`, which never drops Tauri-managed state, so `Drop`
-    /// alone would leave orphaned node content servers behind. Draining the
-    /// map makes repeat calls no-ops. Recovers from a poisoned lock — a panic
-    /// elsewhere must not leave orphaned children behind.
-    pub fn shutdown_all(&self) {
-        let mut state = self.inner.lock().unwrap_or_else(|p| p.into_inner());
-        // Terminal: any registration attempt racing past this point is
-        // rejected (see `register_or_existing`), so an in-flight spawn cannot
-        // orphan a child at exit.
-        state.shutting_down = true;
-        for (_root, mut managed) in state.servers.drain() {
-            if let Some(mut child) = managed.child.take() {
-                let _ = child.kill();
-                let _ = child.wait();
+    /// Remove a workspace's record ONLY if it is still the generation the
+    /// caller observed. A `get` followed by `take` let another start replace
+    /// the server in between, and the stop then killed the newer one (#116).
+    pub fn take_if_generation(&self, workspace_root: &str, generation: u64) -> Option<Detached> {
+        let mut state = self.state();
+        match state.servers.get(workspace_root) {
+            Some(m) if m.server.generation == generation => {
+                state.servers.remove(workspace_root).map(Managed::detach)
             }
-            if let Some(pf) = managed.port_file.take() {
-                let _ = std::fs::remove_file(pf);
-            }
+            _ => None,
         }
-    }
-}
-
-/// Shared failure path for a `Child::try_wait` error in `poll_current_child`
-/// (also driven directly by tests, which cannot make a real `try_wait` fail):
-/// log distinctly, and after `MAX_POLL_FAILURES` consecutive failures treat
-/// the child as dead — deregister, best-effort kill + reap, drop the port
-/// file — so a stale registration cannot linger forever.
-fn handle_poll_failure(state: &mut ManagerState, workspace_root: &str, detail: &str) -> ChildState {
-    let Some(m) = state.servers.get_mut(workspace_root) else {
-        return ChildState::NotCurrent;
-    };
-    m.poll_failures += 1;
-    log::warn!(
-        "[content-server] try_wait failed for '{}' ({}/{}): {}",
-        workspace_root,
-        m.poll_failures,
-        MAX_POLL_FAILURES,
-        detail
-    );
-    if m.poll_failures < MAX_POLL_FAILURES {
-        return ChildState::Running;
-    }
-    log::warn!(
-        "[content-server] child for '{}' is un-pollable after {} attempts — treating as dead",
-        workspace_root,
-        MAX_POLL_FAILURES
-    );
-    if let Some(mut removed) = state.servers.remove(workspace_root) {
-        if let Some(mut child) = removed.child.take() {
-            let _ = child.kill();
-            let _ = child.wait();
-        }
-        if let Some(pf) = removed.port_file.take() {
-            let _ = std::fs::remove_file(pf);
-        }
-    }
-    ChildState::Exited(None)
-}
-
-impl Drop for ContentServerManager {
-    /// Belt-and-braces fallback for the rare paths where the manager value is
-    /// actually dropped (tests, a future non-`process::exit` teardown). The
-    /// normal quit path never runs this — `app.exit` ends the process without
-    /// dropping managed state — so quit-time cleanup is the explicit
-    /// `shutdown_all` call in `content_server::cleanup`.
-    fn drop(&mut self) {
-        self.shutdown_all();
     }
 }
 

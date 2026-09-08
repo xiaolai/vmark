@@ -1,9 +1,10 @@
 //! Hot-exit write deduplication.
 //!
-//! `write_session_atomic` is called frequently (often multiple times per second
-//! during editing). When the captured session is identical to the last write
-//! (no content/cursor/tab change since last capture) re-writing pays a full
-//! tmp-file + fsync + rename + parent-dir-fsync cost for nothing.
+//! `write_session_atomic` runs on every `hot_exit_capture` — the updater
+//! restart path and the hot-exit dev tools, not a per-keystroke timer. When
+//! the captured session is identical to the last write (no content/cursor/tab
+//! change since last capture) re-writing pays a full tmp-file + fsync + rename
+//! + parent-dir-fsync cost for nothing.
 //!
 //! This module hashes the serialized payload and tracks the last-written hash
 //! per process so subsequent identical captures short-circuit.

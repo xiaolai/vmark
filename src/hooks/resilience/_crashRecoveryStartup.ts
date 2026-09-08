@@ -13,7 +13,7 @@
  *     partial → warning with counts, total failure → error so the user knows
  *     unsaved work could not be restored.
  *
- * @module hooks/useCrashRecoveryStartup
+ * @module hooks/resilience/_crashRecoveryStartup
  * @coordinates-with crashRecovery.ts, hotExitCoordination.ts
  */
 

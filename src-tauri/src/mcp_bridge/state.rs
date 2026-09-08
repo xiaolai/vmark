@@ -25,6 +25,22 @@ pub(crate) const CLIENT_TX_CAPACITY: usize = 1024;
 // sentinel an unbounded channel would imply.
 const _: () = assert!(CLIENT_TX_CAPACITY > 0 && CLIENT_TX_CAPACITY <= 65_536);
 
+/// How long ONE attempt at a routed request waits for its window.
+///
+/// The number lived in three places (#380): `server.rs`'s first wait,
+/// `wake_retry.rs`'s second, and — as a DERIVED literal — the "20s total" the
+/// retry's give-up line printed. Changing the policy therefore changed
+/// behaviour in one place and the diagnosis in another, and a log that
+/// disagrees with the code is worse than one that says nothing. Both attempts
+/// read this, and the total is computed from it rather than written out.
+pub(super) const REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+
+/// What the client waited in total once the wake-and-retry has also given up:
+/// the first attempt plus the retry, DERIVED so it cannot drift from the bound
+/// actually applied.
+pub(super) const REQUEST_TIMEOUT_TOTAL: std::time::Duration =
+    REQUEST_TIMEOUT.saturating_add(REQUEST_TIMEOUT);
+
 /// Connected client information.
 pub(crate) struct ClientConnection {
     pub tx: mpsc::Sender<String>,
@@ -101,12 +117,39 @@ pub(crate) fn cleanup_stale_pending(state: &mut BridgeState) {
         .retain(|_, req| cutoff.is_none_or(|c| req.created_at > c));
 }
 
+/// Register a pending request on behalf of a client that is STILL CONNECTED
+/// (#379) — the only form the bridge's request path may use.
+///
+/// `stop_bridge` drains `clients` and then `pending` under the same lock this
+/// runs beneath, while the caller reaches here many awaits after it last saw
+/// its client. A stop landing in that gap used to leave a pending entry in a
+/// map that had just been drained — one nothing would ever answer or sweep —
+/// and let the caller go on to emit its request to a window, so a document
+/// mutation ran for a bridge that had already reported itself stopped.
+/// Checking membership under this lock is what makes the two orderings
+/// exclusive: either the request is registered and then rejected with
+/// "Bridge stopped", or the client is already gone and it is refused here.
+pub(crate) fn try_register_pending_for(
+    state: &mut BridgeState,
+    client_id: u64,
+    request_id: String,
+    response_tx: oneshot::Sender<McpResponse>,
+) -> Result<(), String> {
+    if !state.clients.contains_key(&client_id) {
+        return Err("Bridge stopped".to_string());
+    }
+    try_register_pending(state, request_id, response_tx)
+}
+
 /// Register a pending request, enforcing the stale-entry TTL sweep and the
 /// `MAX_PENDING_REQUESTS` overload cap.
 ///
 /// Returns the client-facing error message when the queue is full so the
 /// caller can answer the client instead of silently dropping the request
 /// (which would leave it hanging until its own timeout).
+///
+/// **Does not check that anyone is still listening** — see
+/// `try_register_pending_for`, which is what the bridge's request path calls.
 pub(crate) fn try_register_pending(
     state: &mut BridgeState,
     request_id: String,

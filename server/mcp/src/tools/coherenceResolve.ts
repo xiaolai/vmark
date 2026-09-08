@@ -16,7 +16,7 @@
  * and fail-closed — it keys off the authenticated bridge principal, never off
  * anything the client asserts, so this split changes no security property.
  *
- * Plan: dev-docs/plans/20260718-coherence-layer.md WI-1.10.
+ * Origin: Coherence layer plan (2026-07-18, retired) WI-1.10.
  *
  * @coordinates-with tools/coherence.ts (the read-only view)
  */
@@ -24,10 +24,13 @@
 import { z } from 'zod';
 import { VMarkMcpServer } from '../server.js';
 
+export const COHERENCE_RESOLVE_TOOL = 'coherence_resolve' as const;
+export const COHERENCE_RESOLVE_ACTIONS = ['resolve'] as const;
+
 export function registerCoherenceResolveTool(server: VMarkMcpServer): void {
   server.registerTool(
     {
-      name: 'coherence_resolve',
+      name: COHERENCE_RESOLVE_TOOL,
       title: 'VMark Coherence Resolve',
       // Writes an audit-logged ledger entry that cannot be undone. Closed-world:
       // the ledger lives inside the workspace's own `.vmark/` directory.
@@ -48,29 +51,34 @@ export function registerCoherenceResolveTool(server: VMarkMcpServer): void {
         'Actions:\n' +
         '- resolve: Args {workspace_root, txf, input, resolution: "accept-newer"|"waive", reason? (required for waive)}.',
       inputSchema: {
-        action: z.enum(['resolve']).describe('The action to perform'),
+        action: z.enum(COHERENCE_RESOLVE_ACTIONS).describe('The action to perform'),
         workspace_root: z
           .string()
           .min(1)
           .describe('Absolute path of the workspace whose edge is being resolved.'),
-        txf: z.string().optional().describe('The edge transformation id (from coherence edges rows).'),
+        // REQUIRED, not optional: `resolve` is the only action, and it needs
+        // all three. Declaring them optional made a request missing any of
+        // them valid against the ADVERTISED schema, and the handler then
+        // forwarded `undefined` into a non-undoable, audit-logged ledger write
+        // (audit R2 #221).
+        txf: z.string().trim().min(1).describe('The edge transformation id (from coherence edges rows).'),
         input: z
           .number()
           .int()
           .nonnegative()
-          .optional()
           .describe('The edge input index (from coherence edges rows).'),
-        resolution: z
-          .enum(['accept-newer', 'waive'])
-          .optional()
-          .describe('The resolution kind.'),
+        resolution: z.enum(['accept-newer', 'waive']).describe('The resolution kind.'),
         reason: z.string().optional().describe('Required when resolution is waive.'),
       },
     },
     async (args) => {
-      if (args.action !== 'resolve') {
+      // The valid action comes from the exported list the schema also uses.
+      // Spelling it again created a second source of truth that a new action
+      // would leave stale — the refusal would name only `resolve` while the
+      // schema accepted more (audit R3 #223).
+      if (!(COHERENCE_RESOLVE_ACTIONS as readonly string[]).includes(String(args.action))) {
         return VMarkMcpServer.errorResult(
-          `Invalid action: ${String(args.action)}. Expected: resolve`,
+          `Invalid action: ${String(args.action)}. Expected: ${COHERENCE_RESOLVE_ACTIONS.join(', ')}`,
         );
       }
       if (
@@ -80,6 +88,24 @@ export function registerCoherenceResolveTool(server: VMarkMcpServer): void {
         return VMarkMcpServer.errorResult(
           'workspace_root (string) is required — the absolute path of the workspace to resolve in',
         );
+      }
+      // The defensive half. `VMarkMcpServer.callTool` performs no schema
+      // validation, so the schema above is not what holds for an in-process
+      // caller — and this write cannot be undone (audit R2 #221).
+      if (typeof args.txf !== 'string' || args.txf.trim().length === 0) {
+        return VMarkMcpServer.errorResult('txf (non-empty string) is required — take it from a `coherence` action `edges` row');
+      }
+      if (typeof args.input !== 'number' || !Number.isInteger(args.input) || args.input < 0) {
+        return VMarkMcpServer.errorResult('input (non-negative integer) is required — take it from a `coherence` action `edges` row');
+      }
+      if (args.resolution !== 'accept-newer' && args.resolution !== 'waive') {
+        return VMarkMcpServer.errorResult('resolution must be "accept-newer" or "waive"');
+      }
+      // A waiver with no reason is an unauditable entry in an audit log, and
+      // the tool's own description already calls the reason required for it
+      // (audit R2 #222).
+      if (args.resolution === 'waive' && (typeof args.reason !== 'string' || args.reason.trim().length === 0)) {
+        return VMarkMcpServer.errorResult('reason (non-blank string) is required when resolution is "waive" — the ledger entry is permanent and auditable');
       }
       const data = await server.sendBridgeRequest({
         type: 'vmark.coherence.resolve',

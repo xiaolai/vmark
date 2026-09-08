@@ -10,11 +10,11 @@
  * affects menu content changes (e.g., user installs Pandoc and clicks
  * "Detect" in Settings → Files & Images → Document Tools).
  *
- * @coordinates-with stores/shortcutsStore.ts — DEFAULT_SHORTCUTS + prosemirrorToTauri
- * @coordinates-with stores/recentFilesStore.ts — syncToNativeMenu
- * @coordinates-with stores/recentWorkspacesStore.ts — syncToNativeMenu
+ * @coordinates-with stores/settingsStore/shortcutDefinitions.ts — DEFAULT_SHORTCUTS
+ * @coordinates-with stores/settingsStore/keyFormatting.ts — prosemirrorToTauri
+ * @coordinates-with stores/recentsStore.ts — useRecentFilesStore / useRecentWorkspacesStore syncToNativeMenu
  * @coordinates-with src-tauri/src/menu/commands.rs — rebuild_menu, refresh_genies_menu
- * @module utils/rebuildNativeMenu
+ * @module services/menu/rebuildNativeMenu
  */
 
 import { invoke } from "@tauri-apps/api/core";

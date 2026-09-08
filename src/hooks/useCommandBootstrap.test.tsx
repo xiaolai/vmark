@@ -30,6 +30,8 @@ const registerView = vi.fn();
 const registerFormat = vi.fn();
 const disposeEditor = vi.fn();
 const registerEditor = vi.fn(() => disposeEditor);
+const stopRuntime = vi.fn();
+const startRuntime = vi.fn(() => stopRuntime);
 
 vi.mock("@/services/commands/menuListener", () => ({
   mountMenuCommands: (...args: unknown[]) => mountMenuCommandsMock(...args),
@@ -53,9 +55,15 @@ vi.mock("@/services/commands/formatCommands", () => ({
   registerFormatCommands: () => registerFormat(),
 }));
 vi.mock("@/services/commands/editorCommandBridge", () => ({ registerEditorCommands: () => registerEditor() }));
+vi.mock("@/services/runtimeWiring", () => ({ startRuntimeServices: () => startRuntime() }));
 vi.mock("@/utils/debug", () => ({ menuError: (...args: unknown[]) => menuErrorMock(...args), appError: vi.fn(), browserWarn: vi.fn() }));
 const signalMenuReady = vi.fn();
-vi.mock("@/services/commands/menuCommandsReady", () => ({ signalMenuCommandsMounted: () => signalMenuReady() }));
+vi.mock("@/services/commands/menuCommandsReady", () => ({
+  signalMenuCommandsMounted: (...args: unknown[]) => signalMenuReady(...args),
+}));
+
+/** The shape mountMenuCommands resolves with (audit #359): teardown + completeness. */
+type MountResult = { off: () => void; failed: string[] };
 
 import { useCommandBootstrap } from "./useCommandBootstrap";
 import { useRecentWorkspacesStore } from "@/stores/recentsStore";
@@ -73,11 +81,13 @@ beforeEach(() => {
   registerFormat.mockReset();
   registerEditor.mockClear();
   disposeEditor.mockClear();
+  startRuntime.mockClear();
+  stopRuntime.mockClear();
   signalMenuReady.mockReset();
 
   // Default happy-path behaviors — individual tests override as needed.
   registerPandocMock.mockResolvedValue([]);
-  mountMenuCommandsMock.mockResolvedValue(() => {});
+  mountMenuCommandsMock.mockResolvedValue({ off: () => {}, failed: [] });
 });
 
 describe("useCommandBootstrap", () => {
@@ -98,6 +108,29 @@ describe("useCommandBootstrap", () => {
     expect(disposeEditor).not.toHaveBeenCalled();
     unmount();
     expect(disposeEditor).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops the runtime services when the hook unmounts", () => {
+    const { unmount } = renderHook(() => useCommandBootstrap());
+    expect(startRuntime).toHaveBeenCalledTimes(1);
+    expect(stopRuntime).not.toHaveBeenCalled();
+    unmount();
+    expect(stopRuntime).toHaveBeenCalledTimes(1);
+  });
+
+  // Audit #358 — startup is transactional. The editor-command batch is the one
+  // registration that owns resources; when the runtime services fail to start
+  // the effect never returns its cleanup, so the batch must be disposed HERE or
+  // it stays registered in a window that has no working services. The error
+  // itself still propagates — a window without its services is not a working
+  // window, and hiding that would be worse than the crash.
+  it("disposes the editor-command batch when the runtime services fail to start, and rethrows", () => {
+    startRuntime.mockImplementationOnce(() => {
+      throw new Error("service boom");
+    });
+    expect(() => renderHook(() => useCommandBootstrap())).toThrow("service boom");
+    expect(disposeEditor).toHaveBeenCalledTimes(1);
+    expect(mountMenuCommandsMock).not.toHaveBeenCalled();
   });
 
   it("calls mountMenuCommands with the bundled bindings", async () => {
@@ -126,6 +159,12 @@ describe("useCommandBootstrap", () => {
     );
     // Bridge mount still proceeds.
     expect(mountMenuCommandsMock).toHaveBeenCalled();
+    // …but the menu is INCOMPLETE (audit #712): every Pandoc export item is
+    // now a native menu entry routing to a command that was never registered,
+    // which is the same defect as a binding that could not listen. Announcing
+    // `true` over it is exactly the "menu that routes nowhere" the readiness
+    // signal exists to prevent.
+    expect(signalMenuReady).toHaveBeenCalledWith(false);
   });
 
   it("swallows a mountMenuCommands rejection without bubbling (audit H6)", async () => {
@@ -150,9 +189,40 @@ describe("useCommandBootstrap", () => {
     window.removeEventListener("unhandledrejection", onRej);
   });
 
+  // Audit #359 (round 3). Round 2 signalled readiness from a `finally`, so a
+  // mount that REJECTED still announced the menu as ready — and because the
+  // mount had also become all-or-nothing, one bad listener left the window with
+  // no menu at all while claiming a working one. Both halves are pinned here.
+  it("signals NOT-mounted when the whole mount rejects", async () => {
+    mountMenuCommandsMock.mockRejectedValueOnce(new Error("bridge dead"));
+    renderHook(() => useCommandBootstrap());
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(signalMenuReady).toHaveBeenCalledExactlyOnceWith(false);
+  });
+
+  it("signals NOT-mounted when some bindings could not listen, and keeps the rest", async () => {
+    const off = vi.fn();
+    mountMenuCommandsMock.mockResolvedValueOnce({ off, failed: ["menu:save"] });
+    const { unmount } = renderHook(() => useCommandBootstrap());
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(signalMenuReady).toHaveBeenCalledExactlyOnceWith(false);
+    // The partial mount is RETAINED — the user keeps every menu item that did
+    // bind — and its teardown still runs on unmount.
+    expect(menuErrorMock).toHaveBeenCalledWith(
+      expect.stringContaining("could not mount"),
+      ["menu:save"],
+    );
+    unmount();
+    expect(off).toHaveBeenCalledTimes(1);
+  });
+
   it("invokes the unlistener when the hook unmounts after a normal mount", async () => {
     const off = vi.fn();
-    mountMenuCommandsMock.mockResolvedValueOnce(off);
+    mountMenuCommandsMock.mockResolvedValueOnce({ off, failed: [] });
     const { unmount } = renderHook(() => useCommandBootstrap());
     await Promise.resolve();
     await Promise.resolve();
@@ -161,34 +231,36 @@ describe("useCommandBootstrap", () => {
   });
 
   it("a StrictMode-cancelled first pass never trips the menu-ready barrier; the live pass does, once (round 3, #272)", async () => {
-    let resolveFirst: ((fn: () => void) => void) | null = null;
-    mountMenuCommandsMock.mockImplementationOnce(() => new Promise<() => void>((resolve) => (resolveFirst = resolve)));
+    let resolveFirst: ((result: MountResult) => void) | null = null;
+    mountMenuCommandsMock.mockImplementationOnce(
+      () => new Promise<MountResult>((resolve) => (resolveFirst = resolve)),
+    );
     const { unmount } = renderHook(() => useCommandBootstrap());
     await Promise.resolve();
     unmount(); // the cancelled pass
     expect(resolveFirst).not.toBeNull();
-    resolveFirst!(() => {});
+    resolveFirst!({ off: () => {}, failed: [] });
     await Promise.resolve();
     await Promise.resolve();
     await Promise.resolve();
     expect(signalMenuReady).not.toHaveBeenCalled();
 
     // The replayed (live) pass mounts and signals exactly once.
-    mountMenuCommandsMock.mockResolvedValueOnce(() => {});
+    mountMenuCommandsMock.mockResolvedValueOnce({ off: () => {}, failed: [] });
     renderHook(() => useCommandBootstrap());
     await Promise.resolve();
     await Promise.resolve();
     await Promise.resolve();
-    expect(signalMenuReady).toHaveBeenCalledTimes(1);
+    expect(signalMenuReady).toHaveBeenCalledExactlyOnceWith(true);
   });
 
   it("invokes the unlistener when unmount races mountMenuCommands resolution (audit Round A H4)", async () => {
     const off = vi.fn();
     // Capture the resolver so we can defer resolution past unmount.
-    let resolveOff: ((fn: () => void) => void) | null = null;
+    let resolveOff: ((result: MountResult) => void) | null = null;
     mountMenuCommandsMock.mockImplementationOnce(
       () =>
-        new Promise<() => void>((resolve) => {
+        new Promise<MountResult>((resolve) => {
           resolveOff = resolve;
         }),
     );
@@ -202,7 +274,7 @@ describe("useCommandBootstrap", () => {
     // Now resolve the deferred promise. Inside the IIFE: `cancelled` is
     // true → `off()` is called to avoid a listener leak.
     expect(resolveOff).not.toBeNull();
-    resolveOff!(off);
+    resolveOff!({ off, failed: [] });
     // Flush the awaited continuation and the synchronous off() call.
     await Promise.resolve();
     await Promise.resolve();

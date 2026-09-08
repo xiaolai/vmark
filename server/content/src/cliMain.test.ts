@@ -56,6 +56,18 @@ describe("parseArgs", () => {
     );
   });
 
+  // WI-FL3.6 — workspace trust is a CSP decision (remote https: images) the
+  // server has to be TOLD; before this flag existed nothing could set it.
+  it("accepts --trusted as a bare flag", () => {
+    expect(parseArgs(["--trusted"])).toEqual({ trusted: true });
+    expect(parseArgs(["--trusted", "--root", "/kb"])).toEqual({ trusted: true, root: "/kb" });
+    expect(parseArgs(["--root", "/kb", "--trusted"])).toEqual({ root: "/kb", trusted: true });
+  });
+
+  it("rejects a duplicated --trusted like every other flag", () => {
+    expect(() => parseArgs(["--trusted", "--trusted"])).toThrow("Duplicate argument: --trusted");
+  });
+
   it("rejects non-decimal port forms Number() would accept", () => {
     expect(() => parseArgs(["--port", "0x50"])).toThrow("--port must be a decimal integer");
     expect(() => parseArgs(["--port", "1e3"])).toThrow("--port must be a decimal integer");
@@ -84,6 +96,19 @@ describe("runCli", () => {
     await runCli([], deps);
     expect(deps.startServer).toHaveBeenCalledWith(
       expect.objectContaining({ root: "/kb", bootstrapToken: "tok" })
+    );
+  });
+
+  it("passes --trusted through as trusted: true, and false without it", async () => {
+    const trusted = makeDeps();
+    await runCli(["--root", "/kb", "--token", "t", "--trusted"], trusted.deps);
+    expect(trusted.deps.startServer).toHaveBeenCalledWith(
+      expect.objectContaining({ root: "/kb", trusted: true })
+    );
+    const untrusted = makeDeps();
+    await runCli(["--root", "/kb", "--token", "t"], untrusted.deps);
+    expect(untrusted.deps.startServer).toHaveBeenCalledWith(
+      expect.objectContaining({ root: "/kb", trusted: false })
     );
   });
 

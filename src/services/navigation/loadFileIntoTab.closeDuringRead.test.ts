@@ -16,7 +16,7 @@
  *
  * @coordinates-with hooks/useFinderFileOpen.ts — loadFileIntoTab
  * @coordinates-with services/navigation/fileOpen.ts — the sibling that already had this
- * @module hooks/useFinderFileOpen.closeDuringRead.test
+ * @module services/navigation/loadFileIntoTab.closeDuringRead.test
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 

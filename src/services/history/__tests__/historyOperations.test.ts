@@ -1,7 +1,7 @@
 /**
  * Tests for useHistoryOperations — createSnapshot merge window and file size guard
  *
- * @module hooks/__tests__/useHistoryOperations.test
+ * @module services/history/__tests__/historyOperations.test
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { HistorySettings } from "@/utils/historyTypes";

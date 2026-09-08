@@ -1,7 +1,7 @@
 # Workspace Rail
 
 ::: warning Experimental
-The workspace rail is experimental and **off by default**. Enable it in **Settings → Workspace → Workspace rail mode**. With the rail off, VMark behaves exactly as before — one workspace per window.
+The workspace rail is experimental and **off by default**. Enable it in **Settings → Files & Images → Workspace → Workspace rail**. With the rail off, VMark behaves exactly as before — one workspace per window.
 :::
 
 The workspace rail lets one window hold **several workspaces at once**, shown as a vertical strip of colored glyphs on the left edge. Clicking a workspace performs a **full context switch**: the editor tabs, the sidebar file tree, the split-pane layout, and the sidebar/outline state all swap to that workspace's own set — like switching Spaces in a browser, not just changing a filter.
@@ -15,7 +15,7 @@ The workspace rail lets one window hold **several workspaces at once**, shown as
 | Split panes | Each workspace remembers its own split layout |
 | Outline | Per-tab collapse/filter/scroll state follows the workspace |
 | Next/previous tab, tab context menu, Quick Open "open tabs" | Scoped to the active workspace |
-| Reopen Closed Tab history | Partitioned per workspace (plus a shared browser history) |
+| Reopen Closed Tab | Closed tabs are recorded per workspace (plus one shared browser scope) and reopened most-recent-first from **File → Reopen Closed Tab**, the command palette, or a shortcut you assign in Settings → Shortcuts (it ships unassigned: the nearby chords are taken) |
 | **Browser pages** | **Window-global** — reachable from every workspace |
 | Recent Files / Recent Workspaces menus | Global |
 | Autosave, save prompts, file watching | Cover **every** tab, hidden or not |
@@ -36,7 +36,7 @@ Ownership follows the file's path:
 
 ## Sessions and restart
 
-Each workspace's config remembers **only its own tabs** and split layout. Human-opened browser pages persist per window. Hot exit restores every workspace of the window — including per-workspace sidebar state and reopen history — and reactivates the workspace you were in.
+Each workspace's config remembers **only its own tabs** and split layout. Human-opened browser pages persist per window. Hot exit restores every workspace of the window — including per-workspace sidebar state and the recorded closed-tab history — and reactivates the workspace you were in.
 
 ## AI (MCP) behavior
 

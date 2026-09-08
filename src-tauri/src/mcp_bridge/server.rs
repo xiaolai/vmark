@@ -1,145 +1,38 @@
-//! MCP Bridge WebSocket server loop and connection handling.
+//! MCP Bridge WebSocket server: stopping it, and deciding what an envelope is.
 //!
-//! Manages the TCP listener, WebSocket upgrades, per-client message loops,
-//! and request routing to the frontend.
+//! Bringing it UP is `start.rs` (#167) — bind, publish, refresh, spawn — which
+//! moved out so its four steps could be driven on a mock app with the port
+//! file and the client-token refresh injected. What is left here is the
+//! teardown (`stop_bridge`, pinned in `server.test.rs`) and the ENVELOPE
+//! dispatch: identify, unsupported type, a request Rust answers itself, or a
+//! request that has to reach a window.
+//!
+//! That last one is `routed_request.rs` (#376/#381). `handle_message` was 232
+//! lines and this file was 398 — over the ~300-line limit and holding two
+//! unrelated jobs, so the routed request's ordering (register, route, emit,
+//! wait, deliver) was buried inside the parse that precedes it.
+//!
+//! @coordinates-with mcp_bridge/identify.rs — the `identify` envelope
+//! @coordinates-with mcp_bridge/routed_request.rs — the request that reaches a window
+//! @coordinates-with mcp_bridge/peer_text.rs — how client text may be logged
+//! @module mcp_bridge::server
 
-use super::connection::admit_connection;
-use super::delivery::{deliver_response, fail_pending, send_error_response};
-use super::managed::bridge;
-use super::routing::{answer_rust_side, emit_to_window_or_reply, route_target_or_reply};
-use super::state::{generate_auth_token, is_read_only_operation, try_register_pending};
-use super::token_file::{remove_port_file, write_port_file};
-use super::types::{ClientIdentity, McpRequest, McpRequestEvent, McpResponse, WsMessage};
-use super::wake_retry::wake_retry_after_timeout;
-use std::future::Future;
-use std::time::Duration;
+use super::delivery::{deliver_response, send_error_response};
+use super::identify::handle_identify;
+use super::managed::{bridge, McpBridgeState};
+use super::peer_text::peer_text;
+use super::routing::answer_rust_side;
+use super::token_file::remove_port_file;
+use super::types::{McpRequest, McpResponse, WsMessage};
 use tauri::AppHandle;
-use tauri::Emitter;
-use tokio::net::TcpListener;
-use tokio::sync::{mpsc, oneshot};
-
-/// Monotonic counter behind `next_bridge_request_id`.
-static NEXT_REQUEST_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
-
-/// Mint a bridge-internal request id.
-///
-/// Pending requests — and the events emitted to the frontend, which echoes
-/// the event id back via `mcp_bridge_respond` — are keyed by this id rather
-/// than the client-supplied message id: two connected sidecars generate their
-/// message ids independently and can collide, and a collision in the pending
-/// map would silently drop one client's response channel and route its
-/// response to the other. The client's own message id is only used when
-/// writing the WebSocket response back to that client.
-fn next_bridge_request_id() -> String {
-    format!(
-        "bridge-{}",
-        NEXT_REQUEST_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-    )
-}
-
-/// Start the MCP bridge WebSocket server.
-/// Returns the actual port the server is listening on.
-///
-/// `on_exit` is called when the server loop terminates (shutdown signal or
-/// unexpected exit) so the caller can reset external state like
-/// `BRIDGE_RUNNING`.
-pub async fn start_bridge(
-    app: AppHandle,
-    on_exit: impl FnOnce() + Send + 'static,
-) -> Result<u16, String> {
-    // Always bind to port 0 to let OS assign an available port
-    // This eliminates port conflicts entirely
-    let addr = "127.0.0.1:0";
-    let listener = TcpListener::bind(addr)
-        .await
-        .map_err(|e| format!("Failed to bind to {}: {}", addr, e))?;
-
-    // Get the actual port assigned by the OS
-    let actual_port = listener
-        .local_addr()
-        .map_err(|e| format!("Failed to get local address: {}", e))?
-        .port();
-
-    // Generate auth token and write port:token to file for MCP sidecar discovery
-    let auth_token = generate_auth_token();
-    write_port_file(&app, actual_port, &auth_token)?;
-
-    // Publish the per-client credentials from the AI clients' own MCP configs
-    // (`mcp_config::client_tokens`) so connections can be attributed to the
-    // client VMark issued the credential to. Never fatal: an unreadable
-    // third-party config is skipped with a log line, and its client simply
-    // connects unidentified.
-    //
-    // AWAITED before the accept loop is spawned, on purpose: no connection is
-    // ever judged against a registry that has not been built yet. It parses up
-    // to four config files — `~/.claude.json` can reach tens of MB — so it runs
-    // on the blocking pool rather than stalling this async worker thread.
-    if let Err(e) = tokio::task::spawn_blocking(crate::mcp_config::client_tokens::refresh).await {
-        log::warn!("[MCP Bridge] client-token refresh task failed: {e}");
-    }
-
-    log::info!(
-        "[MCP Bridge] WebSocket server listening on 127.0.0.1:{} (auth required)",
-        actual_port
-    );
-
-    let (shutdown_tx, mut shutdown_rx) = oneshot::channel::<()>();
-    *bridge(&app).shutdown_slot().await = Some(shutdown_tx);
-
-    let app_handle = app.clone();
-
-    crate::task::spawn_logged("mcp-bridge-accept-loop", async move {
-        // Backoff on accept errors: an immediate retry turns a persistent
-        // failure (fd exhaustion, listener teardown) into a CPU-pinned log
-        // loop. Repeated failures terminate the loop so `on_exit` can reset
-        // the bridge state instead of spinning forever.
-        const MAX_CONSECUTIVE_ACCEPT_ERRORS: u32 = 30;
-        let mut consecutive_errors: u32 = 0;
-        loop {
-            tokio::select! {
-                _ = &mut shutdown_rx => {
-                    log::debug!("[MCP Bridge] Shutdown signal received");
-                    break;
-                }
-                result = listener.accept() => {
-                    match result {
-                        Ok((stream, addr)) => {
-                            consecutive_errors = 0;
-                            // Admission (the connection-slot reservation) is
-                            // decided HERE, synchronously, before anything is
-                            // spawned or cloned — see `admit_connection`.
-                            admit_connection(stream, addr, &app_handle, &auth_token);
-                        }
-                        Err(e) => {
-                            consecutive_errors += 1;
-                            log::error!(
-                                "[MCP Bridge] Accept error ({consecutive_errors} consecutive): {e}"
-                            );
-                            if consecutive_errors >= MAX_CONSECUTIVE_ACCEPT_ERRORS {
-                                log::error!(
-                                    "[MCP Bridge] Accept failing persistently — stopping bridge loop"
-                                );
-                                break;
-                            }
-                            let backoff = Duration::from_millis(
-                                (100u64 * u64::from(consecutive_errors)).min(1_000),
-                            );
-                            tokio::time::sleep(backoff).await;
-                        }
-                    }
-                }
-            }
-        }
-
-        // Server loop exited — reset external state so the bridge can be restarted.
-        on_exit();
-    });
-
-    Ok(actual_port)
-}
+use tokio::sync::mpsc;
 
 /// Stop the MCP bridge WebSocket server.
-pub async fn stop_bridge(app: &AppHandle) {
+///
+/// Generic over the runtime so the teardown — the loop signalled, every
+/// client's shutdown fired, every pending request answered, the admission
+/// generation bumped — is pinned on a mock app (`server.test.rs`, #167).
+pub async fn stop_bridge<R: tauri::Runtime>(app: &AppHandle<R>) {
     // Remove port file so MCP sidecar knows bridge is stopped
     remove_port_file(app);
 
@@ -174,55 +67,21 @@ pub async fn stop_bridge(app: &AppHandle) {
     }
 }
 
-/// Await `deliver` with the global write lock already released.
+/// The channel that writes back to `client_id`, if it is still connected.
 ///
-/// Rust drops a guard at the END of its scope — i.e. *after* the delivery
-/// await — so the release has to be explicit. It used to only look explicit:
-/// the guard was bound as `let _write_guard`, a comment above the final
-/// `deliver_response` claimed the lock was already gone, and it was not
-/// (audit round 1, finding 8). Delivery can force-disconnect a backpressured
-/// peer, which takes the bridge state lock, so every other write operation
-/// queued behind one slow client's teardown.
-///
-/// Taking the guard by value and dropping it before the await makes the
-/// ordering a property of this function, and one a test can observe from
-/// inside `deliver`.
-async fn without_write_lock<T>(
-    write_guard: Option<tokio::sync::MutexGuard<'_, ()>>,
-    deliver: impl Future<Output = T>,
-) -> T {
-    drop(write_guard);
-    deliver.await
-}
-
-/// Handle the `identify` message a client sends after connecting.
-///
-/// **Informational only.** It sets the label shown in Settings → Integrations
-/// and in connect/disconnect logs, and it deliberately does not touch
-/// `ClientConnection::principal`: a client may send `identify` at any time and
-/// as often as it likes, and it used to be able to name itself into another
-/// client's delegations that way (audit 20260728 §2.1).
-async fn handle_identify<R: tauri::Runtime>(
-    payload: serde_json::Value,
-    client_id: u64,
-    app: &AppHandle<R>,
-) {
-    if let Ok(identity) = serde_json::from_value::<ClientIdentity>(payload) {
-        let mut guard = bridge(app).lock().await;
-
-        if let Some(client) = guard.clients.get_mut(&client_id) {
-            log::debug!(
-                "[MCP Bridge] Client {} identified as {}",
-                client_id,
-                identity.display_name()
-            );
-            client.identity = Some(identity);
-        }
-        drop(guard);
-
-        // Notify frontend that connected clients changed
-        let _ = app.emit("mcp-bridge:clients-changed", ());
-    }
+/// ONE lookup (#378). This was written out twice — once for the unsupported
+/// envelope and once for a request — and the copies had drifted into two
+/// missing-client policies that a reader had to diff to compare. The policies
+/// still differ, and deliberately: an envelope nobody can be answered on is
+/// dropped, while a request whose client has gone is reported. What they no
+/// longer differ in is how the channel is FOUND.
+async fn client_sender(bridge: &McpBridgeState, client_id: u64) -> Option<mpsc::Sender<String>> {
+    bridge
+        .lock()
+        .await
+        .clients
+        .get(&client_id)
+        .map(|c| c.tx.clone())
 }
 
 /// Parse the MCP payload of a `request` envelope.
@@ -232,7 +91,7 @@ async fn handle_identify<R: tauri::Runtime>(
 /// bubbling it up to the log-only message loop, which would leave the client
 /// hanging until its own timeout (Codex audit 20260718).
 async fn parse_request_or_reply(
-    bridge: &super::managed::McpBridgeState,
+    bridge: &McpBridgeState,
     msg_id: &str,
     payload: serde_json::Value,
     client_id: u64,
@@ -241,11 +100,7 @@ async fn parse_request_or_reply(
     match McpRequest::from_value(payload) {
         Ok(request) => Some(request),
         Err(e) => {
-            log::warn!(
-                "[MCP Bridge] Client {} sent request with invalid payload: {}",
-                client_id,
-                e
-            );
+            log::warn!("[MCP Bridge] Client {client_id} sent request with invalid payload: {e}");
             send_error_response(bridge, client_id, client_tx, msg_id, &e).await;
             None
         }
@@ -261,23 +116,22 @@ pub(super) async fn handle_message<R: tauri::Runtime>(
     client_id: u64,
     app: &AppHandle<R>,
 ) -> Result<(), String> {
-    // Debug: Log a bounded prefix to trace markdown escaping (dev only). Even
-    // dev logs must not persist whole documents or anything secret-shaped —
-    // 256 chars shows the envelope and the escaping without the payload.
-    #[cfg(debug_assertions)]
-    if text.contains("insert") {
-        let prefix: String = text.chars().take(256).collect();
-        log::debug!(
-            "[MCP Bridge DEBUG] Raw WebSocket message ({} bytes): {prefix}…",
-            text.len()
-        );
-    }
-
     let bridge = bridge(app);
     let msg: WsMessage =
-        serde_json::from_str(text).map_err(|e| format!("Invalid message format: {}", e))?;
+        serde_json::from_str(text).map_err(|e| format!("Invalid message format: {e}"))?;
 
-    // Handle identify message (client sends this after connecting)
+    // Debug (dev only): shape and size, never text — a 256-char prefix of a
+    // short insert IS the document (#172). The two fields ARE client-chosen,
+    // so they go through `peer_text`: bounded, and escaped so a newline in a
+    // `type` cannot forge a log line of its own (#377).
+    #[cfg(debug_assertions)]
+    log::debug!(
+        "[MCP Bridge DEBUG] {} envelope id={} ({} bytes)",
+        peer_text(&msg.msg_type),
+        peer_text(&msg.id),
+        text.len()
+    );
+
     if msg.msg_type == "identify" {
         handle_identify(msg.payload, client_id, app).await;
         return Ok(());
@@ -286,19 +140,13 @@ pub(super) async fn handle_message<R: tauri::Runtime>(
     if msg.msg_type != "request" {
         // A mistyped envelope must not hang the client until its own timeout —
         // answer with a correlated protocol error when a reply channel exists.
-        let client_tx = bridge
-            .lock()
-            .await
-            .clients
-            .get(&client_id)
-            .map(|c| c.tx.clone());
-        if let Some(tx) = client_tx {
+        if let Some(tx) = client_sender(bridge, client_id).await {
             send_error_response(
                 bridge,
                 client_id,
                 &tx,
                 &msg.id,
-                &format!("Unsupported message type: {}", msg.msg_type),
+                &format!("Unsupported message type: {}", peer_text(&msg.msg_type)),
             )
             .await;
         }
@@ -308,13 +156,9 @@ pub(super) async fn handle_message<R: tauri::Runtime>(
     // Fetch the client's tx channel up front — every later step (payload
     // parse failure, rust-side answer, overload, unknown window, response)
     // needs it to answer the client.
-    let client_tx = bridge
-        .lock()
+    let client_tx = client_sender(bridge, client_id)
         .await
-        .clients
-        .get(&client_id)
-        .map(|c| c.tx.clone());
-    let client_tx = client_tx.ok_or("Client not found")?;
+        .ok_or("Client not found")?;
 
     let Some(request) =
         parse_request_or_reply(bridge, &msg.id, msg.payload, client_id, &client_tx).await
@@ -322,17 +166,16 @@ pub(super) async fn handle_message<R: tauri::Runtime>(
         return Ok(());
     };
 
-    // Debug: bounded arg prefix only (dev only) — see the raw-message note.
+    // Debug (dev only): a mutation's argument SIZE, never a value — the prefix
+    // this replaces carried the inserted text itself (#173).
     #[cfg(debug_assertions)]
     if request.request_type.starts_with("document.insert")
         || request.request_type == "selection.replace"
     {
-        let args = serde_json::to_string(&request.args).unwrap_or_default();
-        let prefix: String = args.chars().take(256).collect();
+        let bytes = serde_json::to_string(&request.args).map_or(0, |s| s.len());
         log::debug!(
-            "[MCP Bridge DEBUG] Request type: {} args ({} bytes): {prefix}…",
-            request.request_type,
-            args.len()
+            "[MCP Bridge DEBUG] {} args: {bytes} bytes",
+            request.request_type
         );
     }
 
@@ -344,7 +187,7 @@ pub(super) async fn handle_message<R: tauri::Runtime>(
     // (audit 20260728 §2.1). See `principal.rs`.
     let principal = bridge.connection_principal(client_id).await;
     if let Some(response) = answer_rust_side(&request, app, principal).await {
-        deliver_response(
+        return deliver_response(
             bridge,
             client_id,
             &client_tx,
@@ -352,144 +195,10 @@ pub(super) async fn handle_message<R: tauri::Runtime>(
             &response,
             "rust-side response could not be enqueued (queue full)",
         )
-        .await?;
-        return Ok(());
+        .await;
     }
 
-    let is_read = is_read_only_operation(&request.request_type);
-
-    // For write operations, acquire the write lock
-    // This serializes writes while allowing concurrent reads
-    let write_guard = if is_read {
-        None
-    } else {
-        log::debug!(
-            "[MCP Bridge] Client {} acquiring write lock for {}",
-            client_id,
-            request.request_type
-        );
-        Some(bridge.write_lock().await)
-    };
-
-    // Create a oneshot channel for the response
-    let (response_tx, response_rx) = oneshot::channel();
-
-    let request_id = next_bridge_request_id();
-    let request_type_for_log = request.request_type.clone();
-
-    // Store the pending request (sweeps stale entries, enforces the
-    // overload cap). The state lock is released before responding —
-    // send_error_response may force-disconnect, which re-locks it.
-    let registered = {
-        let mut guard = bridge.lock().await;
-        try_register_pending(&mut guard, request_id.clone(), response_tx)
-    };
-    if let Err(err) = registered {
-        log::warn!(
-            "[MCP Bridge] Client {} request rejected: {}",
-            client_id,
-            err
-        );
-        // Answer the client instead of silently dropping the request —
-        // otherwise it hangs until its own timeout.
-        send_error_response(bridge, client_id, &client_tx, &msg.id, &err).await;
-        return Ok(());
-    }
-
-    // Emit event to the target window (not broadcast to all windows).
-    // Each window has its own webview with independent editor state, so we
-    // must route to the correct one to avoid cross-window content leakage.
-    // Serialize args to JSON string to avoid Tauri IPC double-encoding.
-    let args_json = serde_json::to_string(&request.args).unwrap_or_else(|_| "{}".to_string());
-    let event = McpRequestEvent {
-        id: request_id.clone(),
-        request_type: request.request_type.clone(),
-        args_json,
-    };
-
-    // F5 (WI-3.5): route by owning workspace, fail loud on ambiguity /
-    // conflict / missing window (helper replies + cleans up on refusal).
-    let Some(target_label) =
-        route_target_or_reply(&request, app, &request_id, client_id, &client_tx, &msg.id).await
-    else {
-        return Ok(());
-    };
-    // Emit to the target window; helper replies + cleans up if the window
-    // vanished (TOCTOU) or the emit failed, returning false to stop here.
-    if !emit_to_window_or_reply(
-        app,
-        &target_label,
-        &event,
-        &request.request_type,
-        &request_id,
-        client_id,
-        &client_tx,
-        &msg.id,
-    )
-    .await
-    {
-        return Ok(());
-    }
-
-    // Wait for response with timeout (10 seconds - operations should be fast)
-    let response = match tokio::time::timeout(Duration::from_secs(10), response_rx).await {
-        Ok(Ok(response)) => response,
-        Ok(Err(_)) => {
-            // Channel closed - clean up and send error to sidecar
-            fail_pending(
-                bridge,
-                &request_id,
-                client_id,
-                &client_tx,
-                &msg.id,
-                "Response channel closed",
-            )
-            .await;
-            return Ok(());
-        }
-        Err(_) => {
-            match wake_retry_after_timeout(
-                app,
-                &target_label,
-                &event,
-                &request_id,
-                client_id,
-                &client_tx,
-                &msg.id,
-                &request_type_for_log,
-            )
-            .await
-            {
-                Some(response) => response,
-                None => return Ok(()),
-            }
-        }
-    };
-
-    if !is_read {
-        log::debug!(
-            "[MCP Bridge] Client {} completed {} - releasing write lock",
-            client_id,
-            request_type_for_log
-        );
-    }
-
-    // Send the response back to the client with the write lock already
-    // released — `without_write_lock` drops the guard before it awaits.
-    without_write_lock(
-        write_guard,
-        deliver_response(
-            bridge,
-            client_id,
-            &client_tx,
-            msg.id,
-            &response,
-            "request response could not be enqueued (queue full)",
-        ),
-    )
-    .await?;
-
-    Ok(())
+    super::routed_request::run(app, client_id, msg.id, request, &client_tx).await
 }
 
 #[cfg(test)]

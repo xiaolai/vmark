@@ -16,6 +16,72 @@ fn ws_file(ws: &std::path::Path, rel: &str, content: &str) -> PathBuf {
     p
 }
 
+// -- #264: an execution id is used ONCE ------------------------------------
+
+/// The DURABLE half of the reuse guard. `RecentExecutionIds` remembers the
+/// last 256 ids in memory, which forgets across a restart and past the cap;
+/// the snapshot directory is the guard that does neither, because it is on
+/// disk. A repeated id must not write this run's files over — or among —
+/// an earlier run's.
+#[tokio::test]
+async fn a_second_snapshot_for_the_same_execution_id_is_refused_and_leaves_the_first_intact() {
+    let app_data = tempdir().unwrap();
+    let ws = tempdir().unwrap();
+    let file = ws_file(ws.path(), "a.md", "first run");
+    create_snapshot(
+        app_data.path(),
+        "run-1",
+        std::slice::from_ref(&file),
+        ws.path(),
+    )
+    .await
+    .expect("the first run snapshots");
+
+    std::fs::write(&file, "second run").unwrap();
+    let err = create_snapshot(
+        app_data.path(),
+        "run-1",
+        std::slice::from_ref(&file),
+        ws.path(),
+    )
+    .await
+    .expect_err("the id is spent");
+    assert!(err.contains("already exists"), "got: {err}");
+
+    let saved = app_data
+        .path()
+        .join("workflow-snapshots")
+        .join("snap-run-1")
+        .join("a.md");
+    assert_eq!(
+        std::fs::read_to_string(&saved).unwrap(),
+        "first run",
+        "the earlier run's snapshot must survive the repeat"
+    );
+}
+
+/// The refusal survives a restart: it is a directory on disk, not a memory
+/// of ids, so a fresh process with an empty `RecentExecutionIds` still
+/// refuses an id whose snapshot is already there.
+#[tokio::test]
+async fn the_refusal_does_not_depend_on_any_in_memory_memory_of_ids() {
+    let app_data = tempdir().unwrap();
+    let ws = tempdir().unwrap();
+    let file = ws_file(ws.path(), "a.md", "x");
+    // Nothing in this process ever saw `run-2`; the directory alone decides.
+    std::fs::create_dir_all(
+        app_data
+            .path()
+            .join("workflow-snapshots")
+            .join("snap-run-2"),
+    )
+    .unwrap();
+    let err = create_snapshot(app_data.path(), "run-2", &[file], ws.path())
+        .await
+        .expect_err("a snapshot directory already carries this id");
+    assert!(err.contains("already exists"), "got: {err}");
+}
+
 // -- execution id validation (path traversal) -------------------------------
 
 #[tokio::test]

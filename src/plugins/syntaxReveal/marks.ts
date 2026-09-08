@@ -1,27 +1,15 @@
 /**
- * Syntax Reveal Plugin - Mark-based Syntax
+ * Syntax Reveal — mark-range helpers
  *
- * Handles inline marks: bold, italic, code, strikethrough, link
+ * Range and word lookups over inline marks (bold, italic, code, strikethrough,
+ * link…) for the toolbar adapters and the expanded mark toggles. The decoration
+ * half that once lived beside them — syntax widgets rendered at mark
+ * boundaries — was never registered as an extension and was deleted under the
+ * feature-ledger plan (WI-FL3.1); only these helpers were ever wired.
  */
 
-import type { Decoration } from "@tiptap/pm/view";
 import type { Node, Mark, ResolvedPos } from "@tiptap/pm/model";
 import { findWordBoundaries } from "@/utils/wordSegmentation";
-import { addWidgetDecoration } from "./utils";
-import "./syntax-reveal.css";
-
-// Mark type to syntax mapping
-const MARK_SYNTAX: Record<string, { open: string; close: string }> = {
-  strong: { open: "**", close: "**" },
-  emphasis: { open: "*", close: "*" },
-  inlineCode: { open: "`", close: "`" },
-  strikethrough: { open: "~~", close: "~~" },
-  subscript: { open: "~", close: "~" },
-  superscript: { open: "^", close: "^" },
-  highlight: { open: "==", close: "==" },
-};
-
-const LINK_MARK = "link";
 
 export interface MarkRange {
   mark: Mark;
@@ -95,34 +83,6 @@ export function findWordAtCursor(
 }
 
 /**
- * Find all mark ranges that contain the given position
- */
-function findMarksAtPosition(pos: number, $pos: ResolvedPos): MarkRange[] {
-  const ranges: MarkRange[] = [];
-  const parent = $pos.parent;
-  const parentStart = $pos.start();
-
-  parent.forEach((child, childOffset) => {
-    const from = parentStart + childOffset;
-    const to = from + child.nodeSize;
-
-    if (pos >= from && pos <= to && child.isText) {
-      child.marks.forEach((mark) => {
-        const markRange = findMarkRange(pos, mark, parentStart, parent);
-        /* v8 ignore next -- @preserve defensive guard: markRange is always found when pos is in a marked child */
-        if (markRange) {
-          if (!ranges.some((r) => r.from === markRange.from && r.to === markRange.to)) {
-            ranges.push(markRange);
-          }
-        }
-      });
-    }
-  });
-
-  return ranges;
-}
-
-/**
  * Find the contiguous range of a mark containing the cursor position.
  * Non-greedy: returns only the smallest contiguous range that contains pos.
  */
@@ -171,28 +131,4 @@ export function findMarkRange(
   }
 
   return foundRange;
-}
-
-/**
- * Add mark-based syntax decorations
- */
-export function addMarkSyntaxDecorations(
-  decorations: Decoration[],
-  pos: number,
-  $from: ResolvedPos
-): void {
-  const markRanges = findMarksAtPosition(pos, $from);
-
-  for (const { mark, from, to } of markRanges) {
-    const syntax = MARK_SYNTAX[mark.type.name];
-
-    if (syntax) {
-      addWidgetDecoration(decorations, from, syntax.open, "open", -1);
-      addWidgetDecoration(decorations, to, syntax.close, "close", 1);
-    } else if (mark.type.name === LINK_MARK) {
-      const href = mark.attrs.href || "";
-      addWidgetDecoration(decorations, from, "[", "link-open", -1);
-      addWidgetDecoration(decorations, to, `](${href})`, "link-close", 1);
-    }
-  }
 }

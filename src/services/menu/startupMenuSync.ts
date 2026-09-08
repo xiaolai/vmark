@@ -9,7 +9,7 @@
  *   i18n.ts → shortcutsStore.ts → i18n.ts
  *
  * @coordinates-with i18n.ts — relies on Rust locale being set first
- * @coordinates-with utils/rebuildNativeMenu.ts — shared rebuild pipeline
+ * @coordinates-with rebuildNativeMenu.ts — shared rebuild pipeline
  */
 import { invoke } from "@tauri-apps/api/core";
 import { menuSyncWarn } from "@/utils/debug";

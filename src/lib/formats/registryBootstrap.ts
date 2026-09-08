@@ -23,7 +23,7 @@ import { registerSvgFormat } from "./adapters/svg";
 import { registerHtmlFormat } from "./adapters/html";
 import { registerCodeFormats } from "./adapters/code";
 import { registerMediaFormat } from "./adapters/media";
-import { __resetRegistry } from "./registry";
+import { replaceRegistry } from "./registry";
 
 /** Per-category toggles for opt-in format registration. Markdown, txt,
  *  and yaml are always on; everything else is opt-in. */
@@ -109,9 +109,23 @@ export function bootstrapFormats(toggles?: Partial<FormatsToggles>): void {
  * via `useTabStore.getState().recomputeAllFormatIds()`.
  */
 export function rebootstrapFormats(toggles?: Partial<FormatsToggles>): void {
-  __resetRegistry();
-  bootstrapped = false;
-  bootstrapFormats(toggles);
+  // ATOMIC (audit R3 #801): the rebuild runs against a fresh registry and is
+  // installed only if it completes. Clearing first and re-registering into the
+  // live maps left a half-built registry — and `dispatchEditor` throwing — when
+  // an adapter combination only a toggle can produce failed to register.
+  // `bootstrapped` is part of that state and is rolled back with it: left
+  // false over a restored registry, the next `bootstrapFormats()` would
+  // re-register every adapter into it and fail on the first duplicate id.
+  const wasBootstrapped = bootstrapped;
+  try {
+    replaceRegistry(() => {
+      bootstrapped = false;
+      bootstrapFormats(toggles);
+    });
+  } catch (error) {
+    bootstrapped = wasBootstrapped;
+    throw error;
+  }
 }
 
 /** Test-only — never call from production code. */

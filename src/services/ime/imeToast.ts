@@ -25,9 +25,9 @@
  *     signatures stable; only sites that pass `{ pin: true }` get the action
  *
  * @coordinates-with utils/imeGuard.ts — shares the composition detection approach
- * @coordinates-with utils/imeToastPinAction.tsx — builds the pin action JSX
- * @coordinates-with stores/activeEditorStore.ts — reads active editor instances
- * @module utils/imeToast
+ * @coordinates-with imeToastPinAction.tsx — builds the pin action JSX
+ * @coordinates-with stores/editorStore.ts — reads active editor instances
+ * @module services/ime/imeToast
  */
 
 import { toast } from "sonner";

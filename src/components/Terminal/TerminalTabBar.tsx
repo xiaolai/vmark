@@ -30,7 +30,7 @@
  *     breaks E2E, not just a unit test — TerminalTabBar.test.tsx pins all four.
  *
  * @coordinates-with TerminalPanel.tsx — provides onClose and onRestart callbacks
- * @coordinates-with terminalSessionStore — reads sessions and activeSessionId
+ * @coordinates-with stores/uiStore/terminalSlice.ts — reads sessions and activeSessionId
  * @coordinates-with e2e/lib/terminal.mjs — drives the data-terminal-action hooks
  * @module components/Terminal/TerminalTabBar
  */

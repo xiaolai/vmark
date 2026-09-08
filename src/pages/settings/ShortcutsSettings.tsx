@@ -46,18 +46,21 @@ export function ShortcutsSettings() {
     isCustomized,
   } = useShortcutsStore.getState();
 
-  // Only show shortcuts that have an effective key binding
-  // Re-evaluated when customBindings changes (the only relevant state)
-  const visibleShortcuts = DEFAULT_SHORTCUTS.filter(
-    (s) => getShortcut(s.id) !== ""
-  );
+  // Every definition stays listed, including the ones with no effective key.
+  // An unbound shortcut renders as "Unassigned" and is bound from here like any
+  // other (WI-FL3.13). The pane used to filter those rows out, so a definition
+  // that ships unbound (or one the user had cleared) could never be given a key
+  // again without a JSON import.
+  const unassignedLabel = t("shortcuts.unassigned");
 
   // Filter shortcuts by search (label, translated label, category, description, key format, display format)
   const filteredShortcuts = search.trim()
-    ? visibleShortcuts.filter((s) => {
+    ? DEFAULT_SHORTCUTS.filter((s) => {
         const q = search.trim().toLowerCase();
         const effectiveKey = getShortcut(s.id);
-        const displayKey = formatKeyForDisplay(effectiveKey).toLowerCase();
+        const displayKey = (
+          effectiveKey ? formatKeyForDisplay(effectiveKey) : unassignedLabel
+        ).toLowerCase();
         const translatedLabel = getShortcutLabel(s).toLowerCase();
         return (
           s.label.toLowerCase().includes(q) ||
@@ -94,9 +97,12 @@ export function ShortcutsSettings() {
 
     const reader = new FileReader();
     reader.onload = () => {
+      // `importConfig` is ATOMIC (audit 20260907, #422): a file with any bad
+      // entry applies NOTHING, so this message can say so — it used to report
+      // errors after the valid entries had already replaced the user's map.
       const result = importConfig(reader.result as string);
       if (!result.success && result.errors) {
-        alert(`Import errors:\n${result.errors.join("\n")}`);
+        alert(`${t("shortcuts.importFailed")}\n${result.errors.join("\n")}`);
       }
     };
     reader.readAsText(file);
@@ -135,7 +141,11 @@ export function ShortcutsSettings() {
                        } hover:bg-[var(--bg-tertiary)] hover:ring-1 hover:ring-[var(--text-tertiary)]/30 transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent-primary)] focus-visible:outline-offset-2`}
             title={t("shortcuts.clickToChange")}
           >
-            {formatKeyForDisplay(currentKey)}
+            {currentKey ? (
+              formatKeyForDisplay(currentKey)
+            ) : (
+              <span className="italic">{unassignedLabel}</span>
+            )}
           </button>
 
           {/* Reset button (only show if customized) */}
@@ -167,7 +177,7 @@ export function ShortcutsSettings() {
   };
 
   const renderCategorySection = (category: ShortcutCategory) => {
-    const shortcuts = visibleShortcuts.filter((s) => s.category === category);
+    const shortcuts = DEFAULT_SHORTCUTS.filter((s) => s.category === category);
     if (shortcuts.length === 0) return null;
 
     return (
@@ -272,7 +282,7 @@ export function ShortcutsSettings() {
       {capturing && (
         <KeyCapture
           shortcut={capturing}
-          conflict={getConflict(getShortcut(capturing.id), capturing.id)}
+          getConflict={(key) => getConflict(key, capturing.id)}
           onCapture={handleCapture}
           onCancel={() => setCapturing(null)}
         />

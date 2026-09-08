@@ -13,7 +13,7 @@
  *
  * @coordinates-with styles/popup-shared.css — CSS classes for popup-icon-btn, popup-input
  * @coordinates-with LinkPopupView.ts — primary consumer for link editing popup
- * @coordinates-with ImagePopupView.ts — primary consumer for image editing popup
+ * @coordinates-with plugins/mediaPopup/mediaPopupDom.ts — primary consumer for the media (image/video/audio) popup
  * @module utils/popupComponents
  */
 

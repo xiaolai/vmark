@@ -19,7 +19,7 @@
  * @coordinates-with TiptapEditor.tsx — shares document content via documentStore
  * @coordinates-with sourceFocusRestore.ts — the shared focus/cursor/scroll restore step
  * @coordinates-with utils/cursorSync/codemirror.ts — cursor position extraction/restoration
- * @coordinates-with stores/activeEditorStore.ts — registers as the active source view
+ * @coordinates-with stores/editorStore.ts — registers as the active source view
  * @module components/Editor/SourceEditor
  */
 import { useEffect, useRef } from "react";

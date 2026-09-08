@@ -15,8 +15,8 @@
  *   - Unified history only kicks in when native undoDepth reaches 0
  *   - clearDocumentHistory exported for tab-close cleanup
  *
- * @coordinates-with unifiedHistoryStore.ts — stores checkpoint stack per tab
- * @coordinates-with useViewShortcuts.ts — calls toggleSourceModeWithCheckpoint
+ * @coordinates-with stores/documentStore/unifiedHistory.ts — stores checkpoint stack per tab
+ * @coordinates-with services/commands/viewCommands.ts — calls toggleSourceModeWithCheckpoint
  * @module services/history/unifiedHistory
  */
 

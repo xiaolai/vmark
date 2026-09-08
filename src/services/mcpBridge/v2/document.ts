@@ -10,7 +10,7 @@
  *   `transform` runs the deterministic CJK rewriter — kept because CJK
  *   rules are too nuanced for AI prose to reimplement reliably.
  *
- * Plan: dev-docs/plans/20260504-mcp-pruning.md ADR-1, ADR-2, ADR-4.
+ * Origin: MCP pruning plan (2026-05-04, retired) ADR-1, ADR-2, ADR-4.
  *
  * Key decisions:
  *   - Full-content write, not diff. Correctness first; if large-doc
@@ -29,9 +29,9 @@
  *     (we attempted and the FS rejected). The two fields are mutually
  *     exclusive so AI clients can branch without parsing free-form text.
  *
- * @coordinates-with stores/revisionStore.ts — current revision + isCurrentRevision
+ * @coordinates-with stores/documentStore/revision.ts — current revision + isCurrentRevision
  * @coordinates-with documentTransform.ts — CJK transform helpers (extracted)
- * @coordinates-with utils/markdownPipeline.ts — parseMarkdown / serializeMarkdown
+ * @coordinates-with utils/markdownPipeline/index.ts — parseMarkdown / serializeMarkdown
  * @coordinates-with stores/documentStore.ts — content + dirty state
  * @coordinates-with stores/tabStore.ts — tab → window resolution
  * @module services/mcpBridge/v2/document

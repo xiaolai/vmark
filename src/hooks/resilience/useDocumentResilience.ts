@@ -16,7 +16,7 @@
  *   - `useDocumentResilience({ isMainWindow: true })` — additionally
  *     runs hot-exit + crash-recovery startup once
  *
- * @module services/persistence/resilience/useDocumentResilience
+ * @module hooks/resilience/useDocumentResilience
  */
 
 import { useHotExitCapture } from "./_hotExitCapture";

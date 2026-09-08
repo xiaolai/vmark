@@ -1,8 +1,8 @@
 /**
- * Purpose: Renders the workflow IR's diagnostic list above the canvas.
- *   The lint pipeline (Phase 5 + actionlint forwarding) writes into
- *   `workflow.diagnostics[]` but nothing else surfaces them, so users
- *   never see why a workflow flagged. This banner makes them visible.
+ * Purpose: Renders the workflow's diagnostic list above the canvas. The
+ *   parser writes `workflow.diagnostics[]`; WorkflowEditorPanel appends
+ *   actionlint's rows (`useActionlintDiagnostics`, setting-gated) and
+ *   passes the merged list in. Nothing else surfaces either source.
  *
  *   Each row shows a collapse/expand chevron, the severity icon, the
  *   GHA-* stable code, and the message. The chevron toggles the
@@ -25,12 +25,12 @@
  *   workflow is actively in progress (many synthesized-id warnings,
  *   for example).
  *
- * Plan: dev-docs/plans/20260504-github-actions-workflow-viewer.md §6
+ * Origin: GitHub Actions workflow viewer plan (2026-05-04, retired) §6
  *   Phase 9 follow-up.
  *
  * @coordinates-with src/lib/ghaWorkflow/types.ts — Diagnostic shape
- * @coordinates-with src/stores/workflowViewStore.ts — selectJob target
- * @coordinates-with src/stores/activeEditorStore.ts — activeSourceView (CodeMirror)
+ * @coordinates-with src/stores/workflowStore.ts — selectJob target
+ * @coordinates-with src/stores/editorStore.ts — activeSourceView (CodeMirror)
  * @module components/Editor/WorkflowEditor/DiagnosticsBanner
  */
 

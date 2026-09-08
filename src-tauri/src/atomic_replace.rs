@@ -57,11 +57,19 @@ pub(crate) enum AtomicReplaceError {
 /// read). No-op when the target does not exist yet — new files keep the temp
 /// file's default permissions. Best-effort: a permissions failure must not
 /// abort the content write, so problems are logged, not returned.
+///
+/// Applied through the temp file's own DESCRIPTOR (`fchmod`), never through
+/// `temp.path()` (audit #529). `workflow::commit_dir` exists to make the whole
+/// save resolve through one validated directory descriptor, and a path-based
+/// `chmod` in the middle of that sequence hands a write back to name
+/// resolution — a directory swapped since the containment walk would take the
+/// mode change with it. The descriptor names the file this function just
+/// wrote, whatever the path means by now.
 #[cfg(unix)]
-fn preserve_target_permissions(target: &Path, temp: &NamedTempFile) {
+pub(crate) fn preserve_target_permissions(target: &Path, temp: &NamedTempFile) {
     match fs::metadata(target) {
         Ok(meta) => {
-            if let Err(e) = fs::set_permissions(temp.path(), meta.permissions()) {
+            if let Err(e) = temp.as_file().set_permissions(meta.permissions()) {
                 log::warn!(
                     "Failed to preserve permissions of {:?} across atomic write: {}",
                     target,
@@ -77,7 +85,7 @@ fn preserve_target_permissions(target: &Path, temp: &NamedTempFile) {
 }
 
 #[cfg(not(unix))]
-fn preserve_target_permissions(_target: &Path, _temp: &NamedTempFile) {
+pub(crate) fn preserve_target_permissions(_target: &Path, _temp: &NamedTempFile) {
     // Windows temp files get normal default permissions; nothing to preserve.
 }
 
@@ -92,8 +100,12 @@ fn preserve_target_permissions(_target: &Path, _temp: &NamedTempFile) {
 /// continues. Attributes are copied as they are found rather than filtered —
 /// they are the ORIGINAL file's own metadata being carried across a
 /// replacement of that same file, not privilege being granted from elsewhere.
+///
+/// Written through the temp file's DESCRIPTOR for the reason
+/// `preserve_target_permissions` is (audit #529): the anchored save must not
+/// hand a write back to path resolution.
 #[cfg(target_os = "macos")]
-fn preserve_target_xattrs(target: &Path, temp: &NamedTempFile) {
+pub(crate) fn preserve_target_xattrs(target: &Path, temp: &NamedTempFile) {
     let names = match xattr::list(target) {
         Ok(names) => names,
         // Nothing to carry over for a file that does not exist yet.
@@ -107,7 +119,7 @@ fn preserve_target_xattrs(target: &Path, temp: &NamedTempFile) {
     for name in names {
         match xattr::get(target, &name) {
             Ok(Some(value)) => {
-                if let Err(e) = xattr::set(temp.path(), &name, &value) {
+                if let Err(e) = xattr::FileExt::set_xattr(temp.as_file(), &name, &value) {
                     log::warn!(
                         "Failed to preserve xattr {:?} of {:?} across atomic write: {}",
                         name,
@@ -126,7 +138,7 @@ fn preserve_target_xattrs(target: &Path, temp: &NamedTempFile) {
 }
 
 #[cfg(not(target_os = "macos"))]
-fn preserve_target_xattrs(_target: &Path, _temp: &NamedTempFile) {
+pub(crate) fn preserve_target_xattrs(_target: &Path, _temp: &NamedTempFile) {
     // Finder tags are a macOS concept. Linux/Windows document metadata is not
     // carried today; see audit 20260906 B3 for the ACL follow-up.
 }
@@ -186,12 +198,17 @@ where
 
     temp.flush().map_err(AtomicReplaceError::FlushTemp)?;
 
+    // Metadata BEFORE the sync (#528), the same order `workflow::commit_dir`
+    // uses. `sync_all` is what makes the inode durable, so a mode or an xattr
+    // applied after it survived only until the next crash — the rename is made
+    // durable independently, and the file would then be at the target with the
+    // temp file's own permissions and none of the user's Finder tags.
+    preserve_target_permissions(target, &temp);
+    preserve_target_xattrs(target, &temp);
+
     temp.as_file()
         .sync_all()
         .map_err(AtomicReplaceError::SyncTemp)?;
-
-    preserve_target_permissions(target, &temp);
-    preserve_target_xattrs(target, &temp);
 
     // `persist` does the atomic rename over `target`, on EVERY platform. On
     // Unix `rename` replaces an existing target; on Windows `NamedTempFile`
@@ -211,71 +228,7 @@ where
     //
     // On failure the returned temp file is dropped → removed, so no temp leak
     // and — the property that matters — the existing target is untouched.
-    persist_with_retry(temp, target)
-}
-
-/// How many times a replacement is attempted before the error is returned.
-/// The delays below sum to ~127ms, which is the window a transient sharing
-/// conflict clears in; a real permission failure simply costs that long.
-#[cfg(windows)]
-const PERSIST_ATTEMPTS: u32 = 8;
-
-/// Atomically replace `target`, retrying a TRANSIENT Windows sharing refusal.
-///
-/// `MoveFileExW` needs delete access to the file it replaces, and returns
-/// `ERROR_ACCESS_DENIED` while any other handle holds it — an antivirus
-/// scanner mid-scan, a backup agent, or simply another thread reading the
-/// document. That is a moment's contention, not a failure of the write.
-///
-/// The old code survived this by accident: its remove-then-retry got a second
-/// attempt, which usually landed in the gap. Deleting that fallback (audit
-/// 20260906, B1) removed the accident along with the data loss, and CI's
-/// Windows leg found it immediately — `app_paths::test_atomic_write_no_partial_content`
-/// races 200 writes against 200 reads of one file and hit os error 5.
-///
-/// So the retry comes back, on the ONE property that made the old one
-/// dangerous: this retries `persist` itself, which is atomic and replaces in
-/// place. The target holds its previous bytes until a move succeeds, and if
-/// every attempt fails the file is exactly as it was. The old path removed the
-/// target first, so a subsequent failure left nothing behind at all.
-///
-/// Windows-only: `rename(2)` has no sharing concept, so a retry on Unix could
-/// only delay a real error.
-#[cfg(windows)]
-fn persist_with_retry(temp: NamedTempFile, target: &Path) -> Result<(), AtomicReplaceError> {
-    use std::io::ErrorKind;
-
-    let mut candidate = temp;
-    let mut backoff = std::time::Duration::from_millis(1);
-
-    for attempt in 1..=PERSIST_ATTEMPTS {
-        match candidate.persist(target) {
-            Ok(_) => return Ok(()),
-            Err(err) => {
-                let transient = matches!(
-                    err.error.kind(),
-                    ErrorKind::PermissionDenied | ErrorKind::Interrupted
-                );
-                if attempt == PERSIST_ATTEMPTS || !transient {
-                    return Err(AtomicReplaceError::Persist(err));
-                }
-                // `persist` hands the temp file back so the next attempt can
-                // use it; without this the content would be gone.
-                candidate = err.file;
-                std::thread::sleep(backoff);
-                backoff *= 2;
-            }
-        }
-    }
-
-    unreachable!("the loop returns on the final attempt")
-}
-
-#[cfg(not(windows))]
-fn persist_with_retry(temp: NamedTempFile, target: &Path) -> Result<(), AtomicReplaceError> {
-    temp.persist(target)
-        .map(|_| ())
-        .map_err(AtomicReplaceError::Persist)
+    crate::atomic_persist::persist_with_retry(temp, target)
 }
 
 #[cfg(test)]

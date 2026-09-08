@@ -1,6 +1,7 @@
 /**
  * Purpose: the WYSIWYG side of the fenced-block inserts — math, mermaid,
- * graphviz, markmap.
+ * graphviz, markmap — and of the `[TOC]` atom block, which shares their
+ * "append after the enclosing block" placement.
  *
  * All four converge with Source through ONE rule pair: a selection converts the
  * enclosing block(s) via the shared `handleInsertCodeBlock` path, and an empty
@@ -99,4 +100,19 @@ export function insertGraphvizBlock(context: WysiwygToolbarContext): boolean {
 /** Insert a Markmap mind-map code block (selection becomes the outline). */
 export function insertMarkmapBlock(context: WysiwygToolbarContext): boolean {
   return insertLanguageBlock(context, "markmap", DEFAULT_MARKMAP_CONTENT);
+}
+
+/**
+ * Insert a `[TOC]` block AFTER the current block (WI-FL3.10). An atom node, so
+ * there is nothing to seed and no selection to fold in; it serialises to the
+ * `[TOC]` line the typing path produces, which is what Source inserts.
+ */
+export function insertTocBlock(context: WysiwygToolbarContext): boolean {
+  const editor = context.editor;
+  if (!editor) return false;
+  return editor
+    .chain()
+    .focus()
+    .insertContentAt(blockInsertPos(editor.state.selection), { type: "toc" })
+    .run();
 }

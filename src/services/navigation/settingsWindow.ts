@@ -8,8 +8,8 @@
  *     menu inheritance, and close behavior stay consistent across platforms
  *   - Section navigation is handled by the backend singleton window manager
  *
- * @coordinates-with window_manager.rs — open_settings_window command
- * @coordinates-with SettingsPage.tsx — renders the settings UI in the new window
+ * @coordinates-with window_manager/settings_window.rs — open_settings_window command
+ * @coordinates-with pages/Settings.tsx — renders the settings UI in the new window
  * @module services/navigation/settingsWindow
  */
 

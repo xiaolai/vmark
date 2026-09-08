@@ -13,7 +13,8 @@
  * dishonest. The registry holds deletions that ARE still in force.
  *
  * To add an entry when you delete something an ADR/plan relies on staying gone:
- * append to REGISTRY with the deleting decision and the reason.
+ * append to REGISTRY in `scripts/lib/deletedNamesRegistry.mjs` with the
+ * deleting decision and the reason.
  *
  * SYMBOL DETECTION covers the export forms the codebase actually uses (see
  * `symbolPatterns`): plain and `async` functions, generators, `const`/`let`/
@@ -24,203 +25,242 @@
  * could come back as `export async function`, or be re-exported from a new
  * file under its old name, without the gate noticing.
  *
- * KNOWN LIMITATION — this is git grep, so it is line-based and not syntax-
- * aware. Three things it still cannot see, stated rather than implied:
- *   1. an export clause split across lines (`export {\n  useX,\n}`);
- *   2. a re-export built at runtime (`Object.assign(exports, …)`);
- *   3. the difference between code and a comment or string that happens to
+ * RUST ITEMS are covered too (WI-FL3.2): `[pub[(crate|super|self|in path)]]
+ * [const] [async] [unsafe] [extern ["ABI"]] (fn|struct|enum|type|const|static|
+ * mod|trait|union) [r#]Name`, with any whitespace the grammar allows inside
+ * `pub ( crate )` / `pub(in  path )` and a raw identifier (`fn r#name`) treated
+ * as the name it spells. Before that, a Rust name registered here was a
+ * tombstone nothing could trip over — the grammar knew only `export`, so the
+ * entry was green with no coverage at all. A CALL or a `use` of the name is
+ * not a definition and does not fire. This is the SUPPORTED grammar, fixture-
+ * tested form by form — not a Rust parser: an item produced by a macro, or
+ * one whose keyword and name sit on different lines, is outside it.
+ *
+ * FAILS CLOSED, in both ways a tripwire can be quietly disarmed: a `git grep`
+ * that could not LOOK (not a repository, an invalid pattern, git missing —
+ * anything but its "no match" exit 1) and a registry entry the gate does not
+ * understand (an unknown `kind`, a missing field) both exit 2 with a message,
+ * never "nothing reappeared".
+ *
+ * A WRAPPED export clause (`export {\n  useX,\n} from "./x"`) is the one form a
+ * line-based scan structurally cannot see, and prettier produces it for any
+ * clause past the print width — so it is the ordinary shape of a barrel file.
+ * It is covered by a two-stage check (`wrappedExportClausePattern`): git grep
+ * finds files with a lone-identifier line, then each candidate is READ and
+ * confirmed with a multiline `export { … }` match, so an import clause does
+ * not fire. The header used to record this as a limitation left open on the
+ * grounds that the registry was "eight entries long"; it is now a dozen symbol
+ * tombstones and the premise expired (audit R2 #30).
+ *
+ * It searches the WORKING TREE, not just the index: `git grep --untracked`
+ * covers a new-but-not-ignored file, so a re-created symbol fires on the run
+ * that reintroduced it rather than on a later one (audit R2 #34) — the same
+ * reasoning `check-no-nul-bytes.mjs` records. And a tombstoned PATH is probed
+ * with `lstat`, so a broken symlink standing where the deleted file was counts
+ * as the path being back (audit R2 #36); `existsSync` follows the link and
+ * reported it gone.
+ *
+ * KNOWN LIMITATION — this is still git grep, so two things remain unseen:
+ *   1. a re-export built at runtime (`Object.assign(exports, …)`);
+ *   2. the difference between code and a comment or string that happens to
  *      contain the same text (false POSITIVE, i.e. it fails closed).
- * Closing 1 and 2 means a TypeScript program pass over the glob — worth doing
- * if this tripwire ever has to be authoritative, and deliberately not done for
- * a coarse tripwire whose registry is eight entries long.
+ * Closing 1 means a TypeScript program pass over the glob — worth doing if
+ * this tripwire ever has to be authoritative.
  *
  * Usage:
  *   node scripts/check-deleted-names.mjs
  *   node scripts/check-deleted-names.mjs --root <dir> --registry <file.json>
+ * Exit 0 held, 1 a deleted name reappeared, 2 the gate could not run (a
+ * registry it cannot read or check), 64 bad arguments — the usage code every
+ * sibling gate uses, so a caller can tell misuse from a real finding.
  */
-import { existsSync, readFileSync } from "node:fs";
+import { lstatSync, readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
-/**
- * Each entry is either:
- *   { kind: "path", path, deletedBy, reason }   — this file must not exist
- *   { kind: "symbol", name, glob, deletedBy, reason } — this exported symbol
- *     must not be defined anywhere matching `glob` (a production-source pattern)
- */
-const REGISTRY = [
-  {
-    kind: "path",
-    path: "scripts/check-selection-styles.mjs",
-    deletedBy: "WI-UI0.3 (dev-docs/plans/20260829-ui-consistency.md)",
-    reason:
-      "Enforced the selection vocabulary only on selectors containing " +
-      "menu|popup|picker|dropdown, and only against hard colour literals — a " +
-      "wrong TOKEN passed, the file tree and tab strip were never scanned, and " +
-      "it had no self-test. check-ui-consistency.mjs C9 covers every selector " +
-      "with the full state vocabulary and sanctioned-family allowlists. " +
-      "Re-adding it would shadow that gate with a weaker one.",
-  },
-  {
-    kind: "path",
-    path: "src/services/keybinding/keybindingManifest.ts",
-    deletedBy: "audit-fix #29 (settled with Codex, thread 019fdb16)",
-    reason:
-      "A hand-copied restatement of every menu-backed shortcut's keys, with zero " +
-      "runtime importers. The drift gate compared it against the definitions it " +
-      "was copied FROM, so it could only catch a forgotten copy, never drift. " +
-      "scripts/check-keybinding-manifest.mjs now derives the synced set from " +
-      "DEFAULT_SHORTCUTS; every cross-language check is unchanged. " +
-      "Re-adding it would restore the duplication, not any coverage.",
-  },
-  {
-    kind: "symbol",
-    name: "KEYBINDING_MANIFEST",
-    glob: "src",
-    deletedBy: "audit-fix #29 (settled with Codex, thread 019fdb16)",
-    reason: "The manifest array itself — see the path entry above.",
-  },
-  {
-    kind: "path",
-    path: "src/services/browser/committedNavigations.ts",
-    deletedBy: "audit-fix round 4 (#87)",
-    reason:
-      "An eight-entry ring of COMMITTED navigation ids, used to decide whether a " +
-      "late load failure was superseded. Provisional ids were unknown to it and " +
-      "evicted ids looked unknown too, so a stale failure overlay still landed. " +
-      "navigationOrder.ts decides by the driver's per-tab monotonic SEQUENCE " +
-      "(nav-<tabId>-<n>) instead: no ring, no eviction, listener order irrelevant. " +
-      "Re-adding a ring would reintroduce the eviction blind spot.",
-  },
-  {
-    kind: "symbol",
-    name: "CommittedNavigations",
-    glob: "src",
-    deletedBy: "audit-fix round 4 (#87)",
-    reason: "The ring ledger class itself — see the path entry above.",
-  },
-  {
-    kind: "path",
-    path: "src/plugins/registry.ts",
-    deletedBy: "ADR-015 / WI-3.3",
-    reason:
-      "The plugin manifest registry was non-load-bearing dead metadata. " +
-      "Composition goes through lib/extensions/resolve.ts now.",
-  },
-  {
-    kind: "path",
-    path: "src/plugins/manifests.ts",
-    deletedBy: "ADR-015 / WI-3.3",
-    reason: "Central manifest registration; every manifest was a 3-field stub.",
-  },
-  {
-    kind: "symbol",
-    name: "pluginsFor",
-    glob: "src/plugins",
-    deletedBy: "ADR-015 / WI-3.3",
-    reason: "Dead registry lookup with zero production callers.",
-  },
-  {
-    kind: "path",
-    path: "src/stores/browserStore.ts",
-    deletedBy: "architecture review E4 / WI-6 (plan-20260803-161713, ledger D9)",
-    reason:
-      "Unwired hibernation-cap store; the webview leak its cap would bound was " +
-      "REFUTED — the active-page-only surface lifecycle bounds live views at 1, " +
-      "strictly tighter. Pinned by src/components/Browser/browserLifecycleBound.test.tsx. " +
-      "Wiring the cap was explicitly rejected (plan Deferred section).",
-  },
-  {
-    kind: "symbol",
-    name: "useBrowserStore",
-    glob: "src/stores",
-    deletedBy: "architecture review E4 / WI-6 (plan-20260803-161713, ledger D9)",
-    reason: "The hibernation store must not come back under another filename either.",
-  },
-  {
-    kind: "path",
-    path: "src/stores/_shimHelper.ts",
-    deletedBy: "architecture review C1 / WI-9 (plan-20260803-161713)",
-    reason:
-      "T09 revert: the slice-shim engine (WeakMap merge cache, action-filtering " +
-      "setState, getInitialState aliased to getState — a Zustand-semantics " +
-      "deviation) is gone. Every popup store is a standalone create() store now.",
-  },
-  {
-    kind: "path",
-    path: "src/stores/popupStore.ts",
-    deletedBy: "architecture review C1 / WI-9 (plan-20260803-161713)",
-    reason:
-      "T09 revert: the merged 15-slice popup mega-store facade was deleted; " +
-      "each slice was re-inlined as its own standalone store.",
-  },
-  {
-    kind: "symbol",
-    name: "usePopupStore",
-    glob: "src/stores",
-    deletedBy: "architecture review C1 / WI-9 (plan-20260803-161713)",
-    reason: "The merged popup store must not come back under another filename either.",
-  },
-  {
-    kind: "symbol",
-    name: "formatSelection",
-    glob: "src",
-    deletedBy: "WI-CJKF1.1 (dev-docs/plans/20260821-cjk-formatter-correctness.md)",
-    reason:
-      "An unprotected CJK format pass — applyRules with no findProtectedRegions " +
-      "and no verifyIntegrity, documented as 'assumes no markdown structure to " +
-      "preserve'. Nothing could establish that assumption: its only caller handed " +
-      "it a SLICE OF THE DOCUMENT, so Cmd+A then Cmd+Shift+F in Source mode " +
-      "rewrote every fenced code block (straight quotes became curly, breaking " +
-      "string literals) and every YAML `title:` (into `title：`). formatMarkdown " +
-      "takes exactly the same input safely. A 'plain text' variant must not come " +
-      "back — the safety difference is invisible at the call site.",
-  },
-];
+import { REGISTRY } from "./lib/deletedNamesRegistry.mjs";
+
 
 /** POSIX ERE word boundary — `git grep -E` has no portable `\b`. */
 const EDGE = "[^A-Za-z0-9_$]";
 const SP = "[[:space:]]";
 
+/**
+ * `name` as a LITERAL inside a POSIX ERE. `$` is legal in a TypeScript
+ * identifier (`use$Store`); interpolated raw it reads as end-of-line, so the
+ * pattern could never match and the tombstone was silently dead — a tripwire
+ * failing open. Only ERE's own specials are escaped: `}` and `]` are ordinary
+ * outside their constructs, and escaping them is undefined in POSIX.
+ */
+function ereEscape(name) {
+  return name.replace(/[.*+?^$(){|[\\]/g, "\\$&");
+}
+
 /** Every export form that would re-introduce `name`, as `git grep -E` patterns. */
 export function symbolPatterns(name) {
-  const declarators = "function|const|let|var|class|type|interface|enum";
+  const declarators = "function|const|let|var|class|type|interface|enum|namespace|module";
+  const id = ereEscape(name);
+  // Qualifiers that may sit between `export` and the declarator, in any order
+  // the language allows: `export const enum X`, `export declare abstract class
+  // X`, `export async function* x`. Written as a repeated alternation rather
+  // than a fixed chain — the chain missed `const enum` outright (audit R2 #32).
+  const quals = `((default|declare|async|abstract|const)${SP}+)*`;
+  // `export type { X }` / `export type * as X from …` are the type-only
+  // spellings, and the brace pattern anchored on `export` + `{` did not reach
+  // past the `type` keyword — the commonest re-export form in this codebase.
+  const clause = `(type${SP}+)?`;
   return [
-    // export [default] [declare] [async] [abstract] <declarator>[*] Name
-    `export${SP}+(default${SP}+)?(declare${SP}+)?(async${SP}+)?(abstract${SP}+)?(${declarators})[[:space:]*]+${name}(${EDGE}|$)`,
+    // export [default] [declare] [async] [abstract] [const] <declarator>[*] Name
+    `export${SP}+${quals}(${declarators})[[:space:]*]+${id}(${EDGE}|$)`,
     // export default Name        — re-export of an existing binding
-    `export${SP}+default${SP}+${name}(${EDGE}|$)`,
-    // export { Name }, export { X as Name }, export { a, Name } [from "…"]
-    `export${SP}*\\{${SP}*${name}(${EDGE}|$)`,
-    `export${SP}*\\{[^}]*${EDGE}${name}(${EDGE}|$)`,
-    // export * as Name from "…"
-    `export${SP}*[*]${SP}+as${SP}+${name}(${EDGE}|$)`,
+    `export${SP}+default${SP}+${id}(${EDGE}|$)`,
+    // export import Name = require(…) / = A.B  (TypeScript import alias)
+    `export${SP}+import${SP}+${id}${SP}*=`,
+    // export [type] { Name }, export { X as Name }, export { a, Name } [from "…"]
+    `export${SP}*${clause}\\{${SP}*${id}(${EDGE}|$)`,
+    `export${SP}*${clause}\\{[^}]*${EDGE}${id}(${EDGE}|$)`,
+    // export [type] * as Name from "…"
+    `export${SP}*${clause}[*]${SP}+as${SP}+${id}(${EDGE}|$)`,
   ];
 }
 
-/** Files under `glob` that re-introduce `name`. Empty when git grep matches
- *  nothing (it exits non-zero, which is not an error here). */
-export function findSymbolDefinitions(name, glob, cwd) {
-  const args = ["grep", "-lE"];
-  for (const pattern of symbolPatterns(name)) args.push("-e", pattern);
-  args.push("--", glob);
+/**
+ * A WRAPPED export clause names `name` — the one form `git grep` structurally
+ * cannot see, because the clause spans lines:
+ *
+ *     export {
+ *       useX,
+ *     } from "./x";
+ *
+ * Prettier wraps any clause past the print width, so this is the ordinary
+ * shape of a barrel file, not an exotic one. Two stages, so no file is read
+ * that does not have to be: `git grep` finds files carrying a line that is
+ * just the identifier (with an optional trailing comma or `as` alias), then
+ * each candidate is READ and confirmed with a multiline match, so an import
+ * clause or an array element does not fire.
+ *
+ * The header used to record this as a limitation deliberately left open "for a
+ * coarse tripwire whose registry is eight entries long". The registry now
+ * carries a dozen symbol tombstones, so the premise expired (audit R2 #30).
+ */
+export function wrappedExportClausePattern(name) {
+  const id = ereEscape(name);
+  // Either side of an alias: the wrapped line may be `usePopupStore,` or
+  // `theStore as usePopupStore,` — the single-line patterns fire on both, so
+  // the wrapped probe must too.
+  const ident = "[A-Za-z0-9_$]+";
+  return `^${SP}*(${ident}${SP}+as${SP}+)?${id}(${SP}+as${SP}+${ident})?${SP}*,?${SP}*$`;
+}
+
+/** `name` as a literal inside a JS RegExp (distinct from `ereEscape`'s POSIX set). */
+const jsEscape = (name) => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** A real `export [type] { … <name> … }` clause, however many lines it spans. */
+const clauseRe = (name) =>
+  new RegExp(
+    String.raw`export\s+(?:type\s+)?\{[^}]*(?:^|[^A-Za-z0-9_$])` +
+      jsEscape(name) +
+      String.raw`(?![A-Za-z0-9_$])[^}]*\}`,
+    "m",
+  );
+
+/**
+ * Every Rust item form that would re-introduce `name`. Scanned over `.rs`
+ * files ONLY: `const name = 1;` is a private local in TypeScript, and the
+ * TypeScript grammar above deliberately does not fire on those.
+ */
+export function rustSymbolPatterns(name) {
+  const items = "fn|struct|enum|type|const|static|mod|trait|union";
+  // Visibility: `pub`, `pub(crate|super|self)`, `pub(in some::path)` — with
+  // whitespace allowed wherever the grammar allows it (`pub ( crate )`).
+  const vis = `(pub(${SP}*\\(${SP}*(crate|super|self|in${SP}+[^)]+)${SP}*\\))?${SP}+)?`;
+  // Function qualifiers, any combination and order the grammar allows:
+  // `const`, `async`, `unsafe`, `extern` with or without an ABI string.
+  // `const` doubles as an item keyword (`pub const NAME: u8`); the alternation
+  // backtracks, so both readings are tried.
+  const quals = `((const|async|unsafe|extern(${SP}+"[^"]*")?)${SP}+)*`;
+  // A raw identifier names the same item: `fn r#name` IS `name` coming back.
+  return [`^${SP}*${vis}${quals}(${items})${SP}+(r#)?${ereEscape(name)}(${EDGE}|$)`];
+}
+
+/** Files matched by `pathspec` containing any of `patterns`. Empty when git
+ *  grep matches nothing — its exit 1, and ONLY that; any other failure throws.
+ *
+ *  `--untracked` searches the WORKING TREE's new-but-not-ignored files as well
+ *  as the tracked ones. Without it a locally re-created symbol was invisible
+ *  until it was staged, so the tripwire fired on the commit AFTER the one that
+ *  reintroduced the name — or never, if the author never re-ran the gate
+ *  (audit R2 #34). It honours `.gitignore`, so `node_modules/`, `dev-docs/`
+ *  and build output stay out. */
+function gitGrepFiles(patterns, pathspec, cwd) {
+  const args = ["grep", "-lE", "--untracked"];
+  for (const pattern of patterns) args.push("-e", pattern);
+  args.push("--", pathspec);
   try {
-    const out = execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+    const out = execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
     return out.trim() === "" ? [] : out.trim().split("\n");
-  } catch {
-    return [];
+  } catch (error) {
+    // git grep exits 1 for "no match" and nothing else. Not a repository, an
+    // invalid pattern, a malformed pathspec, no git on PATH — those are the
+    // gate failing to LOOK, and must never read as "nothing reappeared".
+    if (error.status === 1) return [];
+    const detail = String(error.stderr || error.message || "").trim();
+    throw new Error(`git grep failed (exit ${error.status ?? "?"}) — the gate cannot verify the registry: ${detail}`);
+  }
+}
+
+/** Files under `glob` that re-introduce `name`, in either language. */
+export function findSymbolDefinitions(name, glob, cwd) {
+  const ts = gitGrepFiles(symbolPatterns(name), glob, cwd);
+  const rust = gitGrepFiles(rustSymbolPatterns(name), `:(glob)${glob}/**/*.rs`, cwd);
+  // Stage 2 for the wrapped-clause form: confirm each candidate by reading it,
+  // so a bare `useX,` line inside an IMPORT clause or an array is not a hit.
+  const clause = clauseRe(name);
+  const wrapped = gitGrepFiles([wrappedExportClausePattern(name)], glob, cwd).filter((file) => {
+    try {
+      return clause.test(readFileSync(join(cwd, file), "utf8"));
+    } catch {
+      // A candidate that cannot be read is the gate failing to LOOK, not an
+      // absence — the same rule gitGrepFiles applies to grep's own failures.
+      throw new Error(`cannot read ${file} while confirming a wrapped export clause for ${name}`);
+    }
+  });
+  return [...new Set([...ts, ...rust, ...wrapped])];
+}
+
+/** Anything at `abs` — a file, a directory, or a BROKEN symlink. */
+const pathEntryExists = (abs) => lstatSync(abs, { throwIfNoEntry: false }) !== undefined;
+
+/** The fields each registry kind must carry; an entry outside this table is a tombstone the gate cannot check. */
+const REGISTRY_FIELDS = { path: ["path"], symbol: ["name", "glob"] };
+
+/** Throws on an entry the gate would otherwise silently skip — an unknown `kind` or a missing/blank field. */
+export function validateRegistryEntry(entry, index) {
+  const required = entry && typeof entry === "object" ? REGISTRY_FIELDS[entry.kind] : undefined;
+  if (!required) {
+    throw new Error(`registry entry ${index}: unknown kind ${JSON.stringify(entry?.kind)} (expected "path" or "symbol")`);
+  }
+  for (const field of [...required, "deletedBy", "reason"]) {
+    if (typeof entry[field] !== "string" || entry[field].trim() === "") {
+      throw new Error(`registry entry ${index} (${entry.kind}): missing string field "${field}"`);
+    }
   }
 }
 
 /** Registry → human-readable failures. Pure apart from the filesystem/git reads. */
 export function evaluateRegistry(registry, cwd) {
   const failures = [];
+  registry.forEach(validateRegistryEntry);
   for (const entry of registry) {
     if (entry.kind === "path") {
-      if (existsSync(join(cwd, entry.path))) {
+      // `lstat`, not `existsSync`: the latter FOLLOWS a symlink, so a broken
+      // one at the tombstoned path reported "gone" while git — and every
+      // reader of the tree — sees the path back (audit R2 #36). Any entry at
+      // the path is the path existing again, whatever it points at.
+      if (pathEntryExists(join(cwd, entry.path))) {
         failures.push(
           `  ${entry.path} was deleted by ${entry.deletedBy} but exists again.\n` +
             `    ${entry.reason}`,
@@ -247,15 +287,39 @@ function main() {
   let cwd = root;
   let registry = REGISTRY;
   for (let i = 0; i < argv.length; i++) {
-    if (argv[i] === "--root") cwd = resolve(argv[++i]);
-    else if (argv[i] === "--registry") registry = JSON.parse(readFileSync(resolve(argv[++i]), "utf8"));
-    else {
+    if (argv[i] === "--root" || argv[i] === "--registry") {
+      // Both take a value; a flag at the end of the line is a usage error
+      // (exit 64, like any bad argument), not a stack trace from `resolve()`.
+      const value = argv[i + 1];
+      if (value === undefined) {
+        console.error(`❌ ${argv[i]} requires a value`);
+        process.exit(64);
+      }
+      if (argv[i] === "--root") cwd = resolve(value);
+      else {
+        // A registry the gate cannot read is the gate failing to run (2),
+        // not a finding and not a stack trace.
+        try {
+          registry = JSON.parse(readFileSync(resolve(value), "utf8"));
+        } catch (error) {
+          console.error(`❌ deleted-name gate could not run: cannot read registry ${value}: ${error instanceof Error ? error.message : String(error)}`);
+          process.exit(2);
+        }
+      }
+      i++;
+    } else {
       console.error(`❌ Unknown argument: ${argv[i]}`);
-      process.exit(1);
+      process.exit(64);
     }
   }
 
-  const failures = evaluateRegistry(registry, cwd);
+  let failures;
+  try {
+    failures = evaluateRegistry(registry, cwd);
+  } catch (error) {
+    console.error(`❌ deleted-name gate could not run: ${error instanceof Error ? error.message : String(error)}`);
+    process.exit(2);
+  }
   if (failures.length > 0) {
     console.error(
       `\n❌ ${failures.length} deleted name(s) reappeared:\n\n${failures.join("\n\n")}\n`,
@@ -263,7 +327,8 @@ function main() {
     console.error(
       "A decision declared these gone. Re-introducing one silently reverses that\n" +
         "decision — the ADR-009 failure mode. If the reversal is intended, update the\n" +
-        "ADR/plan AND remove the entry from scripts/check-deleted-names.mjs.\n",
+        "ADR/plan AND remove the entry from REGISTRY in\n" +
+        "scripts/lib/deletedNamesRegistry.mjs.\n",
     );
     process.exit(1);
   }

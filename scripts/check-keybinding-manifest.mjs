@@ -27,20 +27,35 @@
  *     same value (closing the "checked against a test mirror, not the real menu"
  *     gap — a drift between the mirror and the real builder is now visible here,
  *     not only in the macOS-only Rust test), and
- *   - the docs table lists the entry's accelerator (order-insensitively; a
- *     menu-backed shortcut must be documented).
- * It also asserts the reverse direction: every non-empty accelerator the real
- * menu builder binds must map to a synced entry (or an explicit allow-listed id
- * with a stated reason).
+ *   - the docs table lists EVERY effective platform accelerator the entry binds
+ *     — `defaultKeyMac ?? defaultKey` and `defaultKeyOther ?? defaultKey`,
+ *     order-insensitively; a menu-backed shortcut must be documented.
+ * It also asserts the reverse direction on BOTH Rust sources: every non-empty
+ * accelerator the real menu builder binds, and every non-empty tuple the
+ * contract mirror holds, must map to a synced entry (or an explicit
+ * allow-listed id with a stated reason). Without the mirror half, a renamed or
+ * deleted shortcut left its old tuple behind to validate against itself
+ * (audit R3 #69).
  *
- * Everything is parsed as text (no TS/Rust runtime), so the gate runs under plain
- * `node`. It fails closed: a missing file, unreadable table, or parse error
- * exits non-zero. Run via `pnpm lint:keybinding-manifest` (wired into check:all).
+ * Nothing is EXECUTED — no TS runtime, no cargo — so the gate runs under plain
+ * `node`; but the TypeScript sources are PARSED (`typescript`, the way this
+ * repo's other AST gates read TS) and the Rust sources go through
+ * `lib/rustSource.mjs`'s comment/literal lexer. Text scanning was the defect:
+ * a definitions entry could hide its `id` behind a comment or a nested object,
+ * a `...SPREAD` element contributed shortcuts nothing checked, and a
+ * commented-out mirror tuple stood in for the contract (audit R2
+ * #62/#64/#68). It fails closed: a missing file, an unreadable table, a parse
+ * error, or an array element shape it does not understand exits non-zero.
+ * Run via `pnpm lint:keybinding-manifest` (wired into check:all).
  */
 
 import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { keyTokens, prosemirrorToDocs, prosemirrorToTauri } from "./lib/keybindingFormat.mjs";
+import { arrayLiteralEnd } from "./lib/arrayLiteralEnd.mjs";
+import { rustCode, rustSpans } from "./lib/rustSource.mjs";
+import ts from "typescript";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const DEFS_PATH = "src/stores/settingsStore/shortcutDefinitions.ts";
@@ -48,8 +63,16 @@ const RUST_PATH = "src-tauri/src/menu/localized.test.rs";
 const LOCALIZED_DIR = "src-tauri/src/menu/localized";
 const DOCS_PATH = "website/guide/shortcuts.md";
 
-/** Menu ids whose accelerator is registered dynamically, not via a static menu accel. */
-const DYNAMIC_MENU_IDS = new Set(["search-genies"]);
+/**
+ * Menu ids whose accelerator is registered dynamically, not via a static menu
+ * accel. Each names the SOURCE that binds it, and that binding is verified to
+ * still exist below: an exemption is a claim about live code, and an
+ * un-checked one silently removes a real shortcut from every cross-language
+ * comparison the moment the dynamic path is deleted (audit R2 #55).
+ */
+const DYNAMIC_MENU_IDS = new Map([
+  ["search-genies", { source: "src/hooks/useGenieShortcuts.ts", reason: "accelerator registered at runtime by useGenieShortcuts" }],
+]);
 
 /**
  * Menu ids that the real menu builder binds a non-empty accelerator to but which
@@ -69,6 +92,14 @@ const NON_MANIFEST_MENU_ACCELS = new Map([
  * it has no individual accelerator cell. `heading-1` and `heading-6` DO render as
  * individual code spans and are checked normally; only the interior levels are
  * exempt from the docs presence check.
+ *
+ * The exemption is a CLAIM ABOUT THE DOCS, and it is verified against them —
+ * the rule `DYNAMIC_MENU_IDS` already carries. Each entry was a permanent pass
+ * granted on a range nothing read: delete the range row, narrow it to
+ * `Mod + 1` through `Mod + 3`, or rename the id, and four menu-backed
+ * shortcuts left every docs comparison with the gate still green (audit R3
+ * #56). Now the range row must exist, its endpoints must share the entry's
+ * modifiers, and the entry's own key must fall between them.
  */
 const DOCS_RANGE_DOCUMENTED = new Map([
   ["heading-2", 'documented as the range "Mod + 1 through Mod + 6"'],
@@ -93,133 +124,87 @@ function fail(msg) {
 }
 
 /**
- * Convert ProseMirror key format to Tauri accelerator format.
- * Ported verbatim from `src/stores/settingsStore/keyFormatting.ts`
- * (`prosemirrorToTauri`). Keep in sync if that converter changes — the
- * `settingsShortcuts.test.ts` suite pins the canonical behaviour.
- */
-function prosemirrorToTauri(key) {
-  if (!key) return "";
-  const modifierNames = new Set(["Mod", "Ctrl", "Alt", "Shift"]);
-  const modifierMap = { Mod: "CmdOrCtrl" };
-  const parts = key.split("-");
-  const result = [];
-  for (let i = 0; i < parts.length; i++) {
-    const part = parts[i];
-    if (part === "" && i === parts.length - 1) {
-      result.push("-");
-    } else if (part === "") {
-      continue;
-    } else if (modifierNames.has(part) && i < parts.length - 1) {
-      result.push(modifierMap[part] ?? part);
-    } else {
-      const mapped = modifierMap[part] ?? part;
-      if (mapped.length === 1 && /[a-z]/i.test(mapped)) {
-        result.push(mapped.toUpperCase());
-      } else {
-        result.push(mapped);
-      }
-    }
-  }
-  return result.join("+");
-}
-
-/**
- * Read a Rust string literal from `src` starting at index `i` (`src[i]` must be
- * `"`). Mirrors the Rust contract test's `read_string`: a `\\` skips the next
- * char and takes it literally (`\\\\` → `\\`, `\\"` → `"`); a backtick is a plain
- * char. Returns `[content, indexPastClosingQuote]`, failing closed on an
- * unterminated literal.
- */
-function readRustString(src, i, rel) {
-  i += 1; // skip opening quote
-  let out = "";
-  while (i < src.length && src[i] !== '"') {
-    if (src[i] === "\\") i += 1;
-    out += src[i];
-    i += 1;
-  }
-  if (i >= src.length) fail(`${rel}: unterminated Rust string literal while parsing accel(...)`);
-  return [out, i + 1];
-}
-
-/**
  * Scan every `accel(...)` call site in a real menu-builder source. Ports the
  * paren-depth scanner from `localized.test.rs::scan_accel_calls` so nested
- * `cfg!(...)` parens don't end a call early, and skips line and block comments
- * so a commented-out `accel(...)` never pollutes the parse. Returns an array of
+ * `cfg!(...)` parens don't end a call early. Returns an array of
  * `{ id, accel }` where `accel` is either a string (static literal) or
  * `{ mac, other }` (the `if cfg!(target_os = "macos") { … } else { … }` form).
+ *
+ * Comments and literals come from `lib/rustSource.mjs`'s `rustSpans` — the
+ * repo's ONE Rust tokenizer — rather than from a loop in this file. The loop
+ * that lived here was a second implementation of the same grammar and had
+ * drifted exactly as a copy does: it closed a NESTED block comment at the first
+ * `*​/`, knew nothing of raw strings (`r#"a"b"#`, whose unescaped quote opened
+ * an ordinary string), and did not recognise char literals at all — so a single
+ * `'"'` anywhere in a menu file sent it into string mode and every later
+ * `accel(...)` disappeared from the check with nothing to fail on
+ * (audit R3 #58/#59). Skipping a span is also what keeps a commented-out or
+ * quoted call from being read as a real one, which is the promise this scan
+ * already made.
  */
 function scanAccelCalls(src, rel) {
+  const spans = new Map();
+  for (const span of rustSpans(src)) spans.set(span.start, span);
   const calls = [];
   let i = 0;
   while (i < src.length) {
-    const ch = src[i];
-    const nx = src[i + 1];
-    // Skip comments and string literals so an `accel(` token that lives INSIDE
-    // one (a commented-out call, or the substring in an unrelated string) is never
-    // mistaken for a real call site — the header promise the old outer scan didn't
-    // keep (audit-fix, round 3). The inner arg scanner below skips these too.
-    if (ch === "/" && nx === "/") {
-      const nl = src.indexOf("\n", i);
-      i = nl === -1 ? src.length : nl;
-      continue;
-    }
-    if (ch === "/" && nx === "*") {
-      const end = src.indexOf("*/", i + 2);
-      if (end === -1) fail(`${rel}: unterminated block comment while scanning for accel(...)`);
-      i = end + 2;
-      continue;
-    }
-    if (ch === '"') {
-      [, i] = readRustString(src, i, rel);
+    const span = spans.get(i);
+    // A comment or a literal is never a call site.
+    if (span) {
+      i = span.end;
       continue;
     }
     // Require a call boundary: the char before `accel` must not be an identifier
     // char (so `AccelFn`, `my_accel(` etc. never match).
-    if (ch !== "a" || !src.startsWith("accel(", i)) {
-      i += 1;
-      continue;
-    }
-    const prev = i > 0 ? src[i - 1] : " ";
-    if (/[A-Za-z0-9_]/.test(prev)) {
+    if (!src.startsWith("accel(", i) || /[A-Za-z0-9_]/.test(i > 0 ? src[i - 1] : " ")) {
       i += 1;
       continue;
     }
     let j = i + "accel(".length;
     let depth = 1;
     const lits = [];
+    const litSpans = [];
     while (depth > 0) {
+      // An unterminated comment or literal runs to end of input (rustSpans), so
+      // this is also the fail-closed exit for a file that no longer parses.
       if (j >= src.length) fail(`${rel}: unterminated accel(...) call — fail closed`);
-      const c = src[j];
-      const next = src[j + 1];
-      if (c === "/" && next === "/") {
-        const nl = src.indexOf("\n", j);
-        j = nl === -1 ? src.length : nl;
-      } else if (c === "/" && next === "*") {
-        const end = src.indexOf("*/", j + 2);
-        if (end === -1) fail(`${rel}: unterminated block comment inside accel(...)`);
-        j = end + 2;
-      } else if (c === '"') {
-        const [s, nextIdx] = readRustString(src, j, rel);
-        lits.push(s);
-        j = nextIdx;
-      } else if (c === "(") {
-        depth += 1;
-        j += 1;
-      } else if (c === ")") {
-        depth -= 1;
-        j += 1;
-      } else {
-        j += 1;
+      const inner = spans.get(j);
+      if (inner) {
+        if (inner.kind === "string") {
+          lits.push(inner.value);
+          litSpans.push([inner.start, inner.end]);
+        }
+        j = inner.end;
+        continue;
       }
+      const c = src[j];
+      if (c === "(") depth += 1;
+      else if (c === ")") depth -= 1;
+      j += 1;
     }
     if (lits.length === 2) {
       calls.push({ id: lits[0], accel: lits[1] });
     } else if (lits.length === 4) {
       if (lits[1] !== "macos") {
         fail(`${rel}: accel("${lits[0]}", …) has an unexpected cfg! target "${lits[1]}" (expected "macos")`);
+      }
+      // Four literals with "macos" second is NOT enough to know which branch is
+      // which: `if !cfg!(target_os = "macos") { A } else { B }` has exactly the
+      // same literals in the same order and means the opposite, and so does a
+      // shape with the branches swapped (audit R2 #60). Check the TEXT BETWEEN
+      // the literals — over code, so a comment between arguments is whitespace.
+      const between = (a, b) => rustCode(src.slice(litSpans[a][1], litSpans[b][0]), { keepStrings: true });
+      const bad =
+        !/^\s*,\s*if\s+cfg!\s*\(\s*target_os\s*=\s*$/.test(between(0, 1)) ||
+        !/^\s*\)\s*\{\s*$/.test(between(1, 2)) ||
+        !/^\s*\}\s*else\s*\{\s*$/.test(between(2, 3));
+      if (bad) {
+        fail(
+          `${rel}: accel("${lits[0]}", …) is not the platform-conditional shape this gate reads ` +
+            '(`if cfg!(target_os = "macos") { <macOS> } else { <other> }`). A negated cfg!, a ' +
+            "swapped pair of branches or a nested conditional carries the same four literals and " +
+            "means something else, so the gate fails closed rather than assuming the polarity.",
+        );
       }
       calls.push({ id: lits[0], accel: { mac: lits[2], other: lits[3] } });
     } else {
@@ -314,32 +299,6 @@ function canonAccel(tokens) {
   return [...mods, ...keys].join("+");
 }
 
-/** ProseMirror key (`Mod-Shift-n`) → raw token list, handling the trailing `-` (minus) key. */
-function keyTokens(key) {
-  const parts = key.split("-");
-  const out = [];
-  for (let i = 0; i < parts.length; i++) {
-    const p = parts[i];
-    if (p === "" && i === parts.length - 1) out.push("-");
-    else if (p === "") continue;
-    else out.push(p);
-  }
-  return out;
-}
-
-/**
- * Human-readable docs accelerator for a ProseMirror key (`Mod-Shift-n` →
- * `Mod + Shift + N`): `-` → ` + `, `Mod` kept verbatim, single letters upper-cased.
- * Used only for error messages; matching goes through `canonAccel` for order
- * tolerance.
- */
-function prosemirrorToDocs(key) {
-  if (!key) return "";
-  return keyTokens(key)
-    .map((t) => (t.length === 1 && /[a-z]/i.test(t) ? t.toUpperCase() : t))
-    .join(" + ");
-}
-
 /** Is `t` a plausible accelerator token (modifier, single key, F-key, or named key)? */
 function isAccelToken(t) {
   if (t === DOC_BT_SENTINEL) return true;
@@ -382,171 +341,198 @@ function buildDocsAccelSet(raw, rel) {
   return set;
 }
 
+/**
+ * An accelerator's modifiers and its single key, or null when it is not a
+ * one-key chord — the shape a compressed range can talk about.
+ */
+function accelParts(tokens) {
+  const canon = tokens.map(canonToken);
+  const keys = canon.filter((t) => !MOD_TOKENS.has(t));
+  if (keys.length !== 1 || keys[0].length !== 1) return null;
+  return { mods: canon.filter((t) => MOD_TOKENS.has(t)).sort().join("+"), key: keys[0] };
+}
+
+/**
+ * Every compressed range the docs table writes as `` `A` through `B` `` in one
+ * cell, as `{ mods, from, to, text }`. Only chords that differ in exactly their
+ * one key can form a range, so a pair with different modifiers is not one.
+ */
+function docsRanges(raw) {
+  const out = [];
+  for (const m of raw.matchAll(/`([^`\n]+)`\s+through\s+`([^`\n]+)`/g)) {
+    const from = accelParts(m[1].split("+").map((t) => t.trim()).filter(Boolean));
+    const to = accelParts(m[2].split("+").map((t) => t.trim()).filter(Boolean));
+    if (from && to && from.mods === to.mods && from.key <= to.key) {
+      out.push({ mods: from.mods, from: from.key, to: to.key, text: `${m[1]} through ${m[2]}` });
+    }
+  }
+  return out;
+}
+
+/** The documented range covering `tokens`, or null. */
+function coveringRange(ranges, tokens) {
+  const p = accelParts(tokens);
+  if (!p) return null;
+  return ranges.find((r) => r.mods === p.mods && r.from <= p.key && p.key <= r.to) ?? null;
+}
+
 /** Unescape a JS/TS double-quoted string body into its runtime value. */
 function unquote(rawBody) {
   return JSON.parse(`"${rawBody}"`);
 }
 
 /**
- * Unescape a single-quoted (or backtick) TS string body into its runtime value.
- * JSON.parse only accepts double-quoted bodies, so this handles the escape
- * sequences directly for the non-double-quoted case. `\\X` → the escaped char
- * (with the standard `\\n`/`\\t`/… expansions); everything else is literal.
+ * Every DEPTH-1 string field of one object literal, in SOURCE ORDER (a
+ * duplicate key keeps the LAST assignment, which is the value JavaScript
+ * builds). Read from the parser, not from a regex over the literal's text: a
+ * `// id: "x"` inside the entry, and an `id` inside a NESTED object, both
+ * satisfied the old boundary-anchored search and stood in for the real
+ * property (audit R2 #62).
+ *
+ * A SPREAD or a COMPUTED key fails the gate rather than being skipped: either
+ * can override a literal that is right there in the source, so the value this
+ * function would report is not the value the app uses.
  */
-function unescapeAltQuoted(raw) {
-  return raw.replace(/\\(u[0-9a-fA-F]{4}|x[0-9a-fA-F]{2}|.)/gs, (_, esc) => {
-    switch (esc[0]) {
-      case "n": return "\n";
-      case "t": return "\t";
-      case "r": return "\r";
-      case "b": return "\b";
-      case "f": return "\f";
-      case "v": return "\v";
-      case "0": return "\0";
-      case "u":
-      case "x": return String.fromCharCode(parseInt(esc.slice(1), 16));
-      default: return esc[0]; // \\ \" \' \` \/ … → the literal char
+function objectStringFields(obj, rel, name) {
+  const fields = new Map();
+  for (const p of obj.properties) {
+    if (ts.isSpreadAssignment(p) || (p.name !== undefined && ts.isComputedPropertyName(p.name))) {
+      fail(
+        `${rel}: ${name} contains an entry with a ${ts.isSpreadAssignment(p) ? "spread" : "computed key"}. ` +
+          "Either can override a literal property, so the accelerator this gate would check " +
+          "is not necessarily the one the app binds — it fails closed instead.",
+      );
     }
-  });
-}
-
-/** Unescape a captured string body given its opening quote char. */
-function unquoteAny(quote, raw) {
-  // Double-quoted: reuse the existing JSON.parse('"'+raw+'"') path.
-  if (quote === '"') return unquote(raw);
-  return unescapeAltQuoted(raw);
-}
-
-/**
- * Extract a `name: "value"` (or `'value'`, or `"name"`/`'name'` key) string
- * field from an object-literal body regardless of property order, or undefined.
- * The key must sit at a property boundary (`{`, `,`, or whitespace) so a search
- * for `id` never matches inside `menuId`.
- */
-function stringField(body, name) {
-  const re = new RegExp(
-    `(?:^|[,{\\s])["']?${name}["']?\\s*:\\s*(["'])((?:\\\\.|(?!\\1)[^\\\\])*)\\1`,
-  );
-  const m = re.exec(body);
-  return m ? unquoteAny(m[1], m[2]) : undefined;
-}
-
-/**
- * Split an array-body region into balanced top-level `{ … }` object literals by
- * brace-counting (property ORDER does not matter). It is a small lexer: string
- * contents (single, double, or backtick quoted, with escapes), `//` line
- * comments, and `/* … *\/` block comments are all skipped, so a brace, quote, or
- * apostrophe living inside a string value or a comment (e.g. `browser's`) never
- * corrupts the depth count. Without comment/string awareness a stray quote char
- * swallows every following entry — a silent fail-open.
- */
-function splitObjectLiterals(region, rel, name) {
-  const literals = [];
-  let depth = 0;
-  let start = -1;
-  let quote = null; // active string quote char, or null
-  let escaped = false;
-  let lineComment = false;
-  let blockComment = false;
-  for (let i = 0; i < region.length; i++) {
-    const c = region[i];
-    const next = region[i + 1];
-    if (quote) {
-      if (escaped) escaped = false;
-      else if (c === "\\") escaped = true;
-      else if (c === quote) quote = null;
-      continue;
-    }
-    if (lineComment) {
-      if (c === "\n") lineComment = false;
-      continue;
-    }
-    if (blockComment) {
-      if (c === "*" && next === "/") {
-        blockComment = false;
-        i++;
-      }
-      continue;
-    }
-    if (c === "/" && next === "/") {
-      lineComment = true;
-      i++;
-    } else if (c === "/" && next === "*") {
-      blockComment = true;
-      i++;
-    } else if (c === '"' || c === "'" || c === "`") {
-      quote = c;
-    } else if (c === "{") {
-      if (depth === 0) start = i;
-      depth++;
-    } else if (c === "}") {
-      if (depth > 0) {
-        depth--;
-        if (depth === 0 && start !== -1) {
-          literals.push(region.slice(start, i + 1));
-          start = -1;
-        }
-      }
-    }
+    if (!ts.isPropertyAssignment(p)) continue;
+    if (!ts.isIdentifier(p.name) && !ts.isStringLiteralLike(p.name)) continue;
+    fields.set(p.name.text, ts.isStringLiteralLike(p.initializer) ? p.initializer.text : undefined);
   }
-  // Fail closed on a lexer that ran off the rails: an unterminated string or
-  // block comment, or an unbalanced brace, means we could have silently swallowed
-  // real entries — never trust a partial parse.
-  if (quote !== null) {
-    fail(`${rel}: ${name} — unterminated ${quote}-quoted string while splitting object literals`);
-  }
-  if (blockComment) {
-    fail(`${rel}: ${name} — unterminated block comment while splitting object literals`);
-  }
-  if (depth !== 0) {
-    fail(`${rel}: ${name} — unbalanced braces (depth ${depth}) while splitting object literals`);
-  }
-  return literals;
+  return fields;
 }
 
 /**
  * Parse an array of `{ ... }` object literals from a TS source region.
- * `region` must already be narrowed to the array body. Fails closed: every
- * balanced literal must yield a string `id`, and the parsed-entry count must
- * equal the literal count — an entry whose shape hides its `id` (id last,
- * single-quoted, spread, shorthand, …) aborts the gate instead of being
- * silently dropped.
+ * `region` must already be narrowed to the array body (`arrayBody`).
+ *
+ * PARSED, not brace-counted. The hand-rolled splitter collected the balanced
+ * `{ … }` groups it found and IGNORED every other array element, so a
+ * `...MORE_SHORTCUTS`, a bare identifier or a `makeEntry("x")` contributed
+ * definitions the drift check never saw — and the entry-count guard compared
+ * two numbers that both excluded them, so it could not notice (audit R2 #64).
+ * Every element must now be an object literal, or the gate fails closed.
  */
 function parseObjectLiterals(region, rel, name) {
-  const literals = splitObjectLiterals(region, rel, name);
+  const sf = ts.createSourceFile(`${name}.ts`, `(${region}])`, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  if (sf.parseDiagnostics.length > 0) {
+    fail(`${rel}: ${name} does not parse: ${ts.flattenDiagnosticMessageText(sf.parseDiagnostics[0].messageText, " ")}`);
+  }
+  let arr;
+  const findArray = (node) => {
+    if (arr) return;
+    if (ts.isArrayLiteralExpression(node)) arr = node;
+    else ts.forEachChild(node, findArray);
+  };
+  findArray(sf);
+  if (!arr) fail(`${rel}: ${name} — no array literal to read`);
   const out = [];
-  for (const body of literals) {
-    const id = stringField(body, "id");
+  for (const el of arr.elements) {
+    if (!ts.isObjectLiteralExpression(el)) {
+      fail(
+        `${rel}: ${name} holds an array element that is not an object literal: ` +
+          `${el.getText(sf).replace(/\s+/g, " ").slice(0, 160)}\n  The gate fails closed: ` +
+          "a spread, an identifier or a factory call hides every shortcut it contributes.",
+      );
+    }
+    const fields = objectStringFields(el, rel, name);
+    const id = fields.get("id");
     if (id === undefined) {
-      const fragment = body.replace(/\s+/g, " ").trim().slice(0, 160);
-      const menuId = stringField(body, "menuId");
+      const menuId = fields.get("menuId");
       const hint = menuId
         ? ` — this entry has menuId "${menuId}" but no extractable string \`id\``
-        : " — no extractable string `id`";
+        : " — no extractable string \`id\`";
       fail(
         `${rel}: ${name} contains an object literal the drift gate cannot parse${hint}. ` +
-          `Fragment: ${fragment}\n  The gate fails closed: give the entry a plain ` +
-          `\`id: "…"\` property so its accelerator can be verified.`,
+          `Fragment: ${el.getText(sf).replace(/\s+/g, " ").trim().slice(0, 160)}\n  The gate fails closed: give the entry a plain ` +
+          "\`id: \"…\"\` property so its accelerator can be verified.",
       );
     }
     out.push({
       id,
-      label: stringField(body, "label"),
-      defaultKey: stringField(body, "defaultKey"),
-      defaultKeyMac: stringField(body, "defaultKeyMac"),
-      defaultKeyOther: stringField(body, "defaultKeyOther"),
-      menuId: stringField(body, "menuId"),
+      label: fields.get("label"),
+      defaultKey: fields.get("defaultKey"),
+      defaultKeyMac: fields.get("defaultKeyMac"),
+      defaultKeyOther: fields.get("defaultKeyOther"),
+      menuId: fields.get("menuId"),
     });
   }
-  // Belt-and-suspenders: one parsed entry per balanced literal (unreachable
-  // after the per-literal fail() above, but makes the invariant explicit).
-  if (out.length !== literals.length) {
+  // Belt-and-suspenders: one parsed entry per array element (unreachable after
+  // the per-element fail() above, but makes the invariant explicit).
+  if (out.length !== arr.elements.length) {
     fail(
-      `${rel}: ${name} parsed ${out.length} entries from ${literals.length} object ` +
-        `literals — the gate fails closed on any dropped entry`,
+      `${rel}: ${name} parsed ${out.length} entries from ${arr.elements.length} array ` +
+        "elements — the gate fails closed on any dropped entry",
     );
   }
   return out;
+}
+
+/**
+ * The `[` that opens `ident`'s array declaration in TypeScript, from the
+ * PARSER — not from a regex over raw text.
+ *
+ * A declaration-shaped comment or string anchored the regex: `// const
+ * DEFAULT_SHORTCUTS: Shortcut[] = [` in a header, or the same text inside a
+ * template literal, matched before the real declaration and handed the parse an
+ * array that is not the one the app builds (audit R3 #65). The parser has no
+ * such ambiguity, and it already has to succeed here — `arrayLiteralEnd` refuses
+ * a source with parse diagnostics — so this costs one extra parse and no new
+ * failure mode. `as const` / `satisfies` / parentheses are unwrapped, since each
+ * wraps the array without changing which array it is.
+ */
+function tsDeclarationOpen(src, ident, rel) {
+  const sf = ts.createSourceFile(rel, src, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  if (sf.parseDiagnostics.length > 0) {
+    fail(`${rel}: does not parse: ${ts.flattenDiagnosticMessageText(sf.parseDiagnostics[0].messageText, " ")}`);
+  }
+  let open = -1;
+  const unwrap = (node) => {
+    let n = node;
+    while (
+      n !== undefined &&
+      (ts.isAsExpression(n) || ts.isParenthesizedExpression(n) || ts.isSatisfiesExpression(n))
+    ) {
+      n = n.expression;
+    }
+    return n;
+  };
+  const visit = (node) => {
+    if (open !== -1) return;
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.name.text === ident) {
+      const init = unwrap(node.initializer);
+      if (init !== undefined && ts.isArrayLiteralExpression(init)) {
+        open = init.getStart(sf);
+        return;
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return open;
+}
+
+/**
+ * The `[` that opens `ident`'s array declaration in Rust
+ * (`const NAME: &[(&str, &str)] = &[`).
+ *
+ * Matched over fully-blanked CODE — `rustCode` blanks comments AND literals
+ * while preserving offsets — for the same reason as the TypeScript side: this
+ * gate's Rust input already arrives with `keepStrings: true`, so a
+ * declaration-shaped string would still have anchored it (audit R3 #65).
+ */
+function rustDeclarationOpen(src, ident) {
+  const decl = new RegExp(`(?:const|let|var|static)\\s+${ident}\\b[^=\\n]*=\\s*&?\\s*\\[`);
+  const m = decl.exec(rustCode(src));
+  return m ? m.index + m[0].length - 1 : -1;
 }
 
 /** Narrow source to the body of `const NAME ... = [ ... ];`. */
@@ -556,17 +542,20 @@ function arrayBody(src, name, rel) {
   // `[` came next — which stayed correct only while no other array happened to
   // be declared in between. Adding one (the category table) silently made this
   // parse the wrong array and report zero definitions.
-  // `const`/`let`/`var`/`static` covers both the TS sources and the Rust
-  // contract mirror, whose arrays are `const NAME: &[(&str, &str)] = &[`.
   // Callers used to pass "const NAME" to dodge the comment-mention problem;
   // the declaration anchor makes the identifier alone sufficient either way.
+  // The END is the BALANCED closing bracket (strings and comments skipped —
+  // scripts/lib/arrayLiteralEnd.mjs), not the first textual `];`: a comment
+  // mentioning `];` inside the array used to truncate the parse and drop every
+  // later entry from the check with nothing to fail on.
   const ident = name.trim().split(/\s+/).pop();
-  const decl = new RegExp(`(?:const|let|var|static)\\s+${ident}\\b[^=\\n]*=\\s*&?\\s*\\[`);
-  const m = decl.exec(src);
-  if (!m) fail(`${rel}: could not find a declaration of ${ident}`);
-  const open = m.index + m[0].length - 1;
-  const close = src.indexOf("];", open);
-  if (close === -1) fail(`${rel}: no array closing after ${name}`);
+  const open = rel.endsWith(".rs") ? rustDeclarationOpen(src, ident) : tsDeclarationOpen(src, ident, rel);
+  if (open === -1) fail(`${rel}: could not find a declaration of ${ident}`);
+  // The scanner is language-specific: TS regex literals and nested templates,
+  // Rust nested block comments and raw strings each need their own tokenizer,
+  // and one hand-rolled loop was wrong for both (audit R2 #136/#138/#139/#140).
+  const close = arrayLiteralEnd(src, open, { lang: rel.endsWith(".rs") ? "rust" : "ts" });
+  if (close === -1) fail(`${rel}: no balanced array closing after ${name}`);
   return src.slice(open, close);
 }
 
@@ -596,25 +585,56 @@ const manifest = defs
     defaultKeyOther: d.defaultKeyOther,
     menuId: d.menuId,
   }));
-if (manifest.length === 0) fail(`${DEFS_PATH}: derived zero menu-backed shortcuts`);
+// Zero DEFINITIONS first, then zero DERIVED entries. The other order made the
+// definitions check unreachable — no definitions implies no manifest, so the
+// manifest `fail()` always fired first and reported a derivation problem for
+// what is really a parse that read nothing (audit R3 #66).
 if (defs.length === 0) fail(`${DEFS_PATH}: parsed zero shortcut definitions`);
+if (manifest.length === 0) fail(`${DEFS_PATH}: derived zero menu-backed shortcuts`);
 const defById = new Map(defs.map((d) => [d.id, d]));
 
 // --- Load Rust contract tables ---
-const rustSrc = readOrDie(RUST_PATH);
+// Comments are blanked (nested-aware, offsets preserved) before the tuple
+// regexes run: a commented-out tuple counted as the contract, so a mirror
+// whose live entry had been deleted could still validate against the comment
+// left behind (audit R2 #68). `keepStrings` because the accelerators ARE the
+// string literals this reads.
+const rustSrc = rustCode(readOrDie(RUST_PATH), { keepStrings: true });
 const rustDefaultBody = arrayBody(rustSrc, "const DEFAULT_ACCELERATORS", RUST_PATH);
 const rustPlatformBody = arrayBody(rustSrc, "const PLATFORM_ACCELERATORS", RUST_PATH);
+
+/**
+ * Every element of a contract array must be read by `re`. Matching and moving
+ * on lets a tuple shape this parser does not understand vanish silently — and
+ * an id missing from the mirror is only caught when a manifest entry names it,
+ * so a mirror-only entry disappeared with nothing to fail on (audit R2 #68).
+ */
+function readTuples(body, re, name) {
+  const matches = [...body.matchAll(re)];
+  const marks = body.split("");
+  for (const m of matches) for (let i = m.index; i < m.index + m[0].length; i++) marks[i] = " ";
+  const residue = marks.join("").replace(/[\s,[\]]+/g, "");
+  if (residue !== "") {
+    fail(
+      `${RUST_PATH}: ${name} holds array element text this gate did not read: ` +
+        `${JSON.stringify(residue.slice(0, 120))} — the gate fails closed rather than ` +
+        "checking the tuples it happened to understand.",
+    );
+  }
+  return matches;
+}
+
 // Duplicate ids in either contract table (or an id in BOTH) silently overwrote
 // earlier entries via Map.set — a wrong-then-right duplicate would let the gate
 // validate against the surviving tuple and pass. Fail closed on any duplicate
 // (audit-fix, round 3).
 const rustDefault = new Map();
-for (const m of rustDefaultBody.matchAll(/\("([a-z0-9-]+)",\s*"((?:[^"\\]|\\.)*)"\)/g)) {
+for (const m of readTuples(rustDefaultBody, /\("([a-z0-9-]+)",\s*"((?:[^"\\]|\\.)*)"\)/g, "DEFAULT_ACCELERATORS")) {
   if (rustDefault.has(m[1])) fail(`${RUST_PATH}: duplicate id "${m[1]}" in DEFAULT_ACCELERATORS`);
   rustDefault.set(m[1], unquote(m[2]));
 }
 const rustPlatform = new Map();
-for (const m of rustPlatformBody.matchAll(/\("([a-z0-9-]+)",\s*"((?:[^"\\]|\\.)*)",\s*"((?:[^"\\]|\\.)*)"\)/g)) {
+for (const m of readTuples(rustPlatformBody, /\("([a-z0-9-]+)",\s*"((?:[^"\\]|\\.)*)",\s*"((?:[^"\\]|\\.)*)"\)/g, "PLATFORM_ACCELERATORS")) {
   if (rustPlatform.has(m[1])) fail(`${RUST_PATH}: duplicate id "${m[1]}" in PLATFORM_ACCELERATORS`);
   if (rustDefault.has(m[1])) {
     fail(`${RUST_PATH}: id "${m[1]}" appears in BOTH DEFAULT_ACCELERATORS and PLATFORM_ACCELERATORS`);
@@ -630,8 +650,43 @@ const { realDefault, realPlatform } = parseRealMenu();
 // --- Load the docs table accelerators ---
 const docsSrc = readOrDie(DOCS_PATH);
 const docsAccels = buildDocsAccelSet(docsSrc, DOCS_PATH);
+const docsRangeCells = docsRanges(docsSrc);
+
+// --- Dynamic-exemption liveness: the binding each exemption cites must exist ---
+for (const [id, { source, reason }] of DYNAMIC_MENU_IDS) {
+  const src = readOrDie(source);
+  if (!src.includes(`"${id}"`)) {
+    errors.push(
+      `stale DYNAMIC_MENU_IDS entry "${id}": ${source} no longer names it (${reason}). ` +
+        "The exemption removes the id from every check here, so a dead dynamic binding " +
+        "would take the shortcut out of the gate with nothing to fail on — delete the " +
+        "exemption so the id is checked statically, or point it at the new binding.",
+    );
+  }
+}
 
 const manifestMenuIds = new Set(manifest.map((e) => e.menuId).filter(Boolean));
+
+// Range-exemption liveness, the other direction: an exempt id that is no longer
+// a menu-backed shortcut is a rename the map outlived, and it would go on
+// exempting whatever takes that id next (the rule LABEL_EXEMPT/UNPAIRED_OK
+// already carry).
+for (const id of DOCS_RANGE_DOCUMENTED.keys()) {
+  if (!manifestMenuIds.has(id)) {
+    errors.push(`stale DOCS_RANGE_DOCUMENTED entry "${id}": no such menu id in the manifest — remove it.`);
+  }
+}
+
+// Two definitions on ONE native command: the menu binds one accelerator, so
+// the second definition's key can never reach it through the menu — and when
+// both keys coincide every per-entry check below passes twice. Reject.
+{
+  const byMenuId = new Map();
+  for (const e of manifest) {
+    if (byMenuId.has(e.menuId)) errors.push(`manifest: menuId "${e.menuId}" is claimed by both "${byMenuId.get(e.menuId)}" and "${e.id}"`);
+    else byMenuId.set(e.menuId, e.id);
+  }
+}
 
 // --- Per-entry checks ---
 const seenIds = new Set();
@@ -727,27 +782,40 @@ for (const entry of manifest) {
   }
 
   // 4. Documented in the website shortcuts table (order-insensitive).
-  if (manKey === "") {
+  //
+  // Every EFFECTIVE platform key, not just `defaultKey`. `defaultKeyMac`
+  // overrides on macOS and `defaultKeyOther` off it, so what a user can press
+  // is `defaultKeyMac ?? defaultKey` on one platform and
+  // `defaultKeyOther ?? defaultKey` on the other. The leg used to read
+  // `defaultKey` and `defaultKeyOther` only, so a macOS override went
+  // undocumented with nothing to fail on — and, worse, an entry with an EMPTY
+  // `defaultKey` skipped the whole leg even when the macOS override was a real
+  // chord (audit R3 #70). No entry uses `defaultKeyMac` today, which is exactly
+  // why the gap was invisible; the Rust legs above already read `macKey`.
+  const docKeys = [...new Set([macKey, manOther ?? manKey])].filter((k) => k !== undefined && k !== "");
+  if (docKeys.length === 0) {
     // Deliberately unbound: docs render it as "—" / "Menu only" / "(customizable)".
     // Nothing to locate; the empty accelerator is already covered above.
   } else if (DOCS_RANGE_DOCUMENTED.has(menuId)) {
-    // Documented only inside a compressed range cell — allowed exception.
-  } else {
-    const canonMain = canonAccel(keyTokens(manKey));
-    if (!docsAccels.has(canonMain)) {
+    // Documented only inside a compressed range cell — an allowed exception,
+    // but only while the docs actually carry a range that covers it.
+    for (const key of docKeys) {
+      if (coveringRange(docsRangeCells, keyTokens(key))) continue;
       errors.push(
-        `"${id}" (${menuId}): accelerator "${prosemirrorToDocs(manKey)}" is missing ` +
-          `from the docs table ${DOCS_PATH} — a menu-backed shortcut must be documented`,
+        `stale DOCS_RANGE_DOCUMENTED entry "${menuId}" (${DOCS_RANGE_DOCUMENTED.get(menuId)}): ` +
+          `no "\`A\` through \`B\`" cell in ${DOCS_PATH} covers "${prosemirrorToDocs(key)}". ` +
+          "The exemption removes the id from the docs check entirely, so a deleted or " +
+          "narrowed range would take the shortcut out of the gate with nothing to fail on — " +
+          "restore the range, or delete the exemption so the accelerator is documented on its own row.",
       );
     }
-    if (manOther !== undefined && manOther !== "") {
-      const canonOther = canonAccel(keyTokens(manOther));
-      if (!docsAccels.has(canonOther)) {
-        errors.push(
-          `"${id}" (${menuId}): Windows/Linux accelerator "${prosemirrorToDocs(manOther)}" ` +
-            `is missing from the docs table ${DOCS_PATH}`,
-        );
-      }
+  } else {
+    for (const key of docKeys) {
+      if (docsAccels.has(canonAccel(keyTokens(key)))) continue;
+      errors.push(
+        `"${id}" (${menuId}): accelerator "${prosemirrorToDocs(key)}" is missing ` +
+          `from the docs table ${DOCS_PATH} — a menu-backed shortcut must be documented`,
+      );
     }
   }
 }
@@ -770,6 +838,35 @@ for (const [id, accel] of realDefault) {
 for (const [id, { mac, other }] of realPlatform) {
   if (mac === "" && other === "") continue;
   reportOrphanRealAccel(id, `${JSON.stringify(mac)}/${JSON.stringify(other)}`);
+}
+
+// --- Reverse: every CONTRACT MIRROR tuple maps to a manifest entry too ------
+//
+// The per-entry legs above walk the manifest and look each id UP in the mirror,
+// so an id the mirror carries and nothing else does was never examined: a
+// renamed or deleted shortcut left its old tuple behind in
+// `localized.test.rs`, where it kept validating against itself while the gate
+// reported green (audit R3 #69). The real-menu direction has had this check
+// since the leg was written; the mirror is the same shape and needed the same
+// one, with the same allow-lists — an id excluded from the manifest on purpose
+// is excluded from both directions or from neither.
+function reportOrphanMirrorAccel(id, table, accelDesc) {
+  if (manifestMenuIds.has(id)) return;
+  if (DYNAMIC_MENU_IDS.has(id)) return;
+  if (NON_MANIFEST_MENU_ACCELS.has(id)) return;
+  errors.push(
+    `${RUST_PATH}: ${table} holds ${accelDesc} for menu id "${id}", which is absent from ` +
+      `the synced set — the tuple is stale (delete it), or the id needs a menuId entry in ` +
+      `${DEFS_PATH} (or an allow-list entry in NON_MANIFEST_MENU_ACCELS with a reason)`,
+  );
+}
+for (const [id, accel] of rustDefault) {
+  if (accel === "") continue; // unbound-by-default menu item — same rule as the real-menu leg
+  reportOrphanMirrorAccel(id, "DEFAULT_ACCELERATORS", JSON.stringify(accel));
+}
+for (const [id, { mac, other }] of rustPlatform) {
+  if (mac === "" && other === "") continue;
+  reportOrphanMirrorAccel(id, "PLATFORM_ACCELERATORS", `${JSON.stringify(mac)}/${JSON.stringify(other)}`);
 }
 
 // --- Label parity (WI-UI4.3): ONE label per command ------------------------
@@ -809,6 +906,7 @@ const LABEL_EXEMPT = new Map([
   ["format-cjk", { menu: "Format Selection", defs: "Format CJK Selection", reason: "CJK submenu supplies the noun — flat canonical is Format CJK Selection (WI-UI4.3)" }],
   ["format-cjk-file", { menu: "Format Entire File", defs: "Format CJK File", reason: "CJK submenu supplies the noun — flat canonical is Format CJK File (WI-UI4.3)" }],
   ["new", { menu: "New", defs: "New File", reason: "the File MENU column supplies the noun (New); the flat label stands alone (New File)" }],
+  ["save-all-quit", { menu: "Save All and Exit", defs: "Save All and Quit", reason: "the non-macOS File-menu tail says Exit — that platform's word for Quit — while the macOS App-menu site says Quit and matches the flat label; a second live site the scan used to mask (audit 20260907 #45)" }],
 ]);
 
 // Manifest ids with NO Rust label pair, each with a stated reason. Any other
@@ -819,25 +917,66 @@ const LABEL_EXEMPT = new Map([
 const UNPAIRED_OK = new Map([]);
 
 function menuLabelPairs() {
-  const pairs = new Map(); // menu id -> en.yml key
+  const pairs = new Map(); // menu id -> Set<en.yml key>, one per LIVE builder site
   for (const file of readdirSync(join(ROOT, LOCALIZED_DIR)).filter((f) => f.endsWith(".rs") && !f.endsWith(".test.rs"))) {
-    const src = readOrDie(`${LOCALIZED_DIR}/${file}`);
+    const rel = `${LOCALIZED_DIR}/${file}`;
     // `with_id(app, "<id>", &t!("menu.<key>")` — id and label key co-occur in
-    // one builder call. Comments were a hazard for accel(); labels only ever
-    // appear in real calls, and a duplicate id keeps its first label.
-    for (const m of src.matchAll(/"([a-z0-9-]+)",\s*&t!\("([A-Za-z0-9_.]+)"\)/g)) {
-      if (!pairs.has(m[1])) pairs.set(m[1], m[2]);
+    // one builder call. Scanned over CODE (comments blanked, literals kept), so
+    // a commented-out site labels nothing; and EVERY live key is kept, so the
+    // label leg checks each one. Keeping the first let a second site's label
+    // (the non-macOS File-menu tail's "Save All and Exit") hide behind the
+    // macOS App-menu site's for months (audit 20260907 #45).
+    // TWO PASSES, the rule `headerReferences.pathMountedModulePaths` and
+    // `dod-syntax.rustModIncludes` already apply to the same shape: the match
+    // runs over code with LITERALS KEPT (the id and the key ARE literals), and
+    // the fully-blanked copy then says whether the surrounding call is real
+    // CODE. With one pass, builder-shaped text inside a raw string
+    // (`r#""save", &t!("menu.save")"#`) labelled a menu item that no builder
+    // ever calls (audit R2 #71). `&t!(` survives blanking only outside a
+    // literal, so its offset is the discriminator.
+    const source = readOrDie(rel);
+    const code = rustCode(source, { keepStrings: true });
+    const bare = rustCode(source);
+    for (const m of code.matchAll(/"([a-z0-9-]+)",\s*&t!\("([A-Za-z0-9_.]+)"\)/g)) {
+      const callAt = m.index + m[0].indexOf("&t!(");
+      if (bare.slice(callAt, callAt + 4) !== "&t!(") continue;
+      if (!pairs.has(m[1])) pairs.set(m[1], new Set());
+      pairs.get(m[1]).add(m[2]);
     }
   }
   return pairs;
 }
 
+/**
+ * `menu.<key>` → label, read from the `menu:` block of `src-tauri/locales/en.yml`.
+ *
+ * SECTION-SCOPED. The scan used to take every two-space-indented key in the
+ * file and prefix it `menu.`, so the 100+ keys under `errors:`, `window:` and
+ * `cli:` became phantom `menu.*` entries — and since `errors:` comes after
+ * `menu:`, a key sharing a dotted tail would have OVERWRITTEN the real label
+ * (audit R2 #72). Duplicates are refused rather than silently kept-last, and
+ * the double-quoted scalar is UNQUOTED, so `\"` and `\\` compare as the text
+ * the app renders rather than as their source spelling.
+ *
+ * A `menu:` value that is not a double-quoted scalar is left out on purpose:
+ * the consumer reports `en.yml has no such key`, which is the loud outcome —
+ * this gate refuses to guess how an unquoted or folded scalar renders.
+ */
 function enYmlLabels() {
   const raw = readOrDie("src-tauri/locales/en.yml");
   const labels = new Map();
+  let inMenu = false;
   for (const line of raw.split("\n")) {
-    const m = /^\s{2}([A-Za-z0-9_.]+):\s*"(.*)"\s*$/.exec(line);
-    if (m) labels.set(`menu.${m[1]}`, m[2]);
+    if (/^[^\s#]/.test(line)) {
+      inMenu = /^menu:\s*$/.test(line);
+      continue;
+    }
+    if (!inMenu) continue;
+    const m = /^\s{2}([A-Za-z0-9_.]+):\s*"((?:[^"\\]|\\.)*)"\s*$/.exec(line);
+    if (!m) continue;
+    const key = `menu.${m[1]}`;
+    if (labels.has(key)) fail(`src-tauri/locales/en.yml: duplicate key "${m[1]}" under menu: — one key, one label`);
+    labels.set(key, unquote(m[2]));
   }
   return labels;
 }
@@ -846,8 +985,8 @@ function enYmlLabels() {
   const pairs = menuLabelPairs();
   const ymlLabels = enYmlLabels();
   for (const entry of manifest) {
-    const key = pairs.get(entry.menuId);
-    if (!key) {
+    const keys = pairs.get(entry.menuId);
+    if (!keys) {
       // No silent skips: every unpaired id is either in the reasoned
       // allowlist or a failure. A builder rewrite that breaks
       // menuLabelPairs()'s pattern now fails on the FIRST id, not never.
@@ -862,27 +1001,34 @@ function enYmlLabels() {
     if (UNPAIRED_OK.has(entry.menuId)) {
       errors.push(`stale UNPAIRED_OK entry "${entry.menuId}": the id pairs now — remove the exemption.`);
     }
-    const menuLabel = ymlLabels.get(key);
-    if (menuLabel === undefined) {
-      errors.push(`menu id "${entry.menuId}" labels via t!("${key}") but en.yml has no such key`);
-      continue;
+    // Every live site's label, canonicalised. A platform-conditional item
+    // (the macOS App menu and the non-macOS File-menu tail) has two.
+    const menuLabels = [];
+    for (const key of keys) {
+      const menuLabel = ymlLabels.get(key);
+      if (menuLabel === undefined) errors.push(`menu id "${entry.menuId}" labels via t!("${key}") but en.yml has no such key`);
+      else menuLabels.push({ key, label: menuLabel.replace(/…$/, "").trim() });
     }
-    const canonMenu = menuLabel.replace(/…$/, "").trim();
     const exempt = LABEL_EXEMPT.get(entry.menuId);
     if (exempt) {
-      // An exemption whose fold has quietly become byte-equal no longer
-      // exempts anything — delete it rather than let it mask future drift.
-      if (canonMenu === entry.label) {
+      // An exemption whose fold has quietly become byte-equal at EVERY site no
+      // longer exempts anything — delete it rather than let it mask drift.
+      if (menuLabels.every((m) => m.label === entry.label)) {
         errors.push(
           `stale LABEL_EXEMPT entry "${entry.menuId}": menu and definitions labels are now identical ` +
             `(${JSON.stringify(entry.label)}) — remove the exemption.`,
         );
-      } else if (canonMenu !== exempt.menu) {
-        errors.push(
-          `LABEL_EXEMPT entry "${entry.menuId}" recorded menu label ${JSON.stringify(exempt.menu)} ` +
-            `but the menu now says ${JSON.stringify(canonMenu)} — re-review the exemption and update its recorded label.`,
-        );
-      } else if (entry.label !== exempt.defs) {
+        continue;
+      }
+      for (const m of menuLabels) {
+        if (m.label !== entry.label && m.label !== exempt.menu) {
+          errors.push(
+            `LABEL_EXEMPT entry "${entry.menuId}" recorded menu label ${JSON.stringify(exempt.menu)} ` +
+              `but the menu now says ${JSON.stringify(m.label)} (en.yml ${m.key}) — re-review the exemption and update its recorded label.`,
+          );
+        }
+      }
+      if (entry.label !== exempt.defs) {
         errors.push(
           `LABEL_EXEMPT entry "${entry.menuId}" recorded definitions label ${JSON.stringify(exempt.defs)} ` +
             `but ${DEFS_PATH} now says ${JSON.stringify(entry.label)} — re-review the exemption and update its recorded label.`,
@@ -890,11 +1036,13 @@ function enYmlLabels() {
       }
       continue;
     }
-    if (canonMenu !== entry.label) {
-      errors.push(
-        `label drift for "${entry.menuId}": menu says ${JSON.stringify(canonMenu)} (en.yml ${key}) ` +
-          `but ${DEFS_PATH} says ${JSON.stringify(entry.label)} — one command, one label (WI-UI4.3)`,
-      );
+    for (const m of menuLabels) {
+      if (m.label !== entry.label) {
+        errors.push(
+          `label drift for "${entry.menuId}": menu says ${JSON.stringify(m.label)} (en.yml ${m.key}) ` +
+            `but ${DEFS_PATH} says ${JSON.stringify(entry.label)} — one command, one label (WI-UI4.3)`,
+        );
+      }
     }
   }
   // Exemption liveness, the other direction: an exempt id that no longer
