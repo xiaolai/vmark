@@ -63,9 +63,25 @@ fn a_failed_publish_removes_the_staging_file_and_keeps_the_old_output() {
     // two-sided because the wrong key was what the previous version pinned.
     assert_eq!(err.i18n_key(), Some("errors.pdf.publishFailed"));
     assert_ne!(err.i18n_key(), Some("errors.pdf.staleOutputNotRemoved"));
+    // The OS's reason must SURVIVE into the message rather than be swallowed —
+    // asserted against the OS's own words for this exact failure, obtained by
+    // reproducing the identical rename, instead of against one platform's
+    // wording. `"No such file"` is what macOS and Linux say; Windows says
+    // "The system cannot find the path specified. (os error 3)".
+    let probe = dir.path().join("Report.vmark-staging-probe.pdf");
+    std::fs::write(&probe, b"%PDF-probe").expect("write probe");
+    let os_reason = std::fs::rename(&probe, &output)
+        .expect_err("the same rename must fail the same way")
+        .to_string();
+    // Without this, a reason that came back empty would make the check below
+    // `contains("")` — trivially true, and green forever.
     assert!(
-        err.message().contains("No such file"),
-        "the OS reason must survive: {}",
+        !os_reason.is_empty(),
+        "the probe produced no reason to match"
+    );
+    assert!(
+        err.message().contains(&os_reason),
+        "the OS reason must survive: {} (expected to contain {os_reason:?})",
         err.message()
     );
     assert!(!staging.exists(), "no stray sibling after a failed publish");

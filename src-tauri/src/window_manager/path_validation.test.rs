@@ -3,6 +3,25 @@
 
 use super::*;
 
+/// An absolute path that does not exist, spelled for the platform the test is
+/// running on.
+///
+/// `/definitely/...` is absolute on Unix and NOT absolute on Windows, where a
+/// rooted path still needs a drive prefix. So on Windows `require_absolute`
+/// refused these fixtures FIRST and the missing-path tests below pinned the
+/// wrong refusal — "is not absolute" instead of "invalid path" — while still
+/// looking like they covered the branch they are named for.
+///
+/// `cfg!` rather than `#[cfg]` deliberately: both arms are compiled on every
+/// target, so a Windows cross-compile checks the Windows arm too.
+fn missing_absolute(leaf: &str) -> String {
+    if cfg!(windows) {
+        format!(r"C:\definitely\does\not\exist\{leaf}")
+    } else {
+        format!("/definitely/does/not/exist/{leaf}")
+    }
+}
+
 // -- validate_openable_path -----------------------------------------------
 
 #[test]
@@ -16,9 +35,21 @@ fn validate_accepts_existing_markdown_file() {
 
 #[test]
 fn validate_rejects_missing_path() {
-    let missing = "/definitely/does/not/exist-vmark-test.md";
-    let err = validate_openable_path(missing).unwrap_err();
+    let missing = missing_absolute("exist-vmark-test.md");
+    let err = validate_openable_path(&missing).unwrap_err();
     assert!(err.contains("invalid path"), "got: {err}");
+}
+
+/// The cwd guard (audit #491/#493), pinned on its own.
+///
+/// Nothing asserted it anywhere: `require_absolute` shipped with no test, and
+/// the only thing exercising it was the Windows accident above — a guard whose
+/// sole coverage is another test hitting it by mistake is not covered. A
+/// relative name is relative on every platform, so this runs everywhere.
+#[test]
+fn validate_rejects_a_relative_path() {
+    let err = validate_openable_path("relative/note.md").unwrap_err();
+    assert!(err.contains("is not absolute"), "got: {err}");
 }
 
 #[test]
@@ -86,8 +117,16 @@ fn validate_workspace_root_accepts_existing_directory() {
 
 #[test]
 fn validate_workspace_root_rejects_missing_path() {
-    let err = validate_workspace_root("/definitely/not/here-vmark-ws").unwrap_err();
+    let missing = missing_absolute("here-vmark-ws");
+    let err = validate_workspace_root(&missing).unwrap_err();
     assert!(err.contains("invalid workspace root"), "got: {err}");
+}
+
+/// The workspace half of the cwd guard — see `validate_rejects_a_relative_path`.
+#[test]
+fn validate_workspace_root_rejects_a_relative_path() {
+    let err = validate_workspace_root("relative-vmark-ws").unwrap_err();
+    assert!(err.contains("is not absolute"), "got: {err}");
 }
 
 #[test]

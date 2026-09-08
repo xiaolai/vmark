@@ -107,6 +107,22 @@ jobs:
         # have written it, and rejects any loosening.
         run: node scripts/check-baseline-ratchet.mjs "origin/${{ github.base_ref }}"
 
+      # The gates tier RUNS real shells and real measurement tools — that is the
+      # point of `shell-integration-smoke.test.mjs` (WI-FL5.11) and of the tokei
+      # reproduction in `gen-feature-ledger.test.mjs` (audit R2 #127). Neither
+      # binary is on ubuntu-latest, and both tests were written assuming they
+      # were: they failed here on 2026-09-08 having passed locally, where both
+      # happen to be installed. Each test refuses to skip when its tool is
+      # missing, which is the correct posture — so the tool is supplied instead.
+      # `scripts/check-gates-tier-binaries.test.mjs` joins this list to what the
+      # tests actually probe, in both directions.
+      - name: Binaries the gates tier executes
+        run: sudo apt-get update && sudo apt-get install -y zsh
+      - name: Install tokei
+        uses: taiki-e/install-action@fcf5432d9f50d67e37ee6e29bdb7a224ff67b4a7 # v2.86.8
+        with:
+          tool: tokei
+
       - run: pnpm check:static
 
   fe-test:

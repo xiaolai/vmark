@@ -5,7 +5,6 @@
   "_note_mcp_sidecar_20260728": "WI-7 (MCP audit remediation): scripts/check-file-size.mjs ROOTS gained server/mcp/src, which the gate had never scanned (audit 20260728 \u00a74). Four entries froze the sidecar files that already exceeded 300 at their PRE-CHANGE sizes. Three have since ratcheted: server.ts left the baseline entirely (302 -> 160, after the eight unused arg extractors and the resource registry went), cli.ts 322 -> 317 (the dead resource-registration loop, minus the VERSION/capabilities comments that replaced it), and bridge/websocket.ts left it too (831 -> 299) when the audit's named seams were extracted into siblings \u2014 websocketConfig, connection, authHandshake, reconnect, pendingRequests, requestQueue, rateLimiter, wsProtocol \u2014 a pure refactor with the test file untouched. cli.ts then left the baseline too (317 -> 269) when detectClientIdentity moved to the new utils/clientIdentity.ts alongside the per-client credential reader \u2014 the extraction this note had already named. No sidecar file is baselined now. Never raise.",
   "files": {
     "server/content/src/server/createServer.ts": 384,
-    "src-tauri/src/ai_provider/detection.rs": 370,
     "src-tauri/src/ai_provider/rest_api.rs": 403,
     "src-tauri/src/ai_provider/sink.rs": 304,
     "src-tauri/src/browser/origin_guard.rs": 303,

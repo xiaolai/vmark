@@ -340,18 +340,30 @@ fn a_successful_cleanup_reports_only_the_cause() {
 /// lives on.
 #[test]
 fn the_publish_neither_removes_the_target_nor_rolls_its_own_retry() {
-    let source = include_str!("token_file.rs");
+    // NORMALISE FIRST. `include_str!` reproduces the file's bytes verbatim and
+    // this repo has no `.gitattributes`, so a Windows checkout is CRLF: the
+    // text is `\r\n}\r\n` and the `"\n}\n"` literal below never matches there.
+    // Same remedy `browser/native_failure.test.rs` and
+    // `browser/script_limit.test.rs` already carry.
+    let source = include_str!("token_file.rs").replace("\r\n", "\n");
     let after = source
-        .split("fn write_secured(")
-        .nth(1)
-        .expect("write_secured is defined in this module");
+        .split_once("fn write_secured(")
+        .expect("write_secured is defined in this module")
+        .1;
     // Terminated at the function's own closing brace — the first `}` in
     // column zero. Splitting at the next `fn` instead swept in that item's doc
     // comment, which names `remove_file` in prose.
+    //
+    // `split_once`, never `split(..).next()`: the latter hands back the WHOLE
+    // remaining file when the terminator does not match, so an extraction that
+    // stops being bounded silently WIDENS rather than failing. That is exactly
+    // how the CRLF break presented — the "body" ran on into
+    // `abandon_unprotected_token`, whose `remove_file` is legitimate, and the
+    // assertion below read the defect out of correct code.
     let body = after
-        .split("\n}\n")
-        .next()
-        .expect("the function body ends at its closing brace");
+        .split_once("\n}\n")
+        .expect("the function body ends at a closing brace in column zero")
+        .0;
     // CODE only. The body explains the removed fallback in prose, and a check
     // that reads its own explanation as the defect is the trap
     // `check-ipc-contract` records: strip comments before matching.

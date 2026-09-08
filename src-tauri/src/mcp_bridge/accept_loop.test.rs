@@ -3,7 +3,7 @@
 //! `#[path]`.
 
 use super::accept_loop;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::{TcpListener, TcpStream};
@@ -15,21 +15,109 @@ async fn loopback() -> (TcpListener, u16) {
     (listener, port)
 }
 
+/// The real listener, wrapped so that the loop letting go of it is observable
+/// without asking the operating system about a port.
+///
+/// Four tests here need the same fact — the loop let its listener go — and all
+/// four used to get it by ASKING THE PORT: two rebound it from inside
+/// `on_exit`, two connected to it afterwards and required a refusal. That reads
+/// as direct and is not. The ephemeral port table is shared with every other
+/// test in this binary and with the rest of the machine, and nothing stops this
+/// thread being descheduled across the gap. So "the rebind failed" means
+/// *something* holds this port, and "the connect succeeded" means *something*
+/// is listening on it — while the tests reported "the loop still holds it",
+/// which neither observation supports.
+///
+/// Both directions were observed, which is what makes this a mechanism rather
+/// than an instance. Measured on macOS, 2026-09-08/09: three failures of these
+/// tests across 18 full-suite runs — then, with only the two rebinds converted,
+/// a further run failed at a CONNECT site instead. A different test, a
+/// different spelling, the same shared resource; converting half the class left
+/// the other half to fire.
+///
+/// The ordering itself never varied: it is fixed by declaration order in
+/// `accept_loop`, every one of these tests passes deterministically in
+/// isolation, and reversing that order fails them in 0.06s, every time. Only
+/// the observation varied. Two rival explanations were ruled out by probe
+/// rather than by argument: a 2000-iteration replay of exactly this
+/// close-then-rebind sequence with a live peer never failed (so it is not the
+/// connection's TCP teardown state), and again never failed with eight threads
+/// churning ephemeral ports beside it — so the window is a scheduling one,
+/// which a quiet probe cannot open.
+///
+/// Keep new assertions off the port table. Connecting to a port to prove a
+/// listener is GONE is the same defect wearing the opposite sign: it fails
+/// loudly when a stranger is listening, and passes silently when one is not.
+///
+/// `Drop` closes the real listener FIRST and only then records the release, so
+/// an observed release still means the file descriptor is gone. That is the
+/// whole property, observed through a channel nothing else in the process can
+/// reach into.
+struct ReleaseRecorder {
+    /// `None` only after `Drop` has taken and closed it.
+    listener: Option<TcpListener>,
+    released: Arc<AtomicBool>,
+}
+
+impl ReleaseRecorder {
+    fn wrap(listener: TcpListener) -> (Self, Arc<AtomicBool>) {
+        let released = Arc::new(AtomicBool::new(false));
+        let recorder = Self {
+            listener: Some(listener),
+            released: Arc::clone(&released),
+        };
+        (recorder, released)
+    }
+}
+
+impl Drop for ReleaseRecorder {
+    fn drop(&mut self) {
+        // Close the port, THEN say so — never the other way round, or a
+        // recorded release would stop implying a closed descriptor.
+        drop(self.listener.take());
+        self.released.store(true, Ordering::SeqCst);
+    }
+}
+
+impl Accept for ReleaseRecorder {
+    async fn accept_one(&self) -> io::Result<(TcpStream, SocketAddr)> {
+        self.listener
+            .as_ref()
+            .expect("only Drop takes the listener")
+            .accept()
+            .await
+    }
+}
+
+/// `loopback`, with the listener wrapped so that its release is observable.
+async fn loopback_recorded() -> (ReleaseRecorder, u16, Arc<AtomicBool>) {
+    let (listener, port) = loopback().await;
+    let (recorder, released) = ReleaseRecorder::wrap(listener);
+    (recorder, port, released)
+}
+
 #[tokio::test]
 async fn a_shutdown_signal_ends_the_loop_closes_the_port_and_runs_on_exit_once() {
-    let (listener, port) = loopback().await;
+    let (recorder, port, released) = loopback_recorded().await;
     let (shutdown_tx, shutdown_rx) = oneshot::channel();
     let exits = Arc::new(AtomicUsize::new(0));
     let exits_seen = Arc::clone(&exits);
+    let closed_first = Arc::new(AtomicBool::new(false));
+    let observed = Arc::clone(&closed_first);
     let (admitted_tx, mut admitted_rx) = mpsc::unbounded_channel();
 
     let handle = tokio::spawn(accept_loop(
-        listener,
+        recorder,
         shutdown_rx,
         move |_stream, addr| {
             let _ = admitted_tx.send(addr);
         },
         move || {
+            // Sampled INSIDE the hook, so what is pinned is the ORDER, not the
+            // eventual state — by the time the loop has returned the listener
+            // is gone either way, and an assertion made out here could not tell
+            // a correct ordering from a reversed one.
+            observed.store(released.load(Ordering::SeqCst), Ordering::SeqCst);
             exits_seen.fetch_add(1, Ordering::SeqCst);
         },
     ));
@@ -59,11 +147,13 @@ async fn a_shutdown_signal_ends_the_loop_closes_the_port_and_runs_on_exit_once()
         admitted_rx.try_recv().is_err(),
         "exactly the one connection was admitted"
     );
-    // Closed: the listener went with the loop, so the port refuses.
-    let refused = TcpStream::connect(("127.0.0.1", port)).await;
+    // Closed: the listener went with the loop. Observed through the recorder,
+    // never by connecting to the port — a connect here is answered by whichever
+    // parallel test has since been handed this ephemeral port, and that is what
+    // failed this assertion on 2026-09-09 for a property that held.
     assert!(
-        refused.is_err(),
-        "the port must be closed once the loop has exited"
+        closed_first.load(Ordering::SeqCst),
+        "the listener must be closed before on_exit is told the loop has exited"
     );
 }
 
@@ -148,26 +238,32 @@ async fn dropping_the_shutdown_sender_also_ends_the_loop() {
     // `stop_bridge` takes the sender out of its slot and sends; a sender that
     // is merely dropped (a start that failed after installing it) must not
     // leave an accept loop running forever.
-    let (listener, port) = loopback().await;
+    let (recorder, _port, released) = loopback_recorded().await;
     let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
     let (exit_tx, exit_rx) = oneshot::channel();
 
     let handle = tokio::spawn(accept_loop(
-        listener,
+        recorder,
         shutdown_rx,
         |_, _| {},
         move || {
-            let _ = exit_tx.send(());
+            // The hook carries what it saw, so the ORDER is what is pinned —
+            // see the sibling above.
+            let _ = exit_tx.send(released.load(Ordering::SeqCst));
         },
     ));
 
     drop(shutdown_tx);
-    tokio::time::timeout(Duration::from_secs(5), exit_rx)
+    let closed_first = tokio::time::timeout(Duration::from_secs(5), exit_rx)
         .await
         .expect("on_exit fires")
         .expect("sent");
     handle.await.expect("no panic");
-    assert!(TcpStream::connect(("127.0.0.1", port)).await.is_err());
+    // Through the recorder, not a connect — see `ReleaseRecorder`.
+    assert!(
+        closed_first,
+        "the listener must go with the loop, before on_exit says it has"
+    );
 }
 
 // ===== Accept failures (#363) ==============================================
@@ -350,24 +446,19 @@ async fn a_panic_in_admission_still_closes_the_port_and_runs_on_exit() {
     // leaving the bridge marked running with a live `port:token` file and no
     // listener — and `spawn_logged`, which catches the panic OUTSIDE this
     // future, saw nothing unusual.
-    let (listener, port) = loopback().await;
+    let (recorder, port, released) = loopback_recorded().await;
     let (_shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
     let (exit_tx, exit_rx) = oneshot::channel();
 
     let handle = tokio::spawn(accept_loop(
-        listener,
+        recorder,
         shutdown_rx,
         |_, _| panic!("admission blew up"),
         move || {
-            // The ordering `accept_loop` promises: the port is closed BEFORE
-            // the caller is told the loop is gone, so a restart cannot race a
-            // listener that is still bound. Asserted by REBINDING from inside
-            // the hook rather than by connecting after it — a connect run
-            // afterwards can be answered by whichever parallel test the OS
-            // handed this ephemeral port to next, which is a flake, not a
-            // property.
-            let rebound = std::net::TcpListener::bind(("127.0.0.1", port)).is_ok();
-            let _ = exit_tx.send(rebound);
+            // Read INSIDE the hook: what has to hold is the ordering, not the
+            // eventual state, so the observation has to be taken at the moment
+            // the caller is told the loop is gone.
+            let _ = exit_tx.send(released.load(Ordering::SeqCst));
         },
     ));
 
@@ -381,7 +472,7 @@ async fn a_panic_in_admission_still_closes_the_port_and_runs_on_exit() {
     );
     assert!(
         exit_rx.await.expect("on_exit runs during the unwind"),
-        "the port was still bound when on_exit was told the loop had gone"
+        "the listener was still open when on_exit was told the loop had gone"
     );
 }
 
@@ -390,20 +481,23 @@ async fn dropping_the_loop_future_still_runs_on_exit() {
     // The runtime dropping the task at shutdown is the other non-returning
     // exit: the bridge must not stay marked running behind a listener that
     // has already gone with the future.
-    let (listener, port) = loopback().await;
+    let (recorder, _port, released) = loopback_recorded().await;
     let (_shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
-    let rebound = Arc::new(AtomicUsize::new(0));
-    let seen = Arc::clone(&rebound);
+    // Two separate claims, kept separate: the hook ran exactly once, and the
+    // listener was already closed when it did. Folding them into one counter
+    // let either failure be read as the other.
+    let exits = Arc::new(AtomicUsize::new(0));
+    let runs = Arc::clone(&exits);
+    let closed_first = Arc::new(AtomicBool::new(false));
+    let observed = Arc::clone(&closed_first);
 
     let fut = accept_loop(
-        listener,
+        recorder,
         shutdown_rx,
         |_, _| {},
         move || {
-            seen.fetch_add(
-                usize::from(std::net::TcpListener::bind(("127.0.0.1", port)).is_ok()),
-                Ordering::SeqCst,
-            );
+            observed.store(released.load(Ordering::SeqCst), Ordering::SeqCst);
+            runs.fetch_add(1, Ordering::SeqCst);
         },
     );
     let mut fut = Box::pin(fut);
@@ -416,9 +510,9 @@ async fn dropping_the_loop_future_still_runs_on_exit() {
     );
     drop(fut);
 
-    assert_eq!(
-        rebound.load(Ordering::SeqCst),
-        1,
-        "on_exit ran on the drop, with the port already released"
+    assert_eq!(exits.load(Ordering::SeqCst), 1, "on_exit ran on the drop");
+    assert!(
+        closed_first.load(Ordering::SeqCst),
+        "on_exit was told the loop had gone while its listener was still open"
     );
 }

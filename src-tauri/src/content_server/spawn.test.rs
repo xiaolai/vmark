@@ -294,15 +294,22 @@ fn spawn_server_runs_the_program_through_build_command_and_its_child_can_be_clea
 /// capture, never through `.output()`.
 #[test]
 fn resolve_node_captures_with_a_timeout_rather_than_waiting_forever() {
-    let source = include_str!("spawn.rs");
+    // CRLF-normalised, and BOUNDED with `split_once` — the same class as
+    // `mcp_bridge/token_file.test.rs`. `include_str!` keeps the file's bytes,
+    // so on a Windows checkout `"\n}\n"` never matches and `split(..).next()`
+    // silently returned the whole rest of the file as the "body". This test
+    // stayed GREEN that way only because nothing below `resolve_node` happens
+    // to call `.output()`; the sibling case failed loudly, this one did not,
+    // and a widened body is the same defect either way.
+    let source = include_str!("spawn.rs").replace("\r\n", "\n");
     let after = source
-        .split("pub fn resolve_node()")
-        .nth(1)
-        .expect("resolve_node is defined in this module");
+        .split_once("pub fn resolve_node()")
+        .expect("resolve_node is defined in this module")
+        .1;
     let body = after
-        .split("\n}\n")
-        .next()
-        .expect("the function body ends at its closing brace");
+        .split_once("\n}\n")
+        .expect("the function body ends at a closing brace in column zero")
+        .0;
     // Comments explain the removed `.output()` call; strip them before
     // matching, or the explanation reads as the defect.
     let code: String = body

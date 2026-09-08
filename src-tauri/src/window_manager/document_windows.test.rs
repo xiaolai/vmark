@@ -38,15 +38,64 @@ fn cascade_wraps_correctly() {
 
 // -- allocate_window_label ------------------------------------------------
 
+/// The label spells the counter value the cascade parses back out.
+///
+/// This is the allocator's stated contract (`next_window_label`: "the
+/// `doc-{n}` spelling is the allocator's contract with
+/// `create_document_window_with_label_and_url`, which parses the number back
+/// out for the cascade"), and it is deterministic because
+/// `next_window_label` hands back the very count it used — no second
+/// observation of the shared counter is involved.
 #[test]
-fn allocate_label_returns_sequential_labels() {
-    let l1 = allocate_window_label();
-    let l2 = allocate_window_label();
-    assert!(l1.starts_with("doc-"));
-    assert!(l2.starts_with("doc-"));
-    let n1: u32 = l1.strip_prefix("doc-").unwrap().parse().unwrap();
-    let n2: u32 = l2.strip_prefix("doc-").unwrap().parse().unwrap();
-    assert_eq!(n2, n1 + 1);
+fn a_label_spells_the_counter_value_it_was_allocated_from() {
+    let (count, label) = next_window_label();
+    assert_eq!(label, format!("doc-{count}"));
+    assert_eq!(
+        label.strip_prefix("doc-").and_then(|n| n.parse().ok()),
+        Some(count)
+    );
+}
+
+/// What the allocator actually promises: every label is DISTINCT, and the
+/// numbers only ever go up.
+///
+/// This used to assert `n2 == n1 + 1`, which is not a property of
+/// `WINDOW_COUNTER`: it is a process-global `AtomicU32`, and five other sites
+/// in this same test binary allocate from it (`tab_transfer.test.rs` twice,
+/// the sibling test below, plus `hot_exit`/`workspace_transfer` paths reached
+/// from tests). Two allocations are adjacent only when nothing else allocates
+/// in between, which no test can arrange and none should have to — observed
+/// failing on 2026-09-09 with `left: 13, right: 12`, one interleaved
+/// allocation. Uniqueness is what `allocate_window_label`'s own doc promises
+/// ("Allocate a UNIQUE window label"), and it is what a window label is FOR:
+/// two windows sharing one label is the defect. Monotonicity is what makes
+/// uniqueness hold for the life of the process.
+///
+/// Asserting it over a batch rather than a pair is deliberate — a swap or a
+/// repeat anywhere in a run of allocations fails here, where two samples
+/// could not see it.
+#[test]
+fn labels_are_unique_and_strictly_increasing() {
+    let numbers: Vec<u32> = (0..8)
+        .map(|_| {
+            let label = allocate_window_label();
+            let n = label
+                .strip_prefix("doc-")
+                .unwrap_or_else(|| panic!("label must be doc-prefixed, got {label:?}"));
+            n.parse()
+                .unwrap_or_else(|_| panic!("label must carry a u32, got {label:?}"))
+        })
+        .collect();
+
+    for pair in numbers.windows(2) {
+        assert!(
+            pair[1] > pair[0],
+            "labels must strictly increase, got {numbers:?}"
+        );
+    }
+    let mut sorted = numbers.clone();
+    sorted.dedup();
+    assert_eq!(sorted.len(), numbers.len(), "labels must be distinct");
 }
 
 // -- pick_reopen_workspace_root_with --------------------------------------
@@ -86,11 +135,19 @@ fn pick_reopen_resolves_a_symlinked_recent_entry_to_its_target() {
     let dir = tempfile::tempdir().expect("create tempdir");
     let real = dir.path().join("workspace");
     std::fs::create_dir(&real).expect("mkdir");
-    let canonical = real.canonicalize().expect("canonical");
+    // Built through the SAME helper the shipped resolver ends in, so the two
+    // cannot disagree about spelling. A bare `canonicalize()` keeps Windows's
+    // `\\?\` verbatim prefix, which `canonical_string` strips on purpose (#250)
+    // — the expectation, not production, was the wrong one there.
+    let canonical = crate::canonical_path::canonical_string(
+        &real.canonicalize().expect("canonical"),
+        "the test workspace",
+    )
+    .expect("a UTF-8 canonical path");
 
     assert_eq!(
         pick_reopen_workspace_root_with(Some(real.to_string_lossy().into_owned()), resolver),
-        Some(canonical.to_string_lossy().into_owned()),
+        Some(canonical.clone()),
     );
 
     #[cfg(unix)]
@@ -99,7 +156,7 @@ fn pick_reopen_resolves_a_symlinked_recent_entry_to_its_target() {
         std::os::unix::fs::symlink(&real, &link).expect("symlink");
         assert_eq!(
             pick_reopen_workspace_root_with(Some(link.to_string_lossy().into_owned()), resolver),
-            Some(canonical.to_string_lossy().into_owned()),
+            Some(canonical.clone()),
             "the TARGET is what the window is scoped to, never the link name"
         );
     }
