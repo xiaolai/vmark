@@ -94,7 +94,15 @@ describe.skipIf(platform() === "win32")("shell integration runs in a real shell 
     const zdotdir = join(dir, "zsh");
     mkdirSync(zdotdir);
     copyFileSync(join(RESOURCES, "vmark.zsh"), join(zdotdir, ".zshrc"));
-    const transcript = runInPty(["zsh", "-i"], {
+    // `--no-globalrcs` skips /etc/zsh/*, NOT $ZDOTDIR/.zshrc — so the file
+    // under test still loads while the machine's system-wide config cannot
+    // interfere. The scratch HOME above only excluded USER rc files, which
+    // is half the isolation this test claims. Ubuntu's /etc/zsh/zshrc runs
+    // compinit; on a runner whose directories are group-writable it stops
+    // to ask "Ignore insecure directories [y/n]?" and CONSUMES the typed
+    // input, so `true` was eaten and `rue` ran as a command (CI 2026-09-08,
+    // the first run where this test executed on Linux at all).
+    const transcript = runInPty(["zsh", "--no-globalrcs", "-i"], {
       env: { ...baseEnv(home), ZDOTDIR: zdotdir },
       input: INPUT,
       cwd,
