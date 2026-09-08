@@ -22,6 +22,7 @@ menu:
   file.openRecentWorkspace: "Open Recent Workspace"
   file.close: "Close"
   file.closeWorkspace: "Close Workspace"
+  file.reopenClosedTab: "Reopen Closed Tab"
   file.save: "Save"
   file.saveAs: "Save As…"
   file.moveTo: "Move to…"
@@ -156,6 +157,7 @@ menu:
   insert.mindmap: "Mindmap"
   insert.horizontalLine: "Horizontal Line"
   insert.footnote: "Footnote"
+  insert.tableOfContents: "Table of Contents"
   insert.collapsible: "Collapsible Block"
   insert.infoBox: "Info Box"
   insert.infoBox.note: "Note"
@@ -270,10 +272,15 @@ errors:
   pdf.badTempPath: "Invalid temporary document path: %{path}"
   pdf.invalidExtension: "Output path must have .pdf extension"
   pdf.dirNotFound: "Output directory does not exist"
+  pdf.parentNotDirectory: "The output path’s parent exists but is not a directory"
+  pdf.publishFailed: "The rendered PDF could not be moved to the output path: %{detail}"
+  pdf.outputUnreadable: "The rendered PDF could not be opened to verify it: %{detail}"
   pdf.pathNotAbsolute: "Output path must be absolute"
   pdf.outputIsDirectory: "Output path is a directory"
   pdf.loadTimeout: "HTML load timeout (10s)"
   pdf.emptyOutput: "Print operation produced empty PDF"
+  pdf.staleOutputNotRemoved: "The existing file at the output path could not be replaced: %{detail}"
+  pdf.outputNotPdf: "The print operation did not produce a valid PDF"
   pdf.printTimeout: "Print operation timeout (60s)"
   pdf.noPages: "PDF has no pages"
   pdf.writeFailed: "Failed to write PDF with bookmarks"
@@ -292,6 +299,7 @@ errors:
   workflow.engineDisabled: "The workflow engine is turned off in Settings"
   workflow.noPendingApproval: "No outstanding approval request matched"
   workflow.appDataDirUnavailable: "Could not resolve the app data directory: %{detail}"
+  workflow.snapshotFailed: "Could not snapshot the files this workflow will modify, so it was not run: %{detail}"
 
   # === Save path (file_write.rs, WI-14 CommandError) ===
   save.parentMissing: "The folder for this file no longer exists: %{dir}"
@@ -347,6 +355,8 @@ errors:
   genie.pathBlocked: "Genie path is outside allowed directories"
 
   # === MCP ===
+  mcp.bindFailed: "The MCP bridge could not bind %{address}: %{detail}"
+  mcp.localAddrFailed: "The MCP bridge bound a port it could not read back: %{detail}"
   mcp.spawnInProgress: "MCP sidecar spawn already in progress"
   mcp.configMismatch: "Config validation failed: written content does not match"
 
@@ -391,8 +401,12 @@ errors:
   mcp.writeConfigPartialRemoved: "Failed to write %{path}: %{detail} (the partial file was removed)"
   mcp.writeConfigPartialOrphaned: "Failed to write %{path}: %{detail}. The partial file could not be removed either (%{cleanup_detail}) — delete it by hand before retrying, or the next install will read it as a corrupt config."
 
+  # === Secure store (secure_store.rs) ===
+  secureStore.keychainDenied: "Keychain access was denied. Allow VMark in the keychain prompt, or grant it access in Keychain Access, then try again."
+
 window:
   settings.title: "Settings"
+  print.title: "VMark Print"
 
 cli:
   dialogTitle: "Shell Command"

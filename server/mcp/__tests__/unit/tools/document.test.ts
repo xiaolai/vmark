@@ -10,7 +10,7 @@ import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
 import type { BridgeRequest, BridgeResponse } from '../../../src/bridge/core-types.js';
 import { VMarkMcpServer } from '../../../src/server.js';
-import { registerDocumentTool } from '../../../src/tools/document.js';
+import { DOCUMENT_ACTIONS, registerDocumentTool } from '../../../src/tools/document.js';
 import { MAX_OUTPUT_BYTES } from '../../../src/utils/toolOutput.js';
 import { MockBridge } from '../../mocks/mockBridge.js';
 import { toolJson, toolText } from '../../utils/toolResult.js';
@@ -336,6 +336,79 @@ describe('document — blank tabId (round-2 audit finding 4)', () => {
   });
 });
 
+describe('document — supplied-but-invalid guards (audit R2 #226/#227)', () => {
+  // `typeof x === "string" ? x : undefined` converts a caller's mistake into
+  // exactly the value that DISABLES stale-write protection, and
+  // `save === false ? false : undefined` reads the STRING "false" as "use the
+  // default" and writes to disk. Both are refusals now.
+  it.each([
+    ['a number', 42],
+    ['null', null],
+    ['an object', { r: 1 }],
+    ['a blank string', '   '],
+    ['an empty string', ''],
+  ])('write: refuses expected_revision that is %s instead of writing unconditionally', async (_label, revision) => {
+    const { server, bridge } = harness({
+      'vmark.document.write': () => ({ success: true, data: { saved: true } }),
+    });
+
+    const result = await server.callTool('document', {
+      action: 'write',
+      content: 'x',
+      expected_revision: revision,
+    });
+
+    expect(result.isError).toBe(true);
+    expect(toolText(result)).toContain('expected_revision');
+    expect(bridge.requests).toHaveLength(0);
+  });
+
+  it('transform: refuses an invalid expected_revision too', async () => {
+    const { server, bridge } = harness({
+      'vmark.document.transform': () => ({ success: true, data: { revision: 'r2' } }),
+    });
+    const result = await server.callTool('document', {
+      action: 'transform',
+      kind: 'cjk-format',
+      expected_revision: 7,
+    });
+    expect(result.isError).toBe(true);
+    expect(bridge.requests).toHaveLength(0);
+  });
+
+  it.each([
+    ['the string "false"', 'false'],
+    ['0', 0],
+    ['null', null],
+  ])('write: refuses save that is %s rather than defaulting to a disk write', async (_label, save) => {
+    const { server, bridge } = harness({
+      'vmark.document.write': () => ({ success: true, data: { saved: true } }),
+    });
+
+    const result = await server.callTool('document', { action: 'write', content: 'x', save });
+
+    expect(result.isError).toBe(true);
+    expect(toolText(result)).toContain('save');
+    expect(bridge.requests).toHaveLength(0);
+  });
+
+  it('still forwards a valid revision and an explicit save: false', async () => {
+    const { server, bridge } = harness({
+      'vmark.document.write': () => ({ success: true, data: { revision: 'r2', saved: false, save_skipped: 'opt_out' } }),
+    });
+    await server.callTool('document', { action: 'write', content: 'x', expected_revision: 'r1', save: false });
+    expect(bridge.requests[0].request).toMatchObject({ expected_revision: 'r1', save: false });
+  });
+
+  it('rejects a blank expected_revision at the schema layer too', () => {
+    const shape = z.object(documentInputShape());
+    expect(shape.safeParse({ action: 'write', expected_revision: '' }).success).toBe(false);
+    expect(shape.safeParse({ action: 'write', expected_revision: '  ' }).success).toBe(false);
+    expect(shape.safeParse({ action: 'write', expected_revision: 'r1' }).success).toBe(true);
+    expect(shape.safeParse({ action: 'write' }).success).toBe(true);
+  });
+});
+
 describe('document.write — STALE carries machine-readable detail (finding 8)', () => {
   // `current_revision` is declared in the output schema but was unreachable:
   // STALE came back as an isError text block with no structuredContent, so the
@@ -451,5 +524,18 @@ describe('document.read — truncation is character-safe (finding 1)', () => {
     expect(Buffer.from(preview, 'utf8').toString('utf8')).toBe(preview);
     expect(preview.startsWith('{\n  "content": "')).toBe(true);
     expect(Buffer.byteLength(toolText(result), 'utf8')).toBeLessThanOrEqual(MAX_OUTPUT_BYTES);
+  });
+});
+
+// audit R3 #228 — the refusal spelled "read, write, or transform" by hand while
+// DOCUMENT_ACTIONS was right there. The prose is the only thing a caller who
+// got the action wrong has to go on, and it went stale on the next rename.
+describe('document — the invalid-action refusal is generated from DOCUMENT_ACTIONS', () => {
+  it('names every declared action, and nothing else', async () => {
+    const { server } = harness();
+    const text = toolText(await server.callTool('document', { action: 'delete' }));
+    expect(text).toContain(`Expected: ${DOCUMENT_ACTIONS.join(', ')}`);
+    for (const action of DOCUMENT_ACTIONS) expect(text).toContain(action);
+    expect(text).not.toContain('read, write, or transform');
   });
 });

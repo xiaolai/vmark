@@ -16,9 +16,9 @@
  * into a circular dep flagged by depcruise. The `i18next` singleton is the
  * same instance, just imported without forming the cycle.
  *
- * @coordinates-with utils/imeToast.ts — invokes this builder when callers
+ * @coordinates-with imeToast.ts — invokes this builder when callers
  *   pass `{ pin: true }` and no explicit action of their own.
- * @module utils/imeToastPinAction
+ * @module services/ime/imeToastPinAction
  */
 
 import type React from "react";

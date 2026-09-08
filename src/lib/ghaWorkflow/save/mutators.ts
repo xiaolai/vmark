@@ -7,7 +7,7 @@
  *   the per-family mutators below, then the Document is serialized
  *   via stringifyCst().
  *
- * Plan: dev-docs/plans/20260504-github-actions-workflow-viewer.md
+ * Origin: GitHub Actions workflow viewer plan (2026-05-04, retired)
  *   §6 Phase 8 / WI-8.2.
  *
  * Key decisions:
@@ -19,7 +19,7 @@
  *     mutated rather than rewritten — that's what preserves comments.
  *
  * @coordinates-with src/lib/ghaWorkflow/save/cstParser.ts — parses + serializes
- * @coordinates-with src/stores/workflowEditStore.ts (Phase 7) — patch source
+ * @coordinates-with src/stores/workflowStore.ts — patch source
  * @module lib/ghaWorkflow/save/mutators
  */
 

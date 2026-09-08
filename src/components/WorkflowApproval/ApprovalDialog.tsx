@@ -11,7 +11,7 @@
  *
  * Esc = Deny (consistent with VMark's other dialogs).
  *
- * @coordinates-with workflowApprovalStore.ts — reads `pending`
+ * @coordinates-with stores/workflowStore.ts — reads `pending`
  * @coordinates-with useWorkflowExecution.ts — calls `respondApproval`
  * @module components/WorkflowApproval/ApprovalDialog
  */

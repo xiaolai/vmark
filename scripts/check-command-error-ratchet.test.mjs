@@ -18,6 +18,7 @@ import { fileURLToPath } from "node:url";
 
 import { invokedScripts } from "./lib/packageScripts.mjs";
 import {
+  countLegacyCommands,
   findStringifiedTypedErrors,
   typedCommandNames,
 } from "./check-command-error-ratchet.mjs";
@@ -144,6 +145,8 @@ describe("check-command-error-ratchet.mjs", () => {
     ["async_runtime", `#[tauri::command(async)]`],
     ["a nested paren argument", `#[tauri::command(rename_all = "camelCase", async)]`],
     ["inner whitespace", `#[ tauri :: command ]`],
+    ["the imported form (`use tauri::command;`)", `#[command]`],
+    ["the imported form with arguments", `#[command(rename_all = "snake_case")]`],
   ])("counts a command whose attribute carries %s", (_label, attr) => {
     const root = writeCrate({
       "a.rs": `${attr}\npub fn one() -> Result<(), String> { todo!() }\n`,
@@ -271,6 +274,78 @@ describe("check-command-error-ratchet.mjs", () => {
     expect(res.status).toBe(1);
     expect(res.stderr).toContain("--nope");
   });
+
+  // audit R2 #28 — a value-taking flag with no value read `undefined` and fell
+  // through to the DEFAULT root/baseline, so a mistyped invocation reported a
+  // verdict about a tree the caller never named. Both spellings of the mistake.
+  it.each([
+    ["--root with nothing after it", ["--root"]],
+    ["--baseline with nothing after it", ["--baseline"]],
+    ["--root followed by another flag", ["--root", "--write-baseline"]],
+  ])("refuses %s rather than scanning the default tree", (_label, argv) => {
+    const res = spawnSync(process.execPath, [SCRIPT, ...argv], { encoding: "utf8" });
+    expect(res.status).toBe(1);
+    expect(res.stderr).toContain("needs a value");
+    expect(res.stdout).not.toContain("ratchet held");
+  });
+
+  // audit R2 #16 — the header used to record the alias hole as a KNOWN
+  // LIMITATION, which made it a documented bypass: one `type CmdResult<T> =
+  // Result<T, String>;` would have taken every future legacy command off the
+  // books while the gate reported green.
+  it("counts a command returning a type alias for Result<_, String>", () => {
+    const root = writeCrate({
+      "a.rs": `type CmdResult<T> = Result<T, String>;\n${command("aliased", "CmdResult<u8>")}`,
+    });
+    const { status, stderr } = runGate(root, { files: {} });
+    expect(status).toBe(1);
+    expect(stderr).toContain("src-tauri/src/a.rs");
+  });
+
+  it("follows a chain of aliases, and across files — an alias is declared once and used elsewhere", () => {
+    const root = writeCrate({
+      "errors.rs": `pub type CmdResult<T> = std::result::Result<T, String>;\npub type Cmd2<T> = CmdResult<T>;\n`,
+      "a.rs": command("aliased", "crate::errors::Cmd2<u8>"),
+    });
+    const { status } = runGate(root, { files: { "src-tauri/src/a.rs": 1 } });
+    expect(status).toBe(0);
+  });
+
+  it("does not treat an unrelated alias as the legacy shape", () => {
+    const root = writeCrate({
+      "a.rs": `type Typed<T> = Result<T, CommandError>;\n${command("fine", "Typed<u8>")}`,
+    });
+    expect(runGate(root, { files: {} }).status).toBe(0);
+  });
+
+  // audit R2 #18/#192 — this file used to carry its own Rust lexer, which
+  // looked for a raw-string delimiter inside a 16-character slice. Rust allows
+  // 255 hashes, so a longer delimiter was mis-tokenised and the literal's
+  // contents were read as CODE. `scripts/lib/rustSource.mjs` is the one lexer
+  // now; these pin that this file uses it.
+  it("does not count a command that exists only inside a long-delimiter raw string", () => {
+    const inner = command("fake", "Result<(), String>");
+    const root = writeCrate({
+      "a.rs": `const SAMPLE: &str = r####################"${inner}"####################;\n`,
+    });
+    expect(runGate(root, { files: {} }).status).toBe(0);
+  });
+
+  it("does not count a command inside a C string literal (cr#\"…\"# — Rust 1.77)", () => {
+    const inner = command("fake", "Result<(), String>");
+    const root = writeCrate({ "a.rs": `const S: &core::ffi::CStr = cr#"${inner}"#;\n` });
+    expect(runGate(root, { files: {} }).status).toBe(0);
+  });
+
+  // audit R2 #20 — the typed command's NAME was re-found by a second regex
+  // over a fixed 400-character slice, while its return type was found without
+  // any cap: one declaration, two answers.
+  it("names a typed command whose attributes push its fn past 400 characters", () => {
+    const filler = Array.from({ length: 12 }, (_, i) => `#[allow(clippy::rule_number_${i}_with_a_deliberately_long_name)]`).join("\n");
+    expect(filler.length).toBeGreaterThan(400);
+    const source = `#[tauri::command]\n${filler}\npub async fn far_away() -> Result<(), CommandError> { todo!() }\n`;
+    expect(typedCommandNames(source)).toEqual(["far_away"]);
+  });
 });
 
 describe("wiring — real package.json", () => {
@@ -336,8 +411,103 @@ describe("typedCommandNames", () => {
   });
 });
 
+// audit R2 #19 — the return TYPE ends at the `where` clause. Swallowing it left
+// `"Result<T, String> where …"`, which no longer ends in `>`, so the legacy
+// signature matched nothing and the ratchet could not see it.
+describe("countLegacyCommands — where clauses", () => {
+  it("counts a legacy signature carrying a where clause", () => {
+    const source = `
+      #[tauri::command]
+      pub async fn generic_one<T: Serialize>(x: T) -> Result<T, String>
+      where
+          T: Send,
+      {
+          Ok(x)
+      }
+    `;
+    expect(countLegacyCommands(source)).toBe(1);
+  });
+
+  it("still does not count a typed signature with a where clause", () => {
+    const source = `
+      #[tauri::command]
+      pub async fn generic_two<T: Serialize>(x: T) -> Result<T, CommandError>
+      where
+          T: Send,
+      {
+          Ok(x)
+      }
+    `;
+    expect(countLegacyCommands(source)).toBe(0);
+  });
+});
+
 describe("findStringifiedTypedErrors", () => {
   const typed = new Set(["hot_exit_capture"]);
+
+  // audit R2 #26 — the parser's script kind came from `file.includes(".ts")`,
+  // which is FALSE for `foo.mts` and `foo.cts`. Both are scanned by
+  // FRONTEND_SOURCE, so every ESM/CJS TypeScript module was handed to the
+  // parser as JavaScript; a type annotation is then a syntax error and the
+  // recovered tree hid the defect. The subject is a construct only the TS
+  // parser accepts.
+  it.each(["src/x.mts", "src/x.cts", "src/x.ts"])("parses %s as TypeScript, not JavaScript", (file) => {
+    const source = [
+      'import { invoke } from "@tauri-apps/api/core";',
+      "export async function go(): Promise<void> {",
+      "  try {",
+      '    await invoke<Record<string, unknown>>("hot_exit_capture");',
+      "  } catch (e) {",
+      "    console.error(String(e));",
+      "  }",
+      "}",
+    ].join("\n");
+    expect(findStringifiedTypedErrors([{ path: file, source }], typed)).toEqual([
+      expect.objectContaining({ file, command: "hot_exit_capture" }),
+    ]);
+  });
+
+  // audit R2 #24 — Tauri's `invoke` is a bare imported identifier; a method of
+  // that name on an unrelated object (src/test/statefulFsFake.ts has one) armed
+  // the gate on a file that invokes no command.
+  it("ignores a receiver call named invoke", () => {
+    const file = {
+      path: "src/x.ts",
+      source: [
+        "const fs = { invoke: (c: string) => c };",
+        "try { fs.invoke(\"hot_exit_capture\"); } catch (e) { report(String(e)); }",
+      ].join("\n"),
+    };
+    expect(findStringifiedTypedErrors([file], typed)).toEqual([]);
+  });
+
+  // audit R2 #22 — a reassignable binding is not a compile-time constant.
+  it("does not resolve a command name through a reassignable let", () => {
+    const file = {
+      path: "src/y.ts",
+      source: [
+        'import { invoke } from "@tauri-apps/api/core";',
+        'let cmd = "hot_exit_capture";',
+        'cmd = "something_else";',
+        "try { await invoke(cmd); } catch (e) { report(String(e)); }",
+      ].join("\n"),
+    };
+    expect(findStringifiedTypedErrors([file], typed)).toEqual([]);
+  });
+
+  it("leaves a name declared twice with different values unresolved", () => {
+    const file = {
+      path: "src/z.ts",
+      source: [
+        'import { invoke } from "@tauri-apps/api/core";',
+        'function a() { const cmd = "hot_exit_capture"; return cmd; }',
+        'function b() { const cmd = "unrelated_command"; return cmd; }',
+        'const cmd = "unrelated_command";',
+        "try { await invoke(cmd); } catch (e) { report(String(e)); }",
+      ].join("\n"),
+    };
+    expect(findStringifiedTypedErrors([file], typed)).toEqual([]);
+  });
 
   it("flags a file that invokes a typed command and stringifies its error", () => {
     const file = {
@@ -429,6 +599,17 @@ describe("findStringifiedTypedErrors", () => {
 
   it("handles .catch(async (e) => ...)", () => {
     expect(flagged('await invoke("hot_exit_capture").catch(async (e) => show(String(e)));')).toBe(1);
+  });
+
+  // audit R2 #25 — `.then(onFulfilled, onRejected)` is the other Promise
+  // rejection-handler form; only `.catch` was recognised, so this stringified
+  // a typed CommandError with the gate silent.
+  it("handles the second argument of .then(onFulfilled, onRejected)", () => {
+    expect(flagged('invoke("hot_exit_capture").then((v) => use(v), (e) => show(String(e)));')).toBe(1);
+    expect(flagged('invoke("hot_exit_capture").then((v) => use(v), (e) => show(commandErrorMessage(e)));')).toBe(0);
+    // The FULFILLED argument is not a rejection binding — `String(v)` on a
+    // resolved value is ordinary code.
+    expect(flagged('invoke("hot_exit_capture").then((v) => show(String(v)));')).toBe(0);
   });
 
   it("respects shadowing by an inner function parameter", () => {

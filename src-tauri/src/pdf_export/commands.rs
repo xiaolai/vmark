@@ -3,10 +3,14 @@
 use crate::command_error::{CommandError, ErrorCode};
 use crate::localized_error;
 
+use super::export_gate::ExportGate;
 use super::heading::Heading;
 use super::page_spec::PageSpec;
 use super::renderer;
+use super::renderer::progress::PdfProgress;
+use super::renderer::PrintOutcome;
 use std::path::Path;
+use tauri::Manager;
 
 /// Reject an output path before any rendering starts.
 ///
@@ -58,10 +62,17 @@ pub(super) fn validate_output_path(output_path: &str) -> Result<(), CommandError
             }
             // `parent.exists()` is true for a regular FILE too, and the render
             // then starts against a destination that can never be written.
+            //
+            // Its own key (audit 20260907 #398): reusing `dirNotFound` told the
+            // user the directory does not exist while it plainly does, which
+            // sends them to create a path that is already there. The CODE
+            // differs from the branch above too — `InvalidInput`, not
+            // `NotFound` — so a frontend that branches on the code was already
+            // being handed the honest class and only the message lied.
             if !parent.is_dir() {
                 return Err(localized_error!(
                     ErrorCode::InvalidInput,
-                    "errors.pdf.dirNotFound"
+                    "errors.pdf.parentNotDirectory"
                 ));
             }
         }
@@ -88,12 +99,16 @@ pub struct ExportOutcome {
 
 /// Export HTML content to a PDF file using the platform's native webview.
 ///
-/// Emits `pdf-export-progress` events to the `pdf-export` window
-/// with status updates: "loading", "rendering", "done".
+/// Emits `pdf-export-progress` events to the `pdf-export` window: the
+/// renderer reports "loading", "rendering" and "finishing" on every platform
+/// (WI-FL6.2), and this command emits "done" once post-processing returns.
 ///
 /// After the render, post-processes the file: heading bookmarks, then page
 /// numbers. Both are cross-platform (lopdf) and both are best-effort — see
 /// `ExportOutcome`.
+///
+/// One export at a time: a call while another is in flight is refused with
+/// `Conflict` (`export_gate.rs`, #198, #199).
 #[tauri::command]
 pub async fn export_pdf(
     app: tauri::AppHandle,
@@ -111,6 +126,22 @@ pub async fn export_pdf(
     if let Some(ref spec) = page_numbers {
         spec.validate()?;
     }
+
+    // Enforced HERE, not trusted to the dialog's `exporting` flag (#198,
+    // #199): the file below is read-modify-written twice after the render,
+    // and progress goes to one window as stage-only events, so a second
+    // export in flight would corrupt the one and interleave the other. The
+    // slot is bound to a local so every exit path — a `?` included —
+    // releases it. A missing registration is a loud typed error rather than
+    // a panic inside a spawned command future, which the frontend would only
+    // see as an invoke that never resolves.
+    let gate_app = app.clone();
+    let gate = gate_app.try_state::<ExportGate>().ok_or_else(|| {
+        CommandError::internal("ExportGate is not managed — register it in lib.rs")
+    })?;
+    let _export_slot = gate.try_begin().ok_or_else(|| {
+        CommandError::conflict("a PDF export is already running; wait for it to finish")
+    })?;
 
     let app_for_progress = app.clone();
     renderer::render_pdf(app, html, output_path.clone(), page).await?;
@@ -133,7 +164,7 @@ pub async fn export_pdf(
 
     // Completion is emitted HERE, after the outline and the page numbers, so
     // the stage the user sees matches what the file has.
-    renderer::emit_progress(&app_for_progress, "done");
+    renderer::progress::emit(&app_for_progress, PdfProgress::Done);
 
     Ok(outcome)
 }
@@ -178,7 +209,19 @@ fn post_process(
 /// `webkit_print_operation_run_dialog` on Linux. The helper is hidden on
 /// macOS and Linux; on Windows it must stay visible because `ShowPrintUI`
 /// draws the print UI inside it.
+///
+/// Resolves with what the dialog reported (WI-FL6.3): `completed` or
+/// `cancelled` on macOS and Linux, `unknown` on Windows — see
+/// `renderer/outcome.rs` for what each platform exposes. A render or dialog
+/// FAILURE is still the `Err`; cancel is an outcome, not an error.
+///
+/// `window` is the one the command was invoked from — Tauri supplies it — and
+/// is where macOS attaches the print sheet (#218).
 #[tauri::command]
-pub async fn print_document(app: tauri::AppHandle, html: String) -> Result<(), CommandError> {
-    renderer::print_document(app, html).await
+pub async fn print_document(
+    window: tauri::WebviewWindow,
+    app: tauri::AppHandle,
+    html: String,
+) -> Result<PrintOutcome, CommandError> {
+    renderer::print_document(app, html, Some(window.label().to_string())).await
 }

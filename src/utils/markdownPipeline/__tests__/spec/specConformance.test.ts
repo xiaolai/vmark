@@ -20,7 +20,7 @@
  *
  * @coordinates-with corpusRegistry.ts — the only corpus source
  * @coordinates-with specLedgers.ts — declaration shape + matching
- * @coordinates-with ../../conformance/semanticProjection.ts — what is compared
+ * @coordinates-with ../conformance/semanticProjection.ts — what is compared
  * @module utils/markdownPipeline/__tests__/spec/specConformance.test
  */
 import { describe, it, expect } from "vitest";
@@ -32,11 +32,11 @@ import { createProcessor } from "../../parser/processorFactory";
 import {
   project,
   type RawNode,
-} from "../../conformance/semanticProjection";
+} from "../conformance/semanticProjection";
 import {
   diff,
   type Divergence,
-} from "../../conformance/projectionDiff";
+} from "../conformance/projectionDiff";
 import { examplesForRoute, type SpecExample } from "./corpusRegistry";
 import {
   loadConformanceLedger,

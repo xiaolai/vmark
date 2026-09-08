@@ -114,6 +114,7 @@ export const ACTION_APPLICABILITY: Partial<Record<AdapterAction, readonly Enable
   insertVideo: TEXTBLOCK,
   insertAudio: TEXTBLOCK,
   insertDetails: TEXTBLOCK,
+  insertToc: TEXTBLOCK,
   insertDiagram: TEXTBLOCK,
   insertGraphvizDiagram: TEXTBLOCK,
   insertMarkmap: TEXTBLOCK,
@@ -180,7 +181,7 @@ const TABLE_CELL_BLOCKED: readonly AdapterAction[] = [
   "insertBlockquote", "nestBlockquote", "unnestBlockquote", "removeBlockquote",
   // Block insertions.
   "insertCodeBlock", "insertDivider", "insertTable", "insertTableBlock", "insertDetails",
-  "insertAlertNote", "insertAlertTip", "insertAlertImportant",
+  "insertToc", "insertAlertNote", "insertAlertTip", "insertAlertImportant",
   "insertAlertWarning", "insertAlertCaution",
   "insertMath", "insertDiagram", "insertGraphvizDiagram", "insertMarkmap",
   // Block media — the WYSIWYG pickers can produce block nodes the cell

@@ -42,3 +42,43 @@ fn pending_file_open_is_constructible_at_crate_root() {
     };
     assert_eq!(pending.path, "/tmp/a.md");
 }
+
+/// #357 — every backend state the shipped composition manages is reachable.
+///
+/// This is the one part of `run()` a test can hold: `generate_context!()` and
+/// the real plugin set do not exist under MockRuntime, but `manage_state`
+/// takes any builder. It is also the part that fails silently — a command
+/// reads its state through `State<'_, T>` or `try_state::<T>()`, so a dropped
+/// `.manage()` compiles, starts, and only fails when the user clicks. The
+/// list is an IDENTITY list: adding a state means adding it here, and
+/// deleting one fails until this is updated too.
+#[cfg(not(target_os = "windows"))]
+#[test]
+fn manage_state_registers_every_backend_state() {
+    use tauri::Manager;
+
+    let app = crate::manage_state(tauri::test::mock_builder())
+        .build(tauri::test::mock_context(tauri::test::noop_assets()))
+        .expect("build mock app");
+
+    macro_rules! managed {
+        ($($t:ty),+ $(,)?) => {$(
+            assert!(
+                app.try_state::<$t>().is_some(),
+                concat!(stringify!($t), " is not managed — every command reading it fails at runtime")
+            );
+        )+};
+    }
+
+    managed!(
+        crate::workflow::state::WorkflowRunnerState,
+        crate::ai_provider::cancel::AiPromptCancelRegistry,
+        crate::mcp_bridge::McpBridgeState,
+        crate::hot_exit::HotExitState,
+        crate::content_server::ContentServerManager,
+        crate::browser::surface::BrowserSurface,
+        crate::window_status::WindowStatusRegistry,
+        crate::pdf_export::export_gate::ExportGate,
+        crate::trusted_html::TrustedHtmlState,
+    );
+}

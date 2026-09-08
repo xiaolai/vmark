@@ -49,7 +49,7 @@ function startWorkflowEnginePolicySync(): () => void {
 
 beforeEach(() => {
   setEngine(false);
-  useSettingsStore.getState().updateAdvancedSetting("workflowViewer", false);
+  useSettingsStore.getState().updateAdvancedSetting("keepBothEditorsAlive", false);
   mocks.invoke.mockReset().mockResolvedValue(undefined);
   mocks.warn.mockReset();
   mocks.toastError.mockReset();
@@ -123,11 +123,12 @@ describe("startWorkflowEnginePolicySync", () => {
   it("does not push for unrelated settings changes", () => {
     const stop = startWorkflowEnginePolicySync();
     mocks.invoke.mockClear();
-    useSettingsStore.getState().updateAdvancedSetting("workflowViewer", true);
+    useSettingsStore.getState().updateAdvancedSetting("keepBothEditorsAlive", true);
     useSettingsStore.getState().updateAdvancedSetting("developerMode", true);
     expect(mocks.invoke).not.toHaveBeenCalled();
     stop();
     useSettingsStore.getState().updateAdvancedSetting("developerMode", false);
+    useSettingsStore.getState().updateAdvancedSetting("keepBothEditorsAlive", false);
   });
 
   it("stops pushing after cleanup — a stale subscription outlives the window", () => {

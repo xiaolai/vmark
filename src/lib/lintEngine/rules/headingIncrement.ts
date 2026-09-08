@@ -8,37 +8,44 @@
 
 import { visit } from "unist-util-visit";
 import type { Root, Heading } from "mdast";
-import { createDiagnostic, type LintDiagnostic } from "../types";
+import { createDiagnostic, type LintDiagnostic, type LintLineIndex } from "../types";
+import { ruleEmission } from "../ruleMeta";
+import { startOffset } from "./positionOffset";
 
-export function headingIncrement(_source: string, mdast: Root): LintDiagnostic[] {
+/** The W01 diagnostic for a heading that jumped from `from` to `to`. */
+function levelSkip(
+  node: Heading & { position: NonNullable<Heading["position"]> },
+  from: number,
+  lineOffsets: readonly number[],
+): LintDiagnostic {
+  const { line, column } = node.position.start;
+  return createDiagnostic({
+    ...ruleEmission("W01"),
+    messageKey: "lint.W01",
+    messageParams: { from: String(from), to: String(node.depth) },
+    line,
+    column,
+    offset: startOffset(node.position.start, lineOffsets),
+    endOffset: node.position.end.offset,
+    uiHint: "exact",
+  });
+}
+
+export function headingIncrement(
+  _source: string,
+  mdast: Root,
+  { lineOffsets }: LintLineIndex,
+): LintDiagnostic[] {
   const diagnostics: LintDiagnostic[] = [];
   let prevDepth: number | null = null;
 
   visit(mdast, "heading", (node: Heading) => {
-    const depth = node.depth;
-
-    if (prevDepth !== null && depth > prevDepth + 1) {
-      if (!node.position) {
-        prevDepth = depth;
-        return;
-      }
-      const { line, column, offset } = node.position.start;
+    if (prevDepth !== null && node.depth > prevDepth + 1 && node.position) {
       diagnostics.push(
-        createDiagnostic({
-          ruleId: "W01",
-          severity: "warning",
-          messageKey: "lint.W01",
-          messageParams: { from: String(prevDepth), to: String(depth) },
-          line,
-          column,
-          offset: offset ?? 0,
-          endOffset: node.position.end.offset,
-          uiHint: "exact",
-        })
+        levelSkip(node as Heading & { position: NonNullable<Heading["position"]> }, prevDepth, lineOffsets),
       );
     }
-
-    prevDepth = depth;
+    prevDepth = node.depth;
   });
 
   return diagnostics;

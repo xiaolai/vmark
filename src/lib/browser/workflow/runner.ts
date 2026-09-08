@@ -8,7 +8,7 @@
  * safety shape via the write-ness classifier, then drives the generic
  * `runWorkflow` control flow, handing the executor the ORIGINAL step so it knows
  * how to act (kind selects the tier; text is the instruction).
- * Plan: dev-docs/plans/20260712-0610-embedded-browser-sites-workflows.md WI-4.2.
+ * Origin: Embedded browser sites and workflows plan (2026-07-12, retired) WI-4.2.
  *
  * The two shapes are kept apart on purpose: the safety layer only ever sees
  * `{id, write}` (so its double-post protection depends on nothing but write-ness),

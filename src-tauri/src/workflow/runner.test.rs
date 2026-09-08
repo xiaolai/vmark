@@ -265,6 +265,13 @@ fn test_matches_accept() {
     assert!(matches_accept("readme.md", "*.md"));
     assert!(matches_accept("readme.md", ".md"));
     assert!(!matches_accept("readme.md", "*.txt"));
+    // #505 — every other extension gate in VMark folds ASCII case, so `*.md`
+    // excluding `README.MD` from a folder read was a disagreement with the
+    // editor that opened the same file happily.
+    assert!(matches_accept("README.MD", "*.md"));
+    assert!(matches_accept("notes.Md", ".md"));
+    assert!(matches_accept("readme.md", "*.MD"));
+    assert!(!matches_accept("README.MD", "*.txt"));
 }
 
 #[test]

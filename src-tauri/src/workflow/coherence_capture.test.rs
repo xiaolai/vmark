@@ -43,12 +43,17 @@ fn only_reachable_read_files_become_inputs() {
 
 #[test]
 fn bare_alias_references_are_followed() {
+    // The alias the EXECUTOR resolves, which is the only kind that carries
+    // data (#512). This case used to write `read.text` — a literal `resolve`
+    // leaves untouched — so it pinned an edge for a dataflow that never
+    // happened; `a_bare_alias_the_executor_would_not_resolve_is_not_a_dependency`
+    // now holds that half.
     let steps = vec![
         slice("read", "action/read-file", &[("path", "world.md")]),
         slice(
             "save",
             "action/save-file",
-            &[("path", "out.md"), ("input", "read.text")],
+            &[("path", "out.md"), ("input", "read.output")],
         ),
     ];
     assert_eq!(
@@ -113,6 +118,10 @@ fn capture_save_file_records_transformation_with_edges() {
         "generated\n",
         &["elena.md".to_string()],
         "save",
+        Agent {
+            kind: AgentType::Model,
+            id: Some("workflow-genie".into()),
+        },
     )
     .unwrap();
 
@@ -150,6 +159,10 @@ fn self_referential_save_target_is_not_its_own_input() {
         "x\n",
         &["out.md".to_string()],
         "save",
+        Agent {
+            kind: AgentType::Model,
+            id: Some("workflow-genie".into()),
+        },
     )
     .unwrap();
     let entries = kernel.ledger().read_all().unwrap().entries;
@@ -173,4 +186,136 @@ fn literal_paths_containing_steps_are_not_dependencies() {
         ),
     ];
     assert!(direct_input_paths(&steps, "save").is_empty());
+}
+
+// ===== #512 — the capture's reference grammar IS the executor's ============
+
+#[test]
+fn a_bare_alias_the_executor_would_not_resolve_is_not_a_dependency() {
+    // `read.text` and `read.md` are literal values: `resolve` substitutes
+    // neither (its alias regex is `^\w+\.output$`, whole-string). Counting
+    // them as references produced provenance edges recording a dataflow that
+    // never happened.
+    let steps = vec![
+        (
+            "read".to_string(),
+            "action/read-file".to_string(),
+            HashMap::from([("path".to_string(), "notes.md".to_string())]),
+        ),
+        (
+            "save".to_string(),
+            "action/save-file".to_string(),
+            HashMap::from([
+                ("path".to_string(), "out.md".to_string()),
+                ("input".to_string(), "read.text".to_string()),
+            ]),
+        ),
+    ];
+    assert!(
+        direct_input_paths(&steps, "save").is_empty(),
+        "`read.text` is a literal, not a reference"
+    );
+}
+
+#[test]
+fn the_capture_and_the_executor_agree_on_every_bare_value() {
+    // Parity, not a second copy of the rule: whatever `resolve` substitutes is
+    // a dependency, and whatever it leaves alone is not.
+    use crate::workflow::expressions::resolve;
+    let outputs = HashMap::from([(
+        "read".to_string(),
+        HashMap::from([("text".to_string(), "SUBSTITUTED".to_string())]),
+    )]);
+    let known: HashSet<&str> = HashSet::from(["read"]);
+    for value in [
+        "read.output",
+        " read.output ",
+        "read.text",
+        "read.md",
+        "read.output.txt",
+        "prefix read.output",
+        "notes/read.output",
+        "reader.output",
+        "read",
+    ] {
+        let substituted = resolve(value, &outputs, &HashMap::new())
+            .map(|out| out != value.trim() && out != value)
+            .unwrap_or(false);
+        let referenced = referenced_ids(value, &known).contains(&"read".to_string());
+        assert_eq!(
+            referenced, substituted,
+            "capture and executor disagree about {value:?}"
+        );
+    }
+}
+
+// ===== #516 — a save is attributed to what actually produced it ============
+
+#[test]
+fn an_action_only_workflow_is_not_attributed_to_a_model() {
+    let steps = vec![
+        (
+            "read".to_string(),
+            "action/read-file".to_string(),
+            HashMap::from([("path".to_string(), "notes.md".to_string())]),
+        ),
+        (
+            "save".to_string(),
+            "action/save-file".to_string(),
+            HashMap::from([("input".to_string(), "read.output".to_string())]),
+        ),
+    ];
+    let reachable = reachable_from(&steps, "save");
+    let agent = agent_for(&steps, &reachable);
+    assert_eq!(agent.kind, AgentType::External);
+    assert_eq!(agent.id.as_deref(), Some("workflow"));
+}
+
+#[test]
+fn a_genie_step_that_feeds_the_save_makes_it_a_model_transformation() {
+    let steps = vec![
+        (
+            "rewrite".to_string(),
+            "genie/rewrite-in-english".to_string(),
+            HashMap::from([("input".to_string(), "seed".to_string())]),
+        ),
+        (
+            "save".to_string(),
+            "action/save-file".to_string(),
+            HashMap::from([(
+                "input".to_string(),
+                "${{ steps.rewrite.outputs.text }}".to_string(),
+            )]),
+        ),
+    ];
+    let reachable = reachable_from(&steps, "save");
+    let agent = agent_for(&steps, &reachable);
+    assert_eq!(agent.kind, AgentType::Model);
+    assert_eq!(agent.id.as_deref(), Some("workflow-genie"));
+}
+
+#[test]
+fn a_genie_step_the_save_does_not_depend_on_does_not_claim_its_content() {
+    // An unrelated model step in the same workflow says nothing about how THIS
+    // file came to be — the same reason unrelated reads never become inputs.
+    let steps = vec![
+        (
+            "aside".to_string(),
+            "genie/summarize".to_string(),
+            HashMap::from([("input".to_string(), "something else".to_string())]),
+        ),
+        (
+            "read".to_string(),
+            "action/read-file".to_string(),
+            HashMap::from([("path".to_string(), "notes.md".to_string())]),
+        ),
+        (
+            "save".to_string(),
+            "action/save-file".to_string(),
+            HashMap::from([("input".to_string(), "read.output".to_string())]),
+        ),
+    ];
+    let reachable = reachable_from(&steps, "save");
+    assert!(!reachable.contains("aside"));
+    assert_eq!(agent_for(&steps, &reachable).kind, AgentType::External);
 }

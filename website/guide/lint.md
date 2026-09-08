@@ -1,6 +1,6 @@
 # Markdown Lint
 
-VMark ships a built-in lint engine that catches **correctness issues**, not style preferences. Lint runs on demand (Cmd-Shift-L or **Tools → Check Markdown**) and surfaces results inline as gutter squiggles, with a status bar badge and F2 navigation between findings.
+VMark ships a built-in lint engine that catches **correctness issues**, not style preferences. Lint runs on demand (`Alt + Mod + V` or **Tools → Check Markdown**) and surfaces results inline as gutter squiggles, with a status bar badge and F2 navigation between findings.
 
 ## What lint is and isn't
 
@@ -32,15 +32,15 @@ For style enforcement, use a separate tool like `prettier --check` outside VMark
 | **E02** | Error | Table row has wrong column count (mismatch with header row) |
 | **E03** | Error | Reversed link — looks like `(text)[url]` instead of `[text](url)` |
 | **E04** | Error | ATX heading missing space after `#` (e.g., `##Heading` should be `## Heading`) |
-| **E05** | Error | Space inside emphasis markers — `* word *` won't render as italic (arithmetic-shaped expressions such as `3 * 4 * 5` or `x * y * z` — short operands surrounding both stars — are treated as multiplication and not flagged) |
-| **E06** | Error | Unclosed fenced code block — file ends with an open ```` ``` ```` fence |
+| **E05** | Warning | Space inside emphasis markers — `* word *` won't render as italic (arithmetic-shaped expressions such as `3 * 4 * 5` or `x * y * z` — short operands surrounding both stars — are treated as multiplication and not flagged) |
+| **E06** | Error | Empty link text — `[](url)` |
 | **E07** | Error | Duplicate link reference definition (same `[label]:` appears twice) |
-| **E08** | Error | Empty link `href` — `[text]()` |
+| **E08** | Error | Unclosed fenced code block — file ends with an open ```` ``` ```` fence |
 | **W01** | Warning | Heading level skipped (h2 expected, found h3) |
 | **W02** | Warning | Image missing alt text — accessibility |
 | **W03** | Warning | Unused link reference definition (defined but never linked) |
 | **W04** | Warning | Anchor fragment doesn't match any heading — `#section` for a section that doesn't exist |
-| **W05** | Warning | Empty link text — `[](url)` |
+| **W05** | Warning | Empty link `href` — `[text]()` |
 | **M001** | Error | Image file not found at the local path |
 | **M002** | Error | Linked file not found at the local path |
 | **Y001** | Error | YAML parse error (for YAML files) |
@@ -48,16 +48,18 @@ For style enforcement, use a separate tool like `prettier --check` outside VMark
 
 ## Triggering lint
 
+**Mod** = Cmd on macOS, Ctrl on Windows/Linux; **Alt** = Option on macOS.
+
 | Trigger | Action |
 |---|---|
-| `Cmd + Shift + L` (macOS) / `Ctrl + Shift + L` (Win/Linux) | Run lint on the active document |
+| `Alt + Mod + V` | Run lint on the active document |
 | **Tools → Check Markdown** | Same as the shortcut |
 | `F2` | Jump to the next diagnostic |
 | `Shift + F2` | Jump to the previous diagnostic |
 
 For markdown files with file paths, link-existence checking runs automatically alongside the sync rules — see [Link Check](/guide/link-check).
 
-For YAML files, parse errors appear live in the gutter as you type, and the same `Cmd-Shift-L` shortcut populates the badge + F2 navigation.
+For YAML files, parse errors appear live in the gutter as you type, and the same `Alt + Mod + V` shortcut populates the badge + F2 navigation.
 
 ## Settings
 

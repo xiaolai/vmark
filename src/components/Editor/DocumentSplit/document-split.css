@@ -4,19 +4,12 @@
 
 .document-split {
   display: flex;
+  flex-direction: row; /* side-by-side only — the stacked orientation was removed (WI-FL3.10) */
   flex: 1;
   min-width: 0;
   min-height: 0;
   height: 100%;
   width: 100%;
-}
-
-.document-split--horizontal {
-  flex-direction: row;
-}
-
-.document-split--vertical {
-  flex-direction: column;
 }
 
 .document-split__pane {
@@ -41,20 +34,14 @@
 
 .document-split__divider {
   flex-shrink: 0;
+  width: var(--space-1);
+  cursor: col-resize;
+  /* Pointer-drag resize (useSplitDrag): the browser must not claim a touch on the bar for scrolling. */
+  touch-action: none;
   background: var(--border-color);
   transition: background var(--duration-base);
   position: relative;
   z-index: var(--z-resize-handle);
-}
-
-.document-split--horizontal .document-split__divider {
-  width: var(--space-1);
-  cursor: col-resize;
-}
-
-.document-split--vertical .document-split__divider {
-  height: var(--space-1);
-  cursor: row-resize;
 }
 
 .document-split__divider:hover {

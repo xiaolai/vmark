@@ -10,7 +10,7 @@
  *   - Shows red when any errors exist; amber when warnings only.
  *   - Reads activeTabId from useTabStore + windowLabel from context.
  *
- * @coordinates-with lintStore.ts — reads diagnostics, calls selectNext
+ * @coordinates-with stores/documentStore/lint.ts — reads diagnostics, calls selectNext
  * @coordinates-with lint.css — badge styles
  * @module components/StatusBar/LintBadge
  */

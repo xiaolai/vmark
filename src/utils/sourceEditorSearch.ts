@@ -5,7 +5,7 @@
  * including regex escaping, match counting, and search result navigation.
  *
  * @coordinates-with FindBar.tsx — UI for find/replace that calls these functions
- * @coordinates-with searchStore.ts — stores match count and current index
+ * @coordinates-with stores/uiStore/searchSlice.ts — stores match count and current index
  * @module utils/sourceEditorSearch
  */
 

@@ -18,30 +18,79 @@
 //!     deadlocks WKWebView callbacks when NSRunLoop is spun inside them.
 //!   - The wait is BOUNDED. If a platform closure unwinds before sending, the
 //!     receiver would otherwise hang the calling async task forever.
+//!   - Progress is one sequence on every platform (WI-FL6.2): each backend
+//!     reports the same three stages through the sink at the equivalent
+//!     points of its own pipeline; `progress.rs` owns the vocabulary.
+//!   - The print dialog's wait is bounded only until the dialog is SHOWN
+//!     (WI-FL6.3). After that the time belongs to the user, and a Print sheet
+//!     left open for three minutes is not a timeout.
+//!   - A timeout and the platform's irreversible step are decided by ONE
+//!     word (#227): the platform claims the sink immediately before it
+//!     presents a dialog or starts a print, the caller abandons it when its
+//!     wait ends, and exactly one of them wins — `sink.rs`, `wait.rs`.
+//!   - A render never writes the output path (#224): the platform writes a
+//!     sibling staging file, and only a success DELIVERED to a caller still
+//!     waiting is renamed into place — `staging.rs`. A print that completes
+//!     after its caller's timeout fills a file the sink then deletes.
+//!   - A timeout TEARS DOWN (#224, #227). Neither WebView2 nor WebKitGTK can
+//!     cancel a print in flight or a load that hangs; destroying the webview
+//!     is the one lever. The platform arms the sink with its window's close
+//!     when it builds the window, and the caller's timeout runs it — a
+//!     render's always, a dialog's only while the platform has not claimed —
+//!     `teardown.rs`, `wait.rs`. macOS arms nothing: its body is synchronous
+//!     and drops its own window on return.
+//!   - Both paths share one shell — `dispatch` (#220): the temp document,
+//!     the outcome channel and the main-thread hop are written once; the two
+//!     waits are `wait.rs`'s; this file keeps only what differs.
 //!
 //! @coordinates-with commands.rs — the only caller
 //! @module pdf_export/renderer
 
+use std::path::PathBuf;
 use std::time::Duration;
-use tauri::{AppHandle, Emitter};
+use tauri::AppHandle;
 
 use super::page_spec::PageSpec;
-use crate::command_error::{CommandError, ErrorCode};
-use crate::localized_error;
+use crate::command_error::CommandError;
 use tokio::sync::oneshot;
 
 mod sink;
+mod sink_phase;
 use sink::RenderSink;
+
+mod shell;
+use shell::{dispatch, utf8_path};
+
+mod staging;
+mod teardown;
+mod wait;
+
+/// The one-shot decision a `NavigationCompleted`-style callback makes; pure,
+/// so it is tested on every platform although only Windows drives it.
+#[cfg_attr(not(target_os = "windows"), allow(dead_code))]
+mod navigation;
+
+pub mod outcome;
+pub use outcome::PrintOutcome;
+
+pub mod progress;
+use progress::ProgressReporter;
 
 #[cfg(target_os = "macos")]
 mod macos;
 #[cfg(target_os = "macos")]
 mod macos_ops;
 #[cfg(target_os = "macos")]
+mod macos_print;
+#[cfg(target_os = "macos")]
+mod macos_save_job;
+#[cfg(target_os = "macos")]
 use macos_ops as platform;
 
 #[cfg(target_os = "windows")]
 mod windows;
+#[cfg(target_os = "windows")]
+mod windows_nav;
 #[cfg(target_os = "windows")]
 mod windows_print;
 #[cfg(target_os = "windows")]
@@ -49,6 +98,8 @@ use windows as platform;
 
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
 mod linux;
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+mod linux_nav;
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
 mod linux_print;
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
@@ -61,75 +112,20 @@ use linux as platform;
 /// match the value.)
 const PDF_OPERATION_TIMEOUT: Duration = Duration::from_secs(180);
 
-/// Progress event payload.
-///
-/// Only the macOS backend emits progress. Windows and Linux are fully
-/// implemented (WI-PDF2.1/3.1) but report nothing between navigation and
-/// completion, so the payload is dead code there and the allow is still
-/// required. It is a gap in those backends, not a stub — an earlier version of
-/// this comment claimed they "refuse before there is any progress to report",
-/// which stopped being true when they shipped.
-#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
-#[derive(Clone, serde::Serialize)]
-struct PdfProgress {
-    stage: &'static str,
-}
-
-#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
-pub(super) fn emit_progress(app: &AppHandle, stage: &'static str) {
-    let _ = app.emit_to("pdf-export", "pdf-export-progress", PdfProgress { stage });
-}
-
 // ============================================================================
 // PDF Export
 // ============================================================================
 
-/// Write the document to the render temp file the SINK will own.
-///
-/// `tempfile` creates with O_EXCL and 0600, which a pid+clock filename plus
-/// `fs::write` does not: that name is predictable, so a symlink planted at
-/// the path would be followed, and the document — which can contain the
-/// user's entire private note — was written world-readable on a shared /tmp.
-/// The whole create-and-write runs on a blocking thread (a multi-megabyte
-/// document would otherwise hold a Tokio worker), WRITES THROUGH THE OPEN
-/// HANDLE rather than reopening the path by name, and only then
-/// `into_temp_path().keep()`s the result: `keep()` disables tempfile's RAII
-/// cleanup, and calling it before the write meant a failed or cancelled
-/// write leaked a partial private document that no one — the RenderSink that
-/// owns deletion is constructed only after this returns — would ever remove.
-async fn write_render_temp(prefix: &str, html: String) -> Result<std::path::PathBuf, CommandError> {
-    fn err(e: impl std::fmt::Display) -> CommandError {
-        localized_error!(
-            ErrorCode::Io,
-            "errors.pdf.tempWriteFailed",
-            detail = e.to_string()
-        )
-    }
-    let prefix = prefix.to_string();
-    let temp_file =
-        tokio::task::spawn_blocking(move || -> Result<tempfile::NamedTempFile, CommandError> {
-            use std::io::Write;
-            let mut temp_file = tempfile::Builder::new()
-                .prefix(&prefix)
-                .suffix(".html")
-                .tempfile()
-                .map_err(err)?;
-            temp_file.write_all(html.as_bytes()).map_err(err)?;
-            Ok(temp_file)
-        })
-        .await
-        .map_err(err)??;
-    // Kept only now, on the fully written file — if the await above is
-    // cancelled instead, the returned NamedTempFile is dropped and RAII
-    // deletes it. The webview opens the kept file by path; the sink deletes
-    // it on settle or Drop.
-    temp_file.into_temp_path().keep().map_err(err)
-}
-
-/// Render HTML to PDF via off-screen WKWebView.
+/// Render HTML to PDF via an off-screen native webview.
 ///
 /// Writes HTML to a temp file, then dispatches to the main thread via
-/// Tauri's event loop to create a WKWebView and generate the PDF.
+/// Tauri's event loop to create the webview and generate the PDF. The three
+/// render stages go to the export window as `pdf-export-progress` events on
+/// every platform; the caller emits `done` after its own post-processing.
+///
+/// Safe to run concurrently for DIFFERENT outputs — the smoke harness does —
+/// because each render stages beside its own output. `export_pdf` is what
+/// serializes exports, for the sake of the one progress window (#198, #199).
 pub async fn render_pdf(
     app: AppHandle,
     html: String,
@@ -145,136 +141,87 @@ pub async fn render_pdf(
     // The command validates too, so this is defence in depth rather than a
     // duplicate: any caller of the renderer must be unable to print paper by
     // accident, and a wrong path is the single most likely caller mistake.
+    // The staging file AppKit is actually handed is a sibling of this path,
+    // so the directory it lands in is the one validated here.
     super::commands::validate_output_path(&output_path)?;
-
-    // The document is written to a temp file rather than passed inline because
-    // wry's `.with_html` caps at 2 MiB and a real export routinely exceeds it
-    // (ADR-PDF4).
-    let temp_dir = std::env::temp_dir();
-    let temp_html = write_render_temp("vmark-pdf-export-", html.clone()).await?;
-
+    // And the GEOMETRY, for the same reason and by the same argument (#403).
+    // `export_pdf` validates it; a caller that reaches the renderer directly
+    // — the pdf-smoke harness does, three times — does not, and a NaN or a
+    // negative extent then reaches `NSPrintInfo::setPaperSize`,
+    // `ICoreWebView2PrintSettings` or `gtk::PaperSize::new_custom` as a
+    // native value nothing downstream checks.
+    page.validate()?;
     log::debug!(
-        "[PDF] render_pdf: wrote {} bytes to {}, output: {}",
+        "[PDF] render_pdf: {} bytes of HTML, output: {}",
         html.len(),
-        temp_html.display(),
         output_path
     );
+    let output = PathBuf::from(&output_path);
+    let staging = staging::staging_path_for(&output);
+    let target = utf8_path(&staging)?.to_string();
 
-    let (tx, rx) = oneshot::channel::<Result<(), CommandError>>();
-    let sink = RenderSink::new(tx, temp_html.clone());
+    let reporter = ProgressReporter::to_window(app.clone());
+    let staging_for_sink = staging.clone();
+    let (sink, rx) = dispatch(
+        &app,
+        "vmark-pdf-export-",
+        html,
+        move |tx, temp_html| RenderSink::with_progress(tx, temp_html, staging_for_sink, reporter),
+        Box::new(move |app, temp_html, temp_dir, sink| {
+            platform::render_on_main_thread(app, temp_html, temp_dir, &target, page, sink);
+        }),
+    )
+    .await?;
 
-    let sink_clone = sink.clone();
-    let app_clone = app.clone();
-    let temp_html_str = temp_html.to_string_lossy().to_string();
-    let temp_dir_str = temp_dir.to_string_lossy().to_string();
-    let output_path_clone = output_path.clone();
-
-    // Use Tauri's event loop dispatch (NOT GCD) — this is critical.
-    // GCD dispatch causes WKWebView callback deadlock when spinning NSRunLoop.
-    app.run_on_main_thread(move || {
-        log::debug!("[PDF] main thread (tao event loop) entered");
-        // The platform settles the sink — synchronously on macOS, from a
-        // native callback on Windows and Linux. The temp file is dropped by
-        // the sink, not here: on the async platforms it is still being read.
-        platform::render_on_main_thread(
-            &app_clone,
-            &temp_html_str,
-            &temp_dir_str,
-            &output_path_clone,
-            page,
-            sink_clone,
-        );
-    })
-    .map_err(|e| {
-        localized_error!(
-            ErrorCode::Internal,
-            "errors.pdf.dispatchFailed",
-            detail = e.to_string()
-        )
-    })?;
-
-    // Bound the wait. If the main-thread dispatch panics or never runs the
-    // sender (e.g. because the run_on_main_thread closure unwound before
-    // reaching the `sender.send(...)` line), the receiver would otherwise
-    // wait forever and freeze the calling async task.
-    match tokio::time::timeout(PDF_OPERATION_TIMEOUT, rx).await {
-        Ok(Ok(result)) => result,
-        Ok(Err(_)) => Err(localized_error!(
-            ErrorCode::Internal,
-            "errors.pdf.channelClosed"
-        )),
-        Err(_) => {
-            // The sink still owns the temp file and drops it when the platform
-            // releases it. Removing it here could pull the document out from
-            // under a render that is merely slow rather than dead.
-            // A distinct CODE, not a recognisable message: the frontend must
-            // be able to tell a timeout from an I/O failure without matching
-            // text (rule 50).
-            Err(localized_error!(
-                ErrorCode::Timeout,
-                "errors.pdf.exportTimeout",
-                seconds = PDF_OPERATION_TIMEOUT.as_secs()
-            ))
-        }
-    }
+    wait::settle_render(&sink, rx, &staging, &output, PDF_OPERATION_TIMEOUT).await
 }
 
 /// Print HTML via the platform's native print dialog.
 ///
 /// Same pipeline as `render_pdf` but shows the print panel instead of
-/// silently saving to a file. The user selects a printer and prints.
-pub async fn print_document(app: AppHandle, html: String) -> Result<(), CommandError> {
-    let temp_dir = std::env::temp_dir();
-    // Same file discipline as render_pdf — the print HTML is the same private
-    // document, and it was still being written under a predictable pid+clock
-    // name with a blocking write after render_pdf's was fixed. One helper now
-    // owns the pattern for both.
-    let temp_html = write_render_temp("vmark-print-", html).await?;
+/// silently saving to a file, and resolves with what the dialog reported:
+/// `completed` or `cancelled` where the platform says (macOS, Linux),
+/// `unknown` where it does not (Windows) — see `outcome.rs`.
+///
+/// `parent_label` names the window the command was invoked from; macOS
+/// attaches its print sheet to THAT window rather than to whichever window
+/// happens to be key once the document has loaded (#218). The other two
+/// platforms present their own window and ignore it.
+pub async fn print_document(
+    app: AppHandle,
+    html: String,
+    parent_label: Option<String>,
+) -> Result<PrintOutcome, CommandError> {
+    let (shown_tx, shown_rx) = oneshot::channel::<()>();
+    #[cfg(not(target_os = "macos"))]
+    let _ = &parent_label;
+    let (sink, rx) = dispatch(
+        &app,
+        "vmark-print-",
+        html,
+        move |tx, temp_html| RenderSink::for_dialog(tx, shown_tx, temp_html),
+        Box::new(move |app, temp_html, temp_dir, sink| {
+            // Same sink contract as render, one phase richer: each platform
+            // claims the sink, calls `shown()` once its dialog is up, then
+            // settles with the outcome — macOS from the print operation's
+            // delegate when the sheet ends, Linux on cancel or on the
+            // confirmed job's finished/failed signal (#1343), Windows
+            // immediately after ShowPrintUI, which reports nothing further.
+            #[cfg(target_os = "windows")]
+            windows_print::print_on_main_thread(app, temp_html, temp_dir, sink);
+            #[cfg(target_os = "macos")]
+            macos_print::print_on_main_thread(
+                app,
+                temp_html,
+                temp_dir,
+                parent_label.as_deref(),
+                sink,
+            );
+            #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+            linux_print::print_on_main_thread(app, temp_html, temp_dir, sink);
+        }),
+    )
+    .await?;
 
-    let (tx, rx) = oneshot::channel::<Result<(), CommandError>>();
-    let sink = RenderSink::new(tx, temp_html.clone());
-    let sink_clone = sink.clone();
-    let app_clone = app.clone();
-    let temp_html_str = temp_html.to_string_lossy().to_string();
-    let temp_dir_str = temp_dir.to_string_lossy().to_string();
-
-    app.run_on_main_thread(move || {
-        // Same sink contract as render: macOS settles synchronously because
-        // its panel is modal, Windows settles once the dialog has been SHOWN
-        // (ShowPrintUI is asynchronous), and Linux settles on cancel when the
-        // user dismisses the dialog, or on print once the operation's
-        // finished/failed signal fires — a confirmed job keeps spooling after
-        // the dialog closes (#1343). None of the three reports what the user
-        // chose: a cancelled dialog still settles Ok.
-        #[cfg(target_os = "windows")]
-        windows_print::print_on_main_thread(&app_clone, &temp_html_str, &temp_dir_str, sink_clone);
-        #[cfg(target_os = "macos")]
-        platform::print_on_main_thread(&app_clone, &temp_html_str, &temp_dir_str, sink_clone);
-        #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-        linux_print::print_on_main_thread(&app_clone, &temp_html_str, &temp_dir_str, sink_clone);
-        // The temp file is dropped by the SINK (settle or Drop), not here —
-        // the same rule render_pdf states above: on Windows and Linux the
-        // dispatch returns while the webview is still NAVIGATING to the file,
-        // so an eager remove here raced the load (ENOENT → error page).
-    })
-    .map_err(|e| {
-        localized_error!(
-            ErrorCode::Internal,
-            "errors.pdf.dispatchFailed",
-            detail = e.to_string()
-        )
-    })?;
-
-    match tokio::time::timeout(PDF_OPERATION_TIMEOUT, rx).await {
-        Ok(Ok(result)) => result,
-        Ok(Err(_)) => Err(localized_error!(
-            ErrorCode::Internal,
-            "errors.pdf.channelClosed"
-        )),
-        Err(_) => Err(localized_error!(
-            ErrorCode::Timeout,
-            "errors.pdf.printTimeoutSecs",
-            seconds = PDF_OPERATION_TIMEOUT.as_secs()
-        )),
-    }
+    wait::await_dialog(&sink, shown_rx, rx, PDF_OPERATION_TIMEOUT).await
 }

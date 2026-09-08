@@ -35,7 +35,7 @@
 //!     (hidden files, non-matching extensions, binaries, symlinks) do not
 //!     void completeness.
 //!
-//! @coordinates-with contentSearchStore.ts — frontend consumer
+//! @coordinates-with stores/uiStore/contentSearchSlice.ts — frontend consumer (invokes search_workspace_content)
 //! @coordinates-with workspaceStore.ts — provides rootPath and excludeFolders
 //! @coordinates-with services/media/workspaceReferenceCheck.ts — checked variant
 

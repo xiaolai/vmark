@@ -6,7 +6,7 @@
  *
  * Pipeline: sourceEditorExtensions.ts imports from here → assembles into EditorState config
  *
- * @coordinates-with utils/sourceEditorExtensions.ts — consumes these exports to build the CM6 editor
+ * @coordinates-with services/assembly/sourceEditorExtensions.ts — consumes these exports to build the CM6 editor
  * @module plugins/codemirror
  */
 

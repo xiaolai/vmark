@@ -14,7 +14,11 @@
  *     workspaceConfigDefaults.ts. openWorkspace and bootstrapConfig share that
  *     ONE normalizer (defaults, identity, array copies, and the #1187 repair
  *     of app-created empty excludes), so a disk config lands in the same
- *     shape as a caller's.
+ *     shape as a caller's — and then DEEP-CLONE it (audit #506): the
+ *     normalizer copies the arrays but keeps nested `identity` / `ai` /
+ *     `sessionTabs` by reference, and a caller that keeps mutating those would
+ *     change persisted state and workspace trust behind set()'s back, the
+ *     invariant updateConfig already clones for.
  *
  * Known limitations:
  *   - Config is stored in localStorage (via windowScopedStorage), not on
@@ -38,11 +42,13 @@ import {
   isTrusted,
 } from "@/utils/workspaceIdentity";
 import { windowScopedStorage } from "@/services/persistence/workspaceStorage";
+import { workspaceError } from "@/utils/debug";
 import {
-  DEFAULT_EXCLUDED_FOLDERS,
+  DEFAULT_EXCLUDED_FOLDERS as DEFAULT_EXCLUDED_FOLDERS_SOURCE,
   normalizeWorkspaceConfig,
   type WorkspaceConfig,
 } from "./workspaceConfigDefaults";
+import { normalizeRehydratedConfig } from "./workspaceStorePersist";
 
 export type { WorkspaceConfig };
 
@@ -86,9 +92,21 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
       isWorkspaceMode: false,
 
       openWorkspace: (rootPath, config = null) => {
+        // A BLANK root is not a workspace (audit #1012). `""` set
+        // `isWorkspaceMode: true` alongside a falsy `rootPath`, and every
+        // consumer reads that pair as closed — `bootstrapConfig` returns early
+        // on `!rootPath`, `updateWorkspaceConfig` refuses the write — leaving a
+        // window in workspace mode that nothing could configure or bootstrap.
+        // Whitespace-only is the same non-path; a path with surrounding
+        // whitespace is left alone, since a folder may legitimately be named
+        // that way.
+        if (rootPath.trim() === "") {
+          workspaceError("Refusing to open a workspace with a blank root path");
+          return;
+        }
         set({
           rootPath,
-          config: normalizeWorkspaceConfig(config),
+          config: structuredClone(normalizeWorkspaceConfig(config)),
           isWorkspaceMode: true,
         });
       },
@@ -108,36 +126,43 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
 
         // Same normalization as openWorkspace — a legacy on-disk config without
         // an identity gets one here too, or trust gating would read undefined.
-        set({ config: normalizeWorkspaceConfig(config) });
+        set({ config: structuredClone(normalizeWorkspaceConfig(config)) });
       },
 
       updateConfig: (updates) => {
         const { config } = get();
         if (!config) return;
 
-        // Clone caller-owned mutable fields — a caller that keeps
-        // mutating its array after the call must not be able to change
-        // store state behind set()'s back.
-        const next: WorkspaceConfig = { ...config, ...updates };
-        if (updates.excludeFolders) {
-          next.excludeFolders = [...updates.excludeFolders];
-        }
-        if (updates.lastOpenTabs) {
-          next.lastOpenTabs = [...updates.lastOpenTabs];
-        }
-        if (updates.sessionTabs) {
-          next.sessionTabs = {
-            ...updates.sessionTabs,
-            tabs: updates.sessionTabs.tabs.map((tab) => ({ ...tab })),
-          };
-        }
-
-        set({ config: next });
+        // DEEP-clone the merged config (audit #1013), the same invariant
+        // `openWorkspace` and `bootstrapConfig` already hold. The old
+        // field-by-field copy listed three keys — excludeFolders, lastOpenTabs,
+        // sessionTabs — and silently missed `identity` and `ai`, which are
+        // nested objects too: a caller that kept mutating the identity it
+        // passed in could flip workspace TRUST behind set()'s back, which is
+        // the one field here with a security meaning. Enumerating the
+        // clonable keys is how that gap appeared; cloning the whole thing
+        // cannot regrow it.
+        set({ config: structuredClone({ ...config, ...updates }) });
       },
 
       addExcludedFolder: (folder) => {
         const { config } = get();
         if (!config) return;
+
+        // A SINGLE path segment, because that is the only thing the matcher can
+        // ever match (audit #1014): `isPathExcluded` splits the relative path
+        // and compares segments exactly, so `""` and `"src/vendor"` are entries
+        // that persist forever and exclude nothing. Refused loudly rather than
+        // stored as a rule that silently does not work. The value is stored as
+        // given — a folder may legitimately be named with edge whitespace, the
+        // same call `openWorkspace` makes about a blank root.
+        if (folder.trim() === "" || /[\\/]/.test(folder)) {
+          workspaceError(
+            "Refusing to exclude a folder that is not a single path segment:",
+            folder,
+          );
+          return;
+        }
 
         if (!config.excludeFolders.includes(folder)) {
           set({
@@ -153,26 +178,20 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
         const { config } = get();
         if (!config) return;
 
-        set({
-          config: {
-            ...config,
-            excludeFolders: config.excludeFolders.filter((f) => f !== folder),
-          },
-        });
+        const excludeFolders = config.excludeFolders.filter((f) => f !== folder);
+        // Removing something that was never there is not a change (audit
+        // #1015). Writing anyway notified every subscriber and wrote the whole
+        // config back to storage for nothing.
+        if (excludeFolders.length === config.excludeFolders.length) return;
+
+        set({ config: { ...config, excludeFolders } });
       },
 
-      setLastOpenTabs: (tabs) => {
-        const { config } = get();
-        if (!config) return;
-
-        set({
-          config: {
-            ...config,
-            // Clone — the caller may keep mutating its array afterwards.
-            lastOpenTabs: [...tabs],
-          },
-        });
-      },
+      // ONE mutation path (audit #1016). This was a second implementation of
+      // `updateConfig({ lastOpenTabs })` — same merge, same clone, written
+      // twice — so the two could drift on validation or on cloning depth, and
+      // the deep-clone fix above would have landed on only one of them.
+      setLastOpenTabs: (tabs) => get().updateConfig({ lastOpenTabs: tabs }),
 
       trustWorkspace: () => {
         const { config } = get();
@@ -228,6 +247,15 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
         isWorkspaceMode: state.isWorkspaceMode,
         config: state.config,
       }),
+      // Persisted state is NORMALIZED on the way back in (audit #1017).
+      // zustand's default merge is a shallow object copy, so a config written
+      // by an older build — or edited in localStorage — used to reach live
+      // state without passing the normalizer every other entry point runs.
+      // See workspaceStorePersist.ts for why there is no version/migrate pair.
+      merge: (persisted, current) => {
+        const merged = { ...current, ...(persisted as Partial<WorkspaceState> | null) };
+        return { ...merged, config: normalizeRehydratedConfig(merged.config) };
+      },
       // CRITICAL: Skip auto-hydration on store creation.
       // WindowContext will call setCurrentWindowLabel() first, then rehydrate()
       // to ensure each window reads from its own storage key.
@@ -236,8 +264,20 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
   )
 );
 
-// Default excluded folders for reference
-export { DEFAULT_EXCLUDED_FOLDERS };
+/**
+ * Default excluded folders, FROZEN (audit #1018).
+ *
+ * This is the array every future workspace's `excludeFolders` is copied from,
+ * and re-exporting it live meant any consumer could `push` into it and change
+ * what every later workspace excludes — from anywhere, permanently, with no
+ * store action involved. `Object.freeze` returns its argument, so this stays
+ * the SAME array the normalizer copies (one identity, not a divergent copy),
+ * and `readonly string[]` makes the refusal a compile error rather than a
+ * silent no-op in non-strict code.
+ */
+export const DEFAULT_EXCLUDED_FOLDERS: readonly string[] = Object.freeze(
+  DEFAULT_EXCLUDED_FOLDERS_SOURCE,
+);
 
 // ============================================================================
 // Recent Files / Recent Workspaces — live in recentsStore.ts (split for the
@@ -249,6 +289,4 @@ export { DEFAULT_EXCLUDED_FOLDERS };
 export {
   useRecentFilesStore,
   useRecentWorkspacesStore,
-  type RecentFile,
-  type RecentWorkspace,
 } from "@/stores/recentsStore";

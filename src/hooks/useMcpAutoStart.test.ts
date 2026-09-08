@@ -1,11 +1,12 @@
-// useMcpAutoStart — starts the MCP bridge on mount iff the setting is
-// on, passes the configured port, runs at most once per hook instance,
-// and swallows start failures (logged, not thrown).
+// useMcpAutoStart — starts the MCP bridge on mount iff the setting is on,
+// asks for no port (D9: the bridge binds an OS-assigned one and reports it
+// back), runs at most once per hook instance, and swallows start failures
+// (logged, not thrown).
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
 
-const invokeMock = vi.hoisted(() => vi.fn(() => Promise.resolve()));
+const invokeMock = vi.hoisted(() => vi.fn((..._args: unknown[]) => Promise.resolve({ running: true, port: 51234 })));
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: (...args: unknown[]) => invokeMock(...args),
 }));
@@ -13,7 +14,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useMcpAutoStart } from "./useMcpAutoStart";
 
-function setMcpServer(patch: { autoStart: boolean; port?: number }) {
+function setMcpServer(patch: { autoStart: boolean }) {
   const s = useSettingsStore.getState();
   useSettingsStore.setState({
     advanced: {
@@ -25,16 +26,14 @@ function setMcpServer(patch: { autoStart: boolean; port?: number }) {
 
 beforeEach(() => {
   invokeMock.mockClear();
-  invokeMock.mockResolvedValue(undefined);
+  invokeMock.mockResolvedValue({ running: true, port: 51234 });
 });
 
 describe("useMcpAutoStart", () => {
-  it("starts the bridge with the configured port when autoStart is on", async () => {
-    setMcpServer({ autoStart: true, port: 4242 });
+  it("starts the bridge with NO port argument when autoStart is on", async () => {
+    setMcpServer({ autoStart: true });
     renderHook(() => useMcpAutoStart());
-    expect(invokeMock).toHaveBeenCalledExactlyOnceWith("mcp_bridge_start", {
-      port: 4242,
-    });
+    expect(invokeMock).toHaveBeenCalledExactlyOnceWith("mcp_bridge_start");
   });
 
   it("does nothing when autoStart is off", () => {
@@ -44,7 +43,7 @@ describe("useMcpAutoStart", () => {
   });
 
   it("does not start the bridge again on re-render", () => {
-    setMcpServer({ autoStart: true, port: 4242 });
+    setMcpServer({ autoStart: true });
     const { rerender } = renderHook(() => useMcpAutoStart());
     rerender();
     rerender();
@@ -52,8 +51,8 @@ describe("useMcpAutoStart", () => {
   });
 
   it("swallows a bridge start failure instead of surfacing an unhandled rejection", async () => {
-    setMcpServer({ autoStart: true, port: 4242 });
-    invokeMock.mockRejectedValueOnce(new Error("port in use"));
+    setMcpServer({ autoStart: true });
+    invokeMock.mockRejectedValueOnce(new Error("bind failed"));
     renderHook(() => useMcpAutoStart());
     // Flush the rejected promise chain; an unhandled rejection would fail the test run.
     await vi.waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(1));

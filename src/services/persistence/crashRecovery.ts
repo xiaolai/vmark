@@ -6,7 +6,7 @@
  * so it can be restored after unexpected crashes.
  *
  * @module services/persistence/crashRecovery
- * @coordinates-with useCrashRecoveryWriter, useCrashRecoveryStartup, useCrashRecoveryCleanup
+ * @coordinates-with hooks/resilience/{_crashRecoveryWriter,_crashRecoveryStartup,_crashRecoveryCleanup}.ts — the hooks that write, restore and prune snapshots
  */
 
 import {

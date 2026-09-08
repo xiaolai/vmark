@@ -59,14 +59,23 @@ export function PermissionsForm({
   // convert both ways through scopes.ts (Codex audit HIGH-2 fix).
   // `customMap` is keyed by kebab so direct lookup works in the
   // render below.
-  const customMap: Record<string, PermLevel> =
+  //
+  // LOCAL STATE, seeded from the IR once. `applyPreviewPatches` deliberately
+  // skips `workflow.permissions.set` — the form is supposed to be the state —
+  // so deriving the map from the prop on every render meant the queued edit was
+  // invisible AND the next edit was computed from the pre-edit map. Since the
+  // queue dedups by target, setting a second scope replaced the first patch and
+  // silently dropped the first scope (audit R2, #573). Discard remounts this
+  // component (the panel keys it by `formGen`), which re-seeds it.
+  const [customMap, setCustomMap] = useState<Record<string, PermLevel>>(() =>
     typeof permissions === "object" && permissions !== null
       ? Object.fromEntries(
           Object.entries(permissions as Record<string, PermLevel>).map(
             ([camelOrKebab, v]) => [camelToKebab(camelOrKebab), v],
           ),
         )
-      : {};
+      : {},
+  );
 
   const queueCustomMap = (yamlMap: Record<string, PermLevel>): void => {
     // Mutator expects whatever-shape the user wants serialized — and
@@ -77,6 +86,7 @@ export function PermissionsForm({
     for (const [k, v] of Object.entries(yamlMap)) {
       irShape[kebabToCamel(k)] = v;
     }
+    setCustomMap(yamlMap);
     queue({ kind: "workflow.permissions.set", value: irShape });
   };
 

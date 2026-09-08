@@ -16,6 +16,7 @@ use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 /// Verify a base64 ed25519 `signature` over `manifest_bytes` against a base64
 /// 32-byte public key. Returns false on any decode/length/verify failure
 /// (fail-closed).
+#[allow(dead_code)] // ADR-2 runtime upgrade path: unit-tested, no production caller yet (rule 60 §12).
 pub fn verify_manifest_signature(
     manifest_bytes: &[u8],
     signature_b64: &str,

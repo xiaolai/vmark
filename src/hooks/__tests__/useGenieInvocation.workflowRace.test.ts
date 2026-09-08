@@ -18,16 +18,22 @@ vi.mock("@tauri-apps/api/event", () => ({
   }),
 }));
 
-// run_workflow stays pending until we resolve it, so events can race ahead.
-let resolveRun: ((id: string) => void) | null = null;
-const mockInvoke = vi.fn((cmd: string) => {
+// run_workflow stays pending until the test settles it, so events (or a second
+// invocation) can race ahead. One entry per call, in call order.
+const runs: Array<{ resolve: (id: string) => void; reject: (err: unknown) => void }> = [];
+const mockInvoke = vi.fn<(cmd: string, args?: unknown) => Promise<unknown>>((cmd) => {
   if (cmd === "run_workflow") {
-    return new Promise<string>((res) => {
-      resolveRun = res;
+    return new Promise<string>((resolve, reject) => {
+      runs.push({ resolve, reject });
     });
   }
   return Promise.resolve();
 });
+
+/** Flush the async chain (ensureProvider + dynamic imports) until `done` holds. */
+async function flushUntil(done: () => boolean): Promise<void> {
+  for (let i = 0; i < 30 && !done(); i++) await Promise.resolve();
+}
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: (...args: unknown[]) => mockInvoke(...(args as [string])),
 }));
@@ -38,6 +44,7 @@ vi.mock("@/services/ime/imeToast", () => ({
 
 vi.mock("@/utils/debug", () => ({ genieWarn: vi.fn() }));
 
+import { imeToast } from "@/services/ime/imeToast";
 import { useGenieInvocation } from "../useGenieInvocation";
 import { useWorkflowExecution } from "../useWorkflowExecution";
 import { useWorkflowStore } from "@/stores/workflowStore";
@@ -57,7 +64,7 @@ describe("useGenieInvocation — workflow execution-id race (WI-0.3)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     listeners.clear();
-    resolveRun = null;
+    runs.length = 0;
     useWorkflowStore.getState().setExecution(null);
     useWorkspaceStore.setState({ rootPath: "/ws" } as never);
     useUIStore.setState({ sourceMode: false } as never);
@@ -79,15 +86,8 @@ describe("useGenieInvocation — workflow execution-id race (WI-0.3)", () => {
     let invocation!: Promise<void>;
     await act(async () => {
       invocation = result.current.invokeGenie(workflowGenie());
-      // Flush the async chain (ensureProvider + dynamic imports) until
       // run_workflow has been invoked — but it stays pending.
-      for (
-        let i = 0;
-        i < 30 && !mockInvoke.mock.calls.some((c) => c[0] === "run_workflow");
-        i++
-      ) {
-        await Promise.resolve();
-      }
+      await flushUntil(() => runs.length === 1);
     });
 
     // The execution id is registered BEFORE invoke resolves.
@@ -117,9 +117,65 @@ describe("useGenieInvocation — workflow execution-id race (WI-0.3)", () => {
 
     // Now the invoke resolves — it must NOT resurrect a fake "running" state.
     await act(async () => {
-      resolveRun?.(id as string);
+      runs[0]?.resolve(id as string);
       await invocation;
     });
     expect(useWorkflowStore.getState().preview.executionId).toBeNull();
+  });
+
+  // Audit #728 — the registration slot holds ONE run per window. A second
+  // workflow genie used to overwrite it while BOTH backend workflows carried
+  // on running: the live run's events stopped matching, its progress was
+  // cleared, and if the second dispatch was then refused its rollback wiped
+  // the store out from under the first.
+  it("refuses a second workflow genie instead of overwriting the live registration", async () => {
+    const { result } = renderHook(() => useGenieInvocation());
+    let first!: Promise<void>;
+    await act(async () => {
+      first = result.current.invokeGenie(workflowGenie());
+      await flushUntil(() => runs.length === 1);
+    });
+    const firstId = useWorkflowStore.getState().preview.executionId;
+    expect(firstId).not.toBeNull();
+
+    await act(async () => {
+      await result.current.invokeGenie(workflowGenie());
+    });
+
+    // Nothing else dispatched, and the running workflow keeps its id.
+    expect(mockInvoke.mock.calls.filter((c) => c[0] === "run_workflow")).toHaveLength(1);
+    expect(useWorkflowStore.getState().preview.executionId).toBe(firstId);
+    // …and the user is told why, rather than watching the panel go blank.
+    expect(vi.mocked(imeToast.error)).toHaveBeenCalled();
+
+    await act(async () => {
+      runs[0]?.resolve(firstId as string);
+      await first;
+    });
+  });
+
+  // Audit #374 — a rollback clears only the execution IT registered. The
+  // other writer of this slot is `useWorkflowExecution.start`, so that is the
+  // realistic second registration now that a second genie is refused outright.
+  it("a failing invocation does not clear an execution registered after it", async () => {
+    const { result } = renderHook(() => useGenieInvocation());
+    let first!: Promise<void>;
+    await act(async () => {
+      first = result.current.invokeGenie(workflowGenie());
+      await flushUntil(() => runs.length === 1);
+    });
+    expect(useWorkflowStore.getState().preview.executionId).not.toBeNull();
+
+    // A registration from the panel's own start path lands while this genie's
+    // dispatch is still in flight.
+    act(() => {
+      useWorkflowStore.getState().setExecution("panel-execution");
+    });
+
+    await act(async () => {
+      runs[0]?.reject(new Error("busy"));
+      await first; // runWorkflowGenie reports the failure and resolves
+    });
+    expect(useWorkflowStore.getState().preview.executionId).toBe("panel-execution");
   });
 });

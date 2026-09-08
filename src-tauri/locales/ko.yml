@@ -22,6 +22,7 @@ menu:
   file.openRecentWorkspace: "최근 워크스페이스 열기"
   file.close: "닫기"
   file.closeWorkspace: "워크스페이스 닫기"
+  file.reopenClosedTab: "닫은 탭 다시 열기"
   file.save: "저장"
   file.saveAs: "다른 이름으로 저장..."
   file.moveTo: "이동..."
@@ -156,6 +157,7 @@ menu:
   insert.mindmap: "마인드맵"
   insert.horizontalLine: "가로줄"
   insert.footnote: "각주"
+  insert.tableOfContents: "목차"
   insert.collapsible: "접기 가능 블록"
   insert.infoBox: "정보 상자"
   insert.infoBox.note: "노트"
@@ -269,10 +271,15 @@ errors:
   pdf.badTempPath: "임시 문서 경로가 잘못되었습니다: %{path}"
   pdf.invalidExtension: "출력 경로는 .pdf 확장자를 사용해야 합니다"
   pdf.dirNotFound: "출력 디렉터리가 존재하지 않습니다"
+  pdf.parentNotDirectory: "출력 경로의 상위 항목이 존재하지만 디렉터리가 아닙니다"
+  pdf.publishFailed: "생성된 PDF를 출력 경로로 옮기지 못했습니다: %{detail}"
+  pdf.outputUnreadable: "생성된 PDF를 확인하려고 열지 못했습니다: %{detail}"
   pdf.pathNotAbsolute: "출력 경로는 절대 경로여야 합니다"
   pdf.outputIsDirectory: "출력 경로가 디렉터리입니다"
   pdf.loadTimeout: "HTML 로드 시간 초과 (10초)"
   pdf.emptyOutput: "인쇄 작업이 빈 PDF를 생성했습니다"
+  pdf.staleOutputNotRemoved: "출력 경로에 있는 기존 파일을 바꿀 수 없습니다: %{detail}"
+  pdf.outputNotPdf: "인쇄 작업이 유효한 PDF를 만들지 못했습니다"
   pdf.printTimeout: "인쇄 작업 시간 초과 (60초)"
   pdf.noPages: "PDF에 페이지가 없습니다"
   pdf.writeFailed: "북마크가 포함된 PDF 쓰기 실패"
@@ -291,6 +298,7 @@ errors:
   workflow.engineDisabled: "워크플로 엔진이 설정에서 꺼져 있습니다"
   workflow.noPendingApproval: "일치하는 대기 중인 승인 요청이 없습니다"
   workflow.appDataDirUnavailable: "앱 데이터 디렉터리를 확인할 수 없습니다: %{detail}"
+  workflow.snapshotFailed: "이 워크플로가 수정할 파일의 스냅샷을 만들 수 없어 실행하지 않았습니다: %{detail}"
 
   # === 저장 경로 (file_write.rs, WI-14 CommandError) ===
   save.parentMissing: "이 파일이 있던 폴더가 더 이상 존재하지 않습니다: %{dir}"
@@ -346,6 +354,8 @@ errors:
   genie.pathBlocked: "Genie 경로가 허용된 디렉터리 외부에 있습니다"
 
   # === MCP ===
+  mcp.bindFailed: "MCP 브리지가 %{address}에 바인딩하지 못했습니다: %{detail}"
+  mcp.localAddrFailed: "MCP 브리지가 바인딩한 포트를 다시 읽지 못했습니다: %{detail}"
   mcp.spawnInProgress: "MCP 사이드카 실행이 이미 진행 중입니다"
   mcp.configMismatch: "구성 검증 실패: 쓴 내용이 예상과 일치하지 않습니다"
 
@@ -390,8 +400,12 @@ errors:
   mcp.writeConfigPartialRemoved: "%{path} 쓰기 실패: %{detail} (불완전한 파일은 삭제되었습니다)"
   mcp.writeConfigPartialOrphaned: "%{path} 쓰기 실패: %{detail}. 불완전한 파일도 삭제하지 못했습니다(%{cleanup_detail}). 다시 시도하기 전에 직접 삭제하세요. 그렇지 않으면 다음 설치에서 손상된 구성으로 읽힙니다."
 
+  # === Secure store (secure_store.rs) ===
+  secureStore.keychainDenied: "키체인 접근이 거부되었습니다. 키체인 안내 창에서 VMark를 허용하거나 ‘키체인 접근’에서 접근 권한을 부여한 뒤 다시 시도하세요."
+
 window:
   settings.title: "설정"
+  print.title: "VMark 인쇄"
 
 cli:
   dialogTitle: "셸 명령"

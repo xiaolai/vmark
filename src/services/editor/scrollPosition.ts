@@ -48,7 +48,7 @@
  *
  * @coordinates-with tiptapFocus.ts — WYSIWYG restore on fresh load
  * @coordinates-with components/Editor/sourceFocusRestore.ts — Source restore
- * @coordinates-with hooks/useWysiwygScrollMemory.ts — WYSIWYG tracking
+ * @coordinates-with components/Editor/useWysiwygScrollMemory.ts — WYSIWYG tracking
  * @coordinates-with services/windowClose/tabCleanup.ts — clears on tab close
  * @module services/editor/scrollPosition
  */

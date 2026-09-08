@@ -161,24 +161,25 @@ fn font_resolves(doc: &lopdf::Document, page_id: lopdf::ObjectId) -> bool {
     }
 }
 
+/// The PDF's extracted text, SQUEEZED — extraction does not preserve
+/// whitespace faithfully, so every comparison below is made without it
+/// rather than pretending the layout round-trips.
+fn extracted(path: &Path) -> Result<String, String> {
+    let doc = lopdf::Document::load(path).map_err(|e| format!("cannot reload: {e}"))?;
+    let pages: Vec<u32> = doc.get_pages().keys().copied().collect();
+    doc.extract_text(&pages)
+        .map(|t| squeeze(&t))
+        .map_err(|e| format!("cannot extract text: {e}"))
+}
+
 /// Does the PDF's extracted text contain `needle`?
 ///
 /// A geometry check cannot see content: a truncated load, or two concurrent
 /// renders writing each other's document, both produce a valid PDF at the right
 /// size. Only reading the text back distinguishes them.
 pub fn contains_text(name: &str, path: &Path, needle: &str) -> usize {
-    let doc = match lopdf::Document::load(path) {
-        Ok(d) => d,
-        Err(e) => {
-            println!("SMOKE {name} content FAIL cannot reload: {e}");
-            return 1;
-        }
-    };
-    let pages: Vec<u32> = doc.get_pages().keys().copied().collect();
-    match doc.extract_text(&pages) {
-        // Whitespace is not preserved faithfully by extraction, so compare with
-        // it removed rather than pretending the layout round-trips.
-        Ok(text) if squeeze(&text).contains(&squeeze(needle)) => {
+    match extracted(path) {
+        Ok(text) if text.contains(&squeeze(needle)) => {
             println!("SMOKE {name} content PASS found {needle:?}");
             0
         }
@@ -187,7 +188,48 @@ pub fn contains_text(name: &str, path: &Path, needle: &str) -> usize {
             1
         }
         Err(e) => {
-            println!("SMOKE {name} content FAIL cannot extract text: {e}");
+            println!("SMOKE {name} content FAIL {e}");
+            1
+        }
+    }
+}
+
+/// The other half of `contains_text`, and the half the concurrent case needs:
+/// an output holding BOTH documents contains its own sentinel and passes a
+/// presence check — which is exactly the crossed-output failure that case is
+/// named for.
+pub fn lacks_text(name: &str, path: &Path, needle: &str) -> usize {
+    match extracted(path) {
+        Ok(text) if text.contains(&squeeze(needle)) => {
+            println!("SMOKE {name} content FAIL {needle:?} leaked in from the other document");
+            1
+        }
+        Ok(_) => {
+            println!("SMOKE {name} content PASS no trace of {needle:?}");
+            0
+        }
+        Err(e) => {
+            println!("SMOKE {name} content FAIL {e}");
+            1
+        }
+    }
+}
+
+/// Require the PDF to carry at least `want` pages. `check` only PRINTS an
+/// approximate count, so the "pagination" fixture — two 180 mm blocks on a
+/// 297 mm page — proved only that a PDF came out, and a renderer emitting one
+/// clipped page passed. Counted through lopdf's page tree, not
+/// `count(b"/Type /Page")`, which cannot see pages inside object streams.
+pub fn pages_at_least(name: &str, path: &Path, want: usize) -> usize {
+    match lopdf::Document::load(path) {
+        Ok(doc) => {
+            let got = doc.get_pages().len();
+            let verdict = if got >= want { "PASS" } else { "FAIL" };
+            println!("SMOKE {name} pages {verdict} {got} page(s), wanted at least {want}");
+            usize::from(got < want)
+        }
+        Err(e) => {
+            println!("SMOKE {name} pages FAIL cannot reload: {e}");
             1
         }
     }

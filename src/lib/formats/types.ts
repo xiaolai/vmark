@@ -36,11 +36,39 @@ export function isSplitViewMode(value: unknown): value is SplitViewMode {
   return value === "source" || value === "split" || value === "preview";
 }
 
+/**
+ * One finding from a format's `validator`, in the coordinate system every
+ * format must use.
+ *
+ * **1-based line, 1-based column, END EXCLUSIVE.** This was undocumented, and
+ * a coordinate contract that is not written down is a cross-format off-by-one
+ * waiting to happen: every producer today derives its numbers from a different
+ * library (remark positions, a JSON parser's `loc`, a YAML error, a hand-count
+ * of lines), and each has its own opinion about where counting starts (audit
+ * 20260907 round 3, #803).
+ *
+ * The authority is the CONSUMER, and it is one function:
+ * `diagnosticToCodemirror` in
+ * `components/Editor/SplitPaneEditor/sourcePaneExtensions.ts`. It reads
+ * `doc.line(line)` — CodeMirror numbers lines from 1 — and offsets by
+ * `column - 1` from that line's start, so column 1 is the first character. It
+ * does the same with `endLine`/`endColumn`, which makes the END EXCLUSIVE:
+ * `{ column: 1, endColumn: 3 }` highlights columns 1 and 2. Omitting the end
+ * pair means "one character", not "to the line's end".
+ *
+ * `ValidationGutter` prints `line:column` verbatim and hands the same pair to
+ * `onJump`, so a 0-based producer would report every finding one line and one
+ * column early and jump the caret there.
+ */
 export interface ValidationDiagnostic {
   severity: "error" | "warning" | "info";
+  /** 1-based line. */
   line: number;
+  /** 1-based column; column 1 is the line's first character. */
   column: number;
+  /** 1-based line of the range's end. Omit with `endColumn` for a point. */
   endLine?: number;
+  /** 1-based, EXCLUSIVE: `column: 1, endColumn: 3` covers columns 1–2. */
   endColumn?: number;
   message: string;
   ruleId?: string;
@@ -118,10 +146,6 @@ interface FormatAdapters {
   readOnlyDefault: boolean;
   reloadPolicy?: "reload" | "prompt";
   sidePanelComponent?: ComponentType<{ tabId: string }>;
-  sidePanelKeepAlive?:
-    | "while-active"
-    | "always-when-registered"
-    | "lazy-on-demand";
   menuPolicy: {
     sourceWysiwygToggle: boolean;
     cjkFormatActions: boolean;

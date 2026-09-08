@@ -39,14 +39,14 @@ describe("sanitizePersistedSettings (T4 persist-boundary guard)", () => {
 
   it("drops a primitive leaf whose type mismatches the default", () => {
     const leafDefaults = {
-      appearance: { fontSize: 18, theme: "paper", autoHideStatusBar: false },
+      appearance: { fontSize: 18, theme: "paper", showFilenameInTitlebar: false },
     };
     const out = sanitizePersistedSettings(
       {
         appearance: {
           fontSize: "999", // string where number expected → dropped
           theme: 7, // number where string expected → dropped
-          autoHideStatusBar: "yes", // string where boolean expected → dropped
+          showFilenameInTitlebar: "yes", // string where boolean expected → dropped
         },
       },
       leafDefaults,
@@ -93,7 +93,7 @@ describe("sanitizePersistedSettings (T4 persist-boundary guard)", () => {
 
   it("recurses into nested branches and drops nested shape mismatches", () => {
     const nestedDefaults = {
-      advanced: { mcpServer: { port: 9223 }, customLinkProtocols: [] },
+      advanced: { mcpServer: { autoStart: true }, customLinkProtocols: [] },
       appearance: { fontSize: 18 },
     };
     const out = sanitizePersistedSettings(
@@ -119,7 +119,8 @@ describe("sanitizePersistedSettings (T4 persist-boundary guard)", () => {
 describe("settingsStore MCP server settings", () => {
   it("sets default MCP server settings", () => {
     const state = useSettingsStore.getState();
-    expect(state.advanced.mcpServer.port).toBe(9223);
+    // D9 / WI-FL2.1: the bridge binds an OS-assigned port; there is no port setting.
+    expect("port" in state.advanced.mcpServer).toBe(false);
     expect(state.advanced.mcpServer.autoStart).toBe(true);
     expect(state.advanced.mcpServer.autoApproveEdits).toBe(false);
   });
@@ -146,7 +147,6 @@ describe("settingsStore MCP server settings", () => {
     });
 
     const updatedSettings = useSettingsStore.getState().advanced.mcpServer;
-    expect(updatedSettings.port).toBe(9223);
     expect(updatedSettings.autoStart).toBe(true);
     expect(updatedSettings.autoApproveEdits).toBe(true);
   });
@@ -213,7 +213,7 @@ describe("settingsStore merge migration", () => {
       ) as typeof currentState;
 
       expect(result.general.workspaceRailMode).toBe(true);
-      expect((result.advanced as Record<string, unknown>).workspaceRailMode).toBeUndefined();
+      expect((result.advanced as unknown as Record<string, unknown>).workspaceRailMode).toBeUndefined();
     }
   });
 
@@ -233,7 +233,7 @@ describe("settingsStore merge migration", () => {
       ) as typeof currentState;
 
       expect(result.general.workspaceRailMode).toBe(false);
-      expect((result.advanced as Record<string, unknown>).workspaceRailMode).toBeUndefined();
+      expect((result.advanced as unknown as Record<string, unknown>).workspaceRailMode).toBeUndefined();
     }
   });
 });
@@ -389,11 +389,6 @@ describe("settingsStore appearance settings", () => {
   it("updates showFilenameInTitlebar", () => {
     useSettingsStore.getState().updateAppearanceSetting("showFilenameInTitlebar", true);
     expect(useSettingsStore.getState().appearance.showFilenameInTitlebar).toBe(true);
-  });
-
-  it("updates autoHideStatusBar", () => {
-    useSettingsStore.getState().updateAppearanceSetting("autoHideStatusBar", true);
-    expect(useSettingsStore.getState().appearance.autoHideStatusBar).toBe(true);
   });
 
   it("resets appearance on resetSettings", () => {
@@ -682,5 +677,34 @@ describe("settingsStore markdown defaults (#618)", () => {
     const { markdown } = useSettingsStore.getState();
     expect(markdown.htmlAllowlistLevel).toBe("extended");
     expect(markdown.htmlAllowlistCustomTags).toBe("kbd, samp");
+  });
+});
+
+describe("settingsStore merge — WI-FL2.6 (D6): the workflow viewer flag is gone", () => {
+  // Store-level, not unit-level: migrations.test.ts covers the function; this
+  // pins that `merge` actually RUNS it. The retired split migration used to
+  // re-create `workflowViewer` from `workflowEngine` on every load, so wiring
+  // the removal in the wrong order would have stayed green at the unit level.
+  function mergeOf() {
+    const storeApi = useSettingsStore as unknown as {
+      persist: { getOptions: () => { merge?: (persisted: unknown, current: unknown) => unknown } };
+    };
+    const merge = storeApi.persist.getOptions().merge;
+    if (!merge) throw new Error("persist `merge` option missing — the migrations have no host");
+    return merge;
+  }
+
+  it.each([true, false])("drops a persisted advanced.workflowViewer=%s during merge", (persisted) => {
+    const currentState = useSettingsStore.getState();
+    const result = mergeOf()(
+      { advanced: { workflowViewer: persisted, workflowEngine: true } },
+      currentState,
+    ) as typeof currentState;
+    expect("workflowViewer" in result.advanced).toBe(false);
+    expect(result.advanced.workflowEngine).toBe(true);
+  });
+
+  it("ships no workflowViewer default — the viewer is unconditional", () => {
+    expect("workflowViewer" in useSettingsStore.getState().advanced).toBe(false);
   });
 });

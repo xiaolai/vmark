@@ -12,6 +12,8 @@ export interface CliArgs {
   token?: string;
   port?: number;
   portFile?: string;
+  /** Workspace trust (WI-FL3.6): relaxes the CSP so remote `https:` images render. */
+  trusted?: boolean;
 }
 
 interface CliServer {
@@ -25,6 +27,7 @@ export interface CliDeps {
     bootstrapToken: string;
     port?: number;
     portFile?: string;
+    trusted?: boolean;
   }) => Promise<CliServer>;
   stdout: (text: string) => void;
   stderr: (text: string) => void;
@@ -75,6 +78,12 @@ export function parseArgs(argv: string[]): CliArgs {
     } else if (a === "--port-file") {
       once(a);
       args.portFile = flagValue(argv, i++, "--port-file");
+    } else if (a === "--trusted") {
+      // A bare flag: trust is the workspace's identity, passed by VMark, and it
+      // changes only the served CSP (`img-src` gains `https:`) — never whether
+      // the workspace is served.
+      once(a);
+      args.trusted = true;
     } else {
       throw new Error(`Unknown argument: ${a}`);
     }
@@ -87,6 +96,7 @@ interface StartupConfig {
   bootstrapToken: string;
   port?: number;
   portFile?: string;
+  trusted: boolean;
 }
 
 /**
@@ -114,7 +124,13 @@ function resolveStartupConfig(argv: string[], deps: CliDeps): StartupConfig | nu
     deps.exit(2);
     return null;
   }
-  return { root, bootstrapToken: token, port: args.port, portFile: args.portFile };
+  return {
+    root,
+    bootstrapToken: token,
+    port: args.port,
+    portFile: args.portFile,
+    trusted: args.trusted === true,
+  };
 }
 
 /**

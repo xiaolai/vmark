@@ -3,7 +3,7 @@
 Runs **every** example of the official CommonMark spec, the GFM extension
 sections, and the VMark dialect manifest through the pipeline. The
 hand-written corpora (`../characterization/corpus/`,
-`../../conformance/fixtures.ts`) are representative-by-construction; these
+`../conformance/fixtures.ts`) are representative-by-construction; these
 gates are exhaustive-by-enumeration — a spec corner nobody thought to
 hand-write still has an example here.
 
@@ -43,7 +43,7 @@ Two gates share one corpus registry:
 A ledger record pins example id, **path, kind, detail, and both observed
 values**. An id-only declaration is a wildcard — once declared, any different
 or larger future divergence on that example would pass silently, which is the
-suppression-file decay `../../conformance/expectedDeltas.ts` documents from
+suppression-file decay `../conformance/expectedDeltas.ts` documents from
 experience. The gates fail in both directions: an undeclared divergence, and
 a declared record that no longer matches anything (stale — fixing a defect
 forces its record's deletion). Stability records pin the sha256 of BOTH

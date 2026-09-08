@@ -201,4 +201,10 @@ export const BLOCK_ACTIONS = {
     category: "inserts",
     supports: { wysiwyg: true, source: true },
   },
+  insertToc: {
+    id: "insertToc",
+    label: "Table of Contents",
+    category: "inserts",
+    supports: { wysiwyg: true, source: true },
+  },
 } satisfies Record<string, ActionDefinition>;

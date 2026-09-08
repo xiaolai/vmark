@@ -63,6 +63,7 @@ const MULTI_SELECTION_POLICY = {
   insertOrderedList: "disallow",
   insertTaskList: "disallow",
   insertDetails: "disallow",
+  insertToc: "disallow",
   insertAlertNote: "disallow",
   insertAlertTip: "disallow",
   insertAlertImportant: "disallow",

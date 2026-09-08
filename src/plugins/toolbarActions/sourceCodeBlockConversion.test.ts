@@ -161,16 +161,34 @@ describe("fence length adapts to the content", () => {
  * `> outer` + `> > inner` dropped the inner `>` entirely.
  */
 describe("code-block conversion preserves mixed quote depths", () => {
+  // These select the depth change EXPLICITLY. Since #440/#443 round 3 a caret
+  // no longer widens across one — a blockquote is a container, and the two
+  // cases below cover that — so the mixed-depth span the normalization bug
+  // lived in now only arises when the user really did select both lines.
   it("keeps a nested quote level as fence content", () => {
-    const view = createView("> outer\n> > inner", 3);
+    const doc = "> outer\n> > inner";
+    const view = createView(doc, 0, doc.length);
     convert(view);
     expect(view.state.doc.toString()).toBe("> ```plaintext\n> outer\n> > inner\n> ```");
   });
 
   it("keeps a quoted line's marker when the block starts unquoted", () => {
-    const view = createView("plain\n> quoted", 2);
+    const doc = "plain\n> quoted";
+    const view = createView(doc, 0, doc.length);
     convert(view);
     expect(view.state.doc.toString()).toBe("```plaintext\nplain\n> quoted\n```");
+  });
+
+  it("a CARET in the paragraph converts it alone, leaving the quote below intact", () => {
+    const view = createView("plain\n> quoted", 2);
+    convert(view);
+    expect(view.state.doc.toString()).toBe("```plaintext\nplain\n```\n> quoted");
+  });
+
+  it("a CARET in the quote converts its own level only", () => {
+    const view = createView("> outer\n> > inner", 3);
+    convert(view);
+    expect(view.state.doc.toString()).toBe("> ```plaintext\n> outer\n> ```\n> > inner");
   });
 
   it("still hoists a UNIFORM quote outside the fence", () => {
@@ -228,5 +246,29 @@ describe("insertCodeBlock unfences an existing block", () => {
     const view = createView("plain", 2);
     convert(view);
     expect(view.state.doc.toString()).toBe("```plaintext\nplain\n```");
+  });
+});
+
+// Audit 20260907 (#440/#443): the span merged a paragraph with the ATX heading
+// or thematic break beside it (no blank line between), so converting the
+// paragraph fenced the heading's TEXT with it — its markup gone — and wrapping
+// a selection folded in a block the user never selected.
+describe("code-block conversion stops at a heading or a thematic break (#440)", () => {
+  it("converts the paragraph and leaves the heading below it alone", () => {
+    const view = createView("para\n# heading", 2);
+    convert(view);
+    expect(view.state.doc.toString()).toBe("```plaintext\npara\n```\n# heading");
+  });
+
+  it("converts only the heading when the caret is on it", () => {
+    const view = createView("para\n# heading\nmore", 8);
+    convert(view);
+    expect(view.state.doc.toString()).toBe("para\n```plaintext\nheading\n```\nmore");
+  });
+
+  it("does not fold a thematic break into the paragraph above it", () => {
+    const view = createView("para\n***\nnext", 1);
+    convert(view);
+    expect(view.state.doc.toString()).toBe("```plaintext\npara\n```\n***\nnext");
   });
 });

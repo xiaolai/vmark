@@ -37,7 +37,8 @@ describe("AdvancedSettings — browser settings are macOS-only", () => {
     // `enabled` is true in the store above — the platform gate, not the feature
     // gate, is what must keep these hidden.
     render(<AdvancedSettings />);
-    expect(screen.queryAllByText(/session/i).length).toBe(0);
+    // The row's own label — other page prose also contains the word "session".
+    expect(screen.queryAllByText(/ai browser session/i).length).toBe(0);
   });
 
   it("still renders the rest of the Advanced page", () => {

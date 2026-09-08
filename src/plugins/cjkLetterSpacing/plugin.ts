@@ -18,7 +18,7 @@
  * Enablement is INJECTED via the `isEnabled` option — the plugin reaches no
  * store, so it can ship standalone (ADR-015).
  *
- * @module plugins/cjkLetterSpacing
+ * @module plugins/cjkLetterSpacing/plugin
  */
 
 import { Extension } from "@tiptap/core";

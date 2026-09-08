@@ -82,8 +82,18 @@ export const RECOVERY = {
     'the extracted article exceeds the output budget — use `browser_read` action `query` with a CSS selector for the specific part you need, or `browser_read` action `read` for the structural snapshot.',
   browserConsole:
     'the captured console buffer is bigger than one response and `console` has no pagination, so there is no way to page to the rest. DO NOT drain it with `browser` action `console_clear` to get it: that returns the same oversized response AND discards every entry you never saw. Narrow the problem instead — reproduce the step you are debugging in a fresh tab so the buffer is small, or read the specific page state you need with `browser_read` action `query`. Use `console_clear` only once you have decided the unread entries do not matter and you want the next read to show only new output.',
+  // `coherence` takes only a `workspace_root` — no tabId, no parts, no
+  // cursor — so the default "narrow the request … target a specific tabId"
+  // hint is impossible to act on here, the same reason `session.get_state` got
+  // its own entry. And the edges hint used to say "resolve or waive the ones
+  // you can see, then call again", which advises a NON-UNDOABLE, audit-logged
+  // ledger write purely to page through a READ — a write the caller usually
+  // cannot even perform, since `coherence_resolve` needs a live delegation
+  // grant (audit R2 #219). Same correction `browserConsole` already carries.
   coherenceEdges:
-    'this workspace has more non-fresh edges than fit in one response — resolve or waive the ones you can see, then call `coherence.edges` again.',
+    'this workspace has more non-fresh edges than fit in one response, and `edges` has no pagination. DO NOT resolve or waive edges to reveal the rest: that WRITES a non-undoable, audit-logged ledger entry (and needs a delegation grant) to page through a read. Work from the edges you can see, or ask the user which derived document to look at and use `status` for the counts.',
+  coherenceList:
+    'this list is bigger than one response, and `coherence` has no cursor or filter — it takes only a `workspace_root`, so there is no way to narrow it or page to the rest. Use `status` for the counts, and work from what is shown; a smaller workspace scope is the only thing that shrinks this.',
 } as const;
 
 /**

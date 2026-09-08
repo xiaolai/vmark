@@ -32,8 +32,26 @@
  * @module lib/browser/url
  */
 
+import { credentialPath, dropCredentialParams } from "./urlCredentials";
+
+/** The path classifier, re-exported: the workflow recorder redacts with the same rule. */
+export { credentialPath } from "./urlCredentials";
+
 /** Only these schemes are navigable browser targets. */
 const NAVIGABLE_PROTOCOLS: ReadonlySet<string> = new Set(["http:", "https:"]);
+
+/**
+ * `about:blank` / `about:srcdoc` — the only non-navigable documents that carry
+ * nothing and are worth restoring. Written twice before (`urlForAgent` and
+ * `urlForPersistence`), which is two places for "which about: URLs are empty"
+ * to be answered differently.
+ */
+function isBlankDocument(parsed: URL): boolean {
+  return (
+    parsed.protocol === "about:" &&
+    (parsed.pathname === "blank" || parsed.pathname === "srcdoc")
+  );
+}
 
 /**
  * Canonicalize a navigable http(s) URL to a stable string, or `null` if the
@@ -101,7 +119,7 @@ export function urlForAgent(url: string): string {
     const parsed = new URL(url);
     // `about:blank` / `about:srcdoc` carry nothing; every other opaque origin
     // (`data:` above all) is reduced to its scheme.
-    if (parsed.origin === "null" && !(parsed.protocol === "about:" && (parsed.pathname === "blank" || parsed.pathname === "srcdoc"))) {
+    if (parsed.origin === "null" && !isBlankDocument(parsed)) {
       return `${parsed.protocol}(opaque)`;
     }
     parsed.username = "";
@@ -153,57 +171,80 @@ export function originForAgent(url: string): string {
  * `bob@host` are different destinations, so dropping it would restore the wrong one. A
  * password is a credential; a username is an address.
  *
- * A URL that will not parse is returned unchanged — this is a redactor, not a validator.
- * (Audit, High.)
+ * A URL that will not parse — or that is not http(s), `about:blank` or `about:srcdoc`
+ * — is written as the EMPTY string. It FAILS CLOSED (audit
+ * 20260907, #397). This is the redactor at the persistence boundary, and an input the
+ * parser refuses can still carry a credential (`https://alice:hunter2@exa mple.com`
+ * fails on the space and used to be written verbatim). Nothing is lost: a record with
+ * an empty url is dropped as malformed on restore (`sessionTabs.ts`), which is what
+ * would have happened to the unparseable one.
  */
 export function urlForPersistence(url: string): string {
   try {
     const parsed = new URL(url);
+    // Opaque schemes are not persisted (round 2): a `data:` URL keeps its whole
+    // payload in what `URL` calls the path, and `file:`/`blob:` are not
+    // restorable destinations. Only `about:blank`/`about:srcdoc` — a blank new
+    // tab, carrying nothing — survive; the rest fail closed, as above.
+    if (!NAVIGABLE_PROTOCOLS.has(parsed.protocol)) {
+      return isBlankDocument(parsed) ? url : "";
+    }
     // A credential-bearing PATH — a reset, magic-login or invite link, or a long
     // opaque token segment — is kept as its origin only (round 3): the same rule the
     // recorder applies to a recorded workflow, for the same reason — the file
     // outlives the session that had a reason for the secret.
     if (credentialPath(parsed.pathname)) return `${parsed.origin}/`;
-    let changed = false;
-    if (parsed.password) {
-      parsed.password = "";
-      changed = true;
-    }
-    // Query and fragment parameters that NAME a credential are dropped too: OAuth
-    // callbacks, magic links and reset URLs put the secret there, and a cleartext
-    // session file outlives the reason for it. The rest of the query stays — a
-    // search-results tab must still restore to its results.
-    for (const params of [parsed.searchParams, new URLSearchParams(parsed.hash.replace(/^#/, ""))]) {
-      const drop = [...params.keys()].filter((k) => CREDENTIAL_PARAM.test(k));
-      if (drop.length === 0) continue;
-      for (const k of drop) params.delete(k);
-      changed = true;
-      if (params === parsed.searchParams) continue;
-      parsed.hash = params.toString();
-    }
+    // One sanitizer per URL component, composed (audit R3 #783). `||` would
+    // short-circuit past the later components the moment an earlier one fired.
+    let changed = stripPassword(parsed);
+    // Query parameters that NAME a credential go too: OAuth callbacks, magic
+    // links and reset URLs put the secret there, and a cleartext session file
+    // outlives the reason for it. The rest of the query stays — a search-results
+    // tab must still restore to its results.
+    if (dropCredentialParams(parsed.searchParams)) changed = true;
+    if (sanitizeFragment(parsed)) changed = true;
+    // The ORIGINAL string when nothing was redacted: re-serializing through
+    // `href` would rewrite spellings the user typed for no reason.
     return changed ? parsed.href : url;
   } catch {
-    return url;
+    return "";
   }
 }
 
-/** Does this path carry a credential — a flow word (`reset`, `magic-login`, `invite`,
- *  `callback`…) or a long opaque token-shaped segment? Shared by persistence and the
- *  workflow recorder, so the two redactors cannot drift. */
-export function credentialPath(pathname: string): boolean {
-  return CREDENTIAL_PATH.test(pathname) || pathname.split("/").some((seg) => TOKEN_SEGMENT.test(seg));
+/** Remove an embedded password in place; true when there was one. */
+function stripPassword(parsed: URL): boolean {
+  if (!parsed.password) return false;
+  parsed.password = "";
+  return true;
 }
 
-/** Path words that name a credential-bearing flow. */
-const CREDENTIAL_PATH = /(^|\/)(reset|reset-password|magic|magic-link|magic-login|token|verify|confirm|invite|activate|auth|callback|sso)(\/|$)/i;
-/** A long opaque segment: hex, base64url or a random id — the shape a token takes. */
-const TOKEN_SEGMENT = /^(?=.*\d)(?=.*[A-Za-z])[A-Za-z0-9_-]{20,}$/;
-
-/** Query/fragment parameter names that carry a credential rather than an address —
- *  tokens, secrets, and every common session-id spelling (`sid`, `sessid`,
- *  `jsessionid`, `phpsessid`, `asp.net_sessionid`…), OAuth verifiers and tickets. */
-const CREDENTIAL_PARAM =
-  /(^|_|-|\.)(token|access_token|id_token|refresh_token|oauth_token|oauth_verifier|bearer|jwt|secret|password|passwd|otp|auth|authorization|session|sessionid|sessid|sess|sid|jsessionid|phpsessid|aspsessionid|asp\.net_sessionid|cfid|cftoken|api_?key|apikey|signature|sig|code|ticket|nonce)($|_|-)/i;
+/**
+ * Redact the fragment in place; true when anything went.
+ *
+ * An SPA fragment is a ROUTE with its own query (`#/callback?access_token=…`):
+ * the parameters sit after the first `?`, and the route before it stays. Read as
+ * one parameter list, the route swallowed the first name (`/callback?token`) and
+ * the credential behind it persisted (audit 20260907, #395).
+ *
+ * The route is also a PATH: `#/reset/<token>` survived intact because nothing ran
+ * it through `credentialPath` (round 2). Only a `/`-led (or `!/`-led) route
+ * counts — a plain `#anchor` is a name, and dropping it is over-eager.
+ */
+function sanitizeFragment(parsed: URL): boolean {
+  const fragment = parsed.hash.replace(/^#/, "");
+  const routeEnd = fragment.indexOf("?");
+  const route = routeEnd === -1 ? "" : fragment.slice(0, routeEnd);
+  const routePath = routeEnd === -1 ? fragment : route;
+  if (/^!?\//.test(routePath) && credentialPath(routePath)) {
+    parsed.hash = "";
+    return true;
+  }
+  const params = new URLSearchParams(routeEnd === -1 ? fragment : fragment.slice(routeEnd + 1));
+  if (!dropCredentialParams(params)) return false;
+  const rest = params.toString();
+  parsed.hash = rest && route ? `${route}?${rest}` : route || rest;
+  return true;
+}
 
 /**
  * The label a tab wears for a page that has no `<title>`: the host (with a

@@ -68,3 +68,42 @@ describe("E04 noMissingSpaceAtx", () => {
     expect(result.some((d) => d.ruleId === "E04")).toBe(false);
   });
 });
+
+// Audit 20260907 round 3 (#823/#824). The rule tracked fences itself, so it
+// only saw the ones that start their own line, and it matched at the physical
+// line start, so a heading inside a container was invisible.
+describe("E04 — blocks the parser does not read as prose", () => {
+  const flagged = (input: string) => lintMarkdown(input).some((d) => d.ruleId === "E04");
+
+  it.each([
+    { name: "YAML front matter (#823)", input: "---\n#comment: yes\n---\n\ntext\n" },
+    { name: "a raw HTML block (#823)", input: "<div>\n#notaheading\n</div>\n" },
+    { name: "a fence a blockquote prefixes (#823)", input: "> ```\n> #code\n> ```\n" },
+    { name: "an indented code block", input: "text\n\n    #code\n" },
+  ])("$name is not a heading", ({ input }) => {
+    expect(flagged(input)).toBe(false);
+  });
+
+  it.each([
+    { name: "a blockquote (#824)", input: "> #heading\n" },
+    { name: "a nested blockquote (#824)", input: "> > #heading\n" },
+    { name: "a list item (#824)", input: "- #heading\n" },
+    { name: "an ordered list item (#824)", input: "1. #heading\n" },
+  ])("a malformed heading inside $name is still one", ({ input }) => {
+    expect(flagged(input)).toBe(true);
+  });
+
+  it("reports the ABSOLUTE column of the hash inside a container", () => {
+    const d = lintMarkdown("> #heading\n").find((x) => x.ruleId === "E04");
+    expect(d).toBeDefined();
+    expect(d!.column).toBe(3);
+    expect("> #heading".charAt(d!.offset)).toBe("#");
+  });
+
+  it("uses the engine's line index, so offsets survive a CRLF document", () => {
+    const source = "a\r\nb\r\n#bad\r\n";
+    const d = lintMarkdown(source).find((x) => x.ruleId === "E04");
+    expect(d).toBeDefined();
+    expect(source.charAt(d!.offset)).toBe("#");
+  });
+});

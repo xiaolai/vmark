@@ -4,6 +4,9 @@ import { lintMarkdown } from "../../linter";
 import { linkFragments } from "../linkFragments";
 import type { Root, Link } from "mdast";
 
+/** A synthetic mdast carries no source, so the line index it is linted with is empty. */
+const EMPTY_INDEX = { lines: [], lineOffsets: [] };
+
 describe("W04 linkFragments", () => {
   it.each([
     {
@@ -126,7 +129,7 @@ describe("W04 linkFragments", () => {
       ],
     };
 
-    const diagnostics = linkFragments("", mdast);
+    const diagnostics = linkFragments("", mdast, EMPTY_INDEX);
     expect(diagnostics).toHaveLength(0);
   });
 
@@ -151,7 +154,7 @@ describe("W04 linkFragments", () => {
       ],
     };
 
-    const diagnostics = linkFragments("", mdast);
+    const diagnostics = linkFragments("", mdast, EMPTY_INDEX);
     // url is undefined → falls back to "" → does not start with # → no diagnostic
     expect(diagnostics).toHaveLength(0);
   });
@@ -194,7 +197,7 @@ describe("W04 linkFragments", () => {
       ],
     };
 
-    const diagnostics = linkFragments("", mdast);
+    const diagnostics = linkFragments("", mdast, EMPTY_INDEX);
     expect(diagnostics).toHaveLength(0);
   });
 
@@ -229,8 +232,61 @@ describe("W04 linkFragments", () => {
       ],
     };
 
-    const diagnostics = linkFragments("", mdast);
+    const diagnostics = linkFragments("", mdast, EMPTY_INDEX);
     expect(diagnostics).toHaveLength(1);
     expect(diagnostics[0].offset).toBe(0);
+  });
+});
+
+// Audit 20260907 round 3 (#810/#812/#814).
+describe("W04 — what a heading's slug is actually made of", () => {
+  const anchors = (input: string) => lintMarkdown(input).filter((d) => d.ruleId === "W04");
+
+  it("ignores raw inline HTML in a heading, as the rendered anchor does (#810)", () => {
+    expect(anchors("# Hello <b>World</b>\n\n[x](#hello-world)\n")).toHaveLength(0);
+  });
+
+  it("still counts inline code as heading text", () => {
+    expect(anchors("# The `run` flag\n\n[x](#the-run-flag)\n")).toHaveLength(0);
+  });
+
+  it("resolves a percent-encoded fragment against the heading it names (#814)", () => {
+    expect(anchors("# Café\n\n[x](#caf%C3%A9)\n")).toHaveLength(0);
+  });
+
+  it("survives a malformed percent-encoding rather than throwing (#814)", () => {
+    expect(anchors("# Real\n\n[x](#100%)\n")).toHaveLength(1);
+  });
+
+  it("still numbers duplicate headings, so #title-1 resolves (#812)", () => {
+    expect(anchors("# Title\n\n# Title\n\n[a](#title) [b](#title-1)\n")).toHaveLength(0);
+  });
+
+  it("still reports a fragment no heading provides", () => {
+    expect(anchors("# Real\n\n[x](#nope)\n")).toHaveLength(1);
+  });
+});
+
+// Audit 20260907 round 3 (#813) claimed reference-style links bypass W04. They
+// do not, and the reason is one the rule depends on WITHOUT saying so: the
+// pipeline's reference resolution rewrites `[text][ref]` into a `link` node
+// before rules run, so this rule's `visit(mdast, "link")` already sees it. That
+// is a property of another module, which is exactly why it is pinned here — if
+// resolution ever stops running, W04 would silently stop covering half the
+// links in a document and every existing test would still pass.
+describe("W04 — reference-style links are checked too", () => {
+  it("flags a reference whose definition names a missing anchor", () => {
+    const out = lintMarkdown("# Real\n\nSee [text][r]\n\n[r]: #nope\n");
+    expect(out.filter((d) => d.ruleId === "W04")).toHaveLength(1);
+  });
+
+  it("accepts one whose definition names a real anchor", () => {
+    const out = lintMarkdown("# Real\n\nSee [text][r]\n\n[r]: #real\n");
+    expect(out.filter((d) => d.ruleId === "W04")).toHaveLength(0);
+  });
+
+  it("checks a collapsed reference the same way", () => {
+    const out = lintMarkdown("# Real\n\nSee [nope][]\n\n[nope]: #missing\n");
+    expect(out.filter((d) => d.ruleId === "W04")).toHaveLength(1);
   });
 });

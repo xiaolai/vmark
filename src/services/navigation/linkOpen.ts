@@ -19,7 +19,7 @@
  *
  * @coordinates-with src/lib/markdownLinkCheck/check.ts — reuses
  *   `resolveMarkdownUrl` for path resolution semantics
- * @coordinates-with src/hooks/useFileShortcuts.ts — handler for `open-file`
+ * @coordinates-with src/hooks/useOpenFileEvent.ts — handler for `open-file`
  * @coordinates-with src/plugins/linkPopup/tiptap.ts — Cmd+click entry point
  * @coordinates-with src/plugins/linkPopup/LinkPopupView.ts — popup open icon
  * @module services/navigation/linkOpen

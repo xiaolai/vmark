@@ -11,7 +11,7 @@
  *
  * @coordinates-with smartPaste/tiptap.ts — auto-links pasted URLs
  * @coordinates-with linkCreatePopup/ — validates user-entered URLs
- * @module utils/urlDetection
+ * @module services/editor/urlDetection
  */
 
 export interface UrlDetectionResult {

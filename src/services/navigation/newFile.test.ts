@@ -2,7 +2,7 @@
 /**
  * Tests for newFile utility
  *
- * @module utils/newFile.test
+ * @module services/navigation/newFile.test
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createUntitledTab } from "./newFile";
@@ -21,27 +21,17 @@ vi.mock("@/stores/documentStore", () => ({
   },
 }));
 
-// WI-1B.10 — formatId override path consults the registry to verify
-// the requested format is registered before overriding.
-vi.mock("@/lib/formats/registry", () => ({
-  getFormatById: vi.fn((id: string) =>
-    id === "txt" ? { id: "txt" } : undefined,
-  ),
-}));
-
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 
 describe("createUntitledTab", () => {
   const mockCreateTab = vi.fn();
-  const mockSetTabFormatId = vi.fn();
   const mockInitDocument = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(useTabStore.getState).mockReturnValue({
       createTab: mockCreateTab,
-      setTabFormatId: mockSetTabFormatId,
     } as unknown as ReturnType<typeof useTabStore.getState>);
     vi.mocked(useDocumentStore.getState).mockReturnValue({
       initDocument: mockInitDocument,
@@ -81,21 +71,10 @@ describe("createUntitledTab", () => {
     expect(mockCreateTab).toHaveBeenCalledWith("doc-window-2", null);
   });
 
-  it("does not override formatId when caller passes 'markdown'", () => {
+  it("takes only the window label — untitled tabs are always markdown (WI-FL3.10)", () => {
     mockCreateTab.mockReturnValue("tab-md");
-    createUntitledTab("main", "markdown");
-    expect(mockSetTabFormatId).not.toHaveBeenCalled();
-  });
-
-  it("overrides formatId via the store action when caller passes a registered non-markdown id", () => {
-    mockCreateTab.mockReturnValue("tab-txt");
-    createUntitledTab("main", "txt");
-    expect(mockSetTabFormatId).toHaveBeenCalledWith("tab-txt", "txt");
-  });
-
-  it("does not override when caller passes an unregistered formatId", () => {
-    mockCreateTab.mockReturnValue("tab-fake");
-    createUntitledTab("main", "no-such-format");
-    expect(mockSetTabFormatId).not.toHaveBeenCalled();
+    expect(createUntitledTab.length).toBe(1);
+    createUntitledTab("main");
+    expect(mockCreateTab).toHaveBeenCalledTimes(1);
   });
 });

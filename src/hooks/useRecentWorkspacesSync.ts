@@ -4,7 +4,7 @@
  * Purpose: Syncs the recent workspaces list to the native macOS menu on startup —
  *   needed because Zustand persist rehydration runs before Tauri APIs are ready.
  *
- * @coordinates-with recentWorkspacesStore.ts — syncToNativeMenu action
+ * @coordinates-with stores/recentsStore.ts — useRecentWorkspacesStore.syncToNativeMenu
  * @module hooks/useRecentWorkspacesSync
  */
 

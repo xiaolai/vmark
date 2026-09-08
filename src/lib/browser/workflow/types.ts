@@ -1,6 +1,6 @@
 /**
  * Purpose: Types for the web-workflow IR (ADR-W1/W2).
- * Plan: dev-docs/plans/20260712-0610-embedded-browser-sites-workflows.md WI-4.1
+ * Origin: Embedded browser sites and workflows plan (2026-07-12, retired) WI-4.1
  *
  * A workflow is authored as a markdown file (front-matter + typed steps) and parsed
  * into this IR. The step KIND selects the execution tier (R8); `api`/`action` are

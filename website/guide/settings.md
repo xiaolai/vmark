@@ -42,7 +42,6 @@ When enabled, the single theme row is replaced by two rows — **Light theme** (
 | Setting | Description | Default |
 |---------|-------------|---------|
 | Show filename in titlebar | Display the current file name in the macOS window title bar. **macOS only** — this setting is hidden elsewhere, because Windows and Linux always show the filename in the system title bar | Off |
-| Auto-hide status bar | Automatically hide the status bar when you are not interacting with it | Off |
 
 On macOS, VMark draws its own title bar over the system one, so the filename is
 an opt-in element of that strip. On Windows and Linux the system draws a real
@@ -90,6 +89,7 @@ Editor Width is measured in `em`, so the line length in *characters* depends on 
 | Setting | Description | Default | Options |
 |---------|-------------|---------|---------|
 | Tab size | Number of spaces inserted when pressing Tab | 2 spaces | 2 spaces, 4 spaces |
+| Open files in a new tab | Open existing files in a new tab instead of reusing the current empty tab | Off | On / Off |
 | Enable auto-pairing | Automatically insert matching closing brackets and quotes when you type an opening one | On | On / Off |
 | CJK brackets | Auto-pair CJK-specific brackets like `「」` `【】` `《》`. Only available when auto-pairing is enabled | Auto | Off, Auto |
 | Include curly quotes | Auto-pair `""` and `''` characters. May conflict with some IME smart quote features. Appears when CJK brackets is set to Auto | On | On / Off |
@@ -102,6 +102,7 @@ Editor Width is measured in `em`, so the line length in *characters* depends on 
 | Setting | Description | Default | Options |
 |---------|-------------|---------|---------|
 | Line endings on save | Control how line endings are handled when saving files | Preserve existing | Preserve existing, LF (`\n`), CRLF (`\r\n`) |
+| Line breaks become hard breaks | Treat single newlines inside a paragraph as hard breaks (does not affect blank lines between blocks) | Off | On / Off |
 | Preserve consecutive line breaks | Keep multiple blank lines as-is instead of collapsing them | On | On / Off |
 | Hard break style on save | How hard line breaks are represented in the saved Markdown file | Preserve existing | Two spaces (Recommended), Preserve existing, Backslash (`\`) |
 | Show `<br>` tags | Display HTML line break tags visibly in the editor | Off | On / Off |
@@ -132,6 +133,7 @@ Paste behavior, layout, and HTML rendering settings.
 | Heading alignment | Text alignment for headings | Left | Left, Center |
 | Image & diagram borders | Whether to show a border around images, Mermaid diagrams, and math blocks | None | None, Always, On hover |
 | Image & table alignment | Horizontal alignment for block images and tables | Center | Center, Left |
+| Fit tables to width | Constrain all tables to the editor width instead of allowing horizontal scroll | Off | On / Off |
 | Code block line numbers | Show line numbers inside code blocks in the WYSIWYG editor. Independent of the View menu's **Line Numbers**, which controls the Source/Split editor's gutter | Off | On / Off |
 
 ### Lint
@@ -164,6 +166,14 @@ Regardless of these settings, dangerous tags (`<script>`, `<style>`, `<iframe>`,
 
 File browser, saving, document history, image handling, and document tools.
 
+### Workspace
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| Workspace rail | Show the left workspace rail and keep multiple workspaces and loose files in one window | Off |
+
+See [Workspace Rail](/guide/workspace-rail) for what the rail adds.
+
 ### File Browser
 
 The first two settings only apply when a workspace (folder) is open, and are saved
@@ -189,6 +199,7 @@ it cannot open keeps its suffix either way, so the name you see always exists on
 | Setting | Description | Default | Options |
 |---------|-------------|---------|---------|
 | Enable auto-save | Automatically save files after editing | On | On / Off |
+| Stamp identity block on save | Let a save insert a `vmark:` identity block into the file's frontmatter and create a `.vmark` folder in the workspace, so the coherence layer can track the document from disk. AI and MCP writes are captured once a workspace ledger exists, whether or not this is on | Off | On / Off |
 | Save interval | Time between automatic saves. Only available when auto-save is enabled | 30 seconds | 10s, 30s, 1 min, 2 min, 5 min |
 | Keep document history | Track document versions for undo and recovery | On | On / Off |
 | Maximum versions | Number of history snapshots to keep per document | 50 versions | 10, 25, 50, 100 |
@@ -212,7 +223,7 @@ Enable **Auto-resize on paste** if you frequently paste screenshots or photos �
 
 | Setting | Description | Default | Options |
 |---------|-------------|---------|---------|
-| Warn above size | Show a confirmation prompt when opening files above this size | 5 MB | On / Off |
+| Warn above size | Show a confirmation prompt before opening files over 5 MB | On | On / Off |
 | Auto Source mode | Automatically open files above the threshold in Source mode (skips WYSIWYG to keep performance smooth) | On | On / Off |
 
 See [Large Files](/guide/large-files) for the full breakdown of how large files are handled.
@@ -235,7 +246,7 @@ The MCP (Model Context Protocol) server allows external AI assistants like Claud
 |---------|-------------|---------|
 | Enable MCP Server | Start or stop the MCP server. When running, a status badge shows the port and connected clients | On (toggle) |
 | Start on launch | Automatically start the MCP server when VMark opens | On |
-| Auto-approve edits | Apply AI-initiated document changes without showing a preview for approval first, and allow MCP clients to save to new file locations. When off, an MCP request to save to a new path is refused and a toast notifies you. Use with caution | Off |
+| Auto-approve saves to a new location and genie results | Let an MCP client save a document to a new location without asking, and let a genie apply its result directly instead of showing a preview. When off, an MCP request to save to a new path is refused and a toast notifies you. MCP document writes are never gated by this — each one is checkpointed and can be restored from the status bar history | Off |
 
 When the server is running, the panel also displays:
 - **Port** — automatically assigned; AI clients discover it through the config file
@@ -389,6 +400,7 @@ Configure the integrated terminal panel. Open the terminal with `` Ctrl + ` ``.
 | Cursor Blink | Whether the terminal cursor blinks | On | On / Off |
 | Copy on Select | Automatically copy selected terminal text to the clipboard | Off | On / Off |
 | WebGL Renderer | Use GPU-accelerated rendering for the terminal. Disable if you experience IME input issues. Requires a terminal restart | On | On / Off |
+| Remote Clipboard (OSC 52) | Let programs running in the terminal — over ssh, inside tmux — copy to your system clipboard. The channel is write-only: reading the clipboard is always refused, since any output printed to the terminal could request it | On | On / Off |
 | Scrollback | Number of lines of output each session keeps in its scroll history. Higher values use more memory | 5,000 | 1,000 / 5,000 / 10,000 / 50,000 |
 | Screen Reader Mode | Expose terminal output to assistive technology (VoiceOver). Off by default for performance | Off | On / Off |
 
@@ -440,7 +452,7 @@ Update activity is written to the log file, so if the problem repeats, the log i
 ## Advanced
 
 ::: tip
-The Advanced section is hidden by default. Press `Ctrl + Option + Cmd + D` in the Settings window to reveal it.
+The Advanced section is visible by default — it hosts the off switch for the embedded browser, which ships on. Press `Ctrl + Option + Cmd + D` in the Settings window to hide it, and again to bring it back.
 :::
 
 Developer and system-level configuration.
@@ -459,26 +471,40 @@ This lets you create links like `obsidian://open?vault=...` or `vscode://file/..
 |---------|-------------|---------|
 | Keep both editors alive | Mount both the WYSIWYG and Source mode editors simultaneously for faster mode switching. Increases memory usage | Off |
 
-### Workflow
-
-Two independent switches, because they are two different features.
+### Coherence
 
 | Setting | Description | Default | Options |
 |---------|-------------|---------|---------|
-| Workflow viewer | GitHub Actions authoring help in the source pane: `${{ }}` expression completion, cursor-to-canvas job sync, and goto-definition for `uses:` references. These aids only read your file | Off | On / Off |
-| Preserve YAML formatting | When saving workflow edits made via the form panel, preserve the original YAML's comments, anchors, key order, and blank lines via the CST round-trip pipeline. When off, save uses a compact serializer (faster but lossy). Shown when the workflow viewer is on | On | On / Off |
+| Semantic check confidence | How sure a check must be before its answer is recorded as a verdict. Below this, the answer is kept but marked unknown | 0.9 | 0.7, 0.8, 0.9, 0.95 |
+
+See [Coherence](/guide/coherence) for what a check is and how verdicts are recorded.
+
+### Workflow files
+
+| Setting | Description | Default | Options |
+|---------|-------------|---------|---------|
+| Fetch action metadata | Allow VMark to fetch `action.yml` from referenced GitHub Actions to populate the structured editor's `with:` form. Turn off to keep the workflow editor fully offline | On | On / Off |
+| Use actionlint when available | If the `actionlint` binary is on your PATH, run it on workflow files for richer diagnostics. No effect if the binary is not installed | On | On / Off |
+
+### Workflow
+
+The GitHub Actions viewer has no switch: opening a file under
+`.github/workflows/` shows the graph and the form editor, and the source-pane
+aids (expression completion, cursor-to-canvas sync, `uses:` goto-definition)
+load with it. What remains here is the viewer's one preference and the
+separate execution engine.
+
+| Setting | Description | Default | Options |
+|---------|-------------|---------|---------|
+| Preserve YAML formatting | When saving workflow edits made via the form panel, preserve the original YAML's comments, anchors, key order, and blank lines via the CST round-trip pipeline. When off, save uses a compact serializer (faster but lossy) | On | On / Off |
 | Workflow engine | Run VMark's own YAML workflow files: adds the Run/Cancel side panel and lets workflow genies execute. Steps can call AI providers and write files, so it stays off until you ask for it | Off | On / Off |
 
-The **workflow canvas itself is always available** — opening a file under
-`.github/workflows/` shows the graph and the form editor with no setting to
-turn on. The viewer switch adds the source-pane extras on top of it.
+The engine does not change what the viewer shows. With the engine off, VMark
+refuses workflow-execution requests outright rather than merely hiding the
+button — including requests that arrive over MCP — and reports "The workflow
+engine is turned off in Settings".
 
-Turning the viewer on does not enable the engine, and vice versa. With the
-engine off, VMark refuses workflow-execution requests outright rather than
-merely hiding the button — including requests that arrive over MCP — and
-reports "The workflow engine is turned off in Settings".
-
-Both toggles live under **Developer Tools** (see below) — turn Developer Tools
+Both rows live under **Developer Tools** (see below) — turn Developer Tools
 on to reveal them. See [Workflow Viewer](/guide/workflow-viewer) for the full
 feature surface.
 
@@ -500,17 +526,21 @@ See [Embedded Browser](/guide/browser) for the full feature surface.
 | Setting | Description | Default | Platforms |
 |---------|-------------|---------|-----------|
 | Clear macOS quarantine on open | When opening a file that carries the macOS quarantine attribute (`com.apple.quarantine`), strip it before reading. Helpful for files downloaded from the web that VMark would otherwise be blocked from opening | On | macOS |
-| Mac Option as Meta (terminal) | Treat the macOS Option key as Meta in the integrated terminal. Required for tools like emacs and tmux that expect Alt-prefixed shortcuts | Off | macOS |
+| Mac Option as Meta (terminal) | Treat the macOS Option key as Meta in the integrated terminal. Required for tools like emacs and tmux that expect Alt-prefixed shortcuts | On | macOS |
 
 ### Developer Tools
 
 **Developer tools** is a persisted master switch for experimental and
-development-only settings. Turning it on reveals the **Workflow engine** toggle
-plus a **Hot Exit Dev Tools** panel (buttons to test
+development-only settings. Turning it on reveals the **Preserve YAML formatting**
+row, the **Workflow engine** toggle and a **Hot Exit Dev Tools** panel (buttons to test
 session capture, inspection, restoration, clearing, and restart). Because the
 switch persists, an in-progress feature you enable stays reachable across sessions
 and in release builds — you do not need to re-enable Developer tools each time you
 open Settings.
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| Developer tools | Enable developer mode and reveal the experimental and development-only settings below | Off |
 
 ## See Also
 

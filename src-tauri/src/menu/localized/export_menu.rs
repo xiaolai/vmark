@@ -6,7 +6,7 @@
 //! installed, 1 install-CTA item otherwise. A `#[cfg(test)]` module guards
 //! the Pandoc menu-ID contract and locale-key coverage.
 //!
-//! @coordinates-with `src/hooks/useExportMenuEvents.ts` (consumes `menu:export-pandoc-*` events)
+//! @coordinates-with `src/hooks/useCommandBootstrap.ts` (maps `menu:export-pandoc-*` events onto the export commands)
 //! @coordinates-with `src/pages/settings/FilesImagesSettings.tsx` (triggers menu rebuild on Pandoc detect)
 
 use rust_i18n::t;
@@ -46,7 +46,8 @@ pub(super) const PANDOC_HINT: (&str, &str) = ("export-pandoc-hint", "menu.file.e
 /// backend. #1284 asked for the backend, and WI-PDF2.1/3.1 delivered it
 /// (`ICoreWebView2_7::PrintToPdf` on Windows,
 /// `webkit_print_operation_print()` on Linux), so the item belongs everywhere
-/// now. Bookmarks remain macOS-only — a stated gap, see ADR-PDF3.
+/// now. Bookmarks (the PDF outline) ship everywhere too, via `lopdf` in
+/// `pdf_export/outline.rs` — ADR-PDF3 is closed.
 pub(super) fn build(app: &tauri::AppHandle, accel: &AccelFn) -> tauri::Result<Submenu<tauri::Wry>> {
     let other_formats_submenu = {
         let items: Vec<Box<dyn IsMenuItem<tauri::Wry>>> =

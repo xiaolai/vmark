@@ -170,7 +170,7 @@ describe("gha-tdd-guard — WI-19: SCOPED names paths that exist", () => {
     for (const p of [
       "src/lib/workflow/__probe__.ts", // bespoke engine IR (parser, layout)
       "src/plugins/workflowPreview/__probe__.tsx", // the engine's graph view
-      "src/services/workflow/__probe__.ts", // engine policy sync
+      "src/services/workflow/__probe__.ts", // browser workflow runs + engine policy sync
       "src/components/WorkflowApproval/__probe__.tsx", // engine approval dialog
       "src/plugins/codemirror/sourceWorkflow__probe__.ts", // viewer + engine CM extensions
       "src/lib/ghaWorkflow/__probe__.ts", // GHA viewer core

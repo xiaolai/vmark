@@ -1,7 +1,7 @@
 // @vitest-environment node
 // WI-1.3 — edge-derivation tests for the GHA workflow IR.
 //
-// Plan: dev-docs/plans/20260504-github-actions-workflow-viewer.md §4.1
+// Origin: GitHub Actions workflow viewer plan (2026-05-04, retired) §4.1
 //
 // Edges are derived from JobIR.needs[]. Conventions:
 //   - needs: [a, b]                  → edges a→this, b→this

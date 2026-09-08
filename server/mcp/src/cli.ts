@@ -23,91 +23,32 @@
  * lockstep with the app is the five-file `sed` in the bump procedure
  * (`.claude/rules/40-version-bump.md`). Edit it only through that procedure.
  */
-const VERSION = '0.9.65';
+const VERSION = '0.9.66';
 
 /**
- * Handle --version flag.
+ * WHY `process.exitCode` AND NOT `process.exit()` ON THESE PATHS.
+ *
+ * `process.stdout` is ASYNCHRONOUS when it is a pipe (Node's own docs say so),
+ * and `process.exit()` terminates without flushing pending writes. Every caller
+ * of `--version` and `--health-check` reads them through a pipe — the app's
+ * `useMcpHealthCheck.ts` spawns the binary and JSON.parses its stdout — so a
+ * truncated report is a parse failure the user sees as "the sidecar is broken"
+ * (audit R3 #195). Setting the code and returning lets the loop drain and the
+ * write complete; nothing on either path holds a handle open, and
+ * `__tests__/unit/cli.test.ts` asserts both terminate with the full payload.
  */
-if (process.argv.includes('--version') || process.argv.includes('-v')) {
+const WANTS_VERSION = process.argv.includes('--version') || process.argv.includes('-v');
+const WANTS_HEALTH_CHECK = process.argv.includes('--health-check');
+
+if (WANTS_VERSION) {
   console.log(VERSION);
-  process.exit(0);
+  process.exitCode = 0;
+} else if (WANTS_HEALTH_CHECK) {
+  void runHealthCheck(VERSION);
 }
 
-/**
- * Handle --health-check flag.
- * Validates that the binary is functional without requiring VMark connection.
- */
-if (process.argv.includes('--health-check')) {
-  runHealthCheck();
-  // runHealthCheck() calls process.exit() so main() below won't run
-}
-
-async function runHealthCheck(): Promise<void> {
-  // Note: no import self-test here. The server module is statically imported
-  // below (hoisted, evaluated before any of this runs), so an import failure
-  // crashes the process before runHealthCheck — a dynamic re-import could
-  // only ever return the already-cached module and can't catch anything.
-  try {
-    // 1. Create a mock bridge that doesn't connect (implements Bridge interface)
-    const mockBridge = {
-      send: async (): Promise<never> => {
-        throw new Error('Health check mode - no VMark connection');
-      },
-      isConnected: (): boolean => false,
-      connect: async (): Promise<void> => {},
-      disconnect: async (): Promise<void> => {},
-      onConnectionChange: (): (() => void) => () => {},
-    };
-
-    // 2. Can we instantiate the server and list tools?
-    const server = createVMarkMcpServer(mockBridge, { version: VERSION });
-    const allTools = server.listTools();
-
-    // 3. Validate we have the expected number of tools
-    if (allTools.length === 0) {
-      throw new Error('No tools registered');
-    }
-    if (allTools.length !== EXPECTED_TOOL_COUNT) {
-      throw new Error(
-        `Tool count mismatch: got ${allTools.length}, expected ${EXPECTED_TOOL_COUNT}. ` +
-        `Update EXPECTED_TOOL_COUNT in index.ts when adding/removing tools.`
-      );
-    }
-
-    // 4. Validate tool schemas are valid
-    for (const tool of allTools) {
-      if (!tool.name || !tool.inputSchema) {
-        throw new Error(`Invalid tool definition: ${tool.name}`);
-      }
-    }
-
-    // Success - output structured result. `resourceCount` is a constant 0 (the
-    // pruned surface exposes no MCP resources); the field stays because the
-    // app's health check declares it required and renders it in Settings →
-    // Integrations (src/hooks/useMcpHealthCheck.ts).
-    const result = {
-      status: 'ok',
-      version: VERSION,
-      toolCount: allTools.length,
-      resourceCount: 0,
-      tools: allTools.map((t) => t.name),
-    };
-
-    console.log(JSON.stringify(result, null, 2));
-    process.exit(0);
-  } catch (error) {
-    const result = {
-      status: 'error',
-      version: VERSION,
-      error: error instanceof Error ? error.message : String(error),
-    };
-
-    console.error(JSON.stringify(result, null, 2));
-    process.exit(1);
-  }
-}
-
-import { createVMarkMcpServer, EXPECTED_TOOL_COUNT } from './index.js';
+import { createVMarkMcpServer } from './index.js';
+import { runHealthCheck } from './utils/healthCheck.js';
 import { SERVER_INSTRUCTIONS } from './instructions.js';
 import { WebSocketBridge } from './bridge/websocket.js';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -125,25 +66,39 @@ import { createShutdownHandler, registerShutdownTriggers } from './utils/shutdow
  * file on every connection attempt via its portResolver, so a VMark restart
  * (new OS-assigned port + new auth token) is picked up automatically. A
  * port-file value passed as static config would shadow that resolver forever.
+ *
+ * FAILS FAST on a bad `--port`: a missing, unparseable or conflicting value
+ * used to be dropped silently, and the bridge then fell back to port-file
+ * DISCOVERY — connecting to whichever instance published the port file, i.e.
+ * the one the override was steering away from (audit R2 #198).
  */
-function parseArgs(): { port: number | undefined } {
-  const args = process.argv.slice(2);
+function parseArgs(argv: string[] = process.argv.slice(2)): { port: number | undefined } {
   let cliPort: number | undefined;
 
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--port' && args[i + 1]) {
-      // Same strict parser as the port-file reader: full-string digits,
-      // 1-65535. "4123junk" is rejected, not truncated to 4123.
-      const parsed = parsePort(args[i + 1]);
-      if (parsed !== undefined) {
-        cliPort = parsed;
-      }
-      i++;
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] !== '--port') continue;
+    const raw = argv[i + 1];
+    if (raw === undefined || raw.startsWith('--')) {
+      throw new UsageError('--port requires a value (1-65535)');
     }
+    // Same strict parser as the port-file reader: full-string digits,
+    // 1-65535. "4123junk" is rejected, not truncated to 4123.
+    const parsed = parsePort(raw);
+    if (parsed === undefined) {
+      throw new UsageError(`--port ${JSON.stringify(raw)} is not a port number (1-65535)`);
+    }
+    if (cliPort !== undefined && cliPort !== parsed) {
+      throw new UsageError(`--port given twice with different values (${cliPort} and ${parsed})`);
+    }
+    cliPort = parsed;
+    i++;
   }
 
   return { port: cliPort };
 }
+
+/** A bad invocation, not a runtime failure: the caller exits 64. */
+class UsageError extends Error {}
 
 /**
  * Create a quiet logger for the bridge (only errors go to stderr).
@@ -165,7 +120,14 @@ const logger = {
  * Main entry point.
  */
 async function main(): Promise<void> {
-  const { port } = parseArgs();
+  let port: number | undefined;
+  try {
+    ({ port } = parseArgs());
+  } catch (error) {
+    if (!(error instanceof UsageError)) throw error;
+    console.error(`[VMark MCP] ${error.message}`);
+    process.exit(64);
+  }
   const clientIdentity = detectClientIdentity();
 
   // Create WebSocket bridge to connect to VMark.
@@ -241,16 +203,18 @@ async function main(): Promise<void> {
     );
   }
 
-  // Connect to VMark first (errors logged by bridge)
-  try {
-    await bridge.connect();
-  } catch {
-    // Will retry in background via autoReconnect
-  }
-
-  // Start the MCP server with stdio transport
+  // Serve stdio FIRST, then dial VMark concurrently. Awaiting
+  // `bridge.connect()` here made MCP initialization wait out the bridge's full
+  // connect timeout whenever VMark was not listening (a stale port file, an
+  // app that had quit) — and a client that times out on `initialize` drops the
+  // server, so an unreachable editor took the whole tool surface with it
+  // (audit R2 #200). autoReconnect owns the retry, and `sendBridgeRequest`
+  // reports a disconnected bridge on its own.
   const transport = new StdioServerTransport();
   await mcpServer.connect(transport);
+  void bridge.connect().catch(() => {
+    // Logged by the bridge; autoReconnect owns the retry.
+  });
 }
 
 // Catch unhandled async rejections (e.g., reconnection timers, MCP transport) (#279)
@@ -265,8 +229,11 @@ process.on('uncaughtException', (error) => {
   process.exit(1);
 });
 
-// Only run main() if not doing health check (health check exits via process.exit)
-if (!process.argv.includes('--health-check')) {
+// The server runs only when neither one-shot mode was asked for. Both of those
+// now set `process.exitCode` and return rather than calling `process.exit()`
+// (see the note beside them), so this guard — not an immediate exit — is what
+// keeps main() from starting underneath them.
+if (!WANTS_VERSION && !WANTS_HEALTH_CHECK) {
   main().catch((error) => {
     console.error('[VMark MCP Server] Fatal error:', error);
     process.exit(1);

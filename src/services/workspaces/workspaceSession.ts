@@ -57,7 +57,6 @@ function splitLayoutOf(split: WindowSplit | null, tabs: Tab[]): SplitLayoutConfi
   // Both panes need a saved path — an untitled pane can't be restored.
   if (!priPath || !secPath || priPath === secPath) return null;
   return {
-    orientation: split.orientation,
     fraction: split.fraction,
     syncScroll: split.syncScroll,
     primaryPath: priPath,

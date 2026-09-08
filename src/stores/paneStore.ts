@@ -31,14 +31,14 @@ import { useTabStore } from "@/stores/tabStore";
 import { onTabRemoved } from "@/stores/tabRemovalBus";
 import { onTabActivated } from "@/stores/tabActivationBus";
 import { DEFAULT_SPLIT } from "@/stores/paneStoreTypes";
-import type { PaneId, SplitOrientation, WindowSplit } from "@/stores/paneStoreTypes";
+import type { PaneId, WindowSplit } from "@/stores/paneStoreTypes";
 import { resolveWindowSplit, clampFraction } from "@/stores/paneStoreHelpers";
 
 // Shapes live in a leaf module so `paneStoreHelpers` can import them without
 // forming a cycle with this file (dep-cruiser `no-circular`). Re-exported so
 // existing `from "@/stores/paneStore"` imports keep working.
 export { DEFAULT_SPLIT, MIN_PANE_FRACTION, MAX_PANE_FRACTION } from "@/stores/paneStoreTypes";
-export type { PaneId, SplitOrientation, WindowSplit } from "@/stores/paneStoreTypes";
+export type { PaneId, WindowSplit } from "@/stores/paneStoreTypes";
 
 interface PaneState {
   byWindow: Record<string, WindowSplit>;
@@ -53,7 +53,6 @@ interface PaneState {
   /** Put `tabId` in `pane` and focus it, as ONE write with ONE announcement. */
   showTabInPane: (windowLabel: string, pane: PaneId, tabId: string) => void;
   setFraction: (windowLabel: string, fraction: number) => void;
-  setOrientation: (windowLabel: string, orientation: SplitOrientation) => void;
   toggleSyncScroll: (windowLabel: string) => void;
   /** Reconcile when a tab closes: collapse the split if it held the tab (#1081 H1). */
   handleTabClosed: (windowLabel: string, closedTabId: string) => void;
@@ -157,9 +156,6 @@ export const usePaneStore = create<PaneState>((set, get) => ({
 
   setFraction: (windowLabel, fraction) =>
     set((s) => patch(s, windowLabel, (split) => ({ ...split, fraction: clampFraction(fraction) }))),
-
-  setOrientation: (windowLabel, orientation) =>
-    set((s) => patch(s, windowLabel, (split) => ({ ...split, orientation }))),
 
   toggleSyncScroll: (windowLabel) =>
     set((s) => patch(s, windowLabel, (split) => ({ ...split, syncScroll: !split.syncScroll }))),

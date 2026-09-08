@@ -14,6 +14,8 @@ import {
   getCommand,
   hasCommand,
   unregisterCommand,
+  snapshotCommandRegistry,
+  restoreCommandRegistry,
   _resetCommandBus,
   type CommandDefinition,
 } from "./CommandBus";
@@ -164,6 +166,26 @@ describe("CommandBus", () => {
       firstDispose();
       expect(hasCommand("editor.bold")).toBe(true);
     });
+
+    // Audit #881 — the token map is documented as the owner's CURRENT token,
+    // so an owner with no commands must not still have one. The snapshot is the
+    // only window onto it, which is why this is asserted through there.
+    it("unregisterOwner drops the owner's generation token", () => {
+      registerCommands(OWNER, [cmd("editor.bold", "Bold")]);
+      expect(snapshotCommandRegistry().generations.map(([o]) => o)).toContain(OWNER);
+
+      unregisterOwner(OWNER);
+
+      expect(snapshotCommandRegistry().generations.map(([o]) => o)).not.toContain(OWNER);
+    });
+
+    it("a disposer whose owner was already unregistered stays a no-op", () => {
+      const dispose = registerCommands(OWNER, [cmd("editor.bold", "Bold")]);
+      unregisterOwner(OWNER);
+      registerCommand(cmd("editor.bold", "Bold (plain)")); // a different registrar took the id
+      dispose();
+      expect(getCommand("editor.bold")?.title).toBe("Bold (plain)");
+    });
   });
 
   describe("resilient when() evaluation", () => {
@@ -247,6 +269,93 @@ describe("CommandBus", () => {
     it("matches description as a lower-priority signal", () => {
       const results = searchCommands("persist");
       expect(results[0].command.id).toBe("doc.save");
+    });
+
+    // Audit #882 — the query and the title are the SAME TEXT in two Unicode
+    // spellings. Without one fold applied to both sides this matched nothing,
+    // with no error to notice.
+    it("matches a decomposed query against a composed title", () => {
+      registerCommand(cmd("edit.reset", "R\u00e9initialiser"));
+      const results = searchCommands("r\u0065\u0301initialiser");
+      expect(results.map((r) => r.command.id)).toContain("edit.reset");
+    });
+
+    // Audit #880 — a title getter runs at DISPLAY time, so it can throw (an
+    // i18n namespace that is not loaded yet). Search walks every command, so
+    // one thrower used to take the whole palette down.
+    it("survives a title getter that throws, and keeps the command findable by id", () => {
+      registerCommand(
+        cmd("editor.broken", "unused", {
+          title: () => {
+            throw new Error("namespace not loaded");
+          },
+        }),
+      );
+
+      expect(() => searchCommands("")).not.toThrow();
+      expect(searchCommands("").map((r) => r.command.id)).toContain("editor.broken");
+      expect(searchCommands("editor.broken").map((r) => r.command.id)).toContain("editor.broken");
+    });
+
+    it("survives a description getter that throws", () => {
+      registerCommand(
+        cmd("editor.brokenDesc", "Fine title", {
+          description: () => {
+            throw new Error("namespace not loaded");
+          },
+        }),
+      );
+
+      expect(searchCommands("fine").map((r) => r.command.id)).toContain("editor.brokenDesc");
+    });
+  });
+
+  // Audit #453 — the inverse of a registration attempt, for transactional
+  // callers (`registerAllCommands`). An id-only snapshot could only DELETE,
+  // which is not the inverse of an owner batch: `registerCommands` replaces its
+  // predecessor, so a rollback that only removes new ids leaves the failed
+  // attempt's definitions AND its fresh generation token behind.
+  describe("snapshot / restore", () => {
+    it("restores the definition an owner batch replaced", () => {
+      registerCommands("owner", [cmd("editor.bold", "Bold v1")]);
+      const snapshot = snapshotCommandRegistry();
+
+      registerCommands("owner", [cmd("editor.bold", "Bold v2"), cmd("editor.italic", "Italic")]);
+      expect(getCommand("editor.bold")?.title).toBe("Bold v2");
+
+      restoreCommandRegistry(snapshot);
+      expect(getCommand("editor.bold")?.title).toBe("Bold v1");
+      expect(hasCommand("editor.italic")).toBe(false);
+    });
+
+    it("restores the owner's generation, so the pre-snapshot disposer still works", () => {
+      const disposeFirst = registerCommands("owner", [cmd("editor.bold", "Bold v1")]);
+      const snapshot = snapshotCommandRegistry();
+      registerCommands("owner", [cmd("editor.bold", "Bold v2")]); // supersedes the token
+
+      restoreCommandRegistry(snapshot);
+      // Without the generation restored this disposer is stale and does nothing,
+      // leaving a batch nobody can remove.
+      disposeFirst();
+      expect(hasCommand("editor.bold")).toBe(false);
+    });
+
+    it("removes commands registered after the snapshot", () => {
+      registerCommand(cmd("doc.save", "Save"));
+      const snapshot = snapshotCommandRegistry();
+      registerCommand(cmd("doc.saveAs", "Save As"));
+
+      restoreCommandRegistry(snapshot);
+      expect(listCommands().map((c) => c.id)).toEqual(["doc.save"]);
+    });
+
+    it("is decoupled from later mutations — the snapshot is a copy", () => {
+      registerCommand(cmd("doc.save", "Save"));
+      const snapshot = snapshotCommandRegistry();
+      unregisterCommand("doc.save");
+
+      restoreCommandRegistry(snapshot);
+      expect(hasCommand("doc.save")).toBe(true);
     });
   });
 });

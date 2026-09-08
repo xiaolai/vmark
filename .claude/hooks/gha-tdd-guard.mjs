@@ -26,7 +26,10 @@
 //     - src/lib/workflow/**/*.{ts,tsx}            (IR parser, layout)
 //     - src/plugins/workflowPreview/**/*.{ts,tsx} (the graph view)
 //     - src/components/WorkflowApproval/**/*.{ts,tsx}
-//     - src/services/workflow/**/*.{ts,tsx}       (flag push to Rust)
+//     - src/services/workflow/**/*.{ts,tsx}       (mostly the embedded
+//       browser's workflow RUN engine — WI-NB6/NB7: executor, registry,
+//       approval, recorder; only workflowEnginePolicySync.ts is this
+//       engine's flag push to Rust)
 //     - src/stores/workflowStore.ts
 //
 //   Shared by both — the CodeMirror workflow extensions in the source pane
@@ -154,6 +157,8 @@ const SCOPED = [
   /^src\/lib\/workflow\/.*\.tsx?$/,
   /^src\/plugins\/workflowPreview\/.*\.tsx?$/,
   /^src\/components\/WorkflowApproval\/.*\.tsx?$/,
+  // 11 of the 12 modules here are the embedded browser's workflow RUN engine
+  // (WI-NB6/NB7); only workflowEnginePolicySync.ts belongs to the YAML engine.
   /^src\/services\/workflow\/.*\.tsx?$/,
   /^src\/stores\/workflowStore\.ts$/,
 

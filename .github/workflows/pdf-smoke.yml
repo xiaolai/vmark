@@ -96,20 +96,41 @@ jobs:
       # WebKitGTK needs a display even to print off-screen; a headless runner
       # has none, and the renderer would hang until the harness timed out rather
       # than failing with something readable.
+      #
+      # The transcript is kept (`tee`) so a later step can assert that a case
+      # RAN, not merely that nothing failed. `shell: bash` is explicit on both
+      # steps because it is what turns on `pipefail` — without it the pipe
+      # would report `tee`'s exit code and a red harness would pass.
       - name: Run the smoke harness (Linux, under Xvfb)
         if: runner.os == 'Linux'
+        shell: bash
         run: |
           sudo apt-get install -y xvfb
+          mkdir -p pdf-smoke-out
           xvfb-run -a --server-args="-screen 0 1280x1024x24" \
             cargo run --manifest-path src-tauri/Cargo.toml \
-              --bin pdf_smoke --features pdf-smoke -- "$PWD/pdf-smoke-out"
+              --bin pdf_smoke --features pdf-smoke -- "$PWD/pdf-smoke-out" \
+            | tee pdf-smoke-out/transcript.log
 
       - name: Run the smoke harness
         if: runner.os != 'Linux'
         shell: bash
         run: |
+          mkdir -p pdf-smoke-out
           cargo run --manifest-path src-tauri/Cargo.toml \
-            --bin pdf_smoke --features pdf-smoke -- "$PWD/pdf-smoke-out"
+            --bin pdf_smoke --features pdf-smoke -- "$PWD/pdf-smoke-out" \
+            | tee pdf-smoke-out/transcript.log
+
+      # The progress case (WI-FL6.2) is the one assertion here that reads
+      # events rather than a file, and a case that silently did not run
+      # leaves the exit code green. Require its PASS lines in the transcript.
+      - name: The stage sequence was asserted on this platform
+        shell: bash
+        run: |
+          for case in progress-render progress-command progress-refused; do
+            grep -q "^SMOKE ${case} PASS" pdf-smoke-out/transcript.log \
+              || { echo "no PASS line for ${case}"; exit 1; }
+          done
 
       # `error`, not `warn`: the harness exiting 0 having written nothing looks
       # exactly like a pass, and an empty artifact would be read as "rendered
@@ -119,6 +140,8 @@ jobs:
         uses: actions/upload-artifact@v5
         with:
           name: pdf-smoke-${{ matrix.os }}
-          path: pdf-smoke-out/*.pdf
+          path: |
+            pdf-smoke-out/*.pdf
+            pdf-smoke-out/transcript.log
           if-no-files-found: error
           retention-days: 7

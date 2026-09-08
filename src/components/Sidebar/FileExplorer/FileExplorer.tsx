@@ -31,53 +31,37 @@
  *
  * @coordinates-with useTreeWiring.tsx — identity-stable Tree children/ref, measured height, scroller class
  * @coordinates-with useFileTree.ts — loads directory tree and watches for fs changes
- * @coordinates-with useExplorerOperations.ts — CRUD operations on files and folders
+ * @coordinates-with useExplorerActionWiring.ts — open-by-type, create flows, context-menu dispatch, tree handlers
+ * @coordinates-with useExplorerContextMenu.ts — context-menu state, keyed to the workspace
  * @coordinates-with useFileExplorerOpenState.ts — persists folder open state across remounts
  * @coordinates-with Sidebar.tsx — parent component that provides the ref
- * @coordinates-with contextMenuActions.ts — owns the id → operation mapping
  * @module components/Sidebar/FileExplorer/FileExplorer
  */
-import { useState, useCallback, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
+import { useRef, forwardRef, useImperativeHandle } from "react";
 import { useTranslation } from "react-i18next";
 import { Tree, type TreeApi } from "react-arborist";
-import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { useFileTree } from "./useFileTree";
-import { useExplorerOperations } from "./useExplorerOperations";
-import { useFileExplorerOpenState, useExplorerWorkspaceInstance } from "./useFileExplorerOpenState";
-import { FileExplorerEmptyState, FileExplorerWorkspaceHeader } from "./FileExplorerEmptyState";
 import {
-  ContextMenu,
-  type ContextMenuType,
-  type ContextMenuPosition,
-  type ContextMenuActionId,
-} from "./ContextMenu";
+  useFileExplorerOpenState,
+  useExplorerWorkspaceInstance,
+  useRestoredScroll,
+} from "./useFileExplorerOpenState";
+import { FileExplorerEmptyState, FileExplorerWorkspaceHeader } from "./FileExplorerEmptyState";
+import { ContextMenu } from "./ContextMenu";
 import { useTreeWiring } from "./useTreeWiring";
-import { useExplorerCreateFlow } from "./useExplorerCreateFlow";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useWindowLabel } from "@/contexts/WindowContext";
-import { getFileName, getParentDir } from "@/utils/paths";
-import { isMarkdownFileName, isSupportedFileName, isVMarkFileName } from "@/utils/dropPaths";
-import { isWorkflowYamlSurfaceEnabled } from "@/services/featureFlags/workflowFeatureFlag";
-import { runContextMenuAction } from "./contextMenuActions";
-import { openTerminalHere } from "@/services/terminal/openTerminalHere";
-import { imeToast as toast } from "@/services/ime/imeToast";
+import { getFileName } from "@/utils/paths";
 import { fileExplorerError } from "@/utils/debug";
-import i18n from "@/i18n";
 import { useQuickLookHotkey } from "./useQuickLookHotkey";
+import { useExplorerContextMenu } from "./useExplorerContextMenu";
+import { useExplorerActionWiring } from "./useExplorerActionWiring";
 import type { FileNode as FileNodeType } from "./types";
 import "./FileExplorer.css";
 
 // Stable empty array reference to avoid re-renders
 const EMPTY_FOLDERS: string[] = [];
-
-interface ContextMenuState {
-  visible: boolean;
-  type: ContextMenuType;
-  position: ContextMenuPosition;
-  targetPath: string | null;
-  targetIsFolder: boolean;
-}
 
 /** Imperative handle exposed by FileExplorer for programmatic file/folder creation and tree expansion. */
 export interface FileExplorerHandle {
@@ -105,13 +89,6 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
   const showExtensions = useSettingsStore((s) => s.general.showFileExtensions ?? true);
   const windowLabel = useWindowLabel();
 
-  const [contextMenu, setContextMenu] = useState<ContextMenuState>({
-    visible: false,
-    type: "empty",
-    position: { x: 0, y: 0 },
-    targetPath: null,
-    targetIsFolder: false,
-  });
   const treeRef = useRef<TreeApi<FileNodeType> | null>(null);
   const handleQuickLookKeyDown = useQuickLookHotkey(treeRef);
 
@@ -120,6 +97,11 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
 
   // WI-9.2: with the rail on, folder/scroll state is per workspace instance.
   const workspaceInstanceId = useExplorerWorkspaceInstance(windowLabel);
+  // The context menu belongs to the workspace it was opened in (#323).
+  const { contextMenu, handleContextMenu, closeContextMenu } = useExplorerContextMenu(
+    `${workspaceInstanceId ?? ""}|${rootPath ?? ""}`,
+    treeRef,
+  );
   // Identity-stable Tree wiring — see useTreeWiring's header (#1187).
   const { setTreeContainer, renderNode, treeHeight, scrollerClassName, treeElRef } = useTreeWiring(currentFilePath);
 
@@ -136,193 +118,33 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
     watchId: windowLabel,
   });
 
-  // WI-9.2: restore the incoming instance's saved scroll once tree data is in.
-  useEffect(() => { if (!isLoading) restoreScroll(treeElRef.current); },
-    [workspaceInstanceId, isLoading, restoreScroll, treeElRef]);
+  // WI-9.2: restore the incoming instance's saved scroll once tree data is in
+  // — ONCE per instance, not on every watcher refresh (audit R2, #635; see the
+  // hook's header for why "rows are in" is not the same as "not loading").
+  useRestoredScroll(workspaceInstanceId, !isLoading && tree.length > 0, treeElRef, restoreScroll);
+  // Every action the tree and the context menu dispatch — see the hook's header.
   const {
-    createFile,
-    createFolder,
-    renameItem,
-    deleteItem,
-    moveItem,
-    openFile,
-    openWithDefaultApp,
-    duplicateFile,
-    copyPath,
-    revealInFinder,
-  } = useExplorerOperations();
+    handleNewFile,
+    handleNewFolder,
+    handleContextMenuAction,
+    handleActivate,
+    handleRename,
+    handleDelete,
+    handleMove,
+  } = useExplorerActionWiring({ rootPath, treeRef, tree, refresh, contextMenu, showExtensions });
 
-  // Create → refresh → inline rename, with its workspace-generation and
-  // one-at-a-time guards (see the hook's header).
-  const { createEntryAndEdit } = useExplorerCreateFlow({ rootPath, refresh, treeRef, tree });
-
-  // Close context menu
-  const closeContextMenu = useCallback(() => {
-    setContextMenu((prev) => ({ ...prev, visible: false }));
-  }, []);
-
-  // Handle context menu on tree area
-  const handleContextMenu = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-
-      // Check if right-clicked on a tree item
-      const target = e.target as HTMLElement;
-      const nodeElement = target.closest(".file-node");
-
-      if (nodeElement) {
-        // Right-clicked on a node - get node data from tree
-        const nodeId = nodeElement.getAttribute("data-node-id");
-        if (nodeId) {
-          const node = treeRef.current?.get(nodeId);
-          if (node) {
-            setContextMenu({
-              visible: true,
-              type: node.data.isFolder ? "folder" : "file",
-              position: { x: e.clientX, y: e.clientY },
-              targetPath: node.data.id,
-              targetIsFolder: node.data.isFolder,
-            });
-            return;
-          }
-        }
-      }
-
-      // Right-clicked on empty area
-      setContextMenu({
-        visible: true,
-        type: "empty",
-        position: { x: e.clientX, y: e.clientY },
-        targetPath: null,
-        targetIsFolder: false,
-      });
-    },
-    []
-  );
-
-  // Shared: open supported files in VMark, others with system default app.
-  // Async on BOTH branches — the supported one used to drop the promise from
-  // `openFile`, whose emitter propagates rejection, so a failed open surfaced
-  // as an unhandled rejection instead of a message.
-  const openFileByType = useCallback(
-    async (path: string): Promise<void> => {
-      const fileName = getFileName(path);
-      // Phase 1B: any registered format opens in VMark; the workflow/markdown
-      // fallback covers the pre-bootstrap edge (see isWorkflowYamlSurfaceEnabled).
-      const isSupported =
-        fileName &&
-        (isSupportedFileName(fileName) ||
-          (isWorkflowYamlSurfaceEnabled()
-            ? isVMarkFileName(fileName)
-            : isMarkdownFileName(fileName)));
-      if (isSupported) {
-        try {
-          await openFile(path);
-        } catch (error) {
-          fileExplorerError(" Failed to open file:", path, error);
-          toast.error(i18n.t("dialog:toast.failedToOpen", { filename: fileName }));
-        }
-      } else {
-        await openWithDefaultApp(path);
-      }
-    },
-    [openFile, openWithDefaultApp]
-  );
-
-  const handleNewFile = useCallback(
-    (parentPath?: string | null) =>
-      createEntryAndEdit(createFile, t("defaultFileName"), parentPath),
-    [createEntryAndEdit, createFile, t],
-  );
-
-  const handleNewFolder = useCallback(
-    (parentPath?: string | null) =>
-      createEntryAndEdit(createFolder, t("defaultFolderName"), parentPath),
-    [createEntryAndEdit, createFolder, t],
-  );
-
-  // Handle context menu actions — the id → operation mapping lives in
-  // contextMenuActions.ts so this file stays layout + wiring.
-  const handleContextMenuAction = useCallback(
-    (action: ContextMenuActionId) =>
-      runContextMenuAction(action, {
-        targetPath: contextMenu.targetPath,
-        targetIsFolder: contextMenu.targetIsFolder,
-        openFileByType: (path: string) => void Promise.resolve(openFileByType(path)).catch((e) => fileExplorerError("Failed to open file:", e)),
-        editNode: (path) => void Promise.resolve(treeRef.current?.get(path)?.edit()).catch((e) => fileExplorerError("Inline rename failed:", e)),
-        duplicateFile,
-        pickMoveDestination: (path) =>
-          openDialog({
-            title: t("contextMenu.moveToTitle", { name: getFileName(path) }),
-            directory: true,
-            defaultPath: getParentDir(path) ?? undefined,
-          }) as Promise<string | null>,
-        moveItem,
-        deleteItem,
-        copyPath,
-        revealInFinder,
-        newFile: handleNewFile,
-        newFolder: handleNewFolder,
-        openTerminalHere,
-        notifyError: (key) => toast.error(i18n.t(key)),
-      }),
-    [contextMenu, openFileByType, duplicateFile, moveItem, deleteItem, copyPath, revealInFinder, handleNewFile, handleNewFolder, t]
-  );
-
-  // Handle file activation (double-click or Enter)
-  const handleActivate = useCallback(
-    (node: { data: FileNodeType }) => {
-      if (!node.data.isFolder) {
-        void openFileByType(node.data.id);
-      }
-    },
-    [openFileByType]
-  );
-
-  // Handle rename
-  const handleRename = useCallback(
-    async ({ id, name }: { id: string; name: string }) => {
-      await renameItem(id, name, { preserveExtension: !showExtensions });
-    },
-    [renameItem, showExtensions]
-  );
-
-  // Handle delete
-  const handleDelete = useCallback(
-    async ({ ids }: { ids: string[] }) => {
-      for (const id of ids) {
-        const node = treeRef.current?.get(id);
-        if (node) {
-          await deleteItem(id, node.data.isFolder);
-        }
-      }
-    },
-    [deleteItem]
-  );
-
-  // Handle move (drag-and-drop)
-  const handleMove = useCallback(
-    async ({
-      dragIds,
-      parentId,
-    }: {
-      dragIds: string[];
-      parentId: string | null;
-    }) => {
-      const destFolder = parentId || rootPath;
-      if (!destFolder) return;
-
-      for (const id of dragIds) {
-        await moveItem(id, destFolder);
-      }
-    },
-    [moveItem, rootPath]
-  );
-
-  // Expose methods to parent via ref
+  // Expose methods to parent via ref. The two create flows are ASYNC and the
+  // handle declares `void`, so their promise is discarded at every call site
+  // (the Sidebar's header buttons) — a rejected create was an unhandled
+  // rejection with nothing on screen (audit R3 #636). Caught and logged here,
+  // the same shape the context-menu dispatch below already uses.
   useImperativeHandle(ref, () => ({
-    createNewFile: () => handleNewFile(),
-    createNewFolder: () => handleNewFolder(),
+    createNewFile: () => {
+      void Promise.resolve(handleNewFile()).catch((e) => fileExplorerError("New file failed:", e));
+    },
+    createNewFolder: () => {
+      void Promise.resolve(handleNewFolder()).catch((e) => fileExplorerError("New folder failed:", e));
+    },
     collapseAll,
     expandAll,
   }), [handleNewFile, handleNewFolder, collapseAll, expandAll]);
@@ -348,7 +170,16 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
         ref={setTreeContainer}
         onContextMenu={handleContextMenu}
         onKeyDown={handleQuickLookKeyDown}
-        onScrollCapture={(e) => handleTreeScroll((e.target as HTMLElement).scrollTop)}
+        // CAPTURE sees every descendant's scroll, and this persists the offset
+        // to restore later: a scrolling rename input — or any nested scroller —
+        // wrote ITS `scrollTop` (usually 0) over the tree's, so switching
+        // workspaces restored the tree to the top (audit R3 #637). react-window's
+        // outer div is the ONE scroller, and it is the one carrying this class.
+        onScrollCapture={(e) => {
+          const target = e.target;
+          if (!(target instanceof HTMLElement) || !target.classList.contains(scrollerClassName)) return;
+          handleTreeScroll(target.scrollTop);
+        }}
       >
         <Tree<FileNodeType>
           key={workspaceInstanceId ?? "window"}

@@ -37,9 +37,16 @@ static ENV_VAR_RE: LazyLock<Regex> =
 static EXPR_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\$\{\{\s*([^}]+?)\s*\}\}").expect("invalid expr regex"));
 
-/// Match a bare `stepId.output` whole-string alias.
 static BARE_ALIAS_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^([A-Za-z_][\w-]*)\.output$").expect("invalid bare alias regex"));
+
+/// The step id a bare whole-string `stepId.output` alias names — the ONE
+/// definition of that grammar, shared with `coherence_capture.rs`, which
+/// carried a looser copy (#512). `None` for anything `resolve` leaves alone.
+pub(super) fn bare_alias_id(value: &str) -> Option<&str> {
+    let caps = BARE_ALIAS_RE.captures(value.trim())?;
+    Some(caps.get(1)?.as_str())
+}
 
 /// Errors that can arise while resolving an expression.
 #[derive(Debug, Clone, PartialEq)]
@@ -110,14 +117,7 @@ pub fn resolve(
     }
 
     // Step 3: bare stepId.output alias (whole-string)
-    if let Some(alias_caps) = BARE_ALIAS_RE.captures(after_env.trim()) {
-        // BARE_ALIAS_RE has exactly one capture group, so .get(1) is Some
-        // whenever .captures() returns Some. If a future regex edit removes
-        // the group, treat it as "not an alias" rather than panicking.
-        let Some(id_match) = alias_caps.get(1) else {
-            return Ok(after_env);
-        };
-        let id = id_match.as_str();
+    if let Some(id) = bare_alias_id(&after_env) {
         if let Some(step_outputs) = outputs.get(id) {
             if let Some(text) = step_outputs.get("text") {
                 return Ok(text.clone());

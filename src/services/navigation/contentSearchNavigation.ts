@@ -8,9 +8,9 @@
  * Follows the same pattern as lintNavigation.ts — a simple in-memory map
  * consumed by Source/WYSIWYG editors on mount.
  *
- * @coordinates-with contentSearchStore.ts — sets pending nav on result selection
+ * @coordinates-with stores/uiStore/contentSearchSlice.ts — sets pending nav on result selection
  * @coordinates-with SourceEditor.tsx — consumes pending nav on mount
- * @coordinates-with searchStore.ts — receives pre-filled query
+ * @coordinates-with stores/uiStore/searchSlice.ts — receives pre-filled query
  * @coordinates-with useSearchCommands.ts — opens FindBar with mutual exclusion
  * @module services/navigation/contentSearchNavigation
  */

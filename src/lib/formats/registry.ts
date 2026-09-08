@@ -5,17 +5,36 @@
 //
 // dispatchEditor(filePath) is the single source of truth for "what does
 // this tab do." Markdown is the default for null paths (untitled);
-// plain-text is the fallback for unknown extensions when registered.
+// plain-text is the fallback for unknown extensions — REQUIRED for a pathed
+// file, never markdown (#404). A registered config is frozen with its
+// extensions normalized in place, so the indexes cannot drift from it (#403).
 
-import { formatLookupKeys, associationKey } from "./formatPathKeys";
+import { formatLookupKeys, formatExtensionKey, associationKey } from "./formatPathKeys";
+import { freezeFormatConfig, validateFormatConfig } from "./formatValidation";
 import type { FormatConfig } from "./types";
 
-const formats: FormatConfig[] = [];
-const byId = new Map<string, FormatConfig>();
-const byExt = new Map<string, FormatConfig>();
+/**
+ * The registry's whole state, in ONE object so it can be swapped atomically.
+ *
+ * `rebootstrapFormats` used to clear the live maps and then re-register into
+ * them, so an adapter combination that only a settings toggle can produce —
+ * two optional formats claiming one extension, say — left the registry half
+ * built with no way back (audit R3 #801). `replaceRegistry` builds into a fresh
+ * state and installs it only once the rebuild has completed.
+ */
+interface RegistryState {
+  formats: FormatConfig[];
+  byId: Map<string, FormatConfig>;
+  byExt: Map<string, FormatConfig>;
+  /** `listFormats`'s frozen view of `formats`; dropped whenever it changes. */
+  snapshot: readonly FormatConfig[] | null;
+}
 
-const ID_PATTERN = /^[a-z0-9-]+$/;
-const ALWAYS_KEEP_ALIVE_ALLOW_LIST = new Set(["yaml-gha-workflow"]);
+function emptyState(): RegistryState {
+  return { formats: [], byId: new Map(), byExt: new Map(), snapshot: null };
+}
+
+let state: RegistryState = emptyState();
 
 const MARKDOWN_FALLBACK_ID = "markdown";
 const PLAIN_TEXT_FALLBACK_ID = "txt";
@@ -44,126 +63,41 @@ export function __resetFormatAssociationsProvider(): void {
   associationsProvider = () => ({});
 }
 
+/**
+ * Register a format. Validation and freezing are pure and live in
+ * `formatValidation.ts`; what remains here is the COMMIT — four writes that
+ * happen together or not at all, because nothing above them can throw.
+ */
 export function registerFormat(config: FormatConfig): void {
-  if (!config.id || !ID_PATTERN.test(config.id)) {
-    throw new Error(
-      `[formats] invalid id "${config.id}" — must match ${ID_PATTERN}`,
-    );
-  }
-  if (byId.has(config.id)) {
-    throw new Error(`[formats] duplicate id "${config.id}"`);
-  }
-  if (!Array.isArray(config.extensions) || config.extensions.length === 0) {
-    throw new Error(
-      `[formats] "${config.id}" must declare at least one extension`,
-    );
-  }
-  // Normalize once; downstream lookups use lowercase, dot-less keys.
-  // Pre-flight all entries before mutating either map so a partial
-  // registration can't leave the registry in a half-applied state.
-  const normalizedExts: string[] = [];
-  const seenLocal = new Set<string>();
-  for (const raw of config.extensions) {
-    if (typeof raw !== "string") {
-      throw new Error(
-        `[formats] "${config.id}" extension must be a string, got ${typeof raw}`,
-      );
-    }
-    const ext = raw.trim().replace(/^\.+/, "").toLowerCase();
-    if (ext.length === 0) {
-      throw new Error(
-        `[formats] "${config.id}" extension must be non-empty after trim/strip-dot`,
-      );
-    }
-    if (seenLocal.has(ext)) {
-      throw new Error(
-        `[formats] "${config.id}" declares ".${ext}" more than once`,
-      );
-    }
-    seenLocal.add(ext);
-    if (byExt.has(ext)) {
-      throw new Error(
-        `[formats] extension collision: ".${ext}" already registered by "${
-          byExt.get(ext)!.id
-        }"`,
-      );
-    }
-    normalizedExts.push(ext);
-  }
-  if (config.kind === "wysiwyg" && !config.wysiwygComponent) {
-    throw new Error(
-      `[formats] "${config.id}" kind=wysiwyg requires wysiwygComponent`,
-    );
-  }
-  // WI-13 — surfaces are IMPORT THUNKS, and that has to fail at composition
-  // rather than at first mount. A non-callable value here means either a
-  // half-written adapter or the pre-WI-13 shape (an already-imported
-  // component), and the second one silently reinstates the static import this
-  // change removed: everything would still render, and the ~900 kB WYSIWYG
-  // chunk would be back on the cold start of every Settings window with no
-  // test failing. Callability is all that is checkable — a thunk and a
-  // function component are indistinguishable by inspection, and CALLING it
-  // here would defeat the point of the field being lazy.
-  for (const surface of ["wysiwygComponent", "language"] as const) {
-    const value = config[surface];
-    if (value !== undefined && typeof value !== "function") {
-      throw new Error(
-        `[formats] "${config.id}" ${surface} must be an import thunk ` +
-          `(() => import(...)), got ${typeof value}`,
-      );
-    }
-  }
-  // Invariant 4 (per plan rev 5): non-wysiwyg formats may omit
-  // loadLanguage. They render with raw CodeMirror — full editing,
-  // find, undo, save still work. The original strict invariant is
-  // documented in the plan but consciously relaxed here so Phase 1A
-  // stubs and plain `.txt` register without scaffolding fake language
-  // packs. wysiwyg formats may NOT declare loadLanguage — they don't
-  // mount CodeMirror at all.
-  // A wysiwyg format MUST bring its own surface. Editor.tsx used to fall back to
-  // MarkdownEditorSurface, so a format declaring kind=wysiwyg without a component
-  // silently rendered AS MARKDOWN — failing open into the very privilege Phase 4B
-  // removes. A missing surface is a registration bug, so it fails loudly (WI-4.5).
-  if (config.kind === "wysiwyg" && !config.wysiwygComponent) {
-    throw new Error(
-      `[formats] "${config.id}" kind=wysiwyg must declare wysiwygComponent — ` +
-        "there is no default surface; falling back to markdown would silently " +
-        "render another format as markdown",
-    );
-  }
-  if (config.kind === "wysiwyg" && config.loadLanguage) {
-    throw new Error(
-      `[formats] "${config.id}" kind=wysiwyg must not declare loadLanguage (CodeMirror is not mounted in WYSIWYG)`,
-    );
-  }
-  // kind:"media" is never editable (no editingEnabled toggle, no text), so the
-  // "read-only can still be toggled dirty" rationale below does not apply.
-  if (
-    config.kind !== "media" &&
-    config.adapters.readOnlyDefault === true &&
-    config.adapters.closeSavePolicy !== "prompt-on-close"
-  ) {
-    throw new Error(
-      `[formats] "${config.id}" readOnlyDefault=true requires closeSavePolicy="prompt-on-close" — editingEnabled=true makes it dirty-capable, save flow must exist`,
-    );
-  }
-  if (
-    config.adapters.sidePanelKeepAlive === "always-when-registered" &&
-    !ALWAYS_KEEP_ALIVE_ALLOW_LIST.has(config.id)
-  ) {
-    throw new Error(
-      `[formats] "${config.id}" sidePanelKeepAlive="always-when-registered" not in allow-list ${[
-        ...ALWAYS_KEEP_ALIVE_ALLOW_LIST,
-      ]
-        .map((id) => `"${id}"`)
-        .join(", ")}`,
-    );
-  }
+  const normalizedExts = validateFormatConfig(config, {
+    hasId: (id) => state.byId.has(id),
+    extensionOwner: (ext) => state.byExt.get(ext)?.id,
+  });
+  freezeFormatConfig(config, normalizedExts);
 
-  formats.push(config);
-  byId.set(config.id, config);
-  for (const ext of normalizedExts) {
-    byExt.set(ext, config);
+  state.formats.push(config);
+  state.snapshot = null;
+  state.byId.set(config.id, config);
+  for (const ext of normalizedExts) state.byExt.set(ext, config);
+}
+
+/**
+ * Rebuild the registry from scratch, atomically: `register` runs against an
+ * EMPTY registry, and its result is installed only if it completes. A throw
+ * leaves the registry exactly as it was, still serving `dispatchEditor`.
+ *
+ * This is the PRODUCTION entry point for a rebuild (audit R3 #801/#802) —
+ * `rebootstrapFormats` runs whenever the user flips a `formats.*` toggle.
+ * `__resetRegistry` is once again what its name says: a test-only reset.
+ */
+export function replaceRegistry(register: () => void): void {
+  const previous = state;
+  state = emptyState();
+  try {
+    register();
+  } catch (error) {
+    state = previous;
+    throw error;
   }
 }
 
@@ -185,11 +119,21 @@ export function registerFormat(config: FormatConfig): void {
  */
 export function dispatchEditor(filePath: string | null): FormatConfig {
   if (filePath == null) {
-    return (
-      byId.get(MARKDOWN_FALLBACK_ID) ??
-      byId.get(PLAIN_TEXT_FALLBACK_ID) ??
-      requireFirst()
-    );
+    // Markdown is the product default for a new document, and `bootstrapFormats`
+    // registers it unconditionally — so its absence is a bootstrap defect, not a
+    // case to degrade through. Falling back silently opened untitled documents in
+    // the plain source pane, or in whatever format happened to register first
+    // (audit 20260907 round 2). The pathed branch below already fails this way
+    // when `txt` is missing; both are the same defect.
+    const markdown = state.byId.get(MARKDOWN_FALLBACK_ID);
+    if (!markdown) {
+      throw new Error(
+        `[formats] dispatchEditor(null): the markdown format "${MARKDOWN_FALLBACK_ID}" ` +
+          "is not registered — bootstrapFormats() must run before an untitled " +
+          "document is dispatched",
+      );
+    }
+    return markdown;
   }
 
   const keys = formatLookupKeys(filePath);
@@ -199,61 +143,66 @@ export function dispatchEditor(filePath: string | null): FormatConfig {
   for (const key of keys) {
     const assocId = associations[key];
     if (assocId) {
-      const cfg = byId.get(assocId);
+      const cfg = state.byId.get(assocId);
       if (cfg) return cfg;
     }
   }
 
-  // 2. Built-in extension map (markdown only via its own .md-family keys).
-  for (const key of keys) {
-    const hit = byExt.get(key);
-    if (hit) return hit;
-  }
+  // 2. Built-in extension map, keyed by the REAL extension only. The lookup
+  //    keys above include the full basename, which made an extensionless file
+  //    named `md` or `html` resolve to that format — the "markdown is an
+  //    allowlist, not a default" contract broken by a filename (audit round 2).
+  const ext = formatExtensionKey(filePath);
+  const hit = ext === null ? undefined : state.byExt.get(ext);
+  if (hit) return hit;
 
-  // 3. Plain-text fallback — never the markdown editor for a pathed file.
-  return (
-    byId.get(PLAIN_TEXT_FALLBACK_ID) ??
-    byId.get(MARKDOWN_FALLBACK_ID) ??
-    requireFirst()
-  );
+  // 3. Plain-text fallback — never the markdown editor for a pathed file. The
+  //    txt format missing is a bootstrap defect (`bootstrapFormats` registers
+  //    markdown/txt/yaml unconditionally), and it fails loudly rather than
+  //    granting an unknown file the WYSIWYG markdown editor (#404).
+  const plainText = state.byId.get(PLAIN_TEXT_FALLBACK_ID);
+  if (!plainText) {
+    throw new Error(
+      `[formats] dispatchEditor(${JSON.stringify(filePath)}): the plain-text ` +
+        `fallback "${PLAIN_TEXT_FALLBACK_ID}" is not registered — ` +
+        "bootstrapFormats() must run before a pathed file is dispatched",
+    );
+  }
+  return plainText;
 }
 
 export function getFormatById(id: string): FormatConfig | undefined {
-  return byId.get(id);
+  return state.byId.get(id);
 }
 
+/**
+ * Every registered format, in registration order.
+ *
+ * A FROZEN snapshot, not the live array: `readonly` is a compile-time claim
+ * only, so a caller could sort or splice the registry's own list and desync it
+ * from `byId`/`byExt` (audit R2, #800). Cached until the next registration, so
+ * repeat callers keep getting the same identity rather than a fresh array per
+ * call.
+ */
 export function listFormats(): readonly FormatConfig[] {
-  return formats;
+  state.snapshot ??= Object.freeze([...state.formats]);
+  return state.snapshot;
 }
 
 export function getSupportedExtensions(): readonly string[] {
   // Insertion-order traversal preserves registration order (Map guarantee).
-  return [...byExt.keys()];
+  return [...state.byExt.keys()];
 }
 
 /**
- * Clear every registered format. The `__` prefix is historical (this
- * was test-only when first introduced) — production now also calls it
- * via `rebootstrapFormats()` whenever the user flips a `formats.*`
- * settings toggle. Safe to invoke at runtime: callers must immediately
- * re-bootstrap via `bootstrapFormats(toggles)` so the always-on trio
- * (markdown / txt / yaml) re-registers before the next dispatch.
+ * Clear every registered format. TEST-ONLY, and the name is accurate again:
+ * production rebuilds go through `replaceRegistry`, which is atomic. A bare
+ * reset leaves the registry empty, so the very next `dispatchEditor` throws
+ * until something re-registers — fine between tests, never in a running app.
  */
 export function __resetRegistry(): void {
-  formats.length = 0;
-  byId.clear();
-  byExt.clear();
+  state = emptyState();
 }
 
-
-function requireFirst(): FormatConfig {
-  const first = formats[0];
-  if (!first) {
-    throw new Error(
-      "[formats] dispatchEditor called before any format was registered",
-    );
-  }
-  return first;
-}
 
 export { formatLookupKeys, associationKey };

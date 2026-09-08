@@ -45,4 +45,4 @@ steps:
     needs: translate
     with:
       path: triage-and-translate.out.md
-      content: ${{ steps.translate.outputs.text }}
+      input: ${{ steps.translate.outputs.text }}

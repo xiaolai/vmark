@@ -37,7 +37,7 @@
  *   entry points under test
  * @coordinates-with src/test/productionSchema.ts — the schema the round-trip
  *   uses (a projection of the real editor composition, NOT a hand-kept mirror)
- * @module utils/markdownPipeline/__tests__/characterization
+ * @module utils/markdownPipeline/__tests__/characterization/roundtrip.characterization.test
  */
 import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";

@@ -23,21 +23,23 @@ The differentiator isn't "open more file types" — every IDE does that. It's **
 
 ### Menu Bar
 
-- **File**: New, open, save, export operations
-- **Edit**: Undo/redo, clipboard, find/replace, document history
-- **Block**: Headings, lists, blockquotes, line operations
-- **Format**: Text styles, links, text transformations
-- **View**: Editor modes, sidebar, focus/typewriter modes
-- **Tools**: Text cleanup, CJK formatting, image management
+- **File**: New, Quick Open, recent files and workspaces, document history, save, export, print, close
+- **Edit**: Undo/redo, clipboard, find (including Find in Files), selection, line operations, line endings, Genies
+- **Format**: Text styles, headings, lists, blockquotes, text transformations, CJK formatting, text cleanup, image cleanup
+- **Insert**: Links, images, video, audio, tables, code fences, math, diagrams, footnotes, collapsible blocks, info boxes
+- **View**: Editor modes, panes, sidebar panels, focus/typewriter modes, toolbar, terminal, Check Markdown, zoom
+- **Window** (macOS): Minimize, Maximize, Window Status, Coherence Breakdown, Bring All to Front
+- **Help**: VMark Help, Keyboard Shortcuts, the `vmark` shell command (macOS), Report an Issue
 
 ### Editing Modes
 
-VMark supports two editing modes that you can switch between:
+VMark supports three editing modes that you can switch between:
 
 | Mode | Description | Shortcut |
 |------|-------------|----------|
 | Rich Text | WYSIWYG editing with live formatting | Default |
 | Source | Raw Markdown with syntax highlighting | `F6` |
+| Split | Source on the left, live read-only preview on the right | `Shift + F6` |
 
 ### View Modes
 
@@ -66,7 +68,7 @@ Enhance your writing focus with these view modes:
 - **Lists**: Start lines with `-`, `*`, `1.`, or `- [ ]` for task lists
 - **Blockquotes**: Start with `>` or use `Alt/Option + Cmd + Q`
 - **Code blocks**: Use triple backticks with optional language
-- **Tables**: Use the Format menu or `Cmd/Ctrl + Shift + T`
+- **Tables**: Use **Insert → Table** or `Cmd/Ctrl + Shift + T`
 
 ## Working with Files
 
@@ -84,8 +86,8 @@ Enhance your writing focus with these view modes:
 
 ### Exporting
 
-- **Export HTML**: Use **File → Export HTML** — includes interactive VMark Reader
-- **Export PDF**: Use Print (`Cmd/Ctrl + P`) and save as PDF
+- **Export HTML**: **File → Export → HTML** — a folder with `index.html`, `standalone.html` and the interactive VMark Reader
+- **Export PDF**: **File → Export → PDF** — page setup, fonts, page numbers and a sidebar outline; or Print (`Cmd/Ctrl + P`) and use the system dialog's save-as-PDF
 - **Copy as HTML**: `Cmd/Ctrl + Shift + C`
 
 Exported HTML includes the VMark Reader with table of contents, settings panel, and more. [Learn more →](/guide/export)
@@ -113,7 +115,7 @@ VMark includes built-in AI Genies — select text and press `Mod + Y` to polish,
 
 1. **Navigate with outline**: Click outline items to jump between sections
 2. **Try focus mode**: `F8` dims everything except the current paragraph
-3. **Validate as you write**: `Cmd + Shift + L` runs the markdown lint engine and broken-link check
+3. **Validate as you write**: `Alt + Mod + V` (**View → Check Markdown**) runs the markdown lint engine and broken-link check
 4. **Learn shortcuts**: the full reference is in the [shortcuts guide](/guide/shortcuts)
 
 ## Next Steps

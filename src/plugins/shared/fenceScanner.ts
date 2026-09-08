@@ -43,6 +43,7 @@
 import {
   type FenceDelimiter,
   type FenceIndentPolicy,
+  columnAfter,
   quoteDepth,
   isBlankInfo,
   parseFenceDelimiter,
@@ -73,6 +74,36 @@ export interface EnclosingFence {
   markerOffset: number;
   /** Length of the opener's delimiter run (3+). */
   run: number;
+}
+
+/**
+ * A closer the ABSOLUTE 0-3 indent rule cannot see.
+ *
+ * A fence OPENED by a list item is closed at the ITEM'S content column, but
+ * the closer line carries no marker for `containerPrefixParts` to consume — so
+ * its indent is measured from column 0, and `10. ``` ` (content column 4)
+ * could never be closed by the `    ``` ` remark pairs it with. The range then
+ * ran unclosed to the end of the document, and the code-block toggle's unfence
+ * half deleted the opener while leaving the real closer behind as text (audit
+ * R2, #874).
+ *
+ * Re-read the line under the permissive grammar and keep it only when it sits
+ * 0-3 columns past the opener's content column, which is where CommonMark
+ * measures a closing fence from. It only ever ADDS a closer the absolute rule
+ * rejected, so no range this scanner already closes can move.
+ */
+function listItemCloser(
+  openerLine: string,
+  opener: FenceDelimiter,
+  line: string,
+): FenceDelimiter | null {
+  if (!opener.startsListItem) return null;
+  const candidate = parseFenceDelimiter(line, "deep-indent");
+  if (!candidate) return null;
+  // COLUMNS on both sides: the opener's prefix may carry a tab.
+  const contentColumn = columnAfter(openerLine.slice(0, opener.markerOffset - opener.indent));
+  const relative = columnAfter(line.slice(0, candidate.markerOffset)) - contentColumn;
+  return relative >= 0 && relative <= 3 ? candidate : null;
 }
 
 /** The fence enclosing `lineIndex`, or null when that line is not inside one. */
@@ -158,19 +189,26 @@ export function fenceRanges(
       opener = delimiter;
       continue;
     }
+    // The closer the 0-3 rule can see, plus the one it cannot — see
+    // `listItemCloser`. `delimiter` itself is left alone: it also decides
+    // whether the boundary line above OPENS a range, and a continuation line
+    // indented past column 3 opens nothing.
+    const relisted =
+      delimiter || !opener ? null : listItemCloser(lines[open] ?? "", opener, lines[i] ?? "");
+    const closer = delimiter ?? relisted;
     // A closer matches the opener's CHARACTER, is at least as LONG, and carries
     // no info string. Any of the three getting dropped leaves real code outside
     // the fence and unprotected.
     if (
-      delimiter &&
+      closer &&
       opener &&
-      delimiter.marker === opener.marker &&
-      delimiter.run >= opener.run &&
+      closer.marker === opener.marker &&
+      closer.run >= opener.run &&
       // A line carrying a LIST MARKER starts a new item; it cannot close the
       // previous item's fence. Without this, two consecutive list items each
       // opening a fence paired with EACH OTHER, so the second item's code was
       // classified as prose and lost every guard.
-      !delimiter.startsListItem &&
+      !closer.startsListItem &&
       // Indent must be COMPATIBLE, and the rule is ABSOLUTE, not relative.
       //
       // `Math.abs(delimiter.indent - opener.indent) <= 3` looked like
@@ -184,15 +222,20 @@ export function fenceRanges(
       //
       // Under `deep-indent` the extra indentation stands in for a container the
       // line-based scanner cannot see, so it keeps the relative window.
-      (indentPolicy === "commonmark"
-        ? delimiter.indent <= 3
-        : Math.abs(delimiter.indent - opener.indent) <= 3) &&
+      //
+      // `relisted` has already been measured against the opener's content
+      // column, which is the same rule stated where the closer's own indent
+      // cannot express it.
+      (relisted !== null ||
+        (indentPolicy === "commonmark"
+          ? closer.indent <= 3
+          : Math.abs(closer.indent - opener.indent) <= 3)) &&
       // Same CONTAINER: a fence opened inside a blockquote is not closed by a
       // delimiter outside it. Capturing the prefix and then ignoring it paired
       // `> \`\`\`` with a bare \`\`\`, so the real fenced code after it was
       // classified as ordinary markdown and lost its protection.
-      quoteDepth(delimiter.prefix) === quoteDepth(opener.prefix) &&
-      isBlankInfo(delimiter.info)
+      quoteDepth(closer.prefix) === quoteDepth(opener.prefix) &&
+      isBlankInfo(closer.info)
     ) {
       ranges.push({
         open,

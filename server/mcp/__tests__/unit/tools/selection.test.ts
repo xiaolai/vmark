@@ -311,3 +311,36 @@ describe('selection — blank tabId (round-2 audit finding 4)', () => {
     expect(bridge.requests).toHaveLength(0);
   });
 });
+
+describe('selection.set — supplied-but-invalid expected_revision (audit R2 #231)', () => {
+  // Dropping an invalid token to `undefined` disabled stale-write protection
+  // on the one action that REPLACES the user's selected text, and only for
+  // callers that got it wrong.
+  it.each([
+    ['a number', 9],
+    ['null', null],
+    ['a blank string', ' '],
+  ])('refuses expected_revision that is %s', async (_label, revision) => {
+    const { server, bridge } = harness({
+      'vmark.selection.set': () => ({ success: true, data: {} }),
+    });
+
+    const result = await server.callTool('selection', {
+      action: 'set',
+      content: 'x',
+      expected_revision: revision,
+    });
+
+    expect(result.isError).toBe(true);
+    expect(toolText(result)).toContain('expected_revision');
+    expect(bridge.requests).toHaveLength(0);
+  });
+
+  it('still forwards a valid token', async () => {
+    const { server, bridge } = harness({
+      'vmark.selection.set': () => ({ success: true, data: { revision: 'r2' } }),
+    });
+    await server.callTool('selection', { action: 'set', content: 'x', expected_revision: 'r1' });
+    expect(bridge.requests[0].request).toMatchObject({ expected_revision: 'r1' });
+  });
+});

@@ -30,7 +30,7 @@
  * `addKeyboardShortcuts` were removed, so `Mod-b`/`Mod-i` have exactly one
  * authority (the rebindable path). markInputRules now adds no keyboard shortcuts.
  *
- * @coordinates-with services/keybinding/editorMechanics.ts — APPROVED_MECHANICS
+ * @coordinates-with services/keybinding/__tests__/editorMechanics.ts — APPROVED_MECHANICS
  * @coordinates-with services/commands/editorCommandBridge.ts — editor.* surface
  */
 
@@ -38,7 +38,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
-import { APPROVED_MECHANICS, APPROVED_MECHANIC_IDS } from "./editorMechanics";
+import { APPROVED_MECHANICS, APPROVED_MECHANIC_IDS } from "./__tests__/editorMechanics";
 import { getCommand, _resetCommandBus } from "@/services/commands/CommandBus";
 import { registerEditorCommands } from "@/services/commands/editorCommandBridge";
 import { DEFAULT_SHORTCUTS } from "@/stores/settingsStore/shortcutDefinitions";

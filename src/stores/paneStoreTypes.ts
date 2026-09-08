@@ -7,11 +7,15 @@
  * dependency-cruiser's `no-circular` rule refuses. Mirrors the existing
  * `tabStore` / `tabStoreTypes` split, which exists for exactly this reason.
  *
+ * A split is always side-by-side. The stacked (top/bottom) orientation the
+ * shape once carried had no writer — nothing ever set it but a session-restore
+ * replay — and was removed (feature-ledger plan, WI-FL3.10); a persisted
+ * `orientation` is dropped on load (splitLayoutPersistence.ts).
+ *
  * @module stores/paneStoreTypes
  */
 
 export type PaneId = "primary" | "secondary";
-export type SplitOrientation = "horizontal" | "vertical";
 
 /** Resize clamp shared with the divider (mirrors SplitPaneEditor's [0.2, 0.8]). */
 export const MIN_PANE_FRACTION = 0.2;
@@ -20,12 +24,11 @@ export const MAX_PANE_FRACTION = 0.8;
 export interface WindowSplit {
   /** false ⇒ single pane (default); the secondary pane is not rendered. */
   enabled: boolean;
-  orientation: SplitOrientation;
-  /** Primary pane's size as a fraction of the split axis, in [0.2, 0.8]. */
+  /** Primary pane's width as a fraction of the split, in [0.2, 0.8]. */
   fraction: number;
-  /** The document in the primary (left/top) pane. */
+  /** The document in the primary (left) pane. */
   primaryTabId: string | null;
-  /** The document in the secondary (right/bottom) pane. */
+  /** The document in the secondary (right) pane. */
   secondaryTabId: string | null;
   /** Which pane is focused (its tab is mirrored into tabStore.activeTabId). */
   focusedPane: PaneId;
@@ -33,12 +36,16 @@ export interface WindowSplit {
   syncScroll: boolean;
 }
 
-export const DEFAULT_SPLIT: WindowSplit = {
+/**
+ * Frozen (audit #490): `getSplit` hands this very object to every window
+ * without state, so a consumer mutating "its" split would have corrupted the
+ * default for every window with no store update to notice. Updaters spread it.
+ */
+export const DEFAULT_SPLIT: Readonly<WindowSplit> = Object.freeze({
   enabled: false,
-  orientation: "horizontal",
   fraction: 0.5,
   primaryTabId: null,
   secondaryTabId: null,
   focusedPane: "primary",
   syncScroll: false,
-};
+});

@@ -287,3 +287,7 @@ pub fn apply_menu_fixes(app_handle: &tauri::AppHandle) {
     fix_window_menu();
     apply_menu_icons(app_handle);
 }
+
+#[cfg(test)]
+#[path = "macos_menu.test.rs"]
+mod tests;

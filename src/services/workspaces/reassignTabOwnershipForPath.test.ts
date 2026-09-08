@@ -136,7 +136,7 @@ describe("reassignTabOwnershipForPath (WI-13.4)", () => {
     const b2 = useTabStore.getState().createTab(W, "/repo-b/two.md");
     useWorkspaceInstancesStore.getState().setWorkspaceInstanceTabs("wsi-b", [b1, b2], b1);
     useWorkspacePaneLayoutsStore.getState().stashPaneLayout("wsi-b", {
-      enabled: true, orientation: "horizontal", fraction: 0.5,
+      enabled: true, fraction: 0.5,
       primaryTabId: b1, secondaryTabId: b2, focusedPane: "primary", syncScroll: false,
     });
     // Active doc in A gets Saved-As into B.

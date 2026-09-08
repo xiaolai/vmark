@@ -5,7 +5,7 @@
  * `registerViewCommands()`, so callers and tests keep a single entry point.
  */
 
-import { hasCommand, registerCommand } from "./CommandBus";
+import { registerCommands, type CommandDefinition } from "./CommandBus";
 import { useLintStore } from "@/stores/documentStore";
 import { getActiveTabId } from "@/services/navigation/activeDocument";
 import { scrollToSelectedDiagnostic } from "@/services/lint/lintNavigation";
@@ -24,11 +24,15 @@ function step(windowLabel: string, direction: "next" | "prev"): void {
   scrollToSelectedDiagnostic(tabId);
 }
 
-let registered = false;
-export function registerLintCommands(): void {
-  if (registered || hasCommand("lint.check")) return; // HMR: module-local flag resets on reload; the bus registry survives
+/** Owner token this batch registers under (HMR-safe, atomic — see viewCommands). */
+const LINT_COMMANDS_OWNER = "lint-commands";
 
-  registerCommand({
+/** Build the lint command specs (pure — no registration). */
+function buildLintCommandSpecs(): CommandDefinition[] {
+  const specs: CommandDefinition[] = [];
+  const add = (command: CommandDefinition): void => void specs.push(command);
+
+  add({
     id: "lint.check",
     title: () => i18n.t("commands:lint.check"),
     category: "lint",
@@ -37,24 +41,24 @@ export function registerLintCommands(): void {
     },
   });
 
-  registerCommand({
+  add({
     id: "lint.next",
     title: () => i18n.t("commands:lint.next"),
     category: "lint",
     run: (_args, ctx: Ctx) => step(ctx.windowLabel ?? "main", "next"),
   });
 
-  registerCommand({
+  add({
     id: "lint.prev",
     title: () => i18n.t("commands:lint.prev"),
     category: "lint",
     run: (_args, ctx: Ctx) => step(ctx.windowLabel ?? "main", "prev"),
   });
 
-  registered = true;
+  return specs;
 }
 
-/** Test-only: reset the module registration guard so a fresh CommandBus can be repopulated. */
-export function __resetLintCommandsRegistration(): void {
-  registered = false;
+/** Register the markdown-lint command set as one owner batch (audit #459). */
+export function registerLintCommands(): void {
+  registerCommands(LINT_COMMANDS_OWNER, buildLintCommandSpecs());
 }

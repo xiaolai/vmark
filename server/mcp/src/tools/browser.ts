@@ -15,33 +15,41 @@
  * charged a human approval to the safest, most frequent call in the surface.
  * Splitting along "does this modify anything?" lets each half tell the truth.
  *
- * Plan: dev-docs/plans/20260712-0610-embedded-browser-sites-workflows.md WI-2.5.
+ * Origin: Embedded browser sites and workflows plan (2026-07-12, retired) WI-2.5.
  *
  * The schema and this registration live here; the per-action handlers are the
- * table in `browserActions.ts`. The `action` enum below stays a LITERAL array
- * rather than deriving from that table's `BROWSER_ACTIONS`: the docs-drift gate
- * (`scripts/check-mcp-docs.mjs`) regex-reads the FIRST `z.enum([...])` that
- * follows an `action` key in every tool file, and a derived enum blinds it
- * silently (measured: 12 → 0 actions). So does a comment that spells the
- * pattern out in the gate's own shape — hence this wording. The two lists are
- * pinned equal, in order, by `browserActions.test.ts`.
+ * table in `browserActions.ts`, and the `action` enum DERIVES from that table's
+ * `BROWSER_ACTIONS` — one list, owned by the table. It used to be a copied
+ * literal because the docs-drift gate (`scripts/check-mcp-docs.mjs`) could only
+ * read an enum declared in the same file; the gate now follows a sibling
+ * import to the const it names, and the tool registry (`index.ts`) reads the
+ * same list for its action count (audit 20260907 #100).
  *
  * @coordinates-with tools/browserActions.ts (the action table this registers)
  * @coordinates-with tools/browserRead.ts (the read-only half — shares browserArgs/browserDispatch)
- * @coordinates-with scripts/check-mcp-docs.mjs (reads the `action` enum literal below)
+ * @coordinates-with scripts/check-mcp-docs.mjs (reads the `action` enum through the import)
  */
 
 import { z } from 'zod';
 import { VMarkMcpServer } from '../server.js';
 import type { ToolArgs } from './toolArgs.js';
 import { optionalIdSchema, readOptionalId } from './toolArgs.js';
-import { MAX_WAIT_MS, scriptSchema } from './browserArgs.js';
-import { runBrowserAction } from './browserActions.js';
+import {
+  MAX_WAIT_MS,
+  boundedStringArraySchema,
+  boundedStringRecordSchema,
+  boundedTextSchema,
+  scriptSchema,
+  urlSchema,
+} from './browserArgs.js';
+import { BROWSER_ACTIONS, runBrowserAction } from './browserActions.js';
+
+export const BROWSER_TOOL = 'browser' as const;
 
 export function registerBrowserTool(server: VMarkMcpServer): void {
   server.registerTool(
     {
-      name: 'browser',
+      name: BROWSER_TOOL,
       title: 'VMark Embedded Browser',
       // The most dangerous tool in the surface: `act` drives a live page,
       // `execute_js` runs caller-supplied script, `session_save/load` touch
@@ -76,13 +84,7 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
         "- workflow_cancel: Stop a running workflow. Args {tabId?, runId}. Always allowed — never approval-gated. Withdraws the run's pending prompts and hands the tab back to the user.\n" +
         "- workflow_record: Record the USER's own actions on an AI-owned tab into a replayable workflow. Args {tabId?, recordOp:\"start\"|\"stop\", site?}. `start` needs a fresh per-call user approval (`record` is never a standing grant); it returns needsApproval until the user allows, then begins capturing clicks and field edits. `stop` returns {source, inputs, eventCount} — value-free workflow `source` you can save or pass to workflow_run. NOTHING typed is captured: every text field becomes a named {input} variable, a password field becomes a `confirm:` human-gate step, and URLs are stripped to origin+path. Records the LOCATORS the user touched, never their data.",
       inputSchema: {
-        action: z
-          .enum([
-            'act', 'open', 'navigate', 'close', 'style', 'execute_js',
-            'session_save', 'session_load', 'console_clear',
-            'workflow_run', 'workflow_cancel', 'workflow_record',
-          ])
-          .describe('The action to perform'),
+        action: z.enum(BROWSER_ACTIONS).describe('The action to perform'),
         tabId: optionalIdSchema(
           'Target browser tab id (from session.get_state). Omit to use the focused tab.',
         ),
@@ -124,12 +126,12 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
             'Stable element handle from a prior browser_read (e.g. "e5"). The precise act target — used instead of role+name, and only for an already-granted operation (act, style).',
           ),
         selector: z.string().optional().describe('CSS selector (style only).'),
-        set: z
-          .record(z.string(), z.string())
-          .optional()
-          .describe('Inline style properties to set, {cssProp: value} (style only).'),
-        addClasses: z.array(z.string()).optional().describe('Classes to add (style only).'),
-        removeClasses: z.array(z.string()).optional().describe('Classes to remove (style only).'),
+        // Bounded like a script, and for the same reason: each of these is
+        // retained verbatim and rendered in a human approval dialog. They had
+        // no bound at all (audit R3 #208).
+        set: boundedStringRecordSchema('Inline style properties to set, {cssProp: value} (style only).'),
+        addClasses: boundedStringArraySchema('Classes to add (style only).'),
+        removeClasses: boundedStringArraySchema('Classes to remove (style only).'),
         injectCss: scriptSchema(
           'CSS to inject as a <style> block — page-wide, NOT selector-scoped (style only).',
         ),
@@ -142,14 +144,8 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
           .regex(/^[A-Za-z0-9._-]{1,128}$/)
           .optional()
           .describe('Name of a saved session, [A-Za-z0-9._-], 1..128 chars (session_save / session_load).'),
-        source: z
-          .string()
-          .optional()
-          .describe('Workflow source text (workflow_run only).'),
-        inputs: z
-          .record(z.string(), z.string())
-          .optional()
-          .describe('Input variable values for {name} substitution (workflow_run only).'),
+        source: boundedTextSchema('Workflow source text (workflow_run only).'),
+        inputs: boundedStringRecordSchema('Input variable values for {name} substitution (workflow_run only).'),
         allowRepeat: z
           .boolean()
           .optional()
@@ -179,8 +175,10 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
           .regex(/^[A-Za-z0-9._-]{1,64}$/)
           .optional()
           .describe('Named persistent context [A-Za-z0-9._-] to reuse a saved login (open only; per-use approved; macOS 14+).'),
-        text: z.string().optional().describe('Text to type into the target (act, operation=type).'),
-        url: z.string().optional().describe('HTTP(S) destination (open/navigate only).'),
+        text: boundedTextSchema('Text to type into the target (act, operation=type).'),
+        // The description has always promised HTTP(S); the schema accepted any
+        // string, so a client could not see the constraint (audit R3 #209).
+        url: urlSchema('HTTP(S) destination (open/navigate only).'),
         // The bounds that the old JSON-Schema → Zod converter silently dropped:
         // the client-visible schema advertised neither `minimum` nor `maximum`.
         timeoutMs: z
@@ -200,7 +198,7 @@ export function registerBrowserTool(server: VMarkMcpServer): void {
       if (!tab.ok) return VMarkMcpServer.errorResult(tab.error);
       const tabId = tab.value;
 
-        return runBrowserAction(server, args, tabId);
+      return runBrowserAction(server, args, tabId);
     },
   );
 }

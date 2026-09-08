@@ -16,7 +16,9 @@
  *   - CJK formatting settings are fine-grained (20+ toggles) to support the
  *     diverse conventions across Simplified Chinese, Traditional Chinese, and
  *     Japanese typography.
- *   - paragraphSpacing → blockSpacing migration handled in merge function.
+ *   - Persisted-blob migrations (paragraphSpacing → blockSpacing, retired
+ *     flags) run as ONE ordered pipeline from settingsStore/migrations.ts —
+ *     never listed by hand here, where a forgotten call left a step inactive.
  *   - Bounded numeric settings (CLAMP_RANGES) are clamped both on every set
  *     and at the persist boundary, so corrupt/devtools values can't render
  *     the editor broken (D4).
@@ -42,15 +44,10 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { createSafeStorage } from "@/services/persistence/safeStorage";
 import { createSectionMergingStorage } from "./persistedSectionMerge";
-import {
-  migrateWorkspaceRailModeToGeneral,
-  migrateRemoveInputGate,
-  migrateSplitWorkflowFlags,
-} from "./settingsStore/migrations";
+import { runPersistedSettingsMigrations } from "./settingsStore/migrations";
 import { initialState, type ObjectSections } from "./settingsStore/defaults";
 import { clampSettingValue } from "./settingsStore/clamp";
 import { reconcileSettings } from "./settingsStore/reconcile";
-import { isPlainObject } from "./settingsStore/persistGuards";
 import type { SettingsState, SettingsActions } from "./settingsTypes";
 
 // Re-exported for tests + existing callers that import from "@/stores/settingsStore".
@@ -160,23 +157,10 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
       // Deep merge to preserve new default properties when loading old localStorage
       merge: (persistedState, currentState) => {
         const rawPersisted = (persistedState ?? {}) as Record<string, unknown>;
-        // Migration: paragraphSpacing -> blockSpacing. Runs on the raw blob,
-        // BEFORE shape-sanitization — so `appearance` is still untrusted here.
-        // `in` throws a TypeError on a primitive (`appearance: "evil"`), which
-        // would abort hydration and silently drop every persisted setting;
-        // isPlainObject is the same guard the sibling migration already uses.
-        const appearance = rawPersisted.appearance;
-        if (
-          isPlainObject(appearance) &&
-          "paragraphSpacing" in appearance &&
-          !("blockSpacing" in appearance)
-        ) {
-          appearance.blockSpacing = appearance.paragraphSpacing;
-          delete appearance.paragraphSpacing;
-        }
-        migrateWorkspaceRailModeToGeneral(rawPersisted);
-        migrateRemoveInputGate(rawPersisted);
-        migrateSplitWorkflowFlags(rawPersisted);
+        // Every persisted-blob migration, in order, on the raw untrusted blob
+        // BEFORE shape-sanitization (the pipeline is pinned complete by
+        // migrations.test.ts — audit #495).
+        runPersistedSettingsMigrations(rawPersisted);
         // T4/D4: the shared trust boundary — shape-sanitize, deep-merge, clamp
         // bounded numerics, normalize browser posture. The cross-window
         // storage-event path in useSettingsSync runs this exact function, so

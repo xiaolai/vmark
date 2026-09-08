@@ -13,7 +13,7 @@
  *   Dedupes by resolved absolute path so each path is checked at
  *   most once per invocation.
  *
- * @coordinates-with src/stores/lintStore.ts — runs on save, merges
+ * @coordinates-with src/stores/documentStore/lint.ts — runs on save, merges
  *   results into the same diagnostic gutter as the sync lint engine.
  * @module lib/markdownLinkCheck/check
  */
@@ -27,6 +27,7 @@ import {
 import type { Root, Link, Image } from "mdast";
 import { createMarkdownProcessor } from "@/utils/markdownPipeline/parser";
 import { decodeMarkdownUrl } from "@/utils/markdownUrl";
+import { ruleEmission } from "@/lib/lintEngine/ruleMeta";
 import {
   createDiagnostic,
   type LintDiagnostic,
@@ -195,8 +196,7 @@ export async function checkLocalLinks(
     for (const r of refs) {
       diagnostics.push(
         createDiagnostic({
-          ruleId: r.kind === "image" ? "M001" : "M002",
-          severity: "error",
+          ...ruleEmission(r.kind === "image" ? "M001" : "M002"),
           line: r.line,
           column: r.column,
           offset: r.offset,

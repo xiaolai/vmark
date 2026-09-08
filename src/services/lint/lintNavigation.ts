@@ -5,8 +5,8 @@
  * selected lint diagnostic. Used by both the keyboard shortcut handler and
  * the menu event handler so behaviour stays in sync.
  *
- * @coordinates-with lintStore.ts — reads diagnosticsByTab, selectedIndexByTab
- * @coordinates-with activeEditorStore.ts — reads activeSourceView
+ * @coordinates-with stores/documentStore/lint.ts — reads diagnosticsByTab, selectedIndexByTab
+ * @coordinates-with stores/editorStore.ts — reads activeSourceView
  * @coordinates-with editorStore.ts — reads sourceMode
  * @module services/lint/lintNavigation
  */

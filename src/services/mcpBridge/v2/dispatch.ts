@@ -7,7 +7,7 @@
  *   enumerates supported tools (diagnostic errors, capability docs)
  *   must import this rather than carry its own list.
  *
- * Plan: dev-docs/plans/20260504-mcp-pruning.md WI-1.2 (initial 4 tools)
+ * Origin: MCP pruning plan (2026-05-04, retired) WI-1.2 (initial 4 tools)
  *   and WI-2.1 (selection re-add per ADR-7).
  *
  * Key decisions:
@@ -24,7 +24,7 @@
  *     which read the tables instead of scraping case labels.
  *
  * @coordinates-with services/mcpBridge/handleRequest.ts — top-level router; consumes SUPPORTED_TOOL_PREFIXES
- * @coordinates-with services/mcpBridge/v2/operationManifest.ts — the manifest the tables must match
+ * @coordinates-with services/mcpBridge/v2/__tests__/operationManifest.ts — the manifest the tables must match
  * @module services/mcpBridge/v2/dispatch
  */
 

@@ -205,12 +205,10 @@ describe("persistWorkspaceSession", () => {
     const secondary = useTabStore.getState().createTab(WINDOW_LABEL, "/project/b.md");
     useTabStore.getState().setActiveTab(WINDOW_LABEL, primary);
     usePaneStore.getState().openSplit(WINDOW_LABEL, secondary);
-    usePaneStore.getState().setOrientation(WINDOW_LABEL, "vertical");
 
     await persistWorkspaceSession(WINDOW_LABEL);
 
     expect(loadSplitLayout("/project")).toEqual({
-      orientation: "vertical",
       fraction: 0.5,
       syncScroll: false,
       primaryPath: "/project/a.md",

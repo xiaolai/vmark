@@ -6,7 +6,7 @@
  * deterministic CJK rewriter, preserved because the rules are too
  * nuanced for AI prose to reproduce reliably.
  *
- * Plan: dev-docs/plans/20260504-mcp-pruning.md ADR-1, ADR-2, ADR-4.
+ * Origin: MCP pruning plan (2026-05-04, retired) ADR-1, ADR-2, ADR-4.
  */
 
 import { z } from 'zod';
@@ -18,7 +18,13 @@ import {
   structuredJsonResult,
 } from '../utils/toolOutput.js';
 import { bridgeErrorResult } from './staleError.js';
-import { optionalIdSchema, readOptionalId } from './toolArgs.js';
+import {
+  optionalIdSchema,
+  optionalRevisionSchema,
+  readOptionalBoolean,
+  readOptionalId,
+  readOptionalRevision,
+} from './toolArgs.js';
 
 /**
  * Turn a bridge failure into a tool result, keeping a STALE refusal
@@ -29,10 +35,13 @@ function toErrorResult(error: unknown): ToolCallResult {
   return bridgeErrorResult(error, 'document.read');
 }
 
+export const DOCUMENT_TOOL = 'document' as const;
+export const DOCUMENT_ACTIONS = ['read', 'write', 'transform'] as const;
+
 export function registerDocumentTool(server: VMarkMcpServer): void {
   server.registerTool(
     {
-      name: 'document',
+      name: DOCUMENT_TOOL,
       title: 'VMark Document Read/Write',
       // Composite-tool tension: `read` is pure, `write` replaces the entire
       // document AND persists it. One annotation set covers both, so it states
@@ -52,7 +61,7 @@ export function registerDocumentTool(server: VMarkMcpServer): void {
         '- write: Replace full document content AND save to disk. Args: {tabId?, content, expected_revision?, save?}. By default the new content is also persisted to the file on disk so a subsequent disk read sees the new value — do NOT bypass MCP and write the file yourself; that loses checkpoint history and races with VMark\'s buffer. Set `save: false` only if you explicitly want to stage in-memory without persistence (rare). Response carries structured save fields you can branch on without parsing prose: `saved: true` → buffer updated AND disk write succeeded. `saved: false` + `save_skipped: "untitled"` → tab has no filePath; call `workspace.save_as` to choose one. `saved: false` + `save_skipped: "opt_out"` → you passed `save: false` (in-memory only). `saved: false` + `save_error: <message>` → write attempt failed on the FS (e.g. read-only); do not retry, surface the error to the user. `save_skipped` and `save_error` are mutually exclusive. If `expected_revision` is supplied and does not match the current revision, returns a STALE error carrying the up-to-date `current_revision` BOTH in the message and in the error\'s `structuredContent` (so you can branch on it without parsing prose); the caller should re-read and retry. If omitted, the write is unconditional (use only when no prior read exists, e.g. greenfield drafting).\n' +
         '- transform: Apply a deterministic rewrite. Args: {tabId?, kind, expected_revision?}. `kind` is one of "cjk-format" (full CJK formatting per user settings), "cjk-spacing" (insert spaces between CJK and Latin/digits), "cjk-punctuation" (convert ASCII punctuation adjacent to CJK to fullwidth).',
       inputSchema: {
-        action: z.enum(['read', 'write', 'transform']).describe('The action to perform'),
+        action: z.enum(DOCUMENT_ACTIONS).describe('The action to perform'),
         tabId: optionalIdSchema(
           'Target tab id (from session.get_state). Omit to use the focused tab.',
         ),
@@ -61,12 +70,9 @@ export function registerDocumentTool(server: VMarkMcpServer): void {
           .enum(['cjk-format', 'cjk-spacing', 'cjk-punctuation'])
           .optional()
           .describe('Transform kind (transform only).'),
-        expected_revision: z
-          .string()
-          .optional()
-          .describe(
-            'Optimistic-concurrency token from the most recent read (write/transform only).',
-          ),
+        expected_revision: optionalRevisionSchema(
+          'Optimistic-concurrency token from the most recent read (write/transform only).',
+        ),
         save: z
           .boolean()
           .default(true)
@@ -136,10 +142,13 @@ export function registerDocumentTool(server: VMarkMcpServer): void {
       const tab = readOptionalId(args.tabId, 'tabId');
       if (!tab.ok) return VMarkMcpServer.errorResult(tab.error);
       const tabId = tab.value;
-      const expected_revision =
-        typeof args.expected_revision === 'string'
-          ? args.expected_revision
-          : undefined;
+      // A SUPPLIED but invalid revision is refused, never normalised to
+      // `undefined` — that conversion turned a guarded write into an
+      // unconditional one for exactly the callers who got it wrong
+      // (audit R2 #226).
+      const revision = readOptionalRevision(args.expected_revision);
+      if (!revision.ok) return VMarkMcpServer.errorResult(revision.error);
+      const expected_revision = revision.value;
 
       try {
         if (action === 'read') {
@@ -154,8 +163,12 @@ export function registerDocumentTool(server: VMarkMcpServer): void {
           if (typeof args.content !== 'string') {
             return VMarkMcpServer.errorResult('content (string) is required');
           }
-          // Default save: true — only forward an explicit false.
-          const save = args.save === false ? false : undefined;
+          // Default save: true — only forward an explicit false. A SUPPLIED
+          // non-boolean is refused: `=== false` read the string "false" as
+          // "use the default" and wrote to disk (audit R2 #227).
+          const saveArg = readOptionalBoolean(args.save, 'save');
+          if (!saveArg.ok) return VMarkMcpServer.errorResult(saveArg.error);
+          const save = saveArg.value === false ? false : undefined;
           const data = await server.sendBridgeRequest({
             type: 'vmark.document.write',
             tabId,
@@ -180,8 +193,12 @@ export function registerDocumentTool(server: VMarkMcpServer): void {
       } catch (error) {
         return toErrorResult(error);
       }
+      // Generated from DOCUMENT_ACTIONS, the exported source of truth the
+      // schema enum also reads. The hardcoded prose went stale the moment an
+      // action was added or renamed, and it is the only thing a caller who got
+      // the action wrong has to go on (audit R3 #228).
       return VMarkMcpServer.errorResult(
-        `Invalid action: ${String(action)}. Expected: read, write, or transform`,
+        `Invalid action: ${String(action)}. Expected: ${DOCUMENT_ACTIONS.join(', ')}`,
       );
     },
   );

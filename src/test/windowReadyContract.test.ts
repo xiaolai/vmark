@@ -16,7 +16,7 @@
  *
  * @coordinates-with src/contexts/useWindowReady.ts — sets the attribute
  * @coordinates-with e2e/lib/readiness.mjs — gates readiness on it
- * @module test/windowReadyContract
+ * @module test/windowReadyContract.test
  */
 
 import { readFileSync } from "node:fs";

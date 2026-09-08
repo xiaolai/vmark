@@ -63,7 +63,6 @@ export const initialState: SettingsState = {
     cjkLetterSpacing: "0", // Off by default
     editorWidth: 50, // em units, 0 = unlimited (50em ≈ 900px at 18px font)
     showFilenameInTitlebar: false,
-    autoHideStatusBar: false,
     focusModeDim: "standard", // color-only dimming by default (current behavior)
   },
   cjkFormatting: { ...DEFAULT_CJK_FORMATTING },
@@ -124,14 +123,12 @@ export const initialState: SettingsState = {
   },
   advanced: {
     mcpServer: {
-      port: 9223,
       autoStart: true,
       autoApproveEdits: false, // Require approval by default (safer)
     },
     customLinkProtocols: ["obsidian", "vscode", "dict", "x-dictionary"],
     developerMode: false,
     keepBothEditorsAlive: false,
-    workflowViewer: false,
     workflowEngine: false,
     workflowEditorPreserveYamlFormatting: true,
     workflowFetchActionMetadata: true,

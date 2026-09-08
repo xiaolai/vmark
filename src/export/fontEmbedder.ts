@@ -215,13 +215,6 @@ export function getUserFontFile(settingsKey: string): FontFile | null {
 }
 
 /**
- * Try to get a Google Fonts URL for a font family.
- */
-export function getGoogleFontUrl(family: string): string | null {
-  return GOOGLE_FONTS[family] ?? null;
-}
-
-/**
  * Check if content contains math (KaTeX) that requires font embedding.
  */
 export function contentHasMath(html: string): boolean {

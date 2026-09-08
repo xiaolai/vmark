@@ -18,7 +18,7 @@
  * @module services/commands/formatCommands
  */
 
-import { hasCommand, registerCommand } from "./CommandBus";
+import { registerCommands, type CommandDefinition } from "./CommandBus";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { getActiveTabId } from "@/services/navigation/activeDocument";
@@ -79,34 +79,37 @@ const OVERRIDE_COMMANDS = [
   { id: "format.resetType", formatId: null },
 ] as const;
 
-let registered = false;
-export function registerFormatCommands(): void {
-  // HMR: the module-local flag resets on reload, but the bus registry survives.
-  if (registered || hasCommand("format.setPlainText")) return;
+/** Owner token this batch registers under (HMR-safe, atomic — see viewCommands). */
+const FORMAT_COMMANDS_OWNER = "format-commands";
 
-  for (const { id, formatId } of OVERRIDE_COMMANDS) {
-    registerCommand({
-      id,
-      title: () => i18n.t(`commands:${id}`),
-      category: "format",
-      when: (ctx: Ctx) => activeKey(ctx) !== null,
-      run: (_args, ctx: Ctx) => {
-        const key = activeKey(ctx);
-        if (!key) return;
-        if (!setAssociation(key, formatId)) return;
-        toast.info(
-          formatId === null
-            ? i18n.t("commands:format.toast.reset", { key })
-            : i18n.t("commands:format.toast.set", { key, format: formatName(formatId) }),
-        );
-      },
-    });
-  }
-
-  registered = true;
+/** Build the three override command specs (pure — no registration). */
+function buildFormatCommandSpecs(): CommandDefinition[] {
+  return OVERRIDE_COMMANDS.map(({ id, formatId }) => ({
+    id,
+    title: () => i18n.t(`commands:${id}`),
+    category: "format",
+    when: (ctx: Ctx) => activeKey(ctx) !== null,
+    run: (_args: unknown, ctx: Ctx) => {
+      const key = activeKey(ctx);
+      if (!key) return;
+      if (!setAssociation(key, formatId)) return;
+      toast.info(
+        formatId === null
+          ? i18n.t("commands:format.toast.reset", { key })
+          : i18n.t("commands:format.toast.set", { key, format: formatName(formatId) }),
+      );
+    },
+  }));
 }
 
-/** Test-only — reset the idempotency latch so each test re-registers. */
-export function __resetFormatCommandsRegistration(): void {
-  registered = false;
+/**
+ * Register the three override commands as ONE owner batch (audit #906).
+ *
+ * Checking only the first id could not detect foreign ownership, and a
+ * `registerCommand` that threw part-way left an incomplete batch that every
+ * later retry skipped. `registerCommands` preflights all three and replaces
+ * its own previous batch (#459).
+ */
+export function registerFormatCommands(): void {
+  registerCommands(FORMAT_COMMANDS_OWNER, buildFormatCommandSpecs());
 }

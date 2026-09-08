@@ -16,19 +16,32 @@ import type { WorkflowIR } from "@/lib/ghaWorkflow/types";
 import { GhaWorkflowWorkbench } from "../GhaWorkflowWorkbench";
 import { useWorkflowStore } from "@/stores/workflowStore";
 import { useDocumentStore } from "@/stores/documentStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 
 const mockSaveToPath = vi.fn();
 vi.mock("@/services/persistence/saveToPath", () => ({
   saveToPath: (...args: unknown[]) => mockSaveToPath(...args),
 }));
 
-const mockToast = { success: vi.fn(), error: vi.fn() };
+const mockToast = {
+  success: vi.fn(),
+  error: vi.fn(),
+  info: vi.fn(),
+  warning: vi.fn(),
+};
 vi.mock("@/services/ime/imeToast", () => ({
   imeToast: {
     success: (...args: unknown[]) => mockToast.success(...args),
     error: (...args: unknown[]) => mockToast.error(...args),
+    info: (...args: unknown[]) => mockToast.info(...args),
+    warning: (...args: unknown[]) => mockToast.warning(...args),
   },
 }));
+
+// The forms editor runs actionlint over its tab (WI-FL3.8). That path has
+// its own cases under WorkflowEditor/; here it is switched off so the
+// save-pipeline cases are not joined by an IPC firing after the debounce.
+const initialAdvanced = useSettingsStore.getState().advanced;
 
 const WORKFLOW_YAML = [
   "name: ci",
@@ -43,7 +56,6 @@ const WORKFLOW_YAML = [
 
 beforeEach(() => {
   // jsdom shims required by @xyflow/react under WorkflowCanvas.
-  // @ts-expect-error jsdom shim
   global.ResizeObserver = class {
     observe() {}
     unobserve() {}
@@ -65,6 +77,13 @@ beforeEach(() => {
   mockSaveToPath.mockReset();
   mockToast.success.mockReset();
   mockToast.error.mockReset();
+  mockToast.warning.mockReset();
+  useSettingsStore.setState({
+    advanced: {
+      ...useSettingsStore.getState().advanced,
+      workflowActionlint: false,
+    },
+  });
   useWorkflowStore.getState().resetGha();
   useWorkflowStore.getState().resetEdit();
   useWorkflowStore.getState().resetView();
@@ -88,6 +107,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  useSettingsStore.setState({ advanced: initialAdvanced });
 });
 
 const sampleIr = (): WorkflowIR => ({
@@ -169,6 +189,27 @@ describe("GhaWorkflowWorkbench", () => {
     );
   });
 
+  // Audit 20260907 (#292): the binding read the document's filePath through
+  // getState() while the effect depended only on the IR and the tab, so a
+  // Save As of an untitled workflow left the queue bound under the OLD id.
+  it("rebinds when the document's filePath changes without a remount (Save As)", async () => {
+    useDocumentStore.setState({
+      documents: { "tab-1": { content: WORKFLOW_YAML, filePath: null } },
+    } as never);
+    render(<GhaWorkflowWorkbench workflow={sampleIr()} tabId="tab-1" />);
+    await waitFor(() =>
+      expect(useWorkflowStore.getState().edit.boundDocumentId).toBe("untitled:tab-1"),
+    );
+
+    useDocumentStore.setState({
+      documents: { "tab-1": { content: WORKFLOW_YAML, filePath: "/repo/.github/workflows/new.yml" } },
+    } as never);
+
+    await waitFor(() =>
+      expect(useWorkflowStore.getState().edit.boundDocumentId).toBe("/repo/.github/workflows/new.yml"),
+    );
+  });
+
   it("resets the canvas selection when the bound document changes", async () => {
     const { rerender } = render(
       <GhaWorkflowWorkbench workflow={sampleIr()} tabId="tab-1" />,
@@ -195,6 +236,41 @@ describe("GhaWorkflowWorkbench", () => {
       ),
     );
     expect(useWorkflowStore.getState().view.selectedJobId).toBeNull();
+  });
+
+  // Audit 20260907 (#293, round 2): the mount/re-parse effect bound
+  // unconditionally, so a second pane mounting — or re-parsing after an
+  // external change — redirected the binding away from a pane the user was
+  // still typing in, with no pointer or focus event to bind it back.
+  it("does not take the binding from a workbench the user is focused in (mount or re-parse)", async () => {
+    useWorkflowStore.getState().bindToDocument("/repo/.github/workflows/other.yml");
+    const otherPanesForm = document.createElement("input");
+    document.body.appendChild(otherPanesForm);
+    otherPanesForm.focus();
+
+    const { rerender } = render(<GhaWorkflowWorkbench workflow={sampleIr()} tabId="tab-1" />);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(useWorkflowStore.getState().edit.boundDocumentId).toBe("/repo/.github/workflows/other.yml");
+
+    // A re-parse of THIS pane's document (external change) must not steal it either.
+    rerender(<GhaWorkflowWorkbench workflow={sampleIr()} tabId="tab-1" />);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(useWorkflowStore.getState().edit.boundDocumentId).toBe("/repo/.github/workflows/other.yml");
+
+    // Focus arriving here is what binds this pane.
+    const root = document.querySelector(".gha-workflow-workbench") as HTMLElement;
+    root.dispatchEvent(new Event("focusin", { bubbles: true }));
+    expect(useWorkflowStore.getState().edit.boundDocumentId).toBe("/repo/.github/workflows/ci.yml");
+    otherPanesForm.remove();
+  });
+
+  it("binds on mount when nothing holds keyboard focus, even with another document bound", async () => {
+    useWorkflowStore.getState().bindToDocument("/repo/.github/workflows/other.yml");
+    (document.activeElement as HTMLElement | null)?.blur();
+    render(<GhaWorkflowWorkbench workflow={sampleIr()} tabId="tab-1" />);
+    await waitFor(() =>
+      expect(useWorkflowStore.getState().edit.boundDocumentId).toBe("/repo/.github/workflows/ci.yml"),
+    );
   });
 
   it("without a tabId, the forms editor is not mounted (canvas-only degraded mode)", async () => {
@@ -271,6 +347,178 @@ describe("GhaWorkflowWorkbench", () => {
       expect(mockToast.success).toHaveBeenCalled();
     });
 
+    // Audit 20260907 (#293/#296): the edit store has ONE active binding, and
+    // every mounted workbench binds it on mount — so with two workflow panes
+    // the last mount won and the other pane's forms queued patches under the
+    // wrong document. The store stashes each document's queue on rebind, so a
+    // workbench now rebinds to ITS document on interaction (pointer or focus)
+    // and again before it saves, and only ever applies its own queue.
+    it("saves ITS OWN document's queue even after another workbench rebound the store", async () => {
+      const user = userEvent.setup();
+      mockSaveToPath.mockResolvedValue(true);
+      const save = await renderAndQueuePatch();
+      // The other pane's workbench mounted and took the binding; this pane's
+      // patch is stashed under its own document.
+      useWorkflowStore.getState().bindToDocument("/repo/.github/workflows/other.yml");
+      useWorkflowStore
+        .getState()
+        .queuePatch({ kind: "workflow.set", path: "name", value: "the-other-document" });
+      expect(useWorkflowStore.getState().edit.pendingPatches).toHaveLength(1);
+
+      await user.click(save);
+
+      await waitFor(() => expect(mockSaveToPath).toHaveBeenCalledTimes(1));
+      const [, path, next] = mockSaveToPath.mock.calls[0] as [string, string, string];
+      expect(path).toBe("/repo/.github/workflows/ci.yml");
+      expect(next).toContain("name: renamed");
+      expect(next).not.toContain("the-other-document");
+      expect(useWorkflowStore.getState().edit.boundDocumentId).toBe("/repo/.github/workflows/ci.yml");
+      // The other document's queue is untouched in its stash.
+      expect(useWorkflowStore.getState().edit.patchesByDocument["/repo/.github/workflows/other.yml"]).toHaveLength(1);
+    });
+
+    it.each(["pointerdown", "focusin"] as const)(
+      "%s inside the workbench rebinds the store to its document without resetting the selection",
+      async (eventName) => {
+        render(<GhaWorkflowWorkbench workflow={sampleIr()} tabId="tab-1" />);
+        await waitFor(() =>
+          expect(useWorkflowStore.getState().edit.boundDocumentId).toBe("/repo/.github/workflows/ci.yml"),
+        );
+        useWorkflowStore.getState().selectJob("build");
+        useWorkflowStore.getState().bindToDocument("/repo/.github/workflows/other.yml");
+
+        const root = document.querySelector(".gha-workflow-workbench") as HTMLElement;
+        root.dispatchEvent(new Event(eventName, { bubbles: true }));
+
+        expect(useWorkflowStore.getState().edit.boundDocumentId).toBe("/repo/.github/workflows/ci.yml");
+        expect(useWorkflowStore.getState().view.selectedJobId).toBe("build");
+      },
+    );
+
+    // Audit 20260907 (#297): applyAndSerialize returns the ORIGINAL yaml when
+    // the document will not parse or a patch cannot be applied, and the save
+    // then wrote the unchanged text, cleared the queue and toasted "saved" —
+    // the user's edits gone with a success message. Unchanged output with a
+    // pending queue is that failure (or a no-op), and neither writes nor clears.
+    it("does not write, clear or claim success when the patches did not change the YAML", async () => {
+      const user = userEvent.setup();
+      useDocumentStore.setState({
+        documents: {
+          "tab-1": { content: "name: [unclosed\n", filePath: "/repo/.github/workflows/ci.yml" },
+        },
+      } as never);
+      const save = await renderAndQueuePatch();
+      await user.click(save);
+
+      await waitFor(() => expect(mockToast.warning).toHaveBeenCalledTimes(1));
+      expect(mockSaveToPath).not.toHaveBeenCalled();
+      expect(useDocumentStore.getState().documents["tab-1"].content).toBe("name: [unclosed\n");
+      expect(useWorkflowStore.getState().edit.pendingPatches).toHaveLength(1);
+      expect(mockToast.success).not.toHaveBeenCalled();
+    });
+
+    // Audit 20260907 (#298): the forms stay editable while the disk write is
+    // in flight. Clearing the WHOLE queue afterwards dropped a patch queued
+    // during the write, and overwriting the editor with the pre-write text
+    // discarded what the user typed meanwhile. Only the snapshot that was
+    // written is cleared; the editor is overwritten only if it did not move.
+    it("keeps a patch queued during the save, and ignores a second Save while one is in flight", async () => {
+      const user = userEvent.setup();
+      let finishWrite!: (ok: boolean) => void;
+      mockSaveToPath.mockImplementation(
+        () =>
+          new Promise<boolean>((resolve) => {
+            finishWrite = resolve;
+          }),
+      );
+      const save = await renderAndQueuePatch();
+      await user.click(save);
+      await waitFor(() => expect(mockSaveToPath).toHaveBeenCalledTimes(1));
+
+      useWorkflowStore
+        .getState()
+        .queuePatch({ kind: "workflow.set", path: "run-name", value: "later" });
+      await user.click(save);
+      expect(mockSaveToPath).toHaveBeenCalledTimes(1);
+
+      finishWrite(true);
+      await waitFor(() => expect(mockToast.success).toHaveBeenCalled());
+      expect(useDocumentStore.getState().documents["tab-1"].content).toContain("name: renamed");
+      expect(useWorkflowStore.getState().edit.pendingPatches).toEqual([
+        { kind: "workflow.set", path: "run-name", value: "later" },
+      ]);
+    });
+
+    // Audit R2 #590 — the in-flight guard was a component ref, so it covered
+    // the BUTTON rather than the document. Two workbenches bound to the same
+    // document (the same file open in two tabs) could each be mid-write, and
+    // the later one would overwrite the earlier one's YAML.
+    it("refuses a concurrent save of the SAME document from another workbench", async () => {
+      const user = userEvent.setup();
+      // A second tab on the same file — one document id, two workbenches.
+      useDocumentStore.setState((s: { documents: Record<string, object> }) => ({
+        documents: {
+          ...s.documents,
+          "tab-2": { content: WORKFLOW_YAML, filePath: "/repo/.github/workflows/ci.yml" },
+        },
+      }) as never);
+      let finishWrite!: (ok: boolean) => void;
+      mockSaveToPath.mockImplementation(
+        () => new Promise<boolean>((resolve) => { finishWrite = resolve; }),
+      );
+
+      const firstSave = await renderAndQueuePatch();
+      render(<GhaWorkflowWorkbench workflow={sampleIr()} tabId="tab-2" />);
+      await waitFor(
+        () => expect(document.querySelectorAll(".workflow-editor-panel")).toHaveLength(2),
+        LAZY_MOUNT,
+      );
+      const saves = await screen.findAllByRole("button", { name: "Save" });
+
+      await user.click(firstSave);
+      await waitFor(() => expect(mockSaveToPath).toHaveBeenCalledTimes(1));
+      await user.click(saves[1]!);
+      expect(mockSaveToPath).toHaveBeenCalledTimes(1);
+
+      finishWrite(true);
+      await waitFor(() => expect(mockToast.success).toHaveBeenCalled());
+    });
+
+    it("releases the document lock once the save settles", async () => {
+      const user = userEvent.setup();
+      mockSaveToPath.mockResolvedValue(true);
+      const save = await renderAndQueuePatch();
+      await user.click(save);
+      await waitFor(() => expect(mockSaveToPath).toHaveBeenCalledTimes(1));
+
+      useWorkflowStore
+        .getState()
+        .queuePatch({ kind: "workflow.set", path: "run-name", value: "again" });
+      await waitFor(() => expect(save).toBeEnabled());
+      await user.click(save);
+      await waitFor(() => expect(mockSaveToPath).toHaveBeenCalledTimes(2));
+    });
+
+    it("does not overwrite text the user typed while the save was in flight", async () => {
+      const user = userEvent.setup();
+      let finishWrite!: (ok: boolean) => void;
+      mockSaveToPath.mockImplementation(
+        () =>
+          new Promise<boolean>((resolve) => {
+            finishWrite = resolve;
+          }),
+      );
+      const save = await renderAndQueuePatch();
+      await user.click(save);
+      await waitFor(() => expect(mockSaveToPath).toHaveBeenCalledTimes(1));
+
+      useDocumentStore.getState().setEditorContent("tab-1", "name: typed-meanwhile\n");
+      finishWrite(true);
+      await waitFor(() => expect(mockToast.success).toHaveBeenCalled());
+      expect(useDocumentStore.getState().documents["tab-1"].content).toBe("name: typed-meanwhile\n");
+      expect(useWorkflowStore.getState().edit.pendingPatches).toHaveLength(0);
+    });
+
     it("surfaces a save exception as an error toast and keeps the queue", async () => {
       // applyAndSerialize is contractually non-throwing (it returns the
       // original YAML on any internal failure), so the catch branch
@@ -290,5 +538,108 @@ describe("GhaWorkflowWorkbench", () => {
       expect(useWorkflowStore.getState().edit.pendingPatches).toHaveLength(1);
       expect(mockToast.success).not.toHaveBeenCalled();
     });
+  });
+});
+
+// Audit 20260907, round 3 — the two residuals of the one-binding design.
+describe("GhaWorkflowWorkbench — binding hand-off between panes and paths", () => {
+  // #293: pointerdown precedes the browser's focus change, so the destination
+  // pane's capture handler rebound the store BEFORE the source pane's field
+  // blurred — and that blur is the forms' commit, so the outgoing pane's patch
+  // was queued under the destination document. The pane clicked into now
+  // commits the other pane's field (blurs it) before it takes the binding.
+  it("commits the outgoing pane's field under ITS document before the pane clicked into takes the binding", async () => {
+    const user = userEvent.setup();
+    useDocumentStore.setState({
+      documents: {
+        "tab-1": { content: WORKFLOW_YAML, filePath: "/repo/.github/workflows/ci.yml" },
+        "tab-2": { content: WORKFLOW_YAML, filePath: "/repo/.github/workflows/other.yml" },
+      },
+    } as never);
+    render(
+      <>
+        <GhaWorkflowWorkbench workflow={sampleIr()} tabId="tab-1" />
+        <GhaWorkflowWorkbench workflow={sampleIr()} tabId="tab-2" />
+      </>,
+    );
+    await waitFor(
+      () => expect(document.querySelectorAll(".workflow-editor-panel")).toHaveLength(2),
+      LAZY_MOUNT,
+    );
+    const [groupA, groupB] = screen.getAllByPlaceholderText(/github\.ref/) as HTMLInputElement[];
+
+    await user.click(groupA);
+    await user.type(groupA, "ci-group");
+    expect(useWorkflowStore.getState().edit.boundDocumentId).toBe("/repo/.github/workflows/ci.yml");
+
+    // pointerdown on B → (browser) A blurs and commits → B focuses.
+    await user.click(groupB);
+
+    const edit = useWorkflowStore.getState().edit;
+    expect(edit.boundDocumentId).toBe("/repo/.github/workflows/other.yml");
+    expect(edit.pendingPatches).toEqual([]);
+    expect(edit.patchesByDocument["/repo/.github/workflows/ci.yml"]).toEqual([
+      { kind: "workflow.concurrency.set", value: "ci-group" },
+    ]);
+  });
+
+  // #292: rebinding on a path change moved the BINDING but not the QUEUE — the
+  // store stashes the old id's patches and restores the new id's (empty) queue,
+  // so a Save As of an untitled workflow with edits pending left them stranded
+  // under `untitled:<tab>`, where nothing would ever save them.
+  it("carries the pending queue to the new path on Save As", async () => {
+    useDocumentStore.setState({
+      documents: { "tab-1": { content: WORKFLOW_YAML, filePath: null } },
+    } as never);
+    render(<GhaWorkflowWorkbench workflow={sampleIr()} tabId="tab-1" />);
+    await waitFor(() =>
+      expect(useWorkflowStore.getState().edit.boundDocumentId).toBe("untitled:tab-1"),
+    );
+    useWorkflowStore.getState().queuePatch({ kind: "workflow.set", path: "name", value: "renamed" });
+
+    useDocumentStore.setState({
+      documents: { "tab-1": { content: WORKFLOW_YAML, filePath: "/repo/.github/workflows/new.yml" } },
+    } as never);
+
+    await waitFor(() =>
+      expect(useWorkflowStore.getState().edit.boundDocumentId).toBe("/repo/.github/workflows/new.yml"),
+    );
+    const edit = useWorkflowStore.getState().edit;
+    expect(edit.pendingPatches).toEqual([{ kind: "workflow.set", path: "name", value: "renamed" }]);
+    expect(edit.patchesByDocument["untitled:tab-1"]).toBeUndefined();
+  });
+
+  it("carries the queue even while another pane holds the binding and the user's focus", async () => {
+    useDocumentStore.setState({
+      documents: { "tab-1": { content: WORKFLOW_YAML, filePath: null } },
+    } as never);
+    render(<GhaWorkflowWorkbench workflow={sampleIr()} tabId="tab-1" />);
+    await waitFor(() =>
+      expect(useWorkflowStore.getState().edit.boundDocumentId).toBe("untitled:tab-1"),
+    );
+    useWorkflowStore.getState().queuePatch({ kind: "workflow.set", path: "name", value: "renamed" });
+
+    // The other pane takes the binding and the user's keyboard focus.
+    useWorkflowStore.getState().bindToDocument("/repo/.github/workflows/other.yml");
+    useWorkflowStore.getState().queuePatch({ kind: "workflow.set", path: "name", value: "theirs" });
+    const otherPanesForm = document.createElement("input");
+    document.body.appendChild(otherPanesForm);
+    otherPanesForm.focus();
+
+    useDocumentStore.setState({
+      documents: { "tab-1": { content: WORKFLOW_YAML, filePath: "/repo/.github/workflows/new.yml" } },
+    } as never);
+    await new Promise((r) => setTimeout(r, 20));
+
+    const edit = useWorkflowStore.getState().edit;
+    // The other pane keeps the binding and its own queue…
+    expect(edit.boundDocumentId).toBe("/repo/.github/workflows/other.yml");
+    expect(edit.pendingPatches).toEqual([{ kind: "workflow.set", path: "name", value: "theirs" }]);
+    // …and this pane's edits wait under its NEW path, not the untitled id.
+    expect(edit.patchesByDocument["/repo/.github/workflows/new.yml"]).toEqual([
+      { kind: "workflow.set", path: "name", value: "renamed" },
+    ]);
+    expect(edit.patchesByDocument["untitled:tab-1"]).toBeUndefined();
+    otherPanesForm.remove();
   });
 });

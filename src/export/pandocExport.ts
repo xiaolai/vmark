@@ -6,7 +6,7 @@
  *
  * Pipeline: menu:export-pandoc-{fmt} → detect_pandoc → save dialog → export_via_pandoc
  *
- * @coordinates-with useExportMenuEvents.ts — called from menu:export-pandoc-{fmt} events
+ * @coordinates-with services/commands/exportCommands.ts — the export.pandoc* commands call this on menu:export-pandoc-{fmt}
  * @coordinates-with pandoc/commands.rs — Rust backend for Pandoc execution
  * @module export/pandocExport
  */

@@ -17,10 +17,16 @@ rust_i18n::i18n!("locales", fallback = "en");
 mod command_registry;
 mod ai_provider;
 mod app_paths;
+mod app_plugins;
 mod app_setup;
 mod asset_access;
+mod atomic_persist;
 mod atomic_replace;
+#[cfg(debug_assertions)]
+mod automation_port;
+mod bounded_read;
 mod browser; // WI-1.2 embedded-browser surface (pure lifecycle/identity core landed)
+mod canonical_path;
 pub mod coherence;
 pub mod command_error; // WI-14 crate-wide typed command error ({code, message, i18nKey?, detail?})
 mod content_search;
@@ -49,6 +55,7 @@ mod quarantine;
 mod quit;
 mod secret_token;
 mod secure_store;
+mod session_bus;
 mod shell_env;
 mod shell_integration;
 mod single_instance;
@@ -99,87 +106,21 @@ mod lib_test;
 #[path = "capabilities.test.rs"]
 mod capabilities_test;
 
-/// Build and run the Tauri application with all plugins, commands, and event handlers.
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub fn run() {
-    // Before any webview input: smart dashes/quotes corrupt markdown syntax.
-    #[cfg(target_os = "macos")]
-    text_substitution::disable_smart_substitutions();
-
-    #[allow(unused_mut)]
-    let mut builder = tauri::Builder::default();
-
-    // FIRST, before every other plugin — Tauri's own guidance, and it is what
-    // makes the guard cheap: a duplicate launch is turned away before this
-    // process builds any state to turn away with.
-    //
-    // Off macOS only. macOS keeps one process per bundle identifier natively
-    // and routes later opens through `RunEvent::Opened`; on Windows and Linux
-    // every file-association double-click starts a fresh process that then
-    // shares one localStorage and one hot-exit session with the running app
-    // (#1330 — see `single_instance.rs`).
-    #[cfg(not(target_os = "macos"))]
-    {
-        builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
-            single_instance::handle_second_launch(app, argv);
-        }));
-    }
-
-    builder = builder
-        .plugin(
-            tauri_plugin_log::Builder::new()
-                .targets([
-                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Stdout),
-                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir {
-                        file_name: None,
-                    }),
-                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Webview),
-                ])
-                .level(if cfg!(debug_assertions) {
-                    log::LevelFilter::Debug
-                } else {
-                    log::LevelFilter::Info
-                })
-                .max_file_size(5_000_000) // 5 MB per log file
-                .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepOne)
-                .build(),
-        )
-        .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_fs::init())
-        .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_clipboard_manager::init())
-        .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_store::Builder::default().build())
-        // PTY managed via custom commands (pty.rs), not a plugin
-        .plugin({
-            let mid = app_setup::machine_id_hash();
-            tauri_plugin_updater::Builder::new()
-                .header("X-Machine-Id", mid)
-                // Infallible: `mid` is a lowercase hex Sha256 ([0-9a-f] only) — always a valid ASCII header value.
-                .expect("machine id hash is always valid ASCII hex")
-                .build()
-        })
-        .plugin(tauri_plugin_process::init())
-        .plugin(tauri_plugin_notification::init())
-        .plugin(
-            tauri_plugin_window_state::Builder::new()
-                .with_denylist(&["settings", "pdf-export"])
-                // Exclude VISIBLE from state restoration: a window saved while
-                // hidden must not be restored hidden, with no way to reach it.
-                // NOTE: windows are NOT created hidden — this comment used to
-                // say they were, and that they are shown on the frontend's
-                // "ready" event. Neither is true (see window_manager::
-                // document_windows' module doc); dropping the flag is still
-                // correct, but it is not part of an anti-flash mechanism.
-                .with_state_flags(
-                    tauri_plugin_window_state::StateFlags::all()
-                        - tauri_plugin_window_state::StateFlags::VISIBLE,
-                )
-                .build(),
-        )
+/// Register every piece of backend state the app manages (rule 50 §10).
+///
+/// Extracted from `run` so it can be composed onto a `mock_builder()` and
+/// ASSERTED (audit #357) — this is the part of startup that fails SILENTLY. A
+/// command reads its state through `State<'_, T>`/`try_state::<T>()`, so a
+/// dropped `.manage()` neither fails to compile nor fails to start; it fails
+/// when a user clicks. `pdf_smoke` shipped exactly that (#250).
+fn manage_state<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
+    builder
         // Fail-closed: `engine_enabled` starts false and the webview pushes the
         // real value via `workflow_engine_policy` (WI-19).
         .manage(workflow::state::WorkflowRunnerState::default())
+        // Audit #375: the streaming AI path's per-request cancel tokens, so
+        // the webview's Cancel reaches the provider, not just its listener.
+        .manage(ai_provider::cancel::AiPromptCancelRegistry::default())
         // WI-20: the MCP bridge's tables, shutdown signal, write lock and
         // liveness flag, and the hot-exit pending-restore map — both were
         // process-global statics.
@@ -188,9 +129,24 @@ pub fn run() {
         .manage(content_server::ContentServerManager::new())
         .manage(browser::surface::BrowserSurface::default())
         .manage(window_status::WindowStatusRegistry::default())
+        // One PDF export at a time (#198, #199): the output file and the
+        // export dialog's progress stream each have exactly one producer.
+        .manage(pdf_export::export_gate::ExportGate::default())
         // #1273: documents the user explicitly authorized to execute. Memory
         // only — a grant never survives the process.
         .manage(trusted_html::TrustedHtmlState::default())
+}
+
+/// Build and run the Tauri application with all plugins, commands, and event handlers.
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    // Before any webview input: smart dashes/quotes corrupt markdown syntax.
+    #[cfg(target_os = "macos")]
+    text_substitution::disable_smart_substitutions();
+
+    let builder = app_plugins::register(tauri::Builder::default());
+
+    let builder = manage_state(builder)
         // Serves those grants under their OWN CSP. A srcdoc/blob/data frame
         // inherits the app's `script-src 'self'` and can never run a script,
         // so trusted content needs an origin of its own.
@@ -215,25 +171,7 @@ pub fn run() {
         // Non-document windows (settings) should close normally
         .on_window_event(window_manager::handle_document_window_close_event);
 
-    // Tauri MCP bridge plugin for automation/screenshots (dev only).
-    //
-    // Pin a dedicated base port (9323) and bind localhost-only. Without this,
-    // the plugin defaults to scanning up from 0.0.0.0:9223 — the same port
-    // VMark's *own* MCP server (mcp_bridge, for AI clients) already uses. The
-    // two then race for 9223, so the automation bridge slides to a different,
-    // unpredictable port on every launch and `tauri_driver_session` (which
-    // defaults to 9223) lands on VMark's auth-protected server instead — every
-    // command then drops with "Connection closed". A separate base port keeps
-    // the automation channel deterministic and clear of the public MCP port.
-    #[cfg(debug_assertions)]
-    {
-        builder = builder.plugin(
-            tauri_plugin_mcp_bridge::Builder::new()
-                .bind_address("127.0.0.1")
-                .base_port(9323)
-                .build(),
-        );
-    }
+    let builder = app_plugins::attach_automation_bridge(builder);
 
     // CRITICAL: Use .build().run() pattern for app-level event handling
     let app = match builder.build(tauri::generate_context!()) {

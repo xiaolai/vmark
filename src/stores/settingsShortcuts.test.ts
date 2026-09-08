@@ -340,6 +340,68 @@ describe("shortcutsStore", () => {
       expect(result.success).toBe(false);
       expect(result.errors?.some((e) => e.includes("Invalid key"))).toBe(true);
     });
+
+    // Audit 20260907 (#422): the import validated per entry and applied the
+    // valid ones with `set({ customBindings })` — a WHOLE-MAP replace — before
+    // returning the errors. So one typo'd id in an imported file silently
+    // erased every customization the user already had, behind a message that
+    // only mentioned the typo. Validation and application are now separated:
+    // any error at all applies nothing.
+    describe("a rejected import changes nothing (#422)", () => {
+      const withOneBadEntry = JSON.stringify({
+        version: 1,
+        customBindings: { italic: "Ctrl-i", unknownId: "Ctrl-x" },
+      });
+
+      it("keeps the existing bindings when any entry is invalid", () => {
+        const { setShortcut, importConfig, getShortcut, isCustomized } =
+          useShortcutsStore.getState();
+        setShortcut("bold", "Ctrl-Alt-b");
+
+        const result = importConfig(withOneBadEntry);
+
+        expect(result.success).toBe(false);
+        expect(getShortcut("bold")).toBe("Ctrl-Alt-b");
+        // …and the valid entry of the rejected file was not applied either.
+        expect(isCustomized("italic")).toBe(false);
+      });
+
+      it("leaves the whole config byte-identical, not merely the one named id", () => {
+        const { setShortcut, importConfig, exportConfig } = useShortcutsStore.getState();
+        setShortcut("bold", "Ctrl-Alt-b");
+        setShortcut("save", "Ctrl-Alt-s");
+        const before = exportConfig();
+
+        importConfig(withOneBadEntry);
+
+        expect(exportConfig()).toBe(before);
+      });
+
+      it("reports every problem in the file, not just the first", () => {
+        const { importConfig } = useShortcutsStore.getState();
+        const result = importConfig(
+          JSON.stringify({
+            version: 1,
+            customBindings: { unknownId: "Ctrl-x", bold: 123 },
+          }),
+        );
+        expect(result.errors).toHaveLength(2);
+      });
+
+      it("still applies a wholly valid file", () => {
+        const { setShortcut, importConfig, getShortcut } = useShortcutsStore.getState();
+        setShortcut("bold", "Ctrl-Alt-b");
+
+        const result = importConfig(
+          JSON.stringify({ version: 1, customBindings: { italic: "Ctrl-i" } }),
+        );
+
+        expect(result.success).toBe(true);
+        // A valid import REPLACES the map — that is what importing a config is.
+        expect(getShortcut("italic")).toBe("Ctrl-i");
+        expect(getShortcut("bold")).toBe("Mod-b");
+      });
+    });
   });
 
   describe("getDefinition", () => {

@@ -5,17 +5,23 @@
  * and execution. Menu dispatcher, shortcut router, command palette, MCP
  * bridge, and programmatic callers all consume the bus.
  *
- * Foundation-only: the existing `actionRegistry` data layer
- * (`src/plugins/actions/actionRegistry.ts`) continues to back the menu
- * dispatcher. CommandBus adds the missing layer above it — a generic
- * register/execute/search surface that downstream code can adopt
- * incrementally. The 6 legacy `use*MenuEvents` hooks remain in place
- * until they migrate one PR at a time per the staged plan in ADR-012.
+ * The `actionRegistry` data layer (`src/plugins/actions/actionRegistry.ts`)
+ * still backs the menu dispatcher; CommandBus is the layer above it — a
+ * generic register/execute/search surface. The six legacy `use*MenuEvents`
+ * hooks it was staged to replace are gone (T06): `useCommandBootstrap`
+ * registers every command surface once and routes every `menu:*` event
+ * through `executeCommand`.
  *
  * @module services/commands/CommandBus
  */
 
 import { menuError } from "@/utils/debug";
+import { foldForSearch, resolveLocalizedString, scoreCommand, type LocalizedString } from "./commandText";
+
+// The palette and `services/commands/index.ts` import the resolver from the
+// bus; it lives in commandText.ts. The TYPE is not re-exported — no consumer
+// names it, and an unused re-export is exactly what the knip gate is for.
+export { resolveLocalizedString };
 
 type CommandScope = "global" | "editor" | "panel";
 
@@ -25,33 +31,28 @@ export interface CommandContext {
 }
 
 /**
- * Localized-string source. Pass a plain string for English-only labels,
- * or a getter function that resolves through i18n at display time —
- * useful when commands register synchronously before non-boot
- * namespaces are loaded.
+ * Every field is `readonly` (audit #879). Definitions are stored and handed back
+ * BY REFERENCE — `getCommand` and `listCommands` do not copy — so a mutable `id`
+ * is a way to desynchronize a definition from the registry key it is filed
+ * under, and from the owner claim in `OWNERS`, without going through
+ * registration at all. There is no runtime freeze: every registrar is in this
+ * repository, so the compiler is the enforcement, and freezing ~200 objects to
+ * restate what the type already says would cost more than it protects.
  */
-export type LocalizedString = string | (() => string);
-
 export interface CommandDefinition {
-  id: string;
+  readonly id: string;
   /** Human-readable label shown in palette / accessibility surfaces. */
-  title: LocalizedString;
+  readonly title: LocalizedString;
   /** Optional description for palette rows + tooltips. */
-  description?: LocalizedString;
+  readonly description?: LocalizedString;
   /** Optional category for grouping (palette section, menu group). */
-  category?: string;
+  readonly category?: string;
   /** Default scope; palette filters by current scope. */
-  scope?: CommandScope;
+  readonly scope?: CommandScope;
   /** Optional availability check; commands whose `when` returns false are filtered out. */
-  when?: (ctx: CommandContext) => boolean;
+  readonly when?: (ctx: CommandContext) => boolean;
   /** Action body. May be async. */
-  run: (args: unknown, ctx: CommandContext) => void | Promise<void>;
-}
-
-/** Resolve a LocalizedString to a plain string at the moment of display. */
-export function resolveLocalizedString(value: LocalizedString | undefined): string {
-  if (value === undefined) return "";
-  return typeof value === "function" ? value() : value;
+  readonly run: (args: unknown, ctx: CommandContext) => void | Promise<void>;
 }
 
 export interface RankedCommand {
@@ -135,7 +136,53 @@ export function registerCommands(
   };
 }
 
-/** Remove every command registered under an `owner` token. Idempotent. */
+/**
+ * Everything a registration attempt can mutate, captured so it can be undone
+ * exactly (audit #453). Opaque to callers — the shape is this module's.
+ */
+export interface CommandRegistrySnapshot {
+  readonly commands: ReadonlyArray<readonly [string, CommandDefinition]>;
+  readonly owners: ReadonlyArray<readonly [string, string]>;
+  readonly generations: ReadonlyArray<readonly [string, symbol]>;
+}
+
+/**
+ * Snapshot the registry for a transactional registration (audit #453).
+ *
+ * An id-only snapshot could express "delete what was added" and nothing else,
+ * which is not the inverse of what a batch does: `registerCommands` REPLACES
+ * its owner's previous batch, so a failure after that point left the bus
+ * holding the failed attempt's definitions under a fresh generation token — an
+ * id set cannot see either change, and the disposer the previous batch handed
+ * out no longer matched, so nothing could remove them.
+ */
+export function snapshotCommandRegistry(): CommandRegistrySnapshot {
+  return {
+    commands: [...REGISTRY],
+    owners: [...OWNERS],
+    generations: [...OWNER_GENERATION],
+  };
+}
+
+/** Restore a snapshot taken by {@link snapshotCommandRegistry}, exactly. */
+export function restoreCommandRegistry(snapshot: CommandRegistrySnapshot): void {
+  REGISTRY.clear();
+  OWNERS.clear();
+  OWNER_GENERATION.clear();
+  for (const [id, command] of snapshot.commands) REGISTRY.set(id, command);
+  for (const [id, owner] of snapshot.owners) OWNERS.set(id, owner);
+  for (const [owner, token] of snapshot.generations) OWNER_GENERATION.set(owner, token);
+}
+
+/**
+ * Remove every command registered under an `owner` token. Idempotent.
+ *
+ * The generation token goes with them (audit #881): `OWNER_GENERATION` is
+ * documented as the owner's CURRENT token, and an owner with no commands has
+ * none. Leaving it behind kept an entry per transient owner forever and left a
+ * spent disposer still matching. `registerCommands` calls this before stamping
+ * its own token, so the delete is invisible to the replace-own path.
+ */
 export function unregisterOwner(owner: string): void {
   for (const [id, o] of OWNERS) {
     if (o === owner) {
@@ -143,6 +190,7 @@ export function unregisterOwner(owner: string): void {
       OWNERS.delete(id);
     }
   }
+  OWNER_GENERATION.delete(owner);
 }
 
 /**
@@ -166,10 +214,11 @@ export function getCommand(id: string): CommandDefinition | undefined {
 }
 
 /**
- * Whether a command id is already registered. Registrar modules use this
- * as an HMR-safe guard: their module-local `registered` flag resets when
- * Vite re-instantiates the module, but this registry survives in the
- * module graph, so a sentinel-id check makes re-registration a no-op.
+ * Whether a command id is already registered. The sentinel-guarded registrar
+ * modules use this as their ONLY idempotence guard (#514): this registry
+ * survives an HMR reload, where a module-level flag would reset, and it is
+ * what the registerAllCommands rollback clears, where a module-level flag
+ * would outlive the rollback and skip the retry.
  */
 export function hasCommand(id: string): boolean {
   return REGISTRY.has(id);
@@ -207,7 +256,9 @@ export async function executeCommand(
  * on top. Foundation only.
  */
 export function searchCommands(query: string, ctx: CommandContext = {}): RankedCommand[] {
-  const q = query.trim().toLowerCase();
+  // Both sides go through the SAME fold — case and Unicode canonical form —
+  // or "the same text" spelled two ways fails to match (commandSearch.ts).
+  const q = foldForSearch(query.trim());
   const results: RankedCommand[] = [];
 
   for (const command of REGISTRY.values()) {
@@ -216,16 +267,13 @@ export function searchCommands(query: string, ctx: CommandContext = {}): RankedC
       results.push({ command, score: 0 });
       continue;
     }
-    const title = resolveLocalizedString(command.title).toLowerCase();
-    const id = command.id.toLowerCase();
-    const desc = resolveLocalizedString(command.description).toLowerCase();
-
-    let score = 0;
-    if (title.startsWith(q)) score = 100;
-    else if (title.includes(q)) score = 50;
-    else if (id.includes(q)) score = 25;
-    else if (desc.includes(q)) score = 10;
-
+    const score = scoreCommand(q, {
+      // A command whose title getter throws is LABELLED BY ITS ID rather than
+      // dropped: it stays findable, and the palette shows something.
+      title: foldForSearch(resolveLocalizedString(command.title, command.id)),
+      id: foldForSearch(command.id),
+      description: foldForSearch(resolveLocalizedString(command.description)),
+    });
     if (score > 0) results.push({ command, score });
   }
 

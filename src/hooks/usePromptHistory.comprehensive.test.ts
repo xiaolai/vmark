@@ -19,10 +19,16 @@ vi.mock("@/stores/aiStore", () => ({
       getState: () => ({
         entries: mockEntries,
         addEntry: mockAddEntry,
-        getFilteredEntries: (prefix: string) => {
-          if (!prefix) return mockEntries;
-          const lower = prefix.toLowerCase();
-          return mockEntries.filter((e) => e.toLowerCase().startsWith(lower));
+        // SUBSTRING, matching the real store (`stores/aiStore/promptHistory.ts`).
+        // This fake used `startsWith` and so had already drifted from its
+        // subject: the dropdown is a search box and matches substrings, and a
+        // mock that does not match its subject still satisfies a test written
+        // against the mock. Cycling reads the subscribed `entries` through
+        // `filterByPrefix` and does not come through here at all (#753).
+        getFilteredEntries: (query: string) => {
+          if (!query) return mockEntries;
+          const lower = query.toLowerCase();
+          return mockEntries.filter((e) => e.toLowerCase().includes(lower));
         },
       }),
       subscribe: vi.fn(() => () => {}),
@@ -272,6 +278,42 @@ describe("usePromptHistory — comprehensive", () => {
     expect(result.current.displayValue).toBe("goodbye");
   });
 
+  // audit #753 — "world" is a SUBSTRING of "hello world" but not its prefix.
+  // Cycling used to delegate to the store's substring search, so ArrowUp here
+  // replaced the draft with text the user had not typed the start of, while the
+  // ghost hint for the same draft (prefix-matched) showed nothing.
+  it("does not cycle to an entry that merely CONTAINS the draft", () => {
+    const { result } = renderHook(() => usePromptHistory());
+
+    act(() => {
+      result.current.handleChange("world");
+    });
+
+    const e = makeKeyEvent({ key: "ArrowUp", keyCode: 38 });
+    act(() => {
+      result.current.handleKeyDown(e);
+    });
+
+    expect(e.preventDefault).not.toHaveBeenCalled();
+    expect(result.current.displayValue).toBe("world");
+    // …and the hint agrees: neither layer offers "hello world" for this draft.
+    expect(result.current.ghostText).toBe("");
+  });
+
+  // The dropdown is the OTHER rule, deliberately: it is a search box.
+  it("the dropdown still finds an entry by substring", () => {
+    const { result } = renderHook(() => usePromptHistory());
+
+    act(() => {
+      result.current.handleChange("world");
+    });
+    act(() => {
+      result.current.openDropdown();
+    });
+
+    expect(result.current.dropdownEntries).toEqual(["hello world"]);
+  });
+
   it("does not start cycling when no history matches prefix", () => {
     const { result } = renderHook(() => usePromptHistory());
 
@@ -371,6 +413,76 @@ describe("usePromptHistory — comprehensive", () => {
       result.current.handleKeyDown(makeKeyEvent({ key: "Escape" }));
     });
     expect(result.current.isDropdownOpen).toBe(false);
+  });
+
+  // --- Escape dismisses ghost text (header: "Tab accepts ghost text; Escape clears it"; audit #388) ---
+
+  it("Escape dismisses the ghost text and is consumed, so the picker stays open", () => {
+    const { result } = renderHook(() => usePromptHistory());
+    act(() => {
+      result.current.handleChange("hel");
+    });
+    expect(result.current.ghostText).toBe("lo world");
+
+    const e = makeKeyEvent({ key: "Escape" });
+    act(() => {
+      result.current.handleKeyDown(e);
+    });
+    expect(result.current.ghostText).toBe("");
+    expect(result.current.displayValue).toBe("hel");
+    expect(e.preventDefault).toHaveBeenCalled();
+    expect(e.stopPropagation).toHaveBeenCalled();
+  });
+
+  it("the dismissal lifts once the draft changes", () => {
+    const { result } = renderHook(() => usePromptHistory());
+    act(() => {
+      result.current.handleChange("hel");
+    });
+    act(() => {
+      result.current.handleKeyDown(makeKeyEvent({ key: "Escape" }));
+    });
+    expect(result.current.ghostText).toBe("");
+    act(() => {
+      result.current.handleChange("hell");
+    });
+    expect(result.current.ghostText).toBe("o world");
+  });
+
+  // Round 2 (#388): the dismissal ends at the NEXT EDIT. Keying it on the text
+  // instead let a draft edited away and back to the same text re-hide the hint
+  // the user never dismissed a second time.
+  it("editing away and back to the same text shows the ghost again", () => {
+    const { result } = renderHook(() => usePromptHistory());
+    act(() => {
+      result.current.handleChange("hel");
+    });
+    act(() => {
+      result.current.handleKeyDown(makeKeyEvent({ key: "Escape" }));
+    });
+    expect(result.current.ghostText).toBe("");
+    act(() => {
+      result.current.handleChange("hell");
+    });
+    expect(result.current.ghostText).toBe("o world");
+    act(() => {
+      result.current.handleChange("hel");
+    });
+    expect(result.current.ghostText).toBe("lo world");
+  });
+
+  it("Escape with no ghost text is left to the picker (not consumed)", () => {
+    const { result } = renderHook(() => usePromptHistory());
+    act(() => {
+      result.current.handleChange("zzz");
+    });
+    expect(result.current.ghostText).toBe("");
+    const e = makeKeyEvent({ key: "Escape" });
+    act(() => {
+      result.current.handleKeyDown(e);
+    });
+    expect(e.preventDefault).not.toHaveBeenCalled();
+    expect(e.stopPropagation).not.toHaveBeenCalled();
   });
 
   // --- openDropdown / closeDropdown / selectDropdownEntry ---

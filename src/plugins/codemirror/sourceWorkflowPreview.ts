@@ -2,10 +2,10 @@
  * Source Workflow Preview Plugin
  *
  * Purpose: When editing a standalone .yml workflow file in Source mode,
- * debounces YAML parsing and feeds the result to workflowPreviewStore
- * so the WorkflowSidePanel shows a live React Flow graph.
+ * debounces YAML parsing and feeds the result through `workflowPort` (the
+ * workflow store) so the WorkflowSidePanel shows a live React Flow graph.
  *
- * @coordinates-with workflowPreviewStore.ts — writes graph/parseError
+ * @coordinates-with workflowPort.ts — the store port that receives graph/parseError (bound to stores/workflowStore.ts)
  * @coordinates-with parser.ts — parseWorkflow, isWorkflowYaml
  * @module plugins/codemirror/sourceWorkflowPreview
  */

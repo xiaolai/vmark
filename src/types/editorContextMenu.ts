@@ -10,7 +10,7 @@
  * providers exist, and keeps the popup-store slice free of editor-type
  * imports.
  *
- * Plan: dev-docs/plans/20260709-editor-context-menu.md (ADR-6).
+ * Origin: Editor context menu plan (2026-07-09, retired) (ADR-6).
  *
  * @module types/editorContextMenu
  */

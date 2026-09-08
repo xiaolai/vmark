@@ -37,7 +37,7 @@ import { parseMarkdown, serializeMarkdown } from "../../adapter";
 import { isSafeUrl } from "../../urlValidation";
 import { getProductionSchema } from "@/test/productionSchema";
 import { CORPORA, loadExamples, type VendoredCorpus } from "./corpusRegistry";
-import type { RawNode } from "../../conformance/semanticProjection";
+import type { RawNode } from "../conformance/semanticProjection";
 
 const schema = getProductionSchema();
 const xssEntry = CORPORA.find(

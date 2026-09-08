@@ -1,127 +1,75 @@
 /**
  * W03 — noUnusedDefs
  *
- * Purpose: Flag definition nodes that are never referenced by a
- * linkReference or imageReference in the document.
+ * Purpose: Flag definition nodes no `linkReference`/`imageReference` uses.
  *
- * Uses source-text scanning to find reference patterns (like E01), because
- * remark's remarkResolveReferences plugin converts linkReference/imageReference
- * nodes to link/image nodes — the original reference node types are gone
- * from the MDAST by the time rules run.
+ * The uses are found in the SOURCE, not the tree, because the pipeline's
+ * reference resolution rewrites `linkReference`/`imageReference` into
+ * `link`/`image` before rules run — the reference node types are gone by then.
  *
- * Uses CommonMark label normalization.
+ * What counts as scannable text is `sourceMask`'s answer and what counts as a
+ * reference is `referenceScanner`'s, both shared with E01. Before round 3 this
+ * rule's own code-span strip handled one backtick on one line, so a definition
+ * "used" only inside a wider or multi-line span went unreported.
+ *
+ * @coordinates-with src/lib/lintEngine/rules/sourceMask.ts — what is prose
+ * @coordinates-with src/lib/lintEngine/rules/referenceScanner.ts — what is a reference
+ * @coordinates-with src/lib/lintEngine/rules/noUndefinedRefs.ts — the other half of the pair
+ * @module lib/lintEngine/rules/noUnusedDefs
  */
 
 import { visit } from "unist-util-visit";
 import type { Root, Definition } from "mdast";
 import { createDiagnostic, type LintDiagnostic, type LintLineIndex } from "../types";
+import { ruleEmission } from "../ruleMeta";
 import { normalizeLabel } from "./labelUtils";
+import { definitionLines, isDefinitionLine } from "./definitionLines";
+import { referenceTokens } from "./referenceScanner";
+import { maskedLines } from "./sourceMask";
+import { startOffset } from "./positionOffset";
 
-/**
- * Scan source for full-reference patterns [text][label] and ![alt][label].
- * Returns a Set of normalized labels that appear as references.
- */
-function findReferencedLabels(lines: string[]): Set<string> {
-  const usedLabels = new Set<string>();
-  let inFencedBlock = false;
-  let fenceChar = "";
-  let fenceLen = 0;
-
-  for (const lineText of lines) {
-    const trimmed = lineText.replace(/\r$/, "");
-
-    // Track fenced code blocks
-    if (!inFencedBlock) {
-      const openMatch = trimmed.match(/^ {0,3}(`{3,}|~{3,})/);
-      if (openMatch) {
-        inFencedBlock = true;
-        fenceChar = openMatch[1][0];
-        fenceLen = openMatch[1].length;
-        continue;
-      }
-    } else {
-      const closeRe = new RegExp(`^ {0,3}\\${fenceChar}{${fenceLen},}\\s*$`);
-      if (closeRe.test(trimmed)) {
-        inFencedBlock = false;
-        fenceChar = "";
-        fenceLen = 0;
-      }
-      continue;
-    }
-
-    // Skip definition lines: `[label]: url` — these are not references
-    if (/^ {0,3}\[[^\]]+\]:[ \t]/.test(trimmed)) continue;
-
-    // Strip inline code spans before scanning
-    const strippedLine = lineText.replace(/`[^`]*`/g, (s) => " ".repeat(s.length));
-
-    // Match all reference forms:
-    //   Full:      [text][label]  — group 1 = "[text]", group 3 = "[label]", group 4 = "label"
-    //   Collapsed: [text][]       — group 1 = "[text]", group 3 = "[]",      group 4 = ""
-    //   Shortcut:  [text]         — group 1 = "[text]", group 3 = undefined
-    const refPattern = /(!?\[([^\]\\]|\\.)*?\])(\[([^\]]*?)\])?/g;
-    let match: RegExpExecArray | null;
-
-    while ((match = refPattern.exec(strippedLine)) !== null) {
-      const fullBracket = match[1]; // "[text]" or "![alt]"
-      const hasBracket = match[3] !== undefined; // second [...] present
-      const bracketContent = match[4]; // content; "" for collapsed
-
-      let label: string;
-
-      if (!hasBracket) {
-        // Shortcut reference — link text is the label
-        label = fullBracket.replace(/^!?\[/, "").replace(/\]$/, "");
-      } else if (bracketContent === "") {
-        // Collapsed reference [text][] — link text is the label
-        label = fullBracket.replace(/^!?\[/, "").replace(/\]$/, "");
-      } else {
-        // Full reference [text][label]
-        label = bracketContent;
-      }
-
-      if (label) {
-        usedLabels.add(normalizeLabel(label));
-      }
+/** Every normalized label the document actually USES. */
+function referencedLabels(scannable: readonly string[], skip: ReadonlySet<number>): Set<string> {
+  const used = new Set<string>();
+  for (let i = 0; i < scannable.length; i++) {
+    if (skip.has(i + 1) || isDefinitionLine(scannable[i])) continue;
+    for (const ref of referenceTokens(scannable[i])) {
+      // `[foo](url)` is an INLINE link, not a shortcut reference: counting one
+      // marked an unrelated `[foo]: …` definition used and silenced this rule.
+      if (ref.kind === "shortcut" && ref.inlineLink) continue;
+      if (ref.label) used.add(ref.label);
     }
   }
-
-  return usedLabels;
+  return used;
 }
 
 export function noUnusedDefs(
   _source: string,
   mdast: Root,
-  { lines }: LintLineIndex,
+  { lines, lineOffsets }: LintLineIndex,
 ): LintDiagnostic[] {
+  const skip = definitionLines(mdast);
+  const used = referencedLabels(maskedLines(lines, mdast), skip);
   const diagnostics: LintDiagnostic[] = [];
 
-  // Get all referenced labels from source text
-  const usedLabels = findReferencedLabels(lines);
-
-  // Check each definition node from MDAST
   visit(mdast, "definition", (node: Definition) => {
     if (!node.position) return;
-
     const raw = node.label ?? node.identifier ?? "";
-    const normalized = normalizeLabel(raw);
+    if (used.has(normalizeLabel(raw))) return;
 
-    if (!usedLabels.has(normalized)) {
-      const { line, column, offset } = node.position.start;
-      diagnostics.push(
-        createDiagnostic({
-          ruleId: "W03",
-          severity: "warning",
-          messageKey: "lint.W03",
-          messageParams: { ref: raw },
-          line,
-          column,
-          offset: offset ?? 0,
-          endOffset: node.position.end.offset,
-          uiHint: "block",
-        })
-      );
-    }
+    const { line, column } = node.position.start;
+    diagnostics.push(
+      createDiagnostic({
+        ...ruleEmission("W03"),
+        messageKey: "lint.W03",
+        messageParams: { ref: raw },
+        line,
+        column,
+        offset: startOffset(node.position.start, lineOffsets),
+        endOffset: node.position.end.offset,
+        uiHint: "block",
+      }),
+    );
   });
 
   return diagnostics;

@@ -37,7 +37,7 @@ import { join } from "node:path";
 import { getPersistedWorkspaceRoot, poll } from "../lib/vmark.mjs";
 import { evalJs } from "../lib/bridge.mjs";
 import { openWorkspaceViaMcp, closeWorkspace } from "../lib/workspace.mjs";
-import { withRailMode, getRailInstances, clickRailInstance } from "../lib/rail.mjs";
+import { withRailMode, getRailInstances, clickRailInstance, restoreRail } from "../lib/rail.mjs";
 import {
   isTerminalOpen,
   openTerminal,
@@ -56,6 +56,27 @@ async function makeWorkspace() {
 /** Visible terminal tabs in the DOM — the scoped tab bar's rendering. */
 const visibleTabCount = (client) =>
   evalJs(client, `document.querySelectorAll(".terminal-tab").length`);
+
+/**
+ * The rail instances in `after` that were not in `before` — how this journey
+ * identifies the workspace it just opened. Placeholders are ignored: the app
+ * deletes one the moment a real workspace joins.
+ *
+ * It used to take "the last entry" for A and "the first entry that is not A"
+ * for B, which assumes the rail holds nothing else. On a fresh profile that is
+ * true (the placeholder is gone once A joins); on any profile that ever held
+ * an untitled tab in rail mode a "Loose Files" instance sits FIRST, so "first
+ * not-A" was Loose Files — the click switched there, its scope has no session,
+ * and the journey failed with `the tab bar to show only B's session — last
+ * observed: 0` while B's shell was alive. Reproduced live 2026-09-07 both ways
+ * (placeholder rail PASS, loose rail FAIL) before this derivation replaced it.
+ */
+const joinedSince = (before, after) =>
+  after
+    .map((i) => i.instanceId)
+    .filter(
+      (id) => !id.startsWith("wsi-placeholder-") && !before.some((b) => b.instanceId === id),
+    );
 
 export default {
   name: "terminal-rail-scoping",
@@ -76,21 +97,25 @@ export default {
 
     return withRailMode(client, true, async () => {
       const terminalWasOpen = await isTerminalOpen(client);
+      // The rail as found: both workspaces below join it, and teardown must
+      // remove exactly those two and re-activate what was active before.
+      const railBefore = await getRailInstances(client);
       let dirA = null;
       let dirB = null;
       let idA = null;
       let idB = null;
+      let bodyError = null;
       try {
         // Workspace A joins the rail; its empty scope auto-creates a session.
         dirA = await makeWorkspace();
         await openWorkspaceViaMcp(client, dirA, { windowLabel: ctx.windowLabel });
         const railAfterA = await poll(
           () => getRailInstances(client),
-          (list) => list.length >= 1,
+          (list) => joinedSince(railBefore, list).length >= 1,
           "workspace A to appear on the rail",
           { timeoutMs: 10000, intervalMs: 250 },
         );
-        idA = railAfterA[railAfterA.length - 1].instanceId;
+        idA = joinedSince(railBefore, railAfterA)[0];
 
         const pidsBefore = new Set((await getAppShellCwds()).map((s) => s.pid));
         await openTerminal(client, ctx.windowLabel);
@@ -108,11 +133,11 @@ export default {
         await openWorkspaceViaMcp(client, dirB, { windowLabel: ctx.windowLabel });
         const railAfterB = await poll(
           () => getRailInstances(client),
-          (list) => list.length >= 2,
+          (list) => joinedSince(railAfterA, list).length >= 1,
           "workspace B to appear on the rail",
           { timeoutMs: 10000, intervalMs: 250 },
         );
-        idB = railAfterB.map((i) => i.instanceId).find((id) => id !== idA);
+        idB = joinedSince(railAfterA, railAfterB)[0];
         await clickRailInstance(client, idB);
 
         // B's empty scope auto-creates its own session, IN B.
@@ -161,6 +186,9 @@ export default {
           );
         }
         ctx.log(`switch-back revealed pid ${shellA.pid} unchanged — scoped sessions intact`);
+      } catch (err) {
+        bodyError = err;
+        throw err;
       } finally {
         // Close our OWN sessions in whichever scopes still exist.
         await closeActiveTerminalSession(client).catch(() => {});
@@ -171,9 +199,19 @@ export default {
         }
         if (!terminalWasOpen) await closeTerminal(client, ctx.windowLabel).catch(() => {});
         if (dirA || dirB) {
-          // Each close promotes the next railed workspace; two closes empty the rail.
+          // The menu close takes the ACTIVE workspace (the product's rail-aware
+          // close since 2026-09-07); restoreRail then removes the other one
+          // through the rail's own Close, re-activates what was active before,
+          // and proves the rail is as found. The old "two menu closes empty the
+          // rail" teardown left both as rootless ghosts, one of them ACTIVE, on
+          // every run. Loud when the body succeeded.
           await closeWorkspace(client, { windowLabel: ctx.windowLabel }).catch(() => {});
-          await closeWorkspace(client, { windowLabel: ctx.windowLabel }).catch(() => {});
+          try {
+            await restoreRail(client, railBefore);
+          } catch (restoreErr) {
+            if (!bodyError) throw restoreErr;
+            ctx.log(`warning: rail restore failed after a body error: ${restoreErr?.message ?? restoreErr}`);
+          }
         }
         for (const d of [dirA, dirB]) {
           if (d) await rm(d, { recursive: true, force: true }).catch(() => {});

@@ -101,6 +101,16 @@ pub(super) fn build(app: &tauri::AppHandle, accel: &AccelFn) -> tauri::Result<Su
                 true,
                 accel("collapsible-block", "Alt+CmdOrCtrl+D"),
             )?,
+            // The only way into a [TOC] block used to be typing the literal
+            // (WI-FL3.10). Unbound by default; routed via menu:insert-toc to the
+            // insertToc editor action on both surfaces.
+            &MenuItem::with_id(
+                app,
+                "insert-toc",
+                &t!("menu.insert.tableOfContents"),
+                true,
+                accel("insert-toc", ""),
+            )?,
             &info_boxes_submenu,
         ],
     )

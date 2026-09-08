@@ -8,7 +8,7 @@
  * two-step Escape (dropdown then toolbar), session memory (cleared on close), and
  * smart initial focus (active marks > selection > context > default).
  *
- * @module components/Editor/UniversalToolbar
+ * @module components/Editor/UniversalToolbar/UniversalToolbar
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type FocusEvent } from "react";
 import { useUIStore } from "@/stores/uiStore";

@@ -1,7 +1,7 @@
 /**
  * GitHub Actions Workflow Benchmarks
  *
- * Plan: dev-docs/plans/20260504-github-actions-workflow-viewer.md §6 Phase 9.
+ * Origin: GitHub Actions workflow viewer plan (2026-05-04, retired) §6 Phase 9.
  *
  * Measures the load-bearing operations on the workflow read + edit
  * paths against a synthetic 100-job fixture. The plan's targets:
@@ -14,7 +14,7 @@
  *
  * Run: pnpm bench src/bench/workflow.bench.ts
  *
- * @module bench/workflow
+ * @module bench/workflow.bench
  */
 
 import { bench, describe } from "vitest";

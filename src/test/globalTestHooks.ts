@@ -27,7 +27,10 @@ import { signalMenuCommandsMounted } from "@/services/commands/menuCommandsReady
 // handshake call `resetMenuCommandsForTest()` in their own `beforeEach`, which
 // runs after this one and therefore wins.
 beforeEach(() => {
-  signalMenuCommandsMounted();
+  // `true`: the stand-in is for a mount that SUCCEEDED. The signal carries the
+  // outcome since audit #359, and a `false` here would make every provider
+  // render log a failed menu mount.
+  signalMenuCommandsMounted(true);
 });
 
 // Real timers are the DEFAULT after every test, not a courtesy each file pays

@@ -119,6 +119,18 @@ In Source mode, type the HTML tags directly. Media tags are highlighted with col
 - **Vimeo** — blue border
 - **Bilibili** — pink border
 
+### Smart Paste in Source Mode
+
+Pasting into Source mode does the markdown-correct thing rather than dumping raw text:
+
+- **An image path** — or several, from a multi-file copy in Finder or Explorer — is validated, copied into the document's assets folder and inserted as `![](relative-path)`. When a paste is ambiguous, a small confirmation toast asks first
+- **A screenshot or copied image** (binary image data on the clipboard) is saved into the assets folder and inserted the same way
+- **A URL pasted over selected text** becomes a link: `[selected text](https://…)`
+- **HTML or Markdown copied from another app** is converted and cleaned before it lands — except inside a fenced code block, where pasted text stays verbatim
+- **Image files dragged from Finder or Explorer** into the source editor are copied and inserted too
+
+The conversion follows **Settings → Markdown → Clipboard paste handling** (`Smart` is the default; the other modes opt out), and files are copied into the assets folder while **Settings → Files & Images → Copy to assets folder** is on (the default).
+
 ## Editing Media
 
 Double-click any media element in WYSIWYG mode to open the media popup:

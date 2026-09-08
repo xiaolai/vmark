@@ -18,7 +18,7 @@
 //! previous baseline untouched, so the next `update_menu_accelerators` call
 //! still diffs against the menu that is actually installed.
 //!
-//! @coordinates-with `en.yml` (locale strings)
+//! @coordinates-with `locales/en.yml` (locale strings)
 //! @coordinates-with `macos_menu.rs` (applies SF Symbol icons post-build)
 //! @coordinates-with `commands.rs` (calls this on rebuild)
 //! @coordinates-with `accelerators.rs` (consumes the committed ACCEL_CACHE)

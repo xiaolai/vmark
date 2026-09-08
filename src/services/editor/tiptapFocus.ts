@@ -17,7 +17,7 @@
  * @coordinates-with cursorSync/tiptap.ts — saves cursor position before mode switch
  * @coordinates-with Editor.tsx — calls focus functions after mode toggle
  * @coordinates-with scrollPosition.ts — the remembered reading position
- * @module utils/tiptapFocus
+ * @module services/editor/tiptapFocus
  */
 
 import type { Editor as TiptapEditor } from "@tiptap/core";

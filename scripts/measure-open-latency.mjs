@@ -41,7 +41,7 @@
  * @coordinates-with scripts/gen-large-file-corpus.mjs — produces the corpus.
  * @coordinates-with src/bench/largeFile.bench.ts — the measured bench.
  * @coordinates-with scripts/perf/README.md — the real-webview manual gate.
- * @coordinates-with dev-docs/plans/20260422-large-file-open-ux.md — thresholds.
+ * Origin: Large-file open UX plan (2026-04-22, retired) — the thresholds this harness measures against.
  */
 
 import { spawnSync } from "node:child_process";

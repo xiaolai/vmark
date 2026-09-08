@@ -7,6 +7,14 @@
  * iframe and offers "open in browser". Actions are injected so the panel stays
  * free of store/service wiring (the `useContentServer` hook supplies them).
  *
+ * The one exception is deliberate (WI-FL1.1): on open the panel probes
+ * `content_server_runtime` through `useContentServerRuntime` and, while
+ * stopped, renders `KnowledgeBaseRuntimeState` — the Start button only when
+ * `node` and the content-server CLI are both present, otherwise an alert naming
+ * what is missing and what would provide it. No release build ships the CLI
+ * today (plan decision D1), so without this every packaged install offered a
+ * Start that ended in `not-found`.
+ *
  * Reached from App.tsx, which passes `<KnowledgeBaseOverlay />` into EditorArea's
  * `sidePanel` prop — an in-flow right dock, not an overlay. ADR-007 describes a
  * slot-registration mechanism; none exists, so this mount is an edit to App.tsx
@@ -30,11 +38,18 @@
  * user could simply have retried. `RetryableLazy` catches it here and mounts a
  * FRESH lazy per attempt, because React.lazy caches its rejection forever.
  *
- * @module components/KnowledgeBasePanel
+ * The lifecycle views (provisioning/starting, error, running) are one component
+ * each in `KnowledgeBasePanelViews.tsx`; this file dispatches on `status` — as a
+ * SWITCH, so every status has exactly one answer and none can fall through to
+ * an empty body (audit round 3, #625).
+ *
+ * @coordinates-with ./KnowledgeBasePanelViews.tsx — the per-state views
+ * @coordinates-with ./KnowledgeBaseRuntimeState.tsx — the stopped state
+ * @module components/KnowledgeBasePanel/KnowledgeBasePanel
  */
 
+import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { RetryableLazy } from "@/components/RetryableLazy";
 import {
   useContentServerStore,
   selectServerStatus,
@@ -44,10 +59,10 @@ import {
   selectIframeUrl,
   selectViewMode,
 } from "@/stores/contentServerStore";
+import { KnowledgeBaseRuntimeState } from "./KnowledgeBaseRuntimeState";
+import { KnowledgeBaseError, KnowledgeBaseProgress, KnowledgeBaseRunning } from "./KnowledgeBasePanelViews";
+import { useContentServerRuntime } from "./useContentServerRuntime";
 import "./knowledge-base-panel.css";
-
-const loadKbGraphView = () =>
-  import("./KbGraphView").then((m) => ({ default: m.KbGraphView }));
 
 export interface KnowledgeBasePanelProps {
   onStart: () => void;
@@ -55,6 +70,12 @@ export interface KnowledgeBasePanelProps {
   onOpenInBrowser: () => void;
   onPreviewSlides: () => void;
   onExportSlides: () => void;
+  /**
+   * Whether this is a development build (`pnpm tauri dev`). Decides the wording
+   * for a missing content-server CLI; defaults to Vite's `import.meta.env.DEV`
+   * and exists as a prop so tests can render the packaged wording.
+   */
+  isDevBuild?: boolean;
 }
 
 export function KnowledgeBasePanel({
@@ -63,14 +84,81 @@ export function KnowledgeBasePanel({
   onOpenInBrowser,
   onPreviewSlides,
   onExportSlides,
+  isDevBuild = import.meta.env.DEV,
 }: KnowledgeBasePanelProps) {
   const { t } = useTranslation();
+  const { probe, recheck } = useContentServerRuntime();
   const status = useContentServerStore(selectServerStatus);
   const url = useContentServerStore(selectServerUrl);
   const provision = useContentServerStore(selectProvision);
   const error = useContentServerStore(selectError);
   const iframeUrl = useContentServerStore(selectIframeUrl);
   const viewMode = useContentServerStore(selectViewMode);
+
+  // The probe answers "what would a start find on this machine", and a run
+  // CHANGES that answer: provisioning installs the very CLI a mount-time probe
+  // may have found missing. Returning to the stopped view with that stale
+  // answer hides Start behind an alert about a runtime that now exists (audit
+  // R2, #626). Re-asked on the way INTO stopped only — the arrival at mount is
+  // the hook's own probe, and re-running it there would double every open.
+  const previousStatus = useRef(status);
+  useEffect(() => {
+    const previous = previousStatus.current;
+    previousStatus.current = status;
+    if (status === "stopped" && previous !== "stopped") recheck();
+  }, [status, recheck]);
+
+  /**
+   * The body for `status` — a SWITCH, so every status has exactly one answer.
+   *
+   * It was five independent `&&` branches, and two of them carried a second
+   * condition: `provisioning && provision` and `running && url`. A status whose
+   * companion value had not arrived (or had been cleared) therefore matched
+   * NOTHING, and the panel rendered its header over an empty body — a dead
+   * surface saying "Running" with no frame, no message and no way out (audit
+   * round 3, #625). A missing companion is now a PROGRESS state, which is what
+   * "the status says so but the detail has not landed" actually is.
+   */
+  function renderBody() {
+    switch (status) {
+      case "stopped":
+        return (
+          <div className="kb-panel__empty">
+            <p>{t("contentServer.empty")}</p>
+            <KnowledgeBaseRuntimeState
+              probe={probe}
+              isDevBuild={isDevBuild}
+              onStart={onStart}
+              onRecheck={recheck}
+            />
+          </div>
+        );
+      case "provisioning":
+        return <KnowledgeBaseProgress provision={provision} />;
+      case "starting":
+        return <KnowledgeBaseProgress provision={null} />;
+      case "error":
+        return <KnowledgeBaseError error={error} onRetry={onStart} />;
+      case "running":
+        return url ? (
+          <KnowledgeBaseRunning
+            url={url}
+            iframeUrl={iframeUrl}
+            viewMode={viewMode}
+            onStop={onStop}
+            onOpenInBrowser={onOpenInBrowser}
+            onPreviewSlides={onPreviewSlides}
+            onExportSlides={onExportSlides}
+          />
+        ) : (
+          <KnowledgeBaseProgress provision={null} />
+        );
+      default:
+        // Unreachable while `status` is the store's union — and if that union
+        // grows, this is a visible state rather than a blank pane.
+        return <KnowledgeBaseProgress provision={null} />;
+    }
+  }
 
   return (
     <section className="kb-panel" aria-label={t("contentServer.title")}>
@@ -81,102 +169,7 @@ export function KnowledgeBasePanel({
         </span>
       </header>
 
-      {status === "stopped" && (
-        <div className="kb-panel__empty">
-          <p>{t("contentServer.empty")}</p>
-          <button type="button" className="vm-btn" onClick={onStart}>
-            {t("contentServer.action.start")}
-          </button>
-        </div>
-      )}
-
-      {status === "provisioning" && provision && (
-        <div className="kb-panel__progress" role="status">
-          {provision.phase === "downloading"
-            ? t("contentServer.provision.downloading", {
-                percent: provision.total
-                  ? Math.floor((100 * (provision.received ?? 0)) / provision.total)
-                  : 0,
-              })
-            : t(`contentServer.provision.${provision.phase}`)}
-        </div>
-      )}
-
-      {status === "starting" && (
-        <div className="kb-panel__progress" role="status">
-          {t("contentServer.status.starting")}
-        </div>
-      )}
-
-      {status === "error" && (
-        <div className="kb-panel__error" role="alert">
-          <p>{error}</p>
-          <button type="button" className="vm-btn" onClick={onStart}>
-            {t("contentServer.action.retry")}
-          </button>
-        </div>
-      )}
-
-      {status === "running" && url && (
-        <>
-          <div className="kb-panel__toolbar">
-            <button
-              type="button"
-              className="vm-btn"
-              aria-pressed={viewMode === "site"}
-              onClick={() => useContentServerStore.getState().setViewMode("site")}
-            >
-              {t("contentServer.view.site")}
-            </button>
-            <button
-              type="button"
-              className="vm-btn"
-              aria-pressed={viewMode === "graph"}
-              onClick={() => useContentServerStore.getState().setViewMode("graph")}
-            >
-              {t("contentServer.view.graph")}
-            </button>
-            <span className="kb-panel__spacer" />
-            <button type="button" className="vm-btn" onClick={onPreviewSlides}>
-              {t("contentServer.slidev.preview")}
-            </button>
-            <button type="button" className="vm-btn" onClick={onExportSlides}>
-              {t("contentServer.slidev.export")}
-            </button>
-            <button type="button" className="vm-btn" onClick={onOpenInBrowser}>
-              {t("contentServer.action.openInBrowser")}
-            </button>
-            <button type="button" className="vm-btn" onClick={onStop}>
-              {t("contentServer.action.stop")}
-            </button>
-          </div>
-          {viewMode === "graph" ? (
-            <RetryableLazy
-              feature="Knowledge base graph"
-              load={loadKbGraphView}
-              componentProps={{}}
-              // Same placeholder the graph itself uses while fetching, so chunk
-              // load and data load read as one continuous state.
-              pending={<div className="kb-graph__loading" data-testid="kb-graph-pending" />}
-              renderError={(retry) => (
-                <div className="kb-panel__error" role="alert">
-                  <p>{t("contentServer.graph.error")}</p>
-                  <button type="button" className="vm-btn" onClick={retry}>
-                    {t("contentServer.action.retry")}
-                  </button>
-                </div>
-              )}
-            />
-          ) : (
-            <iframe
-              className="kb-panel__frame"
-              title={t("contentServer.title")}
-              src={iframeUrl ?? url}
-              sandbox="allow-scripts allow-same-origin"
-            />
-          )}
-        </>
-      )}
+      {renderBody()}
     </section>
   );
 }

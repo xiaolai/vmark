@@ -60,7 +60,8 @@ export interface MarkdownSettings {
    */
   preserveBlankLines: boolean;
   showBrTags: boolean; // Display <br> tags visibly
-  // Render invisible chars (spaces, tabs, breaks); Source only; off by default.
+  // Render invisible chars (spaces, tabs, breaks) in BOTH editors — the Source
+  // plugin and the WYSIWYG decoration extension each follow it live; off by default.
   showInvisibles: boolean;
   codeBlockLineNumbers: boolean; // WYSIWYG per-code-block gutter; independent of the source gutter / View menu (#1082)
   enableRegexSearch: boolean; // Enable regex in Find & Replace

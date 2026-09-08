@@ -155,6 +155,28 @@ describe("recorder shim — capture shape", () => {
     expect(JSON.stringify(events[0])).not.toContain("draft");
   });
 
+  // Audit 20260907 round 2: the dirty flag was set whether or not the shim was
+  // armed, so text typed BEFORE the recording started was committed as a step
+  // the moment focus left — an action the session never saw the user perform.
+  it("does not record a contenteditable edit that began before the session was armed", () => {
+    evalIsolated(buildDisarmScript()); // the outer beforeEach armed it
+    const host = mount(`<div id="ed" contenteditable="true" aria-label="Body"></div>`, "ed");
+    host.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: "x" }));
+    evalIsolated(buildArmScript());
+    fire(host, "focusout");
+    expect(drain()).toEqual([]);
+  });
+
+  it("does not record a contenteditable edit that began in an EARLIER armed session", () => {
+    evalIsolated(buildArmScript());
+    const host = mount(`<div id="ed" contenteditable="true" aria-label="Body"></div>`, "ed");
+    host.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: "x" }));
+    evalIsolated(buildDisarmScript());
+    evalIsolated(buildArmScript()); // a new recording, a new marker element
+    fire(host, "focusout");
+    expect(drain()).toEqual([]);
+  });
+
   it("a click on a WRAPPING label's text resolves to the control inside it, recorded once", () => {
     evalIsolated(buildArmScript());
     const label = mount<HTMLLabelElement>(`<label id="l">Agree <input id="cb" type="checkbox"></label>`, "l");
@@ -216,6 +238,33 @@ describe("recorder shim — capture shape", () => {
   });
 });
 
+// Audit 20260907 round 2: the walk stopped at ANY role attribute, so a
+// decorative icon inside a button was recorded instead of the button — and a
+// presentational role resolves to NO role, which degrades the recorded step to
+// a manual `confirm:`.
+describe("recorder shim — the walk stops at an ACTIONABLE control", () => {
+  beforeEach(() => evalIsolated(buildArmScript()));
+
+  it.each(["presentation", "none", "img"])(
+    "walks past a decorative role=%s inside a button",
+    (role) => {
+      const btn = mount(
+        `<button id="b" aria-label="Save changes"><span id="i" role="${role}">icon</span></button>`,
+        "b",
+      );
+      expect(btn).not.toBeNull();
+      document.getElementById("i")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      expect(drain()[0]).toMatchObject({ type: "click", role: "button", name: "Save changes" });
+    },
+  );
+
+  it("still stops at an actionable role on a non-native element", () => {
+    const el = mount(`<div id="d" role="button" aria-label="Send">x</div>`, "d");
+    el.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(drain()[0]).toMatchObject({ type: "click", role: "button", name: "Send" });
+  });
+});
+
 describe("recorder shim — bounds and safety", () => {
   it("caps the ring buffer at 200 entries", () => {
     evalIsolated(buildArmScript());
@@ -235,6 +284,16 @@ describe("recorder shim — bounds and safety", () => {
 
   it("never reads a field's value — the Rust include pins the same byte-level claim", () => {
     expect(RECORDER_SHIM_SRC).not.toContain(".value");
+  });
+
+  it("stays ES5: no let/const/class/arrow/template, and no trailing comma in a call (#776)", () => {
+    // The header's "self-contained ES5" was already false in five places — a
+    // trailing comma in an argument list is ES2017. It parses in WebKit, so
+    // nothing failed; the claim simply stopped being true, which is how the
+    // next real violation would have gone unnoticed too.
+    const code = RECORDER_SHIM_BODY.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+    expect(code).not.toMatch(/\b(let|const|class|import|export)\b|=>|`/);
+    expect(code).not.toMatch(/,\s*\)/);
   });
 
   it("a page-forged drain counter only costs the page its own buffered events", () => {
@@ -282,6 +341,20 @@ describe("recorder shim — drained events are never re-published (S-01)", () =>
     document.getElementById("b")!.click();
     expect(drain(true).map((e) => e.name)).toEqual(["A", "B"]);
     expect(drain(false)).toEqual([]);
+  });
+
+  // Audit 20260907 round 2: the stamp alone was not enough. A page that DELETES
+  // the buffer element after a clearing drain gets a fresh one whose stamp is
+  // "" — equal to the "" this closure still held, because no capture had run
+  // since the drain to observe the real stamp — so the drained events were
+  // republished and the host counted them twice.
+  it("a buffer element the page replaced after a drain does not republish the drained events", () => {
+    const a = mount(`<button id="a">A</button><button id="b">B</button>`, "a");
+    a.click();
+    expect(drain(true)).toHaveLength(1);
+    document.getElementById(RECORDER_BUFFER_ID)!.remove();
+    document.getElementById("b")!.click();
+    expect(drain(true)).toEqual([{ type: "click", role: "button", name: "B" }]);
   });
 
   it("the clearing drain stamps a fresh nonce each time; a plain drain does not touch it", () => {
@@ -414,6 +487,45 @@ describe("recorder shim — sensitivity (S-11)", () => {
     expect(changed(attrs)).toMatchObject({ type: "type", sensitive: false });
   });
 
+  // Audit 20260907 (#391, round 2): the classifier matched English identifier
+  // tokens only, so a field named ONLY in one of the other shipped languages —
+  // 验证码, パスワード, Contraseña — was recorded as plain `{input}` text.
+  // CJK has no word boundaries and the ASCII tokenizer splits accented words,
+  // so these match as whole phrases of the lowercased name.
+  it.each([
+    ["zh-CN aria-label 验证码", `aria-label="验证码"`],
+    ["zh-CN placeholder 请输入密码", `placeholder="请输入密码"`],
+    ["zh-TW aria-label 驗證碼", `aria-label="驗證碼"`],
+    ["ja aria-label パスワード", `aria-label="パスワード"`],
+    ["ja placeholder 暗証番号", `placeholder="暗証番号"`],
+    ["ko aria-label 비밀번호", `aria-label="비밀번호"`],
+    ["ko aria-label 인증번호 입력", `aria-label="인증번호 입력"`],
+    ["de aria-label Passwort", `aria-label="Passwort"`],
+    ["es aria-label Contraseña (accented)", `aria-label="Contraseña"`],
+    ["es decomposed accent (NFD)", `aria-label="Contraseña"`],
+    ["fr aria-label Mot de passe", `aria-label="Mot de passe"`],
+    ["it aria-label Codice di verifica", `aria-label="Codice di verifica"`],
+    ["pt-BR placeholder Senha", `placeholder="Senha"`],
+  ])("marks a field named in %s sensitive (#391)", (_label, attrs) => {
+    expect(changed(attrs)).toMatchObject({ type: "type", sensitive: true });
+  });
+
+  it("a <label for> that names the field 驗證碼 marks it sensitive", () => {
+    document.body.innerHTML = `<label for="c">驗證碼</label><input id="c" type="text">`;
+    fire(document.getElementById("c")!, "change");
+    expect(drain()[0]).toMatchObject({ type: "type", name: "驗證碼", sensitive: true });
+  });
+
+  it.each([
+    ["a zh-CN email field", `aria-label="邮箱"`],
+    ["a ja name field", `aria-label="お名前"`],
+    ["a ko search field", `aria-label="검색"`],
+    ["a de postal code — a bare code word is not a secret", `aria-label="Postleitzahl"`],
+    ["an es postal code", `aria-label="Código postal"`],
+  ])("does not mark %s sensitive", (_label, attrs) => {
+    expect(changed(attrs)).toMatchObject({ type: "type", sensitive: false });
+  });
+
   it("stays sensitive across a show-password toggle before change (sticky per element)", () => {
     const pw = mount(`<input id="t" type="password" aria-label="Password">`, "t") as HTMLInputElement;
     fire(pw, "focusin");
@@ -433,27 +545,249 @@ describe("recorder shim — sensitivity (S-11)", () => {
     expect(drain()[0]).toMatchObject({ sensitive: true });
   });
 
-  it("the sticky mark clears on change: a later, ordinary edit of the same element is not sensitive", () => {
+  // The two tests that stood here pinned the EPISODE mark's clearing as the
+  // observable outcome — `[true, false]` across a second commit, `false` after a
+  // focusout — which was the audit's open residual spelled out as an expectation:
+  // a password field flipped to text became `{input}` material on its next commit.
+  // The element is the secret; the episode mark still clears, but a permanent
+  // per-element mark now carries the observation (WI-FL6.4). The full matrix —
+  // later commit, focus leaving for the eye button, a flip before first touch, the
+  // attribute spelling, and the no-false-positive case — is
+  // `recorderShim.residuals.test.ts`; this keeps the one-line statement here.
+  it("a field once seen as a password field stays sensitive on every later commit, across a type flip and a focusout", () => {
     const el = mount(`<input id="t" type="password" aria-label="Field">`, "t") as HTMLInputElement;
     fire(el, "input");
     el.type = "text";
     fire(el, "change");
-    fire(el, "change");
-    expect(drain().map((e) => e.sensitive)).toEqual([true, false]);
-  });
-
-  it("the sticky mark clears on focusout too", () => {
-    const el = mount(`<input id="t" type="password" aria-label="Field">`, "t") as HTMLInputElement;
-    fire(el, "input");
-    el.type = "text";
     fire(el, "focusout");
     fire(el, "change");
-    expect(drain()[0]).toMatchObject({ sensitive: false });
+    expect(drain().map((e) => e.sensitive)).toEqual([true, true]);
+  });
+
+  // Audit 20260907 (#393): a classifier failure used to fail OPEN — the field
+  // read as non-sensitive and its value was recorded as an `{input}` variable.
+  // At a sensitivity boundary a failure is a secret. Only the classifier reads
+  // `autocomplete` (the locator names the field by its <label>), so a page
+  // handing back a non-string there breaks the classifier alone — and does so
+  // for every shim instance listening, which keeps the probe order-independent.
+  it("a classifier that cannot read the field records it sensitive (fail closed)", () => {
+    document.body.innerHTML = `<label for="mystery">Mystery</label><input type="text" id="mystery">`;
+    const el = document.getElementById("mystery") as HTMLInputElement;
+    const native = el.getAttribute.bind(el);
+    Object.defineProperty(el, "getAttribute", {
+      value: (name: string) => (name === "autocomplete" ? { broken: true } : native(name)),
+    });
+    fire(el, "change");
+    expect(drain()[0]).toMatchObject({ type: "type", name: "Mystery", sensitive: true });
   });
 
   it("a file input change is recorded sensitive: replay gates it on a human, never a variable", () => {
     const el = mount(`<input id="t" type="file" aria-label="Attachment">`, "t");
     fire(el, "change");
     expect(drain()[0]).toMatchObject({ type: "type", name: "Attachment", sensitive: true });
+  });
+});
+
+// Audit 20260907 (#391, round 3): the phrase list covered the other shipped
+// languages, but English fields are named by PHRASES too — "Verification code",
+// "Security code" — and none of their words is a sensitive TOKEN on its own
+// (a bare "code" is a postal code as often as a secret), so they were recorded
+// as ordinary `{input}` text.
+describe("recorder shim — English phrases that name a secret (#391)", () => {
+  beforeEach(() => evalIsolated(buildArmScript()));
+
+  function changed(attrs: string): Recorded {
+    document.body.innerHTML = `<input type="text" ${attrs}>`;
+    fire(document.querySelector("input")!, "change");
+    return drain()[0];
+  }
+
+  it.each([
+    ["aria-label Verification code", `aria-label="Verification code"`],
+    ["placeholder Security code", `placeholder="Security code"`],
+    ["aria-label One-time code", `aria-label="One-time code"`],
+    ["aria-label Confirmation code", `aria-label="Confirmation code"`],
+    ["aria-label Authentication code", `aria-label="Authentication code"`],
+    ["aria-label Verification Code in Title Case", `aria-label="Verification Code"`],
+    ["aria-label Passphrase", `aria-label="Passphrase"`],
+    ["aria-label Recovery code", `aria-label="Recovery code"`],
+    ["aria-label Backup code", `aria-label="Backup code"`],
+  ])("marks a field named %s sensitive", (_label, attrs) => {
+    expect(changed(attrs)).toMatchObject({ type: "type", sensitive: true });
+  });
+
+  it("a <label for> sentence containing the phrase marks the field", () => {
+    document.body.innerHTML = `<label for="c">Enter the verification code we sent you</label><input id="c" type="text">`;
+    fire(document.getElementById("c")!, "change");
+    expect(drain()[0]).toMatchObject({ type: "type", sensitive: true });
+  });
+
+  it.each([
+    ["a postal code", `aria-label="Postal code"`],
+    ["a zip code", `placeholder="ZIP code"`],
+    ["a promo code", `aria-label="Promo code"`],
+    ["a country code", `aria-label="Country code"`],
+    ["a discount code", `aria-label="Discount code"`],
+    ["an area code", `aria-label="Area code"`],
+    ["a verification email address", `aria-label="Verification email"`],
+  ])("does not mark %s sensitive — a bare code word is not a secret", (_label, attrs) => {
+    expect(changed(attrs)).toMatchObject({ type: "type", sensitive: false });
+  });
+});
+
+// Audit 20260907 round 2 — the observer's evidence has to be AVAILABLE when a
+// commit is judged, and it has to cover every attribute the accessible name is
+// built from. Both gaps let a page erase the only evidence that a field was a
+// secret, without the shim noticing anything had happened.
+describe("recorder shim — the observer's evidence reaches the commit", () => {
+  beforeEach(() => evalIsolated(buildArmScript()));
+
+  it("drains pending mutation records before judging a commit in the SAME task", () => {
+    // A MutationObserver callback is a microtask, so a page that flips `type`
+    // and commits synchronously — inside its own handler, then blur() — reached
+    // the commit before the permanent mark existed. The field is never focused,
+    // so no episode mark covers for it either.
+    const el = mount<HTMLInputElement>(`<input id="t" type="password" aria-label="Nickname">`, "t");
+    el.setAttribute("type", "text");
+    fire(el, "change"); // same task: no microtask checkpoint in between
+    expect(drain()[0]).toMatchObject({ type: "type", name: "Nickname", sensitive: true });
+  });
+
+  it("watches the placeholder, which the accessible name is built from", async () => {
+    const el = mount<HTMLInputElement>(`<input id="t" type="text" placeholder="Password">`, "t");
+    el.removeAttribute("placeholder"); // the evidence, erased before first focus
+    await Promise.resolve();
+    fire(el, "change");
+    expect(drain()[0]).toMatchObject({ type: "type", sensitive: true });
+  });
+
+  it("watches aria-labelledby, which the accessible name is built from", async () => {
+    document.body.innerHTML =
+      `<span id="lbl">Password</span><input id="t" type="text" aria-labelledby="lbl">`;
+    const el = document.getElementById("t")!;
+    el.removeAttribute("aria-labelledby");
+    await Promise.resolve();
+    fire(el, "change");
+    expect(drain()[0]).toMatchObject({ type: "type", sensitive: true });
+  });
+});
+
+// Audit 20260907 (#393, round 2 — then round 2 of the 20260907 re-audit): the
+// classifier failed closed, but the MARKS did not. Failing closed covered the
+// patch that THROWS; it did nothing about the patch that lies. A page that
+// replaces `WeakMap.prototype.set` with a silent no-op made every mark vanish
+// with no error at all, so `marksBroken` never tripped and a password field
+// committed after a `type` flip was recorded as ordinary — laundering a secret
+// through the very mechanism meant to remember it.
+//
+// The shim now captures the PRISTINE map methods at document start, before any
+// page script has run, so neither patch reaches the marks: the classification a
+// page sees is the one the shim made. The fail-closed catches remain for a
+// genuine failure; they are simply no longer the page's to trigger.
+describe("recorder shim — the marks are out of the page's reach (#393)", () => {
+  beforeEach(() => evalIsolated(buildArmScript()));
+
+  const nativeGet = WeakMap.prototype.get;
+  const nativeSet = WeakMap.prototype.set;
+  afterEach(() => {
+    WeakMap.prototype.get = nativeGet;
+    WeakMap.prototype.set = nativeSet;
+  });
+
+  /** Break WeakMap reads for ONE element only, so jsdom's own maps keep working. */
+  function poisonReadsFor(el: Element): void {
+    WeakMap.prototype.get = function (this: WeakMap<object, unknown>, key: object) {
+      if (key === el) throw new Error("poisoned read");
+      return nativeGet.call(this, key);
+    };
+  }
+
+  function poisonWritesFor(el: Element): void {
+    WeakMap.prototype.set = function (this: WeakMap<object, unknown>, key: object, value: unknown) {
+      if (key === el) throw new Error("poisoned write");
+      return nativeSet.call(this, key, value);
+    };
+  }
+
+  /** Break WeakMap writes SILENTLY — the patch that lies rather than throws. */
+  function silenceWrites(): void {
+    WeakMap.prototype.set = function (this: WeakMap<object, unknown>) {
+      return this;
+    };
+  }
+
+  it("a page that SILENTLY no-ops WeakMap writes cannot launder a password field", async () => {
+    const el = mount<HTMLInputElement>(`<input id="t" type="password" aria-label="Nickname">`, "t");
+    silenceWrites();
+    fire(el, "focusin"); // markSensitive — the write is swallowed by the patch
+    el.setAttribute("type", "text"); // the show-password flip
+    await Promise.resolve(); // let the observer's own microtask run
+    fire(el, "change");
+    expect(drain()[0]).toMatchObject({ type: "type", name: "Nickname", sensitive: true });
+  });
+
+  it("a page that makes WeakMap reads THROW cannot change the classification either", () => {
+    const el = mount(`<input id="t" type="text" aria-label="Nickname">`, "t");
+    poisonReadsFor(el);
+    fire(el, "change");
+    expect(drain()[0]).toMatchObject({ type: "type", name: "Nickname", sensitive: false });
+  });
+
+  it("a page that makes WeakMap writes throw still does not launder a password", () => {
+    const pw = mount(`<input id="pw" type="password" aria-label="Nickname">`, "pw");
+    poisonWritesFor(pw);
+    fire(pw, "focusin");
+    WeakMap.prototype.set = nativeSet;
+    fire(pw, "change");
+    expect(drain()[0]).toMatchObject({ type: "type", name: "Nickname", sensitive: true });
+  });
+
+  it("with its marks intact the shim still records an ordinary field as not sensitive", () => {
+    const el = mount(`<input id="t" type="text" aria-label="Nickname">`, "t");
+    fire(el, "change");
+    expect(drain()[0]).toMatchObject({ type: "type", name: "Nickname", sensitive: false });
+  });
+});
+
+// Audit 20260907 (#393, round 3): the classifier and the marks failed closed,
+// but the OBSERVER's setup still ended in an empty catch. The observer is the
+// only thing that can see a page rewrite `type` (or launder `autocomplete`,
+// `name`, `id`, `aria-label`) BEFORE the user ever touches the field — the case
+// the permanent mark exists for — so a shim that could not install one has the
+// same incomplete memory a broken WeakMap gives it, and must degrade the same
+// way instead of going on reporting fields as ordinary.
+describe("recorder shim — an observer that could not be installed fails closed (#393)", () => {
+  beforeEach(() => evalIsolated(buildArmScript()));
+
+  /** Install a fresh shim while the page's `MutationObserver` is `impostor`.
+   *  The newest instance's listeners run last, so its verdict is the drained one. */
+  function installShimWithObserver(impostor: unknown): void {
+    const g = globalThis as unknown as { MutationObserver?: unknown };
+    const native = g.MutationObserver;
+    g.MutationObserver = impostor;
+    try {
+      installShim();
+    } finally {
+      g.MutationObserver = native;
+    }
+  }
+
+  it("an observer whose observe() is refused degrades the shim: a later ordinary field is sensitive", () => {
+    class RefusesToObserve {
+      observe(): void {
+        throw new Error("observe refused");
+      }
+    }
+    installShimWithObserver(RefusesToObserve);
+    const el = mount(`<input id="t" type="text" aria-label="Nickname">`, "t");
+    fire(el, "change");
+    expect(drain()[0]).toMatchObject({ type: "type", name: "Nickname", sensitive: true });
+  });
+
+  it("a page with no MutationObserver at all is the same degradation, not a silent skip", () => {
+    installShimWithObserver(undefined);
+    const el = mount(`<input id="t" type="text" aria-label="Nickname">`, "t");
+    fire(el, "change");
+    expect(drain()[0]).toMatchObject({ type: "type", name: "Nickname", sensitive: true });
   });
 });

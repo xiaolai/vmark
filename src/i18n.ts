@@ -16,7 +16,7 @@
  *     correct assistive-technology announcements.
  *
  * @coordinates-with stores/settingsStore.ts — reads general.language at init
- * @coordinates-with utils/startupMenuSync.ts — rebuilds native menu for non-English locales
+ * @coordinates-with services/menu/startupMenuSync.ts — rebuilds native menu for non-English locales
  * @module i18n
  */
 import i18n from "i18next";

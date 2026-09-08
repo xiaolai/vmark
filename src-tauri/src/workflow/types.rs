@@ -14,7 +14,15 @@ use std::collections::HashMap;
 /// Field-level docs below describe the on-the-wire YAML shape. Author-facing
 /// guidance — including the v1 expression grammar and template binding rules
 /// — lives in `website/guide/workflow-genies.md`.
+// A typo in a wire struct must FAIL, not be ignored (audit #519). `need:`
+// for `needs:` silently drops a dependency edge and reorders execution;
+// `approvals:` for `approval:` silently reverts a step to the workflow
+// default — and for an engine that spawns AI providers and writes files,
+// that means running unattended what the author asked to be approved.
+// Nothing else reads these structs, so an unknown key is an author error
+// every time, and the only place it can be reported is here.
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 #[allow(dead_code)]
 pub struct RawWorkflow {
     /// Human-readable name of the workflow. Required. Surfaces in logs and
@@ -46,6 +54,7 @@ pub struct RawWorkflow {
 /// Each field's precedence is documented in ADR-6. Resolution happens in
 /// `step_config::resolve_step_config`.
 #[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
 #[allow(dead_code)]
 pub struct RawDefaults {
     /// Default AI model for `genie/*` steps. Step-level `model:` overrides;
@@ -65,7 +74,8 @@ pub struct RawDefaults {
 ///   - `action/<name>` — built-in I/O actions (read-file, save-file, etc.).
 ///   - `genie/<name>` — load and run a markdown genie's prompt template.
 ///   - `webhook/...` — reserved; not yet implemented.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
 #[allow(dead_code)]
 pub struct RawStep {
     /// Optional explicit step identifier. When absent, the runner derives
@@ -101,7 +111,7 @@ pub struct RawStep {
 
 /// YAML-friendly `needs:` shape — accepts either a bare string or a list of
 /// strings, normalized to `Vec<String>` via `to_vec`.
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 #[serde(untagged)]
 pub enum NeedsDef {
     /// `needs:` field absent.
@@ -129,7 +139,8 @@ impl NeedsDef {
 /// audit-fix #4). `max_cost` is parsed for forward compatibility but
 /// remains unenforced — see ADR-6 / D9 in
 /// `dev-docs/plans/20260418-genie-in-workflow.md` for the rationale.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
 #[allow(dead_code)]
 pub struct RawLimits {
     /// Per-step wall-clock timeout. Accepts a bare integer (seconds) or a

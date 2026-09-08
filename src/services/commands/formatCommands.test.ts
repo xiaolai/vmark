@@ -23,7 +23,6 @@ import {
 } from "./CommandBus";
 import {
   registerFormatCommands,
-  __resetFormatCommandsRegistration,
 } from "./formatCommands";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
@@ -41,7 +40,6 @@ function associations() {
 
 beforeEach(() => {
   _resetCommandBus();
-  __resetFormatCommandsRegistration();
   toastInfo.mockClear();
   useTabStore.setState({
     tabs: {},
@@ -63,9 +61,9 @@ afterEach(() => {
 describe("HMR re-registration (dev-only Vite reload)", () => {
   it("does not throw when the module flag resets but the bus registry survives", () => {
     const before = listCommands().length;
-    // Simulate Vite HMR: the registrar module re-instantiates (module-local
-    // `registered` flag resets) while CommandBus's REGISTRY survives.
-    __resetFormatCommandsRegistration();
+    // Simulate Vite HMR: the registrar module re-instantiates while
+    // CommandBus's REGISTRY survives. Owner registration is replace-own, so a
+    // second call converges on exactly this batch rather than colliding.
     expect(() => registerFormatCommands()).not.toThrow();
     expect(listCommands().length).toBe(before);
   });

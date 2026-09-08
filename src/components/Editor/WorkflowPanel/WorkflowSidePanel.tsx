@@ -5,7 +5,7 @@
  * Shows the React Flow graph alongside the CodeMirror YAML editor and
  * exposes Run / Cancel controls for the runner (WI-4.2).
  *
- * @coordinates-with workflowPreviewStore.ts — reads panel + execution state
+ * @coordinates-with stores/workflowStore.ts — reads panel + execution state
  * @coordinates-with WorkflowPreview.tsx — renders the React Flow canvas
  * @coordinates-with useWorkflowExecution.ts — start / cancel
  * @coordinates-with Editor.tsx — mounted alongside editor-content

@@ -11,12 +11,17 @@
  *   2. The window-lifetime services start (`startRuntimeServices`, one disposer).
  *   3. Async Pandoc-format expansion runs next; the format list is
  *      not known until pandocExport.ts dynamically loads.
- *   4. The combined binding list is mounted via mountMenuCommands, which
- *      then signals `menuCommandsReady` — the barrier the window-ready
- *      handshake waits on — only from a setup that is still live: a
- *      StrictMode-cancelled first pass must never trip it (pinned by test).
+ *   4. The combined binding list is mounted via mountMenuCommands, whose
+ *      COMPLETENESS is then signalled to `menuCommandsReady` — the barrier the
+ *      window-ready handshake waits on — only from a setup that is still live:
+ *      a StrictMode-cancelled first pass must never trip it (pinned by test).
+ *      A binding that cannot listen costs its own menu item and nothing else
+ *      (audit #359): the rest stay mounted, and readiness says `false` rather
+ *      than announcing a menu that routes nowhere. A Pandoc expansion that
+ *      failed counts the same way (audit #712) — its menu items exist and
+ *      route to commands that were never registered.
  *
- * @module services/commands/useCommandBootstrap
+ * @module hooks/useCommandBootstrap
  */
 
 import { useEffect } from "react";
@@ -57,6 +62,9 @@ const MISC_BINDINGS: MenuCommandBinding[] = [
   { menuEvent: "menu:save-all-quit", commandId: "file.saveAllQuit" },
   { menuEvent: "menu:quick-open", commandId: "app.quickOpen" },
   { menuEvent: "menu:new-browser-tab", commandId: "browser.newTab" },
+  { menuEvent: "menu:reopen-closed-tab", commandId: "tab.reopenClosed" },
+  // macOS Window menu (WI-FL3.10): this id used to be emitted to nothing.
+  { menuEvent: "menu:bring-all-to-front", commandId: "window.bringAllToFront" },
   { menuEvent: "menu:preferences", commandId: "app.preferences" },
   { menuEvent: "menu:clear-history", commandId: "history.clearAll" },
   { menuEvent: "menu:clear-workspace-history", commandId: "history.clearWorkspace" },
@@ -125,6 +133,25 @@ const EDITOR_ACTION_BINDINGS: MenuCommandBinding[] = Object.entries(MENU_TO_ACTI
   ([menuEvent, mapping]) => ({ kind: "editorAction", menuEvent, mapping }),
 );
 
+/**
+ * Every menu binding known before the Pandoc formats load.
+ *
+ * Exported so a test can assert the property `mountMenuCommands`' preflight now
+ * DEPENDS on (audit #916): each command binding must name a command
+ * `registerAllCommands` registers. An unresolvable one is dropped from the
+ * mount and makes readiness report `false`, which is right — and would be
+ * silent without an assertion that it never happens.
+ */
+export const STATIC_MENU_BINDINGS: readonly MenuCommandBinding[] = [
+  ...MISC_BINDINGS,
+  ...EXPORT_BINDINGS,
+  ...WORKSPACE_BINDINGS,
+  ...RECENT_FILES_BINDINGS,
+  ...RECENT_WORKSPACES_BINDINGS,
+  ...VIEW_BINDINGS,
+  ...EDITOR_ACTION_BINDINGS,
+];
+
 export function useCommandBootstrap(): void {
   useEffect(() => {
     const disposeEditorCommands = registerAllCommands();
@@ -156,22 +183,30 @@ export function useCommandBootstrap(): void {
 
     // The window-lifetime services (grant/policy mirrors, tab events and
     // lifecycle, recorder, coherence, workspace sync, menu mirror) — one list,
-    // one disposer (services/runtimeWiring.ts).
-    const stopRuntimeServices = startRuntimeServices();
+    // one disposer (services/runtimeWiring.ts). If they fail to start, this
+    // effect never returns its cleanup, so the editor batch — the one
+    // registration that owns resources — is disposed here before the error
+    // propagates (audit #358); the services themselves roll back inside
+    // startRuntimeServices.
+    let stopRuntimeServices: () => void;
+    try {
+      stopRuntimeServices = startRuntimeServices();
+    } catch (error) {
+      disposeEditorCommands();
+      throw error;
+    }
 
     let unlisten: UnlistenFn | null = null;
     let cancelled = false;
 
     void (async () => {
-      const bindings: MenuCommandBinding[] = [
-        ...MISC_BINDINGS,
-        ...EXPORT_BINDINGS,
-        ...WORKSPACE_BINDINGS,
-        ...RECENT_FILES_BINDINGS,
-        ...RECENT_WORKSPACES_BINDINGS,
-        ...VIEW_BINDINGS,
-        ...EDITOR_ACTION_BINDINGS,
-      ];
+      const bindings: MenuCommandBinding[] = [...STATIC_MENU_BINDINGS];
+      // Part of the readiness VERDICT, not just a log line (audit #712). A
+      // failed expansion means every Pandoc export item in the native menu
+      // routes nowhere — the same defect as a binding that could not listen,
+      // which readiness already reports — and reporting `true` over it is the
+      // "announcing a menu that routes nowhere" this hook's header forbids.
+      let expanded = true;
 
       try {
         const formats = await registerPandocFormatCommands();
@@ -182,33 +217,53 @@ export function useCommandBootstrap(): void {
           });
         }
       } catch (err) {
+        expanded = false;
         menuError("Failed to expand Pandoc menu bindings:", err);
       }
 
-      // mountMenuCommands wires the Tauri menu→command bridge. A rejection
-      // here is critical: every native menu item, accelerator, and palette
-      // entry stops routing. Without this catch the rejection becomes an
+      // mountMenuCommands wires the Tauri menu→command bridge. A failure here
+      // is critical: every native menu item, accelerator, and palette entry
+      // stops routing. Without this catch a rejection becomes an
       // unhandled-promise warning and the user sees no error — just
       // silently dead menus. (Audit finding H6.)
+      //
+      // The mount is best-effort and REPORTS its completeness (audit #359), and
+      // the readiness signal carries that verdict. Two shapes were wrong before:
+      // signalling from a `finally` announced a fully-dead menu as ready, and
+      // an all-or-nothing mount turned one refused listener into a window with
+      // no menu at all. A partial mount is kept — every item that bound still
+      // works — and the incompleteness is logged and signalled, never hidden.
+      // Nothing to mount for a setup that is already gone (audit #711). The
+      // Pandoc await above is the long one, so this is where a StrictMode
+      // cancellation almost always lands; `shouldAbort` covers the rest of the
+      // window, polled between each listener registration inside the mount.
+      // Without it a cancelled pass kept ITS listeners live for the whole
+      // remaining mount — overlapping the replay pass, which double-dispatched
+      // every menu event bound in that window.
+      if (cancelled) return;
       try {
-        const off = await mountMenuCommands(bindings);
+        const { off, failed } = await mountMenuCommands(bindings, {
+          shouldAbort: () => cancelled,
+        });
         if (cancelled) {
           off();
           return;
         }
         unlisten = off;
-      } catch (err) {
-        menuError("Failed to mount menu commands:", err);
-      } finally {
+        if (failed.length > 0) {
+          menuError(`${failed.length} menu binding(s) could not mount:`, failed);
+        }
         // The window-ready handshake waits on this instead of guessing how
         // long the `await` above takes — it is a dynamic import, so no
-        // constant could bound it. Signalled in a `finally` because a mount
-        // that THREW will never become mounted: hanging the handshake on it
-        // would turn dead menus into a window that never reports ready at all.
-        // Only from a setup that is still LIVE: a StrictMode-cancelled first pass
-        // used to signal readiness after removing its listener and before the
-        // replay mounted one.
-        if (!cancelled) signalMenuCommandsMounted();
+        // constant could bound it. Only from a setup that is still LIVE: a
+        // StrictMode-cancelled first pass must not signal after removing its
+        // listener and before the replay mounts one.
+        signalMenuCommandsMounted(expanded && failed.length === 0);
+      } catch (err) {
+        // Only the duplicate-binding preflight rejects now, and it means the
+        // static binding list is malformed: nothing mounted, so nothing routes.
+        menuError("Failed to mount menu commands:", err);
+        if (!cancelled) signalMenuCommandsMounted(false);
       }
     })().catch((err) => appError("Command bootstrap failed:", err));
 

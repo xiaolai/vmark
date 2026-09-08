@@ -16,9 +16,17 @@
 //!   - macOS dock-icon reactivation restores the user's most-recent workspace via
 //!     `pick_reopen_workspace_root` (validated against the live filesystem) instead
 //!     of opening an unscoped untitled doc.
+//!   - Every builder is generic over the Tauri runtime, so the creation
+//!     commands and the second-launch surfacing can be driven on
+//!     `tauri::test::MockRuntime` (#246, #249). Production callers pass the
+//!     Wry handle and infer it.
 
+use super::window_url::build_window_url;
+// Re-exported so `commands.rs` keeps importing the window surface from one
+// place; the builder itself lives in `window_url.rs` with its grammar.
+pub(super) use super::window_url::build_window_url_with_files;
 use std::sync::atomic::{AtomicU32, Ordering};
-use tauri::{AppHandle, WebviewUrl, WebviewWindowBuilder};
+use tauri::{AppHandle, Runtime, WebviewUrl, WebviewWindowBuilder};
 
 static WINDOW_COUNTER: AtomicU32 = AtomicU32::new(0);
 
@@ -48,48 +56,6 @@ fn get_cascaded_position(count: u32) -> (f64, f64) {
     )
 }
 
-/// Build window URL with optional query params
-fn build_window_url(file_path: Option<&str>, workspace_root: Option<&str>) -> String {
-    let mut params = Vec::new();
-
-    if let Some(path) = file_path {
-        params.push(format!("file={}", urlencoding::encode(path)));
-    }
-
-    if let Some(root) = workspace_root {
-        params.push(format!("workspaceRoot={}", urlencoding::encode(root)));
-    }
-
-    if params.is_empty() {
-        "/".to_string()
-    } else {
-        format!("/?{}", params.join("&"))
-    }
-}
-
-/// Build window URL with workspace root and multiple file paths.
-pub(super) fn build_window_url_with_files(
-    file_paths: &[String],
-    workspace_root: Option<&str>,
-) -> String {
-    let mut params = Vec::new();
-
-    if let Some(root) = workspace_root {
-        params.push(format!("workspaceRoot={}", urlencoding::encode(root)));
-    }
-
-    if !file_paths.is_empty() {
-        let serialized = serde_json::to_string(file_paths).unwrap_or_default();
-        params.push(format!("files={}", urlencoding::encode(&serialized)));
-    }
-
-    if params.is_empty() {
-        "/".to_string()
-    } else {
-        format!("/?{}", params.join("&"))
-    }
-}
-
 /// The native title a window starts with, before the frontend replaces it with
 /// the document's filename.
 ///
@@ -113,8 +79,8 @@ fn initial_window_title(app_name: &str) -> String {
 /// size / title-bar / focus settings can't drift between call sites. `position`
 /// is `None` for the "main" window (it relies on saved window state / OS
 /// placement); document windows pass an explicit cascade position.
-fn build_document_window(
-    app: &AppHandle,
+fn build_document_window<R: Runtime>(
+    app: &AppHandle<R>,
     label: &str,
     url: String,
     position: Option<(f64, f64)>,
@@ -153,13 +119,23 @@ fn build_document_window(
     Ok(())
 }
 
+/// Claim the next document-window label, and the counter value it came from.
+///
+/// The `doc-{n}` spelling is the allocator's contract with
+/// `create_document_window_with_label_and_url`, which parses the number back
+/// out for the cascade — so it is defined once (audit 20260907 #487); it had
+/// three copies.
+fn next_window_label() -> (u32, String) {
+    let count = WINDOW_COUNTER.fetch_add(1, Ordering::SeqCst);
+    (count, format!("doc-{}", count))
+}
+
 /// Create a new document window from a pre-built URL.
-pub(crate) fn create_document_window_with_url(
-    app: &AppHandle,
+pub(crate) fn create_document_window_with_url<R: Runtime>(
+    app: &AppHandle<R>,
     url: String,
 ) -> Result<String, tauri::Error> {
-    let count = WINDOW_COUNTER.fetch_add(1, Ordering::SeqCst);
-    let label = format!("doc-{}", count);
+    let (count, label) = next_window_label();
 
     build_document_window(app, &label, url, Some(get_cascaded_position(count)))?;
 
@@ -172,8 +148,7 @@ pub(crate) fn create_document_window_with_url(
 /// be assigned to the next window. Used by hot-exit restore to pre-allocate
 /// labels before storing restore state (crash safety).
 pub(crate) fn allocate_window_label() -> String {
-    let count = WINDOW_COUNTER.fetch_add(1, Ordering::SeqCst);
-    format!("doc-{}", count)
+    next_window_label().1
 }
 
 /// Create a document window with a pre-allocated label and explicit URL.
@@ -182,16 +157,33 @@ pub(crate) fn allocate_window_label() -> String {
 /// responsible for ensuring the label is unique (typically via
 /// `allocate_window_label()`). Used by flows that must register routing /
 /// restore state keyed on the label BEFORE the window can claim it.
-pub(crate) fn create_document_window_with_label_and_url(
-    app: &AppHandle,
+pub(crate) fn create_document_window_with_label_and_url<R: Runtime>(
+    app: &AppHandle<R>,
     label: &str,
     url: String,
 ) -> Result<(), tauri::Error> {
-    // Parse counter from label for cascade position (e.g., "doc-5" → 5)
-    let count = label
+    // Parse counter from label for cascade position (e.g., "doc-5" → 5).
+    //
+    // A label `next_window_label` could not have produced falls back to
+    // position zero, and that fallback is now LOUD (audit 20260907 #489). It
+    // stays a fallback rather than an error on purpose: the labels reaching
+    // here come from hot-exit restore, so refusing would trade a window opening
+    // at the wrong corner for the user's restored tabs not opening at all. But
+    // it means the allocator is in a state nothing else would report, and
+    // silence is what made that unfalsifiable.
+    let count = match label
         .strip_prefix("doc-")
         .and_then(|n| n.parse::<u32>().ok())
-        .unwrap_or(0);
+    {
+        Some(count) => count,
+        None => {
+            log::warn!(
+                "[window] label {label:?} is not a `doc-<n>` the allocator produces; \
+                 cascading from 0. A restored label may be corrupt."
+            );
+            0
+        }
+    };
 
     build_document_window(app, label, url, Some(get_cascaded_position(count)))
 }
@@ -201,8 +193,8 @@ pub(crate) fn create_document_window_with_label_and_url(
 /// Uses the given label instead of allocating a new one. The caller is
 /// responsible for ensuring the label is unique (typically via
 /// `allocate_window_label()`).
-pub(crate) fn create_document_window_with_label(
-    app: &AppHandle,
+pub(crate) fn create_document_window_with_label<R: Runtime>(
+    app: &AppHandle<R>,
     label: &str,
 ) -> Result<(), tauri::Error> {
     create_document_window_with_label_and_url(app, label, "/".to_string())
@@ -215,20 +207,15 @@ pub(crate) fn create_document_window_with_label(
 /// * `app` - Tauri AppHandle
 /// * `file_path` - Optional file path to open
 /// * `workspace_root` - Optional workspace root to set (for external file opens)
-pub fn create_document_window(
-    app: &AppHandle,
+pub fn create_document_window<R: Runtime>(
+    app: &AppHandle<R>,
     file_path: Option<&str>,
     workspace_root: Option<&str>,
 ) -> Result<String, tauri::Error> {
-    let count = WINDOW_COUNTER.fetch_add(1, Ordering::SeqCst);
-    let label = format!("doc-{}", count);
-
-    // Build URL with optional query params
-    let url = build_window_url(file_path, workspace_root);
-
-    build_document_window(app, &label, url, Some(get_cascaded_position(count)))?;
-
-    Ok(label)
+    // Delegates rather than repeating the allocate/label/position/build
+    // sequence (audit 20260907 #487): the only thing this entry point adds is
+    // turning its two optional arguments into a URL.
+    create_document_window_with_url(app, build_window_url(file_path, workspace_root))
 }
 
 /// Create a new "main" window (used when the original main window was destroyed
@@ -238,8 +225,8 @@ pub fn create_document_window(
 /// `workspace_root` lets the dock-icon-reopen path restore the user's last
 /// workspace — without it the new window's WindowContext would explicitly
 /// clear any persisted workspace state.
-pub fn create_main_window(
-    app: &AppHandle,
+pub fn create_main_window<R: Runtime>(
+    app: &AppHandle<R>,
     workspace_root: Option<&str>,
 ) -> Result<String, tauri::Error> {
     let label = "main";
@@ -255,11 +242,19 @@ pub fn create_main_window(
 
 /// Pure decision function for `pick_reopen_workspace_root` — testable without
 /// touching the filesystem or the recent-workspaces snapshot.
-fn pick_reopen_workspace_root_with<F>(most_recent: Option<String>, path_exists: F) -> Option<String>
+///
+/// `resolve` returns what the recent entry RESOLVES to, or `None` when it is
+/// no longer a directory — so the value that travels on is the one that was
+/// judged, never the remembered name (#250, audit #490). The check used to be
+/// a bare `is_dir()` predicate with the original string passed onward, which
+/// is the shape every other path gate here was fixed out of: a name is not a
+/// target, and a recent entry replaced by a symlink between the check and the
+/// window's mount scoped the window somewhere the user never chose.
+fn pick_reopen_workspace_root_with<F>(most_recent: Option<String>, resolve: F) -> Option<String>
 where
-    F: Fn(&str) -> bool,
+    F: Fn(&str) -> Option<String>,
 {
-    most_recent.filter(|p| path_exists(p))
+    most_recent.and_then(|p| resolve(&p))
 }
 
 /// On macOS dock-icon reactivation (no visible windows), pick the workspace
@@ -271,7 +266,11 @@ where
 /// in," not an older one they may not remember.
 pub(crate) fn pick_reopen_workspace_root() -> Option<String> {
     pick_reopen_workspace_root_with(crate::menu::get_recent_workspace_path(0), |p| {
-        std::path::Path::new(p).is_dir()
+        let canonical = std::path::Path::new(p).canonicalize().ok()?;
+        if !canonical.is_dir() {
+            return None;
+        }
+        crate::canonical_path::canonical_string(&canonical, "the recent workspace").ok()
     })
 }
 

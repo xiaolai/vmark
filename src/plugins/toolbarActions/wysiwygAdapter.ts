@@ -42,7 +42,7 @@ import { insertWikiLink, insertBookmarkLink, removeLinkAtCursor } from "./wysiwy
 import { clearFormattingInView, toggleBlockquote, handleWysiwygTransformCase, toggleQuoteStyleAtCursor } from "./wysiwygAdapterFormatting";
 import { increaseHeadingLevel, decreaseHeadingLevel } from "./wysiwygHeadingLevel";
 import { handleInsertImage, handleInsertVideo, handleInsertAudio, insertInlineMath } from "./wysiwygAdapterInsert";
-import { insertMathBlock, insertDiagramBlock, insertGraphvizBlock, insertMarkmapBlock } from "./wysiwygAdapterBlockInsert";
+import { insertMathBlock, insertDiagramBlock, insertGraphvizBlock, insertMarkmapBlock, insertTocBlock } from "./wysiwygAdapterBlockInsert";
 import { handleInsertCodeBlock } from "./wysiwygAdapterCodeBlock";
 import { openLinkEditor } from "./wysiwygAdapterLinkEditor";
 import { handleFormatCJK, handleFormatCJKFile, handleRemoveTrailingSpaces, handleCollapseBlankLines, handleLineEndings } from "./wysiwygAdapterCjk";
@@ -222,6 +222,8 @@ export function performWysiwygToolbarAction(action: string, context: WysiwygTool
     case "insertDetails":
       if (!context.editor) return false;
       return context.editor.commands.insertDetailsBlock();
+    case "insertToc":
+      return insertTocBlock(context);
     case "insertAlertNote":
     case "insertAlertTip":
     case "insertAlertImportant":

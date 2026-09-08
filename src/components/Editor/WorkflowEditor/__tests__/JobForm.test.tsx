@@ -219,3 +219,91 @@ describe("JobForm — step navigation", () => {
     expect(screen.queryByText(/step navigation/i)).toBeNull();
   });
 });
+
+// Audit R2 #1020 — the "unchanged → cancel the queued patch" branch has to
+// compare against the PRE-EDIT job. The panel feeds `job` from the preview
+// overlay, which already carries this job's queued job.set, so a second blur
+// on a committed field read as a revert and silently dropped the edit.
+describe("JobForm — the revert baseline is the pre-edit job", () => {
+  function parsed(): JobIR {
+    return makeJob({
+      name: "Build",
+      runsOn: ["ubuntu-latest"],
+      if: "github.event_name == 'push'",
+    });
+  }
+
+  it("keeps a committed name edit when the field is blurred again", () => {
+    const original = parsed();
+    const { rerender } = render(<JobForm job={original} baseline={original} />);
+    const input = screen.getByLabelText(/name/i);
+    fireEvent.change(input, { target: { value: "Build the App" } });
+    fireEvent.blur(input);
+    // What the panel renders next: `job` becomes the PREVIEW job (the queued
+    // edit applied), while the baseline stays the parsed one.
+    rerender(
+      <JobForm
+        job={{ ...original, name: "Build the App" }}
+        baseline={original}
+      />,
+    );
+    fireEvent.blur(screen.getByLabelText(/name/i));
+    expect(useWorkflowStore.getState().edit.pendingPatches).toEqual([
+      { kind: "job.set", jobId: "build", path: "name", value: "Build the App" },
+    ]);
+  });
+
+  it("keeps a committed runs-on edit when the field is blurred again", () => {
+    const original = parsed();
+    const { rerender } = render(<JobForm job={original} baseline={original} />);
+    const input = screen.getByLabelText(/runs.?on/i);
+    fireEvent.change(input, { target: { value: "macos-latest" } });
+    fireEvent.blur(input);
+    rerender(
+      <JobForm
+        job={{ ...original, runsOn: ["macos-latest"] }}
+        baseline={original}
+      />,
+    );
+    fireEvent.blur(screen.getByLabelText(/runs.?on/i));
+    expect(useWorkflowStore.getState().edit.pendingPatches).toEqual([
+      { kind: "job.set", jobId: "build", path: "runs-on", value: "macos-latest" },
+    ]);
+  });
+
+  it("keeps a committed if edit when the field is blurred again", () => {
+    const original = parsed();
+    const { rerender } = render(<JobForm job={original} baseline={original} />);
+    const input = screen.getByLabelText(/condition|^if/i);
+    fireEvent.change(input, { target: { value: "github.ref == 'main'" } });
+    fireEvent.blur(input);
+    rerender(
+      <JobForm
+        job={{ ...original, if: "github.ref == 'main'" }}
+        baseline={original}
+      />,
+    );
+    fireEvent.blur(screen.getByLabelText(/condition|^if/i));
+    expect(useWorkflowStore.getState().edit.pendingPatches).toEqual([
+      { kind: "job.set", jobId: "build", path: "if", value: "github.ref == 'main'" },
+    ]);
+  });
+
+  it("still cancels the patch when the pre-edit value is typed back", () => {
+    const original = parsed();
+    const { rerender } = render(<JobForm job={original} baseline={original} />);
+    const input = screen.getByLabelText(/name/i);
+    fireEvent.change(input, { target: { value: "Build the App" } });
+    fireEvent.blur(input);
+    rerender(
+      <JobForm
+        job={{ ...original, name: "Build the App" }}
+        baseline={original}
+      />,
+    );
+    const reopened = screen.getByLabelText(/name/i);
+    fireEvent.change(reopened, { target: { value: "Build" } });
+    fireEvent.blur(reopened);
+    expect(useWorkflowStore.getState().edit.pendingPatches).toEqual([]);
+  });
+});

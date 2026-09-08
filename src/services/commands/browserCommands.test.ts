@@ -1,6 +1,6 @@
 // @vitest-environment node
 // Browser commands — the gated "New Browser Tab" entry point (WI-1.10).
-// Plan: dev-docs/plans/20260712-0610-embedded-browser-sites-workflows.md WI-1.10
+// Origin: Embedded browser sites and workflows plan (2026-07-12, retired) WI-1.10
 import { beforeEach, describe, expect, it } from "vitest";
 import { _resetCommandBus, getCommand, searchCommands } from "./CommandBus";
 import { registerBrowserCommands, NEW_BROWSER_TAB_URL } from "./browserCommands";

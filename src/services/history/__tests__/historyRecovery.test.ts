@@ -2,7 +2,7 @@
 /**
  * Tests for useHistoryRecovery — deleteDocumentHistory and clearWorkspaceHistory
  *
- * @module hooks/__tests__/useHistoryRecovery.test
+ * @module services/history/__tests__/historyRecovery.test
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 

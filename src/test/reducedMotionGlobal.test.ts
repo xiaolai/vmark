@@ -16,7 +16,6 @@ const indexCss = readFileSync("src/styles/index.css", "utf8");
 /** Files whose block RESTORES a resting state — commented at each site. */
 const ALLOWLIST = [
   "src/plugins/multiCursor/multi-cursor.css",
-  "src/plugins/syntaxReveal/syntax-reveal.css",
   "src/components/StatusBar/StatusBar.css",
   "src/styles/index.css",
   // The export reader is a self-contained bundle outside the app cascade.

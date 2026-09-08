@@ -38,6 +38,13 @@ FAIL=0
 FAIL_DETAIL=()
 
 ok()   { echo "  ✓ $1"; PASS=$((PASS+1)); }
+MISSING_HELPER_MARK="$(mktemp -t vmark-dod-missing)"
+trap 'rm -f "$MISSING_HELPER_MARK"' EXIT
+# A misspelled assertion helper used to be SILENT: bash printed "command not
+# found" to stderr and the phase counted neither a pass nor a failure, so the
+# check simply did not exist. bash runs this handler in a SUBSHELL, so a
+# counter bumped here would not reach the summary — record it on disk.
+command_not_found_handle() { echo "  ✗ assertion helper '$1' is not defined in this script"; echo "$1" >> "$MISSING_HELPER_MARK"; return 1; }
 fail() { echo "  ✗ $1"; FAIL=$((FAIL+1)); FAIL_DETAIL+=("$1"); }
 
 assert_file() {
@@ -318,6 +325,12 @@ esac
 
 echo
 echo "─────────────────────────────────────────────"
+MISSING=$(wc -l < "$MISSING_HELPER_MARK" | tr -d " ")
+if (( MISSING > 0 )); then
+  echo "  $MISSING assertion(s) named a helper this script does not define — they checked NOTHING."
+  sort -u "$MISSING_HELPER_MARK" | sed 's/^/    - /'
+  exit 1
+fi
 echo "Phase $PHASE: $PASS passed, $FAIL failed"
 if (( FAIL > 0 )); then
   echo

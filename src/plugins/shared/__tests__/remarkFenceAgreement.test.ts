@@ -82,6 +82,15 @@ const MUST_AGREE: { label: string; md: string }[] = [
   { label: "indented opener, legal closer", md: " ```\ncode\n   ```\nafter\n" },
   { label: "unindented opener, 4-space line", md: "```\ncode\n    ```\nafter\n" },
 
+  // Audit R2 #874 — a fence OPENED by a list item is closed at the ITEM'S
+  // content column, which the absolute 0-3 rule (measured from column 0)
+  // rejects outright. Both of these ran unclosed to the end of the file, and
+  // the code-block toggle's unfence half then deleted the opener and left the
+  // real closer behind as text.
+  { label: "wide ordered marker, closer at the item's content column", md: "10. ```\n    code\n    ```\nafter\n" },
+  { label: "nested item, closer at the item's content column", md: "- - ```\n      code\n      ```\nafter\n" },
+  { label: "closer three columns past the content column still closes", md: "- ```\n  code\n     ```\nafter\n" },
+
   // Grammar rules that predate these findings, kept under the same check.
   { label: "closer shorter than opener does not close", md: "````\ncode\n```\nstill\n" },
   { label: "tilde fence", md: "~~~\ncode\n~~~\nafter\n" },

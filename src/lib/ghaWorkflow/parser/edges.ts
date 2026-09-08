@@ -1,6 +1,6 @@
 // WI-1.3 — edge derivation for the GHA workflow IR.
 //
-// Plan: dev-docs/plans/20260504-github-actions-workflow-viewer.md §4.1
+// Origin: GitHub Actions workflow viewer plan (2026-05-04, retired) §4.1
 //
 // Pure-function module — no parser dependency, just operates on already-
 // parsed JobIR[]. Lifted out so the renderer-side can also call detectCycles

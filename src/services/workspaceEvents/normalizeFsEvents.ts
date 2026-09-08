@@ -11,7 +11,6 @@
  *   event's meaning or its reaction. Scope-filter + self-write flag + kind
  *   classification only.
  *
- * @coordinates-with utils/fsEventFilter — shares the watchId + root-boundary scoping rule
  * @coordinates-with utils/pendingSaves — hasPendingSave supplies the self-write flag
  * @module services/workspaceEvents/normalizeFsEvents
  */

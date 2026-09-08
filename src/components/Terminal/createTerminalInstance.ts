@@ -25,8 +25,9 @@
  *     AA) makes xterm dynamically lift foreground per-cell when an app paints
  *     low-contrast bg+fg (e.g. Claude Code's chalk.bgCyan.black tag on a light
  *     theme). User-adjustable for accessibility; clamped to xterm's 1–21 range.
- *   - Theme colors are resolved via buildXtermTheme() from terminalTheme.ts;
- *     runtime theme changes are handled by useTerminalSessions.
+ *   - Theme colors are resolved via buildXtermThemeForId() from
+ *     theme/buildXtermTheme.ts (through terminalOptions.ts); runtime theme
+ *     changes are handled by terminalSessionStoreSync.ts.
  *   - Lifecycle concerns are split into focused helpers, each returning a
  *     cleanup hook the factory calls in dispose():
  *       * setupImeCompositionGate — Channel Ownership IME handling (one writer)
@@ -39,7 +40,7 @@
  *       * setupOsc52           — OSC 52 clipboard, WRITE-ONLY (reads denied)
  *
  * @coordinates-with useTerminalSessions.ts — caller that manages instance lifecycle
- * @coordinates-with terminalTheme.ts — per-theme ANSI color palettes for xterm.js
+ * @coordinates-with theme/buildXtermTheme.ts — per-theme ANSI palettes for xterm.js (ThemeTokens.terminal)
  * @coordinates-with terminalKeyHandler.ts — custom Cmd+C/V/K/F handling
  * @coordinates-with TerminalContextMenu.tsx — exposes resetDisplay() as a menu action
  * @module components/Terminal/createTerminalInstance

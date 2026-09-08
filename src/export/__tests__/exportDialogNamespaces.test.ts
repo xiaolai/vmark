@@ -16,7 +16,7 @@
  * Scoped to the export windows: they are the files that carry more than one
  * namespace, which is the precondition for the mistake.
  *
- * @module export/__tests__/exportDialogNamespaces
+ * @module export/__tests__/exportDialogNamespaces.test
  */
 
 import { describe, it, expect } from "vitest";

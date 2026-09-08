@@ -21,6 +21,7 @@ import { startWindowWorkspaceSync } from "@/services/mcpBridge/windowWorkspaceSy
 import { startBrowserAiPolicySync } from "@/services/browser/browserAiPolicySync";
 import { startWorkflowEnginePolicySync } from "@/services/workflow/workflowEnginePolicySync";
 import { startBrowserMenuSync } from "@/services/browser/browserMenuSync";
+import { appError } from "@/utils/debug";
 
 /** Every service a document window runs for its lifetime, in start order. */
 const RUNTIME_SERVICES: ReadonlyArray<() => () => void> = [
@@ -49,10 +50,37 @@ const RUNTIME_SERVICES: ReadonlyArray<() => () => void> = [
   startBrowserMenuSync,
 ];
 
-/** Start every runtime service; the returned disposer stops them in reverse order. */
+/**
+ * Start every runtime service; the returned disposer stops them in reverse order.
+ *
+ * Startup is transactional (audit #358): if a service throws while starting,
+ * the ones already started are stopped — in reverse order — before the error
+ * propagates. Otherwise they would keep running with no disposer anywhere.
+ *
+ * Cleanup is BEST-EFFORT and never throws (audit #987). One disposer that threw
+ * used to abort every disposer after it — the services it was meant to protect
+ * from a leak leaked instead — and on the rollback path its exception REPLACED
+ * the startup error, so the failure that mattered never reached the caller.
+ * Each failure is logged at its own site and the sweep continues.
+ */
 export function startRuntimeServices(): () => void {
-  const stops = RUNTIME_SERVICES.map((start) => start());
-  return () => {
-    for (const stop of stops.reverse()) stop();
+  const stops: Array<() => void> = [];
+  const stopAll = () => {
+    // A COPY: `reverse()` mutates in place, so reversing `stops` itself would
+    // make a second call stop them in start order.
+    for (const stop of [...stops].reverse()) {
+      try {
+        stop();
+      } catch (error) {
+        appError("Runtime service disposer threw; continuing teardown:", error);
+      }
+    }
   };
+  try {
+    for (const start of RUNTIME_SERVICES) stops.push(start());
+  } catch (error) {
+    stopAll();
+    throw error;
+  }
+  return stopAll;
 }

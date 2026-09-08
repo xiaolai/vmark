@@ -17,7 +17,7 @@ import { ChevronRight, ChevronDown, Folder, FileText } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import type { NodeRendererProps } from "react-arborist";
-import type { FileNode as FileNodeType } from "./types";
+import { FILE_NODE_ID_ATTR, FILE_NODE_ROW_CLASS, type FileNode as FileNodeType } from "./types";
 
 interface FileNodeProps extends NodeRendererProps<FileNodeType> {
   currentFilePath: string | null;
@@ -34,8 +34,8 @@ export function FileNode({ node, style, dragHandle, currentFilePath }: FileNodeP
     <div
       ref={dragHandle}
       style={style}
-      data-node-id={data.id}
-      className={`file-node ${isActive ? "active" : ""} ${node.isSelected ? "selected" : ""}`}
+      {...{ [FILE_NODE_ID_ATTR]: data.id }}
+      className={`${FILE_NODE_ROW_CLASS} ${isActive ? "active" : ""} ${node.isSelected ? "selected" : ""}`}
     >
       <span className="file-node-indent" />
 

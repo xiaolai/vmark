@@ -61,6 +61,37 @@
   color: var(--error-color);
 }
 
+/* Runtime state (WI-FL1.1): what a start would find, shown before Start is
+   offered. The note is a single line inside the empty state's column; the
+   missing state is a heading, a list of what is missing, and a Check-again
+   button. Tailwind's preflight zeroes <p>/<ul> margins and removes bullets, so
+   the list restores its marker and takes its indent from the spacing scale. */
+.kb-panel__runtime-note {
+  margin: 0;
+}
+
+.kb-panel__runtime {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--spacing-2);
+}
+
+.kb-panel__runtime > p {
+  margin: 0;
+  color: var(--text-color);
+  font-weight: 600;
+}
+
+.kb-panel__runtime ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+  margin: 0;
+  padding-left: var(--spacing-3);
+  list-style: disc;
+}
+
 .kb-panel__toolbar {
   display: flex;
   flex-wrap: wrap;

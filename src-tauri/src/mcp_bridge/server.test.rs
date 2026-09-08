@@ -1,11 +1,19 @@
+// WI-FL2.1 — the bridge binds an OS-assigned loopback port regardless of any requested port (the retired setting was forwarded and ignored)
 //! Tests for `server.rs` (moved from the inline `#[cfg(test)]` module;
 //! included via `#[path]`).
 
 // Not Windows-gated: `an_unknown_client_id_has_no_principal` needs no mock
 // runtime and runs everywhere.
 use super::super::principal::BridgePrincipal;
+// Used only by the MockRuntime tests below, which are gated off Windows —
+// where `-D warnings` makes an unused import a compile error.
+#[cfg(not(target_os = "windows"))]
+use super::super::state::try_register_pending;
 // Used only by the MockRuntime tests below, which are gated off Windows.
+use super::super::bind::bind_listener;
 use super::super::managed::McpBridgeState;
+#[cfg(not(target_os = "windows"))]
+use super::super::routed_request::next_bridge_request_id;
 #[cfg(not(target_os = "windows"))]
 use super::super::state::{ClientConnection, MAX_PENDING_REQUESTS};
 #[cfg(not(target_os = "windows"))]
@@ -37,28 +45,36 @@ async fn resolve_through_command(
 use crate::mcp_bridge::state::PendingRequest;
 #[cfg(not(target_os = "windows"))]
 use std::time::Instant;
+#[cfg(not(target_os = "windows"))]
+use tokio::sync::oneshot;
 
-/// Bridge-internal ids must be unique even when minted concurrently —
-/// they key the shared pending map, where a collision would silently drop
-/// one client's response channel.
-#[test]
-fn bridge_request_ids_are_unique_and_prefixed() {
-    let mut handles = Vec::new();
-    for _ in 0..4 {
-        handles.push(std::thread::spawn(|| {
-            (0..250)
-                .map(|_| next_bridge_request_id())
-                .collect::<Vec<_>>()
-        }));
-    }
-    let ids: Vec<String> = handles
-        .into_iter()
-        .flat_map(|h| h.join().expect("id-minting thread must not panic"))
-        .collect();
+// -- the bridge binds an OS-assigned port, and nothing else (D9) -------------
 
-    assert!(ids.iter().all(|id| id.starts_with("bridge-")));
-    let unique: std::collections::HashSet<&String> = ids.iter().collect();
-    assert_eq!(unique.len(), ids.len(), "ids must never collide");
+/// WI-FL2.1 effect test. `mcp_bridge_start` used to take a `port: u16` that
+/// the frontend filled from `advanced.mcpServer.port` (default 9223) and that
+/// the bridge never read — the listener is always bound to `127.0.0.1:0`. The
+/// parameter and the setting are gone; this pins the property they obscured:
+/// the port comes from the OS, never from configuration.
+#[tokio::test]
+async fn the_bridge_binds_an_os_assigned_loopback_port() {
+    let (listener, port) = bind_listener().await.expect("bind on loopback");
+    let addr = listener.local_addr().expect("bound socket has an address");
+
+    assert_ne!(port, 0, "port 0 is the REQUEST, never the bound port");
+    assert_ne!(port, 9223, "the retired default must not be baked in");
+    assert_eq!(addr.port(), port, "the reported port is the bound one");
+    assert!(
+        addr.ip().is_loopback(),
+        "the bridge never leaves the machine"
+    );
+
+    // No fixed port means a second bind cannot collide with the first — the
+    // guarantee a configurable port would have thrown away.
+    let (_second, second_port) = bind_listener().await.expect("bind a second listener");
+    assert_ne!(
+        port, second_port,
+        "two live listeners hold two OS-assigned ports"
+    );
 }
 
 // -- shared test plumbing ---------------------------------------------------
@@ -116,52 +132,6 @@ fn mock_app() -> tauri::App<tauri::test::MockRuntime> {
         .manage(McpBridgeState::default())
         .build(tauri::test::mock_context(tauri::test::noop_assets()))
         .expect("build mock app")
-}
-
-// -- the write lock is not held across delivery -------------------------------
-
-/// Audit round 1, finding 8: the guard was declared with `let _write_guard`
-/// and therefore lived to the end of `handle_message` — across the final
-/// `deliver_response(...).await` — even though a comment above that call
-/// claimed the lock had already been released. Delivery can force-disconnect
-/// a backpressured peer (which takes the bridge state lock), so every other
-/// write op queued behind one slow client's teardown.
-///
-/// `without_write_lock` takes the guard by value and drops it before awaiting,
-/// which makes the ordering observable: the delivery future here reads the
-/// lock at the moment it runs.
-#[tokio::test]
-async fn the_write_lock_is_released_before_the_delivery_future_runs() {
-    let bridge = McpBridgeState::default();
-    let guard = bridge.write_lock().await;
-
-    let free_during_delivery = without_write_lock(Some(guard), async {
-        // A second acquisition would block if the guard were still alive.
-        tokio::time::timeout(std::time::Duration::from_millis(500), bridge.write_lock())
-            .await
-            .is_ok()
-    })
-    .await;
-
-    assert!(
-        free_during_delivery,
-        "delivery must not run while the write lock is held"
-    );
-}
-
-/// The read path passes `None` — nothing to release, and delivery still runs.
-#[tokio::test]
-async fn a_read_request_delivers_without_a_guard() {
-    let bridge = McpBridgeState::default();
-
-    let free = without_write_lock(None, async {
-        tokio::time::timeout(std::time::Duration::from_millis(500), bridge.write_lock())
-            .await
-            .is_ok()
-    })
-    .await;
-
-    assert!(free);
 }
 
 // -- payload parse failures answer the client (Codex audit 20260718) --------
@@ -496,4 +466,76 @@ async fn an_unknown_client_id_has_no_principal() {
             .await,
         BridgePrincipal::Anonymous
     );
+}
+
+// -- #167: the teardown, on a mock app ---------------------------------------
+
+/// `stop_bridge` is the one teardown sequence; each of its four effects is
+/// observable from the state it leaves behind and the channels it fires.
+#[cfg(not(target_os = "windows"))]
+#[tokio::test]
+async fn stop_bridge_signals_the_loop_drains_every_client_and_answers_every_pending_request() {
+    let app = mock_app();
+    let bridge = bridge(app.handle());
+
+    // A live accept loop's shutdown sender, as `start_bridge` installs it.
+    let (loop_tx, loop_rx) = oneshot::channel::<()>();
+    *bridge.shutdown_slot().await = Some(loop_tx);
+
+    // A connected client with its own shutdown channel.
+    let (client_shutdown_tx, client_shutdown_rx) = oneshot::channel::<()>();
+    let (tx, _rx) = mpsc::channel::<String>(8);
+    bridge.lock().await.clients.insert(
+        7,
+        ClientConnection {
+            tx,
+            shutdown: Some(client_shutdown_tx),
+            identity: None,
+            principal: BridgePrincipal::Anonymous,
+        },
+    );
+
+    // A request still waiting on the webview.
+    let (response_tx, response_rx) = oneshot::channel::<McpResponse>();
+    try_register_pending(&mut *bridge.lock().await, "bridge-7".into(), response_tx)
+        .expect("register");
+    let generation_before = bridge.connection_generation();
+
+    stop_bridge(app.handle()).await;
+
+    loop_rx
+        .await
+        .expect("the accept loop was signalled to stop");
+    client_shutdown_rx
+        .await
+        .expect("the client's message loop was signalled to stop");
+    let answer = response_rx
+        .await
+        .expect("the pending request was answered, not dropped");
+    assert!(!answer.success);
+    assert_eq!(answer.error.as_deref(), Some("Bridge stopped"));
+
+    let guard = bridge.lock().await;
+    assert!(guard.clients.is_empty(), "every client is drained");
+    assert!(guard.pending.is_empty(), "every pending request is drained");
+    drop(guard);
+    assert!(
+        bridge.shutdown_slot().await.is_none(),
+        "the shutdown sender was taken, so a restart installs a fresh one"
+    );
+    assert!(
+        bridge.connection_generation() > generation_before,
+        "a handshake admitted before the stop cannot register after it"
+    );
+}
+
+/// Stopping a bridge that never started is a no-op, not a panic — the
+/// app-exit `cleanup` runs it unconditionally.
+#[cfg(not(target_os = "windows"))]
+#[tokio::test]
+async fn stop_bridge_on_an_idle_bridge_is_harmless() {
+    let app = mock_app();
+    stop_bridge(app.handle()).await;
+    stop_bridge(app.handle()).await;
+    assert!(bridge(app.handle()).lock().await.clients.is_empty());
 }

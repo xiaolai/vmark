@@ -15,13 +15,23 @@
  *   - Content extraction supports document/selection/block/paragraph scopes
  *     (genieInvocation/extraction.ts)
  *   - Streaming via Tauri events (not WebSocket) for reliability
- *   - Abort handled via aiInvocationStore cancel flag
+ *   - Cancel drops the stream listener AND asks Rust to stop the provider
+ *     (cancelGenieRequest → cancel_ai_prompt, keyed by the store's request
+ *     id, read before the reset clears it — audit #375)
+ *   - A cancel that arrives BEFORE the request registers still counts: the run
+ *     captures `cancelEpoch` up front and `tryStart` refuses it, so a click
+ *     during `ensureProvider()` or the `listen()` round-trip stops the
+ *     dispatch instead of silently letting the provider run (audit #375)
  *   - Workflow genies route to run_workflow instead of run_ai_prompt
+ *   - Genie and freeform invocations share one prompt pipeline
+ *     (runPromptGenie); only the prompt plan differs
  *
  * @coordinates-with genieInvocation/streamRunner.ts — provider validation + streaming
+ * @coordinates-with genieInvocation/cancelRequest.ts — asks Rust to stop the provider on cancel
+ * @coordinates-with services/workflow/providerPayload.ts — the shared run_workflow provider block
  * @coordinates-with genieInvocation/extraction.ts — scope extraction + templating
- * @coordinates-with aiSuggestionStore.ts — stores the suggestion for accept/reject
- * @coordinates-with geniesStore.ts — provides genie definitions and templates
+ * @coordinates-with stores/aiStore/suggestion.ts — stores the suggestion for accept/reject
+ * @coordinates-with stores/aiStore/genies.ts — provides genie definitions and templates
  * @coordinates-with geniePickerStore.ts — feeds mode/response state for picker UI
  * @module hooks/useGenieInvocation
  */
@@ -37,13 +47,67 @@ import { useUIStore } from "@/stores/uiStore";
 import { useGeniesStore } from "@/stores/aiStore";
 import { genieWarn } from "@/utils/debug";
 import { commandErrorMessage } from "@/services/commands/commandError";
-import { extractContent, formatContext, fillTemplate } from "@/services/genieInvocation/extraction";
-import { runGenieStream } from "@/services/genieInvocation/streamRunner";
+import { safeUnlisten } from "@/utils/safeUnlisten";
+import {
+  extractContent,
+  formatContext,
+  fillTemplate,
+  type ExtractionResult,
+} from "@/services/genieInvocation/extraction";
+import { runGenieStream, type RunGenieStreamOptions } from "@/services/genieInvocation/streamRunner";
+import { cancelGenieRequest } from "@/services/genieInvocation/cancelRequest";
+import {
+  workflowProviderPayload,
+  type WorkflowProviderPayload,
+} from "@/services/workflow/providerPayload";
+
+/**
+ * Register an execution id, then run the workflow under it.
+ *
+ * The id is generated and registered BEFORE invoking the runner (WI-0.3, C2):
+ * a fast workflow can emit step-update/complete events before invoke()
+ * resolves; if executionId were still unset when they arrived, they would be
+ * processed against a null id and then wiped by a late setExecution — losing
+ * progress / sticking on "running". Mirrors useWorkflowExecution.start. A
+ * rejected dispatch rolls the registration back — only while the store still
+ * holds THIS execution (audit #374): a workflow registered after this one must
+ * not be wiped by its failure.
+ *
+ * The registration slot holds ONE run per window, so a second invocation is
+ * refused rather than allowed to overwrite it (audit #728). Overwriting made
+ * the live run's own events unroutable and cleared its progress, while BOTH
+ * backend workflows carried on running.
+ */
+async function dispatchWorkflow(
+  yaml: string,
+  workspaceRoot: string,
+  provider: WorkflowProviderPayload | null,
+): Promise<"dispatched" | "already-running"> {
+  const { invoke } = await import("@tauri-apps/api/core");
+  const { useWorkflowStore } = await import("@/stores/workflowStore");
+  const id =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  // Checked and claimed with no await between, so two clicks in one tick
+  // cannot both pass it.
+  if (useWorkflowStore.getState().preview.executionId !== null) return "already-running";
+  useWorkflowStore.getState().setExecution(id);
+  try {
+    await invoke<string>("run_workflow", { yaml, env: {}, workspaceRoot, provider, executionId: id });
+  } catch (err) {
+    const store = useWorkflowStore.getState();
+    if (store.preview.executionId === id) store.setExecution(null);
+    throw err;
+  }
+  return "dispatched";
+}
 
 /**
  * WI-7.1: workflow genies dispatch through run_workflow instead of
  * run_ai_prompt. The picker still shows them inline; invocation routes
- * the YAML body to the Rust runner.
+ * the YAML body to the Rust runner. Provider resolution and the
+ * register/dispatch/rollback step are the helpers above (audit #373).
  */
 async function runWorkflowGenie(genie: GenieDefinition): Promise<void> {
   const hasProvider = await useAiProviderStore.getState().ensureProvider();
@@ -52,49 +116,20 @@ async function runWorkflowGenie(genie: GenieDefinition): Promise<void> {
     return;
   }
   try {
-    const { invoke } = await import("@tauri-apps/api/core");
-    const provState = useAiProviderStore.getState();
-    const active = provState.activeProvider;
-    const rest = active ? provState.restProviders.find((p) => p.type === active) : null;
-    const cli = active ? provState.cliProviders.find((p) => p.type === active) : null;
-    const provider = active
-      ? {
-          provider: active,
-          apiKey: rest?.apiKey || null,
-          endpoint: rest?.endpoint || null,
-          cliPath: cli?.path || null,
-        }
-      : null;
     const { useWorkspaceStore } = await import("@/stores/workspaceStore");
     const workspaceRoot = useWorkspaceStore.getState().rootPath ?? "";
     if (!workspaceRoot) {
       toast.error(i18n.t("dialog:toast.workflowNeedsWorkspace", "Open a workspace first"));
       return;
     }
-    const { useWorkflowStore } = await import("@/stores/workflowStore");
-    // Pre-generate the execution id and register it BEFORE invoking the
-    // runner (WI-0.3, C2). A fast workflow can emit step-update/complete
-    // events before invoke() resolves; if executionId is still unset when
-    // they arrive, they are processed against a null id and then wiped by
-    // a late setExecution — losing progress / sticking on "running".
-    // Mirrors useWorkflowExecution.start.
-    const id =
-      typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? crypto.randomUUID()
-        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    useWorkflowStore.getState().setExecution(id);
-    try {
-      await invoke<string>("run_workflow", {
-        yaml: genie.template,
-        env: {},
-        workspaceRoot,
-        provider,
-        executionId: id,
-      });
-    } catch (err) {
-      // Roll the store back so the UI doesn't show a fake "running" state.
-      useWorkflowStore.getState().setExecution(null);
-      throw err;
+    const outcome = await dispatchWorkflow(
+      genie.template,
+      workspaceRoot,
+      workflowProviderPayload(),
+    );
+    if (outcome === "already-running") {
+      toast.error(i18n.t("dialog:toast.workflowAlreadyRunning"));
+      return;
     }
     useGeniesStore.getState().addRecent(genie.metadata.name);
   } catch (err) {
@@ -106,20 +141,55 @@ async function runWorkflowGenie(genie: GenieDefinition): Promise<void> {
   }
 }
 
+/** Block in Source Mode — a suggestion can only be applied through Tiptap. */
+function notInSourceMode(): boolean {
+  if (!useUIStore.getState().sourceMode) return true;
+  toast.info(i18n.t("dialog:toast.genieNotInSourceMode"));
+  return false;
+}
+
 /** Shared preconditions for prompt genies: not in source mode, provider available. */
 async function checkPromptPreconditions(): Promise<boolean> {
-  // Block in Source Mode — suggestions can only apply via Tiptap
-  if (useUIStore.getState().sourceMode) {
-    toast.info(i18n.t("dialog:toast.genieNotInSourceMode"));
-    return false;
-  }
+  if (!notInSourceMode()) return false;
   // Auto-detect provider if none selected
   const hasProvider = await useAiProviderStore.getState().ensureProvider();
   if (!hasProvider) {
     toast.error(i18n.t("dialog:toast.genieNoProvider"));
     return false;
   }
-  return true;
+  // Asked AGAIN after the await (audit #729). Provider detection spawns a
+  // process and can take seconds; F6 during that wait left the check answered
+  // for a surface that is no longer mounted, and the extraction and Tiptap
+  // application below went ahead against the editor the user had just left.
+  return notInSourceMode();
+}
+
+/** What a prompt plan contributes once the content is extracted: the prompt and how to run it. */
+type PromptPlan = Omit<RunGenieStreamOptions, "extraction" | "listenerRef" | "cancelEpoch">;
+
+/**
+ * The prompt pipeline shared by genie and freeform invocations (audit #377):
+ * preconditions → extraction → prompt → stream. Only `plan` differs between
+ * the two — the prompt and the run options it derives from the extraction.
+ */
+async function runPromptGenie(
+  scope: GenieScope,
+  contextRadius: number,
+  listenerRef: RunGenieStreamOptions["listenerRef"],
+  plan: (extracted: ExtractionResult) => PromptPlan,
+): Promise<boolean> {
+  // Taken FIRST, before `ensureProvider()` can await (audit #375): a cancel
+  // during that wait has no request id to name, so this epoch is the only
+  // record that the user already said no.
+  const cancelEpoch = useAiInvocationStore.getState().cancelEpoch;
+  if (!(await checkPromptPreconditions())) return false;
+  const extracted = extractContent(scope, contextRadius);
+  if (!extracted) {
+    genieWarn("No content to extract for scope:", scope);
+    toast.info(i18n.t("dialog:toast.genieNoContent"));
+    return false;
+  }
+  return runGenieStream({ ...plan(extracted), extraction: extracted, listenerRef, cancelEpoch });
 }
 
 export function useGenieInvocation() {
@@ -127,10 +197,17 @@ export function useGenieInvocation() {
   const unlistenRef = useRef<UnlistenFn | null>(null);
 
   const cancel = useCallback(() => {
-    if (unlistenRef.current) {
-      unlistenRef.current();
-      unlistenRef.current = null;
-    }
+    // Through safeUnlisten (audit #732). Tauri TYPES `UnlistenFn` as
+    // `() => void` while the implementation is async, so a failing unlisten
+    // hands back a rejected promise that no synchronous try/catch can see —
+    // an unhandled rejection on the cancel path. The ref is cleared either
+    // way: a listener we could not remove is still not ours to release twice.
+    safeUnlisten(unlistenRef.current);
+    unlistenRef.current = null;
+    // Reach the provider, not just our listener (audit #375) — read the id
+    // BEFORE the store reset clears it.
+    const { requestId } = useAiInvocationStore.getState();
+    if (requestId) cancelGenieRequest(requestId);
     useAiInvocationStore.getState().cancel();
   }, []);
 
@@ -141,27 +218,6 @@ export function useGenieInvocation() {
     };
   }, [cancel]);
 
-  // Listen for MCP bridge genie invocation requests (fired from genieHandlers.ts)
-  const invokeGenieRef = useRef<((genie: GenieDefinition, scopeOverride?: GenieScope) => Promise<void>) | null>(null);
-
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent).detail as {
-        id: string;
-        genie: GenieDefinition;
-        scopeOverride?: GenieScope;
-        handled?: boolean;
-      };
-      // Synchronous handshake with genieHandlers.handleGeniesInvoke: flip
-      // `handled` before returning so the MCP bridge can distinguish a real
-      // invocation from a dropped one (no listener mounted).
-      detail.handled = true;
-      void invokeGenieRef.current?.(detail.genie, detail.scopeOverride)?.catch((e) => genieWarn("Genie invocation failed:", e));
-    };
-    window.addEventListener("mcp:invoke-genie", handler);
-    return () => window.removeEventListener("mcp:invoke-genie", handler);
-  }, []);
-
   const invokeGenie = useCallback(
     async (genie: GenieDefinition, scopeOverride?: GenieScope) => {
       if (genie.kind === "workflow") {
@@ -169,74 +225,49 @@ export function useGenieInvocation() {
         return;
       }
 
-      if (!(await checkPromptPreconditions())) return;
-
       const scope = scopeOverride ?? genie.metadata.scope;
-      const contextRadius = genie.metadata.context ?? 0;
-      const extracted = extractContent(scope, contextRadius);
-      if (!extracted) {
-        genieWarn("No content to extract for scope:", scope);
-        toast.info(i18n.t("dialog:toast.genieNoContent"));
-        return;
-      }
+      const dispatched = await runPromptGenie(scope, genie.metadata.context ?? 0, unlistenRef, (extracted) => {
+        // Build context string only if template uses {{context}}
+        const hasContextVar = /\{\{\s*context\s*\}\}/.test(genie.template);
+        /* v8 ignore start -- ?? fallbacks are defensive; context fields may be undefined */
+        const contextStr = hasContextVar
+          ? formatContext(extracted.contextBefore ?? "", extracted.contextAfter ?? "")
+          : undefined;
+        /* v8 ignore stop */
 
-      // Build context string only if template uses {{context}}
-      const hasContextVar = /\{\{\s*context\s*\}\}/.test(genie.template);
-      /* v8 ignore start -- ?? fallbacks are defensive; context fields may be undefined */
-      const contextStr = hasContextVar
-        ? formatContext(extracted.contextBefore ?? "", extracted.contextAfter ?? "")
-        : undefined;
-      /* v8 ignore stop */
-
-      const filled = fillTemplate(genie.template, extracted.text, contextStr);
-
-      // Track genie as recent
-      useGeniesStore.getState().addRecent(genie.metadata.name);
-
-      await runGenieStream({
-        filledPrompt: filled,
-        extraction: extracted,
-        model: genie.metadata.model,
-        action: genie.metadata.action ?? "replace",
-        processingLabel: genie.metadata.name,
-        listenerRef: unlistenRef,
+        return {
+          filledPrompt: fillTemplate(genie.template, extracted.text, contextStr),
+          model: genie.metadata.model,
+          action: genie.metadata.action ?? "replace",
+          processingLabel: genie.metadata.name,
+        };
       });
+      // Recency records that the genie RAN (audit #730). It used to be written
+      // inside the plan callback, which is evaluated as an argument — before
+      // provider validation and before the invocation lock — so a genie
+      // refused for a missing API key, or because another run held the lock,
+      // still became the most recent one. `runWorkflowGenie` already recorded
+      // it after its dispatch; this is the same rule for the prompt path.
+      if (dispatched) useGeniesStore.getState().addRecent(genie.metadata.name);
     },
     []
   );
 
-  // eslint-disable-next-line react-hooks/refs -- render-synced so the synchronous MCP bridge handler sees the latest invokeGenie before passive effects run (#1063)
-  invokeGenieRef.current = invokeGenie;
-
   const invokeFreeform = useCallback(
     async (userPrompt: string, scope: GenieScope) => {
-      if (!(await checkPromptPreconditions())) return;
-
       // Auto-include ±1 context for selection/block scope
-      const contextRadius = scope !== "document" ? 1 : 0;
-      const extracted = extractContent(scope, contextRadius);
-      if (!extracted) {
-        genieWarn("No content to extract for scope:", scope);
-        toast.info(i18n.t("dialog:toast.genieNoContent"));
-        return;
-      }
-
-      const hasContext = extracted.contextBefore || extracted.contextAfter;
-      let filled: string;
-      if (hasContext) {
-        /* v8 ignore start -- ?? fallbacks are defensive; context fields may be undefined */
-        const ctx = formatContext(extracted.contextBefore ?? "", extracted.contextAfter ?? "");
-        /* v8 ignore stop */
-        filled = `${userPrompt}\n\n## Context (do not modify):\n${ctx}\n\n## Content:\n${extracted.text}`;
-      } else {
-        filled = `${userPrompt}\n\n${extracted.text}`;
-      }
-      await runGenieStream({
-        filledPrompt: filled,
-        extraction: extracted,
-        action: "replace",
-        processingLabel: userPrompt,
-        listenerRef: unlistenRef,
+      await runPromptGenie(scope, scope !== "document" ? 1 : 0, unlistenRef, (extracted) => {
+        const hasContext = extracted.contextBefore || extracted.contextAfter;
+        let filledPrompt: string;
+        if (hasContext) {
+          /* v8 ignore start -- ?? fallbacks are defensive; context fields may be undefined */
+          const ctx = formatContext(extracted.contextBefore ?? "", extracted.contextAfter ?? "");
+          /* v8 ignore stop */
+          filledPrompt = `${userPrompt}\n\n## Context (do not modify):\n${ctx}\n\n## Content:\n${extracted.text}`;
+        } else {
+          filledPrompt = `${userPrompt}\n\n${extracted.text}`;
+        }
+        return { filledPrompt, action: "replace", processingLabel: userPrompt };
       });
     },
     []

@@ -44,8 +44,8 @@ beforeEach(() => {
 });
 
 describe("registerTabCommands", () => {
-  it("registers all 5 commands (idempotent)", () => {
-    for (const id of ["tab.new", "tab.next", "tab.prev", "tab.close", "view.toggleStatusBar"]) {
+  it("registers all 7 commands (idempotent)", () => {
+    for (const id of ["tab.new", "tab.next", "tab.prev", "tab.lastUsed", "tab.reopenClosed", "tab.close", "view.toggleStatusBar"]) {
       expect(getCommand(id)).toBeDefined();
     }
     expect(() => registerTabCommands()).not.toThrow(); // owner-based replace-own idempotency

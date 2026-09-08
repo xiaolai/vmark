@@ -27,6 +27,7 @@ pub(crate) const MENU_ICONS: &[(&str, &str)] = &[
     ("open", "folder"),
     ("open-folder", "folder.badge.gearshape"),
     ("close", "xmark"),
+    ("reopen-closed-tab", "arrow.counterclockwise.circle"),
     ("close-workspace", "xmark.square"),
     ("save", "arrow.down.doc"),
     ("save-as", "arrow.down.doc.fill"),
@@ -137,6 +138,7 @@ pub(crate) const MENU_ICONS: &[(&str, &str)] = &[
     ("horizontal-line", "minus"),
     ("footnote", "note.text"),
     ("collapsible-block", "chevron.down.square"),
+    ("insert-toc", "list.bullet.rectangle"),
     ("mindmap", "brain"),
     // Table
     ("add-row-before", "arrow.up.to.line"),

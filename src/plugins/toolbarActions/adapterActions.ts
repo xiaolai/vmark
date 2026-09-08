@@ -74,6 +74,7 @@ export const ADAPTER_ACTION_IDS = [
   "insertTable",
   "insertTableBlock",
   "insertTaskList",
+  "insertToc",
   "insertVideo",
   "italic",
   "joinLines",

@@ -580,41 +580,6 @@
   },
   {
     "type": "dependency",
-    "from": "src/plugins/sourceContextDetection/sourceContextAdapter.ts",
-    "to": "src/plugins/toolbarContext/index.ts",
-    "unresolvedTo": "@/plugins/toolbarContext",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "plugin-isolation"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "src/plugins/sourceContextDetection/sourceContextAdapter.ts",
-    "to": "src/plugins/toolbarContext/types.ts",
-    "unresolvedTo": "@/plugins/toolbarContext/types",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "type-only",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "plugin-isolation"
-    }
-  },
-  {
-    "type": "dependency",
     "from": "src/plugins/sourceContextDetection/sourceInsertions.ts",
     "to": "src/plugins/graphviz/constants.ts",
     "unresolvedTo": "@/plugins/graphviz/constants",

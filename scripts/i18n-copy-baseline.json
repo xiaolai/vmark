@@ -19,7 +19,6 @@
     "settings.json:editor.largeFile.autoSourceMode.description:trailing-period",
     "settings.json:editor.largeFile.warnAbove5MB.description:trailing-period",
     "settings.json:editor.showInvisibles.description:trailing-period",
-    "settings.json:files.coherenceCapture.description:trailing-period",
     "settings.json:formats.associations.description:trailing-period",
     "settings.json:formats.dataFormats.description:trailing-period",
     "settings.json:formats.defaultViewMode.description:trailing-period",

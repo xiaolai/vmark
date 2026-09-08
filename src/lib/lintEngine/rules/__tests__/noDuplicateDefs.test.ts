@@ -4,6 +4,9 @@ import { lintMarkdown } from "../../linter";
 import { noDuplicateDefs } from "../noDuplicateDefs";
 import type { Root, Definition } from "mdast";
 
+/** The orchestrator always supplies a line index; direct-call tests need one too. */
+const INDEX = { lines: [""], lineOffsets: [0] };
+
 describe("E07 noDuplicateDefs", () => {
   it.each([
     {
@@ -93,7 +96,7 @@ describe("E07 noDuplicateDefs", () => {
       ],
     };
 
-    const diagnostics = noDuplicateDefs("", mdast);
+    const diagnostics = noDuplicateDefs("", mdast, INDEX);
     // The duplicate without position is skipped
     expect(diagnostics).toHaveLength(0);
   });
@@ -124,7 +127,7 @@ describe("E07 noDuplicateDefs", () => {
       ],
     };
 
-    const diagnostics = noDuplicateDefs("", mdast);
+    const diagnostics = noDuplicateDefs("", mdast, INDEX);
     expect(diagnostics).toHaveLength(1);
     expect(diagnostics[0].messageParams.ref).toBe("myid");
   });
@@ -154,7 +157,7 @@ describe("E07 noDuplicateDefs", () => {
       ],
     };
 
-    const diagnostics = noDuplicateDefs("", mdast);
+    const diagnostics = noDuplicateDefs("", mdast, INDEX);
     expect(diagnostics).toHaveLength(1);
   });
 
@@ -182,7 +185,7 @@ describe("E07 noDuplicateDefs", () => {
       ],
     };
 
-    const diagnostics = noDuplicateDefs("", mdast);
+    const diagnostics = noDuplicateDefs("", mdast, INDEX);
     // Both have same normalized label (""), so second is flagged
     expect(diagnostics).toHaveLength(1);
   });
@@ -214,8 +217,75 @@ describe("E07 noDuplicateDefs", () => {
       ],
     };
 
-    const diagnostics = noDuplicateDefs("", mdast);
+    const diagnostics = noDuplicateDefs("", mdast, INDEX);
     expect(diagnostics).toHaveLength(1);
     expect(diagnostics[0].offset).toBe(0);
+  });
+  // Audit R3 #816/#817.
+
+  it("flags a POSITIONED duplicate of a positionless first occurrence (#816)", () => {
+    const mdast: Root = {
+      type: "root",
+      children: [
+        {
+          type: "definition",
+          identifier: "ref",
+          label: "ref",
+          url: "https://a.com",
+          // No position — cannot be reported, but it is still an occurrence.
+        } as Definition,
+        {
+          type: "definition",
+          identifier: "ref",
+          label: "ref",
+          url: "https://b.com",
+          position: {
+            start: { line: 2, column: 1, offset: 21 },
+            end: { line: 2, column: 21, offset: 41 },
+          },
+        } as Definition,
+      ],
+    };
+
+    const diagnostics = noDuplicateDefs("", mdast, INDEX);
+    expect(diagnostics).toHaveLength(1);
+    expect(diagnostics[0].line).toBe(2);
+  });
+
+  it("treats Greek final sigma and sigma as one label, as CommonMark does (#817)", () => {
+    const result = lintMarkdown("[σ]: https://a.com\n[ς]: https://b.com");
+    expect(result.filter((d) => d.ruleId === "E07")).toHaveLength(1);
+  });
+
+  it("derives the offset from the line index when the node has no offset (#856)", () => {
+    const mdast: Root = {
+      type: "root",
+      children: [
+        {
+          type: "definition",
+          identifier: "ref",
+          label: "ref",
+          url: "https://a.com",
+          position: {
+            start: { line: 1, column: 1, offset: 0 },
+            end: { line: 1, column: 21, offset: 20 },
+          },
+        } as Definition,
+        {
+          type: "definition",
+          identifier: "ref",
+          label: "ref",
+          url: "https://b.com",
+          position: { start: { line: 3, column: 3 }, end: { line: 3, column: 9 } },
+        } as unknown as Definition,
+      ],
+    };
+
+    const diagnostics = noDuplicateDefs("", mdast, {
+      lines: ["a", "b", "  [ref]: x"],
+      lineOffsets: [0, 2, 4],
+    });
+    expect(diagnostics).toHaveLength(1);
+    expect(diagnostics[0].offset).toBe(6);
   });
 });

@@ -18,6 +18,8 @@ import {
   getKbGraph,
   startSlidevPreview,
   exportSlidev,
+  getContentServerRuntime,
+  type ContentServerRuntime,
 } from "./client";
 
 beforeEach(() => {
@@ -26,11 +28,20 @@ beforeEach(() => {
 });
 
 describe("contentServer service", () => {
-  it("starts the server with the workspace root", async () => {
-    invoke.mockResolvedValue({ url: "http://127.0.0.1:5", port: 5 });
-    const handle = await startContentServer("/ws");
-    expect(invoke).toHaveBeenCalledWith("content_server_start", { workspaceRoot: "/ws" });
+  it("starts the server with the workspace root and its trust (WI-FL3.6)", async () => {
+    invoke.mockResolvedValue({ url: "http://127.0.0.1:5", port: 5, trusted: true });
+    const handle = await startContentServer("/ws", true);
+    expect(invoke).toHaveBeenCalledWith("content_server_start", {
+      workspaceRoot: "/ws",
+      trusted: true,
+    });
     expect(handle.port).toBe(5);
+    expect(handle.trusted).toBe(true);
+    await startContentServer("/ws", false);
+    expect(invoke).toHaveBeenLastCalledWith("content_server_start", {
+      workspaceRoot: "/ws",
+      trusted: false,
+    });
   });
 
   it("stops the server", async () => {
@@ -95,6 +106,21 @@ describe("contentServer service", () => {
       format: "pdf",
       outputPath: "/out.pdf",
     });
+  });
+
+  // WI-FL1.1 — the probe takes no arguments and never starts a server.
+  it("probes the runtime and hands the Rust report through unchanged", async () => {
+    const report: ContentServerRuntime = {
+      node: "missing",
+      nodePath: null,
+      cli: "ready",
+      cliSource: "env",
+      detail: "node not found on PATH",
+    };
+    invoke.mockResolvedValue(report);
+    expect(await getContentServerRuntime()).toEqual(report);
+    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(invoke).toHaveBeenCalledWith("content_server_runtime");
   });
 
   it("stringifies non-Error export failures", async () => {

@@ -1,6 +1,6 @@
 // @vitest-environment node
 // Security enforcement core for the embedded browser (R4 / I3 / R7a).
-// Plan: dev-docs/plans/20260712-0610-embedded-browser-sites-workflows.md
+// Origin: Embedded browser sites and workflows plan (2026-07-12, retired)
 //
 // These tests are the normative specification of origin canonicalization and
 // grant matching. Codex round-1 D4-4 and round-2 flagged that a hand-wavy origin

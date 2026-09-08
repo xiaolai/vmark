@@ -35,11 +35,11 @@ import { getProductionSchema } from "@/test/productionSchema";
 import {
   project,
   type RawNode,
-} from "../../conformance/semanticProjection";
+} from "../conformance/semanticProjection";
 import {
   diff,
   type Divergence,
-} from "../../conformance/projectionDiff";
+} from "../conformance/projectionDiff";
 import {
   CORPORA,
   examplesForRoute,

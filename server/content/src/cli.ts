@@ -6,7 +6,7 @@
  * env, and server.
  *
  * Usage:
- *   vmark-content-server --root <dir> --token <bootstrap> [--port N] [--port-file P]
+ *   vmark-content-server --root <dir> --token <bootstrap> [--port N] [--port-file P] [--trusted]
  *
  * @coordinates-with cliMain.ts — the tested CLI core
  * @module cli

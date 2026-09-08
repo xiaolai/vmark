@@ -89,6 +89,7 @@ export const MENU_TO_ACTION: Record<MenuEventId, MenuActionMapping> = {
   "menu:mindmap": { actionId: "insertMarkmap" },
   "menu:horizontal-line": { actionId: "horizontalLine" },
   "menu:collapsible-block": { actionId: "insertDetails" },
+  "menu:insert-toc": { actionId: "insertToc" },
   "menu:info-note": { actionId: "insertAlertNote" },
   "menu:info-tip": { actionId: "insertAlertTip" },
   "menu:info-important": { actionId: "insertAlertImportant" },

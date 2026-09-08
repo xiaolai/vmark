@@ -4,11 +4,11 @@
  * Purpose: Extracts CursorContext from Tiptap/ProseMirror state for use with the shared
  * toolbar intent resolver. Pure function — reads state, produces context, no side effects.
  *
- * Pipeline: EditorState → extractTiptapContext() → CursorContext → resolveToolbarIntent()
+ * Pipeline: EditorState → extractTiptapContext() → CursorContext → editorStore (tiptapContext) → toolbar enable rules
  *
  * @coordinates-with tiptapContextHelpers.ts — helper functions for mark/position detection
  * @coordinates-with toolbarContext/types.ts — CursorContext type definition
- * @coordinates-with toolbarContext/toolbarIntent.ts — consumes CursorContext to resolve toolbar state
+ * @coordinates-with toolbarActions/enableRules.ts — consumes CursorContext to decide toolbar item state
  * @module plugins/formatToolbar/tiptapContext
  */
 

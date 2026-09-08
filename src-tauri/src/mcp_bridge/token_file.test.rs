@@ -320,3 +320,57 @@ fn a_successful_cleanup_reports_only_the_cause() {
     assert!(err.contains("mode 0644"), "{err}");
     assert!(!err.contains("could not be removed"), "{err}");
 }
+
+// --- publication: the one atomic replacement (audit 20260907 #389) ---------
+
+/// The publish must never delete the live token file first.
+///
+/// The defect this pins was WINDOWS-ONLY and destructive: a fallback that
+/// deleted the target and retried, on the false premise that Windows `rename`
+/// refuses an existing target. It fired on ANY `persist` failure — a transient
+/// sharing refusal included — so it removed the bridge's only credential and
+/// then failed to rewrite it. `atomic_replace.rs` carried the identical fallback on
+/// the identical false premise (audit 20260906 B1), which is what makes this a
+/// class rather than an instance.
+///
+/// It is asserted against the SOURCE because it cannot be reproduced from a
+/// unit test: forcing a `persist` failure needs a target the removal also
+/// cannot delete, and that is precisely the case the old fallback survived.
+/// A source assertion runs on every platform, including the one the defect
+/// lives on.
+#[test]
+fn the_publish_neither_removes_the_target_nor_rolls_its_own_retry() {
+    let source = include_str!("token_file.rs");
+    let after = source
+        .split("fn write_secured(")
+        .nth(1)
+        .expect("write_secured is defined in this module");
+    // Terminated at the function's own closing brace — the first `}` in
+    // column zero. Splitting at the next `fn` instead swept in that item's doc
+    // comment, which names `remove_file` in prose.
+    let body = after
+        .split("\n}\n")
+        .next()
+        .expect("the function body ends at its closing brace");
+    // CODE only. The body explains the removed fallback in prose, and a check
+    // that reads its own explanation as the defect is the trap
+    // `check-ipc-contract` records: strip comments before matching.
+    let code: String = body
+        .lines()
+        .filter(|l| !l.trim_start().starts_with("//"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let body = code.as_str();
+
+    assert!(
+        !body.contains("remove_file"),
+        "write_secured must not delete the published token file on a failed \
+         publish — that is audit 20260907 #389 (and 20260906 B1) returning:\n{body}"
+    );
+    assert!(
+        body.contains("persist_with_retry"),
+        "write_secured must publish through atomic_replace::persist_with_retry, \
+         the one copy of the replacement rule — a hand-rolled `temp.persist` \
+         here is how the destructive fallback survived the first fix:\n{body}"
+    );
+}

@@ -59,9 +59,18 @@ describe("menu-commands barrier scope", () => {
   it("keeps the signal on the bootstrap that mounts the listener", () => {
     const bootstrap = readFileSync("src/hooks/useCommandBootstrap.ts", "utf8");
     expect(bootstrap).toContain("signalMenuCommandsMounted");
-    // In a `finally`, so a mount that threw still releases the handshake — a
-    // failed mount will never become mounted, and a window that never reports
-    // ready is worse than one with dead menus.
-    expect(bootstrap).toMatch(/}\s*finally\s*{[^}]*signalMenuCommandsMounted\(\);/);
+    // Every path out of the mount must signal, so a window that never reports
+    // ready is impossible — that is worse than one with dead menus. It used to
+    // signal from a `finally`, which released the handshake but announced a
+    // fully-dead menu as READY (audit #359); the verdict is now an argument,
+    // so pin the two properties that replaced the `finally`:
+    //   1. the failure path signals too — a `catch` that ends the async body
+    //      without signalling would hang the handshake forever;
+    //   2. no call site is argument-less — a bare `signalMenuCommandsMounted()`
+    //      is the old lie, reporting mounted whatever actually happened.
+    expect(bootstrap).toMatch(/catch\s*\([^)]*\)\s*{[^}]*signalMenuCommandsMounted\(/);
+    expect(bootstrap).not.toMatch(/signalMenuCommandsMounted\(\s*\)/);
+    const signals = bootstrap.match(/signalMenuCommandsMounted\(/g) ?? [];
+    expect(signals.length, "success and failure paths both signal").toBeGreaterThanOrEqual(2);
   });
 });

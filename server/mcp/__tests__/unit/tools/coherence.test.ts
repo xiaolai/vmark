@@ -118,6 +118,28 @@ describe('coherence tool — status/edges via server.callTool', () => {
     expect(bridge.requests).toHaveLength(0);
   });
 
+  // audit R2 #219 — an oversized response carried the DEFAULT recovery hint,
+  // which tells the caller to "target a specific tabId, or ask for one part at
+  // a time": this tool takes only a `workspace_root`, so it has neither. The
+  // `edges` hint was worse — it advised resolving or waiving edges to reveal
+  // the rest, which is a non-undoable, audit-logged ledger WRITE (and needs a
+  // delegation grant the caller usually lacks) performed to page through a
+  // READ.
+  it.each([
+    ['edges', 'DO NOT resolve or waive edges'],
+    ['claims', 'no cursor or filter'],
+    ['contexts', 'no cursor or filter'],
+  ])('gives %s a recovery hint it can act on, never the tabId default', async (action, expected) => {
+    // Big enough to trip the output bound, so the recovery text is emitted.
+    const rows = Array.from({ length: 4000 }, (_, i) => ({ txf: `t${i}`, state: 'version-stale', note: 'x'.repeat(40) }));
+    const { server } = harness(`vmark.coherence.${action}`, () => ({ success: true, data: rows }));
+    const result = await server.callTool('coherence', { action, workspace_root: ROOT });
+    const text = result.content[0].text;
+    expect(text).toContain('truncated');
+    expect(text).toContain(expected);
+    expect(text).not.toContain('target a specific tabId');
+  });
+
   it('refuses resolve — the mutating action lives on coherence_resolve', async () => {
     // The split is what lets this tool declare readOnlyHint:true. If `resolve`
     // ever came back here, the annotation would become a lie and a client that

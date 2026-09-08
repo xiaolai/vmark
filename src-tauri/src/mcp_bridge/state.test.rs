@@ -323,6 +323,24 @@ fn local_state() -> BridgeState {
     BridgeState::default()
 }
 
+/// Register a minimal connected client — what `try_register_pending_for`
+/// requires (#379).
+fn connect(state: &mut BridgeState, id: u64) {
+    let (tx, rx) = mpsc::channel::<String>(1);
+    // The receiver must outlive the sender or the channel reports itself
+    // closed; nothing here sends, so leaking it for the test is enough.
+    std::mem::forget(rx);
+    state.clients.insert(
+        id,
+        ClientConnection {
+            tx,
+            shutdown: None,
+            identity: None,
+            principal: BridgePrincipal::Anonymous,
+        },
+    );
+}
+
 fn fresh_pending() -> (PendingRequest, oneshot::Receiver<McpResponse>) {
     let (tx, rx) = oneshot::channel::<McpResponse>();
     (
@@ -638,4 +656,36 @@ fn cleanup_stale_pending_retains_fresh_instant() {
     cleanup_stale_pending(&mut state);
 
     assert!(state.pending.contains_key("fresh"));
+}
+
+/// #379 — a request for a client a stop has already drained is refused, and
+/// leaves nothing behind in `pending`.
+///
+/// `stop_bridge` drains `clients` and then `pending` under one lock, while a
+/// request handler reaches registration many awaits after it last saw its
+/// client. Without this the handler inserted an entry into a map that had just
+/// been drained — one nothing would ever answer or sweep — and then went on to
+/// emit its request to a window for a bridge that had already reported itself
+/// stopped.
+#[test]
+fn a_request_for_a_drained_client_is_refused_and_registers_nothing() {
+    let mut state = local_state();
+    connect(&mut state, 1);
+    let (live, _live_rx) = oneshot::channel::<McpResponse>();
+    try_register_pending_for(&mut state, 1, "live".to_string(), live)
+        .expect("a connected client registers");
+
+    state.clients.clear(); // what `stop_bridge` does first, under this lock
+    let (tx, _rx) = oneshot::channel::<McpResponse>();
+    let err = try_register_pending_for(&mut state, 1, "req-1".to_string(), tx)
+        .expect_err("the client is gone");
+
+    assert_eq!(err, "Bridge stopped");
+    assert!(!state.pending.contains_key("req-1"));
+    assert_eq!(
+        state.pending.len(),
+        1,
+        "only the pre-drain registration is left — a refusal strands nothing \
+         for the drain that already ran to miss"
+    );
 }

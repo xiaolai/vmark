@@ -47,7 +47,9 @@ export interface GenieDefinition {
 // Provider Types
 // ============================================================================
 
-type CliProviderType = "claude" | "codex" | "gemini" | "ollama";
+/** The CLI providers `detect_ai_providers` can report. Mirrors the Rust
+ *  detection table; there is no Ollama CLI arm on either side. */
+type CliProviderType = "claude" | "codex" | "gemini";
 export type RestProviderType =
   | "anthropic"
   | "openai"

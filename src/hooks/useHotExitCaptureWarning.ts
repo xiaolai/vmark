@@ -15,7 +15,7 @@
  *     which event the coordinator emits.
  *
  * @coordinates-with src-tauri/src/hot_exit/coordinator.rs — emits partial-capture
- * @module services/persistence/hotExit/useHotExitCaptureWarning
+ * @module hooks/useHotExitCaptureWarning
  */
 import { useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";

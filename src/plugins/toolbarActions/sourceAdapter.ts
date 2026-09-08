@@ -34,9 +34,10 @@ import {
 import { insertImage, insertVideoTag, insertAudioTag } from "./sourceImageActions";
 import { removeSourceLinkAtCursor } from "./sourceUnlink";
 import {
-  handleBuildInsert, handleInsertAlert, insertCodeBlock, insertDivider,
-  insertFootnote, insertOrToggleBlockquote, insertTable,
+  handleBuildInsert, insertCodeBlock, insertDivider,
+  insertFootnote, insertOrToggleBlockquote, insertTable, insertToc,
 } from "./sourceInsertActions";
+import { handleInsertAlert } from "./sourceAlertActions";
 import {
   decreaseHeadingLevel, handleBlockquoteAction, handleListAction, increaseHeadingLevel,
 } from "./sourceBlockActions";
@@ -126,6 +127,8 @@ export function performSourceToolbarAction(action: string, context: SourceToolba
       return insertOrToggleBlockquote(view);
     case "insertDivider":
       return insertDivider(view);
+    case "insertToc":
+      return insertToc(view);
     case "insertTable":
     case "insertTableBlock":
       return insertTable(view);

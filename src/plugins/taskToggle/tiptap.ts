@@ -3,7 +3,8 @@
  *
  * Purpose: Extends the listItem node with a `checked` attribute and adds a checkbox
  * NodeView for task list items. Clicking the checkbox toggles checked state, and
- * Mod+Enter toggles the checkbox at cursor via keyboard shortcut.
+ * Mod+Shift+Enter toggles the checkbox at cursor via keyboard shortcut (plain
+ * Enter is `splitListItem`, so the toggle needs the Shift).
  *
  * Key decisions:
  *   - Checkbox is a real DOM <input type="checkbox"> for accessibility

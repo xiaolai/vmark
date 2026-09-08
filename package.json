@@ -1,7 +1,7 @@
 {
   "name": "vmark",
   "private": true,
-  "version": "0.9.65",
+  "version": "0.9.66",
   "license": "ISC",
   "description": "The plain-text workspace where humans and AI collaborate",
   "type": "module",
@@ -65,7 +65,7 @@
     "mutation:ts": "stryker run",
     "test:sidecar": "pnpm --dir server/mcp lint && pnpm --dir server/mcp build && pnpm --dir server/mcp test:coverage",
     "test:content-server": "pnpm --dir server/content build && pnpm --dir server/content smoke && pnpm --dir server/content test:coverage",
-    "check:static": "pnpm lint && pnpm lint:console && pnpm lint:ui-consistency && pnpm lint:design-tokens && pnpm lint:emdash && pnpm lint:cjk-demo-parity && pnpm lint:no-nul-bytes && pnpm lint:deps && pnpm lint:hooks-purity && pnpm lint:extension-budget && pnpm lint:store-coupling && pnpm lint:mock-boundaries && pnpm lint:command-errors && pnpm lint:ipc-contract && pnpm lint:trusted-html && pnpm lint:type-aware && pnpm lint:test-types && pnpm lint:mutants-config && pnpm lint:deleted-names && pnpm lint:mcp-contracts && pnpm lint:mcp-docs && pnpm lint:tauri-versions && pnpm lint:webview-floor && pnpm lint:window-thread && pnpm lint:i18n && pnpm lint:themes && pnpm lint:theme-contrast && pnpm lint:keybinding-manifest && pnpm lint:merge-drops && pnpm lint:file-size && pnpm lint:timer-isolation && pnpm lint:barrels && pnpm lint:shell-slots && pnpm lint:bespoke-buttons && pnpm knip && pnpm lint:knip-baseline && pnpm lint:review-schedule && pnpm test:gates",
+    "check:static": "pnpm lint && pnpm lint:console && pnpm lint:ui-consistency && pnpm lint:design-tokens && pnpm lint:emdash && pnpm lint:cjk-demo-parity && pnpm lint:no-nul-bytes && pnpm lint:deps && pnpm lint:hooks-purity && pnpm lint:extension-budget && pnpm lint:store-coupling && pnpm lint:mock-boundaries && pnpm lint:command-errors && pnpm lint:ipc-contract && pnpm lint:trusted-html && pnpm lint:type-aware && pnpm lint:test-types && pnpm lint:mutants-config && pnpm lint:deleted-names && pnpm lint:mcp-contracts && pnpm lint:mcp-docs && pnpm lint:tauri-versions && pnpm lint:webview-floor && pnpm lint:window-thread && pnpm lint:i18n && pnpm lint:themes && pnpm lint:theme-contrast && pnpm lint:keybinding-manifest && pnpm lint:merge-drops && pnpm lint:file-size && pnpm lint:timer-isolation && pnpm lint:barrels && pnpm lint:shell-slots && pnpm lint:bespoke-buttons && pnpm knip && pnpm lint:knip-baseline && pnpm lint:test-only-modules && pnpm lint:header-refs && pnpm lint:doc-joins && pnpm lint:review-schedule && pnpm test:gates",
     "check:servers": "pnpm test:sidecar && pnpm test:content-server",
     "check:build": "pnpm build && pnpm lint:eager && pnpm size",
     "check:all": "pnpm check:static && pnpm test:coverage && pnpm check:servers && pnpm check:build",
@@ -91,10 +91,12 @@
     "lint:ipc-contract": "node scripts/check-ipc-contract.mjs",
     "lint:trusted-html": "node scripts/check-trusted-html-contract.mjs",
     "lint:type-aware": "node scripts/check-type-aware.mjs",
-    "lint:rust-deps": "cargo machete src-tauri"
+    "lint:rust-deps": "cargo machete src-tauri",
+    "lint:test-only-modules": "node scripts/check-test-only-modules.mjs",
+    "lint:doc-joins": "node scripts/check-doc-joins.mjs",
+    "lint:header-refs": "node scripts/check-header-references.mjs"
   },
   "dependencies": {
-    "@actions/languageservice": "0.3.61",
     "@actions/workflow-parser": "0.3.61",
     "@codemirror/autocomplete": "^6.20.3",
     "@codemirror/commands": "^6.10.4",
@@ -186,8 +188,6 @@
     "turndown": "^7.2.4",
     "unified": "^11.0.5",
     "unist-util-visit": "^5.1.0",
-    "vscode-languageserver-textdocument": "^1.0.12",
-    "vscode-languageserver-types": "^3.18.0",
     "yaml": "2.9.0",
     "zod": "^4.4.3",
     "zustand": "^5.0.14"

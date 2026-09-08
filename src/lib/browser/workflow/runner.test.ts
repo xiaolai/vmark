@@ -1,6 +1,6 @@
 // @vitest-environment node
 // Top-level web-workflow runner — parser IR → classify → engine (WI-4.2).
-// Plan: dev-docs/plans/20260712-0610-embedded-browser-sites-workflows.md WI-4.2 (R8a)
+// Origin: Embedded browser sites and workflows plan (2026-07-12, retired) WI-4.2 (R8a)
 import { describe, expect, it, vi } from "vitest";
 import type { StepOutcome } from "./safety";
 import type { StepKind, WebWorkflow, WorkflowStep } from "./types";

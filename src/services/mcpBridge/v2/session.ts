@@ -5,7 +5,7 @@
  *   workspace.list_windows) with a single call that returns every window,
  *   every tab, and per-tab metadata including a revision token.
  *
- * Plan: dev-docs/plans/20260504-mcp-pruning.md ADR-6.
+ * Origin: MCP pruning plan (2026-05-04, retired) ADR-6.
  *
  * Key decisions:
  *   - The per-tab and per-window serialization, the human-tab privacy rule and

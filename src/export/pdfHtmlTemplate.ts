@@ -1,9 +1,9 @@
 /**
  * PDF HTML Template Builder
  *
- * Builds self-contained HTML for the WKWebView PDF renderer. Inlines KaTeX CSS
+ * Builds self-contained HTML for the hidden-webview PDF renderer. Inlines KaTeX CSS
  * (with base64-embedded woff2 math fonts), captured theme tokens, typography,
- * and @page rules so the off-screen WKWebView renders identically offline.
+ * and @page rules so the off-screen webview renders identically offline.
  * Light theme is forced by default but can be skipped via `useEditorTheme` to
  * preserve the editor's current theme (including dark mode).
  *
@@ -14,7 +14,7 @@
  * the finished PDF (`pdf_export/page_numbers.rs`) so all three engines agree.
  *
  * @module export/pdfHtmlTemplate
- * @coordinates-with pdf_export/renderer.rs — WKWebView loads this HTML and prints to PDF
+ * @coordinates-with pdf_export/renderer/mod.rs — the hidden webview loads this HTML and prints to PDF
  * @coordinates-with PdfExportDialog.tsx — passes options from the dialog UI
  * @coordinates-with katexFontEmbed.ts — rewrites KaTeX @font-face URLs to data URIs
  */
@@ -140,13 +140,13 @@ function buildTypographyCSS(options: PdfOptions, themeCSS: string): string {
 
 
 /**
- * Build HTML for the Rust WKWebView PDF renderer.
+ * Build HTML for the Rust hidden-webview PDF renderer.
  *
- * All CSS (including KaTeX) is inlined so the off-screen WKWebView needs no
+ * All CSS (including KaTeX) is inlined so the off-screen webview needs no
  * network access. WebKit's native print pipeline respects @page size/margin
  * rules for pagination.
  *
- * @coordinates-with renderer.rs — loads HTML via WKWebView, uses printOperationWithPrintInfo
+ * @coordinates-with pdf_export/renderer/macos_print.rs — the macOS leg: loads HTML via WKWebView, uses printOperationWithPrintInfo
  */
 /**
  * Force every details element open for print.

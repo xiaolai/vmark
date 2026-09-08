@@ -100,6 +100,7 @@ const _ACTION_IDS = [
   "insertAlertImportant",
   "insertAlertCaution",
   "horizontalLine",
+  "insertToc",
 
   // === Selection ===
   "selectWord",

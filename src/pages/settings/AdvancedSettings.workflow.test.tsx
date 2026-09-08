@@ -1,9 +1,10 @@
-// WI-19 — the two workflow features are switched independently.
+// WI-19 — the workflow execution engine is its own switch.
 //
-// One toggle used to arm both: a user who wanted GitHub Actions authoring aids
-// (expression completion, cursor↔canvas sync, `uses:` goto-def — all read-only)
-// had to switch on an execution engine that spawns AI providers and writes
-// files. These pin that the split reached the UI, not only the store.
+// One toggle used to arm both the GitHub Actions authoring aids (read-only) and
+// an execution engine that spawns AI providers and writes files. The aids have
+// no switch at all now (D6 — see AdvancedSettings.workflowViewer.test.tsx);
+// what these pin is the engine's side: a toggle of its own, and a description
+// that says what arming it permits.
 //
 // Real settings store; RTL queries by accessible role/name.
 
@@ -15,10 +16,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import enSettings from "@/locales/en/settings.json";
 import zhCnSettings from "@/locales/zh-CN/settings.json";
 
-const VIEWER_LABEL = /workflow viewer/i;
 const ENGINE_LABEL = /workflow engine/i;
-// A viewer-owned dependent: how the structured GHA editor writes YAML back.
-const YAML_FORMATTING_LABEL = /preserve yaml formatting/i;
 
 const initial = useSettingsStore.getState().advanced;
 
@@ -30,51 +28,28 @@ function setAdvanced(patch: Record<string, unknown>) {
 
 beforeEach(() => {
   // The experimental group only renders under developer mode.
-  setAdvanced({ developerMode: true, workflowViewer: false, workflowEngine: false });
+  setAdvanced({ developerMode: true, workflowEngine: false });
 });
 
 afterEach(() => {
   useSettingsStore.setState({ advanced: initial });
 });
 
-describe("AdvancedSettings — workflow viewer and engine are separate switches", () => {
-  it("offers both toggles", () => {
+describe("AdvancedSettings — the workflow engine switch", () => {
+  it("offers the engine toggle under developer mode", () => {
     render(<AdvancedSettings />);
-    expect(screen.getByRole("switch", { name: VIEWER_LABEL })).toBeTruthy();
     expect(screen.getByRole("switch", { name: ENGINE_LABEL })).toBeTruthy();
   });
 
-  it("turning the viewer on does NOT arm the engine", async () => {
+  it("turning the engine on arms only the engine", async () => {
     const user = userEvent.setup();
-    render(<AdvancedSettings />);
-    await user.click(screen.getByRole("switch", { name: VIEWER_LABEL }));
-
-    expect(useSettingsStore.getState().advanced.workflowViewer).toBe(true);
-    expect(useSettingsStore.getState().advanced.workflowEngine).toBe(false);
-  });
-
-  it("turning the engine on does NOT arm the viewer", async () => {
-    const user = userEvent.setup();
+    setAdvanced({ workflowEditorPreserveYamlFormatting: true });
     render(<AdvancedSettings />);
     await user.click(screen.getByRole("switch", { name: ENGINE_LABEL }));
 
     expect(useSettingsStore.getState().advanced.workflowEngine).toBe(true);
-    expect(useSettingsStore.getState().advanced.workflowViewer).toBe(false);
-  });
-
-  it("keeps the GHA editor's YAML-formatting setting hidden when only the ENGINE is on", () => {
-    // It governs how the structured GitHub Actions editor writes YAML back — a
-    // viewer concern. It used to hang off the engine flag, which is what made
-    // it unreachable for a viewer-only user.
-    setAdvanced({ workflowViewer: false, workflowEngine: true });
-    render(<AdvancedSettings />);
-    expect(screen.queryByRole("switch", { name: YAML_FORMATTING_LABEL })).toBeNull();
-  });
-
-  it("reveals the GHA editor's YAML-formatting setting with the VIEWER alone", () => {
-    setAdvanced({ workflowViewer: true, workflowEngine: false });
-    render(<AdvancedSettings />);
-    expect(screen.getByRole("switch", { name: YAML_FORMATTING_LABEL })).toBeTruthy();
+    // The viewer's YAML-formatting preference is untouched by the engine.
+    expect(useSettingsStore.getState().advanced.workflowEditorPreserveYamlFormatting).toBe(true);
   });
 
   // Audit 20260804-F1: the engine description used to read "Enable YAML
@@ -129,10 +104,9 @@ describe("AdvancedSettings — workflow viewer and engine are separate switches"
     });
   });
 
-  it("hides both toggles when developer mode is off", () => {
+  it("hides the engine toggle when developer mode is off", () => {
     setAdvanced({ developerMode: false });
     render(<AdvancedSettings />);
-    expect(screen.queryByRole("switch", { name: VIEWER_LABEL })).toBeNull();
     expect(screen.queryByRole("switch", { name: ENGINE_LABEL })).toBeNull();
   });
 });

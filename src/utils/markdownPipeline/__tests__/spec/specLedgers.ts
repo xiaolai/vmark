@@ -20,13 +20,13 @@
  *
  * @coordinates-with specDeltas.json — conformance ledger records
  * @coordinates-with specRoundtripDeltas.json — roundtrip ledger records
- * @coordinates-with ../../conformance/semanticProjection.ts — Divergence shape
+ * @coordinates-with ../conformance/semanticProjection.ts — Divergence shape
  * @module utils/markdownPipeline/__tests__/spec/specLedgers
  */
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { sameValue, type Divergence } from "../../conformance/semanticProjection";
+import { sameValue, type Divergence } from "../conformance/semanticProjection";
 
 export const UNDEFINED_SENTINEL = "__undefined__";
 

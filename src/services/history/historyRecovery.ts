@@ -8,7 +8,7 @@
  *   - Permanent delete removes both index and all snapshot files
  *   - Workspace clearing uses normalizePath + isWithinRoot for path matching
  *
- * @coordinates-with useHistoryOperations.ts — creates/manages active history
+ * @coordinates-with historyOperations.ts — creates/manages active history
  * @coordinates-with historyTypes.ts — shared types and folder constants
  * @module services/history/historyRecovery
  */

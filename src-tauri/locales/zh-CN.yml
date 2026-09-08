@@ -22,6 +22,7 @@ menu:
   file.openRecentWorkspace: "打开最近工作区"
   file.close: "关闭"
   file.closeWorkspace: "关闭工作区"
+  file.reopenClosedTab: "重新打开已关闭的标签页"
   file.save: "保存"
   file.saveAs: "另存为..."
   file.moveTo: "移动到..."
@@ -156,6 +157,7 @@ menu:
   insert.mindmap: "思维导图"
   insert.horizontalLine: "水平分隔线"
   insert.footnote: "脚注"
+  insert.tableOfContents: "目录"
   insert.collapsible: "折叠块"
   insert.infoBox: "信息框"
   insert.infoBox.note: "注释"
@@ -269,10 +271,15 @@ errors:
   pdf.badTempPath: "临时文档路径无效：%{path}"
   pdf.invalidExtension: "输出路径必须使用 .pdf 扩展名"
   pdf.dirNotFound: "输出目录不存在"
+  pdf.parentNotDirectory: "输出路径的上级已存在，但不是目录"
+  pdf.publishFailed: "无法将生成的 PDF 移到输出路径：%{detail}"
+  pdf.outputUnreadable: "无法打开生成的 PDF 进行校验：%{detail}"
   pdf.pathNotAbsolute: "输出路径必须是绝对路径"
   pdf.outputIsDirectory: "输出路径是一个目录"
   pdf.loadTimeout: "HTML 加载超时（10 秒）"
   pdf.emptyOutput: "打印操作生成了空 PDF"
+  pdf.staleOutputNotRemoved: "无法替换输出路径上已有的文件：%{detail}"
+  pdf.outputNotPdf: "打印操作未生成有效的 PDF"
   pdf.printTimeout: "打印操作超时（60 秒）"
   pdf.noPages: "PDF 没有页面"
   pdf.writeFailed: "写入带书签的 PDF 失败"
@@ -291,6 +298,7 @@ errors:
   workflow.engineDisabled: "工作流引擎已在设置中关闭"
   workflow.noPendingApproval: "没有匹配的待处理审批请求"
   workflow.appDataDirUnavailable: "无法解析应用数据目录：%{detail}"
+  workflow.snapshotFailed: "无法为此工作流将修改的文件创建快照，因此未运行：%{detail}"
 
   # === 保存路径（file_write.rs，WI-14 CommandError）===
   save.parentMissing: "该文件所在的文件夹已不存在：%{dir}"
@@ -346,6 +354,8 @@ errors:
   genie.pathBlocked: "Genie 路径位于允许的目录之外"
 
   # === MCP ===
+  mcp.bindFailed: "MCP 桥接无法绑定 %{address}：%{detail}"
+  mcp.localAddrFailed: "MCP 桥接绑定了端口，却无法读回：%{detail}"
   mcp.spawnInProgress: "MCP 侧载进程正在启动中"
   mcp.configMismatch: "配置校验失败：写入内容与预期不符"
 
@@ -390,8 +400,12 @@ errors:
   mcp.writeConfigPartialRemoved: "写入 %{path} 失败：%{detail}（已删除不完整的文件）"
   mcp.writeConfigPartialOrphaned: "写入 %{path} 失败：%{detail}。不完整的文件也无法删除（%{cleanup_detail}）。请在重试前手动删除它，否则下次安装会把它当作损坏的配置读取。"
 
+  # === Secure store (secure_store.rs) ===
+  secureStore.keychainDenied: "钥匙串访问被拒绝。请在钥匙串提示中允许 VMark，或在“钥匙串访问”中授予访问权限，然后重试。"
+
 window:
   settings.title: "设置"
+  print.title: "VMark 打印"
 
 cli:
   dialogTitle: "Shell 命令"

@@ -10,6 +10,8 @@
     "core:webview:allow-get-all-webviews",
     "core:webview:allow-print",
     "core:window:allow-set-focus",
+    "core:window:allow-is-visible",
+    "core:window:allow-is-minimized",
     "core:window:allow-close",
     "core:window:allow-set-title",
     "opener:default",

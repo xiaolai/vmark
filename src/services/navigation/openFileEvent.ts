@@ -17,7 +17,7 @@
  * `foo.md#heading` link can land on the heading once the editor mounts.
  *
  * @coordinates-with services/navigation/openFragment.ts — the consumer
- * @coordinates-with hooks/useFileShortcuts.ts — the filtering listener
+ * @coordinates-with hooks/useOpenFileEvent.ts — the filtering listener
  * @module services/navigation/openFileEvent
  */
 

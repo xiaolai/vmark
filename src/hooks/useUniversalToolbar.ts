@@ -12,7 +12,7 @@
  *
  * @coordinates-with services/editor/universalToolbarToggle.ts — the shared summon
  * @coordinates-with uiStore.ts — Escape cascade (dropdown → toolbar → StatusBar)
- * @coordinates-with shortcutsStore.ts — reads configurable shortcut binding
+ * @coordinates-with stores/settingsStore/shortcuts.ts — reads configurable shortcut binding
  * @module hooks/useUniversalToolbar
  */
 import { useEffect, useCallback } from "react";

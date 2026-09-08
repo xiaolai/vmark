@@ -8,7 +8,7 @@
  *   and key order are preserved. `validate` runs actionlint and
  *   forwards diagnostics.
  *
- * Plan: dev-docs/plans/20260504-mcp-pruning.md ADR-5.
+ * Origin: MCP pruning plan (2026-05-04, retired) ADR-5.
  *
  * Key decisions:
  *   - `IRPatch` is a public contract once exposed via MCP. We accept
@@ -23,7 +23,7 @@
  * @coordinates-with lib/ghaWorkflow/save/cstParser.ts — parseAsCst / stringifyCst
  * @coordinates-with lib/ghaWorkflow/save/mutators.ts — applyPatch + IRPatch types
  * @coordinates-with lib/ghaWorkflow/lint/actionlint.ts — lintWithActionlint
- * @coordinates-with stores/revisionStore.ts — STALE detection
+ * @coordinates-with stores/documentStore/revision.ts — STALE detection
  * @module services/mcpBridge/v2/workflow
  */
 

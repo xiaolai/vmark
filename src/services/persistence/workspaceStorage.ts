@@ -13,7 +13,7 @@
  *     discover which document window has an active workspace
  *
  * @coordinates-with workspaceStore.ts — uses createWindowStorage for persist middleware
- * @coordinates-with window_manager.rs — assigns window labels on creation
+ * @coordinates-with window_manager/document_windows.rs — assigns window labels on creation
  * @module services/persistence/workspaceStorage
  */
 import type { StateStorage } from "zustand/middleware";

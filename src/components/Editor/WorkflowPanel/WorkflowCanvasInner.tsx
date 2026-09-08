@@ -5,14 +5,13 @@
  *   split the eager App bundle absorbs xyflow on every cold start, even
  *   for users who never open a workflow.
  *
- * Plan: dev-docs/plans/20260504-github-actions-workflow-viewer.md
+ * Origin: GitHub Actions workflow viewer plan (2026-05-04, retired)
  *   Phase 9 audit follow-up — judgment-agent finding.
  *
  * Key decisions:
  *   - The inner component is the entire xyflow surface. The outer
  *     WorkflowCanvas keeps the ReactFlowProvider + Suspense boundary so
- *     consumers (GhaWorkflowWorkbench, GhaWorkflowPanel) keep their
- *     existing import shape.
+ *     its consumer (GhaWorkflowWorkbench) keeps its existing import shape.
  *   - Module-scope NODE_TYPES + PRO_OPTIONS keep React 19's effect
  *     unmount path from feeding xyflow's internal setState a new
  *     identity on every render (the "Maximum update depth exceeded"

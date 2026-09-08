@@ -8,6 +8,7 @@
 import { visit } from "unist-util-visit";
 import type { Root, Link } from "mdast";
 import { createDiagnostic, type LintDiagnostic } from "../types";
+import { ruleEmission } from "../ruleMeta";
 
 export function noEmptyLinkHref(_source: string, mdast: Root): LintDiagnostic[] {
   const diagnostics: LintDiagnostic[] = [];
@@ -19,8 +20,7 @@ export function noEmptyLinkHref(_source: string, mdast: Root): LintDiagnostic[] 
       const { line, column, offset } = node.position.start;
       diagnostics.push(
         createDiagnostic({
-          ruleId: "W05",
-          severity: "warning",
+          ...ruleEmission("W05"),
           messageKey: "lint.W05",
           messageParams: {},
           line,

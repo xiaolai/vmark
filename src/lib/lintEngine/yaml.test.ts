@@ -2,6 +2,7 @@
 // YAML-as-LintDiagnostic adapter tests.
 
 import { describe, it, expect } from "vitest";
+import { EditorState } from "@codemirror/state";
 import { lintYaml } from "./yaml";
 
 describe("lintYaml", () => {
@@ -59,5 +60,43 @@ describe("lintYaml", () => {
   it("uiHint: 'sourceOnly' (no WYSIWYG decoration for YAML files)", () => {
     const diags = lintYaml("name: a\nname: b\n");
     expect(diags[0].uiHint).toBe("sourceOnly");
+  });
+  // Audit R3 #865/#866.
+
+  it("locates a diagnostic on the CRLF line the editor renders", () => {
+    const diags = lintYaml("a: 1\r\na: 2\r\n");
+    expect(diags).toHaveLength(1);
+    expect(diags[0].offset).toBe(6);
+    expect({ line: diags[0].line, column: diags[0].column }).toEqual({
+      line: 2,
+      column: 1,
+    });
+  });
+
+  it("agrees with the CodeMirror document model on bare-CR input", () => {
+    // The LF-only converter reported line 1 / column 18 for every offset in
+    // this document because it contains no "\n" at all. CodeMirror splits on
+    // /\r\n?|\n/, so these offsets land on later lines — and CodeMirror is the
+    // document these numbers address. Asserting against `EditorState` rather
+    // than against literals keeps the claim in the module header checkable.
+    const source = "ok: 1\rfoo: [1, 2\r";
+    const doc = EditorState.create({ doc: source }).doc;
+    const diags = lintYaml(source);
+    expect(diags.length).toBeGreaterThan(0);
+    for (const d of diags) {
+      const cmLine = doc.lineAt(d.offset);
+      expect({ line: d.line, column: d.column }, `offset ${d.offset}`).toEqual({
+        line: cmLine.number,
+        column: d.offset - cmLine.from + 1,
+      });
+    }
+  });
+
+  it("clamps an out-of-range offset into the document instead of going negative", () => {
+    const diags = lintYaml("name: a\nname: b\n");
+    for (const d of diags) {
+      expect(d.column).toBeGreaterThanOrEqual(1);
+      expect(d.line).toBeLessThanOrEqual(3);
+    }
   });
 });

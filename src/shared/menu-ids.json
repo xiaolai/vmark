@@ -48,6 +48,7 @@
     "info-tip",
     "info-warning",
     "insert-table",
+    "insert-toc",
     "italic",
     "join-lines",
     "line-endings-crlf",
@@ -172,6 +173,7 @@
     "info-tip",
     "info-warning",
     "insert-table",
+    "insert-toc",
     "install-cli",
     "italic",
     "join-lines",
@@ -214,6 +216,7 @@
     "remove-blank-lines",
     "remove-list",
     "remove-trailing-spaces",
+    "reopen-closed-tab",
     "report-issue",
     "save",
     "save-all-quit",
@@ -256,5 +259,5 @@
     "zoom-in",
     "zoom-out"
   ],
-  "generatedAt": "2026-09-02T00:17:58.731Z"
+  "generatedAt": "2026-09-07T04:37:08.491Z"
 }

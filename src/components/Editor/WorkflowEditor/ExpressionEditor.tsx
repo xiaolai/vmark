@@ -9,7 +9,7 @@
  *   Save commits via the parent-supplied callback (typically the same
  *   handler used by the inline textarea's onBlur). Cancel discards.
  *
- * Plan: dev-docs/plans/20260504-github-actions-workflow-viewer.md §6
+ * Origin: GitHub Actions workflow viewer plan (2026-05-04, retired) §6
  *   Phase 7 / WI-7.1 + Phase 9 finish.
  *
  * Key decisions:

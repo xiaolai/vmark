@@ -154,6 +154,51 @@ describe("workspaceStore", () => {
     });
   });
 
+  // Audit 20260907 (#506): openWorkspace/bootstrapConfig kept the caller's
+  // nested `identity` / `sessionTabs` objects by reference, so a caller that
+  // kept mutating them changed persisted state and workspace TRUST behind
+  // set()'s back — the invariant updateConfig already clones for.
+  describe("nested config objects are cloned at ingestion (#506)", () => {
+    it("openWorkspace: later mutation of the caller's identity does not change trust", () => {
+      const store = useWorkspaceStore.getState();
+      const identity = {
+        id: "ws-1",
+        createdAt: 1,
+        trustLevel: "untrusted" as const,
+        trustedAt: null,
+      };
+      store.openWorkspace("/path", {
+        version: 1,
+        excludeFolders: [],
+        lastOpenTabs: [],
+        showHiddenFiles: false,
+        showAllFiles: false,
+        identity,
+      });
+      identity.trustLevel = "trusted" as never;
+      identity.trustedAt = 2 as never;
+      expect(useWorkspaceStore.getState().isWorkspaceTrusted()).toBe(false);
+    });
+
+    it("bootstrapConfig: later mutation of the caller's sessionTabs does not reach the store", () => {
+      const store = useWorkspaceStore.getState();
+      store.openWorkspace("/path");
+      const sessionTabs = { version: 1, tabs: [{ kind: "document", path: "/path/a.md" }] };
+      store.bootstrapConfig({
+        version: 1,
+        excludeFolders: [],
+        lastOpenTabs: [],
+        showHiddenFiles: false,
+        showAllFiles: false,
+        sessionTabs: sessionTabs as never,
+      });
+      sessionTabs.tabs[0].path = "/path/evil.md";
+      sessionTabs.tabs.push({ kind: "document", path: "/path/extra.md" });
+      const stored = useWorkspaceStore.getState().config?.sessionTabs;
+      expect(stored?.tabs).toEqual([{ kind: "document", path: "/path/a.md" }]);
+    });
+  });
+
   describe("closeWorkspace", () => {
     it("resets all workspace state", () => {
       const store = useWorkspaceStore.getState();

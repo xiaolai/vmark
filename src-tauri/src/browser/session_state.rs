@@ -14,10 +14,10 @@
 //!
 //! This module is platform-neutral and unit-tested against the keyring crate's
 //! in-memory `mock` store; the native cookie/`localStorage` capture that produces a
-//! `StorageState` lives in `session_macos.rs`.
+//! `StorageState` lives in `session_cookies_macos.rs`.
 //!
-//! @coordinates-with browser/secure_store.rs — the same keychain pattern for API keys
-//! @coordinates-with browser/session_macos.rs — native capture/replay of a StorageState
+//! @coordinates-with ../secure_store.rs — the same keychain pattern for API keys
+//! @coordinates-with session_cookies_macos.rs — native WKHTTPCookieStore capture/replay of a StorageState
 
 use keyring::Entry;
 use serde::{Deserialize, Serialize};

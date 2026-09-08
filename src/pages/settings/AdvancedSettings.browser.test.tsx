@@ -23,7 +23,9 @@ import { AdvancedSettings } from "./AdvancedSettings";
 import { useSettingsStore } from "@/stores/settingsStore";
 
 const BROWSER_LABEL = /embedded browser/i;
-const SESSION_LABEL = /session/i;
+// The row's own label, not a bare /session/: the page carries other prose with
+// the word in it (the actionlint description says "once per session").
+const SESSION_LABEL = /ai browser session/i;
 
 function setBrowser(patch: Record<string, unknown>) {
   useSettingsStore.setState({

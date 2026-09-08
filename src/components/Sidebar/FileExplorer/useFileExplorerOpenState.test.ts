@@ -3,7 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { RefObject } from "react";
 import { renderHook, act } from "@testing-library/react";
 import type { TreeApi } from "react-arborist";
-import { useFileExplorerOpenState, __ARBORIST_ROOT_ID } from "./useFileExplorerOpenState";
+import {
+  useFileExplorerOpenState,
+  useRestoredScroll,
+  __ARBORIST_ROOT_ID,
+} from "./useFileExplorerOpenState";
 import { useUIStore } from "@/stores/uiStore";
 import { useWorkspaceInstanceUiStore } from "@/stores/workspaceInstanceUiStore";
 import { FILE_TREE_SCROLLER_CLASS, type FileNode as FileNodeType } from "./types";
@@ -366,5 +370,46 @@ describe("useFileExplorerOpenState per-instance (WI-9.2)", () => {
     expect(() => act(() => result.current.restoreScroll(null))).not.toThrow();
     const empty = document.createElement("div");
     expect(() => act(() => result.current.restoreScroll(empty))).not.toThrow();
+  });
+});
+
+// Audit R2 (#635): the restore ran whenever `isLoading` fell, which is every
+// watcher refresh and every window focus — so an external file change put the
+// user back at the persisted offset, over a position they had just scrolled to.
+describe("useRestoredScroll", () => {
+  function harness(instance: string | null, ready: boolean) {
+    const restore = vi.fn();
+    const el = document.createElement("div");
+    const ref = { current: el };
+    const view = renderHook(
+      ({ id, isReady }: { id: string | null; isReady: boolean }) =>
+        useRestoredScroll(id, isReady, ref, restore),
+      { initialProps: { id: instance, isReady: ready } },
+    );
+    return { restore, el, ...view };
+  }
+
+  it("restores once the rows are in, and not before", () => {
+    const { restore, el, rerender } = harness("ws-a", false);
+    expect(restore).not.toHaveBeenCalled();
+    rerender({ id: "ws-a", isReady: true });
+    expect(restore).toHaveBeenCalledExactlyOnceWith(el);
+  });
+
+  it("does not restore again when a refresh cycles the loading flag", () => {
+    const { restore, rerender } = harness("ws-a", true);
+    expect(restore).toHaveBeenCalledTimes(1);
+    rerender({ id: "ws-a", isReady: false });
+    rerender({ id: "ws-a", isReady: true });
+    expect(restore).toHaveBeenCalledTimes(1);
+  });
+
+  it("restores again for the next workspace instance, and when returning to the first", () => {
+    const { restore, rerender } = harness("ws-a", true);
+    rerender({ id: "ws-b", isReady: false });
+    rerender({ id: "ws-b", isReady: true });
+    expect(restore).toHaveBeenCalledTimes(2);
+    rerender({ id: "ws-a", isReady: true });
+    expect(restore).toHaveBeenCalledTimes(3);
   });
 });

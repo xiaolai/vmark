@@ -11,9 +11,9 @@
 // MCP & Terminal
 // ---------------------------------------------------------------------------
 
-/** MCP server configuration — port, auto-start, and edit approval policy. */
+/** MCP server configuration — auto-start and edit approval policy. The bridge
+ *  binds an OS-assigned port (`mcp_bridge_start`); there is nothing to configure. */
 interface McpServerSettings {
-  port: number;        // Default: 9223 (VMark app MCP server; not Tauri automation)
   autoStart: boolean;  // Start on app launch
   autoApproveEdits: boolean; // Auto-approve AI document edits without preview
 }
@@ -63,18 +63,6 @@ export interface AdvancedSettingsState {
    */
   developerMode: boolean;
   keepBothEditorsAlive: boolean; // Keep both editors mounted for faster mode switching (default: false)
-  /**
-   * GitHub Actions workflow VIEWER extras in the source pane: `${{ }}`
-   * expression completion, cursor↔canvas job sync, and `uses:` goto-def.
-   * Read-only authoring aids over the `gha` IR — they run no code.
-   *
-   * Split out of `workflowEngine` by WI-19: one flag used to gate these
-   * alongside the execution engine, so a user who wanted GHA authoring had to
-   * switch on a runner that spawns AI providers and writes files. The GHA
-   * workbench itself (the yaml adapter's `gha-workflow` schema renderer) is
-   * always on and is NOT gated by this flag. Default: false.
-   */
-  workflowViewer: boolean;
   /**
    * The bespoke YAML workflow EXECUTION engine: the side panel's Run/Cancel
    * controls, the live preview graph that feeds them, and the `run_workflow`

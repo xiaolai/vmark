@@ -7,7 +7,7 @@
  * `get_state` action that returns every window, every tab, and per-tab
  * metadata (filePath, dirty, revision, kind).
  *
- * Plan: dev-docs/plans/20260504-mcp-pruning.md ADR-6.
+ * Origin: MCP pruning plan (2026-05-04, retired) ADR-6.
  */
 
 import { z } from 'zod';
@@ -19,10 +19,13 @@ import {
   structuredJsonResult,
 } from '../utils/toolOutput.js';
 
+export const SESSION_TOOL = 'session' as const;
+export const SESSION_ACTIONS = ['get_state'] as const;
+
 export function registerSessionTool(server: VMarkMcpServer): void {
   server.registerTool(
     {
-      name: 'session',
+      name: SESSION_TOOL,
       title: 'VMark Session State',
       // The one genuinely read-only tool in the surface: `get_state` inspects
       // windows and tabs and mutates nothing, so repeating it is free.
@@ -39,7 +42,7 @@ export function registerSessionTool(server: VMarkMcpServer): void {
         'Reading what is ON SCREEN: a tab can exist and be activatable without being shown. `active` marks its window\'s current tab; `visible` is false when the tab belongs to a workspace instance the window is not currently showing (`window.activeWorkspaceInstanceId` names the one it is). `window.focused` marks the window the USER is looking at, which need not be the window a request was routed to — so after activating a tab, confirm with get_state rather than trusting the activation result alone.\n\n' +
         'Returns: {windows, capabilities}.',
       inputSchema: {
-        action: z.enum(['get_state']).describe('The action to perform'),
+        action: z.enum(SESSION_ACTIONS).describe('The action to perform'),
       },
       // Response shape is stable and single-action, so it is worth declaring.
       // Kept permissive in the leaves (`z.unknown()` inside the arrays) because

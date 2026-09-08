@@ -10,6 +10,7 @@ import {
   parseNavigableUrl,
   credentialPath,
 } from "./url";
+import RECORDER_SENSITIVITY_SRC from "./agent/recorderShimSensitivity.src.js?raw";
 
 describe("canonicalizeBrowserUrl", () => {
   it("lowercases scheme and host", () => {
@@ -196,9 +197,32 @@ describe("urlForPersistence — a secret is not ours to write to disk", () => {
     );
   });
 
-  it("passes an unparseable url through rather than inventing one", () => {
-    expect(urlForPersistence("about:blank")).toBe("about:blank");
+  // Audit 20260907 (#397): an input the parser refuses used to be returned
+  // verbatim — with whatever credential it carried. The redactor fails closed:
+  // nothing is written, and restore drops the empty record as malformed.
+  it("writes nothing for an input that will not parse — it may still carry a credential", () => {
+    expect(urlForPersistence("https://alice:hunter2@exa mple.com/x")).toBe("");
+    expect(urlForPersistence("not a url at all")).toBe("");
     expect(urlForPersistence("")).toBe("");
+  });
+
+  it("a parseable but non-web url is kept as it is — it carries nothing to redact", () => {
+    expect(urlForPersistence("about:blank")).toBe("about:blank");
+    expect(urlForPersistence("about:srcdoc")).toBe("about:srcdoc");
+  });
+
+  // Audit 20260907 round 2: "parseable" was the whole test, so every opaque
+  // scheme went to disk verbatim — a `data:` URL keeps its ENTIRE payload in
+  // what `URL` calls the path, and a `file:` URL a local path. The same rule
+  // `urlForAgent` already applies one function up: http(s) or nothing.
+  it.each([
+    "data:text/html,<script>const token='hunter2'</script>",
+    "file:///Users/me/private/notes.md",
+    "blob:https://a.example/2b7c-secret",
+    "about:settings#token=abc",
+    "javascript:fetch('/steal')",
+  ])("writes nothing for the non-navigable %s", (url) => {
+    expect(urlForPersistence(url)).toBe("");
   });
 });
 
@@ -242,6 +266,52 @@ describe("urlForPersistence drops credential-bearing parameters", () => {
     const url = "https://a.example/search?q=vmark&page=2#results";
     expect(urlForPersistence(url)).toBe(url);
   });
+
+  // Audit 20260907 round 2 — three ways a credential walked past the redactor.
+  it("drops an SPA fragment ROUTE that carries a credential, like the path rule", () => {
+    // `#/reset/<token>` is the hash-router spelling of the path form above, and
+    // nothing ran it through `credentialPath`, so it persisted intact.
+    expect(urlForPersistence("https://a.example/app#/reset/9f8a7b6c5d4e3f2a1b0c")).toBe(
+      "https://a.example/app",
+    );
+    expect(urlForPersistence("https://a.example/app#!/magic-login/abc123def456ghi789")).toBe(
+      "https://a.example/app",
+    );
+    expect(urlForPersistence("https://a.example/app#/callback?code=x")).toBe("https://a.example/app");
+  });
+
+  it("keeps an ordinary hash route and a plain anchor", () => {
+    for (const url of [
+      "https://a.example/app#/settings/profile",
+      "https://a.example/docs#installation",
+    ]) {
+      expect(urlForPersistence(url)).toBe(url);
+    }
+  });
+
+  it("splits an ACRONYM-headed camelCase parameter name", () => {
+    // `APIToken` and `JWTToken` have no lowercase→uppercase boundary, so the
+    // one split rule left them a single word and the list never matched.
+    expect(urlForPersistence("https://a.example/x?APIToken=abc&keep=1")).toBe(
+      "https://a.example/x?keep=1",
+    );
+    expect(urlForPersistence("https://a.example/x?JWTToken=abc&keep=1")).toBe(
+      "https://a.example/x?keep=1",
+    );
+    expect(urlForPersistence("https://a.example/x?accessToken=abc&keep=1")).toBe(
+      "https://a.example/x?keep=1",
+    );
+  });
+
+  it("treats a dot as a boundary on BOTH sides of a parameter name", () => {
+    // The pattern let a dot OPEN a name but not close one.
+    expect(urlForPersistence("https://a.example/x?token.value=abc&keep=1")).toBe(
+      "https://a.example/x?keep=1",
+    );
+    expect(urlForPersistence("https://a.example/x?access_token.value=abc&keep=1")).toBe(
+      "https://a.example/x?keep=1",
+    );
+  });
   it("shows only about:blank and about:srcdoc; any other about: payload is opaque (#129)", () => {
     expect(urlForAgent("about:srcdoc")).toBe("about:srcdoc");
     expect(urlForAgent("about:settings#secret")).toBe("about:(opaque)");
@@ -275,6 +345,172 @@ describe("credential-bearing paths and session parameters never reach disk (roun
     expect(credentialPath("/blog/2026/09/post-title")).toBe(false);
     expect(urlForPersistence("https://a.example/search?q=cats&sid=abc&JSESSIONID=1&oauth_verifier=v&page=2")).toBe(
       "https://a.example/search?q=cats&page=2",
+    );
+  });
+});
+
+// WI-FL6.4 — the recorder residual "recorded URL paths keep `/reset/<token>`". The
+// flow-word rule matched a whole segment, so every compound spelling a real site
+// uses went through; and a JWT's dots keep it out of the token-shape rule.
+describe("credentialPath — compound flow spellings and JWTs (WI-FL6.4)", () => {
+  it.each([
+    "/password-reset/abc", // Discourse
+    "/password_reset/abc", // GitHub
+    "/reset_password/abc",
+    "/verify-email/abc",
+    "/confirm_email/abc",
+    "/magic_link/abc",
+    "/users/password/reset/abc",
+  ])("%s names a credential flow", (path) => {
+    expect(credentialPath(path)).toBe(true);
+  });
+
+  it("a JWT is a credential under any word — its dots defeat the token-shape rule", () => {
+    const jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMifQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
+    expect(credentialPath(`/session/${jwt}`)).toBe(true);
+    expect(urlForPersistence(`https://a.example/session/${jwt}`)).toBe("https://a.example/");
+  });
+
+  it.each([
+    "/authors/jane", // `authors` is not `auth`
+    "/tokens", // `tokens` is not `token`
+    "/oauth-guide", // `oauth` is not `auth`
+    "/resettlement/policy",
+    "/archive/backup-2026-09-07.tar.gz",
+  ])("%s is an ordinary path", (path) => {
+    expect(credentialPath(path)).toBe(false);
+  });
+});
+
+// Audit 20260907 (#395/#396/#398) — three shapes the persistence redactor let
+// through: an SPA fragment route carrying its own query, camelCase parameter
+// names, and percent-encoded flow words in the path.
+describe("urlForPersistence — SPA fragment routes carry their own query (#395)", () => {
+  it("drops the credential from the fragment's query and keeps the route", () => {
+    expect(urlForPersistence("https://a.example/app#/dashboard?token=abc&state=x")).toBe(
+      "https://a.example/app#/dashboard?state=x",
+    );
+    expect(urlForPersistence("https://a.example/app#/dashboard?access_token=abc&state=x")).toBe(
+      "https://a.example/app#/dashboard?state=x",
+    );
+  });
+
+  it("keeps the bare route when every fragment parameter was a credential", () => {
+    expect(urlForPersistence("https://a.example/app#/dashboard?code=abc")).toBe(
+      "https://a.example/app#/dashboard",
+    );
+  });
+
+  // Round 2: a route that is itself a credential-bearing FLOW goes entirely,
+  // not just its parameters. `credentialPath` is the shared classifier, and
+  // applying it to `/callback` in the path but not to `#/callback` was the
+  // drift it exists to prevent.
+  it("drops a flow ROUTE whole, exactly as the path form is dropped", () => {
+    expect(urlForPersistence("https://a.example/app#/callback?token=abc&state=x")).toBe(
+      "https://a.example/app",
+    );
+    expect(urlForPersistence("https://a.example/callback?token=abc&state=x")).toBe(
+      "https://a.example/",
+    );
+  });
+
+  it("leaves a route with a harmless query alone", () => {
+    const url = "https://a.example/app#/search?q=cats&page=2";
+    expect(urlForPersistence(url)).toBe(url);
+  });
+});
+
+describe("urlForPersistence — camelCase credential names (#396)", () => {
+  it.each(["accessToken", "refreshToken", "idToken", "sessionId", "apiKey", "authToken"])(
+    "drops %s from the query",
+    (name) => {
+      expect(urlForPersistence(`https://a.example/inbox?${name}=abc&page=2`)).toBe(
+        "https://a.example/inbox?page=2",
+      );
+    },
+  );
+
+  it("drops a camelCase name from the fragment too", () => {
+    expect(urlForPersistence("https://a.example/#accessToken=abc&expires=3600")).toBe(
+      "https://a.example/#expires=3600",
+    );
+  });
+
+  it("keeps camelCase names that are not credentials", () => {
+    const url = "https://a.example/list?pageSize=20&sortOrder=asc";
+    expect(urlForPersistence(url)).toBe(url);
+  });
+});
+
+describe("credentialPath — percent-encoded segments are decoded first (#398)", () => {
+  it.each(["/password%2Dreset/abc", "/%72eset/abc", "/verify%5Femail/abc"])(
+    "%s names a credential flow once decoded",
+    (path) => {
+      expect(credentialPath(path)).toBe(true);
+    },
+  );
+
+  it("the persisted form is the origin only", () => {
+    expect(urlForPersistence("https://a.example/password%2Dreset/abc")).toBe("https://a.example/");
+  });
+
+  it("a segment that will not decode is treated as a credential (fail closed)", () => {
+    expect(credentialPath("/docs/%zz-report")).toBe(true);
+  });
+
+  it("an encoded ordinary path stays ordinary", () => {
+    expect(credentialPath("/docs/getting%20started")).toBe(false);
+  });
+});
+
+// Audit R3 #789: the persistence redactor's parameter vocabulary and the
+// recorder shim's field-sensitivity vocabulary were written independently and
+// had drifted — `pin`, `passcode`, `cvv`, `ssn`, `pwd`, `passphrase`, `totp`,
+// `mfa` and `2fa` name a secret to the recorder and named nothing here. Both
+// guard the SAME thing: a secret reaching a file that outlives the session.
+//
+// The invariant is a one-way subset, and that direction is the whole point: a
+// form field the recorder calls sensitive posts under that name, so persistence
+// must be AT LEAST as strict. The reverse does not hold — `jsessionid` and
+// `sid` are cookie-shaped names no form field carries.
+describe("urlForPersistence — the recorder's secret vocabulary is a subset of this one", () => {
+  const tokens = [
+    ...RECORDER_SENSITIVITY_SRC.matchAll(/var SENSITIVE_TOKENS = \[([^\]]*)\]/g),
+  ]
+    .flatMap((m) => [...m[1].matchAll(/"([^"]+)"/g)])
+    .map((m) => m[1]);
+
+  it("reads a non-empty token list out of the shim (the test itself must not go quiet)", () => {
+    expect(tokens.length).toBeGreaterThan(10);
+    expect(tokens).toContain("password");
+  });
+
+  it.each(tokens)(
+    "drops ?%s= from a persisted URL",
+    (token) => {
+      const url = `https://example.com/p?${token}=SECRET&q=keep`;
+      const persisted = urlForPersistence(url);
+      expect(persisted).not.toContain("SECRET");
+      expect(persisted).toContain("q=keep");
+    },
+  );
+});
+
+describe("urlForPersistence — parameter names added by review, not by pattern", () => {
+  it.each(["csrf", "credential", "pin", "passcode", "cvv", "ssn"])(
+    "drops ?%s=",
+    (name) => {
+      expect(urlForPersistence(`https://e.com/p?${name}=X1`)).not.toContain("X1");
+    },
+  );
+
+  it("KEEPS ?state= — it is an ordinary address parameter far more often than a CSRF nonce", () => {
+    // The audit proposed adding `state`. A store locator's `?state=CA` and a
+    // filter's `?state=open` are the common case; dropping it would restore the
+    // wrong page on every one of them, which is a real cost against a nonce
+    // that is worthless once the flow completed.
+    expect(urlForPersistence("https://e.com/stores?state=CA")).toBe(
+      "https://e.com/stores?state=CA",
     );
   });
 });

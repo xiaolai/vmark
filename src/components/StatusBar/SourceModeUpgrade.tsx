@@ -15,7 +15,7 @@
  *   - The editor is currently in Source mode (sanity gate — if the user
  *     already toggled back to WYSIWYG manually, suppress the offer).
  *
- * @coordinates-with stores/largeFileSessionStore.ts — reads the marker set.
+ * @coordinates-with stores/documentStore/largeFileSession.ts — reads the marker set.
  * @coordinates-with stores/editorStore.ts — flips sourceMode on click.
  * @coordinates-with stores/tabStore.ts — reads activeTabId via useTabStore.
  * @coordinates-with stores/documentStore.ts — reads filePath for YAML check.

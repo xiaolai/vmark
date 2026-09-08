@@ -64,4 +64,47 @@ describe("PermissionsForm", () => {
       value: { contents: "read", issues: "write" },
     });
   });
+
+  // Audit R2 #573 — `applyPreviewPatches` skips `workflow.permissions.set`, so
+  // the prop never reflects a queued edit. Deriving the scope map from it left
+  // the SECOND scope edit computed from the pre-edit map, and the queue dedups
+  // by target — so the first scope was silently dropped.
+  it("accumulates two scope edits instead of dropping the first", () => {
+    render(<PermissionsForm permissions={{ contents: "read" }} />);
+    const scopeSelect = (name: string): HTMLElement =>
+      screen
+        .getAllByRole("combobox")
+        .find((s) => (s.closest("label")?.textContent ?? "").includes(name))!;
+
+    fireEvent.change(scopeSelect("issues"), { target: { value: "write" } });
+    fireEvent.change(scopeSelect("packages"), { target: { value: "read" } });
+
+    const patches = useWorkflowStore.getState().edit.pendingPatches;
+    expect(patches).toHaveLength(1);
+    expect(patches[0]).toEqual({
+      kind: "workflow.permissions.set",
+      value: { contents: "read", issues: "write", packages: "read" },
+    });
+  });
+
+  it("shows a queued scope edit rather than the unchanged prop value", () => {
+    render(<PermissionsForm permissions={{ contents: "read" }} />);
+    const issues = screen
+      .getAllByRole("combobox")
+      .find((s) => (s.closest("label")?.textContent ?? "").includes("issues"))!;
+    fireEvent.change(issues, { target: { value: "write" } });
+    expect((issues as HTMLSelectElement).value).toBe("write");
+  });
+
+  it("keeps unsetting a scope working", () => {
+    render(<PermissionsForm permissions={{ contents: "read", issues: "write" }} />);
+    const issues = screen
+      .getAllByRole("combobox")
+      .find((s) => (s.closest("label")?.textContent ?? "").includes("issues"))!;
+    fireEvent.change(issues, { target: { value: "" } });
+    expect(useWorkflowStore.getState().edit.pendingPatches[0]).toEqual({
+      kind: "workflow.permissions.set",
+      value: { contents: "read" },
+    });
+  });
 });

@@ -235,7 +235,11 @@ let activeUnlisten: (() => void) | null = null;
 // Tauri `listen` (captured into `listeners`). Awaiting it guarantees
 // `activeUnlisten` is set before the test proceeds.
 async function mountEditorActions(): Promise<void> {
-  activeUnlisten = await mountMenuCommands(EDITOR_ACTION_BINDINGS as never);
+  const { off, failed } = await mountMenuCommands(EDITOR_ACTION_BINDINGS as never);
+  // Nothing here should fail to listen; a silent partial mount would make
+  // every dispatch assertion below vacuous.
+  expect(failed).toEqual([]);
+  activeUnlisten = off;
 }
 
 describe("mountMenuCommands — editor-action dispatch", () => {
@@ -802,22 +806,17 @@ describe("mountMenuCommands — editor-action dispatch", () => {
 
   // (disposed-during-setup race moved to useCommandBootstrap; see its test)
 
-  it("logs error when a listener registration fails (L375 rejected path)", async () => {
-    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
+  // Audit #359 (round 3): a registration that fails is reported, not hidden and
+  // not fatal. Round 2 rejected the whole batch, which cost the user every
+  // OTHER editor action for one refused listener; the caller
+  // (useCommandBootstrap) now reads `failed` and signals readiness accordingly.
+  it("reports every editor action as failed when no listener can register", async () => {
     mockListenImpl.fn = () => Promise.reject(new Error("registration failed"));
 
-    await mountEditorActions();
-
-    await waitFor(() => {
-      expect(consoleSpy).toHaveBeenCalledWith(
-        "[Menu]",
-        expect.stringContaining("Failed to mount listener for"),
-        expect.any(Error),
-      );
-    });
-
-    consoleSpy.mockRestore();
+    const { off, failed } = await mountMenuCommands(EDITOR_ACTION_BINDINGS as never);
+    expect(failed.length).toBe((EDITOR_ACTION_BINDINGS as never[]).length);
+    expect(failed.every((event) => event.startsWith("menu:"))).toBe(true);
+    off(); // nothing mounted, but the teardown is still the caller's to hold
   });
 
   describe("retry lifecycle and IME safety", () => {

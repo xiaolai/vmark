@@ -16,7 +16,7 @@
  * @coordinates-with shared/mediaSecurity.ts — URL classification
  * @coordinates-with tiptap.ts — registers this NodeView for the image node type
  * @coordinates-with blockImage/BlockImageNodeView.ts — similar logic for block-level images
- * @module plugins/imageView
+ * @module plugins/imageView/plugin
  */
 
 import type { Editor } from "@tiptap/core";

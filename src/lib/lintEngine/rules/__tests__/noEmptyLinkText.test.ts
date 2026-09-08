@@ -4,6 +4,9 @@ import { lintMarkdown } from "../../linter";
 import { noEmptyLinkText } from "../noEmptyLinkText";
 import type { Root, Link } from "mdast";
 
+/** A synthetic mdast carries no source, so the line index it is linted with is empty. */
+const EMPTY_INDEX = { lines: [], lineOffsets: [] };
+
 describe("E06 noEmptyLinkText", () => {
   it.each([
     {
@@ -101,7 +104,7 @@ describe("E06 noEmptyLinkText", () => {
       ],
     };
 
-    const diagnostics = noEmptyLinkText("", mdast);
+    const diagnostics = noEmptyLinkText("", mdast, EMPTY_INDEX);
     expect(diagnostics).toHaveLength(1);
   });
 
@@ -137,7 +140,7 @@ describe("E06 noEmptyLinkText", () => {
       ],
     };
 
-    const diagnostics = noEmptyLinkText("", mdast);
+    const diagnostics = noEmptyLinkText("", mdast, EMPTY_INDEX);
     expect(diagnostics).toHaveLength(0);
   });
 
@@ -169,7 +172,7 @@ describe("E06 noEmptyLinkText", () => {
       ],
     };
 
-    const diagnostics = noEmptyLinkText("", mdast);
+    const diagnostics = noEmptyLinkText("", mdast, EMPTY_INDEX);
     // Image with null alt falls back to "img", so link is not empty
     expect(diagnostics).toHaveLength(0);
   });
@@ -196,7 +199,7 @@ describe("E06 noEmptyLinkText", () => {
       ],
     };
 
-    const diagnostics = noEmptyLinkText("", mdast);
+    const diagnostics = noEmptyLinkText("", mdast, EMPTY_INDEX);
     expect(diagnostics).toHaveLength(1);
     expect(diagnostics[0].offset).toBe(0);
   });
@@ -219,7 +222,49 @@ describe("E06 noEmptyLinkText", () => {
       ],
     };
 
-    const diagnostics = noEmptyLinkText("", mdast);
+    const diagnostics = noEmptyLinkText("", mdast, EMPTY_INDEX);
     expect(diagnostics).toHaveLength(0);
+  });
+});
+
+// Audit 20260907 round 3 (#818): inline code and images were counted as
+// content and then TRIMMED away, so a link whose only content was a
+// whitespace-only code span or an empty-alt image was reported as empty.
+describe("E06 — content that is not text", () => {
+  const flagged = (input: string) => lintMarkdown(input).some((d) => d.ruleId === "E06");
+
+  it.each([
+    { name: "a whitespace-only inline code span", input: "[` `](https://example.com)\n" },
+    { name: "an image with an empty alt", input: "[![](/a.png)](https://example.com)\n" },
+    { name: "an image with a whitespace alt", input: "[![ ](/a.png)](https://example.com)\n" },
+    { name: "an image reference with an empty alt", input: "[![][i]](https://e.com)\n\n[i]: /a.png\n" },
+  ])("$name is content, not emptiness", ({ input }) => {
+    expect(flagged(input)).toBe(false);
+  });
+
+  it.each([
+    { name: "genuinely empty", input: "[](https://example.com)\n" },
+    { name: "whitespace-only text", input: "[   ](https://example.com)\n" },
+  ])("$name is still reported", ({ input }) => {
+    expect(flagged(input)).toBe(true);
+  });
+});
+
+// Audit 20260907 round 3 (#819) claimed a link holding only a REFERENCED image
+// bypasses E06. It does not, for the same reason W04 covers reference links:
+// the pipeline resolves `![alt][ref]` into an `image` before rules run. Pinned
+// because that is another module's property, and losing it would make this rule
+// report every reference-image link as empty.
+describe("E06 — a referenced image is an image", () => {
+  it("does not report a link whose only content is a referenced image", () => {
+    const out = lintMarkdown("[![alt][img]](https://e.com)\n\n[img]: /a.png\n");
+    expect(out.filter((d) => d.ruleId === "E06")).toHaveLength(0);
+  });
+
+  it("does not report one whose reference has no definition either", () => {
+    // With no definition CommonMark keeps `![alt][missing]` as literal TEXT,
+    // which is content by any reading.
+    const out = lintMarkdown("[![alt][missing]](https://e.com)\n");
+    expect(out.filter((d) => d.ruleId === "E06")).toHaveLength(0);
   });
 });

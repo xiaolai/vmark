@@ -8,6 +8,13 @@ cd "$(dirname "$0")/.."
 phase="${1:?usage: check-context-menu-phase.sh <phase-number>}"
 fail() { echo "❌ $1" >&2; exit 1; }
 ok() { echo "✅ $1"; }
+MISSING_HELPER_MARK="$(mktemp -t vmark-dod-missing)"
+trap 'rm -f "$MISSING_HELPER_MARK"' EXIT
+# A misspelled assertion helper used to be SILENT: bash printed "command not
+# found" to stderr and the phase counted neither a pass nor a failure, so the
+# check simply did not exist. bash runs this handler in a SUBSHELL, so a
+# counter bumped here would not reach the summary — record it on disk.
+command_not_found_handle() { echo "  ✗ assertion helper '$1' is not defined in this script"; echo "$1" >> "$MISSING_HELPER_MARK"; return 1; }
 
 require_file() { [[ -f "$1" ]] || fail "missing file: $1"; ok "exists: $1"; }
 require_grep() { grep -q "$2" "$1" || fail "$1 lacks: $2"; ok "$1 contains: $2"; }
@@ -59,4 +66,10 @@ case "$phase" in
   *) fail "unknown phase: $phase" ;;
 esac
 
+MISSING=$(wc -l < "$MISSING_HELPER_MARK" | tr -d " ")
+if (( MISSING > 0 )); then
+  echo "  $MISSING assertion(s) named a helper this script does not define — they checked NOTHING."
+  sort -u "$MISSING_HELPER_MARK" | sed 's/^/    - /'
+  exit 1
+fi
 echo "Phase $phase DoD: all checks passed."

@@ -1,0 +1,38 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignoreWorkspaces": [
+    "website"
+  ],
+  "workspaces": {
+    ".": {
+      "entry": [
+        "src/main.tsx!",
+        "scripts/*.{ts,mjs}!",
+        ".claude/hooks/*.mjs!"
+      ],
+      "project": [
+        "src/**/*.{ts,tsx}!",
+        "scripts/**/*.{ts,mjs}!",
+        ".claude/hooks/**/*.mjs!"
+      ]
+    },
+    "server/content": {
+      "entry": [
+        "src/cli.ts!",
+        "src/index.ts!"
+      ],
+      "project": [
+        "src/**/*.ts!"
+      ]
+    },
+    "server/mcp": {
+      "entry": [
+        "src/cli.ts!",
+        "src/index.ts!"
+      ],
+      "project": [
+        "src/**/*.ts!"
+      ]
+    }
+  }
+}

@@ -15,7 +15,7 @@
  *
  * @coordinates-with tabStore.ts — tab ID is the key into the documents map
  * @coordinates-with useAutoSave.ts — reads isDirty to trigger auto-save
- * @coordinates-with useFileWatcher.ts — calls markMissing/markDivergent on external changes
+ * @coordinates-with services/files/fileChangeBatch.ts — calls markMissing/markDivergent on external changes
  * @coordinates-with useTabModeSync.ts — mirrors per-doc mode → window sourceMode (ADR-009)
  * @module stores/documentStore/document
  */

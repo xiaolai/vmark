@@ -94,7 +94,7 @@ Wenn ein Schritt `approval: ask` hat (oder Workflow-`defaults.approval: ask`), p
 
 ## Beispiel
 
-VMark wird mit einem Beispiel-Workflow `outline-and-polish.yml` in den mitgelieferten Genies ausgeliefert. Kopiere ihn in dein Benutzer-Genies-Verzeichnis, um ihn anzupassen:
+VMark liefert den Beispiel-Workflow `triage-and-translate.yml` im App-Bundle (`Resources/resources/workflows/examples/`) mit; er wird nicht in dein Genies-Verzeichnis installiert. Kopiere ihn dorthin, um ihn anzupassen. Der folgende Workflow ist ein weiteres Beispiel:
 
 ```yaml
 name: Outline and Polish

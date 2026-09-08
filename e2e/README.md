@@ -6,7 +6,7 @@ its Tauri MCP automation bridge (`ws://127.0.0.1:9323`):
 | Harness | Command | Scope |
 |---------|---------|-------|
 | Smoke | `pnpm e2e:smoke` | Minimal happy path: connect → scratch tab → type → round-trip → screenshot → discard |
-| Journeys | `pnpm e2e:journeys` | 35 user journeys covering jsdom-unreachable flows: tabs, mode switches, formatting, undo/redo, find bar, outline, open/save-to-disk, D1-D4 round-trip, non-markdown format dispatch, workflow split-pane, terminal workspace cwd/cd-sync, the Tier-0 data-integrity set (multi-doc save isolation, dirty-file close guard, autosave-to-disk, line-ending preservation, failed-save document preservation, external-change auto-reload), and the macOS-only embedded-browser set (open/read/act, approvals and their invalidation, SSRF policy per hop, no-bridge, occlusion, session round-trip, disabled gate, human takeover) |
+| Journeys | `pnpm e2e:journeys` | 38 user journeys covering jsdom-unreachable flows: tabs, mode switches, formatting, undo/redo, find bar, outline, open/save-to-disk, D1-D4 round-trip, non-markdown format dispatch, workflow split-pane, terminal workspace cwd/cd-sync, the Tier-0 data-integrity set (multi-doc save isolation, dirty-file close guard, autosave-to-disk, line-ending preservation, failed-save document preservation, external-change auto-reload), HTML export to disk (`index.html` + `standalone.html` written by the real writer), the Knowledge Base panel's live runtime probe (missing/ready state asserted, never skipped), and the macOS-only embedded-browser set (open/read/act, approvals and their invalidation, SSRF policy per hop, no-bridge, occlusion, session round-trip, disabled gate, human takeover) |
 
 Shared bridge client: `e2e/lib/bridge.mjs`. App-level driving/observation
 helpers: `e2e/lib/vmark.mjs`. Disk fixtures: `e2e/lib/fixtures.mjs`.
@@ -20,6 +20,12 @@ exporting `{ name, run(client, ctx) }`; they run sequentially over one bridge
 connection, print `PASS`/`FAIL`/`SKIP` per journey with timing, and exit
 non-zero if any fail. On failure a native screenshot lands in
 `e2e/artifacts/<journey>-fail.png`.
+
+The two-digit file prefix is a sort key, not a count, and numbers are never
+reused: there is no `26-*` because the browser series was seeded at 27
+(`a35d868bd`, 2026-07-26) while 21 was the highest journey, leaving 22–26 open;
+22–24 were filled the same day, 25 by the IME journey (`a9e8384c2`,
+2026-08-05), and 26 never was. No journey file has ever been deleted.
 
 ```bash
 pnpm e2e:journeys                        # all journeys
@@ -50,6 +56,8 @@ node e2e/run-journeys.mjs --only save    # name-substring filter
 | `line-ending-preservation` **(Tier-0)** | A CRLF document edited and saved comes back off disk still CRLF. Reads the live `lineEndingsOnSave` preference and derives the expectation from it (`preserve`/`lf`/`crlf`), so it asserts the real contract under the user's actual configuration |
 | `failed-save-preserves-document` **(Tier-0)** | A save that FAILS (parent directory made read-only) must leave the original bytes untouched AND the tab dirty — no false success. Then proves recovery: restoring writability makes the same save succeed with exact bytes |
 | `external-change-reloads-clean-doc` **(Tier-0 · I11)** | A clean document rewritten on disk by another process auto-reloads: new content present, old content gone (replace, not merge), tab still clean. The dirty branch stays manual — it raises a native dialog |
+| `export-html-to-disk` | A scratch doc placed through `vmark.document.write`, then the app's own `renderMarkdownToHtml` + `exportHtml` run against a `$HOME` fixture folder (the native folder panel is the only step of `export.html` the harness cannot drive); **Node reads BOTH `index.html` and `standalone.html` back from disk** — title, real `<h1>` and body marker in each; `index.html` links `assets/vmark-reader.css`/`.js` and those files exist; `standalone.html` references no `assets/` and embeds the byte-identical reader CSS/JS |
+| `knowledge-base-runtime-state` | `menu:knowledge-base` opens the panel; while the server is stopped the LIVE `content_server_runtime` probe must resolve and the journey asserts the state it shows — `missing`: the alert names the content-server CLI in the dev wording (`VMARK_CONTENT_SERVER_CLI`, locale-independent), no Start, "Check again" offered; `ready`: exactly one Start button. A rejected probe FAILS; a non-stopped server SKIPs naming the status. The panel is closed again if the journey opened it |
 
 The runner appends a suite-level `state-restoration` check: the tab bar must
 be byte-identical to the pre-suite snapshot.

@@ -127,3 +127,33 @@ fn case_sensitivity_matches_platform_expectations() {
         assert!(upper.is_err());
     }
 }
+
+// ===== REST providers pass through the same command boundary ===============
+
+#[test]
+fn accepts_none_for_a_rest_provider() {
+    // `run_ai_prompt` runs EVERY provider through this guard, and a REST
+    // provider has no binary — `None` is the only cli_path it can send.
+    // Refusing the provider name before the `None` short-circuit rejected
+    // every REST genie invocation with "Unknown CLI provider".
+    for provider in [
+        "anthropic",
+        "openai",
+        "openai-compatible",
+        "google-ai",
+        "ollama-api",
+    ] {
+        assert!(
+            validate_cli_path(provider, None).is_ok(),
+            "{provider} with no cli_path must pass the boundary"
+        );
+    }
+}
+
+#[test]
+fn rejects_a_path_for_a_rest_provider() {
+    // A path is only meaningful for a binary VMark may spawn; a REST provider
+    // carrying one is either a caller bug or an attempt to smuggle a spawn.
+    assert!(validate_cli_path("anthropic", Some("/usr/local/bin/anthropic")).is_err());
+    assert!(validate_cli_path("openai", Some("/bin/sh")).is_err());
+}

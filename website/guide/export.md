@@ -2,45 +2,57 @@
 
 VMark provides multiple ways to export and share your documents.
 
-## Export Modes
+## What an Export Produces
 
-### Folder Mode (Default)
-
-Creates a self-contained folder with clean structure:
+**File → Export → HTML** writes one folder, named after your document, that always contains **both** of these files — there is no mode to choose:
 
 ```text
 MyDocument/
-├── index.html
+├── index.html          ← links to the files under assets/
+├── standalone.html     ← everything embedded as data URIs (CSS, JS, images, fonts)
 └── assets/
-    ├── image1.png
-    ├── image2.jpg
-    └── ...
+    ├── vmark-reader.css
+    ├── vmark-reader.js
+    ├── images/
+    │   ├── image1.png
+    │   └── ...
+    └── fonts/          ← only when the document has math or you use a web font
 ```
 
-**Benefits:**
-- Clean URLs when served (`/MyDocument/` instead of `/MyDocument.html`)
-- Easy to share as a single folder
-- Simple asset paths (`assets/image.png`)
-- Works great with static site hosts
+Use whichever file suits the moment:
 
-### Single File Mode
+| File | Best for | Trade-off |
+|------|----------|-----------|
+| `index.html` | Hosting on a static site (clean `/MyDocument/` URLs), editing in another tool, keeping the size down | Needs the `assets/` folder beside it |
+| `standalone.html` | Emailing or messaging a single file that cannot lose its images | Larger — every asset is inlined |
 
-Creates a single self-contained HTML file:
-
-```text
-MyDocument.html
-```
-
-All images are embedded as data URIs, making it completely portable but larger in file size.
+Both files are rendered by the same WYSIWYG renderer and stylesheet the editor uses, and both include the [VMark Reader](#vmark-reader).
 
 ## How to Export
 
 ### Export HTML
 
-1. Use **File → Export HTML**
-2. Choose export location
-3. For folder mode: Enter folder name (e.g., `MyDocument`)
-4. For single mode: Enter filename with `.html` extension
+1. Use **File → Export → HTML**
+2. Choose where to save and enter a name — it becomes the folder name (a trailing `.html` is stripped)
+3. Open `index.html` or `standalone.html` from the new folder
+
+#### Re-exporting into a folder you have used before
+
+An HTML export is all-or-nothing. Everything is written to a temporary
+`.vmark-export-…` folder inside your chosen destination first, and only moved
+into place once every file exists — so an export that fails part way leaves
+the previous export exactly as it was, rather than half-overwriting it.
+
+Two things you may see:
+
+- **"Another export is already writing to this folder."** Only one export can
+  write to a folder at a time, across windows. Wait for the other one, or — if
+  nothing else is running — delete the `.vmark-export.lock` file the message
+  names and try again.
+- **A `.vmark-export-…` folder left behind.** VMark removes it when it is
+  finished. It only remains if putting your previous files back also failed,
+  in which case it holds those files and the error message says exactly where
+  they are. Nothing is deleted while that is the only copy.
 
 ### Print / Export PDF
 
@@ -51,7 +63,12 @@ size, orientation, margins and typography you choose in the export dialog.
 
 **Print** (`Cmd/Ctrl + P`, or **File → Print**) opens the system print dialog
 instead, so you can send the document to a printer or use your operating
-system's own "save as PDF".
+system's own "save as PDF". On macOS and Linux, VMark confirms a finished print
+job with a short notice and stays quiet if you cancel the dialog; Windows's
+print UI does not report back, so no notice is shown there.
+
+The export dialog shows the same progress stages — loading, generating,
+finishing, done — on all three platforms.
 
 ::: info Page size on macOS
 Until this release, the Page Size and Orientation controls had no effect on
@@ -125,27 +142,33 @@ Press `Cmd/Ctrl + Shift + C` to copy the rendered HTML to clipboard for pasting 
 
 ## VMark Reader
 
-When you export to HTML (styled mode), your document includes the **VMark Reader** — an interactive reading experience with powerful features.
+Every HTML export includes the **VMark Reader** — an interactive reading experience with its own settings, navigation and lightbox.
 
 ### Settings Panel
 
-Click the gear icon (bottom-right) or press `Esc` to open the settings panel:
+Click the gear icon (bottom-right) to open the settings panel; `Esc` closes it again. Your choices are remembered by the browser (`localStorage`), so they apply the next time you open the file.
 
-| Setting | Description |
-|---------|-------------|
-| Font Size | Adjust text size (12px – 24px) |
-| Line Height | Adjust line spacing (1.2 – 2.0) |
-| Theme | Cycle through themes (White, Paper, Mint, Sepia, Night) |
-| CJK-Latin Spacing | Toggle spacing between CJK and Latin characters |
+| Setting | Options |
+|---------|---------|
+| Font Size | 12px – 28px |
+| Line Height | 1.2 – 2.4 |
+| Content Width | 30em – 80em |
+| Latin Font | System, Athelas, Palatino, Georgia, Charter, Literata |
+| CJK Font | System, PingFang, Songti, Kaiti, Noto Serif, Source Han |
+| Theme | White, Paper (default), Mint, Sepia, Night |
+| CJK Letter Spacing | 0.02em – 0.12em |
+| CJK-Latin Spacing | Toggle automatic spacing between CJK and Latin characters |
+| Table of Contents | Toggle the TOC sidebar (same as pressing `T`) |
+| Expand All Sections | Open every collapsible `<details>` block |
+| Reset to Defaults | Put every setting back |
 
 ### Table of Contents
 
 The TOC sidebar helps navigate long documents:
 
-- **Toggle**: Click the panel header or press `T`
+- **Toggle**: Click the tab at the edge of the page or press `T`
 - **Navigate**: Click any heading to jump to it
-- **Keyboard**: Use `↑`/`↓` arrows to move, `Enter` to jump
-- **Highlight**: Current section is highlighted as you scroll
+- **Highlight**: The current section is highlighted as you scroll
 
 ### Reading Progress
 
@@ -153,14 +176,13 @@ A subtle progress bar at the top of the page shows how far you've read through t
 
 ### Back to Top
 
-A floating button appears when you scroll down. Click it or press `Home` to return to the top.
+A floating button appears when you scroll down. Click it to return to the top.
 
 ### Image Lightbox
 
 Click any image to view it in a full-screen lightbox:
 
 - **Close**: Click outside, press `Esc`, or click the X button
-- **Navigate**: Use `←`/`→` arrows for multiple images
 - **Zoom**: Images display at their natural size
 
 ### Code Blocks
@@ -185,18 +207,17 @@ Footnotes are fully interactive:
 
 | Key | Action |
 |-----|--------|
-| `Esc` | Toggle settings panel |
+| `Esc` | Close the settings panel or the lightbox |
 | `T` | Toggle Table of Contents |
-| `↑` / `↓` | Navigate TOC items |
-| `Enter` | Jump to selected TOC item |
-| `←` / `→` | Navigate images in lightbox |
-| `Home` | Scroll to top |
+| `+` / `=` | Increase font size |
+| `-` | Decrease font size |
 
 ## Export Shortcuts
 
 | Action | Shortcut |
 |--------|----------|
 | Export HTML | _(menu only)_ |
+| Export PDF | _(menu only)_ |
 | Print | `Mod + P` |
 | Copy as HTML | `Mod + Shift + C` |
 
@@ -219,16 +240,16 @@ open MyDocument/index.html
 
 ### Offline Viewing
 
-Both export modes work completely offline:
+Both files open offline, with one difference for documents that contain math:
 
-- **Folder mode**: Open `index.html` in any browser
-- **Single mode**: Open the `.html` file directly
+- **`standalone.html`** is fully self-contained — the KaTeX stylesheet and fonts are inlined at export time, so math renders with no connection.
+- **`index.html`** loads the KaTeX stylesheet from a CDN (jsDelivr), so its math needs an internet connection when the page is opened; the reader, images and fonts under `assets/` are local.
 
-Math equations (KaTeX) require an internet connection for the stylesheet, but all other content works offline.
+Fonts are downloaded while you export (KaTeX fonts, and any web font you chose in Settings), so export on a machine with internet access if you want them embedded — an offline export falls back to system fonts.
 
 ### Best Practices
 
-1. **Use folder mode** for documents you'll share or host
-2. **Use single mode** for quick sharing via email or chat
+1. **Host `index.html`** for documents you'll publish — keep the `assets/` folder beside it
+2. **Send `standalone.html`** for quick sharing via email or chat
 3. **Include descriptive image alt text** for accessibility
 4. **Test the exported HTML** in different browsers

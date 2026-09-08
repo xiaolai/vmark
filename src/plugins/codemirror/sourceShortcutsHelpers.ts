@@ -20,6 +20,7 @@
 
 import type { EditorView } from "@codemirror/view";
 import { hostSearch } from "@/plugins/shared/hostSearch";
+import { activeFilePathForCurrentWindow } from "@/plugins/shared/hostDocument";
 import { exportError } from "@/utils/debug";
 
 
@@ -56,9 +57,11 @@ export function copySelectionAsHtml(view: EditorView): boolean {
   const markdown =
     from === to ? view.state.doc.toString() : view.state.doc.sliceString(from, to);
 
-  // Dynamic import to avoid loading exportStyles.css at startup.
+  // Dynamic import to avoid loading exportStyles.css at startup. The path is
+  // what a relative image in the copied markup resolves against (#704).
+  const sourceFilePath = activeFilePathForCurrentWindow();
   void import("@/export/useExportOperations")
-    .then(({ copyAsHtml }) => copyAsHtml(markdown))
+    .then(({ copyAsHtml }) => copyAsHtml(markdown, sourceFilePath))
     .catch((error) => exportError("CopyAsHtml failed:", error));
   return true;
 }

@@ -11,8 +11,8 @@
  *   - Shifted symbol matching (e.g., Shift+= produces +) for correct detection
  *   - Ctrl+letter on macOS produces control characters — falls back to event.code
  *
- * @coordinates-with shortcutsStore.ts — provides shortcut definitions in "Mod-Shift-n" format
- * @coordinates-with menu.rs — Rust accelerators use different format but same logical bindings
+ * @coordinates-with stores/settingsStore/shortcutDefinitions.ts — provides shortcut definitions in "Mod-Shift-n" format
+ * @coordinates-with menu/localized.rs — Rust accelerators use different format but same logical bindings
  * @module utils/shortcutMatch
  */
 

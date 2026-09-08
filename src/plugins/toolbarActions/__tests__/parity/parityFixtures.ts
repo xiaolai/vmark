@@ -87,7 +87,7 @@ export const COVERED_ACTIONS: string[] = [
   // blockquotes
   "insertBlockquote", "removeBlockquote", "nestBlockquote", "unnestBlockquote",
   // blocks
-  "insertDivider", "insertCodeBlock", "insertDetails",
+  "insertDivider", "insertCodeBlock", "insertDetails", "insertToc",
   "insertAlertNote", "insertAlertTip", "insertAlertImportant",
   "insertAlertWarning", "insertAlertCaution",
   "insertTable", "insertTableBlock",

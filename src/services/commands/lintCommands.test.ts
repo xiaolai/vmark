@@ -17,7 +17,7 @@ vi.mock("@/services/lint/lintNavigation", () => ({ scrollToSelectedDiagnostic })
 vi.mock("@/services/lint/runActiveLint", () => ({ runActiveLint }));
 vi.mock("@/services/navigation/activeDocument", () => ({ getActiveTabId }));
 
-import { registerLintCommands, __resetLintCommandsRegistration } from "./lintCommands";
+import { registerLintCommands } from "./lintCommands";
 import { executeCommand, getCommand, _resetCommandBus } from "./CommandBus";
 import { useLintStore } from "@/stores/documentStore";
 
@@ -45,7 +45,6 @@ function seedDiagnostics(count: number, tabId = TAB): void {
 
 beforeEach(() => {
   _resetCommandBus();
-  __resetLintCommandsRegistration();
   registerLintCommands();
   vi.clearAllMocks();
   useLintStore.setState({ diagnosticsByTab: {}, selectedIndexByTab: {} });

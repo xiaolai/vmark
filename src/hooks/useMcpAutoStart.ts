@@ -3,6 +3,9 @@
  *
  * Purpose: Starts the MCP bridge server on app launch if autoStart is
  *   enabled in settings — called once from the main document window.
+ *   The bridge binds an OS-assigned port (D9 — there is no port setting; the
+ *   one that used to live under `advanced.mcpServer` was forwarded here and
+ *   ignored), and the port it actually bound comes back in the command's status.
  *
  * @coordinates-with settingsStore.ts — reads mcp.autoStart setting
  * @module hooks/useMcpAutoStart
@@ -36,9 +39,9 @@ export function useMcpAutoStart() {
     // Start only the MCP bridge (WebSocket server).
     // AI clients (Claude Code, Codex, etc.) spawn their own sidecars that connect to this bridge.
     // We don't start a local sidecar - that would conflict with the AI client's sidecar.
-    invoke("mcp_bridge_start", { port: mcpServer.port })
-      .then(() => {
-        mcpAutoStartLog("Auto-started MCP bridge on port", mcpServer.port);
+    invoke<{ port: number | null }>("mcp_bridge_start")
+      .then((status) => {
+        mcpAutoStartLog("Auto-started MCP bridge on port", status.port);
       })
       .catch((error) => {
         mcpAutoStartLog("Failed to auto-start MCP bridge:", error);

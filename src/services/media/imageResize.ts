@@ -4,7 +4,7 @@
  * Resizes images before saving to assets folder.
  * Uses canvas-based resizing for quality downscaling.
  *
- * @module utils/imageResize
+ * @module services/media/imageResize
  */
 
 import { useSettingsStore } from "@/stores/settingsStore";

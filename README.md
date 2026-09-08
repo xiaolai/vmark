@@ -18,15 +18,15 @@ VMark is the plain-text workspace where humans and AI collaborate. Both parties 
 
 - **Multi-Format** — Markdown (WYSIWYG + source), JSON / JSONL, YAML, TOML, Mermaid, SVG, HTML (sandboxed), plain text. Code files (.ts, .py, .rs, .go, .css, …) open as syntax-highlighted viewers; toggle to edit in place or open in your `$EDITOR`.
 - **Schema-Aware Previews** — `.github/workflows/ci.yml` opens with a workflow-graph view. `Cargo.toml`, `package.json`, and `pyproject.toml` open with a dependency-tree view. Generic JSON / YAML / TOML get a navigable tree.
-- **AI-Native** — MCP integration for Claude Desktop, Claude Code, Codex CLI, Gemini CLI. AI Genies for inline writing assistance. Both you and the AI work on the same plain-text files.
+- **AI-Native** — MCP integration for Claude Desktop, Claude Code, Codex CLI, Antigravity CLI, Grok CLI, and opencode. AI Genies for inline writing assistance. Both you and the AI work on the same plain-text files.
 - **Three Markdown Modes** — WYSIWYG (Tiptap/ProseMirror), Source Peek (`F5`), Source Mode (`F6`, CodeMirror 6)
 - **Multi-Cursor** — `Mod + D` to select next match, `Alt + Click` to add cursors, `Mod + Alt + ↑↓` for vertical cursors
 - **Tab Escape** — Auto-pair brackets/quotes, press Tab to jump past closing characters
 - **CJK Done Right** — 20+ formatting rules for Chinese, Japanese, Korean text
 - **10 Languages** — English · 简体中文 · 繁體中文 · 日本語 · 한국어 · Deutsch · Español · Français · Italiano · Português (Brasil). Auto-detected on first launch.
-- **6 Themes** — White, Paper, Mint, Sepia, Night, Solarized
+- **6 Themes** — White, Paper, Mint, Sepia, Night, Solarized on macOS; Windows and Linux offer White and Night.
 - **Local-First** — No cloud, no accounts, no analytics. Documents stay on your machine.
-- **122 Shortcuts** — All customizable in Settings
+- **Shortcuts** — Every one customizable in Settings
 
 See the full feature list at **[vmark.app/guide/features](https://vmark.app/guide/features)**.
 
@@ -52,7 +52,7 @@ brew install xiaolai/tap/vmark
 
 VMark speaks [MCP](https://modelcontextprotocol.io/) natively. **Settings → Integrations → Install** — one click per assistant.
 
-Supported: Claude Desktop, Claude Code, Codex CLI, Gemini CLI.
+Supported: Claude Desktop, Claude Code, Codex CLI, Antigravity CLI, Grok CLI, opencode.
 
 See the **[MCP Setup Guide](https://vmark.app/guide/mcp-setup)**.
 
@@ -89,7 +89,7 @@ pnpm check:all        # Lint + test + build
 
 **Tech Stack:** Tauri v2 (Rust), React 19, TypeScript, Zustand v5, Tiptap, CodeMirror 6, Tailwind CSS v4
 
-**AI-Assisted Development:** The repo ships with full configuration for Claude Code, Codex CLI, and Gemini CLI. See `AGENTS.md` for conventions and `.claude/` for rules, skills, and subagents.
+**AI-Assisted Development:** The repo ships with full configuration for Claude Code, Codex CLI, and Antigravity. See `AGENTS.md` for conventions and `.claude/` for rules, skills, and subagents.
 
 ---
 

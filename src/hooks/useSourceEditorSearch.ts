@@ -5,7 +5,7 @@
  *   subscribes to search state changes and dispatches find/replace/count
  *   operations to the CodeMirror editor view.
  *
- * @coordinates-with searchStore.ts — reads query, caseSensitive, regex flags
+ * @coordinates-with stores/uiStore/searchSlice.ts — reads query, caseSensitive, regex flags
  * @coordinates-with sourceEditorSearch.ts — countMatches utility
  * @module hooks/useSourceEditorSearch
  */
@@ -86,7 +86,7 @@ function recomputeMatches(
 }
 
 /**
- * Subscribe to searchStore and manage CodeMirror search operations.
+ * Subscribe to the uiStore search slice and manage CodeMirror search operations.
  */
 export function useSourceEditorSearch(
   viewRef: MutableRefObject<EditorView | null>

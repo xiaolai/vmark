@@ -94,7 +94,7 @@ Cuando un paso tiene `approval: ask` (o `defaults.approval: ask` del flujo de tr
 
 ## Ejemplo
 
-VMark incluye un flujo de trabajo de muestra en `outline-and-polish.yml` dentro de los genies empaquetados. Cópialo en tu directorio de genies de usuario para personalizarlo:
+VMark incluye el flujo de trabajo de ejemplo `triage-and-translate.yml` dentro del paquete de la aplicación (`Resources/resources/workflows/examples/`); no se instala en tu directorio de genies. Cópialo allí para personalizarlo. El siguiente flujo de trabajo es otro ejemplo:
 
 ```yaml
 name: Outline and Polish

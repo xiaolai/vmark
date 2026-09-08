@@ -2,7 +2,7 @@
 /**
  * Tests for saveToPath helper
  *
- * @module utils/saveToPath.test
+ * @module services/persistence/saveToPath.test
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import wire from "@/test/fixtures/commandErrorWire.json";

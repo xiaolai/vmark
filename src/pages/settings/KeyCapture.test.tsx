@@ -18,7 +18,7 @@ function renderCapture(overrides: Partial<Parameters<typeof KeyCapture>[0]> = {}
   const onCapture = vi.fn();
   const onCancel = vi.fn();
   const utils = render(
-    <KeyCapture shortcut={shortcut} conflict={null} onCapture={onCapture} onCancel={onCancel} {...overrides} />,
+    <KeyCapture shortcut={shortcut} getConflict={() => null} onCapture={onCapture} onCancel={onCancel} {...overrides} />,
   );
   return { onCapture, onCancel, ...utils };
 }

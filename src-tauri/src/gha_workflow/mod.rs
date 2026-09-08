@@ -1,6 +1,6 @@
 //! GitHub Actions workflow viewer support.
 //!
-//! Plan: dev-docs/plans/20260504-github-actions-workflow-viewer.md
+//! Origin: GitHub Actions workflow viewer plan (2026-05-04, retired)
 //!
 //! Houses the Rust-side surface for the GHA workflow viewer:
 //! - actionlint: optional shell-out to the actionlint binary (WI-5.3/5.4)

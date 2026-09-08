@@ -22,6 +22,7 @@ menu:
   file.openRecentWorkspace: "Apri spazio di lavoro recente"
   file.close: "Chiudi"
   file.closeWorkspace: "Chiudi spazio di lavoro"
+  file.reopenClosedTab: "Riapri scheda chiusa"
   file.save: "Salva"
   file.saveAs: "Salva con nome..."
   file.moveTo: "Sposta in..."
@@ -156,6 +157,7 @@ menu:
   insert.mindmap: "Mappa mentale"
   insert.horizontalLine: "Linea orizzontale"
   insert.footnote: "Nota a piè di pagina"
+  insert.tableOfContents: "Indice"
   insert.collapsible: "Blocco comprimibile"
   insert.infoBox: "Riquadro informazioni"
   insert.infoBox.note: "Nota"
@@ -269,10 +271,15 @@ errors:
   pdf.badTempPath: "Percorso del documento temporaneo non valido: %{path}"
   pdf.invalidExtension: "Il percorso di output deve avere estensione .pdf"
   pdf.dirNotFound: "La directory di output non esiste"
+  pdf.parentNotDirectory: "Il percorso superiore del file di output esiste ma non è una directory"
+  pdf.publishFailed: "Impossibile spostare il PDF generato nel percorso di output: %{detail}"
+  pdf.outputUnreadable: "Impossibile aprire il PDF generato per verificarlo: %{detail}"
   pdf.pathNotAbsolute: "Il percorso di output deve essere assoluto"
   pdf.outputIsDirectory: "Il percorso di output è una cartella"
   pdf.loadTimeout: "Timeout caricamento HTML (10 s)"
   pdf.emptyOutput: "L'operazione di stampa ha prodotto un PDF vuoto"
+  pdf.staleOutputNotRemoved: "Impossibile sostituire il file esistente nel percorso di output: %{detail}"
+  pdf.outputNotPdf: "L’operazione di stampa non ha prodotto un PDF valido"
   pdf.printTimeout: "Timeout operazione di stampa (60 s)"
   pdf.noPages: "Il PDF non ha pagine"
   pdf.writeFailed: "Impossibile scrivere il PDF con segnalibri"
@@ -291,6 +298,7 @@ errors:
   workflow.engineDisabled: "Il motore dei flussi di lavoro è disattivato nelle impostazioni"
   workflow.noPendingApproval: "Nessuna richiesta di approvazione in sospeso corrisponde"
   workflow.appDataDirUnavailable: "Impossibile risolvere la cartella dei dati dell'applicazione: %{detail}"
+  workflow.snapshotFailed: "Impossibile creare uno snapshot dei file che questo flusso di lavoro modificherà, quindi non è stato eseguito: %{detail}"
 
   # === Percorso di salvataggio (file_write.rs, WI-14 CommandError) ===
   save.parentMissing: "La cartella di questo file non esiste più: %{dir}"
@@ -346,6 +354,8 @@ errors:
   genie.pathBlocked: "Il percorso di Genie è al di fuori delle directory consentite"
 
   # === MCP ===
+  mcp.bindFailed: "Il bridge MCP non è riuscito ad associarsi a %{address}: %{detail}"
+  mcp.localAddrFailed: "Il bridge MCP ha associato una porta che non è riuscito a rileggere: %{detail}"
   mcp.spawnInProgress: "L'avvio del sidecar MCP è già in corso"
   mcp.configMismatch: "Convalida della configurazione non riuscita: il contenuto scritto non corrisponde"
 
@@ -390,8 +400,12 @@ errors:
   mcp.writeConfigPartialRemoved: "Impossibile scrivere %{path}: %{detail} (il file incompleto è stato rimosso)"
   mcp.writeConfigPartialOrphaned: "Impossibile scrivere %{path}: %{detail}. Non è stato possibile rimuovere nemmeno il file incompleto (%{cleanup_detail}): eliminarlo a mano prima di riprovare, altrimenti la prossima installazione lo leggerà come una configurazione danneggiata."
 
+  # === Secure store (secure_store.rs) ===
+  secureStore.keychainDenied: "L’accesso al portachiavi è stato negato. Consenti VMark nella richiesta del portachiavi o concedigli l’accesso in Accesso Portachiavi, quindi riprova."
+
 window:
   settings.title: "Impostazioni"
+  print.title: "VMark – Stampa"
 
 cli:
   dialogTitle: "Comando shell"

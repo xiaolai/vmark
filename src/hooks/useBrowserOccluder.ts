@@ -8,13 +8,13 @@
  * (WI-SOC.1b) — so even a translucent backdrop composites over a real surface.
  *
  * Which overlays must call this, and why the ones that don't are safe, is declared in
- * `services/browser/overlayPolicies.ts`, and a test fails the build if an overlay in
+ * `services/browser/__tests__/overlayPolicies.ts`, and a test fails the build if an overlay in
  * `App.tsx` has no policy or declares `freeze` without calling this hook.
  *
  * Lives in `hooks/` rather than beside the policies because it is React (ADR-013:
  * `services/` may not import React).
  *
- * @coordinates-with services/browser/overlayPolicies — the declared policies
+ * @coordinates-with services/browser/__tests__/overlayPolicies — the declared policies
  * @coordinates-with services/browser/browserOcclusion — the reference-counted driver
  * @module hooks/useBrowserOccluder
  */

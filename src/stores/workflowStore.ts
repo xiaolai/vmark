@@ -10,7 +10,14 @@
  *   - workflowPreviewStore       → state.preview + preview* actions
  *   - workflowViewStore          → state.view    + selectJob/.../resetView
  *   - workflowEditStore          → state.edit    + queuePatch/.../applyAndSerialize
+ *     (the queue algebra lives in `workflowEditQueue.ts`, the YAML
+ *      serialization in `workflowSerialize.ts`)
  *   - workflowApprovalStore      → state.approval + enqueueApproval / dismissApproval
+ *
+ * Each slice's TRANSITIONS are pure functions in a sibling module —
+ * `workflowPreviewSlice`, `workflowViewSlice`, `workflowApprovalSlice`,
+ * `workflowEditQueue`, `workflowSerialize` — and this file is the wiring that
+ * lifts them into Zustand (audit #1001). One store, five readable domains.
  *
  * Why one store? The five legacy stores all coordinate around a single
  * workflow document; splitting them only spread per-feature state
@@ -21,62 +28,33 @@
  */
 
 import { create } from "zustand";
-import { stringify as yamlStringify } from "yaml";
+import type { IRPatch } from "@/lib/ghaWorkflow/save/mutators";
+import { serializeWithPatches, type WorkflowSerializeResult } from "./workflowSerialize";
 import {
-  parseAsCst,
-  stringifyCst,
-  WORKFLOW_YAML_STRINGIFY_OPTIONS,
-} from "@/lib/ghaWorkflow/save/cstParser";
-import { applyPatch, type IRPatch } from "@/lib/ghaWorkflow/save/mutators";
-import { useSettingsStore } from "@/stores/settingsStore";
+  bindEditDocument,
+  dedupQueue,
+  mirrorActiveQueue,
+  patchTarget,
+  renameEditDocument,
+  type EditSlice,
+} from "./workflowEditQueue";
+import * as preview from "./workflowPreviewSlice";
+import * as view from "./workflowViewSlice";
+import * as approval from "./workflowApprovalSlice";
+import type { PreviewSlice, WorkflowRunOutcome } from "./workflowPreviewSlice";
+import type { ViewSlice } from "./workflowViewSlice";
+import type { ApprovalRequestPayload, ApprovalSlice } from "./workflowApprovalSlice";
 import type { WorkflowIR } from "@/lib/ghaWorkflow/types";
 import type { WorkflowGraph } from "@/lib/workflow/types";
 import type { LayoutDirection } from "@/lib/ghaWorkflow/render/layout";
 
-/* ──────────────────────────── re-exported types ───────────────────────── */
-
 import type { StepStatusEntry } from "@/lib/workflow/types";
-
-export interface ApprovalRequestPayload {
-  executionId: string;
-  stepId: string;
-  summary: string;
-  preview: string;
-  model?: string | null;
-}
 
 /* ───────────────────────────── slice shapes ───────────────────────────── */
 
 interface GhaSlice {
   /** Live IR per tab — split panes (#1081) must not clobber each other. */
   byTab: Record<string, WorkflowIR>;
-}
-
-interface PreviewSlice {
-  panelOpen: boolean;
-  graph: WorkflowGraph | null;
-  parseError: string | null;
-  activeStepId: string | null;
-  executionId: string | null;
-  stepStatuses: Record<string, StepStatusEntry>;
-}
-
-interface ViewSlice {
-  selectedJobId: string | null;
-  selectedStepId: string | null;
-  expandedMatrices: Set<string>;
-  layoutDirection: LayoutDirection;
-}
-
-interface EditSlice {
-  pendingPatches: IRPatch[];
-  preserveYamlFormatting: boolean | null;
-  boundDocumentId: string | null;
-  patchesByDocument: Record<string, IRPatch[]>;
-}
-
-interface ApprovalSlice {
-  pending: ApprovalRequestPayload | null;
 }
 
 interface WorkflowStoreState {
@@ -101,6 +79,8 @@ interface WorkflowStoreActions {
   setGraph: (graph: WorkflowGraph | null, error?: string) => void;
   setActiveStepId: (stepId: string | null) => void;
   setExecution: (id: string | null) => void;
+  /** End a run, keeping its step statuses (audit #767); see the impl. */
+  finishExecution: (executionId: string, outcome: WorkflowRunOutcome) => void;
   setStepStatus: (stepId: string, entry: StepStatusEntry) => void;
   resetPreviewStatuses: () => void;
   resetPreview: () => void;
@@ -118,15 +98,37 @@ interface WorkflowStoreActions {
   cancelPatchForTarget: (target: IRPatch) => void;
   clearPatches: () => void;
   bindToDocument: (documentId: string | null) => void;
+  renameDocument: (from: string, to: string) => void;
   setPreserveYamlFormatting: (preserve: boolean | null) => void;
-  applyAndSerialize: (originalYaml: string) => string;
+  /**
+   * Apply the bound queue to `originalYaml` and report EXACTLY what happened
+   * (audit #991/#1006) — a parse failure, a patch that would not apply, the
+   * wrong document, a legitimate no-op, or the new text.
+   */
+  serializeWorkflowEdits: (originalYaml: string, documentId?: string) => WorkflowEditsResult;
+  /**
+   * The same, collapsed to text: the new YAML, or `originalYaml` for every
+   * other outcome. A convenience for callers that only want the string; a
+   * caller that must tell a failure from a no-op wants `serializeWorkflowEdits`.
+   */
+  applyAndSerialize: (originalYaml: string, documentId?: string) => string;
   resetEdit: () => void;
 
   // approval slice
   enqueueApproval: (req: ApprovalRequestPayload) => void;
-  dismissApproval: () => void;
+  /** Clear the pending approval; `only` scopes it to that request (#1009). */
+  dismissApproval: (only?: { executionId: string; stepId: string }) => void;
   resetApproval: () => void;
 }
+
+/**
+ * What `serializeWorkflowEdits` reports: everything the serializer can say,
+ * plus the store-level binding check that has to happen before it is called.
+ */
+export type WorkflowEditsResult =
+  | WorkflowSerializeResult
+  /** The queue belongs to another document; nothing was read or applied. */
+  | { status: "wrong-document"; boundDocumentId: string | null };
 
 export type WorkflowStore = WorkflowStoreState & WorkflowStoreActions;
 
@@ -136,22 +138,6 @@ const initialGha: GhaSlice = {
   byTab: {},
 };
 
-const initialPreview: PreviewSlice = {
-  panelOpen: false,
-  graph: null,
-  parseError: null,
-  activeStepId: null,
-  executionId: null,
-  stepStatuses: {},
-};
-
-const initialView: ViewSlice = {
-  selectedJobId: null,
-  selectedStepId: null,
-  expandedMatrices: new Set<string>(),
-  layoutDirection: "TD",
-};
-
 const initialEdit: EditSlice = {
   pendingPatches: [],
   preserveYamlFormatting: null,
@@ -159,219 +145,140 @@ const initialEdit: EditSlice = {
   patchesByDocument: {},
 };
 
-const initialApproval: ApprovalSlice = {
-  pending: null,
-};
-
-/* ────────────────────────── edit-slice helpers ────────────────────────── */
-
-function resolvePreserve(override: boolean | null): boolean {
-  if (override !== null) return override;
-  return (
-    useSettingsStore.getState().advanced
-      .workflowEditorPreserveYamlFormatting ?? true
-  );
-}
-
-function patchTarget(patch: IRPatch): string {
-  switch (patch.kind) {
-    case "workflow.set":
-      return `workflow.set:${patch.path}`;
-    case "job.set":
-      return `job.set:${patch.jobId}:${patch.path}`;
-    case "step.set":
-      return `step.set:${patch.jobId}:${patch.stepIndex}:${patch.path}`;
-    case "with.set":
-    case "with.remove":
-      return `with:${patch.jobId}:${patch.stepIndex}:${patch.key}`;
-    case "needs.add":
-    case "needs.remove":
-      return `needs:${patch.jobId}:${patch.ref}`;
-    case "trigger.setFilters":
-      return `trigger.setFilters:${patch.event}:${patch.filter}`;
-    case "job.create":
-      return `job.create:${patch.jobId}`;
-    case "job.delete":
-      return `job.delete:${patch.jobId}`;
-    case "step.insert":
-      return `step.insert:${patch.jobId}:${patch.index}:${JSON.stringify(patch.step)}`;
-    case "step.delete":
-      return `step.delete:${patch.jobId}:${patch.stepIndex}`;
-    case "step.move":
-      return `step.move:${patch.jobId}:${patch.fromIndex}:${patch.toIndex}`;
-    case "workflow.permissions.set":
-      return `workflow.permissions.set`;
-    case "workflow.concurrency.set":
-      return `workflow.concurrency.set`;
-  }
-}
-
-function dedupQueue(queue: IRPatch[], next: IRPatch): IRPatch[] {
-  const target = patchTarget(next);
-  const filtered = queue.filter((p) => patchTarget(p) !== target);
-  filtered.push(next);
-  return filtered;
-}
-
-function mirrorActiveQueue(slice: EditSlice, next: IRPatch[]): EditSlice {
-  if (slice.boundDocumentId === null) {
-    return { ...slice, pendingPatches: next };
-  }
-  const stashed = { ...slice.patchesByDocument };
-  if (next.length === 0) {
-    delete stashed[slice.boundDocumentId];
-  } else {
-    stashed[slice.boundDocumentId] = next;
-  }
-  return { ...slice, pendingPatches: next, patchesByDocument: stashed };
-}
-
 /* ────────────────────────────── store factory ─────────────────────────── */
 
-export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
-  gha: initialGha,
-  preview: initialPreview,
-  view: initialView,
-  edit: initialEdit,
-  approval: initialApproval,
+export const useWorkflowStore = create<WorkflowStore>((set, get) => {
+  /** Apply a pure preview transition; the same reference back means no-op. */
+  const updatePreview = (f: (s: PreviewSlice) => PreviewSlice) =>
+    set((state) => {
+      const next = f(state.preview);
+      return next === state.preview ? {} : { preview: next };
+    });
+  const updateView = (f: (s: ViewSlice) => ViewSlice) =>
+    set((state) => ({ view: f(state.view) }));
 
-  /* gha slice */
-  setGhaWorkflow: (tabId, workflow) =>
-    set((s) => {
-      const byTab = { ...s.gha.byTab };
-      if (workflow) byTab[tabId] = workflow;
-      else delete byTab[tabId];
-      return { gha: { byTab } };
-    }),
-  resetGha: () => set({ gha: initialGha }),
+  return {
+    gha: initialGha,
+    preview: preview.initialPreview,
+    view: view.initialView,
+    edit: initialEdit,
+    approval: approval.initialApproval,
 
-  /* preview slice */
-  previewOpenPanel: () =>
-    set((s) => ({ preview: { ...s.preview, panelOpen: true } })),
-  previewClosePanel: () =>
-    set((s) => ({ preview: { ...s.preview, panelOpen: false } })),
-  previewTogglePanel: () =>
-    set((s) => ({
-      preview: { ...s.preview, panelOpen: !s.preview.panelOpen },
-    })),
-  setGraph: (graph, error) =>
-    set((s) => ({
-      preview: {
-        ...s.preview,
-        graph,
-        parseError: error ?? null,
-        activeStepId: null,
-        stepStatuses: {},
-      },
-    })),
-  setActiveStepId: (stepId) =>
-    set((s) => ({ preview: { ...s.preview, activeStepId: stepId } })),
-  setExecution: (id) =>
-    set((s) => ({
-      preview: { ...s.preview, executionId: id, stepStatuses: {} },
-    })),
-  setStepStatus: (stepId, entry) =>
-    set((s) => ({
-      preview: {
-        ...s.preview,
-        stepStatuses: { ...s.preview.stepStatuses, [stepId]: entry },
-      },
-    })),
-  resetPreviewStatuses: () =>
-    set((s) => ({ preview: { ...s.preview, stepStatuses: {} } })),
-  resetPreview: () => set({ preview: initialPreview }),
+    /* gha slice */
+    setGhaWorkflow: (tabId, workflow) =>
+      set((s) => {
+        const byTab = { ...s.gha.byTab };
+        if (workflow) byTab[tabId] = workflow;
+        else delete byTab[tabId];
+        return { gha: { byTab } };
+      }),
+    resetGha: () => set({ gha: initialGha }),
 
-  /* view slice */
-  selectJob: (jobId) =>
-    set((s) => ({
-      view: { ...s.view, selectedJobId: jobId, selectedStepId: null },
-    })),
-  selectStep: (jobId, stepId) =>
-    set((s) => ({
-      view: { ...s.view, selectedJobId: jobId, selectedStepId: stepId },
-    })),
-  clearSelection: () =>
-    set((s) => ({
-      view: { ...s.view, selectedJobId: null, selectedStepId: null },
-    })),
-  toggleMatrix: (jobId) =>
-    set((s) => {
-      const next = new Set(s.view.expandedMatrices);
-      if (next.has(jobId)) next.delete(jobId);
-      else next.add(jobId);
-      return { view: { ...s.view, expandedMatrices: next } };
-    }),
-  setLayoutDirection: (dir) =>
-    set((s) => ({ view: { ...s.view, layoutDirection: dir } })),
-  resetView: () =>
-    set({ view: { ...initialView, expandedMatrices: new Set() } }),
+    /* preview slice — transitions in workflowPreviewSlice.ts */
+    previewOpenPanel: () => updatePreview((s) => preview.setPanelOpen(s, true)),
+    previewClosePanel: () => updatePreview((s) => preview.setPanelOpen(s, false)),
+    previewTogglePanel: () => updatePreview(preview.togglePanel),
+    setGraph: (graph, error) => updatePreview((s) => preview.setGraph(s, graph, error)),
+    setActiveStepId: (stepId) => updatePreview((s) => preview.setActiveStepId(s, stepId)),
+    setExecution: (id) => updatePreview((s) => preview.setExecution(s, id)),
+    finishExecution: (executionId, outcome) =>
+      updatePreview((s) => preview.finishExecution(s, executionId, outcome)),
+    setStepStatus: (stepId, entry) => updatePreview((s) => preview.setStepStatus(s, stepId, entry)),
+    resetPreviewStatuses: () => updatePreview(preview.resetStatuses),
+    resetPreview: () => set({ preview: preview.initialPreview }),
 
-  /* edit slice */
-  queuePatch: (patch) =>
-    set((s) => {
-      const next = dedupQueue(s.edit.pendingPatches, patch);
-      return { edit: mirrorActiveQueue(s.edit, next) };
-    }),
-  cancelPatchForTarget: (target) =>
-    set((s) => {
-      const t = patchTarget(target);
-      const next = s.edit.pendingPatches.filter((p) => patchTarget(p) !== t);
-      if (next.length === s.edit.pendingPatches.length) return {};
-      return { edit: mirrorActiveQueue(s.edit, next) };
-    }),
-  clearPatches: () =>
-    set((s) => ({ edit: mirrorActiveQueue(s.edit, []) })),
-  bindToDocument: (documentId) =>
-    set((s) => {
-      if (s.edit.boundDocumentId === documentId) return {};
-      const stashed: Record<string, IRPatch[]> = { ...s.edit.patchesByDocument };
-      if (s.edit.boundDocumentId !== null) {
-        if (s.edit.pendingPatches.length === 0) {
-          delete stashed[s.edit.boundDocumentId];
-        } else {
-          stashed[s.edit.boundDocumentId] = s.edit.pendingPatches;
-        }
+    /* view slice — transitions in workflowViewSlice.ts */
+    selectJob: (jobId) => updateView((s) => view.selectJob(s, jobId)),
+    selectStep: (jobId, stepId) => updateView((s) => view.selectStep(s, jobId, stepId)),
+    clearSelection: () => updateView(view.clearSelection),
+    toggleMatrix: (jobId) => updateView((s) => view.toggleMatrix(s, jobId)),
+    setLayoutDirection: (dir) => updateView((s) => view.setLayoutDirection(s, dir)),
+    resetView: () => set({ view: view.resetView() }),
+
+    /* edit slice */
+    queuePatch: (patch) =>
+      set((s) => {
+        const next = dedupQueue(s.edit.pendingPatches, patch);
+        return { edit: mirrorActiveQueue(s.edit, next) };
+      }),
+    cancelPatchForTarget: (target) =>
+      set((s) => {
+        const t = patchTarget(target);
+        const next = s.edit.pendingPatches.filter((p) => patchTarget(p) !== t);
+        if (next.length === s.edit.pendingPatches.length) return {};
+        return { edit: mirrorActiveQueue(s.edit, next) };
+      }),
+    clearPatches: () =>
+      set((s) => ({ edit: mirrorActiveQueue(s.edit, []) })),
+    bindToDocument: (documentId) =>
+      set((s) => {
+        const bound = bindEditDocument(s.edit, documentId);
+        if (bound === null) return {};
+        // An UNBOUND queue has no stash slot (`mirrorActiveQueue` skips the mirror
+        // while `boundDocumentId` is null), so a plain bind DROPPED it — the first
+        // bind replaced those patches with the incoming document's stash and the
+        // edits were gone with no signal at all (audit #1004). They are adopted
+        // into the document being bound instead, through the same dedup/mirror
+        // algebra every other queue write uses. The incoming document's own queue
+        // keeps precedence and the orphans follow it, the ordering
+        // `renameEditDocument` already documents for the same situation.
+        const orphaned = s.edit.boundDocumentId === null ? s.edit.pendingPatches : [];
+        if (orphaned.length === 0 || documentId === null) return { edit: bound };
+        const merged = orphaned.reduce(dedupQueue, bound.pendingPatches);
+        return { edit: mirrorActiveQueue(bound, merged) };
+      }),
+    /**
+     * Carry a document's queued patches to a new id, binding included — what a
+     * Save As does to the document a queue belongs to (audit 20260907, #292).
+     * The transformation itself is `renameEditDocument`; `null` means nothing
+     * to do, and returning `{}` from `set` is Zustand's no-op.
+     */
+    renameDocument: (from, to) =>
+      set((s) => {
+        const edit = renameEditDocument(s.edit, from, to);
+        return edit === null ? {} : { edit };
+      }),
+
+    setPreserveYamlFormatting: (preserve) =>
+      set((s) => ({
+        edit: { ...s.edit, preserveYamlFormatting: preserve },
+      })),
+    serializeWorkflowEdits: (originalYaml, documentId) => {
+      const { pendingPatches, preserveYamlFormatting, boundDocumentId } = get().edit;
+      // The binding is a single global slot, so a caller that read its queue and
+      // then awaited could serialize whatever ANOTHER pane bound meanwhile
+      // (audit #1005). A mismatch is its OWN outcome now (#991): it used to be
+      // spelled "the text came back unchanged", indistinguishable from a parse
+      // failure and from an edit that genuinely changes nothing.
+      if (documentId !== undefined && boundDocumentId !== documentId) {
+        return { status: "wrong-document", boundDocumentId };
       }
-      const restored =
-        documentId !== null ? stashed[documentId] ?? [] : [];
-      return {
-        edit: {
-          ...s.edit,
-          boundDocumentId: documentId,
-          pendingPatches: restored,
-          patchesByDocument: stashed,
-        },
-      };
-    }),
-  setPreserveYamlFormatting: (preserve) =>
-    set((s) => ({
-      edit: { ...s.edit, preserveYamlFormatting: preserve },
-    })),
-  applyAndSerialize: (originalYaml) => {
-    const { pendingPatches, preserveYamlFormatting } = get().edit;
-    if (pendingPatches.length === 0) return originalYaml;
-    try {
-      const doc = parseAsCst(originalYaml);
-      if (doc.errors.length > 0) return originalYaml;
-      for (const patch of pendingPatches) applyPatch(doc, patch);
-      if (resolvePreserve(preserveYamlFormatting)) return stringifyCst(doc);
-      return yamlStringify(doc.toJS({ maxAliasCount: -1 }), {
-        ...WORKFLOW_YAML_STRINGIFY_OPTIONS,
-      });
-    } catch {
-      return originalYaml;
-    }
-  },
+      return serializeWithPatches(originalYaml, pendingPatches, preserveYamlFormatting);
+    },
 
-  resetEdit: () => set({ edit: initialEdit }),
+    applyAndSerialize: (originalYaml, documentId) => {
+      const result = get().serializeWorkflowEdits(originalYaml, documentId);
+      return result.status === "applied" ? result.yaml : originalYaml;
+    },
 
-  /* approval slice */
-  enqueueApproval: (req) =>
-    set({ approval: { pending: req } }),
-  dismissApproval: () =>
-    set({ approval: { pending: null } }),
-  resetApproval: () => set({ approval: initialApproval }),
-}));
+    resetEdit: () => set({ edit: initialEdit }),
 
-/* re-export legacy patch type for compat */
-export type { IRPatch };
+    /* approval slice — transitions in workflowApprovalSlice.ts */
+    enqueueApproval: (req) => set({ approval: approval.enqueue(req) }),
+    dismissApproval: (only) =>
+      set((s) => {
+        const next = approval.dismiss(s.approval, only);
+        return next === s.approval ? {} : { approval: next };
+      }),
+    resetApproval: () => set({ approval: approval.initialApproval }),
+  };
+});
+
+/* The legacy `export type { IRPatch }` compat alias is GONE (audit #1010). It
+ * dated from the T09 store consolidation, had no deprecation and no removal
+ * path, and its last consumer (`WorkflowEditor/withRowPlans.ts`) now imports the
+ * type from `@/lib/ghaWorkflow/save/mutators`, which defines it.
+ *
+ * Re-exported so the slice modules stay an implementation detail of the store:
+ * `useWorkflowExecution` and the workflow panels import these names from here. */
+export type { WorkflowRunOutcome, PreviewSlice, ViewSlice, ApprovalRequestPayload };

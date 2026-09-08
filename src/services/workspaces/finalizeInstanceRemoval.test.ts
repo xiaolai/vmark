@@ -64,7 +64,6 @@ function seedParallelState(windowLabel: string, instanceId: string): void {
   // so a disabled seed would never be stored in the first place.
   useWorkspacePaneLayoutsStore.getState().stashPaneLayout(instanceId, {
     enabled: true,
-    orientation: "horizontal",
     fraction: 0.5,
     primaryTabId: "t-1",
     secondaryTabId: "t-2",

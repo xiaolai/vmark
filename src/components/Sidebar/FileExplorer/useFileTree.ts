@@ -50,22 +50,19 @@
  * @module components/Sidebar/FileExplorer/useFileTree
  */
 import { useState, useEffect, useCallback, useRef } from "react";
-import { type UnlistenFn } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
-import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import type { FileNode, TreeEntry, TreeListing } from "./types";
 import { subscribeWorkspaceEvents } from "@/services/workspaceEvents/subscribeWorkspaceEvents";
 import {
-  isMarkdownFileName,
   isSupportedFileName,
   isVMarkFileName,
 } from "@/utils/dropPaths";
-import { isWorkflowYamlSurfaceEnabled } from "@/services/featureFlags/workflowFeatureFlag";
 import { shouldIncludeEntry, type FileTreeFilterOptions } from "./fileTreeFilters";
 import { createRescanScheduler, type RescanScheduler } from "./rescanScheduler";
 import { formatFileDisplayName } from "@/utils/displayFileName";
 import { fileExplorerError } from "@/utils/debug";
 import { commandErrorMessage } from "@/services/commands/commandError";
+import { useRefreshOnWindowFocus } from "./useRefreshOnWindowFocus";
 
 type LoadOptions = FileTreeFilterOptions & { showExtensions: boolean };
 
@@ -112,8 +109,9 @@ function toNodes(entries: TreeEntry[], options: LoadOptions): FileNode[] {
 const mdFilter = (name: string, isFolder: boolean): boolean => {
   if (isFolder) return true;
   if (isSupportedFileName(name)) return true;
-  if (isWorkflowYamlSurfaceEnabled()) return isVMarkFileName(name);
-  return isMarkdownFileName(name);
+  // Pre-bootstrap fallback: a standalone .yml is a VMark file (the workflow
+  // viewer has no switch since D6), so markdown OR yaml, never markdown alone.
+  return isVMarkFileName(name);
 };
 
 interface UseFileTreeOptions {
@@ -139,6 +137,12 @@ export function useFileTree(
     watchId = "main",
   } = options;
   const [tree, setTree] = useState<FileNode[]>([]);
+  // The root `tree` was listed for. A root-to-root switch used to render the
+  // previous workspace's tree until the new listing landed — stale absolute
+  // paths a user could open, rename or delete (audit 20260907, #327); until
+  // the roots agree the hook returns an empty tree, which the explorer shows
+  // as "loading".
+  const [treeRoot, setTreeRoot] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /** The listing hit the walker's node or depth bound: the tree shown is partial. */
@@ -170,21 +174,34 @@ export function useFileTree(
         showExtensions,
       };
       const listing = await listDirectoryTree(rootPath, loadOptions);
-      if (listing.truncated) fileExplorerError(" Tree listing truncated at the walker's bound:", rootPath);
-      if (currentRequestId === requestIdRef.current) {
-        setTree(toNodes(listing.entries, loadOptions));
-        setTruncated(listing.truncated);
-        setError(null);
+      // Diagnostics are gated on the SAME request id as the state updates
+      // (audit R3 #651). A listing superseded by a root change used to report
+      // truncation — and, below, a failure — against a workspace the user had
+      // already left, so the log described a tree nothing was going to render.
+      // A stale outcome is still logged, but SAID to be stale and named.
+      if (currentRequestId !== requestIdRef.current) {
+        if (listing.truncated) {
+          fileExplorerError(" Superseded tree listing was truncated:", rootPath);
+        }
+        return;
       }
+      if (listing.truncated) fileExplorerError(" Tree listing truncated at the walker's bound:", rootPath);
+      setTree(toNodes(listing.entries, loadOptions));
+      setTreeRoot(rootPath);
+      setTruncated(listing.truncated);
+      setError(null);
     } catch (err) {
       // The ROOT could not be read. Reporting an empty tree here is the lie
       // that made #1224 look like a rendering bug.
-      fileExplorerError(" Failed to load tree:", err);
-      if (currentRequestId === requestIdRef.current) {
-        setTree([]);
-        setTruncated(false);
-        setError(commandErrorMessage(err));
+      if (currentRequestId !== requestIdRef.current) {
+        fileExplorerError(" Superseded tree listing failed:", rootPath, err);
+        return;
       }
+      fileExplorerError(" Failed to load tree:", err);
+      setTree([]);
+      setTreeRoot(rootPath);
+      setTruncated(false);
+      setError(commandErrorMessage(err));
     } finally {
       if (currentRequestId === requestIdRef.current) {
         setIsLoading(false);
@@ -199,12 +216,21 @@ export function useFileTree(
       // Invalidate anything in flight: a listing started for the workspace we
       // just closed must not repopulate the cleared tree.
       requestIdRef.current += 1;
+      // …which means the in-flight scan's `finally` will NOT clear `isLoading`
+      // either — it is gated on the same id (audit R3 #652). Closing a
+      // workspace mid-scan left the flag true forever, and the explorer shows
+      // "loading" for a workspace that no longer exists. Clearing it here is
+      // the other half of the invalidation, and `treeRoot` goes with it: it
+      // named the closed workspace, which is what the return below gates on.
       // Legitimate: clears the tree as part of an async load + fs-watcher setup
       // keyed on rootPath, not derivable during render (#1063).
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+      /* eslint-disable react-hooks/set-state-in-effect */
       setTree([]);
+      setTreeRoot(null);
+      setIsLoading(false);
       setError(null);
       setTruncated(false);
+      /* eslint-enable react-hooks/set-state-in-effect */
       return;
     }
 
@@ -232,32 +258,13 @@ export function useFileTree(
   }, [rootPath, loadTree, watchId]);
 
   // Defensive safety net (see header `Key decisions`): refresh the tree
-  // whenever the window regains focus. This catches externally-created
-  // files when the native watcher misses an event.
-  useEffect(() => {
-    if (!rootPath) return;
-    let unlisten: UnlistenFn | null = null;
-    let cancelled = false;
-    getCurrentWebviewWindow()
-      .onFocusChanged(({ payload: focused }) => {
-        if (focused) void schedulerRef.current?.refreshNow();
-      })
-      .then((u) => {
-        if (cancelled) {
-          u();
-        } else {
-          unlisten = u;
-        }
-      })
-      .catch((error: unknown) => {
-        fileExplorerError(" Failed to listen for window focus:",
-          commandErrorMessage(error));
-      });
-    return () => {
-      cancelled = true;
-      if (unlisten) unlisten();
-    };
-  }, [rootPath]);
+  // whenever the window regains focus, catching externally-created files the
+  // native watcher missed. The subscription itself is `useRefreshOnWindowFocus`;
+  // the callback is stable so it is not torn down on every render.
+  const requestScanOnFocus = useCallback(() => {
+    void schedulerRef.current?.refreshNow();
+  }, []);
+  useRefreshOnWindowFocus(rootPath !== null, requestScanOnFocus);
 
   /** Manual refresh: scan now (coalesced with a running scan), resolved once it has run. */
   const refresh = useCallback(
@@ -265,5 +272,19 @@ export function useFileTree(
     [loadTree],
   );
 
-  return { tree, isLoading, error, truncated, refresh };
+  // Every RESULT belongs to the root it was listed for, not just the tree:
+  // gating `tree` alone left the previous workspace's error banner and its
+  // truncation notice standing over the new workspace's empty, still-loading
+  // tree — status about a folder the user has already left (audit R2, #653).
+  const isCurrent = treeRoot === rootPath;
+  return {
+    tree: isCurrent ? tree : EMPTY_TREE,
+    isLoading,
+    error: isCurrent ? error : null,
+    truncated: isCurrent && truncated,
+    refresh,
+  };
 }
+
+/** One stable empty tree, so a stale-root render does not churn the Tree's data prop. */
+const EMPTY_TREE: FileNode[] = [];

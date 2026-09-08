@@ -4,20 +4,105 @@
 //! file URL, configuring NSPrintInfo, and ticking the run loop. Split from the
 //! operations that use them so each file stays under the size limit.
 //!
-//! `configure_print_info` deliberately zeroes all four margins and never sets
-//! a page size: on macOS the `@page` CSS rules drive both, which is the
-//! opposite of the other two platforms (ADR-PDF1a).
+//! `configure_print_info` deliberately zeroes all four margins — on macOS the
+//! `@page` CSS rules drive those, unlike the other two platforms (ADR-PDF1a).
+//! It sets the PAGE SIZE for the silent export path and leaves it alone for the
+//! interactive Print dialog (WI-PDF1.4). This header used to say it never set a
+//! page size at all (#415), which the function has contradicted since
+//! `@page { size }` was measured to be ignored entirely here; the reasoning is
+//! at the `if let Some(p) = page` block and is the authoritative account.
 //!
-//! @coordinates-with macos_ops.rs — the only consumer
+//! @coordinates-with macos_ops.rs, macos_print.rs, macos_save_job.rs — the consumers
 //! @module pdf_export/renderer/macos
 
-use objc2::MainThreadOnly;
+use std::cell::Cell;
+
+use objc2::rc::Retained;
+use objc2::runtime::{NSObject, NSObjectProtocol, ProtocolObject};
+use objc2::{define_class, msg_send, DefinedClass, MainThreadMarker, MainThreadOnly};
+use objc2_foundation::{NSError, NSString};
+use objc2_web_kit::{WKNavigation, WKNavigationDelegate, WKWebView};
 
 use crate::pdf_export::page_spec::PageSpec;
 
 use crate::command_error::{CommandError, ErrorCode};
 use crate::localized_error;
-use objc2_foundation::NSString;
+
+/// What a navigation reported, once it has.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum LoadOutcome {
+    Loaded,
+    Failed,
+}
+
+pub(super) struct LoadDelegateIvars {
+    outcome: Cell<Option<LoadOutcome>>,
+}
+
+define_class!(
+    #[unsafe(super = NSObject)]
+    #[thread_kind = MainThreadOnly]
+    #[ivars = LoadDelegateIvars]
+    pub(super) struct LoadDelegate;
+
+    unsafe impl NSObjectProtocol for LoadDelegate {}
+
+    /// The load's own verdict (#210). `isLoading` alone went false for a
+    /// FAILED navigation too, and the render then printed WebKit's error
+    /// page — or nothing — and reported success.
+    unsafe impl WKNavigationDelegate for LoadDelegate {
+        #[unsafe(method(webView:didFinishNavigation:))]
+        fn did_finish(&self, _web_view: &WKWebView, _navigation: Option<&WKNavigation>) {
+            self.ivars().outcome.set(Some(LoadOutcome::Loaded));
+        }
+
+        #[unsafe(method(webView:didFailNavigation:withError:))]
+        fn did_fail(
+            &self,
+            _web_view: &WKWebView,
+            _navigation: Option<&WKNavigation>,
+            error: &NSError,
+        ) {
+            self.record_failure("failed", error);
+        }
+
+        #[unsafe(method(webView:didFailProvisionalNavigation:withError:))]
+        fn did_fail_provisional(
+            &self,
+            _web_view: &WKWebView,
+            _navigation: Option<&WKNavigation>,
+            error: &NSError,
+        ) {
+            self.record_failure("failed before it started", error);
+        }
+    }
+);
+
+impl LoadDelegate {
+    /// What EITHER navigation-failure callback does (#416): say which stage
+    /// failed, then record the verdict `load_html_and_wait` reads.
+    ///
+    /// One function rather than two copies: the copies differed only in the
+    /// word describing the stage, and the half that matters — setting
+    /// `outcome` — is the half a later edit to one of them would drop from the
+    /// other. A failure that records nothing is a load that times out instead
+    /// of reporting the error WebKit already handed us.
+    fn record_failure(&self, stage: &str, error: &NSError) {
+        log::warn!(
+            "[PDF] document navigation {stage}: {}",
+            error.localizedDescription()
+        );
+        self.ivars().outcome.set(Some(LoadOutcome::Failed));
+    }
+
+    fn new(mtm: MainThreadMarker) -> Retained<Self> {
+        let this = Self::alloc(mtm).set_ivars(LoadDelegateIvars {
+            outcome: Cell::new(None),
+        });
+        // SAFETY: NSObject's init has the standard signature.
+        unsafe { msg_send![super(this), init] }
+    }
+}
 
 // ============================================================================
 // Shared WKWebView Setup
@@ -63,59 +148,70 @@ pub(super) fn create_offscreen_webview(mtm: objc2::MainThreadMarker) -> Offscree
     OffscreenWebView { window, webview }
 }
 
-/// Load HTML from a file URL and wait for the load to complete.
+/// Load HTML from a file URL and wait for the navigation to REPORT — finished
+/// or failed — through a `WKNavigationDelegate` (#210).
 ///
-/// Returns Err if the load times out (10 seconds).
+/// Returns Err if the load fails, or times out (10 seconds). The delegate is
+/// held by this frame for the duration; the webview references it weakly and
+/// is detached from it before returning.
 ///
-/// `_mtm` is unused at runtime but required as a compile-time proof that the
-/// caller is on the main thread — the `unsafe` Cocoa calls below segfault if
-/// run from a worker thread.
+/// `mtm` proves the caller is on the main thread — the `unsafe` Cocoa calls
+/// below segfault if run from a worker thread.
 pub(super) fn load_html_and_wait(
-    _mtm: objc2::MainThreadMarker,
-    webview: &objc2_web_kit::WKWebView,
+    mtm: MainThreadMarker,
+    webview: &WKWebView,
     html_path: &str,
     read_access_dir: &str,
 ) -> Result<(), CommandError> {
     use objc2_foundation::NSURL;
 
+    let delegate = LoadDelegate::new(mtm);
+    // SAFETY: the delegate is a valid main-thread object that outlives every
+    // tick below; the webview holds it weakly and is detached before return.
+    unsafe { webview.setNavigationDelegate(Some(ProtocolObject::from_ref(&*delegate))) };
+
     let file_url = NSURL::fileURLWithPath(&NSString::from_str(html_path));
     let dir_url = NSURL::fileURLWithPath(&NSString::from_str(read_access_dir));
     // SAFETY: webview is a valid WKWebView (caller provides it). file_url and dir_url
-    // are valid NSURLs constructed from path strings above. Runs on the main thread
-    // (this function is only called from main-thread contexts).
+    // are valid NSURLs constructed from path strings above. Runs on the main thread.
     unsafe { webview.loadFileURL_allowingReadAccessToURL(&file_url, &dir_url) };
 
     let load_start = std::time::Instant::now();
-    let mut loaded = false;
+    let mut outcome = None;
     for i in 0..200 {
         run_loop_tick(0.05);
-
-        // SAFETY: webview is a valid WKWebView. isLoading is a simple property
-        // getter that returns a BOOL. Called on the main thread.
-        let is_loading: bool = unsafe { objc2::msg_send![webview, isLoading] };
-        if !is_loading && i > 2 {
+        outcome = delegate.ivars().outcome.get();
+        if outcome.is_some() {
             log::debug!(
-                "[PDF] loaded at tick {} ({:.2}s)",
+                "[PDF] navigation reported {:?} at tick {} ({:.2}s)",
+                outcome,
                 i,
                 load_start.elapsed().as_secs_f64()
             );
-            loaded = true;
             break;
         }
         if i % 20 == 0 {
-            log::debug!("[PDF] tick {}: isLoading={}", i, is_loading);
+            log::debug!("[PDF] tick {}: navigation pending", i);
         }
     }
+    // SAFETY: same object, same thread; nil detaches it.
+    unsafe { webview.setNavigationDelegate(None) };
 
-    if !loaded {
-        log::debug!(
-            "[PDF] load TIMEOUT after {:.2}s",
-            load_start.elapsed().as_secs_f64()
-        );
-        return Err(localized_error!(
-            ErrorCode::Timeout,
-            "errors.pdf.loadTimeout"
-        ));
+    match outcome {
+        Some(LoadOutcome::Loaded) => {}
+        Some(LoadOutcome::Failed) => {
+            return Err(localized_error!(ErrorCode::Io, "errors.pdf.loadFailed"));
+        }
+        None => {
+            log::debug!(
+                "[PDF] load TIMEOUT after {:.2}s",
+                load_start.elapsed().as_secs_f64()
+            );
+            return Err(localized_error!(
+                ErrorCode::Timeout,
+                "errors.pdf.loadTimeout"
+            ));
+        }
     }
 
     // Extra settle time for CSS parsing, layout, font loading
@@ -125,7 +221,9 @@ pub(super) fn load_html_and_wait(
 
 /// Configure NSPrintInfo with zero margins and fit-to-page pagination.
 ///
-/// Returns a copy of the shared print info to avoid mutating global state.
+/// Returns a copy of the shared print info to avoid mutating global state —
+/// and, on the silent export path, one whose layout-affecting properties are
+/// all set here rather than inherited from the user's last print (#420).
 ///
 /// `_mtm` proves we're on the main thread — `NSPrintInfo::sharedPrintInfo()`
 /// is main-thread-only.
@@ -136,7 +234,7 @@ pub(super) fn configure_print_info(
     _mtm: objc2::MainThreadMarker,
     page: Option<PageSpec>,
 ) -> objc2::rc::Retained<objc2_app_kit::NSPrintInfo> {
-    use objc2_app_kit::{NSPrintInfo, NSPrintingPaginationMode};
+    use objc2_app_kit::{NSPaperOrientation, NSPrintInfo, NSPrintingPaginationMode};
     use objc2_foundation::{NSCopying, NSSize};
 
     let print_info = NSPrintInfo::sharedPrintInfo().copy();
@@ -153,8 +251,29 @@ pub(super) fn configure_print_info(
     //
     // `PageSpec` already carries orientation as a width/height swap, so
     // landscape needs nothing extra.
+    //
+    // But the COPY carries whatever the user last printed with (#420):
+    // `sharedPrintInfo` is a persisted, mutable global, and a scaling factor
+    // left at 50% by an unrelated print silently halved every export. So the
+    // silent path — `page` is `Some` — normalises every layout-affecting
+    // property it does not otherwise set, rather than only the ones it does.
+    //
+    // Orientation is set BEFORE the size, and deliberately: `setOrientation:`
+    // SWAPS `paperSize` when it disagrees with it, so setting it afterwards
+    // would undo the geometry asked for. Setting it to match means AppKit
+    // never has a disagreement to resolve. Centering is off because the
+    // margins here are zero and `@page` owns the layout; a centred body
+    // inside a full-bleed page is AppKit second-guessing the CSS.
     if let Some(p) = page {
+        print_info.setOrientation(if p.width_pt > p.height_pt {
+            NSPaperOrientation::Landscape
+        } else {
+            NSPaperOrientation::Portrait
+        });
         print_info.setPaperSize(NSSize::new(p.width_pt, p.height_pt));
+        print_info.setScalingFactor(1.0);
+        print_info.setHorizontallyCentered(false);
+        print_info.setVerticallyCentered(false);
     }
 
     // Set margins to 0 — let @page CSS rules control margins.

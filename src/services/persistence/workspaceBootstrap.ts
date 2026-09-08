@@ -13,8 +13,8 @@
  * - Otherwise -> no bootstrap needed
  *
  * @coordinates-with workspaceStore.ts — stores rootPath (persisted) and config (runtime)
- * @coordinates-with useWorkspaceStartup.ts — calls bootstrap check on mount
- * @module utils/workspaceBootstrap
+ * @coordinates-with hooks/useWorkspaceBootstrap.ts — calls needsBootstrap on mount
+ * @module services/persistence/workspaceBootstrap
  */
 
 import type { WorkspaceConfig } from "@/stores/workspaceStore";

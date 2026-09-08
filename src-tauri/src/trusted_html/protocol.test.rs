@@ -199,3 +199,41 @@ fn an_empty_document_is_served_rather_than_refused() {
     assert_eq!(res.status(), 200);
     assert!(res.body().is_empty());
 }
+
+/// Windows (WI-FL6.5). WebView2 has no custom schemes, so wry serves a registered
+/// protocol at `http://<scheme>.<host>/…` and REVERTS that prefix to `<scheme>://`
+/// before calling the handler (`custom_protocol_workaround::revert_uri_work_around`,
+/// wry 0.55.1). The frontend emits `http://vmark-trusted.localhost/<token>` there
+/// (`htmlTrust.ts`), which arrives here as `vmark-trusted://localhost/<token>` — a
+/// host this handler has never cared about, so the Windows form resolves with no
+/// Windows-only branch.
+#[test]
+fn the_windows_form_resolves_once_wry_has_reverted_it() {
+    let (state, token) = granted();
+    let res = respond(&state, &format!("{SCHEME}://localhost/{token}"));
+    assert_eq!(res.status(), 200);
+    assert_eq!(res.body(), DOC.as_bytes());
+    // The preview appends `?run=N` on every platform; the revert keeps it.
+    assert_eq!(
+        respond(&state, &format!("{SCHEME}://localhost/{token}?run=3")).status(),
+        200
+    );
+}
+
+/// …and ONLY after the revert. The raw workaround URL never reaches a scheme
+/// handler on any platform; if it ever did, it must be refused rather than parsed —
+/// this handler honours exactly one prefix, so it cannot grow into an http server
+/// for whatever host a page can spell.
+#[test]
+fn the_raw_windows_workaround_uri_and_its_lookalikes_are_refused() {
+    let (state, token) = granted();
+    for uri in [
+        format!("http://{SCHEME}.localhost/{token}"),
+        format!("https://{SCHEME}.localhost/{token}"),
+        format!("http://{SCHEME}.localhost.evil/{token}"),
+        format!("http://tauri.localhost/{token}"),
+        format!("{SCHEME}.localhost/{token}"),
+    ] {
+        assert_eq!(respond(&state, &uri).status(), 404, "uri: {uri}");
+    }
+}

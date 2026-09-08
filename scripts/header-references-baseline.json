@@ -1,0 +1,8 @@
+{
+  "//": [
+    "Header-reference identity baseline (WI-FL0.2): every header reference that did not resolve when this was measured, as <file>|<kind>|<target>.",
+    "Checked by scripts/check-header-references.mjs (pnpm lint:header-refs, in check:static). Two-way: an unlisted finding fails, and a listed entry that no longer occurs fails until it is deleted (record the win).",
+    "Entries only get REMOVED — fix the header (the target moved, was renamed or deleted); never append here. dev-docs/ entries are verified only where that directory exists."
+  ],
+  "entries": []
+}

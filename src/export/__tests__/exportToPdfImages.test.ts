@@ -64,20 +64,39 @@ vi.mock("../pdfHtmlTemplate", () => ({
   getKatexCSS: () => "",
   getForceLightThemeCSS: () => "",
   getSharedContentCSS: () => "",
+  // The print document forces every <details> open in the MARKUP, because the
+  // shared CSS above styles `details[open]` (see printDocument.test.ts).
+  expandDetails: (html: string) => html,
 }));
 
 vi.mock("@/i18n", () => ({
   default: { t: (key: string) => key },
 }));
 
+import type { Editor as TiptapEditor } from "@tiptap/core";
 import { exportToPdf } from "../useExportOperations";
+import { useEditorStore } from "@/stores/editorStore";
+import { useTabStore } from "@/stores/tabStore";
+import type { DocumentTab } from "@/stores/tabStoreTypes";
 
-/** Install a fake live `.ProseMirror` element so the WYSIWYG branch is taken. */
+const LIVE_TAB = "tab-live";
+
+/**
+ * Install a fake live `.ProseMirror` element so the WYSIWYG branch is taken:
+ * registered as the focused pane's editor for the window's active tab, which
+ * is what the live path requires since audit 20260907 (#346) — a bare
+ * element in the DOM is no longer enough.
+ */
 function installLiveEditor(innerHTML: string): HTMLElement {
   const el = document.createElement("div");
   el.className = "ProseMirror";
   el.innerHTML = innerHTML;
   document.body.appendChild(el);
+  useEditorStore
+    .getState()
+    .setActiveWysiwygEditor({ view: { dom: el } } as unknown as TiptapEditor, LIVE_TAB);
+  const tab = { id: LIVE_TAB, kind: "document", filePath: null, formatId: "markdown", title: "live" } as unknown as DocumentTab;
+  useTabStore.setState({ tabs: { main: [tab] }, activeTabId: { main: LIVE_TAB } } as never);
   return el;
 }
 
@@ -85,7 +104,10 @@ describe("exportToPdf — local image inlining (issue #999)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     document.body.innerHTML = "";
-    mockInvoke.mockResolvedValue(undefined);
+    useEditorStore.getState().clearActiveEditors();
+    useTabStore.setState({ tabs: {}, activeTabId: {} } as never);
+    // The real wire shape (WI-FL6.3); `unknown` is what Windows resolves with.
+    mockInvoke.mockResolvedValue({ status: "unknown" });
     mockGetDocumentBaseDir.mockResolvedValue("/docs/my-notes");
     // Default: echo input so each test can assert on what was passed in.
     mockResolveResources.mockImplementation((html: string) =>

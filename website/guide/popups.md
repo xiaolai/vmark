@@ -61,6 +61,17 @@ Links starting with `#` are treated as bookmarks (internal heading links). Open 
 Links pointing to local files — relative paths like `../appendix/cards.md` or `./notes.md`, including `#fragment` suffixes — open the target file in a new tab. Paths are resolved against the current document's directory; if the document is untitled, only absolute paths can be opened. Fragment navigation inside the opened file is not yet supported — the file opens at its top.
 :::
 
+## Heading Picker (Bookmark Links)
+
+**Trigger:** `Alt + Mod + B` (Bookmark Link), **Insert → Links → Bookmark**, or the link group of the Universal Toolbar
+
+A bookmark link points at a heading in the same document (`[text](#heading-id)`). Instead of typing the anchor, the picker lists every heading in the document, indented by level, with a filter field at the top.
+
+**Behavior:**
+- `↑`/`↓` move through the list, `Enter` inserts the link, `Escape` closes
+- With text selected, the selection becomes the link text; with no selection, the heading's own text is inserted as the link
+- The popup says so when the document has no headings, or when nothing matches the filter
+
 ## Media Popup (Images, Video, Audio)
 
 A unified popup for editing all media types — images, video, and audio.
@@ -201,6 +212,10 @@ Fix spelling errors with suggestions.
 **Actions:**
 - **Suggestions** — Click to replace with suggestion
 - **Add to Dictionary** — Stop marking as misspelled
+
+## Moving Text by Dragging
+
+In WYSIWYG mode you can move a selection with the mouse: press on the selected text, drag — a drop cursor shows where it will land — and release. The move is a single undoable step (`Mod + Z` puts it back). Press `Escape` while dragging, or let the window lose focus, to cancel. VMark implements this itself because the desktop shell intercepts the browser's native drag events, which is why it is a mouse gesture rather than system drag-and-drop.
 
 ## Mode Comparison
 

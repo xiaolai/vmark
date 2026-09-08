@@ -19,6 +19,7 @@ import { closeTabWithDirtyCheck } from "@/services/tabs/tabOperations";
 import { cycleTabId } from "@/utils/tabCycling";
 import { lastUsedTabId } from "@/services/tabs/lastUsedTab";
 import { visibleWindowTabs } from "@/services/tabs/visibleWindowTabs";
+import { reopenClosedTabForActiveContext } from "@/services/workspaces/reopenClosedTab";
 import { fileOpsError } from "@/utils/debug";
 import i18n from "@/i18n";
 
@@ -71,6 +72,18 @@ function buildTabCommandSpecs(): CommandDefinition[] {
       // D12: a null target is a deliberate no-op, never a positional fallback.
       const target = lastUsedTabId(windowLabel);
       if (target) useTabStore.getState().setActiveTab(windowLabel, target);
+    },
+  });
+
+  specs.push({
+    id: "tab.reopenClosed",
+    title: () => i18n.t("commands:tab.reopenClosed"),
+    category: "file",
+    run: (_a, ctx: Ctx) => {
+      // WI-FL3.3 (D12): the trigger the File-menu item and the `reopenClosedTab`
+      // shortcut (unbound by default) dispatch to. Empty history is a no-op —
+      // the service returns null and nothing changes.
+      reopenClosedTabForActiveContext(wl(ctx));
     },
   });
 

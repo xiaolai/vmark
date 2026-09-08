@@ -22,6 +22,7 @@ menu:
   file.openRecentWorkspace: "開啟最近使用的工作區"
   file.close: "關閉"
   file.closeWorkspace: "關閉工作區"
+  file.reopenClosedTab: "重新開啟已關閉的分頁"
   file.save: "儲存"
   file.saveAs: "另存新檔..."
   file.moveTo: "移動至..."
@@ -156,6 +157,7 @@ menu:
   insert.mindmap: "心智圖"
   insert.horizontalLine: "水平線"
   insert.footnote: "註腳"
+  insert.tableOfContents: "目錄"
   insert.collapsible: "可折疊區塊"
   insert.infoBox: "資訊方塊"
   insert.infoBox.note: "備註"
@@ -269,10 +271,15 @@ errors:
   pdf.badTempPath: "暫存文件路徑無效：%{path}"
   pdf.invalidExtension: "輸出路徑必須使用 .pdf 副檔名"
   pdf.dirNotFound: "輸出目錄不存在"
+  pdf.parentNotDirectory: "輸出路徑的上層已存在，但不是目錄"
+  pdf.publishFailed: "無法將產生的 PDF 移到輸出路徑：%{detail}"
+  pdf.outputUnreadable: "無法開啟產生的 PDF 以進行驗證：%{detail}"
   pdf.pathNotAbsolute: "輸出路徑必須是絕對路徑"
   pdf.outputIsDirectory: "輸出路徑是一個目錄"
   pdf.loadTimeout: "HTML 載入逾時（10 秒）"
   pdf.emptyOutput: "列印操作產生了空白 PDF"
+  pdf.staleOutputNotRemoved: "無法取代輸出路徑上既有的檔案：%{detail}"
+  pdf.outputNotPdf: "列印作業未產生有效的 PDF"
   pdf.printTimeout: "列印操作逾時（60 秒）"
   pdf.noPages: "PDF 沒有任何頁面"
   pdf.writeFailed: "寫入含書籤的 PDF 失敗"
@@ -291,6 +298,7 @@ errors:
   workflow.engineDisabled: "工作流程引擎已在設定中關閉"
   workflow.noPendingApproval: "沒有相符的待處理核准請求"
   workflow.appDataDirUnavailable: "無法解析應用程式資料目錄：%{detail}"
+  workflow.snapshotFailed: "無法為此工作流程將修改的檔案建立快照，因此未執行：%{detail}"
 
   # === 儲存路徑（file_write.rs，WI-14 CommandError）===
   save.parentMissing: "該檔案所在的資料夾已不存在：%{dir}"
@@ -346,6 +354,8 @@ errors:
   genie.pathBlocked: "Genie 路徑位於允許的目錄之外"
 
   # === MCP ===
+  mcp.bindFailed: "MCP 橋接無法繫結 %{address}：%{detail}"
+  mcp.localAddrFailed: "MCP 橋接繫結了連接埠，卻無法讀回：%{detail}"
   mcp.spawnInProgress: "MCP 側載程序正在啟動中"
   mcp.configMismatch: "設定校驗失敗：寫入內容與預期不符"
 
@@ -390,8 +400,12 @@ errors:
   mcp.writeConfigPartialRemoved: "寫入 %{path} 失敗：%{detail}（已刪除不完整的檔案）"
   mcp.writeConfigPartialOrphaned: "寫入 %{path} 失敗：%{detail}。不完整的檔案也無法刪除（%{cleanup_detail}）。請在重試前手動刪除，否則下次安裝會把它當成損毀的設定讀取。"
 
+  # === Secure store (secure_store.rs) ===
+  secureStore.keychainDenied: "鑰匙圈存取遭到拒絕。請在鑰匙圈提示中允許 VMark，或在「鑰匙圈存取」中授予存取權限，然後再試一次。"
+
 window:
   settings.title: "設定"
+  print.title: "VMark 列印"
 
 cli:
   dialogTitle: "Shell 指令"

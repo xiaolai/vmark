@@ -29,6 +29,7 @@ beforeEach(() => {
 describe("PromptHistoryDropdown", () => {
   const onSelect = vi.fn();
   const onClose = vi.fn();
+  const clearHistory = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -50,6 +51,7 @@ describe("PromptHistoryDropdown", () => {
           selectedIndex={0}
           onSelect={onSelect}
           onClose={onClose}
+          clearHistory={clearHistory}
         />
       );
 
@@ -63,6 +65,7 @@ describe("PromptHistoryDropdown", () => {
           selectedIndex={0}
           onSelect={onSelect}
           onClose={onClose}
+          clearHistory={clearHistory}
         />
       );
 
@@ -82,6 +85,7 @@ describe("PromptHistoryDropdown", () => {
           selectedIndex={0}
           onSelect={onSelect}
           onClose={onClose}
+          clearHistory={clearHistory}
         />
       );
 
@@ -101,6 +105,7 @@ describe("PromptHistoryDropdown", () => {
           selectedIndex={0}
           onSelect={onSelect}
           onClose={onClose}
+          clearHistory={clearHistory}
         />
       );
 
@@ -119,6 +124,7 @@ describe("PromptHistoryDropdown", () => {
           selectedIndex={0}
           onSelect={onSelect}
           onClose={onClose}
+          clearHistory={clearHistory}
         />
       );
 
@@ -138,6 +144,7 @@ describe("PromptHistoryDropdown", () => {
           selectedIndex={1}
           onSelect={onSelect}
           onClose={onClose}
+          clearHistory={clearHistory}
         />
       );
 
@@ -154,6 +161,7 @@ describe("PromptHistoryDropdown", () => {
           selectedIndex={0}
           onSelect={onSelect}
           onClose={onClose}
+          clearHistory={clearHistory}
         />
       );
 
@@ -177,6 +185,7 @@ describe("PromptHistoryDropdown", () => {
           selectedIndex={0}
           onSelect={onSelect}
           onClose={onClose}
+          clearHistory={clearHistory}
         />
       );
 
@@ -194,6 +203,7 @@ describe("PromptHistoryDropdown", () => {
           selectedIndex={0}
           onSelect={onSelect}
           onClose={onClose}
+          clearHistory={clearHistory}
         />
       );
 
@@ -217,6 +227,7 @@ describe("PromptHistoryDropdown", () => {
             selectedIndex={0}
             onSelect={onSelect}
             onClose={onClose}
+            clearHistory={clearHistory}
           />
         </div>
       );
@@ -235,6 +246,7 @@ describe("PromptHistoryDropdown", () => {
             selectedIndex={0}
             onSelect={onSelect}
             onClose={onClose}
+            clearHistory={clearHistory}
           />
         </div>
       );
@@ -261,6 +273,7 @@ describe("PromptHistoryDropdown", () => {
           selectedIndex={0}
           onSelect={onSelect}
           onClose={onClose}
+          clearHistory={clearHistory}
         />
       );
 
@@ -272,6 +285,7 @@ describe("PromptHistoryDropdown", () => {
           selectedIndex={2}
           onSelect={onSelect}
           onClose={onClose}
+          clearHistory={clearHistory}
         />
       );
 
@@ -291,6 +305,7 @@ describe("PromptHistoryDropdown", () => {
           selectedIndex={0}
           onSelect={onSelect}
           onClose={onClose}
+          clearHistory={clearHistory}
         />
       );
 
@@ -307,6 +322,7 @@ describe("PromptHistoryDropdown", () => {
           selectedIndex={50}
           onSelect={onSelect}
           onClose={onClose}
+          clearHistory={clearHistory}
         />
       );
 
@@ -321,6 +337,7 @@ describe("PromptHistoryDropdown", () => {
           selectedIndex={0}
           onSelect={onSelect}
           onClose={onClose}
+          clearHistory={clearHistory}
         />
       );
 
@@ -338,6 +355,7 @@ describe("PromptHistoryDropdown", () => {
           selectedIndex={0}
           onSelect={onSelect}
           onClose={onClose}
+          clearHistory={clearHistory}
         />
       );
 
@@ -349,6 +367,41 @@ describe("PromptHistoryDropdown", () => {
       removeSpy.mockRestore();
     });
 
+    // WI-FL3.5 — the store's clearHistory had no surface; the footer is it.
+    it("offers a Clear history footer that calls clearHistory without closing", async () => {
+      const user = userEvent.setup();
+      render(
+        <PromptHistoryDropdown
+          entries={["First", "Second"]}
+          selectedIndex={0}
+          onSelect={onSelect}
+          onClose={onClose}
+          clearHistory={clearHistory}
+        />
+      );
+
+      await user.click(screen.getByRole("button", { name: "Clear history" }));
+
+      expect(clearHistory).toHaveBeenCalledTimes(1);
+      expect(onSelect).not.toHaveBeenCalled();
+      // The click lands inside the dropdown, so the outside-click closer stays quiet.
+      expect(onClose).not.toHaveBeenCalled();
+    });
+
+    it("has nothing to clear in the empty state, so no footer", () => {
+      render(
+        <PromptHistoryDropdown
+          entries={[]}
+          selectedIndex={0}
+          onSelect={onSelect}
+          onClose={onClose}
+          clearHistory={clearHistory}
+        />
+      );
+
+      expect(screen.queryByRole("button", { name: "Clear history" })).toBeNull();
+    });
+
     // A4 — list is a listbox; rows are options with aria-selected on the
     // active row so screen readers announce selection.
     it("exposes listbox/option roles with aria-selected on the active row", () => {
@@ -358,6 +411,7 @@ describe("PromptHistoryDropdown", () => {
           selectedIndex={1}
           onSelect={onSelect}
           onClose={onClose}
+          clearHistory={clearHistory}
         />
       );
       expect(screen.getByRole("listbox")).toBeInTheDocument();

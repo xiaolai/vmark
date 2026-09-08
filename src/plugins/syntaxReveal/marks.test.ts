@@ -1,19 +1,8 @@
 // @vitest-environment node
 /**
  * Tests for syntaxReveal/marks — findMarkRange, findAnyMarkRangeAtCursor,
- * findWordAtCursor, addMarkSyntaxDecorations.
+ * findWordAtCursor.
  */
-
-vi.mock("@tiptap/pm/view", () => ({
-  Decoration: {
-    widget: vi.fn((_pos, toDOM, _spec) => ({
-      type: "widget",
-      pos: _pos,
-      toDOM,
-      spec: _spec,
-    })),
-  },
-}));
 
 vi.mock("@/utils/wordSegmentation", () => ({
   findWordBoundaries: vi.fn((text: string, offset: number) => {
@@ -31,17 +20,13 @@ vi.mock("@/utils/wordSegmentation", () => ({
   }),
 }));
 
-vi.mock("./syntax-reveal.css", () => ({}));
-
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { Schema } from "@tiptap/pm/model";
 import { EditorState, TextSelection } from "@tiptap/pm/state";
-import type { Decoration } from "@tiptap/pm/view";
 import {
   findMarkRange,
   findAnyMarkRangeAtCursor,
   findWordAtCursor,
-  addMarkSyntaxDecorations,
 } from "./marks";
 
 // ---------------------------------------------------------------------------
@@ -373,192 +358,5 @@ describe("findWordAtCursor", () => {
     if (result) {
       expect(result.from).toBeLessThan(result.to);
     }
-  });
-});
-
-// ---------------------------------------------------------------------------
-// addMarkSyntaxDecorations
-// ---------------------------------------------------------------------------
-
-describe("addMarkSyntaxDecorations", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("adds open and close decorations for bold mark", () => {
-    const state = createStateWithCursor(
-      [{ text: "hello " }, { text: "bold", marks: ["strong"] }, { text: " end" }],
-      9
-    );
-    const $from = state.doc.resolve(9);
-    const decorations: Decoration[] = [];
-
-    addMarkSyntaxDecorations(decorations, 9, $from);
-
-    // Should add open (**) and close (**) decorations
-    expect(decorations.length).toBe(2);
-  });
-
-  it("adds open and close decorations for italic mark", () => {
-    const state = createStateWithCursor(
-      [{ text: "hello " }, { text: "italic", marks: ["emphasis"] }, { text: " end" }],
-      9
-    );
-    const $from = state.doc.resolve(9);
-    const decorations: Decoration[] = [];
-
-    addMarkSyntaxDecorations(decorations, 9, $from);
-
-    expect(decorations.length).toBe(2);
-  });
-
-  it("adds link syntax decorations with href", () => {
-    const state = createStateWithCursor(
-      [
-        { text: "click " },
-        { text: "here", marks: ["link"], attrs: { link: { href: "http://example.com" } } },
-        { text: " end" },
-      ],
-      9
-    );
-    const $from = state.doc.resolve(9);
-    const decorations: Decoration[] = [];
-
-    addMarkSyntaxDecorations(decorations, 9, $from);
-
-    // Should add [ and ](url) decorations
-    expect(decorations.length).toBe(2);
-  });
-
-  it("adds no decorations when no marks at position", () => {
-    const state = createStateWithCursor([{ text: "plain text" }], 3);
-    const $from = state.doc.resolve(3);
-    const decorations: Decoration[] = [];
-
-    addMarkSyntaxDecorations(decorations, 3, $from);
-
-    expect(decorations.length).toBe(0);
-  });
-
-  it("adds decorations for inline code", () => {
-    const state = createStateWithCursor(
-      [{ text: "some " }, { text: "code", marks: ["inlineCode"] }, { text: " here" }],
-      8
-    );
-    const $from = state.doc.resolve(8);
-    const decorations: Decoration[] = [];
-
-    addMarkSyntaxDecorations(decorations, 8, $from);
-
-    expect(decorations.length).toBe(2);
-  });
-
-  it("adds decorations for strikethrough", () => {
-    const state = createStateWithCursor(
-      [{ text: "some " }, { text: "struck", marks: ["strikethrough"] }, { text: " here" }],
-      8
-    );
-    const $from = state.doc.resolve(8);
-    const decorations: Decoration[] = [];
-
-    addMarkSyntaxDecorations(decorations, 8, $from);
-
-    expect(decorations.length).toBe(2);
-  });
-
-  it("adds decorations for highlight", () => {
-    const state = createStateWithCursor(
-      [{ text: "some " }, { text: "highlighted", marks: ["highlight"] }, { text: " here" }],
-      8
-    );
-    const $from = state.doc.resolve(8);
-    const decorations: Decoration[] = [];
-
-    addMarkSyntaxDecorations(decorations, 8, $from);
-
-    expect(decorations.length).toBe(2);
-  });
-
-  it("adds decorations for subscript", () => {
-    const state = createStateWithCursor(
-      [{ text: "H" }, { text: "2", marks: ["subscript"] }, { text: "O" }],
-      3
-    );
-    const $from = state.doc.resolve(3);
-    const decorations: Decoration[] = [];
-
-    addMarkSyntaxDecorations(decorations, 3, $from);
-
-    expect(decorations.length).toBe(2);
-  });
-
-  it("adds decorations for superscript", () => {
-    const state = createStateWithCursor(
-      [{ text: "x" }, { text: "2", marks: ["superscript"] }, { text: " end" }],
-      3
-    );
-    const $from = state.doc.resolve(3);
-    const decorations: Decoration[] = [];
-
-    addMarkSyntaxDecorations(decorations, 3, $from);
-
-    expect(decorations.length).toBe(2);
-  });
-
-  it("handles multiple overlapping marks at cursor", () => {
-    // Bold + italic at same position
-    const state = createStateWithCursor(
-      [{ text: "hello " }, { text: "both", marks: ["strong", "emphasis"] }, { text: " end" }],
-      9
-    );
-    const $from = state.doc.resolve(9);
-    const decorations: Decoration[] = [];
-
-    addMarkSyntaxDecorations(decorations, 9, $from);
-
-    // Should add decorations for both marks (2 per mark = 4 total, but deduplication may reduce)
-    // Each mark gets open + close = 4 total (strong ** + emphasis *)
-    expect(decorations.length).toBeGreaterThanOrEqual(2);
-  });
-
-  it("handles link with empty href", () => {
-    const state = createStateWithCursor(
-      [{ text: "click " }, { text: "here", marks: ["link"], attrs: { link: { href: "" } } }],
-      9
-    );
-    const $from = state.doc.resolve(9);
-    const decorations: Decoration[] = [];
-
-    addMarkSyntaxDecorations(decorations, 9, $from);
-
-    expect(decorations.length).toBe(2);
-  });
-
-  it("adds no decorations for an unknown mark type (not in MARK_SYNTAX and not a link)", () => {
-    // We need a mark that is in neither MARK_SYNTAX nor LINK_MARK.
-    // Build a schema with a custom "custom" mark and manually create a state.
-    const customSchema = new Schema({
-      nodes: {
-        doc: { content: "block+" },
-        paragraph: { content: "inline*", group: "block" },
-        text: { group: "inline" },
-      },
-      marks: {
-        custom: {},
-      },
-    });
-    const customMark = customSchema.marks.custom.create();
-    const textNode = customSchema.text("hello").mark([customMark]);
-    const para = customSchema.node("paragraph", null, [textNode]);
-    const doc = customSchema.node("doc", null, [para]);
-    const state = EditorState.create({ doc, schema: customSchema });
-    const $from = state.doc.resolve(3); // inside "hello" with custom mark
-    const decorations: Decoration[] = [];
-
-    // addMarkSyntaxDecorations: mark "custom" not in MARK_SYNTAX and not "link" →
-    // neither syntax nor link branch fires → no decorations added
-    addMarkSyntaxDecorations(decorations, 3, $from);
-
-    expect(decorations.length).toBe(0);
   });
 });

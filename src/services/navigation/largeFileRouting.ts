@@ -22,9 +22,9 @@
  *
  * @coordinates-with stores/settingsStore.ts — reads `largeFile.autoSourceMode`
  *   and `largeFile.warnAbove5MB`.
- * @coordinates-with utils/largeFilePrompts.ts — native warn / refuse dialogs.
+ * @coordinates-with services/dialogs/largeFilePrompts.ts — native warn / refuse dialogs.
  * @coordinates-with utils/fileSizeThresholds.ts — tier classification.
- * @module utils/largeFileRouting
+ * @module services/navigation/largeFileRouting
  */
 
 import { invoke } from "@tauri-apps/api/core";

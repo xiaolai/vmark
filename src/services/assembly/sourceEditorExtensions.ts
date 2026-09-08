@@ -23,7 +23,7 @@
  * @coordinates-with sourceLanguageBinding.ts — the format's language pack (WI-13)
  * @coordinates-with codemirror/theme.ts — visual theme for the source editor
  * @coordinates-with codemirror/, hostAdapters.ts — source plugins and their stores
- * @module utils/sourceEditorExtensions
+ * @module services/assembly/sourceEditorExtensions
  */
 import { Compartment, EditorState, type Extension } from "@codemirror/state";
 import { EditorView, keymap, drawSelection, dropCursor, lineNumbers } from "@codemirror/view";
@@ -121,11 +121,11 @@ interface ExtensionConfig {
  */
 export function createSourceEditorExtensions(config: ExtensionConfig): Extension[] {
   const { initialWordWrap, initialShowBrTags, initialAutoPair, initialShowLineNumbers, initialShowInvisibles = false, updateListener, tabId, lintEnabled, filePath } = config;
-  // YAML detection ignores the workflow feature flags — every YAML file gets
-  // `lang-yaml` highlighting and parse-error linting (MED-2). The workflow
-  // families are gated separately since WI-19: `viewer` for the GitHub Actions
-  // authoring aids (completion, cursor sync, goto-def) and `engine` for the
-  // bespoke preview parse that feeds the Run panel.
+  // YAML detection ignores the engine flag — every YAML file gets `lang-yaml`
+  // highlighting and parse-error linting (MED-2). The workflow families are
+  // decided in one place (WI-19): `viewer` for the GitHub Actions authoring
+  // aids (completion, cursor sync, goto-def), unconditional for YAML since D6,
+  // and `engine` for the preview parse that feeds the Run panel, still gated.
   const { yaml: isYaml, viewer: viewerFeatures, engine: engineFeatures } =
     workflowExtensionGates(filePath);
 

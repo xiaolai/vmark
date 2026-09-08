@@ -1,11 +1,18 @@
 // @vitest-environment node
-// WI-19 — the source editor's workflow extension families are gated
-// SEPARATELY: viewer aids vs execution engine.
+// The source editor's workflow extension families, after D6 (WI-FL2.6):
 //
-// Before the split, `isWorkflowEnabled()` decided all four at once, so turning
-// on GitHub Actions expression completion also armed the bespoke preview plugin
-// that feeds the Run button. This is the decision the composition consumes, so
-// it is asserted directly rather than through a fully-mocked CodeMirror tree.
+//   - `yaml`   is a property of the FILE — every YAML file, no flag;
+//   - `viewer` follows `yaml` unconditionally — the GitHub Actions authoring
+//              aids ship on, so a markdown-window source editor gets the same
+//              extras the split-pane YAML source pane always loaded;
+//   - `engine` is the ONLY gated family: the bespoke execution engine's
+//              preview parse still waits for `advanced.workflowEngine`.
+//
+// Before WI-19 one flag decided all four extensions, so enabling expression
+// completion also armed the plugin that feeds the Run button. Before D6 the
+// viewer family had a flag of its own that nothing else consulted. This is the
+// decision the composition consumes, asserted directly rather than through a
+// fully-mocked CodeMirror tree.
 //
 // Real settings store (WI-18 mock-boundary policy).
 
@@ -15,9 +22,9 @@ import { workflowExtensionGates } from "./workflowExtensionGates";
 
 const initial = useSettingsStore.getState().advanced;
 
-function setFlags(patch: { workflowViewer?: boolean; workflowEngine?: boolean }) {
+function setEngine(workflowEngine: boolean) {
   useSettingsStore.setState({
-    advanced: { ...useSettingsStore.getState().advanced, ...patch },
+    advanced: { ...useSettingsStore.getState().advanced, workflowEngine },
   });
 }
 
@@ -25,57 +32,61 @@ afterEach(() => {
   useSettingsStore.setState({ advanced: initial });
 });
 
+const OFF = { yaml: false, viewer: false, engine: false };
+
 describe("workflowExtensionGates", () => {
-  it("gates everything off for a non-YAML file, whatever the flags say", () => {
-    setFlags({ workflowViewer: true, workflowEngine: true });
-    const gates = workflowExtensionGates("/w/README.md");
-    expect(gates).toEqual({ yaml: false, viewer: false, engine: false });
+  it.each([false, true])("a non-YAML file gets NO workflow family (engine=%s)", (engine) => {
+    setEngine(engine);
+    for (const path of ["/w/README.md", "/w/notes.txt", "/w/ci.yml.bak", "/w/data.json"]) {
+      expect(workflowExtensionGates(path)).toEqual(OFF);
+    }
   });
 
-  it("reports YAML independently of the flags — highlighting and parse-lint are unconditional", () => {
-    // MED-2: every YAML file gets lang-yaml + the parse-error gutter. Only the
-    // workflow families are flag-gated.
-    setFlags({ workflowViewer: false, workflowEngine: false });
-    expect(workflowExtensionGates("/w/.github/workflows/ci.yml").yaml).toBe(true);
-    expect(workflowExtensionGates("/w/docker-compose.yaml").yaml).toBe(true);
-  });
-
-  it("viewer on, engine off → authoring aids only, no execution plumbing", () => {
-    setFlags({ workflowViewer: true, workflowEngine: false });
-    const gates = workflowExtensionGates("/w/.github/workflows/ci.yml");
-    expect(gates).toEqual({ yaml: true, viewer: true, engine: false });
-  });
-
-  it("engine on, viewer off → execution plumbing only", () => {
-    setFlags({ workflowViewer: false, workflowEngine: true });
-    const gates = workflowExtensionGates("/w/pipeline.yml");
-    expect(gates).toEqual({ yaml: true, viewer: false, engine: true });
-  });
-
-  it("both on → both", () => {
-    setFlags({ workflowViewer: true, workflowEngine: true });
-    const gates = workflowExtensionGates("/w/pipeline.yml");
-    expect(gates).toEqual({ yaml: true, viewer: true, engine: true });
-  });
-
-  it("handles a null path (untitled buffer) without throwing", () => {
-    setFlags({ workflowViewer: true, workflowEngine: true });
-    expect(workflowExtensionGates(null)).toEqual({
-      yaml: false,
-      viewer: false,
+  it("gives every YAML file the viewer aids with the engine OFF — no flag gates them (D6)", () => {
+    setEngine(false);
+    expect(workflowExtensionGates("/w/.github/workflows/ci.yml")).toEqual({
+      yaml: true,
+      viewer: true,
       engine: false,
     });
-    expect(workflowExtensionGates(undefined)).toEqual({
-      yaml: false,
-      viewer: false,
+    expect(workflowExtensionGates("/w/docker-compose.yaml")).toEqual({
+      yaml: true,
+      viewer: true,
       engine: false,
     });
+  });
+
+  it("keeps the engine family behind advanced.workflowEngine — the one gate left", () => {
+    setEngine(true);
+    expect(workflowExtensionGates("/w/pipeline.yml")).toEqual({
+      yaml: true,
+      viewer: true,
+      engine: true,
+    });
+  });
+
+  it("viewer equals yaml for every path — it reads no setting at all", () => {
+    // Re-gating the viewer on the engine (the pre-WI-19 shape) is the
+    // regression this catches: with the engine off, viewer would go false on
+    // the YAML paths.
+    setEngine(false);
+    for (const path of ["/w/a.yml", "/w/b.yaml", "C:\\r\\c.YML", "/w/README.md", null, undefined]) {
+      const gates = workflowExtensionGates(path);
+      expect(gates.viewer).toBe(gates.yaml);
+    }
+  });
+
+  it("handles a null or empty path (untitled buffer) without throwing", () => {
+    setEngine(true);
+    expect(workflowExtensionGates(null)).toEqual(OFF);
+    expect(workflowExtensionGates(undefined)).toEqual(OFF);
+    expect(workflowExtensionGates("")).toEqual(OFF);
   });
 
   it("detects the extension from a Windows path", () => {
     // `filePath.split(/[\\/]/)` — a "/"-only split leaves "C:\…\ci.yml" whole
     // and every workflow family silently switches off on Windows.
-    setFlags({ workflowViewer: true, workflowEngine: true });
+    setEngine(true);
     expect(workflowExtensionGates("C:\\repo\\.github\\workflows\\ci.yml")).toEqual({
       yaml: true,
       viewer: true,
@@ -84,7 +95,7 @@ describe("workflowExtensionGates", () => {
   });
 
   it("is case-insensitive about the extension", () => {
-    setFlags({ workflowViewer: true, workflowEngine: false });
-    expect(workflowExtensionGates("/w/CI.YML").viewer).toBe(true);
+    setEngine(false);
+    expect(workflowExtensionGates("/w/CI.YML")).toEqual({ yaml: true, viewer: true, engine: false });
   });
 });

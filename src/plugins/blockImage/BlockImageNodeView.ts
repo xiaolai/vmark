@@ -19,7 +19,7 @@
  *   - No lazy loading — all visible block images resolve immediately
  *
  * @coordinates-with tiptap.ts — registers this NodeView for the block_image node type
- * @coordinates-with utils/resolveMediaSrc.ts — shared media path resolution
+ * @coordinates-with services/media/resolveMediaSrc.ts — shared media path resolution
  * @coordinates-with stores/mediaPopupStore.ts — media popup state for click editing
  * @module plugins/blockImage/BlockImageNodeView
  */

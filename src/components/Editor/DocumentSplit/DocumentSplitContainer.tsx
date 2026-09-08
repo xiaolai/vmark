@@ -51,12 +51,12 @@ export function DocumentSplitContainer() {
     return <Editor />;
   }
 
-  const { orientation, fraction, focusedPane } = split;
+  const { fraction, focusedPane } = split;
   const focusPrimary = () => usePaneStore.getState().setFocusedPane(windowLabel, "primary");
   const focusSecondary = () => usePaneStore.getState().setFocusedPane(windowLabel, "secondary");
 
   return (
-    <div className={`document-split document-split--${orientation}`}>
+    <div className="document-split">
       <div
         ref={primaryRef}
         className="document-split__pane"
@@ -71,7 +71,6 @@ export function DocumentSplitContainer() {
       </div>
 
       <SplitDivider
-        orientation={orientation}
         fraction={fraction}
         onResize={(f) => usePaneStore.getState().setFraction(windowLabel, f)}
       />

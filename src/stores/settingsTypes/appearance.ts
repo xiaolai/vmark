@@ -51,6 +51,5 @@ export interface AppearanceSettings {
   cjkLetterSpacing: CJKLetterSpacingValue; // Letter spacing for CJK characters (em)
   editorWidth: number; // Max content width in em (0 = unlimited)
   showFilenameInTitlebar: boolean; // Show filename in window titlebar
-  autoHideStatusBar: boolean; // Auto-hide status bar when not interacting
   focusModeDim: FocusModeDim; // How strongly Focus Mode dims non-focused content
 }

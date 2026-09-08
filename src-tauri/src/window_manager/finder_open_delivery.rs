@@ -56,6 +56,33 @@ fn queue_for_new_main(app: &tauri::AppHandle, payloads: Vec<PendingFileOpen>) {
     }
 }
 
+/// Bring `window` to the front, whatever state it is in.
+///
+/// The ONE copy of the reveal sequence (#480). `single_instance::surface_a_window`
+/// carried a second one — same three calls, same order, and its own three log
+/// lines — so a fix to either was a divergence from the other, on the two
+/// paths a user reaches by the same gesture: double-clicking a file, and
+/// double-clicking the app while it is already running.
+///
+/// `set_focus` is Tauri's native bring-to-front operation, and it is LAST:
+/// showing and unminimizing first is what covers a hidden or minimized
+/// window, which is otherwise focused where nobody can see it. Each step
+/// reports its own failure and the next one still runs — a window that
+/// refuses `show` may still accept `set_focus`, and giving up on the first
+/// refusal would surface nothing at all. The label is printed with `{:?}` so
+/// it cannot forge a log line.
+pub(crate) fn reveal_window<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>, label: &str) {
+    if let Err(error) = window.show() {
+        log::warn!("[Window] show({label:?}) failed: {error}");
+    }
+    if let Err(error) = window.unminimize() {
+        log::warn!("[Window] unminimize({label:?}) failed: {error}");
+    }
+    if let Err(error) = window.set_focus() {
+        log::warn!("[Window] set_focus({label:?}) failed: {error}");
+    }
+}
+
 fn focus_and_emit<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     target_label: &str,
@@ -65,29 +92,7 @@ fn focus_and_emit<R: tauri::Runtime>(
         return payloads;
     };
 
-    // `set_focus` is Tauri's native bring-to-front operation. Showing and
-    // unminimizing first also covers hidden/minimized windows before focus.
-    if let Err(error) = window.show() {
-        log::warn!(
-            "[Finder] Failed to show window '{}': {}",
-            target_label,
-            error
-        );
-    }
-    if let Err(error) = window.unminimize() {
-        log::warn!(
-            "[Finder] Failed to unminimize window '{}': {}",
-            target_label,
-            error
-        );
-    }
-    if let Err(error) = window.set_focus() {
-        log::warn!(
-            "[Finder] Failed to focus window '{}': {}",
-            target_label,
-            error
-        );
-    }
+    reveal_window(&window, target_label);
 
     log::info!("[Finder] Emitting to window '{}'", target_label);
     let mut failed = Vec::new();

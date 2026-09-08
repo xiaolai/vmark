@@ -99,3 +99,39 @@ fn validate_workspace_root_rejects_regular_file() {
     let err = validate_workspace_root(file.to_str().unwrap()).unwrap_err();
     assert!(err.contains("is not a directory"), "got: {err}");
 }
+
+// -- #250: what each validator RETURNS is the value that flows on ------------
+
+#[cfg(unix)]
+#[test]
+fn validate_returns_the_canonical_target_of_a_link_not_the_link() {
+    let dir = tempfile::tempdir().expect("create tempdir");
+    let target = dir.path().join("note.md");
+    std::fs::write(&target, b"# hi").expect("write");
+    let link = dir.path().join("today.md");
+    std::os::unix::fs::symlink(&target, &link).expect("symlink");
+
+    let judged = validate_openable_path(link.to_str().unwrap()).expect("a link to markdown");
+
+    assert_eq!(
+        judged,
+        target.canonicalize().expect("canonical").to_str().unwrap()
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn validate_workspace_root_returns_the_canonical_directory() {
+    let dir = tempfile::tempdir().expect("create tempdir");
+    let link = dir.path().join("link");
+    let real = dir.path().join("real");
+    std::fs::create_dir(&real).expect("mkdir");
+    std::os::unix::fs::symlink(&real, &link).expect("symlink");
+
+    let judged = validate_workspace_root(link.to_str().unwrap()).expect("a link to a directory");
+
+    assert_eq!(
+        judged,
+        real.canonicalize().expect("canonical").to_str().unwrap()
+    );
+}

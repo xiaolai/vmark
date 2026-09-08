@@ -72,6 +72,61 @@ describe("stale responses", () => {
   });
 });
 
+// Audit 20260907 (#327): a root-to-root switch kept rendering the previous
+// workspace's tree until the new listing landed — stale absolute paths a user
+// could open, rename or delete from under the new workspace's header.
+describe("a root-to-root switch", () => {
+  it("shows an empty (loading) tree until the NEW root's listing lands", async () => {
+    const second = deferred<unknown>();
+    invokeMock
+      .mockResolvedValueOnce(listing([entry("old.md")]))
+      .mockReturnValueOnce(second.promise);
+
+    const { result, rerender } = renderHook(
+      ({ root }: { root: string | null }) => useFileTree(root),
+      { initialProps: { root: "/one" as string | null } },
+    );
+    await waitFor(() => expect(result.current.tree.map((n) => n.name)).toEqual(["old.md"]));
+
+    rerender({ root: "/two" });
+    await waitFor(() => expect(result.current.isLoading).toBe(true));
+    expect(result.current.tree).toEqual([]);
+
+    await act(async () => {
+      second.resolve(listing([{ ...entry("new.md"), path: "/two/new.md" }]));
+      await second.promise;
+    });
+    await waitFor(() => expect(result.current.tree.map((n) => n.name)).toEqual(["new.md"]));
+    expect(result.current.isLoading).toBe(false);
+  });
+
+  // Audit R2 (#653): only `tree` was gated on the root it was listed for, so
+  // the previous workspace's error banner and truncation notice stood over the
+  // new workspace's empty, still-loading tree.
+  it("drops the previous root's error and truncation with its tree", async () => {
+    const second = deferred<unknown>();
+    invokeMock.mockRejectedValueOnce(new Error("EACCES")).mockReturnValueOnce(second.promise);
+
+    const { result, rerender } = renderHook(
+      ({ root }: { root: string | null }) => useFileTree(root),
+      { initialProps: { root: "/one" as string | null } },
+    );
+    await waitFor(() => expect(result.current.error).toMatch(/EACCES/));
+
+    rerender({ root: "/two" });
+    await waitFor(() => expect(result.current.isLoading).toBe(true));
+    expect(result.current.error).toBeNull();
+    expect(result.current.truncated).toBe(false);
+
+    await act(async () => {
+      second.resolve(listing([{ ...entry("new.md"), path: "/two/new.md" }], true));
+      await second.promise;
+    });
+    await waitFor(() => expect(result.current.truncated).toBe(true));
+    expect(result.current.error).toBeNull();
+  });
+});
+
 describe("excludeFolders key", () => {
   it("distinguishes folder lists that flatten to the same comma string", async () => {
     // ["a,b"] and ["a","b"] both joined to "a,b", so switching between them
@@ -119,5 +174,49 @@ describe("unreadable directories", () => {
     await waitFor(() => expect(result.current.tree.length).toBe(2));
     expect(result.current.error).toBeNull();
     expect(result.current.tree.map((n) => n.name)).toContain("visible.md");
+  });
+});
+
+// Audit R3 #652 — closing a workspace mid-scan left `isLoading` true forever:
+// the in-flight scan's `finally` is gated on the request id it no longer owns,
+// and the clearing branch never touched the flag. The explorer then renders
+// "loading" for a workspace that is gone.
+describe("closing the workspace while a scan is in flight", () => {
+  it("settles isLoading, rather than leaving the explorer stuck on 'loading'", async () => {
+    const first = deferred<unknown>();
+    invokeMock.mockReturnValueOnce(first.promise);
+
+    const { result, rerender } = renderHook(
+      ({ root }: { root: string | null }) => useFileTree(root),
+      { initialProps: { root: "/root" as string | null } },
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(true));
+
+    rerender({ root: null });
+    expect(result.current.isLoading).toBe(false);
+
+    // The superseded listing landing later must not resurrect it either.
+    await act(async () => {
+      first.resolve(listing([entry("late.md")]));
+      await first.promise;
+    });
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.tree).toEqual([]);
+  });
+
+  it("reports no error or truncation for the workspace that was closed", async () => {
+    const first = deferred<unknown>();
+    invokeMock.mockReturnValueOnce(first.promise);
+    const { result, rerender } = renderHook(
+      ({ root }: { root: string | null }) => useFileTree(root),
+      { initialProps: { root: "/root" as string | null } },
+    );
+    rerender({ root: null });
+    await act(async () => {
+      first.reject(new Error("root unreadable"));
+      await first.promise.catch(() => {});
+    });
+    expect(result.current.error).toBeNull();
+    expect(result.current.truncated).toBe(false);
   });
 });

@@ -30,10 +30,14 @@ afterEach(() => {
 
 const readyAttr = () => document.documentElement.getAttribute(READY_ATTRIBUTE);
 
-/** What actually completes the handshake in production: the listener mounts. */
-async function mountMenuListener() {
+/**
+ * What actually completes the handshake in production: the listener mounts.
+ * The signal carries the OUTCOME since audit #359 — pass `false` to model a
+ * mount that failed or came up incomplete.
+ */
+async function mountMenuListener(mounted = true) {
   await act(async () => {
-    signalMenuCommandsMounted();
+    signalMenuCommandsMounted(mounted);
     await vi.advanceTimersByTimeAsync(0);
   });
 }
@@ -85,6 +89,24 @@ describe("useWindowReady", () => {
     act(() => result.current.markReady({ label: "main", emit }));
 
     await settle(5_000);
+
+    expect(emit).toHaveBeenCalledWith("ready", "main");
+    expect(readyAttr()).toBe("true");
+    expect(mockWindowContextError).toHaveBeenCalledWith(
+      expect.stringContaining("menu commands did not mount"),
+    );
+  });
+
+  // Audit #359 (round 3): the signal carries the mount's OUTCOME, so a window
+  // whose menu came up dead or incomplete still announces itself — it has to,
+  // or it is unusable — but says so. Before, the bootstrap signalled from a
+  // `finally` and this path was indistinguishable from a clean mount.
+  it("announces anyway, loudly, when the menu mount reports that it failed", async () => {
+    const emit = vi.fn().mockResolvedValue(undefined);
+    const { result } = renderHook(() => useWindowReady());
+    act(() => result.current.markReady({ label: "main", emit }));
+
+    await mountMenuListener(false);
 
     expect(emit).toHaveBeenCalledWith("ready", "main");
     expect(readyAttr()).toBe("true");

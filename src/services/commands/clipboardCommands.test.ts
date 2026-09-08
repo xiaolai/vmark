@@ -9,8 +9,13 @@
 // commands, so the physical shortcuts flow natively to WebView2.
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { registerClipboardCommands, resolveClipboardSurface } from "./clipboardCommands";
-import { executeCommand, hasCommand } from "./CommandBus";
+import { executeCommand, hasCommand, getCommand } from "./CommandBus";
 import { useUIStore } from "@/stores/uiStore";
+import { useEditorStore } from "@/stores/editorStore";
+
+/** A stand-in for a mounted editor view: presence is what the guard reads,
+ *  and the bridge focuses it before running the command. */
+const FAKE_VIEW = { focus: () => {}, pasteText: () => {} } as never;
 
 describe("clipboard commands (#1354)", () => {
   const execSpy = vi.fn();
@@ -29,9 +34,19 @@ describe("clipboard commands (#1354)", () => {
     (document as { execCommand?: unknown }).execCommand = execSpy;
     execSpy.mockClear();
     useUIStore.setState({ sourceMode: false });
+    // An editing surface is mounted — the ordinary case. The commands are
+    // gated on it (#891), so the availability tests below take it away again.
+    useEditorStore.setState((state) => ({
+      tiptap: { ...state.tiptap, editorView: FAKE_VIEW },
+      source: { ...state.source, editorView: null },
+    }));
   });
 
   afterEach(() => {
+    useEditorStore.setState((state) => ({
+      tiptap: { ...state.tiptap, editorView: null },
+      source: { ...state.source, editorView: null },
+    }));
     delete (document as { execCommand?: unknown }).execCommand;
     Object.defineProperty(navigator, "platform", { value: originalPlatform, configurable: true });
   });
@@ -68,5 +83,45 @@ describe("clipboard commands (#1354)", () => {
     useUIStore.setState({ sourceMode: true });
     expect(resolveClipboardSurface()).toBe("source");
     useUIStore.setState({ sourceMode: false });
+  });
+
+  // Audit #891 — the non-mac fallback is document.execCommand, which acts on
+  // whatever DOM node holds focus. With no editor mounted a menu Cut would
+  // operate on something else entirely, so the command must be UNAVAILABLE.
+  describe("availability follows the resolved surface", () => {
+    it("is unavailable when no editor is mounted, and a dispatch is refused", async () => {
+      useEditorStore.setState((state) => ({
+        tiptap: { ...state.tiptap, editorView: null },
+        source: { ...state.source, editorView: null },
+      }));
+
+      expect(getCommand("edit.cut")?.when?.({})).toBe(false);
+      await expect(
+        executeCommand("edit.cut", undefined, { windowLabel: "main" }),
+      ).resolves.toBe(false);
+      expect(execSpy).not.toHaveBeenCalled();
+    });
+
+    it("asks about the SOURCE view when the source pane is showing", () => {
+      useUIStore.setState({ sourceMode: true });
+      // A mounted WYSIWYG view says nothing about the surface a menu click
+      // would target while Source mode is on.
+      expect(getCommand("edit.copy")?.when?.({})).toBe(false);
+
+      useEditorStore.setState((state) => ({
+        source: { ...state.source, editorView: FAKE_VIEW },
+      }));
+      expect(getCommand("edit.copy")?.when?.({})).toBe(true);
+      useUIStore.setState({ sourceMode: false });
+    });
+  });
+
+  // Audit #889 — the translation key is derived from the id, so the label and
+  // the command it runs cannot drift.
+  it("titles resolve for every command id", () => {
+    for (const id of ["edit.cut", "edit.copy", "edit.paste", "edit.selectAll"]) {
+      const title = getCommand(id)?.title;
+      expect(typeof title === "function" ? title() : title, id).toBeTruthy();
+    }
   });
 });

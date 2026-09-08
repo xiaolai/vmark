@@ -89,7 +89,7 @@ export function EditorSettings() {
   const autoPairEnabled = markdown.autoPairEnabled ?? true;
   const autoPairCJKStyle = markdown.autoPairCJKStyle ?? "auto";
   const cjkPairingEnabled = autoPairCJKStyle !== "off";
-  const curlyQuotesEnabled = markdown.autoPairCurlyQuotes ?? false;
+  const curlyQuotesEnabled = markdown.autoPairCurlyQuotes ?? true;
 
   const systemDefaultLabel = t("editor.font.systemDefault");
 

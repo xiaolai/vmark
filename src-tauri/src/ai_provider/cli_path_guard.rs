@@ -39,8 +39,9 @@ const FORBIDDEN: [char; 9] = ['\0', '\n', '\r', ';', '|', '&', '$', '`', '\''];
 
 /// Reject a `cli_path` that does not point at the expected provider binary.
 ///
-/// `None` is always accepted — it means "use the bare command name", which
-/// `build_command` resolves against PATH.
+/// `None` is always accepted — for a CLI provider it means "use the bare
+/// command name", which `build_command` resolves against PATH; for a REST
+/// provider it is the only value there is.
 ///
 /// Boundary this DOES enforce: the path's file name must be the provider's own
 /// binary (`claude`/`codex`/`gemini`), no other provider, and no shell or
@@ -55,14 +56,19 @@ const FORBIDDEN: [char; 9] = ['\0', '\n', '\r', ';', '|', '&', '$', '`', '\''];
 /// considered and rejected: it breaks legitimate symlinked installs (Homebrew)
 /// while still not stopping a planted real binary.
 pub fn validate_cli_path(cmd: &str, cli_path: Option<&str>) -> Result<(), String> {
-    // Only the known CLI providers may be spawned at all.
-    if !KNOWN_CLI_PROVIDERS.contains(&cmd) {
-        return Err(format!("Unknown CLI provider: {cmd}"));
-    }
-
+    // No path: a CLI provider's bare command name, or a REST provider, which
+    // has no binary at all. Accepted BEFORE the provider check — `run_ai_prompt`
+    // sends every provider through here, and checking the name first rejected
+    // every REST invocation as an "Unknown CLI provider". Nothing can be
+    // spawned from `None`: dispatch only spawns for the three CLI names.
     let Some(path) = cli_path else {
         return Ok(());
     };
+
+    // A path may only name a binary VMark spawns: the known CLI providers.
+    if !KNOWN_CLI_PROVIDERS.contains(&cmd) {
+        return Err(format!("Unknown CLI provider: {cmd}"));
+    }
 
     if path.is_empty() {
         return Err("cli_path must not be empty".to_string());

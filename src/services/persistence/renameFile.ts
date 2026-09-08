@@ -26,7 +26,7 @@
  *     how to surface each case (dialog in the explorer, toast on a tab).
  *
  * @coordinates-with utils/pathReconciliation.ts — pure open-tab reconciliation
- * @coordinates-with hooks/commands/applyPathReconciliation.ts — applies results
+ * @coordinates-with applyPathReconciliation.ts — applies results
  * @coordinates-with components/Sidebar/FileExplorer/useExplorerOperations.ts — explorer caller
  * @coordinates-with components/Tabs/TabRenameInput.tsx — tab context-menu caller
  * @module services/persistence/renameFile

@@ -193,6 +193,54 @@ describe("FindBar", () => {
     });
   });
 
+  // Audit 20260907 (#302): searchSetQuery and the mode toggles reset
+  // currentIndex to -1 but keep the previous matchCount until the editor's
+  // recount lands, so for a tick the bar read "0 of N" over stale matches and
+  // enabled navigation against them. Both search backends report an index
+  // >= 0 whenever they report matches, so (matchCount > 0, currentIndex < 0)
+  // is exactly "recount pending" and renders as no matches.
+  describe("a recount pending after the query changed (#302)", () => {
+    it("shows no count and disables navigation/replace while matchCount is stale", () => {
+      mockSearchState.query = "abc";
+      mockSearchState.matchCount = 3;
+      mockSearchState.currentIndex = -1;
+      render(<FindBar />);
+      expect(document.querySelector(".find-bar-count")?.textContent).toBe("");
+      expect(screen.queryByText("0 of 3")).not.toBeInTheDocument();
+      expect(screen.getByTitle("Previous (Shift+Enter)")).toBeDisabled();
+      expect(screen.getByTitle("Next (Enter)")).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Replace" })).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Replace All" })).toBeDisabled();
+    });
+
+    // The buttons were disabled but the keyboard was not: Enter, Shift+Enter
+    // and the replace input's Enter still dispatched against the stale count,
+    // so a Shift+Enter right after retyping jumped to the OLD last match.
+    it("Enter, Shift+Enter and replace-Enter dispatch nothing while the recount is pending", () => {
+      mockSearchState.query = "abc";
+      mockSearchState.matchCount = 3;
+      mockSearchState.currentIndex = -1;
+      render(<FindBar />);
+      const findInput = screen.getByPlaceholderText("Find…");
+      const replaceInput = screen.getByPlaceholderText("Replace…");
+      fireEvent.keyDown(findInput, { key: "Enter" });
+      fireEvent.keyDown(findInput, { key: "Enter", shiftKey: true });
+      fireEvent.keyDown(replaceInput, { key: "Enter" });
+      expect(mockFindNext).not.toHaveBeenCalled();
+      expect(mockFindPrevious).not.toHaveBeenCalled();
+      expect(mockReplaceCurrent).not.toHaveBeenCalled();
+    });
+
+    it("Enter dispatches again once the recount has landed", () => {
+      mockSearchState.query = "abc";
+      mockSearchState.matchCount = 3;
+      mockSearchState.currentIndex = 0;
+      render(<FindBar />);
+      fireEvent.keyDown(screen.getByPlaceholderText("Find…"), { key: "Enter" });
+      expect(mockFindNext).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe("navigation buttons disabled state", () => {
     it("disables prev/next when matchCount is 0", () => {
       mockSearchState.matchCount = 0;
@@ -242,6 +290,12 @@ describe("FindBar", () => {
   });
 
   describe("keyboard shortcuts - find input", () => {
+    // Enter navigates only when there is a match to navigate to (#302).
+    beforeEach(() => {
+      mockSearchState.matchCount = 2;
+      mockSearchState.currentIndex = 0;
+    });
+
     it("Enter triggers findNext", () => {
       render(<FindBar />);
       const findInput = screen.getByPlaceholderText("Find…");
@@ -276,6 +330,11 @@ describe("FindBar", () => {
   });
 
   describe("keyboard shortcuts - replace input", () => {
+    beforeEach(() => {
+      mockSearchState.matchCount = 2;
+      mockSearchState.currentIndex = 0;
+    });
+
     it("Enter triggers replaceCurrent", () => {
       render(<FindBar />);
       const replaceInput = screen.getByPlaceholderText("Replace…");
@@ -479,6 +538,8 @@ describe("FindBar", () => {
     });
 
     it("Enter works normally outside grace period", () => {
+      mockSearchState.matchCount = 2;
+      mockSearchState.currentIndex = 0;
       render(<FindBar />);
       const findInput = screen.getByPlaceholderText("Find…");
 
