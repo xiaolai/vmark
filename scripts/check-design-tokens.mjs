@@ -97,6 +97,26 @@ function selectorsOf(raw) {
  * @param {string} css
  * @returns {{ selector: string, line: number }[]}
  */
+/**
+ * Replace every CSS comment with spaces of the same length.
+ *
+ * The pattern checks below scan for things that look like declarations, and a
+ * comment is prose. `#1376` in a comment citing a GitHub issue was reported as
+ * a "Hardcoded hex color" with the advice "Use CSS variable token instead" —
+ * advice that cannot be followed, on a line that declares nothing. rule 31
+ * already records this false-positive shape for the sibling ui-tokenize tool.
+ *
+ * SPACES rather than deletion: the checks derive a line number by counting
+ * newlines before the match offset, so removing text would slide every
+ * subsequent violation onto the wrong line. Newlines inside the comment are
+ * preserved for the same reason.
+ */
+export function blankComments(css) {
+  return css.replace(/\/\*[\s\S]*?\*\//g, (s) =>
+    s.replace(/[^\n]/g, " "),
+  );
+}
+
 export function findFocusRemovals(css) {
   const rules = [];
   const ruleRe = /([^{}]*)\{([^}]*)\}/g;
@@ -276,14 +296,18 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
       });
     }
 
+    // Comments are prose, not declarations: scan with them blanked out, and
+    // with offsets preserved so line numbers still point at the violation.
+    const scannable = blankComments(content);
+
     for (const check of checks) {
       // Skip excluded files
       if (check.exclude?.some((re) => re.test(file))) continue;
 
       let match;
-      while ((match = check.pattern.exec(content)) !== null) {
+      while ((match = check.pattern.exec(scannable)) !== null) {
         // Get line number
-        const lines = content.slice(0, match.index).split("\n");
+        const lines = scannable.slice(0, match.index).split("\n");
         const line = lines.length;
 
         violations.push({
