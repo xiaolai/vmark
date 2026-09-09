@@ -34,8 +34,15 @@ import { customInlineFromMarkdown } from "./customInlineTransform";
 /** The mdast the transform actually operates on, as JSON for shape assertions. */
 const parsed = (markdown: string) => JSON.stringify(parseMarkdownToMdast(markdown));
 
-/** The transform itself, so depth can be tested without paying for a parse. */
-const transform = customInlineFromMarkdown().transforms[0];
+/**
+ * The transform itself, so depth can be tested without paying for a parse.
+ *
+ * Asserted rather than indexed blindly: an extension that stopped exporting a
+ * transform would otherwise make every test below pass vacuously against
+ * `undefined`.
+ */
+const transform = customInlineFromMarkdown().transforms?.[0];
+if (!transform) throw new Error("customInlineFromMarkdown exposes no transform");
 
 /**
  * `emphasis` nested `depth` deep around one text node.
