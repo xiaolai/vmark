@@ -42,6 +42,11 @@ const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const workflow = parseYaml(
   readFileSync(path.join(REPO, ".github/workflows/release-smoke.yml"), "utf8"),
 );
+const hooks = readFileSync(path.join(REPO, "src-tauri/windows/installer-hooks.nsh"), "utf8");
+const tauriConf = JSON.parse(readFileSync(path.join(REPO, "src-tauri/tauri.conf.json"), "utf8"));
+
+/** Every extension tauri.conf.json claims — the authority both lists copy. */
+const CLAIMED_EXTS = (tauriConf.bundle?.fileAssociations ?? []).flatMap((a) => a.ext ?? []);
 const job = workflow.jobs["windows-installer"];
 const steps = job?.steps ?? [];
 const runs = steps.map((s) => String(s.run ?? ""));
@@ -115,5 +120,77 @@ describe("release-smoke: windows-installer", () => {
     for (const step of pwshSteps) {
       expect(String(step.run)).toMatch(/^\s*\$ErrorActionPreference = 'Stop'/);
     }
+  });
+
+  it("checks the association round-trip for the WHOLE claimed set, in both cycles", () => {
+    // The v0.9.66 run compared only `.txt`. The defect is per-extension, so a
+    // .txt-only check would pass a build that still shadows .html and .svg.
+    expect(cycle).toMatch(/function Get-AssocDefaults/);
+    expect(cycle).toMatch(/function Assert-AssocRestored/);
+    expect(cycle).toMatch(/Assert-AssocRestored \$assocBefore 'after uninstall \(cycle 1\)'/);
+    expect(cycle).toMatch(/Assert-AssocRestored \$assocBefore 'after uninstall \(cycle 2\)'/);
+    // Snapshot taken BEFORE the first install, or it cannot show a change.
+    expect(cycle.indexOf("$assocBefore = Get-AssocDefaults")).toBeLessThan(
+      cycle.indexOf("Install-Silently\n"),
+    );
+  });
+
+  it("keeps the job's extension list identical to tauri.conf.json", () => {
+    // The job does no checkout, so the list is literal in the workflow. That is
+    // a copy, and a copy drifts — this is the join that stops it.
+    const block = cycle.match(/\$assocExts = @\(([\s\S]*?)\)/);
+    expect(block, "no $assocExts list in the windows-installer job").not.toBeNull();
+    const listed = [...block[1].matchAll(/'([^']+)'/g)].map((m) => m[1]);
+    expect(listed.slice().sort()).toEqual(CLAIMED_EXTS.slice().sort());
+  });
+});
+
+// The POSTUNINSTALL repair itself. Tauri's APP_UNASSOCIATE writes the backed-up
+// ProgID back UNCONDITIONALLY, and for a per-user install that backup was read
+// from HKCU — a hive that never held the machine-wide association. So it writes
+// an empty default into HKCU, which shadows HKLM in the merged HKCR view and
+// leaves the extension with no handler. The hook deletes that empty value.
+describe("installer-hooks.nsh: the association un-shadow", () => {
+  const covered = [...hooks.matchAll(/!insertmacro VMARK_UNSHADOW_ASSOCIATION "([^"]+)"/g)].map(
+    (m) => m[1],
+  );
+
+  it("covers every claimed extension, and claims no extension that is gone", () => {
+    expect(CLAIMED_EXTS.length).toBeGreaterThan(0);
+    // Both directions: a new fileAssociation that skips the hook reintroduces
+    // the defect for that extension, and a stale entry is a dead line.
+    expect(covered.slice().sort()).toEqual(CLAIMED_EXTS.slice().sort());
+  });
+
+  it("deletes the default value ONLY when it is empty", () => {
+    // A non-empty default means the restore worked (per-machine install) or
+    // another application has claimed the extension. Deleting it either way
+    // would turn a repair into the very defect it fixes.
+    const macro = hooks.match(/!macro VMARK_UNSHADOW_ASSOCIATION[\s\S]*?!macroend/);
+    expect(macro, "no VMARK_UNSHADOW_ASSOCIATION macro").not.toBeNull();
+    const body = macro[0];
+    const deletes = [...body.matchAll(/DeleteRegValue (\w+) "Software\\Classes\\\.\$\{EXT\}" ""/g)];
+    expect(deletes.map((m) => m[1]).sort()).toEqual(["HKCU", "HKLM"]);
+    // Each delete is guarded by an emptiness test on the value just read.
+    expect([...body.matchAll(/\$\{If\} \$R0 == ""/g)]).toHaveLength(2);
+    expect([...body.matchAll(/ReadRegStr \$R0 (HKCU|HKLM) "Software\\Classes\\\.\$\{EXT\}" ""/g)])
+      .toHaveLength(2);
+    // The register is borrowed, not stolen: the uninstall section continues
+    // after the hook.
+    expect(body).toMatch(/Push \$R0[\s\S]*Pop \$R0/);
+  });
+
+  it("still restores the #1142 ShellNew key", () => {
+    // The un-shadow must not have displaced the original repair; cycle 2 of the
+    // smoke job is the only thing that can confirm that line, and it has not
+    // reached a verdict yet.
+    expect(hooks).toMatch(/WriteRegStr HKCR "\.txt\\ShellNew" "NullFile" ""/);
+  });
+
+  it("does not delete the _backup value another Tauri app may own", () => {
+    // Tauri derives the file class from the bare extension when a
+    // fileAssociation declares no `name`, so "txt_backup" is not unique to
+    // VMark. It is inert once the default value is gone.
+    expect(hooks).not.toMatch(/DeleteRegValue[^\n]*_backup/);
   });
 });
