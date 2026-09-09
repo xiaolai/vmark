@@ -325,7 +325,14 @@ jobs:
               }
             }
             if ($broken.Count -gt 0) {
-              throw "${stage}: uninstall changed file associations it does not own: $($broken -join '; ')"
+              # Each on its own line BEFORE the throw. PowerShell truncates a
+              # long exception message with an ellipsis, which on the v0.9.66
+              # measurement cut the list off after the second entry and hid the
+              # real blast radius — the throw carries the count, the log carries
+              # the evidence.
+              Write-Host "::error::${stage}: uninstall changed $($broken.Count) file association(s) it does not own"
+              foreach ($line in $broken) { Write-Host "  $line" }
+              throw "${stage}: uninstall changed $($broken.Count) of $($assocExts.Count) file associations it does not own (listed above)"
             }
             Write-Host "${stage}: all $($assocExts.Count) claimed associations unchanged"
           }

@@ -135,6 +135,24 @@ describe("release-smoke: windows-installer", () => {
     );
   });
 
+  it("logs every damaged association before throwing, so none is truncated away", () => {
+    // Measured: PowerShell elided the v0.9.66 failure message after two
+    // entries, so the run proved damage existed but not how much. The list has
+    // to reach the log outside the exception text.
+    // The YAML block scalar is parsed with its common indent stripped, so the
+    // function's closing brace sits at column 0.
+    const assertFn = cycle.match(/function Assert-AssocRestored[\s\S]*?\n\}/);
+    expect(assertFn, "no Assert-AssocRestored function").not.toBeNull();
+    const body = assertFn[0];
+    const logLoop = body.indexOf("foreach ($line in $broken)");
+    // `throw "`, not `throw ` — the explanatory comment above the statement
+    // contains the bare word, and a detector that matches prose is the trap
+    // this repo has paid for before.
+    const thrown = body.indexOf('throw "');
+    expect(logLoop, "the broken list is never written to the log").toBeGreaterThan(-1);
+    expect(logLoop, "the list must be logged BEFORE the throw ends the step").toBeLessThan(thrown);
+  });
+
   it("keeps the job's extension list identical to tauri.conf.json", () => {
     // The job does no checkout, so the list is literal in the workflow. That is
     // a copy, and a copy drifts — this is the join that stops it.
