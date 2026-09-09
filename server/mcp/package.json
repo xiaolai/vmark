@@ -38,11 +38,11 @@
   "devDependencies": {
     "@types/node": "^22.20.1",
     "@types/ws": "^8.18.1",
-    "@vitest/coverage-v8": "^4.1.10",
+    "@vitest/coverage-v8": "^4.1.11",
     "@yao-pkg/pkg": "^6.22.0",
     "esbuild": "^0.28.2",
     "typescript": "~7.0.2",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   },
   "engines": {
     "node": ">=18"
