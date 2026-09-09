@@ -22,13 +22,6 @@ pub(super) fn build_window_menu(app: &tauri::AppHandle) -> tauri::Result<Submenu
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(
                 app,
-                "window-status",
-                &t!("menu.window.status"),
-                true,
-                None::<&str>,
-            )?,
-            &MenuItem::with_id(
-                app,
                 "breakdown",
                 &t!("menu.window.breakdown"),
                 true,

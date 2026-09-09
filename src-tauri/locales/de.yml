@@ -192,6 +192,7 @@ menu:
   view.fileExplorer: "Datei-Explorer umschalten"
   view.history: "Verlauf umschalten"
   view.knowledgeBase: "Wissensdatenbank umschalten"
+  view.windowStatus: "Fensterstatus umschalten"
   view.terminal: "Terminal umschalten"
   view.checkMarkdown: "Markdown prüfen"
   view.lintNext: "Nächstes Problem"
@@ -199,7 +200,6 @@ menu:
   # === Window menu ===
   window: "Fenster"
   window.bringAllToFront: "Alle nach vorne bringen"
-  window.status: "Fensterstatus"
   window.breakdown: "Kohärenz-Aufschlüsselung"
 
   # === Help menu ===

@@ -134,6 +134,7 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   { id: "fileExplorer", label: "Toggle File Explorer", category: "view", defaultKey: "Ctrl-Shift-2", menuId: "file-explorer" },
   { id: "viewHistory", label: "Toggle History", category: "view", defaultKey: "Ctrl-Shift-3", menuId: "view-history" },
   { id: "knowledgeBase", label: "Toggle Knowledge Base", category: "view", defaultKey: "Ctrl-Shift-4", menuId: "knowledge-base", description: "Open the local knowledge-base inspector panel" },
+  { id: "windowStatus", label: "Toggle Window Status", category: "view", defaultKey: "Ctrl-Shift-5", menuId: "window-status", description: "Show/hide the Window Status panel — every open window's live Claude Code status" },
   { id: "sourceMode", label: "Source Mode", category: "view", defaultKey: "F6", menuId: "source-mode", description: "Show source (markdown WYSIWYG⇄Source; split-pane formats Source⇄Split)" },
   { id: "markdownSplit", label: "Markdown Split View", category: "view", defaultKey: "Shift-F6", menuId: "markdown-split", description: "Toggle split view (markdown split; split-pane formats Preview⇄Split)" },
   { id: "splitDocuments", label: "Split Editor — Two Documents", category: "view", defaultKey: "Alt-Mod-\\", menuId: "split-documents", description: "Open two different documents side by side (#1081)" },

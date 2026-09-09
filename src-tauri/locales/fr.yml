@@ -192,6 +192,7 @@ menu:
   view.fileExplorer: "Afficher/masquer l'explorateur de fichiers"
   view.history: "Afficher/masquer l'historique"
   view.knowledgeBase: "Afficher/masquer la base de connaissances"
+  view.windowStatus: "Afficher/masquer l'état des fenêtres"
   view.terminal: "Afficher/masquer le terminal"
   view.checkMarkdown: "Vérifier Markdown"
   view.lintNext: "Problème suivant"
@@ -199,7 +200,6 @@ menu:
   # === Window menu ===
   window: "Fenêtre"
   window.bringAllToFront: "Tout mettre au premier plan"
-  window.status: "État des fenêtres"
   window.breakdown: "Détail de cohérence"
 
   # === Help menu ===

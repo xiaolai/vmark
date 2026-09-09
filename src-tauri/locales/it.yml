@@ -192,6 +192,7 @@ menu:
   view.fileExplorer: "Mostra/Nascondi file explorer"
   view.history: "Mostra/Nascondi cronologia"
   view.knowledgeBase: "Mostra/Nascondi knowledge base"
+  view.windowStatus: "Mostra/Nascondi stato finestre"
   view.terminal: "Mostra/Nascondi terminale"
   view.checkMarkdown: "Controlla Markdown"
   view.lintNext: "Problema successivo"
@@ -199,7 +200,6 @@ menu:
   # === Window menu ===
   window: "Finestra"
   window.bringAllToFront: "Porta tutto in primo piano"
-  window.status: "Stato finestre"
   window.breakdown: "Dettaglio coerenza"
 
   # === Help menu ===
