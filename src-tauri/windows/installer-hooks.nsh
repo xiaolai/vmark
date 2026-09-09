@@ -21,12 +21,16 @@
 ; POSTUNINSTALL hook runs AFTER Tauri's association cleanup and re-creates the
 ; OS-default ShellNew template. NullFile="" is exactly what Windows ships.
 ;
-; Cycle 2 of the release-smoke Windows job is the verdict on this line — it
-; deletes ShellNew from both hives before uninstalling, so its presence
-; afterwards can only mean this write landed. That cycle has not yet reached a
-; verdict: the v0.9.66 run failed in cycle 1 on the separate defect below, so
-; this line is still UNVERIFIED on a real Windows build and is deliberately
-; left exactly as it was rather than adjusted on a guess.
+; VERIFIED on Windows for the first time on 2026-09-09, against v0.9.67:
+; cycle 2 of the release-smoke Windows job deletes ShellNew from BOTH hives
+; before uninstalling, so its presence afterwards can only mean this write
+; landed — and it was present. Run 34313339017,
+; "after uninstall (cycle 2): restored by the POSTUNINSTALL hook".
+;
+; That closes the caveat this header carried from the day it was written: the
+; hook was authored on a macOS-primary machine and, until that run, had never
+; executed on Windows at all. The v0.9.66 run could not reach cycle 2 — it
+; failed in cycle 1 on the separate defect below.
 ;
 ; ---------------------------------------------------------------------------
 ; 2. Drop the empty ProgID the association cleanup leaves behind

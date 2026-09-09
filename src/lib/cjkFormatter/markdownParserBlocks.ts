@@ -15,12 +15,9 @@
  */
 
 import type { ProtectedRegion, ProtectedRegionOptions } from "./types";
+import { isInsideRegion } from "./protectedRegionSearch";
 
 /** Whether `pos` falls inside any region collected so far. */
-function isInsideRegion(pos: number, regions: ProtectedRegion[]): boolean {
-  return regions.some((r) => pos >= r.start && pos < r.end);
-}
-
 /** Detectors 12 and 13, appended to `regions` in their established order. */
 export function detectLineOrientedRegions(
   text: string,
