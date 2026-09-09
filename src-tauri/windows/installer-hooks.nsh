@@ -103,6 +103,80 @@
   Pop $R0
 !macroend
 
+; ---------------------------------------------------------------------------
+; 3. Do not displace an extension's existing handler — issue #1378
+; ---------------------------------------------------------------------------
+;
+; Measured on a clean Windows runner against the published v0.9.68 installer,
+; by the release-smoke job's post-install diagnostic:
+;
+;     install claimed .txt  : 'txtfile'  -> 'txt'
+;     install claimed .svg  : 'svgfile'  -> 'svg'
+;     install claimed .html : 'htmlfile' -> 'html'
+;     install claimed .htm  : 'htmlfile' -> 'htm'
+;
+; `APP_ASSOCIATE` writes `Software\Classes\.<ext>` unconditionally, so simply
+; declaring an extension in `fileAssociations` takes the default away from
+; whatever owned it. For the markdown extensions nothing owned them and that is
+; the desired outcome; for these four it means installing a markdown editor
+; silently displaced Notepad and the browser.
+;
+; The user-visible symptom in #1378 was the right-click "New > 文本文档" entry
+; changing. That entry is built from `HKCR\.txt\ShellNew`, which still exists —
+; what changed is its LABEL, which comes from the friendly name of the ProgID
+; the extension points at. So the report's "ShellNew was deleted" is not what
+; happened; the association takeover is.
+;
+; The rule here is a CONDITION, not a list: yield wherever HKLM already names a
+; handler. That keeps VMark the default for `.md` and friends, which nothing
+; else claims, while leaving a machine that has its own handler for `.json`
+; alone too — without this file having to predict which those are.
+;
+; Yielding the default is not the same as becoming unavailable. `OpenWithProgids`
+; is the documented way to stay in the Open With list, so VMark remains one
+; choice for these types; it is simply no longer the one Windows picks without
+; being asked. A user who does want VMark as the default can still say so, and
+; their choice is recorded in `FileExts\.<ext>\UserChoice`, which outranks
+; everything here.
+;
+; Runs from POSTINSTALL, which tauri-bundler inserts at the END of the install
+; section — after the APP_ASSOCIATE loop. That ordering is what makes the
+; repair possible, exactly as POSTUNINSTALL's ordering is below.
+
+!macro VMARK_YIELD_EXISTING_HANDLER EXT
+  Push $R0
+
+  ReadRegStr $R0 HKLM "Software\Classes\.${EXT}" ""
+  ${If} $R0 != ""
+    ; Something already owns this type machine-wide. Keep VMark reachable
+    ; through Open With, then hand the default back by deleting the value
+    ; APP_ASSOCIATE just wrote into HKCU — HKCR then resolves to HKLM again.
+    WriteRegStr HKCU "Software\Classes\.${EXT}\OpenWithProgids" "${EXT}" ""
+    DeleteRegValue HKCU "Software\Classes\.${EXT}" ""
+  ${EndIf}
+
+  Pop $R0
+!macroend
+
+!macro NSIS_HOOK_POSTINSTALL
+  ; Keep in sync with fileAssociations in src-tauri/tauri.conf.json.
+  !insertmacro VMARK_YIELD_EXISTING_HANDLER "md"
+  !insertmacro VMARK_YIELD_EXISTING_HANDLER "markdown"
+  !insertmacro VMARK_YIELD_EXISTING_HANDLER "mdown"
+  !insertmacro VMARK_YIELD_EXISTING_HANDLER "mkd"
+  !insertmacro VMARK_YIELD_EXISTING_HANDLER "mdx"
+  !insertmacro VMARK_YIELD_EXISTING_HANDLER "txt"
+  !insertmacro VMARK_YIELD_EXISTING_HANDLER "json"
+  !insertmacro VMARK_YIELD_EXISTING_HANDLER "jsonl"
+  !insertmacro VMARK_YIELD_EXISTING_HANDLER "yaml"
+  !insertmacro VMARK_YIELD_EXISTING_HANDLER "yml"
+  !insertmacro VMARK_YIELD_EXISTING_HANDLER "toml"
+  !insertmacro VMARK_YIELD_EXISTING_HANDLER "mmd"
+  !insertmacro VMARK_YIELD_EXISTING_HANDLER "svg"
+  !insertmacro VMARK_YIELD_EXISTING_HANDLER "html"
+  !insertmacro VMARK_YIELD_EXISTING_HANDLER "htm"
+!macroend
+
 !macro NSIS_HOOK_POSTUNINSTALL
   WriteRegStr HKCR ".txt\ShellNew" "NullFile" ""
 

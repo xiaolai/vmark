@@ -211,6 +211,57 @@ describe("installer-hooks.nsh: the association un-shadow", () => {
     expect(hooks).toMatch(/WriteRegStr HKCR "\.txt\\ShellNew" "NullFile" ""/);
   });
 
+  it("yields the default back to an existing handler on install (#1378)", () => {
+    // Measured on a clean Windows runner against the published v0.9.68
+    // installer: `APP_ASSOCIATE` took the default ProgID for FOUR extensions
+    // that already had a system handler.
+    //
+    //   .txt  'txtfile'  -> 'txt'
+    //   .svg  'svgfile'  -> 'svg'
+    //   .html 'htmlfile' -> 'html'
+    //   .htm  'htmlfile' -> 'htm'
+    //
+    // A markdown editor displacing Notepad and the browser is not something a
+    // user asked for by installing it. The POSTINSTALL hook gives the default
+    // back wherever HKLM already names a handler, and keeps VMark reachable
+    // through Open With instead.
+    const macro = hooks.match(/!macro VMARK_YIELD_EXISTING_HANDLER[\s\S]*?!macroend/);
+    expect(macro, "no VMARK_YIELD_EXISTING_HANDLER macro").not.toBeNull();
+    const body = macro[0];
+
+    // The condition is "HKLM already has one", not a hardcoded extension list:
+    // a machine where some other app owns .json must keep that too.
+    expect(body).toMatch(/ReadRegStr \$R0 HKLM "Software\\Classes\\\.\$\{EXT\}" ""/);
+    expect(body).toMatch(/\$\{If\} \$R0 != ""/);
+    expect(body).toMatch(/DeleteRegValue HKCU "Software\\Classes\\\.\$\{EXT\}" ""/);
+
+    // Yielding the default must not make VMark unreachable: OpenWithProgids is
+    // the documented way to stay in the Open With list without being default.
+    expect(
+      body,
+      "without OpenWithProgids, yielding the default also removes VMark from " +
+        "the Open With list for that extension",
+    ).toMatch(/OpenWithProgids/);
+
+    // And it must be called for every claimed extension, like its sibling.
+    const called = [...hooks.matchAll(/!insertmacro VMARK_YIELD_EXISTING_HANDLER "([^"]+)"/g)].map(
+      (m) => m[1],
+    );
+    expect(called.slice().sort()).toEqual(CLAIMED_EXTS.slice().sort());
+  });
+
+  it("runs the yield from POSTINSTALL, which is after Tauri's associate loop", () => {
+    // Order is the whole mechanism: tauri-bundler inserts NSIS_HOOK_POSTINSTALL
+    // at the end of the install section, after the APP_ASSOCIATE loop, so the
+    // hook can undo the overwrite. Called from POSTUNINSTALL it would do
+    // nothing on install at all.
+    const post = hooks.match(/!macro NSIS_HOOK_POSTINSTALL[\s\S]*?!macroend/);
+    expect(post, "no NSIS_HOOK_POSTINSTALL macro").not.toBeNull();
+    expect(post[0]).toMatch(/VMARK_YIELD_EXISTING_HANDLER/);
+    // The un-shadow belongs to uninstall and must not migrate here.
+    expect(post[0]).not.toMatch(/VMARK_UNSHADOW_ASSOCIATION/);
+  });
+
   it("does not delete the _backup value another Tauri app may own", () => {
     // Tauri derives the file class from the bare extension when a
     // fileAssociation declares no `name`, so "txt_backup" is not unique to
