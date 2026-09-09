@@ -153,8 +153,12 @@ export function maxContainerDepth(markdown: string): number {
  * `cause`, so a caller that wants to tell "too deep" from "malformed" would
  * otherwise have to match prose through a wrapper — which breaks the first
  * time the wording is edited.
+ *
+ * Module-local on purpose. `isNestingTooDeep` is the interface, and it is the
+ * one callers should use: a bare `instanceof` would miss the case the wrapper
+ * creates, where the refusal arrives as the `cause` of a generic parse error.
  */
-export class NestingTooDeepError extends Error {
+class NestingTooDeepError extends Error {
   readonly depth: number;
   readonly limit: number;
 

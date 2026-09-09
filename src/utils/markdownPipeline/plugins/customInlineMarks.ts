@@ -21,7 +21,7 @@ import { MARKS, findMarkPair, unescapeWhitespace, type MarkDefinition } from "./
 /** Node types whose contents are literal, so markers inside them are text. */
 const SKIP_NODE_TYPES = new Set(["inlineCode", "code", "math", "inlineMath", "html", "yaml"]);
 
-export type MarkName = "subscript" | "superscript" | "highlight" | "underline";
+type MarkName = "subscript" | "superscript" | "highlight" | "underline";
 
 export function isTextNode(node: unknown): node is Text {
   return typeof node === "object" && node !== null && (node as { type?: string }).type === "text";
@@ -85,7 +85,7 @@ export function parseMarksInText(text: string): PhrasingContent[] {
   return result.length > 0 ? result : [{ type: "text", value: text }];
 }
 
-export function createMarkNode(name: MarkName, content: string): Subscript | Superscript | Highlight | Underline {
+function createMarkNode(name: MarkName, content: string): Subscript | Superscript | Highlight | Underline {
   const children: PhrasingContent[] = parseMarksInText(content);
 
   switch (name) {
