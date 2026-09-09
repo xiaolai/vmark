@@ -27,10 +27,21 @@
  * @module lib/cjkFormatter/integrity
  */
 
+import { findCharacterReferences } from "./characterReferences";
+
 export interface IntegrityResult {
   ok: boolean;
   details: Record<string, { before: number | string; after: number | string }>;
 }
+
+/**
+ * Every HTML character reference in the text, in order.
+ *
+ * Re-exported from the ONE definition of the pattern so this check and the
+ * parser's protection cannot drift apart — a checker stricter than the
+ * detector would refuse runs the formatter never touched.
+ */
+export { findCharacterReferences as referenceInventory };
 
 /**
  * Patterns to count. Each is a literal string that appears in structural
@@ -111,6 +122,25 @@ export function verifyIntegrity(before: string, after: string): IntegrityResult 
       ok = false;
       details[pattern] = { before: beforeCount, after: afterCount };
     }
+  }
+
+  // Character references, as a THIRD signal, because the other two are both
+  // blind to the defect in issue #1382. `&#x5176;实` → `&#x5176；实` stops
+  // being a reference and starts being literal escaped text, but the skeleton
+  // NFKC-folds `；` back to `;` and then strips it as punctuation, so the two
+  // skeletons are identical; and no STRUCTURAL_PATTERNS literal appears in a
+  // reference either. Protecting references in markdownParser.ts is the actual
+  // fix — this is the net for the next rule that reaches one anyway, since
+  // this formatter's history is that exactly that keeps happening.
+  const beforeRefs = findCharacterReferences(before);
+  const afterRefs = findCharacterReferences(after);
+  const refsDiffer =
+    beforeRefs.length !== afterRefs.length ||
+    beforeRefs.some((ref, i) => ref !== afterRefs[i]);
+  if (refsDiffer) {
+    ok = false;
+    // Counts, not the references themselves: this reaches the user's log.
+    details.characterReferences = { before: beforeRefs.length, after: afterRefs.length };
   }
 
   return { ok, details };

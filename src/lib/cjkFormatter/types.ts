@@ -133,7 +133,8 @@ export interface ProtectedRegion {
     | "math_block"
     | "math_inline"
     | "thematic_break"
-    | "reference_section";
+    | "reference_section"
+    | "character_reference";
 }
 
 export interface ProtectedRegionOptions {
