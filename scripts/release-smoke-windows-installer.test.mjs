@@ -5,19 +5,25 @@
  *
  * `src-tauri/windows/installer-hooks.nsh` restores `HKCR\.txt\ShellNew` — the
  * key behind "New > Text Document" for EVERY application — after a VMark
- * uninstall once removed it (#1142). It was authored on macOS and its own
- * header says it was never run on Windows. This job runs the shipped
+ * uninstall once removed it (#1142). It was authored on macOS and had never
+ * run on Windows until this job put it on one. This job runs the shipped
  * installer through install → uninstall, from the outside, and reads the
  * registry back.
  *
  * Two cycles, because the current Tauri uninstaller does NOT delete ShellNew
  * on its own, so a plain cycle cannot show the hook doing anything:
  *
- *   1. plain — after uninstall the ShellNew key is present and the `.txt`
- *      association is what it was before the install (no collateral damage);
+ *   1. plain — after uninstall EVERY claimed association is what it was
+ *      before the install (no collateral damage), and ShellNew is present;
  *   2. the #1142 damage first — the machine-wide ShellNew key is deleted
  *      before the uninstall, so its presence afterwards can only mean the
  *      POSTUNINSTALL hook wrote it.
+ *
+ * Both cycles reported for the first time on v0.9.67 (run 34313339017). What
+ * the first execution found, on v0.9.66, is why cycle 1 now compares the whole
+ * claimed set rather than `.txt` alone: the uninstaller was wiping FOUR
+ * associations it does not own — `.txt`, `.svg`, `.html`, `.htm` — and a
+ * `.txt`-only assertion would have reported one of them.
  *
  * Pinned here: the job exists on windows-latest and is independent of the
  * macOS job; the installer is downloaded by its `-setup.exe` name; install and
