@@ -395,6 +395,20 @@ jobs:
           # Cycle 1 - plain: the uninstaller must leave the system as it found it.
           $entry = Install-Silently
           Assert-ShellNew 'after install'
+
+          # Diagnostic, not an assertion. The job asserts the uninstall
+          # ROUND-TRIP, so it never recorded what the install itself does to
+          # these keys — and issue #1378 is a report about exactly that. What
+          # the installer claims is a product question (Tauri's APP_ASSOCIATE
+          # always overwrites the default; it has no "add to Open With" mode),
+          # so this reports rather than fails, and the next report about
+          # install-time association changes has evidence instead of inference.
+          $afterInstall = Get-AssocDefaults
+          foreach ($ext in $assocExts) {
+            if ($afterInstall[$ext] -ne $assocBefore[$ext]) {
+              Write-Host "  install claimed .$ext : '$($assocBefore[$ext])' -> '$($afterInstall[$ext])'"
+            }
+          }
           Uninstall-Silently $entry
           Assert-ShellNew 'after uninstall (cycle 1)'
           Assert-AssocRestored $assocBefore 'after uninstall (cycle 1)'
