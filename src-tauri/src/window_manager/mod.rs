@@ -54,6 +54,7 @@ mod file_open_state;
 mod finder_open_delivery;
 mod native_theme;
 mod path_validation;
+mod pdf_export_window;
 mod settings_window;
 #[cfg(target_os = "macos")]
 mod traffic_lights;
@@ -68,6 +69,7 @@ pub use file_open_state::*;
 // (#1330), and this is where it delivers.
 pub(crate) use finder_open_delivery::*;
 pub use native_theme::*;
+pub use pdf_export_window::*;
 pub use settings_window::*;
 #[cfg(target_os = "macos")]
 pub(crate) use traffic_lights::*;

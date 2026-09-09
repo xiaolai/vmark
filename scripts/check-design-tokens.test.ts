@@ -20,6 +20,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  blankComments,
   collectJsDefinedVars,
   findFocusRemovals,
   globFiles,
@@ -466,5 +467,37 @@ describe("the CLI in fixture mode", () => {
       status = (e as { status?: number }).status ?? -1;
     }
     expect(status).not.toBe(0);
+  });
+});
+
+describe("blankComments", () => {
+  // A CSS comment is prose, and the pattern checks must not read it as code.
+  // `#1376` in a comment citing a GitHub issue was reported as a "Hardcoded hex
+  // color" with the advice "Use CSS variable token instead" — advice that
+  // cannot be followed, on a line that declares nothing. rule 31 already
+  // records this false-positive shape for the sibling ui-tokenize tool.
+  it("hides an issue reference that looks like a hex colour", () => {
+    const css = "/* see #1376 */\n.a { color: var(--x); }\n";
+    expect(blankComments(css)).not.toContain("#1376");
+  });
+
+  it("leaves a real declaration alone", () => {
+    const css = ".a { color: #ff0000; }";
+    expect(blankComments(css)).toContain("#ff0000");
+  });
+
+  it("preserves offsets so reported line numbers stay correct", () => {
+    // Blanking with spaces rather than deleting is what keeps the violation's
+    // line number pointing at the violation.
+    const css = "/* multi\nline */\n.a { color: #ff0000; }";
+    const blanked = blankComments(css);
+    expect(blanked).toHaveLength(css.length);
+    expect(blanked.slice(0, css.indexOf("\n.a")).trim()).toBe("");
+    expect(blanked.split("\n")).toHaveLength(css.split("\n").length);
+  });
+
+  it("handles a comment containing a brace, which a naive strip would truncate", () => {
+    const css = "/* the `{a}` case */\n.a { color: #ff0000; }";
+    expect(blankComments(css)).toContain("#ff0000");
   });
 });

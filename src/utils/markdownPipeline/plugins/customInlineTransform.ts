@@ -22,23 +22,13 @@
  * @module utils/markdownPipeline/plugins/customInlineTransform
  */
 import type { Root, PhrasingContent, Text } from "mdast";
-import type { Subscript, Superscript, Highlight, Underline } from "../types";
-import {
-  MARKS,
-  findMarkPair,
-  findMarkerIn,
-  spanIsPairable,
-  unescapeWhitespace,
-  type MarkDefinition,
-} from "./markPairing";
+import { MARKS, findMarkerIn, spanIsPairable, type MarkDefinition } from "./markPairing";
+import { isSkippableNode, isTextNode, parseMarksInText } from "./customInlineMarks";
 
 export interface FromMarkdownExtension {
   transforms?: Array<(tree: Root) => void>;
 }
 
-const SKIP_NODE_TYPES = new Set(["inlineCode", "code", "math", "inlineMath", "html", "yaml"]);
-
-type MarkName = "subscript" | "superscript" | "highlight" | "underline";
 
 export function customInlineFromMarkdown(): FromMarkdownExtension {
   return {
@@ -51,9 +41,50 @@ function transformCustomMarks(tree: Root): void {
   walkAndReplace(tree);
 }
 
-function walkAndReplace(node: Root | PhrasingContent | { children?: unknown[] }): void {
-  if (isSkippableNode(node)) return;
-  if (!("children" in node) || !Array.isArray(node.children)) return;
+/**
+ * Apply the mark transform to every node, deepest first.
+ *
+ * Iterative because this used to recurse once per non-text child, and the
+ * weekly pathological soak has been failing on exactly that since 2026-08-17:
+ *
+ *   Error: [MarkdownPipeline] Parse failed: Maximum call stack size exceeded
+ *   Input preview: "*a **a *a **a *a **a *a **a …"
+ *
+ * `*a **a ` repeated N times nests N deep, so the walk cost N frames. It was
+ * MARGINAL rather than reliably broken — three consecutive runs on identical
+ * input gave ok, overflow, ok — which is why the job reads as flaky.
+ *
+ * Two phases, because the per-node work is POST-order: `parseMarksAcrossChildren`
+ * has to see children that are already final. Collecting in preorder and then
+ * processing in reverse gives that, since a node is always discovered before
+ * its descendants and therefore processed after them.
+ *
+ * Nodes created by `parseMarksInText` are deliberately not collected — the
+ * recursive version never descended into them either, and they are built from
+ * a text value that has already been fully scanned.
+ */
+function walkAndReplace(root: Root | PhrasingContent | { children?: unknown[] }): void {
+  const order: { children?: unknown[] }[] = [];
+  const stack: { children?: unknown[] }[] = [root as { children?: unknown[] }];
+
+  while (stack.length > 0) {
+    const node = stack.pop() as { children?: unknown[] };
+    if (isSkippableNode(node)) continue;
+    if (!("children" in node) || !Array.isArray(node.children)) continue;
+    order.push(node);
+    // Text children are handled by the owning node, never descended into.
+    for (let i = node.children.length - 1; i >= 0; i -= 1) {
+      const child = node.children[i];
+      if (!isTextNode(child)) stack.push(child as { children?: unknown[] });
+    }
+  }
+
+  for (let i = order.length - 1; i >= 0; i -= 1) applyMarksToNode(order[i]);
+}
+
+/** The per-node half of the walk: children are already final when this runs. */
+function applyMarksToNode(node: { children?: unknown[] }): void {
+  if (!Array.isArray(node.children)) return;
 
   const newChildren: unknown[] = [];
   let modified = false;
@@ -68,7 +99,7 @@ function walkAndReplace(node: Root | PhrasingContent | { children?: unknown[] })
         modified = true;
       }
     } else {
-      walkAndReplace(child as { children?: unknown[] });
+      // Already processed: this node is reached only after its descendants.
       newChildren.push(child);
     }
   }
@@ -181,81 +212,4 @@ function buildSpan(
     ...asText(afterClose),
     ...children.slice(j + 1),
   ];
-}
-
-function isTextNode(node: unknown): node is Text {
-  return typeof node === "object" && node !== null && (node as { type?: string }).type === "text";
-}
-
-function isSkippableNode(node: unknown): boolean {
-  /* v8 ignore next -- @preserve defensive null/type guard; MDAST nodes are always objects */
-  if (!node || typeof node !== "object") return false;
-  const type = (node as { type?: string }).type;
-  return typeof type === "string" && SKIP_NODE_TYPES.has(type);
-}
-
-
-function parseMarksInText(text: string): PhrasingContent[] {
-  const result: PhrasingContent[] = [];
-  let position = 0;
-
-  while (position < text.length) {
-    // Find the earliest mark starting from current position
-    let earliestMark: MarkDefinition | null = null;
-    let earliestStart = -1;
-    let earliestEnd = -1;
-
-    for (const mark of MARKS) {
-      const pair = findMarkPair(text, mark, position);
-      if (pair && (earliestStart === -1 || pair.start < earliestStart)) {
-        earliestMark = mark;
-        earliestStart = pair.start;
-        earliestEnd = pair.end;
-      }
-    }
-
-    if (!earliestMark || earliestStart === -1) {
-      // No more marks found, add remaining as text
-      /* v8 ignore next -- @preserve while(position < text.length) guarantees this is always true */
-      if (position < text.length) {
-        result.push({ type: "text", value: text.slice(position) });
-      }
-      break;
-    }
-
-    // Add text before the mark
-    if (earliestStart > position) {
-      result.push({ type: "text", value: text.slice(position, earliestStart) });
-    }
-
-    // Add the mark node. `\ ` inside a sub/superscript is Pandoc's way to write
-    // a deliberate space; the backslash is syntax, not content.
-    const rawContent = text.slice(earliestStart + earliestMark.markerLen, earliestEnd);
-    const content = earliestMark.noUnescapedWhitespace
-      ? unescapeWhitespace(rawContent)
-      : rawContent;
-    const markNode = createMarkNode(earliestMark.name as MarkName, content);
-    result.push(markNode);
-
-    // Continue from after the closing marker
-    position = earliestEnd + earliestMark.markerLen;
-  }
-
-  /* v8 ignore next -- @preserve fallback for empty string input; text nodes from parsers are rarely empty */
-  return result.length > 0 ? result : [{ type: "text", value: text }];
-}
-
-function createMarkNode(name: MarkName, content: string): Subscript | Superscript | Highlight | Underline {
-  const children: PhrasingContent[] = parseMarksInText(content);
-
-  switch (name) {
-    case "subscript":
-      return { type: "subscript", children } as Subscript;
-    case "superscript":
-      return { type: "superscript", children } as Superscript;
-    case "highlight":
-      return { type: "highlight", children } as Highlight;
-    case "underline":
-      return { type: "underline", children } as Underline;
-  }
 }

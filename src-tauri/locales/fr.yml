@@ -305,6 +305,8 @@ errors:
   save.noParentDirectory: "Le chemin du fichier n'a pas de dossier parent"
   save.symlinkLoop: "L'alias de ce fichier pointe en boucle, le fichier réel est donc introuvable"
   save.writeFailed: "Impossible d'enregistrer le fichier : %{detail}"
+  window.pdfExportMenu: "Impossible d'attribuer une barre de menus vide à la fenêtre Exporter en PDF : %{detail}"
+  window.pdfExportCreate: "Impossible d'ouvrir la fenêtre Exporter en PDF : %{detail}"
   save.taskFailed: "La tâche d'enregistrement s'est terminée de manière inattendue : %{detail}"
 
   # === Navigateur intégré, navigation de l'IA (browser/ai_commands.rs, WI-14) ===
@@ -405,6 +407,7 @@ errors:
 
 window:
   settings.title: "Réglages"
+  pdfExport.title: "Exporter en PDF"
   print.title: "VMark – Impression"
 
 cli:

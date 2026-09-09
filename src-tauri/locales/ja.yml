@@ -305,6 +305,8 @@ errors:
   save.noParentDirectory: "ファイルパスに親フォルダがありません"
   save.symlinkLoop: "このファイルのエイリアスが循環しているため、実際のファイルが見つかりませんでした"
   save.writeFailed: "ファイルを保存できませんでした: %{detail}"
+  window.pdfExportMenu: "PDF 書き出しウィンドウに空のメニューバーを設定できませんでした: %{detail}"
+  window.pdfExportCreate: "PDF 書き出しウィンドウを開けませんでした: %{detail}"
   save.taskFailed: "保存タスクが予期せず終了しました: %{detail}"
 
   # === 内蔵ブラウザ、AI ナビゲーション（browser/ai_commands.rs、WI-14）===
@@ -405,6 +407,7 @@ errors:
 
 window:
   settings.title: "設定"
+  pdfExport.title: "PDF を書き出す"
   print.title: "VMark 印刷"
 
 cli:

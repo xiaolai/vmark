@@ -42,6 +42,8 @@ import { createProcessor } from "./parser/processorFactory";
 
 // Re-exports for backward compatibility with callers that import directly
 // from this file.
+import { checkNestingDepth } from "./nestingDepth";
+
 export { normalizeBareListMarkers } from "./parser/listNormalization";
 export { createMarkdownProcessor } from "./parser/processorFactory";
 
@@ -61,6 +63,12 @@ export function parseMarkdownToMdast(
   markdown: string,
   options: MarkdownPipelineOptions = {}
 ): Root {
+  // Refuse a document too deeply nested to survive the parse (#1374). Checked
+  // FIRST, on the text as given: remark-gfm's autolink transform recurses once
+  // per tree level inside from-markdown's compile step, so by the time any
+  // VMark code runs the stack is already gone. See nestingDepth.ts.
+  checkNestingDepth(markdown);
+
   // Math source guards (#1180/#1181): rewrite `\[ \]`/`\( \)` to
   // `$`-delimiters and defuse unclosed `$$` fences (pandoc's blank-line
   // rule) before remark sees the text. Document parse only — the

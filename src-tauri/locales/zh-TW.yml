@@ -305,6 +305,8 @@ errors:
   save.noParentDirectory: "檔案路徑沒有上層資料夾"
   save.symlinkLoop: "此檔案的替身指向形成循環，因此找不到真正的檔案"
   save.writeFailed: "無法儲存檔案：%{detail}"
+  window.pdfExportMenu: "無法為匯出 PDF 視窗設定空選單列：%{detail}"
+  window.pdfExportCreate: "無法開啟匯出 PDF 視窗：%{detail}"
   save.taskFailed: "儲存工作意外結束：%{detail}"
 
   # === 內建瀏覽器，AI 導覽（browser/ai_commands.rs，WI-14）===
@@ -405,6 +407,7 @@ errors:
 
 window:
   settings.title: "設定"
+  pdfExport.title: "匯出 PDF"
   print.title: "VMark 列印"
 
 cli:

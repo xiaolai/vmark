@@ -153,6 +153,14 @@
 
 .math-block-preview .katex-display {
   margin: 0;
+  /* #1376. KaTeX places the tag from `\tag` with `position: absolute; right: 0`
+     inside `.katex-html`, which fills `.katex-display`. The preview above is a
+     flex container, so `.katex-display` is a flex ITEM and shrink-wraps to the
+     equation without an explicit width — `right: 0` then resolves to the
+     equation's own right edge and the tag lands on the last term.
+     Centring is unaffected: KaTeX centres display math with its own
+     `text-align: center`, which is what centres it outside a flex parent. */
+  width: 100%;
 }
 
 .math-block-placeholder {

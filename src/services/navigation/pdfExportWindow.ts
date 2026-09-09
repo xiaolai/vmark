@@ -16,7 +16,7 @@
  */
 
 import { invoke } from "@tauri-apps/api/core";
-import { getCurrentWebviewWindow, WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 
 
 const PDF_EXPORT_WIDTH = 440;
@@ -43,11 +43,17 @@ async function calculateCenteredPosition(): Promise<{ x: number; y: number } | n
 }
 
 /**
- * Open the PDF Export window with rendered HTML content.
+ * Open the Export PDF window on freshly rendered HTML.
  *
- * - Writes HTML to a temp file via Rust command
- * - If window already exists, closes and recreates with fresh content
- * - If not, creates a new window centered on the current window
+ * The window itself is built by Rust (`open_pdf_export_window`), NOT here.
+ * Tauri's JS window options carry no `menu` field, and off macOS the menu bar
+ * belongs to each window — so a JS-built dialog inherits the whole application
+ * menu, which is #1377. Rust can pass an empty `Menu::new(app)`, the same way
+ * the Settings window stays bare.
+ *
+ * What stays here is the one measurement Rust cannot take: centring needs the
+ * CALLING window's scale factor and geometry. Physical pixels are converted to
+ * logical ones first, or the dialog lands off-centre on every scaled display.
  */
 export async function openPdfExportWindow(data: {
   renderedHtml: string;
@@ -56,38 +62,18 @@ export async function openPdfExportWindow(data: {
 }): Promise<void> {
   const pos = await calculateCenteredPosition();
 
-  // If PDF Export window already exists, close it so we open fresh content
-  const existing = await WebviewWindow.getByLabel("pdf-export");
-  if (existing) {
-    await existing.close();
-  }
-
-  // Write HTML to temp file so the new window can read it
+  // Written to a temp file rather than passed inline: with embedded images the
+  // HTML runs to megabytes, which is not a URL parameter.
   const htmlPath: string = await invoke("write_temp_html", {
     html: data.renderedHtml,
   });
 
-  // Build URL with params
-  const params = new URLSearchParams();
-  params.set("htmlPath", htmlPath);
-  if (data.defaultName) {
-    params.set("defaultName", data.defaultName);
-  }
-
-  new WebviewWindow("pdf-export", {
-    url: `/pdf-export?${params.toString()}`,
-    title: "Export PDF",
-    width: PDF_EXPORT_WIDTH,
-    height: PDF_EXPORT_HEIGHT,
-    minWidth: 380,
-    minHeight: 480,
-    // Tauri reads `x`/`y` presence to decide between explicit placement and
-    // its own default; passing the keys as `undefined` alongside
-    // `center: true` would hand it a contradictory request.
+  await invoke("open_pdf_export_window", {
+    htmlPath,
+    // Omitted rather than sent empty, so Rust's `Option` means "absent" and not
+    // "present but blank" — and omitted together with `y`, because a position
+    // is only meaningful as a pair. Rust centres the window when none arrives.
+    ...(data.defaultName ? { defaultName: data.defaultName } : {}),
     ...(pos ? { x: pos.x, y: pos.y } : {}),
-    center: !pos,
-    resizable: true,
-    hiddenTitle: true,
-    titleBarStyle: "overlay",
   });
 }

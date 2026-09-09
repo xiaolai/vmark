@@ -306,6 +306,8 @@ errors:
   save.noParentDirectory: "The file path has no containing folder"
   save.symlinkLoop: "This file's alias points in a circle, so the real file could not be found"
   save.writeFailed: "Could not save the file: %{detail}"
+  window.pdfExportMenu: "The Export PDF window could not be given an empty menu bar: %{detail}"
+  window.pdfExportCreate: "The Export PDF window could not be opened: %{detail}"
   save.taskFailed: "The save task ended unexpectedly: %{detail}"
 
   # === Embedded browser, AI navigation (browser/ai_commands.rs, WI-14) ===
@@ -406,6 +408,7 @@ errors:
 
 window:
   settings.title: "Settings"
+  pdfExport.title: "Export PDF"
   print.title: "VMark Print"
 
 cli:

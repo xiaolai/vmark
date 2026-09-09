@@ -305,6 +305,8 @@ errors:
   save.noParentDirectory: "Der Dateipfad hat keinen übergeordneten Ordner"
   save.symlinkLoop: "Der Alias dieser Datei verweist im Kreis, daher wurde die eigentliche Datei nicht gefunden"
   save.writeFailed: "Datei konnte nicht gespeichert werden: %{detail}"
+  window.pdfExportMenu: "Das Export-PDF-Fenster konnte keine leere Menüleiste erhalten: %{detail}"
+  window.pdfExportCreate: "Das Export-PDF-Fenster konnte nicht geöffnet werden: %{detail}"
   save.taskFailed: "Der Speichervorgang wurde unerwartet beendet: %{detail}"
 
   # === Integrierter Browser, KI-Navigation (browser/ai_commands.rs, WI-14) ===
@@ -405,6 +407,7 @@ errors:
 
 window:
   settings.title: "Einstellungen"
+  pdfExport.title: "PDF exportieren"
   print.title: "VMark – Drucken"
 
 cli:

@@ -305,6 +305,8 @@ errors:
   save.noParentDirectory: "La ruta del archivo no tiene carpeta contenedora"
   save.symlinkLoop: "El alias de este archivo apunta en círculo, así que no se encontró el archivo real"
   save.writeFailed: "No se pudo guardar el archivo: %{detail}"
+  window.pdfExportMenu: "No se pudo asignar una barra de menús vacía a la ventana Exportar PDF: %{detail}"
+  window.pdfExportCreate: "No se pudo abrir la ventana Exportar PDF: %{detail}"
   save.taskFailed: "La tarea de guardado terminó inesperadamente: %{detail}"
 
   # === Navegador integrado, navegación de la IA (browser/ai_commands.rs, WI-14) ===
@@ -405,6 +407,7 @@ errors:
 
 window:
   settings.title: "Ajustes"
+  pdfExport.title: "Exportar PDF"
   print.title: "VMark: imprimir"
 
 cli:
