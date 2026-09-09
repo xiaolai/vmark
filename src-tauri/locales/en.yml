@@ -192,6 +192,7 @@ menu:
   view.fileExplorer: "Toggle File Explorer"
   view.history: "Toggle History"
   view.knowledgeBase: "Toggle Knowledge Base"
+  view.windowStatus: "Toggle Window Status"
   view.terminal: "Toggle Terminal"
   view.checkMarkdown: "Check Markdown"
   view.lintNext: "Next Issue"
@@ -200,7 +201,6 @@ menu:
   # === Window menu ===
   window: "Window"
   window.bringAllToFront: "Bring All to Front"
-  window.status: "Window Status"
   window.breakdown: "Coherence Breakdown"
 
   # === Help menu ===

@@ -245,7 +245,7 @@ The gesture is direction-locked: horizontal movement starts a reorder, while ver
 
 ### Window Status Panel
 
-When you run Claude Code across several windows, **Window > Window Status** (also in the command palette, or press `Ctrl + Shift + 5`) opens a panel that lists every other open window with its live status and lets you jump straight to it.
+When you run Claude Code across several windows, **View > Toggle Window Status** (also in the command palette, or press `Ctrl + Shift + 5`) opens a panel that lists every other open window with its live status and lets you jump straight to it.
 
 Each row shows the window's document name and its current status:
 

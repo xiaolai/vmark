@@ -192,6 +192,7 @@ menu:
   view.fileExplorer: "ファイルエクスプローラーの表示切替"
   view.history: "履歴の表示切替"
   view.knowledgeBase: "ナレッジベースの表示切替"
+  view.windowStatus: "ウィンドウの状態の表示切替"
   view.terminal: "ターミナルの表示切替"
   view.checkMarkdown: "Markdown をチェック"
   view.lintNext: "次の問題"
@@ -199,7 +200,6 @@ menu:
   # === ウィンドウメニュー ===
   window: "ウィンドウ"
   window.bringAllToFront: "すべてのウィンドウを前面へ"
-  window.status: "ウィンドウの状態"
   window.breakdown: "整合性の内訳"
 
   # === ヘルプメニュー ===

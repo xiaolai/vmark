@@ -192,6 +192,7 @@ menu:
   view.fileExplorer: "切换文件浏览器"
   view.history: "切换历史记录"
   view.knowledgeBase: "切换知识库"
+  view.windowStatus: "切换窗口状态"
   view.terminal: "切换终端"
   view.checkMarkdown: "检查 Markdown"
   view.lintNext: "下一个问题"
@@ -199,7 +200,6 @@ menu:
   # === 窗口菜单 ===
   window: "窗口"
   window.bringAllToFront: "将全部窗口置于前方"
-  window.status: "窗口状态"
   window.breakdown: "一致性明细"
 
   # === 帮助菜单 ===

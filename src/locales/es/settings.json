@@ -614,7 +614,7 @@
   "shortcuts.label.fileExplorer": "Mostrar/ocultar explorador de archivos",
   "shortcuts.label.viewHistory": "Mostrar/ocultar historial",
   "shortcuts.label.knowledgeBase": "Mostrar/ocultar base de conocimiento",
-  "shortcuts.label.windowStatus": "Estado de ventanas",
+  "shortcuts.label.windowStatus": "Mostrar/ocultar estado de ventanas",
   "shortcuts.label.sourceMode": "Modo fuente",
   "shortcuts.label.toggleStatusBar": "Mostrar/ocultar barra de estado",
   "shortcuts.label.focusMode": "Modo enfoque",

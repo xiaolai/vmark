@@ -192,6 +192,7 @@ menu:
   view.fileExplorer: "파일 탐색기 전환"
   view.history: "기록 전환"
   view.knowledgeBase: "지식 베이스 전환"
+  view.windowStatus: "창 상태 전환"
   view.terminal: "터미널 전환"
   view.checkMarkdown: "Markdown 검사"
   view.lintNext: "다음 문제"
@@ -199,7 +200,6 @@ menu:
   # === 창 메뉴 ===
   window: "창"
   window.bringAllToFront: "모든 창 앞으로 가져오기"
-  window.status: "창 상태"
   window.breakdown: "정합성 내역"
 
   # === 도움말 메뉴 ===

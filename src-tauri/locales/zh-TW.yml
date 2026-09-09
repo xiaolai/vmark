@@ -192,6 +192,7 @@ menu:
   view.fileExplorer: "切換檔案總管"
   view.history: "切換歷史紀錄"
   view.knowledgeBase: "切換知識庫"
+  view.windowStatus: "切換視窗狀態"
   view.terminal: "切換終端機"
   view.checkMarkdown: "檢查 Markdown"
   view.lintNext: "下一個問題"
@@ -199,7 +200,6 @@ menu:
   # === 視窗選單 ===
   window: "視窗"
   window.bringAllToFront: "將全部移至最前"
-  window.status: "視窗狀態"
   window.breakdown: "一致性明細"
 
   # === 輔助說明選單 ===

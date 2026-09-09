@@ -614,7 +614,7 @@
   "shortcuts.label.fileExplorer": "Alternar explorador de arquivos",
   "shortcuts.label.viewHistory": "Alternar histórico",
   "shortcuts.label.knowledgeBase": "Alternar base de conhecimento",
-  "shortcuts.label.windowStatus": "Status das janelas",
+  "shortcuts.label.windowStatus": "Alternar status das janelas",
   "shortcuts.label.sourceMode": "Modo de código-fonte",
   "shortcuts.label.toggleStatusBar": "Alternar barra de status",
   "shortcuts.label.focusMode": "Modo de foco",

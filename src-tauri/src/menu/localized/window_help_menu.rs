@@ -8,15 +8,9 @@
 use rust_i18n::t;
 use tauri::menu::{IsMenuItem, MenuItem, PredefinedMenuItem, Submenu};
 
-#[cfg(target_os = "macos")]
-use super::AccelFn;
-
 /// Build the macOS Window menu.
 #[cfg(target_os = "macos")]
-pub(super) fn build_window_menu(
-    app: &tauri::AppHandle,
-    accel: &AccelFn,
-) -> tauri::Result<Submenu<tauri::Wry>> {
+pub(super) fn build_window_menu(app: &tauri::AppHandle) -> tauri::Result<Submenu<tauri::Wry>> {
     Submenu::with_id_and_items(
         app,
         "window-menu",
@@ -26,13 +20,6 @@ pub(super) fn build_window_menu(
             &PredefinedMenuItem::minimize(app, None)?,
             &PredefinedMenuItem::maximize(app, None)?,
             &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(
-                app,
-                "window-status",
-                &t!("menu.window.status"),
-                true,
-                accel("window-status", "Ctrl+Shift+5"),
-            )?,
             &MenuItem::with_id(
                 app,
                 "breakdown",

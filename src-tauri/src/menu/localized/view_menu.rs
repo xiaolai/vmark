@@ -207,6 +207,13 @@ pub(super) fn build(app: &tauri::AppHandle, accel: &AccelFn) -> tauri::Result<Su
             )?,
             &MenuItem::with_id(
                 app,
+                "window-status",
+                &t!("menu.view.windowStatus"),
+                true,
+                accel("window-status", "Ctrl+Shift+5"),
+            )?,
+            &MenuItem::with_id(
+                app,
                 "toggle-terminal",
                 &t!("menu.view.terminal"),
                 true,

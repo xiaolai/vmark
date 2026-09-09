@@ -614,7 +614,7 @@
   "shortcuts.label.fileExplorer": "切換檔案總管",
   "shortcuts.label.viewHistory": "切換歷史紀錄",
   "shortcuts.label.knowledgeBase": "切換知識庫",
-  "shortcuts.label.windowStatus": "視窗狀態",
+  "shortcuts.label.windowStatus": "切換視窗狀態",
   "shortcuts.label.sourceMode": "原始碼模式",
   "shortcuts.label.toggleStatusBar": "切換狀態列",
   "shortcuts.label.focusMode": "專注模式",
