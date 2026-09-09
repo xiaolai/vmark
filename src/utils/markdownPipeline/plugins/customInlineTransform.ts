@@ -51,9 +51,50 @@ function transformCustomMarks(tree: Root): void {
   walkAndReplace(tree);
 }
 
-function walkAndReplace(node: Root | PhrasingContent | { children?: unknown[] }): void {
-  if (isSkippableNode(node)) return;
-  if (!("children" in node) || !Array.isArray(node.children)) return;
+/**
+ * Apply the mark transform to every node, deepest first.
+ *
+ * Iterative because this used to recurse once per non-text child, and the
+ * weekly pathological soak has been failing on exactly that since 2026-08-17:
+ *
+ *   Error: [MarkdownPipeline] Parse failed: Maximum call stack size exceeded
+ *   Input preview: "*a **a *a **a *a **a *a **a …"
+ *
+ * `*a **a ` repeated N times nests N deep, so the walk cost N frames. It was
+ * MARGINAL rather than reliably broken — three consecutive runs on identical
+ * input gave ok, overflow, ok — which is why the job reads as flaky.
+ *
+ * Two phases, because the per-node work is POST-order: `parseMarksAcrossChildren`
+ * has to see children that are already final. Collecting in preorder and then
+ * processing in reverse gives that, since a node is always discovered before
+ * its descendants and therefore processed after them.
+ *
+ * Nodes created by `parseMarksInText` are deliberately not collected — the
+ * recursive version never descended into them either, and they are built from
+ * a text value that has already been fully scanned.
+ */
+function walkAndReplace(root: Root | PhrasingContent | { children?: unknown[] }): void {
+  const order: { children?: unknown[] }[] = [];
+  const stack: { children?: unknown[] }[] = [root as { children?: unknown[] }];
+
+  while (stack.length > 0) {
+    const node = stack.pop() as { children?: unknown[] };
+    if (isSkippableNode(node)) continue;
+    if (!("children" in node) || !Array.isArray(node.children)) continue;
+    order.push(node);
+    // Text children are handled by the owning node, never descended into.
+    for (let i = node.children.length - 1; i >= 0; i -= 1) {
+      const child = node.children[i];
+      if (!isTextNode(child)) stack.push(child as { children?: unknown[] });
+    }
+  }
+
+  for (let i = order.length - 1; i >= 0; i -= 1) applyMarksToNode(order[i]);
+}
+
+/** The per-node half of the walk: children are already final when this runs. */
+function applyMarksToNode(node: { children?: unknown[] }): void {
+  if (!Array.isArray(node.children)) return;
 
   const newChildren: unknown[] = [];
   let modified = false;
@@ -68,7 +109,7 @@ function walkAndReplace(node: Root | PhrasingContent | { children?: unknown[] })
         modified = true;
       }
     } else {
-      walkAndReplace(child as { children?: unknown[] });
+      // Already processed: this node is reached only after its descendants.
       newChildren.push(child);
     }
   }

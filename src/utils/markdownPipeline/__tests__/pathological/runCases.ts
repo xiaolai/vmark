@@ -31,6 +31,7 @@ import { getSchema } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import "../../dialect";
 import { parseMarkdown, serializeMarkdown } from "../../adapter";
+import { isNestingTooDeep } from "../../nestingDepth";
 import { pathologicalCases } from "./pathologicalCases";
 
 if (process.env.HANG_PROBE === "1") {
@@ -46,7 +47,26 @@ const schema = getSchema([StarterKit]);
 for (const testCase of pathologicalCases(scale)) {
   console.log(JSON.stringify({ name: testCase.name, starting: true }));
   const t0 = performance.now();
-  const doc = parseMarkdown(schema, testCase.markdown);
+  let doc;
+  try {
+    doc = parseMarkdown(schema, testCase.markdown);
+  } catch (error) {
+    // A nesting refusal is a PASS here, and the only tolerated throw. This
+    // suite's contract is liveness — no hang, no stack overflow — and the
+    // guard added for #1374 satisfies it deliberately rather than by luck.
+    // At scale 1 `deep-blockquotes` is 500 levels and parses; at the soak's
+    // scale 8 it is 4000 and is refused. Any OTHER error still propagates and
+    // fails the run, which is what keeps this from swallowing real defects.
+    if (!isNestingTooDeep(error)) throw error;
+    console.log(
+      JSON.stringify({
+        name: testCase.name,
+        refusedMs: Math.round(performance.now() - t0),
+        refused: "nesting",
+      }),
+    );
+    continue;
+  }
   const parseMs = performance.now() - t0;
   let serializeMs = 0;
   if (testCase.serialize) {
