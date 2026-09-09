@@ -305,6 +305,8 @@ errors:
   save.noParentDirectory: "文件路径没有上级文件夹"
   save.symlinkLoop: "此文件的替身指向形成循环，因此找不到真正的文件"
   save.writeFailed: "无法保存文件：%{detail}"
+  window.pdfExportMenu: "无法为导出 PDF 窗口设置空菜单栏：%{detail}"
+  window.pdfExportCreate: "无法打开导出 PDF 窗口：%{detail}"
   save.taskFailed: "保存任务意外结束：%{detail}"
 
   # === 内置浏览器，AI 导航（browser/ai_commands.rs，WI-14）===
@@ -405,6 +407,7 @@ errors:
 
 window:
   settings.title: "设置"
+  pdfExport.title: "导出 PDF"
   print.title: "VMark 打印"
 
 cli:

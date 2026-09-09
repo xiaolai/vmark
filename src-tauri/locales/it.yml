@@ -305,6 +305,8 @@ errors:
   save.noParentDirectory: "Il percorso del file non ha una cartella superiore"
   save.symlinkLoop: "L'alias di questo file punta in circolo, quindi il file reale non è stato trovato"
   save.writeFailed: "Impossibile salvare il file: %{detail}"
+  window.pdfExportMenu: "Impossibile assegnare una barra dei menu vuota alla finestra Esporta PDF: %{detail}"
+  window.pdfExportCreate: "Impossibile aprire la finestra Esporta PDF: %{detail}"
   save.taskFailed: "L'attività di salvataggio è terminata in modo imprevisto: %{detail}"
 
   # === Browser integrato, navigazione dell'IA (browser/ai_commands.rs, WI-14) ===
@@ -405,6 +407,7 @@ errors:
 
 window:
   settings.title: "Impostazioni"
+  pdfExport.title: "Esporta PDF"
   print.title: "VMark – Stampa"
 
 cli:

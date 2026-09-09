@@ -305,6 +305,8 @@ errors:
   save.noParentDirectory: "파일 경로에 상위 폴더가 없습니다"
   save.symlinkLoop: "이 파일의 별칭이 순환하고 있어 실제 파일을 찾을 수 없습니다"
   save.writeFailed: "파일을 저장하지 못했습니다: %{detail}"
+  window.pdfExportMenu: "PDF 내보내기 창에 빈 메뉴 막대를 설정하지 못했습니다: %{detail}"
+  window.pdfExportCreate: "PDF 내보내기 창을 열지 못했습니다: %{detail}"
   save.taskFailed: "저장 작업이 예기치 않게 종료되었습니다: %{detail}"
 
   # === 내장 브라우저, AI 탐색 (browser/ai_commands.rs, WI-14) ===
@@ -405,6 +407,7 @@ errors:
 
 window:
   settings.title: "설정"
+  pdfExport.title: "PDF 내보내기"
   print.title: "VMark 인쇄"
 
 cli:
