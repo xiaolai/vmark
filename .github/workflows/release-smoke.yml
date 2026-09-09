@@ -290,6 +290,53 @@ jobs:
             'Registry::HKEY_CURRENT_USER\Software\Classes\.txt\ShellNew'
           )
 
+          # Every extension VMark claims. This job does no checkout, so the list
+          # is literal here; release-smoke-windows-installer.test.mjs reads
+          # tauri.conf.json and fails if the two disagree, in both directions.
+          # It is the WHOLE list rather than .txt alone because the defect this
+          # catches is per-extension: the uninstaller writes an empty ProgID
+          # into HKCU for each one, and .html/.htm/.svg/.json also commonly have
+          # a machine-wide handler to shadow.
+          $assocExts = @(
+            'md','markdown','mdown','mkd','mdx','txt','json','jsonl',
+            'yaml','yml','toml','mmd','svg','html','htm'
+          )
+
+          # The merged HKCR default ProgID per claimed extension. A missing key
+          # and a missing value both read as '', which is what we want: the
+          # assertion is round-trip equality, not presence, so an extension with
+          # no handler on this runner simply compares '' to ''.
+          function Get-AssocDefaults {
+            $out = @{}
+            foreach ($ext in $assocExts) {
+              $key = "Registry::HKEY_CLASSES_ROOT\.$ext"
+              $value = if (Test-Path $key) { (Get-ItemProperty $key).'(default)' } else { $null }
+              $out[$ext] = [string]$value
+            }
+            return $out
+          }
+
+          function Assert-AssocRestored($before, [string]$stage) {
+            $after = Get-AssocDefaults
+            $broken = @()
+            foreach ($ext in $assocExts) {
+              if ($after[$ext] -ne $before[$ext]) {
+                $broken += ".$ext '$($before[$ext])' -> '$($after[$ext])'"
+              }
+            }
+            if ($broken.Count -gt 0) {
+              # Each on its own line BEFORE the throw. PowerShell truncates a
+              # long exception message with an ellipsis, which on the v0.9.66
+              # measurement cut the list off after the second entry and hid the
+              # real blast radius — the throw carries the count, the log carries
+              # the evidence.
+              Write-Host "::error::${stage}: uninstall changed $($broken.Count) file association(s) it does not own"
+              foreach ($line in $broken) { Write-Host "  $line" }
+              throw "${stage}: uninstall changed $($broken.Count) of $($assocExts.Count) file associations it does not own (listed above)"
+            }
+            Write-Host "${stage}: all $($assocExts.Count) claimed associations unchanged"
+          }
+
           # Tauri's NSIS template writes the uninstall entry under
           # Software\Microsoft\Windows\CurrentVersion\Uninstall\<productName>,
           # in HKCU for the default currentUser install mode.
@@ -341,8 +388,8 @@ jobs:
             Write-Host "uninstalled cleanly"
           }
 
-          $defaultBefore = (Get-ItemProperty $hkcrTxt).'(default)'
-          Write-Host "HKCR\.txt (default) before: '$defaultBefore'"
+          $assocBefore = Get-AssocDefaults
+          Write-Host "HKCR\.txt (default) before: '$($assocBefore['txt'])'"
           Assert-ShellNew 'before install'
 
           # Cycle 1 - plain: the uninstaller must leave the system as it found it.
@@ -350,10 +397,7 @@ jobs:
           Assert-ShellNew 'after install'
           Uninstall-Silently $entry
           Assert-ShellNew 'after uninstall (cycle 1)'
-          $defaultAfter = (Get-ItemProperty $hkcrTxt).'(default)'
-          if ($defaultAfter -ne $defaultBefore) {
-            throw "uninstall changed the .txt association: '$defaultBefore' -> '$defaultAfter'"
-          }
+          Assert-AssocRestored $assocBefore 'after uninstall (cycle 1)'
 
           # Cycle 2 - the #1142 damage, then the hook: delete ShellNew wherever it
           # lives, uninstall, and require it back. Only the POSTUNINSTALL hook
@@ -366,3 +410,4 @@ jobs:
           Write-Host "removed .txt\ShellNew (the #1142 damage)"
           Uninstall-Silently $entry
           Assert-ShellNew 'after uninstall (cycle 2): restored by the POSTUNINSTALL hook'
+          Assert-AssocRestored $assocBefore 'after uninstall (cycle 2)'

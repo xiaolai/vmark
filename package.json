@@ -199,7 +199,7 @@
       "ws": ">=8.21.0 <9",
       "fast-uri": ">=3.1.4 <5",
       "@modelcontextprotocol/sdk": ">=1.27.1 <2",
-      "hono": ">=4.12.7 <5",
+      "hono": ">=4.13.5 <5",
       "@hono/node-server": ">=1.19.10 <3",
       "express-rate-limit": ">=8.2.2 <9",
       "lodash": ">=4.18.0 <5",
@@ -213,7 +213,10 @@
       "dompurify": ">=3.3.2 <4",
       "qs": ">=6.14.2 <7",
       "picomatch": ">=4.0.4 <5",
-      "path-to-regexp": ">=8.4.0 <9"
+      "path-to-regexp": ">=8.4.0 <9",
+      "js-yaml@3": ">=3.15.2 <4",
+      "js-yaml@4": ">=4.3.2 <5",
+      "baseline-browser-mapping": ">=2.11.0 <3"
     }
   },
   "devDependencies": {
@@ -233,9 +236,9 @@
     "@types/react-dom": "^19.2.4",
     "@types/turndown": "^5.0.6",
     "@vitejs/plugin-react": "^6.0.5",
-    "@vitest/browser": "^4.1.10",
-    "@vitest/browser-playwright": "^4.1.10",
-    "@vitest/coverage-v8": "^4.1.10",
+    "@vitest/browser": "^4.1.11",
+    "@vitest/browser-playwright": "^4.1.11",
+    "@vitest/coverage-v8": "^4.1.11",
     "dependency-cruiser": "^18.2.0",
     "eslint": "^10.8.1",
     "eslint-plugin-react-hooks": "^7.1.1",
@@ -253,7 +256,7 @@
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.67.0",
     "vite": "^8.2.1",
-    "vitest": "^4.1.10",
+    "vitest": "^4.1.11",
     "vitest-axe": "0.1.0"
   }
 }

@@ -106,16 +106,60 @@ fn zdotdir_none_for_nonexistent_shell() {
 /// bound, roughly 3× headroom to 64×. The marker below is the part that does
 /// not depend on that being right: whatever the cause, the next occurrence
 /// names itself instead of being blamed on the round-trip.
+///
+/// # It is also the ETXTBSY readiness gate, and on Linux that is its whole job
+///
+/// CI's ubuntu leg failed here on 2026-09-09 with
+/// `Os { code: 26, kind: ExecutableFileBusy }` while macOS and Windows passed.
+/// That is the fork/exec race, not a broken fixture: `execve` returns ETXTBSY
+/// while ANY process holds the file open for writing, and the writer here is
+/// gone by this point (`drop(f)` precedes the call). The holder is a *forked
+/// child of a sibling test* — `Command::spawn` forks, the child inherits every
+/// descriptor including our still-open write fd, and although Rust opens files
+/// `O_CLOEXEC` so the copy dies at the child's own `execve`, it is open for the
+/// window between its `fork` and that `execve`. The cargo test harness runs
+/// these tests on parallel threads, so that window overlaps ours.
+///
+/// The condition is therefore transient BY CONSTRUCTION — it clears when a
+/// child that already exists finishes exec'ing, and nothing in this process can
+/// reopen the fixture for writing afterwards — so retrying is not papering over
+/// a defect. It is also why this helper must keep running on Linux even though
+/// the macOS cold-start cost above does not exist there: a SUCCESSFUL exec here
+/// proves no writer remains, which is what makes the real capture below safe.
+/// Panicking on the first ETXTBSY, as this did, converts a self-clearing race
+/// into a red build.
 #[cfg(unix)]
 fn warm_exec(shell: &std::path::Path) {
-    let status = std::process::Command::new(shell)
-        .arg("--vmark-warmup")
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()
-        .expect("warm-up exec of the fixture shell");
-    assert!(status.success(), "warm-up exec failed: {status:?}");
+    // Bounded, and generous against a window that is normally sub-millisecond:
+    // the child holding the descriptor is already running and only has to reach
+    // its own execve. A cap rather than a spin so a genuinely busy file — a
+    // real defect — still fails instead of hanging the suite.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    loop {
+        let result = std::process::Command::new(shell)
+            .arg("--vmark-warmup")
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status();
+        match result {
+            Ok(status) => {
+                assert!(status.success(), "warm-up exec failed: {status:?}");
+                return;
+            }
+            // ETXTBSY is 26 on both Linux and macOS; matched by raw errno
+            // because `ErrorKind::ExecutableFileBusy` is not stable.
+            Err(e) if e.raw_os_error() == Some(libc::ETXTBSY) => {
+                assert!(
+                    std::time::Instant::now() < deadline,
+                    "fixture shell still ETXTBSY after 5s — a writer that never \
+                     closed, not the fork/exec race this retries for"
+                );
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+            Err(e) => panic!("warm-up exec of the fixture shell: {e:?}"),
+        }
+    }
 }
 
 /// Write a fake login "shell" that ignores its args, prints `body`, and
@@ -167,6 +211,72 @@ fn write_fake_shell(
         "the warm-up must not count as a run, or the marker proves nothing"
     );
     (shell, ran)
+}
+
+/// The ETXTBSY retry, exercised against a REAL ETXTBSY.
+///
+/// # Linux only, and that is measured rather than assumed
+///
+/// **macOS does not enforce ETXTBSY**, so this cannot run there. Measured on
+/// 2026-09-09 with a standalone probe: holding a write descriptor open on an
+/// executable and then `execve`-ing it returns `Ok(ExitStatus(0))` on macOS,
+/// while the same condition is what failed CI's ubuntu leg with
+/// `Os { code: 26 }`. A `cfg(unix)` version of this test therefore asserts
+/// nothing on the development machine — worse than nothing, as below.
+///
+/// # Why the fixture is warmed BEFORE the descriptor is held
+///
+/// The first version measured elapsed time across a COLD exec and passed with
+/// the retry disabled: macOS's cold-start evaluation (the cost `warm_exec`'s
+/// header documents at p50 409 ms) alone exceeded the threshold, so the timing
+/// assertion was satisfied by the very latency this helper exists to remove.
+/// Warming first puts that cost outside the measured window, leaving the retry
+/// as the only thing a wait can be attributed to.
+///
+/// The elapsed-time assertion is the load-bearing half: without it this passes
+/// whether or not ETXTBSY ever occurred, which is the shape of false pass this
+/// file already documents twice.
+#[cfg(target_os = "linux")]
+#[test]
+fn warm_exec_retries_through_etxtbsy() {
+    use std::io::Write;
+    use std::os::unix::fs::PermissionsExt;
+
+    let dir = tempfile::tempdir().unwrap();
+    let shell = dir.path().join("busyshell");
+    let mut f = std::fs::File::create(&shell).unwrap();
+    write!(f, "#!/bin/sh\nexit 0\n").unwrap();
+    drop(f);
+    std::fs::set_permissions(&shell, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+    // Pay any first-exec cost now, with no writer held, so it cannot be
+    // mistaken for retry latency below.
+    warm_exec(&shell);
+
+    // Hold the file open for writing — precisely what execve refuses.
+    let writer = std::fs::OpenOptions::new()
+        .write(true)
+        .open(&shell)
+        .unwrap();
+    let hold = std::time::Duration::from_millis(300);
+    let releaser = std::thread::spawn(move || {
+        std::thread::sleep(hold);
+        drop(writer);
+    });
+
+    let started = std::time::Instant::now();
+    warm_exec(&shell); // must retry, not panic
+    let waited = started.elapsed();
+    releaser.join().unwrap();
+
+    // Proves the retry loop actually ran. Compared against most of the hold
+    // rather than all of it, so scheduler jitter around the release cannot
+    // fail a working retry.
+    assert!(
+        waited >= hold / 2,
+        "warm_exec returned in {waited:?} while the file was held open for \
+         writing — ETXTBSY was never produced, so the retry path is untested"
+    );
 }
 
 #[cfg(unix)]

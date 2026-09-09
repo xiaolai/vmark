@@ -333,24 +333,10 @@ export const MANIFEST = {
       checks: [{ mode: "custom", comparator: "tsFidelityLedger", onAdd: "report" }],
     },
   ],
-  allowRaise: [
-    // 2026-09-07: check-command-error-ratchet learned the imported `#[command]`
-    // attribute form (17 sites). These three files were legacy all along and
-    // simply invisible — additions of visibility, not regressions (the
-    // baseline's own header note). Each is a NEW key under onAdd "fail", i.e.
-    // a raise from 0; delete these once the base carries them.
-    ...[
-      ["src-tauri/src/ai_provider/mod.rs", 1],
-      ["src-tauri/src/ai_provider/rest_api.rs", 3],
-      ["src-tauri/src/pandoc/commands.rs", 1],
-    ].map(([file, count]) => ({
-      path: "scripts/command-error-baseline.json",
-      key: `files.${file}`,
-      from: 0,
-      to: count,
-      reason:
-        "re-measurement: the gate started seeing the imported `#[command]` attribute form; " +
-        "this file's legacy signatures existed before and were invisible, not introduced",
-    })),
-  ],
+  // Empty by design. An entry here permits exactly ONE re-measurement and is
+  // deleted by the PR that follows the one carrying it — the 2026-09-07 entries
+  // for the three `#[command]`-visibility files in command-error-baseline.json
+  // expired when 76589b510 landed those counts, which is the gate reporting
+  // them stale rather than anyone remembering.
+  allowRaise: [],
 };
