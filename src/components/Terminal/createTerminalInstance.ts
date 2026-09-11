@@ -31,8 +31,9 @@
  *   - Lifecycle concerns are split into focused helpers, each returning a
  *     cleanup hook the factory calls in dispose():
  *       * setupImeCompositionGate — Channel Ownership IME handling (one writer)
- *       * setupWebglRenderer   — WebGL addon, atlas bounding (#856),
- *         dual-layer context-loss recovery, MutationObserver, resetDisplay
+ *       * setupWebglRenderer   — WebGL addon, dual-layer context-loss
+ *         recovery, MutationObserver, resetDisplay + its cross-terminal
+ *         shared-atlas broadcast (#856)
  *       * setupWebLinks        — sandboxed web-link click handler
  *       * setupFileLinks       — file-link click handler with size guard
  *       * setupOsc7            — OSC 7 cwd tracking (exposes getCwd)
@@ -112,9 +113,12 @@ export interface TerminalInstance {
   noteExternalWrite: (data: string) => void;
   /**
    * User-triggered "redraw the terminal" action (#856). Clears the WebGL
-   * texture atlas (if WebGL is active) and re-paints the viewport. Safe to
-   * call when the WebGL addon is absent or already disposed — it then
-   * just refreshes the viewport via the DOM renderer.
+   * texture atlas (if WebGL is active) and re-paints the viewport, then
+   * tells every other live WebGL terminal to drop its model — the atlas is
+   * shared between them, so clearing it behind their backs would leave them
+   * rendering other terminals' glyphs. Safe to call when the WebGL addon is
+   * absent or already disposed — it then just refreshes the viewport via the
+   * DOM renderer, and broadcasts nothing.
    */
   resetDisplay: () => void;
   /** The shell's last-reported cwd via OSC 7, or null if never reported (WI-2.1). */
