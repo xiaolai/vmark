@@ -1,17 +1,28 @@
 /**
  * setupWebglRenderer
  *
- * Purpose: Wires the xterm.js WebGL addon onto a Terminal with the bounded-
- * atlas, robust-context-loss, and reset-display behavior introduced for #856.
+ * Purpose: Wires the xterm.js WebGL addon onto a Terminal with robust
+ * context-loss recovery and a reset-display escape hatch (#856).
  * Returns the public surface (resetDisplay) and a cleanup hook for dispose.
  *
  * Key decisions:
- *   - Atlas page count is bounded via onAddTextureAtlasCanvas /
- *     onRemoveTextureAtlasCanvas (#856). Once the count crosses
- *     ATLAS_PAGE_LIMIT the atlas is cleared and the count resets, so
- *     long sessions with heavily styled output (chalk-painted CLIs +
- *     minimumContrastRatio) cannot grow GPU memory unboundedly and
- *     produce glyph corruption.
+ *   - The texture atlas is SHARED between terminals. xterm's CharAtlasCache
+ *     is a module-global keyed by render config, so every terminal in this
+ *     window with the same font/theme/DPR draws from ONE TextureAtlas.
+ *     clearTextureAtlas() wipes that shared atlas but clears only the
+ *     CALLING renderer's model. A sibling is left holding texture
+ *     coordinates into an atlas that has been emptied and repacked with
+ *     unrelated glyphs, while its per-cell "nothing changed" check refuses
+ *     to repaint those cells — so it renders OTHER characters, permanently,
+ *     until something forces a full redraw. Two rules follow:
+ *       (a) nothing may clear the atlas unprompted, and
+ *       (b) whoever clears it must tell every other live renderer to drop
+ *           its model too. See liveRenderers below.
+ *     This replaces the page-count bounding added for #856, which violated
+ *     (a): it cleared the shared atlas automatically, reentrantly from
+ *     inside xterm's per-cell model loop, and never achieved its stated goal
+ *     — clearTexture() empties pages but never removes them, so page count
+ *     grew anyway. Upstream's own _mergePages already bounds it correctly.
  *   - Context loss is detected at TWO layers: the addon's onContextLoss
  *     callback and a DOM-level webglcontextlost listener on each render
  *     canvas. VS Code's microsoft/vscode#120393 documents that the addon
@@ -24,8 +35,8 @@
  *     DOM renderer takes over automatically (the canvas addon was
  *     removed in 6.0, so DOM is the only fallback).
  *   - resetDisplay() is the user-facing escape hatch: it clears the
- *     atlas and refreshes the viewport. Safe to call when WebGL is
- *     disabled or has already lost context.
+ *     atlas, re-paints the viewport, and broadcasts per rule (b). Safe to
+ *     call when WebGL is disabled or has already lost context.
  *
  * @coordinates-with createTerminalInstance.ts — sole caller
  * @module components/Terminal/setupWebglRenderer
@@ -35,20 +46,26 @@ import { WebglAddon } from "@xterm/addon-webgl";
 import { terminalLog } from "@/utils/debug";
 
 /**
- * Maximum WebGL texture-atlas pages permitted before forcing a clear (#856).
- * xterm allocates a new 512×512 page each time the current pages can't fit
- * a new (glyph + style + fg + bg) combination. With minimumContrastRatio's
- * per-cell foreground lift active, heavily styled output multiplies unique
- * combinations and can grow the atlas indefinitely, producing glyph
- * corruption. 4 pages is xterm.js' own merging trigger heuristic.
+ * Every live renderer in this JS realm that draws from the shared texture
+ * atlas. Module-level on purpose: it mirrors the scope of the thing being
+ * shared — xterm's CharAtlasCache is a module-global too, so the set of
+ * terminals that can poison each other is exactly the set reachable here.
+ *
+ * Terminals running the DOM renderer (WebGL disabled, or construction
+ * failed) never join: they neither read from nor write to the atlas.
+ * A terminal that has LOST its context stays registered — its sync degrades
+ * to a harmless viewport refresh, and staying registered keeps the
+ * bookkeeping symmetric with cleanup().
  */
-export const ATLAS_PAGE_LIMIT = 4;
+const liveRenderers = new Set<{ syncAfterAtlasClear: () => void }>();
 
 /** Public surface returned by setupWebglRenderer to the factory. */
 export interface WebglRendererHandle {
   /**
-   * Manually clears the WebGL texture atlas (if active) and re-paints the
-   * viewport. Safe to call when WebGL is disabled or already disposed.
+   * Manually clears the WebGL texture atlas (if active), re-paints the
+   * viewport, and tells every other live WebGL terminal to drop its model
+   * so it re-resolves its glyphs against the repacked atlas. Safe to call
+   * when WebGL is disabled or already disposed.
    */
   resetDisplay: () => void;
   /** Tear down all listeners. Idempotent. */
@@ -63,13 +80,12 @@ interface SetupOptions {
 }
 
 /**
- * Attach the WebGL addon (when enabled) plus atlas bounding, context-loss
- * recovery, and a canvas-replacement observer. Returns a handle exposing
- * resetDisplay() and a cleanup hook.
+ * Attach the WebGL addon (when enabled) plus context-loss recovery and a
+ * canvas-replacement observer. Returns a handle exposing resetDisplay() and
+ * a cleanup hook.
  */
 export function setupWebglRenderer({ term, container, enabled }: SetupOptions): WebglRendererHandle {
   let webglAddon: WebglAddon | null = null;
-  let atlasPageCount = 0;
   const domCleanups: Array<() => void> = [];
 
   const drainDomCleanups = () => {
@@ -88,6 +104,29 @@ export function setupWebglRenderer({ term, container, enabled }: SetupOptions): 
     }
   };
 
+  /**
+   * Drop this terminal's atlas-derived state and re-paint it. Does NOT
+   * broadcast — the caller decides.
+   *
+   * On the terminal that initiates a reset this wipes the shared atlas AND
+   * clears this renderer's model. On a terminal reached by the broadcast the
+   * atlas has just been emptied, so xterm's clearTexture() early-returns and
+   * this performs only the local model clear — which is exactly the step
+   * that terminal was missing.
+   */
+  const clearOwnAtlasAndRepaint = () => {
+    if (webglAddon) {
+      try {
+        webglAddon.clearTextureAtlas();
+      } catch {
+        // Addon may have been disposed between calls — safe to ignore.
+      }
+    }
+    refreshViewport();
+  };
+
+  const peer = { syncAfterAtlasClear: clearOwnAtlasAndRepaint };
+
   const handleContextLoss = () => {
     if (!webglAddon) return;
     try {
@@ -96,7 +135,6 @@ export function setupWebglRenderer({ term, container, enabled }: SetupOptions): 
       // Already disposing or never fully initialized — safe to ignore.
     }
     webglAddon = null;
-    atlasPageCount = 0;
     drainDomCleanups();
     terminalLog("WebGL context lost — terminal falling back to DOM renderer");
   };
@@ -117,24 +155,11 @@ export function setupWebglRenderer({ term, container, enabled }: SetupOptions): 
 
       addon.onContextLoss(handleContextLoss);
 
-      // Bound atlas growth (#856): clear when too many pages accumulate.
-      addon.onAddTextureAtlasCanvas(() => {
-        atlasPageCount += 1;
-        if (atlasPageCount >= ATLAS_PAGE_LIMIT) {
-          try {
-            addon.clearTextureAtlas();
-          } catch {
-            // Renderer may already be disposed — safe to ignore.
-          }
-          atlasPageCount = 0;
-        }
-      });
-
-      addon.onRemoveTextureAtlasCanvas(() => {
-        atlasPageCount = Math.max(0, atlasPageCount - 1);
-      });
-
       term.loadAddon(addon);
+
+      // Only terminals that actually draw from the shared atlas take part in
+      // the clear broadcast (rule (b) in the module header).
+      liveRenderers.add(peer);
 
       // Bind every canvas currently inside the container (defense-in-depth
       // against silent context loss; see module header).
@@ -166,18 +191,27 @@ export function setupWebglRenderer({ term, container, enabled }: SetupOptions): 
   }
 
   const resetDisplay = () => {
-    if (webglAddon) {
+    // Whether we are about to disturb the SHARED atlas, decided before the
+    // clear: a DOM-renderer terminal (disabled, construction failed, or
+    // context lost) touches no atlas, so it has nobody to warn.
+    const willClearSharedAtlas = webglAddon !== null;
+
+    clearOwnAtlasAndRepaint();
+    if (!willClearSharedAtlas) return;
+
+    for (const other of liveRenderers) {
+      if (other === peer) continue;
       try {
-        webglAddon.clearTextureAtlas();
+        other.syncAfterAtlasClear();
       } catch {
-        // Addon may have been disposed between calls — safe to ignore.
+        // A sibling caught mid-dispose must not abort the rest of the
+        // broadcast — every remaining terminal still needs its model dropped.
       }
-      atlasPageCount = 0;
     }
-    refreshViewport();
   };
 
   const cleanup = () => {
+    liveRenderers.delete(peer);
     drainDomCleanups();
     // The addon itself is disposed by term.dispose() via the registered addon.
   };

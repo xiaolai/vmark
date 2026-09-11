@@ -78,9 +78,6 @@ import { verifiedMonoStack } from "@/services/fonts/verifiedMonoStack";
 
 import "@xterm/xterm/css/xterm.css";
 
-// Re-exports kept for compatibility with existing imports/tests.
-export { ATLAS_PAGE_LIMIT } from "./setupWebglRenderer";
-
 /** Resolve the --font-mono CSS variable to actual font family names, used at
  *  terminal creation (the var is already applied by then). Live mono-font
  *  changes are handled by terminalSessionStoreSync, which resolves the stack
