@@ -1,7 +1,7 @@
 {
   "name": "vmark",
   "private": true,
-  "version": "0.9.69",
+  "version": "0.9.70",
   "license": "ISC",
   "description": "The plain-text workspace where humans and AI collaborate",
   "type": "module",
@@ -216,7 +216,8 @@
       "path-to-regexp": ">=8.4.0 <9",
       "js-yaml@3": ">=3.15.2 <4",
       "js-yaml@4": ">=4.3.2 <5",
-      "baseline-browser-mapping": ">=2.11.0 <3"
+      "baseline-browser-mapping": ">=2.11.0 <3",
+      "smol-toml": ">=1.7.1 <2"
     }
   },
   "devDependencies": {
