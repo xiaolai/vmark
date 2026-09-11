@@ -33,12 +33,12 @@ import {
   getImeCleanupPrefixLength,
   HANGUL_RE,
   IME_GRACE_PERIOD_MS,
-  isImeKeyEvent,
   isProseMirrorInCompositionGrace,
   markProseMirrorCompositionEnd,
 } from "@/utils/imeGuard";
 import { splitBlock } from "@tiptap/pm/commands";
 import { fixCompositionSplitBlock } from "./splitBlockFix";
+import { shouldGuardKeyEvent } from "./compositionKeys";
 
 /** Tiptap extension that guards against IME composition artifacts in ProseMirror. */
 export const compositionGuardExtension = Extension.create({
@@ -224,9 +224,9 @@ export const compositionGuardExtension = Extension.create({
         },
         props: {
           handleKeyDown(view, event) {
-            const imeKey = isImeKeyEvent(event);
             const grace = isProseMirrorInCompositionGrace(view);
-            if (imeKey || grace) {
+            // Never claim a key ProseMirror only SYNTHESIZED — see compositionKeys.
+            if (shouldGuardKeyEvent(event, grace)) {
               // Korean Hangul: Enter during composition confirms the syllable
               // AND requests a newline. We block it to prevent premature block
               // splitting, but queue a deferred split for after the grace
