@@ -108,7 +108,7 @@ toml = "1.1"
 # features (`parse` + `display`) only; `serde` is deliberately off — the
 # document model is used directly, nothing is deserialised through it.
 toml_edit = "0.25"
-dirs = "6"
+dirs = "7"
 chrono = "0.4"
 reqwest = { version = "0.13", features = ["json"] }
 tauri-plugin-window-state = "2"
