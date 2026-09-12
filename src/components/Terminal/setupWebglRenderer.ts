@@ -23,6 +23,31 @@
  *     inside xterm's per-cell model loop, and never achieved its stated goal
  *     — clearTexture() empties pages but never removes them, so page count
  *     grew anyway. Upstream's own _mergePages already bounds it correctly.
+ *   - THE BROADCAST HAS AN EXIT CONDITION, and it is a release, not a date.
+ *     xterm.js fixed this upstream in 0b1c0b5c by bumping a
+ *     TextureAtlas._pageLayoutVersion on clear, so every owning renderer
+ *     rebuilds its model on its next frame — the mechanism page merges and
+ *     evictions already had, and strictly better than this per-embedder
+ *     registry because it covers a clear from ANY source. That field is
+ *     absent from the installed @xterm/addon-webgl 0.19.0.
+ *
+ *     Do NOT reach for the beta to get it. @xterm/addon-webgl
+ *     0.20.0-beta.300 peer-requires @xterm/xterm ^6.1.0-beta.304, so it
+ *     moves the terminal CORE off latest too, and the six sibling addons
+ *     pinned here declare no peer range — they would silently run against a
+ *     core they were not built against. That is seven packages on a master
+ *     snapshot (304 beta builds since 2025-12-22, against a 20-month gap
+ *     between the last two core stables) to fix one bug that the ~30 lines
+ *     below already fix on the released version.
+ *
+ *     When a STABLE addon release carrying 0b1c0b5c lands, Dependabot's
+ *     weekly grouped npm PR will propose it. At that point delete
+ *     liveRenderers, the peer object, and the broadcast loop in
+ *     resetDisplay, leaving resetDisplay as a plain clear + refresh.
+ *     Keeping them after the upgrade is redundant but harmless, so the
+ *     upgrade is never blocked on this. The page-count bounding stays
+ *     deleted either way: it was VMark's own defect, and the upstream fix
+ *     does not address it.
  *   - Context loss is detected at TWO layers: the addon's onContextLoss
  *     callback and a DOM-level webglcontextlost listener on each render
  *     canvas. VS Code's microsoft/vscode#120393 documents that the addon
