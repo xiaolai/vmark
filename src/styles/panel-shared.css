@@ -101,10 +101,16 @@
   outline-offset: var(--border-medium);
 }
 
+/* Centred by arithmetic, not by eye. In the 36x20 track a 14px knob insets
+   (20-14)/2 = 3px top and bottom, and 3px at EACH END of a 36-3-3-14 = 16px
+   travel. The 2px it replaced left 4px below the knob and, once translated,
+   4px past it (#1391) — and --shadow-sm points down, so the optical error
+   read as a different direction than the geometric one. Retuning the track
+   or the travel means redoing this sum; panel.test.ts checks it. */
 .vm-switch__knob {
   position: absolute;
-  top: 2px;
-  left: 2px;
+  top: 3px;
+  left: 3px;
   width: 14px;
   height: 14px;
   border-radius: 50%;

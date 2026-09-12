@@ -35,6 +35,35 @@ describe("panel primitives (WI-UI3.4)", () => {
     expect(rule(".vm-switch__knob")).toContain("var(--bg-color)");
   });
 
+  // The knob is centred by ARITHMETIC, so assert the insets rather than the
+  // literals — this fails on any future retune of the track or the travel that
+  // reintroduces #1391's asymmetry, not merely on a changed `top`.
+  it("the switch knob sits centred in its track, off and on", () => {
+    const px = (block: string, prop: string): number => {
+      const m = new RegExp(`(?:^|[;{\\s])${prop}:\\s*(-?\\d+(?:\\.\\d+)?)px`).exec(block);
+      expect(m, `${prop} in ${block}`).not.toBeNull();
+      return Number(m![1]);
+    };
+
+    const track = rule(".vm-switch");
+    const knob = rule(".vm-switch__knob");
+    const checked = rule('.vm-switch[aria-checked="true"] .vm-switch__knob');
+
+    const trackW = px(track, "width");
+    const trackH = px(track, "height");
+    const knobW = px(knob, "width");
+    const knobH = px(knob, "height");
+    const top = px(knob, "top");
+    const left = px(knob, "left");
+    const travel = Number(/translateX\((-?\d+(?:\.\d+)?)px\)/.exec(checked)?.[1]);
+
+    expect(travel).not.toBeNaN();
+    // Vertical: equal air above and below.
+    expect(trackH - top - knobH).toBe(top);
+    // Horizontal: the off-state left inset equals the on-state right inset.
+    expect(trackW - (left + travel) - knobW).toBe(left);
+  });
+
   it("vm-spinner is the one spinner", () => {
     const s = rule(".vm-spinner");
     expect(s).toContain("var(--border-medium)");
