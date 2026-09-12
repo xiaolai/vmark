@@ -103,7 +103,7 @@ Right-click inside the terminal to access:
 - **Paste** — paste from clipboard into the shell
 - **Select All** — select the entire terminal buffer
 - **Clear** — clear visible output
-- **Reset Display** — re-paint the terminal and reset its rendering cache. Use this if characters start to overlap, mix cases, or render garbled after a long session — most often seen when running heavily styled CLIs (e.g. Claude Code) for hours.
+- **Reset Display** — re-paint the terminal and reset its rendering cache. Use this if characters start to overlap, mix cases, or render garbled after a long session — most often seen when running heavily styled CLIs (e.g. Claude Code) for hours. Terminals in the same window share one glyph cache, so this re-paints every terminal in the window rather than only the active tab.
 - **Copy Command Output** — copy everything one command printed, without its prompt line and without the next command's output. Appears only when you right-click inside a command's output and [shell integration](#shell-integration) is on, since that is what tells VMark where each command began and ended.
 
 The menu is fully keyboard-navigable: it opens with the first available action focused, arrow keys move between items (skipping disabled ones), Home/End jump to the first/last, Enter or Space activates, and Escape or Tab closes it.

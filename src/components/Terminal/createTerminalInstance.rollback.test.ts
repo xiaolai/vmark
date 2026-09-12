@@ -15,7 +15,6 @@ const { mockSetupWebgl, mockSetupIme, mockDispose } = vi.hoisted(() => ({
 
 vi.mock("./setupWebglRenderer", () => ({
   setupWebglRenderer: mockSetupWebgl,
-  ATLAS_PAGE_LIMIT: 4,
 }));
 vi.mock("./setupImeCompositionGate", () => ({
   setupImeCompositionGate: mockSetupIme,

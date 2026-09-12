@@ -173,18 +173,22 @@ vi.mock("@/theme", () => ({
 
 // --- Imports (after mocks) ---
 
-import { ATLAS_PAGE_LIMIT, createTerminalInstance } from "./createTerminalInstance";
+import { createTerminalInstance } from "./createTerminalInstance";
 
 // --- Helpers ---
 
 /** Track every parent we mounted so afterEach can scrub them. */
 const mountedParents: HTMLElement[] = [];
+/** Track every instance so afterEach can dispose it. setupWebglRenderer keeps a
+ *  module-level registry of live renderers (for the atlas-clear broadcast); an
+ *  instance left undisposed would leak into the next test's broadcast. */
+const mountedInstances: Array<{ dispose: () => void }> = [];
 
 function makeInstance(useWebGL = true) {
   const parentEl = document.createElement("div");
   document.body.appendChild(parentEl);
   mountedParents.push(parentEl);
-  return createTerminalInstance({
+  const instance = createTerminalInstance({
     parentEl,
     settings: {
       fontSize: 14,
@@ -197,9 +201,19 @@ function makeInstance(useWebGL = true) {
     ptyRef: { current: null },
     onSearch: vi.fn(),
   });
+  mountedInstances.push(instance);
+  return instance;
 }
 
 afterEach(() => {
+  while (mountedInstances.length > 0) {
+    const instance = mountedInstances.pop();
+    try {
+      instance?.dispose();
+    } catch {
+      // Tests that dispose explicitly leave a second dispose to no-op here.
+    }
+  }
   while (mountedParents.length > 0) {
     const parent = mountedParents.pop();
     if (parent && parent.parentNode) parent.parentNode.removeChild(parent);
@@ -212,107 +226,110 @@ function lastWebglAddon() {
 
 // --- Tests ---
 
-describe("createTerminalInstance — WebGL atlas page bounding (#856)", () => {
+describe("createTerminalInstance — never clears the shared atlas on its own", () => {
   beforeEach(() => {
     webglState.instances = [];
     webglState.failConstruction = false;
     vi.clearAllMocks();
   });
 
-  it("does not call clearTextureAtlas before the page limit is reached", () => {
+  // xterm shares ONE TextureAtlas between terminals whose configs match
+  // (module-global CharAtlasCache), but clearTextureAtlas() repairs only the
+  // CALLING renderer's model. A renderer that clears the atlas behind its
+  // siblings' backs leaves them with texture coordinates into a repacked
+  // atlas and a model whose "nothing changed" check never lets them repaint,
+  // so they render other glyphs. Nothing may clear the atlas unprompted.
+  it("does not subscribe to atlas page add/remove events", () => {
+    makeInstance();
+    const addon = lastWebglAddon();
+
+    expect(addon.addAtlasHandlers).toHaveLength(0);
+    expect(addon.removeAtlasHandlers).toHaveLength(0);
+  });
+
+  it("never calls clearTextureAtlas without an explicit resetDisplay", () => {
     makeInstance();
     const addon = lastWebglAddon();
     const canvas = document.createElement("canvas");
 
-    // Add fewer than the limit
-    for (let i = 0; i < ATLAS_PAGE_LIMIT - 1; i++) {
+    // Even a flood of reported atlas pages must not trigger a clear.
+    for (let i = 0; i < 32; i++) {
       addon.addAtlasHandlers.forEach((h) => h(canvas));
     }
 
     expect(addon.clearTextureAtlas).not.toHaveBeenCalled();
   });
+});
 
-  it("calls clearTextureAtlas exactly once when the page limit is hit", () => {
-    makeInstance();
-    const addon = lastWebglAddon();
-    const canvas = document.createElement("canvas");
-
-    for (let i = 0; i < ATLAS_PAGE_LIMIT; i++) {
-      addon.addAtlasHandlers.forEach((h) => h(canvas));
-    }
-
-    expect(addon.clearTextureAtlas).toHaveBeenCalledTimes(1);
+describe("createTerminalInstance — resetDisplay broadcasts to sibling terminals", () => {
+  beforeEach(() => {
+    webglState.instances = [];
+    webglState.failConstruction = false;
+    vi.clearAllMocks();
   });
 
-  it("resets the page count after a clear so the next clear takes another full window", () => {
-    makeInstance();
-    const addon = lastWebglAddon();
-    const canvas = document.createElement("canvas");
+  it("clears every other live terminal's model, not just its own", () => {
+    const a = makeInstance();
+    const b = makeInstance();
+    const [addonA, addonB] = webglState.instances;
 
-    // Trigger first clear
-    for (let i = 0; i < ATLAS_PAGE_LIMIT; i++) {
-      addon.addAtlasHandlers.forEach((h) => h(canvas));
-    }
-    expect(addon.clearTextureAtlas).toHaveBeenCalledTimes(1);
+    a.resetDisplay();
 
-    // One more page added — should NOT clear yet (counter was reset)
-    addon.addAtlasHandlers.forEach((h) => h(canvas));
-    expect(addon.clearTextureAtlas).toHaveBeenCalledTimes(1);
-
-    // Fill up another full window
-    for (let i = 1; i < ATLAS_PAGE_LIMIT; i++) {
-      addon.addAtlasHandlers.forEach((h) => h(canvas));
-    }
-    expect(addon.clearTextureAtlas).toHaveBeenCalledTimes(2);
+    // A wipes the SHARED atlas plus its own model; B must be told to drop its
+    // model too. B's clearTextureAtlas early-returns on the now-empty atlas
+    // and only performs the local model clear it needs.
+    expect(addonA.clearTextureAtlas).toHaveBeenCalledTimes(1);
+    expect(addonB.clearTextureAtlas).toHaveBeenCalledTimes(1);
+    expect(b.term.refresh).toHaveBeenCalledWith(0, b.term.rows - 1);
   });
 
-  it("decrements the page count when xterm reports a removed atlas page", () => {
-    makeInstance();
-    const addon = lastWebglAddon();
-    const canvas = document.createElement("canvas");
+  it("notifies itself exactly once", () => {
+    const a = makeInstance();
+    const addonA = lastWebglAddon();
 
-    // Push to one below the limit
-    for (let i = 0; i < ATLAS_PAGE_LIMIT - 1; i++) {
-      addon.addAtlasHandlers.forEach((h) => h(canvas));
-    }
-    // Remove one — count drops, so adding one more should not yet clear
-    addon.removeAtlasHandlers.forEach((h) => h(canvas));
-    addon.addAtlasHandlers.forEach((h) => h(canvas));
+    a.resetDisplay();
+
+    expect(addonA.clearTextureAtlas).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not notify a terminal that has been disposed", () => {
+    const a = makeInstance();
+    const b = makeInstance();
+    const [, addonB] = webglState.instances;
+
+    b.dispose();
+    addonB.clearTextureAtlas.mockClear();
+
+    a.resetDisplay();
+
+    expect(addonB.clearTextureAtlas).not.toHaveBeenCalled();
+  });
+
+  it("finishes the broadcast even if a sibling throws mid-dispose", () => {
+    const a = makeInstance();
+    makeInstance();
+    makeInstance();
+    const [, addonB, addonC] = webglState.instances;
+    addonB.clearTextureAtlas.mockImplementationOnce(() => {
+      throw new Error("disposed");
+    });
+
+    expect(() => a.resetDisplay()).not.toThrow();
+    expect(addonC.clearTextureAtlas).toHaveBeenCalledTimes(1);
+  });
+
+  it("a WebGL-disabled terminal neither broadcasts to nor is touched by WebGL peers", () => {
+    const dom = makeInstance(/* useWebGL */ false);
+    const webgl = makeInstance();
+    const addon = lastWebglAddon();
+
+    // No atlas is involved, so a DOM-renderer terminal must not clear anyone.
+    dom.resetDisplay();
     expect(addon.clearTextureAtlas).not.toHaveBeenCalled();
 
-    // Now adding one more pushes us to the limit
-    addon.addAtlasHandlers.forEach((h) => h(canvas));
+    // And it must not break a real broadcast either.
+    expect(() => webgl.resetDisplay()).not.toThrow();
     expect(addon.clearTextureAtlas).toHaveBeenCalledTimes(1);
-  });
-
-  it("does not floor the page counter below zero on spurious remove events", () => {
-    makeInstance();
-    const addon = lastWebglAddon();
-    const canvas = document.createElement("canvas");
-
-    // Spurious remove with no adds — counter must stay at 0, not go negative
-    for (let i = 0; i < 10; i++) {
-      addon.removeAtlasHandlers.forEach((h) => h(canvas));
-    }
-
-    // Filling exactly to the limit must still trigger a clear
-    for (let i = 0; i < ATLAS_PAGE_LIMIT; i++) {
-      addon.addAtlasHandlers.forEach((h) => h(canvas));
-    }
-    expect(addon.clearTextureAtlas).toHaveBeenCalledTimes(1);
-  });
-
-  it("survives clearTextureAtlas throwing (renderer mid-dispose)", () => {
-    makeInstance();
-    const addon = lastWebglAddon();
-    addon.clearTextureAtlas.mockImplementationOnce(() => { throw new Error("disposed"); });
-    const canvas = document.createElement("canvas");
-
-    expect(() => {
-      for (let i = 0; i < ATLAS_PAGE_LIMIT; i++) {
-        addon.addAtlasHandlers.forEach((h) => h(canvas));
-      }
-    }).not.toThrow();
   });
 });
 
@@ -374,21 +391,20 @@ describe("createTerminalInstance — WebGL context loss handling (#856)", () => 
     }).not.toThrow();
   });
 
-  it("after context loss, atlas events become no-ops (addon already disposed)", () => {
-    makeInstance();
-    const addon = lastWebglAddon();
-    const canvas = document.createElement("canvas");
+  it("a sibling's atlas clear degrades to a plain refresh after context loss", () => {
+    const lost = makeInstance();
+    const other = makeInstance();
+    const [addonLost] = webglState.instances;
 
-    // Lose the context first
-    addon.contextLossHandlers.forEach((h) => h());
-    addon.clearTextureAtlas.mockClear();
+    addonLost.contextLossHandlers.forEach((h) => h());
+    addonLost.clearTextureAtlas.mockClear();
+    (lost.term.refresh as unknown as ReturnType<typeof vi.fn>).mockClear();
 
-    // Atlas events arriving late from a disposed addon should not blow up
-    expect(() => {
-      for (let i = 0; i < ATLAS_PAGE_LIMIT * 2; i++) {
-        addon.addAtlasHandlers.forEach((h) => h(canvas));
-      }
-    }).not.toThrow();
+    // The addon is gone and the DOM renderer has taken over, so the broadcast
+    // must reach this terminal as a viewport refresh and nothing more.
+    expect(() => other.resetDisplay()).not.toThrow();
+    expect(addonLost.clearTextureAtlas).not.toHaveBeenCalled();
+    expect(lost.term.refresh).toHaveBeenCalledWith(0, lost.term.rows - 1);
   });
 
   it("DOM webglcontextlost listeners are removed when the instance disposes", () => {
@@ -484,24 +500,6 @@ describe("createTerminalInstance — resetDisplay (#856)", () => {
 
     expect(addon.clearTextureAtlas).toHaveBeenCalledTimes(1);
     expect(inst.term.refresh).toHaveBeenCalledWith(0, inst.term.rows - 1);
-  });
-
-  it("resets the atlas page counter so the next clear takes another full window", () => {
-    const inst = makeInstance();
-    const addon = lastWebglAddon();
-    const canvas = document.createElement("canvas");
-
-    // Fill atlas to one below the limit
-    for (let i = 0; i < ATLAS_PAGE_LIMIT - 1; i++) {
-      addon.addAtlasHandlers.forEach((h) => h(canvas));
-    }
-
-    inst.resetDisplay();
-    addon.clearTextureAtlas.mockClear();
-
-    // Counter must be back at zero — adding one page should not auto-clear
-    addon.addAtlasHandlers.forEach((h) => h(canvas));
-    expect(addon.clearTextureAtlas).not.toHaveBeenCalled();
   });
 
   it("only refreshes the viewport when WebGL is disabled (DOM renderer path)", () => {
