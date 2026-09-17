@@ -26,6 +26,7 @@ import { toProseMirrorKey } from "@/utils/keybinding/proseMirrorKey";
 import {
   selectNextOccurrence,
   selectAllOccurrences,
+  selectAllOccurrencesInBlock,
   collapseMultiSelection,
   skipOccurrence,
   softUndoCursor,
@@ -110,6 +111,10 @@ export function buildMultiCursorKeymapBindings(): Record<string, Command> {
   // rebinds take effect. The literal ids here are what the reverse-closure gate
   // (shortcutConsumerClosure.test.ts) scans for to prove these rows are consumed.
   bindIfKey(hostShortcuts.getShortcut("skipOccurrence"), wrapCommand(skipOccurrence));
+  bindIfKey(
+    hostShortcuts.getShortcut("selectAllOccurrencesInBlock"),
+    wrapCommand(selectAllOccurrencesInBlock),
+  );
   bindIfKey(hostShortcuts.getShortcut("softUndoCursor"), wrapCommand(softUndoCursor));
   bindIfKey(hostShortcuts.getShortcut("addCursorAbove"), wrapViewCommand(addCursorAbove));
   bindIfKey(hostShortcuts.getShortcut("addCursorBelow"), wrapViewCommand(addCursorBelow));

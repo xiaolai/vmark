@@ -18,11 +18,37 @@ import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { performUnifiedUndo, performUnifiedRedo } from "@/services/history/unifiedUndoRedo";
 import { closeBracketsKeymap } from "@codemirror/autocomplete";
 import { selectNextOccurrenceSource, selectAllOccurrencesSource } from "@/plugins/codemirror/sourceSelectOccurrence";
+import { selectAllOccurrencesInBlockSource } from "@/plugins/codemirror/sourceSelectOccurrenceInBlock";
+import { hostShortcuts } from "@/plugins/shared/hostShortcuts";
 import { markdownPairBackspace, tabEscapeKeymap, tabIndentFallbackKeymap, shiftTabIndentFallbackKeymap, listContinuationKeymap, tableTabKeymap, tableShiftTabKeymap, tableModEnterKeymap, tableModShiftEnterKeymap, tableArrowUpKeymap, tableArrowDownKeymap, visualLineUpKeymap, visualLineDownKeymap, visualLineUpSelectKeymap, visualLineDownSelectKeymap, smartHomeKeymap, smartHomeSelectKeymap, structuralBackspaceKeymap, structuralDeleteKeymap, listSmartIndentKeymap, listSmartOutdentKeymap } from "@/plugins/codemirror";
 import { toggleTaskList } from "@/plugins/sourceContextDetection/taskListActions";
 import { guardCodeMirrorKeyBinding } from "@/utils/imeGuard";
 import { isMacPlatform } from "@/utils/shortcutMatch";
 import { UNDO_CHORD, redoChords } from "@/services/keybinding/undoRedoChords";
+
+/**
+ * The block-scoped occurrence binding, or nothing when the row is unbound.
+ *
+ * A separate builder because CodeMirror takes a flat array: returning `[]` for
+ * an unbound chord keeps the spread honest, where a `key: ""` entry would
+ * register a binding that can never fire.
+ */
+function blockOccurrenceBinding(): Parameters<typeof keymap.of>[0] {
+  const key = hostShortcuts.getShortcut("selectAllOccurrencesInBlock");
+  if (!key) return [];
+  return [
+    guardCodeMirrorKeyBinding({
+      key,
+      run: (view) => {
+        const spec = selectAllOccurrencesInBlockSource(view.state);
+        if (!spec) return false;
+        view.dispatch(spec);
+        return true;
+      },
+      preventDefault: true,
+    }),
+  ];
+}
 
 /** The source editor's keybindings, in precedence order. */
 export function buildSourceKeymapEntries(): Parameters<typeof keymap.of>[0] {
@@ -84,6 +110,11 @@ export function buildSourceKeymapEntries(): Parameters<typeof keymap.of>[0] {
         },
         preventDefault: true,
       }),
+      // Select all occurrences in the CURRENT BLOCK (#1418) — a sibling of the
+      // chord above, not a mode over it. Rebindable, so the chord is read from
+      // the shortcuts seam per build rather than hardcoded like its document-wide
+      // neighbour; an unbound row simply contributes no binding.
+      ...blockOccurrenceBinding(),
       // Word wrap is owned by the rebindable `wordWrap` window binding (default Alt-z,
       // view.toggleWordWrap), which resolves in editor-source context too — so the
       // former hardcoded Mod-Alt-w here was a redundant second chord. Consolidated to

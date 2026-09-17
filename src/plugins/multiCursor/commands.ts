@@ -4,6 +4,7 @@
  * Commands for creating and managing multi-cursor selections:
  * - selectNextOccurrence: Add next match (Cmd+D)
  * - selectAllOccurrences: Select all matches (Cmd+Shift+L)
+ * - selectAllOccurrencesInBlock: Select all matches in the current block (#1418)
  * - skipOccurrence: Skip current match, take the next (Cmd+Shift+D)
  * - collapseMultiSelection: Collapse to single cursor (Escape)
  * - softUndoCursor: Revert last cursor addition (Cmd+Alt+Z)
@@ -16,6 +17,7 @@
 export {
   selectNextOccurrence,
   selectAllOccurrences,
+  selectAllOccurrencesInBlock,
   skipOccurrence,
 } from "./occurrenceCommands";
 export {

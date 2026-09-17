@@ -91,6 +91,9 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   { id: "selectLine", label: "Select Line", category: "navigation", defaultKey: "Mod-l", menuId: "select-line" },
   { id: "expandSelection", label: "Expand Selection", category: "navigation", defaultKey: "Ctrl-Shift-Up", menuId: "expand-selection" },
   { id: "skipOccurrence", label: "Skip Occurrence", category: "navigation", defaultKey: "Mod-Shift-d", description: "Skip current match and select next" },
+  // #1418 — a SIBLING of the fixed Mod-Shift-L (select all in document), not a
+  // mode over it: both scopes stay reachable, so nobody's muscle memory changes.
+  { id: "selectAllOccurrencesInBlock", label: "Select All Occurrences in Block", category: "navigation", defaultKey: "Alt-Mod-Shift-l", description: "Select every match of the word or selection within the current block only" },
   { id: "softUndoCursor", label: "Soft Undo Cursor", category: "navigation", defaultKey: "Alt-Mod-z", description: "Undo last cursor addition" },
   { id: "addCursorAbove", label: "Add Cursor Above", category: "navigation", defaultKey: "Mod-Alt-Up", description: "Add cursor one line above" },
   { id: "addCursorBelow", label: "Add Cursor Below", category: "navigation", defaultKey: "Mod-Alt-Down", description: "Add cursor one line below" },
