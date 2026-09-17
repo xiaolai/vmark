@@ -27,6 +27,7 @@ mod automation_port;
 mod bounded_read;
 mod browser; // WI-1.2 embedded-browser surface (pure lifecycle/identity core landed)
 mod canonical_path;
+mod close_to_tray;
 pub mod coherence;
 pub mod command_error; // WI-14 crate-wide typed command error ({code, message, i18nKey?, detail?})
 mod content_search;
@@ -135,6 +136,9 @@ fn manage_state<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
         // #1273: documents the user explicitly authorized to execute. Memory
         // only — a grant never survives the process.
         .manage(trusted_html::TrustedHtmlState::default())
+        // #1419: the close-to-tray preference. Starts disabled — a push from the
+        // webview that has not landed leaves the old close behaviour in force.
+        .manage(close_to_tray::CloseToTrayState::default())
 }
 
 /// Build and run the Tauri application with all plugins, commands, and event handlers.

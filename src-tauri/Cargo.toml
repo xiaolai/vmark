@@ -206,6 +206,14 @@ keyring = { version = "3", features = ["windows-native"] }
 webview2-com = "=0.38.2"
 windows-core = "=0.61.2"
 windows = { version = "=0.61.3", features = ["Win32_Foundation"] }
+# #1419: the close-to-tray icon. Windows-only, because the feature is never
+# effective anywhere else — macOS and Linux builds carry no tray code at all.
+# Cargo unions this with the `[dependencies]` tauri features for this target.
+#
+# Legal without a `trayIcon` entry in tauri.conf.json: tauri-build deliberately
+# filters `tray-icon` out of its manifest-vs-config check (tauri-build 2.6,
+# src/manifest.rs), which is what permits a programmatic, target-scoped tray.
+tauri = { version = "2", features = ["tray-icon"] }
 
 # RW-16 (L8): Linux Secret Service backend (best-effort platform).
 [target.'cfg(target_os = "linux")'.dependencies]

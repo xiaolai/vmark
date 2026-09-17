@@ -159,6 +159,7 @@ macro_rules! all_commands {
             browser::commands::browser_create,
             browser::commands::browser_navigate,
             browser::ai_commands::browser_ai_policy,
+            close_to_tray::set_close_to_tray,
             browser::ai_commands::browser_ai_create,
             browser::ai_commands::browser_ai_navigate,
             browser::ai_commands::browser_ai_state,

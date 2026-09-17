@@ -410,6 +410,10 @@ window:
   pdfExport.title: "Exportar PDF"
   print.title: "VMark: imprimir"
 
+# #1419 — the Windows close-to-tray icon's menu. Quit reuses menu.app.quit.
+tray:
+  show: "Mostrar VMark"
+
 cli:
   dialogTitle: "Comando de shell"
   installed: "Comando 'vmark' instalado en %{path}"

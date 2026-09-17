@@ -272,6 +272,8 @@
   "files.confirmQuit.label": "Beenden bestätigen",
   "files.confirmQuit.descriptionMac": "⌘Q zweimal drücken zum Beenden — verhindert versehentliches Schließen",
   "files.confirmQuit.descriptionOther": "Ctrl+Q zweimal drücken zum Beenden — verhindert versehentliches Schließen",
+  "files.closeToTray.label": "Beim Schließen in den Infobereich minimieren",
+  "files.closeToTray.description": "Das Schließen des letzten Fensters lässt VMark im Infobereich weiterlaufen, statt es zu beenden",
   "files.group.saving": "Speichern",
   "files.autoSave.label": "Automatisches Speichern aktivieren",
   "files.autoSave.description": "Dateien beim Bearbeiten automatisch speichern",

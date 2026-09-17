@@ -80,5 +80,6 @@ fn manage_state_registers_every_backend_state() {
         crate::window_status::WindowStatusRegistry,
         crate::pdf_export::export_gate::ExportGate,
         crate::trusted_html::TrustedHtmlState,
+        crate::close_to_tray::CloseToTrayState,
     );
 }

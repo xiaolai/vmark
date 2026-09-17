@@ -193,6 +193,16 @@ it cannot open keeps its suffix either way, so the name you see always exists on
 | Setting | Description | Default |
 |---------|-------------|---------|
 | Confirm quit | Require pressing `Cmd+Q` (or `Ctrl+Q`) twice to quit, preventing accidental exits | On |
+| Minimize to tray on close | **Windows only.** Closing the last window keeps VMark running in the system tray instead of quitting | Off |
+
+**Minimize to tray on close** changes only the *last* window. With several windows open, closing one still closes it; it is the final close — the one that used to quit VMark — that now parks it in the tray instead. Nothing is closed, so unsaved work stays exactly where you left it.
+
+- **Left-click** the tray icon to bring VMark back.
+- **Right-click** it for **Show VMark** and **Quit VMark**. Quitting from the tray brings the window back first, so any unsaved-changes prompt appears where you can answer it.
+- `Ctrl+Q` still quits as usual.
+- Turning the setting off while VMark is in the tray brings the window back before the icon disappears, so it can never leave VMark running with no window and no icon.
+
+The setting does not appear on macOS or Linux.
 
 ### Saving
 

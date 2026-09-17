@@ -120,6 +120,7 @@ export const imageContextMenuWarn = createWarnLogger("[ImageContextMenu]");
 
 /** Warn logger for Confirm Quit. */
 export const confirmQuitWarn = createWarnLogger("[ConfirmQuit]");
+export const closeToTrayWarn = createWarnLogger("[CloseToTray]");
 
 /** Warn logger for Finder File Open. */
 export const finderFileOpenWarn = createWarnLogger("[FinderFileOpen]");

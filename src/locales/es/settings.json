@@ -272,6 +272,8 @@
   "files.confirmQuit.label": "Confirmar salida",
   "files.confirmQuit.descriptionMac": "Presiona ⌘Q dos veces para salir — evita salidas accidentales",
   "files.confirmQuit.descriptionOther": "Presiona Ctrl+Q dos veces para salir — evita salidas accidentales",
+  "files.closeToTray.label": "Minimizar a la bandeja al cerrar",
+  "files.closeToTray.description": "Al cerrar la última ventana, VMark sigue ejecutándose en la bandeja del sistema en lugar de salir",
   "files.group.saving": "Guardado",
   "files.autoSave.label": "Activar guardado automático",
   "files.autoSave.description": "Guardar archivos automáticamente al editarlos",

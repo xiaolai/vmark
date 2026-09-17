@@ -9,6 +9,7 @@
  * correct initial state).
  *
  *   useWorkspaceBootstrap → useSettingsSync → useShortcutsSync → useConfirmQuitSync
+ *   → useCloseToTraySync
  *   → useRecentFilesSync → useRecentWorkspacesSync
  *   → useFormatSettingsBridge
  *
@@ -24,6 +25,7 @@ import { useSettingsSync } from "@/hooks/useSettingsSync";
 import { useShortcutsSync } from "@/hooks/useShortcutsSync";
 import { useAiProviderSync } from "@/hooks/useAiProviderSync";
 import { useConfirmQuitSync } from "@/hooks/useConfirmQuitSync";
+import { useCloseToTraySync } from "@/hooks/useCloseToTraySync";
 import { useRecentFilesSync } from "@/hooks/useRecentFilesSync";
 import { useRecentWorkspacesSync } from "@/hooks/useRecentWorkspacesSync";
 import { useFormatSettingsBridge } from "@/hooks/useFormatSettingsBridge";
@@ -35,6 +37,7 @@ export function useWorkspaceLifecycle(): void {
   useShortcutsSync();
   useAiProviderSync();
   useConfirmQuitSync();
+  useCloseToTraySync();
   useRecentFilesSync();
   useRecentWorkspacesSync();
   useFormatSettingsBridge();

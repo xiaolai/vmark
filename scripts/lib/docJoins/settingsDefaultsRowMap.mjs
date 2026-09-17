@@ -126,6 +126,7 @@ export const ROW_MAP = [
   pinned("settings", "Show all files", "Off", "a per-workspace preference (workspaceStore config.showAllFiles ?? false), not a defaults.ts key"),
   settings("Show file extensions", "general.showFileExtensions", ON_OFF),
   settings("Confirm quit", "general.confirmQuit", ON_OFF),
+  settings("Minimize to tray on close", "general.closeToTray", ON_OFF),
   settings("Enable auto-save", "general.autoSaveEnabled", ON_OFF),
   settings("Stamp identity block on save", "general.coherenceCaptureOnSave", ON_OFF),
   settings("Save interval", "general.autoSaveInterval", "seconds"),
