@@ -2,12 +2,12 @@
 //!
 //! Purpose: Thin `#[tauri::command]` shims that delegate to the real
 //! implementations in `dynamic.rs`, `localized.rs`, `accelerators.rs`
-//! (differential accelerator updates for Issue #825), and `browser_menu_item.rs`.
+//! (differential accelerator updates for Issue #825), and `conditional_items.rs`.
 //! Keeps command registration in `lib.rs` simple.
 //!
-//! `rebuild_menu` is not purely a shim: it must re-apply browser-item visibility
-//! after `set_menu`, because a rebuild replaces the tree and strands any handle
-//! into the old one.
+//! `rebuild_menu` is not purely a shim: it must re-apply conditional-item
+//! visibility after `set_menu`, because a rebuild replaces the tree and strands
+//! any handle into the old one.
 //!
 //! Key decisions:
 //!
@@ -79,15 +79,22 @@ pub fn rebuild_menu(
         .map_err(|e| CommandError::internal(e.to_string()))?;
     app.set_menu(menu)
         .map_err(|e| CommandError::internal(e.to_string()))?;
-    // The fresh tree has its own `new-browser-tab`, built to its default state, and
-    // any stashed handle now points into the discarded tree. Re-apply the desired
-    // visibility and drop the stale handle — otherwise a locale switch either
-    // resurrects a hidden item or leaves a dead duplicate to be inserted later.
-    super::browser_menu_item::reapply_browser_menu_visibility(&app)
-        .map_err(CommandError::internal)?;
 
     #[cfg(target_os = "macos")]
     crate::macos_menu::apply_menu_fixes(&app);
+
+    // AFTER the icon pass, and that order is load-bearing on macOS:
+    // `apply_menu_icons` walks the LIVE NSMenu, so an item removed before it
+    // never receives its SF Symbol — and hiding STASHES the item, so the
+    // icon-less copy is exactly what a later show puts back. Hiding it last
+    // means the stashed item is already iconed.
+    //
+    // The fresh tree has its own copy of every conditional item, built to its
+    // default state, and any stashed handle now points into the discarded tree.
+    // Re-apply the desired visibility and drop the stale handles — otherwise a
+    // locale switch either resurrects a hidden item or leaves a dead duplicate
+    // to be inserted later.
+    super::conditional_items::reapply(&app).map_err(CommandError::internal)?;
 
     Ok(())
 }

@@ -61,9 +61,9 @@ macro_rules! all_commands {
             menu::rebuild_menu,
             menu::update_menu_accelerators,
             menu::sync_view_menu_state,
-            menu::set_browser_menu_enabled,
+            menu::set_menu_item_visible,
             #[cfg(debug_assertions)]
-            menu::debug_file_menu_item_ids,
+            menu::debug_submenu_item_ids,
             menu::set_locale,
             window_manager::open_file_in_new_window,
             window_manager::open_workspace_in_new_window,

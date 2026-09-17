@@ -37,10 +37,10 @@
 //!   a mistyped shortcut as an internal VMark failure.
 //!
 //! - **`collect_items_from_menu` deliberately keeps its `String` signature.** It
-//!   is shared with `menu_state.rs` and `browser_menu_item.rs`, neither of which
-//!   is a command boundary, and widening it would have pulled two unrelated
-//!   modules into this change for no gain. It is converted at the one call site
-//!   that needs a typed error.
+//!   is shared with `menu_state.rs` and `conditional_items.rs`, neither of which
+//!   is a command boundary in the part that calls it, and widening it would have
+//!   pulled two unrelated modules into this change for no gain. It is converted
+//!   at the one call site that needs a typed error.
 //!
 //! @coordinates-with `commands.rs` (exposes `update_menu_accelerators`)
 //! @coordinates-with `localized.rs` (commits the accelerator snapshot post-build)
