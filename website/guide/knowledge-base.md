@@ -5,9 +5,12 @@ base, and preview/export [Slidev](https://sli.dev) presentation decks — both
 powered by a single local content server that VMark starts on demand.
 
 ::: warning Status
-This feature is rolling out in phases, and **today's release builds do not
-include the content-server runtime** it depends on — see
-[Requirements](#requirements). Open the in-app **Knowledge Base** panel to see
+This feature is rolling out in phases, and **no release build on any platform
+includes the content-server runtime** it depends on — see
+[Requirements](#requirements). Because of that it is **hidden unless Developer
+Mode is on**: the View menu item, the command palette entry and the
+`Ctrl + Shift + 4` shortcut only appear once you enable **Settings → Advanced →
+Developer tools**. Turn that on and open the **Knowledge Base** panel to see
 what your machine has and what is missing.
 :::
 
@@ -21,23 +24,34 @@ VMark starts on demand. Two things must be present before it can start:
   a terminal would, so a Node.js that only a project-local tool can see does not
   count. Install it so that `node` is on your login-shell `PATH`.
 - **The content server itself** (`server/content` in the VMark repository,
-  built to a `cli.js`). **Packaged VMark builds do not include it yet**: the app
-  bundle ships no content-server runtime, so on a release install this half is
-  always missing. Until a release story lands, the feature requires a
-  development setup — a checkout of VMark with the content server built, made
-  available through the `VMARK_CONTENT_SERVER_CLI` environment variable (or a
-  provisioned `base-kb` runtime in VMark's application data).
+  built to a `cli.js`). **No packaged VMark build includes it yet — on any
+  platform.** This is not a Linux or Windows gap: the macOS DMG ships no
+  content-server runtime either, and VMark's release checks assert that on every
+  release. Until a release story lands, the feature requires a development
+  setup — a checkout of VMark with the content server built, made available
+  through the `VMARK_CONTENT_SERVER_CLI` environment variable (or a provisioned
+  `base-kb` runtime in VMark's application data).
 
 The panel checks both when it opens. When either is missing it says which one,
 and what would provide it, instead of attempting a start that cannot succeed.
-The **View → Knowledge Base** menu item and the command palette entry stay
-available so the panel can tell you this.
 
 ## Opening the panel
 
-Open the **Knowledge Base** panel from **View → Knowledge Base**, the command
-palette ("Toggle Knowledge Base"), or the `Ctrl + Shift + 4` shortcut. The panel
-docks on the right; toggle it again to hide it.
+The Knowledge Base is **hidden by default**, because a release build cannot
+start it. To reveal it, turn on **Settings → Advanced → Developer tools**. The
+**View → Knowledge Base** menu item, the command palette entry ("Toggle
+Knowledge Base") and the `Ctrl + Shift + 4` shortcut all appear with it, and all
+disappear again when you turn it off.
+
+With Developer tools on, open the panel from **View → Knowledge Base**, the
+command palette, or `Ctrl + Shift + 4`. The panel docks on the right; toggle it
+again to hide it.
+
+Turning Developer tools back off hides the entry points again, and closes the
+panel with them: the panel has no close button of its own, so leaving it open
+would strand a dock nothing could dismiss. A server that is already **running**
+is left alone — turn Developer tools back on to reach its Stop button, and VMark
+stops its content servers when it quits in any case.
 
 ## Knowledge base
 

@@ -1,8 +1,16 @@
 /**
  * Journey: knowledge-base-runtime-state
  *
- * WI-FL1.1: opening View → Knowledge Base must TELL the user what a start
- * would find. While the server is stopped the panel probes
+ * Two properties, in order.
+ *
+ * #1425: the Knowledge Base is HIDDEN unless Developer Mode is on. No packaged
+ * build on any platform carries the content server, so the menu item, the
+ * palette command and `Ctrl + Shift + 4` are all absent by default —
+ * `menu:knowledge-base` must open nothing. A Linux user filed the dead end as a
+ * platform bug, which is what the hiding prevents.
+ *
+ * WI-FL1.1: with Developer Mode on, opening View → Knowledge Base must TELL the
+ * user what a start would find. While the server is stopped the panel probes
  * `content_server_runtime` (node on the login-shell PATH, and the content
  * server's cli.js from `VMARK_CONTENT_SERVER_CLI`, the bundled resource, or a
  * provisioned base-kb) and renders one of: the Start button (both present), or
@@ -33,8 +41,12 @@
  * server; the panel is closed again in teardown if this journey opened it.
  *
  * Driving: `menu:knowledge-base` → view.toggleKnowledgeBase → contentServerStore
- * togglePanel — the native View-menu path. Observation: the panel DOM
- * (KnowledgeBasePanel.tsx / KnowledgeBaseRuntimeState.tsx).
+ * togglePanel — the native View-menu path, whose `when` predicate is the gate
+ * under test. Developer Mode is set through `__VMARK_DEBUG__.setDeveloperMode`
+ * (the store's own action, which is also what pushes the native menu item back)
+ * and RESTORED in teardown, because it persists.
+ * Observation: the panel DOM (KnowledgeBasePanel.tsx /
+ * KnowledgeBaseRuntimeState.tsx).
  */
 
 import { evalJs } from "../lib/bridge.mjs";
@@ -47,6 +59,32 @@ const CLI_ENV_VAR = "VMARK_CONTENT_SERVER_CLI";
 const PROBE_TIMEOUT_MS = 20000;
 
 const DOCK_OPEN = `!!document.querySelector('[data-testid="kb-dock"]')`;
+
+/** How long a refused toggle is given to (not) open the panel. */
+const REFUSAL_SETTLE_MS = 750;
+
+/**
+ * Set Developer Mode through the DEV-only seam and return what it WAS, so
+ * teardown can restore the maintainer's own setting instead of assuming the
+ * default. `"absent"` means this is not a DEV build.
+ */
+async function setDeveloperMode(client, on) {
+  const previous = await evalJs(
+    client,
+    `(() => {
+       const set = window.__VMARK_DEBUG__ && window.__VMARK_DEBUG__.setDeveloperMode;
+       if (typeof set !== "function") return "absent";
+       return set(${on ? "true" : "false"}) === true;
+     })()`
+  );
+  if (previous === "absent") {
+    throw new Error(
+      "__VMARK_DEBUG__.setDeveloperMode is absent — the app is not a DEV build, so the " +
+        "Knowledge Base cannot be revealed and this journey cannot run"
+    );
+  }
+  return previous;
+}
 
 /**
  * One snapshot of the panel's runtime body. `startButtons` counts DIRECT
@@ -80,7 +118,29 @@ export default {
     const initiallyOpen = await evalJs(client, DOCK_OPEN);
     ctx.log(`knowledge base panel initially ${initiallyOpen ? "open" : "closed"}`);
 
+    // `null` until this journey has touched the setting; then the value to put
+    // back in teardown.
+    let developerModeWas = null;
     try {
+      // ---- #1425: hidden by default ----
+      // Only checkable from a CLOSED panel: an already-open dock says nothing
+      // about whether the toggle would open one.
+      if (!initiallyOpen) {
+        developerModeWas = await setDeveloperMode(client, false);
+        await emitMenu(client, "knowledge-base", ctx.windowLabel);
+        await new Promise((resolve) => setTimeout(resolve, REFUSAL_SETTLE_MS));
+        if (await evalJs(client, DOCK_OPEN)) {
+          throw new Error(
+            "menu:knowledge-base opened the panel with Developer Mode OFF — the entry " +
+              "points must be hidden, because no build ships the content server (#1425)"
+          );
+        }
+        ctx.log("developer mode off — menu:knowledge-base opened nothing, as required (#1425)");
+      }
+
+      // ---- WI-FL1.1: with the feature revealed, the panel explains itself ----
+      const before = await setDeveloperMode(client, true);
+      if (developerModeWas === null) developerModeWas = before;
       if (!initiallyOpen) {
         await emitMenu(client, "knowledge-base", ctx.windowLabel);
         await poll(() => evalJs(client, DOCK_OPEN), (v) => v === true, "menu:knowledge-base to open the panel");
@@ -138,7 +198,11 @@ export default {
           await poll(() => evalJs(client, DOCK_OPEN), (v) => v === false, "knowledge base panel to close again");
         }
       }
+      // Developer Mode PERSISTS, so leaving it on would change the dev profile
+      // for every later run — and silently re-reveal the feature this journey
+      // just proved is hidden.
+      if (developerModeWas !== null) await setDeveloperMode(client, developerModeWas);
     }
-    ctx.log("knowledge base panel visibility restored to initial state");
+    ctx.log("knowledge base panel visibility and developer mode restored");
   },
 };

@@ -363,6 +363,44 @@ ratifies or overrides; until then these are proposals.** Each carries a dated
 exit criterion, because "we'll decide later" is how a dark feature becomes
 permanent.
 
+**Knowledge Base / content-server runtime — D1 RESOLVED AS OPTION (c),
+DEVELOPER-MODE-ONLY (maintainer decision, 2026-09-18, issue #1425).**
+
+The plan's D1 offered three ways out of "a feature shipped without its runtime":
+(a) bundle the content-server dist and require the user to have `node`,
+(b) bundle Node plus the vendored dependency payload and sign it, or (c) mark
+the feature developer-mode-only until a runtime story exists. **(c) is the
+decision**, and the cost of deferring it is now measured rather than
+hypothetical: `#1425` is a user reporting the dead end as a *Linux packaging
+fault*. It is not one. `BUNDLED_CLI_RESOURCE` is `None`, nothing in any build
+produces a `cli.js`, the ADR-2 provisioning path has no production caller, and
+`release-smoke.yml` **asserts `cli=missing` on every macOS release** — so the
+feature could not start on the primary platform either. The in-app copy said
+"not included in this build", which reads as "this platform's build" and is what
+pointed the reporter at the wrong cause.
+
+WI-FL1.1 made the failure honest, which was the right first step and not
+sufficient: an honest explanation still requires the user to find the feature,
+try it, and be told no. The entry points — the View menu item, the palette
+command, `Ctrl + Shift + 4` and, transitively, Slidev preview/export — are now
+hidden unless `advanced.developerMode` is on, through the same
+hidden-not-greyed mechanism the browser's "New Browser Tab" item already used
+(`menu::conditional_items`, generalized from `browser_menu_item.rs` at its
+second instance). One predicate, `knowledgeBaseAvailableHere`, backs the
+palette's `when`, the shortcut and the native item, so they cannot disagree.
+
+Two consequences settled deliberately. The panel CLOSES when the setting goes
+off, because it has no close button of its own — every way to dismiss it runs
+through the same gated command, so leaving it open would strand a dock nothing
+could dismiss (`KnowledgeBaseOverlay.test.tsx` pins it). A RUNNING server is not
+stopped: turning the setting back on reaches its Stop button, and `quit.rs`
+kills content servers at exit regardless, so the recoverable state is preferred
+over a side effect the user did not ask for. And it is not a deletion —
+`resolve_cli`, the probe and the panel are unchanged, so option (b) remains a
+flag flip plus a build step rather than a rewrite. **Re-open D1 when a runtime
+story exists**; the release-smoke assertion is the thing that will have to flip
+from `cli=missing` to `cli=ready` in the same change.
+
 **Embedded browser — SHIPPED ON BY DEFAULT (maintainer decision, 2026-08-15).
 This supersedes the KEEP-DARK recommendation below, which is retained because
 the reasoning it records is still the reasoning a reader needs.**

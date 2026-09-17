@@ -189,6 +189,15 @@ If you prefer keeping system functions on F-keys, you can customize VMark shortc
 | Next Issue | `F2` |
 | Previous Issue | `Shift + F2` |
 
+::: tip Toggle Knowledge Base
+`Ctrl + Shift + 4` is hidden by default, along with the **View → Knowledge
+Base** menu item and the palette command. No release build on any platform
+ships the content-server runtime the feature needs, so the entry points appear
+only when **Settings → Advanced → Developer tools** is on — see
+[Knowledge Base & Slidev](/guide/knowledge-base#requirements). The shortcut
+stays listed and customizable in **Settings → Shortcuts** either way.
+:::
+
 ## File Operations
 
 | Action | Shortcut |
