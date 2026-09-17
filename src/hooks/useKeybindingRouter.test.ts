@@ -84,3 +84,47 @@ describe("useKeybindingRouter", () => {
     expect(mockExecute).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * The router installs the IME chord guard, and that wiring is the regression
+ * surface: `preventDefault()` on the keydown above is a NO-OP under a CJK IME
+ * (the character is committed before the keydown arrives), so unwiring the
+ * guard would silently restore the `·`-in-the-document bug while every
+ * assertion above stayed green.
+ */
+describe("useKeybindingRouter — IME chord guard wiring", () => {
+  function typeUnderIme(field: HTMLElement, data: string): InputEvent {
+    const e = new InputEvent("beforeinput", {
+      data,
+      inputType: "insertText",
+      cancelable: true,
+      bubbles: true,
+      composed: true,
+    });
+    field.dispatchEvent(e);
+    return e;
+  }
+
+  it("cancels the character an input method commits for a held command chord", () => {
+    renderHook(() => useKeybindingRouter());
+    const field = document.createElement("textarea");
+    document.body.appendChild(field);
+    window.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Control", ctrlKey: true, bubbles: true }),
+    );
+    expect(typeUnderIme(field, "·").defaultPrevented).toBe(true);
+    field.remove();
+  });
+
+  it("stops guarding on unmount", () => {
+    const { unmount } = renderHook(() => useKeybindingRouter());
+    const field = document.createElement("textarea");
+    document.body.appendChild(field);
+    window.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Control", ctrlKey: true, bubbles: true }),
+    );
+    unmount();
+    expect(typeUnderIme(field, "·").defaultPrevented).toBe(false);
+    field.remove();
+  });
+});

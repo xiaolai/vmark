@@ -10,6 +10,7 @@
  * @module services/keybinding/bindingContext
  */
 
+import { isTerminalSurface } from "@/utils/terminalSurface";
 import type { BindingContext, Scope } from "./bindingRegistry";
 
 function isModalOpen(): boolean {
@@ -18,10 +19,6 @@ function isModalOpen(): boolean {
 
 function isEditorFocused(el: Element | null): boolean {
   return el?.closest?.(".ProseMirror, .cm-editor") != null;
-}
-
-function isTerminalFocused(el: Element | null): boolean {
-  return el?.closest?.(".xterm, .terminal-container") != null;
 }
 
 function isTextInput(el: Element | null): boolean {
@@ -40,7 +37,7 @@ export function resolveBindingContext(windowLabel: string): BindingContext {
   const el = typeof document !== "undefined" ? document.activeElement : null;
 
   if (isModalOpen()) scopes.push("modal");
-  if (isTerminalFocused(el)) {
+  if (isTerminalSurface(el)) {
     scopes.push("terminal");
   } else if (isEditorFocused(el)) {
     // Scope by the FOCUSED editor surface, not the global sourceMode flag: in a

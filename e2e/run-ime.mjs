@@ -36,6 +36,7 @@ import { fileURLToPath } from "node:url";
 import { BridgeClient, evalJs } from "./lib/bridge.mjs";
 import { withTabRestore, createScratchTab, getEditorText, getTabs, poll } from "./lib/vmark.mjs";
 import { parseArgs } from "./lib/config.mjs";
+import { CONSOLE_SESSION_COMMAND, isSessionLocked } from "./lib/sessionLock.mjs";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const PROFILE_PATH = process.env.VMARK_IME_PROFILE ?? join(repoRoot, ".vmark", "ime-machine-profile.json");
@@ -83,17 +84,28 @@ const profile = JSON.parse(readFileSync(PROFILE_PATH, "utf8"));
 const table = SEQUENCES[profile.schema];
 if (!table) refuse("schema-table", `no keystroke table for schema "${profile.schema}"`);
 
-// Session must be UNLOCKED — locked sessions swallow injected keys silently.
-const locked = osascript(
-  `use framework "Foundation"
-   set d to current application's NSClassFromString("NSDictionary")
-   try
-     set info to (current application's CGSessionCopyCurrentDictionary()) as record
-     if CGSSessionScreenIsLocked of info is not missing value then return "locked"
-   end try
-   return "unlocked"`.replaceAll("\n   ", "\n"),
-);
-if (locked === "locked") refuse("session-locked", "unlock the console session (Screen Sharing works)");
+/**
+ * Session must be UNLOCKED — a locked session swallows injected keys after the
+ * HID layer with no error anywhere, and any check shaped "the document did not
+ * change" then PASSES. The predicate, and the two reasons the previous
+ * AppleScript probe could never report a lock, live in `lib/sessionLock.mjs`
+ * with real captured fixtures in `sessionLock.test.mjs`.
+ *
+ * An unreadable console session refuses rather than guessing.
+ */
+let consoleSession;
+try {
+  consoleSession = sh("/bin/sh", ["-c", CONSOLE_SESSION_COMMAND]);
+} catch (e) {
+  refuse("session-probe", `cannot read console session state: ${e.message}`);
+}
+try {
+  if (isSessionLocked(consoleSession)) {
+    refuse("session-locked", "unlock the console session (Screen Sharing works)");
+  }
+} catch (e) {
+  refuse("session-probe", e.message);
+}
 
 // Schema verification — adapt, never mutate.
 const sv = profile.schemaVerification;
@@ -214,6 +226,39 @@ async function main() {
         const after = await getEditorText(client);
         if (after !== before) throw new Error(`document changed after backspace+cancel: ${JSON.stringify(after)}`);
       });
+
+      /**
+       * THERE IS NO AUTOMATED CHORD CASE HERE, AND THAT IS A MEASUREMENT.
+       *
+       * A command chord under a CJK IME is the #1420 / #1083 bug: the IME
+       * rewrites the key (Backquote becomes `·` with Chinese punctuation on)
+       * and COMMITS it before the keydown exists, so the character lands in the
+       * document. `services/keybinding/imeChordGuard.ts` vetoes it at
+       * `beforeinput`, where the modifier state comes from the preceding
+       * `Control` keydown.
+       *
+       * This lane cannot exercise that, because **System Events injection
+       * produces no modifier key event at all**. Measured 2026-09-17 against
+       * real Safari + the real macOS SCIM IME: `key down control` held for a
+       * full second logged ZERO DOM events, and so did `key down shift`;
+       * `key code 50 using {control down}` surfaced `ctrl: true` only on the
+       * backquote's OWN keydown, which arrives AFTER the insertion. A real
+       * finger does deliver it — the same page recorded
+       * `win-keydown key="Control"` immediately before `beforeinput`, the guard
+       * saw `heldCtrl: true`, vetoed, and the box stayed empty.
+       *
+       * So an injected chord tests the case where the guard is blind by
+       * construction: the check would FAIL against a correct app. A check that
+       * fails on correct code is worse than no check, which is why this is a
+       * comment and not a `check(...)`. The mechanism is covered by
+       * `src/services/keybinding/imeChordGuard.webkit.test.ts`, and the real-IME
+       * half is a MANUAL step on the release checklist in
+       * `src/test/editorComposition.webkit.test.ts`.
+       *
+       * Re-adding it needs a faithful injector (CGEvent posting a real
+       * flagsChanged), not a different AppleScript spelling — both spellings
+       * were tried and measured.
+       */
 
       // Tab dirtiness is store state — the identity a broken pipeline can't fake.
       await check("committed compositions dirtied the scratch tab", async () => {

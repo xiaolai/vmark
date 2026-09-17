@@ -30,6 +30,14 @@
  *   2. Esc mid-composition → document unchanged, no stray marked text.
  *   3. Backspace mid-composition removes one keystroke, not one syllable.
  *   4. Hiragana: compose すし, Return commits; no double-insert.
+ *   5. With Chinese punctuation ON, press Ctrl+` (Toggle Terminal) in the
+ *      editor: the panel toggles and NOTHING is typed, and the tab does not
+ *      become dirty (#1420, #1083). This is manual because no injector can
+ *      reach it — System Events produces no modifier key event at all, so an
+ *      injected chord exercises the case where `imeChordGuard` is blind by
+ *      construction. Measured on a real Mac 2026-09-17: a real finger DOES
+ *      deliver the `Control` keydown before `beforeinput`, the guard sees it,
+ *      and the character never lands. See the note in `e2e/run-ime.mjs`.
  *
  * @coordinates-with typingHarness.ts — jsdom counterpart (no composition there)
  * @coordinates-with src/components/Terminal/setupImeCompositionGate.webkit.test.ts — terminal surface

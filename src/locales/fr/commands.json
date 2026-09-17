@@ -48,6 +48,7 @@
   "view.toggleFitTables": "Ajuster les tableaux à la largeur",
   "view.toggleReadOnly": "Activer/désactiver la lecture seule",
   "view.toggleTerminal": "Afficher/masquer le terminal",
+  "view.focusTerminal": "Activer le terminal ou l’éditeur",
   "view.zoomActual": "Taille réelle",
   "view.zoomIn": "Zoom avant",
   "view.zoomOut": "Zoom arrière",

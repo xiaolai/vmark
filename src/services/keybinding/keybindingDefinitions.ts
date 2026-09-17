@@ -60,6 +60,11 @@ function viewBinding(
  */
 const VIEW_BINDINGS: Binding[] = [
   viewBinding("toggleTerminal", "view.toggleTerminal", { suppressInInput: false }),
+  // Input-suppressed, and that still reaches the terminal: xterm's helper
+  // textarea resolves to the `terminal` scope, not `input` (bindingContext.ts).
+  // The terminal's own key handler owns the chord there anyway, so the shell
+  // never sees it — this binding is the editor-side half.
+  viewBinding("focusTerminal", "view.focusTerminal", { suppressInInput: true }),
   viewBinding("sourceMode", "view.toggleSourceMode", { suppressInInput: true }),
   viewBinding("focusMode", "view.toggleFocusMode", { suppressInInput: true }),
   viewBinding("typewriterMode", "view.toggleTypewriterMode", { suppressInInput: true }),

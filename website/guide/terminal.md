@@ -2,7 +2,9 @@
 
 VMark includes a built-in terminal panel so you can run commands without leaving the editor.
 
-Press `` Ctrl + ` `` to toggle the terminal panel.
+Press `` Ctrl + ` `` to show or hide the terminal panel. Opening it puts the caret in the shell, and closing it gives the caret back to the editor — so the panel is reachable and escapable without touching the mouse.
+
+To move between the editor and an OPEN terminal without hiding it, press `` Ctrl + Shift + ` `` (**Focus Terminal or Editor**; `` Alt + Shift + ` `` on Windows and Linux). It toggles in both directions and never changes the panel's visibility — if the terminal happens to be hidden, it opens it rather than doing nothing.
 
 ## Sessions
 
@@ -54,6 +56,7 @@ These shortcuts work when the terminal panel is focused:
 | Select all terminal output | `Mod + A` |
 | Switch to session 1 … 5 | `Mod + 1` … `Mod + 5` |
 | Toggle Terminal | `` Ctrl + ` `` |
+| Focus Terminal or Editor | `` Ctrl + Shift + ` `` |
 | Previous command prompt | `Mod + ↑` |
 | Next command prompt | `Mod + ↓` |
 

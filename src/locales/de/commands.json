@@ -48,6 +48,7 @@
   "view.toggleFitTables": "Tabellen an Breite anpassen",
   "view.toggleReadOnly": "Schreibschutz umschalten",
   "view.toggleTerminal": "Terminal umschalten",
+  "view.focusTerminal": "Terminal oder Editor fokussieren",
   "view.zoomActual": "Originalgröße",
   "view.zoomIn": "Vergrößern",
   "view.zoomOut": "Verkleinern",

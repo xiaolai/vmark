@@ -13,6 +13,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { userEvent } from "vitest/browser";
+import { TERMINAL_SURFACE_SELECTOR } from "@/utils/terminalSurface";
 
 describe("browser tier — foundational guarantees", () => {
   it("instantiates a real Terminal with a live helper textarea", async () => {
@@ -23,6 +24,21 @@ describe("browser tier — foundational guarantees", () => {
     term.open(host);
     expect(term.textarea).toBeTruthy();
     expect(host.contains(term.textarea ?? null)).toBe(true);
+
+    /**
+     * The `.xterm` half of `TERMINAL_SURFACE_SELECTOR`, asked of the LIBRARY
+     * rather than of a literal we wrote. That selector is how the keybinding
+     * scope resolver decides a keypress is "in the terminal" and how the
+     * editor⇄terminal focus toggle decides which way to move. If xterm ever
+     * renames the class, both go silently blind — terminal-scoped bindings
+     * quietly degrade to window bindings and the focus toggle always believes
+     * focus is in the editor, with nothing failing. jsdom mocks this library,
+     * so this tier is the only place the question can be asked honestly.
+     * (`.terminal-container`, the other half, is asked of the real panel in
+     * `TerminalPanel.test.tsx`.)
+     */
+    expect(term.textarea?.closest(TERMINAL_SURFACE_SELECTOR)).not.toBeNull();
+
     term.dispose();
   });
 

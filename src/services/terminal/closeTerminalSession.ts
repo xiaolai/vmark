@@ -24,6 +24,7 @@
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { useUIStore } from "@/stores/uiStore";
 import { getVisibleTerminalSessions } from "./visibleTerminalSessions";
+import { restoreEditorFocusIfOrphaned } from "./terminalFocus";
 
 export function removeTerminalSessionWithPanelPolicy(
   sessionId: string,
@@ -38,5 +39,10 @@ export function removeTerminalSessionWithPanelPolicy(
   useUIStore.getState().terminalRemoveSession(sessionId, { visibleIds });
   if (!wasLastVisible) return;
   const now = useUIStore.getState();
-  if (now.terminalVisible) now.toggleTerminal();
+  if (!now.terminalVisible) return;
+  now.toggleTerminal();
+  // The panel just went display:none under the caret (the user clicked close,
+  // or the shell exited while focused) — without this the next keystroke goes
+  // to <body> and nowhere else.
+  restoreEditorFocusIfOrphaned();
 }

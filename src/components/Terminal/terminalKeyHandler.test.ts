@@ -43,7 +43,7 @@ vi.mock("@/lib/pty", () => ({ spawn: vi.fn() }));
 
 const mockRequestToggleTerminal = vi.fn();
 vi.mock("@/services/terminal/terminalGate", () => ({
-  requestToggleTerminal: () => mockRequestToggleTerminal(),
+  requestToggleTerminal: () => mockRequestToggleTerminal(), toggleTerminalFocus: () => {},
 }));
 
 function makeTerm(overrides: Partial<Terminal> = {}): Terminal {

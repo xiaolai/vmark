@@ -22,6 +22,7 @@ import { keybindingWarn } from "@/utils/debug";
 import { installBindings, resolveEvent } from "@/services/keybinding/keybindingRegistry";
 import { resolveBindingContext } from "@/services/keybinding/bindingContext";
 import { KEYBINDINGS } from "@/services/keybinding/keybindingDefinitions";
+import { installImeChordGuard } from "@/services/keybinding/imeChordGuard";
 import { AmbiguousBindingError, type Binding } from "@/services/keybinding/bindingRegistry";
 
 /** Whether the binding's IME policy says to skip this event. */
@@ -77,9 +78,15 @@ export function useKeybindingRouter(): void {
     const onCapture = handle("capture");
     window.addEventListener("keydown", onBubble);
     window.addEventListener("keydown", onCapture, { capture: true });
+    // The other half of consuming a chord: under a CJK IME the character is
+    // committed BEFORE its keydown arrives, so `preventDefault()` above cannot
+    // stop it. See imeChordGuard.ts — without this, `Ctrl+\`` toggles the
+    // terminal AND leaves a `·` in the document.
+    const disposeImeGuard = installImeChordGuard(window);
     return () => {
       window.removeEventListener("keydown", onBubble);
       window.removeEventListener("keydown", onCapture, { capture: true });
+      disposeImeGuard();
       dispose();
     };
   }, [windowLabel]);

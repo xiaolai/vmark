@@ -28,7 +28,7 @@ import { useContentServerStore } from "@/stores/contentServerStore";
 import { useWindowStatusStore } from "@/stores/windowStatusStore";
 import { useBreakdownStore } from "@/stores/breakdownStore";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { requestToggleTerminal } from "@/services/terminal/terminalGate";
+import { requestToggleTerminal, toggleTerminalFocus } from "@/services/terminal/terminalGate";
 import { cleanupBeforeModeSwitch } from "@/services/assembly/modeSwitchCleanup";
 import { toggleSourceModeWithCheckpoint } from "@/services/history/unifiedHistory";
 import { toggleMarkdownSplitWithCheckpoint } from "@/services/editor/markdownSplitToggle";
@@ -243,6 +243,12 @@ function displayCommandSpecs(): CommandDefinition[] {
       title: () => i18n.t("commands:view.toggleTerminal"),
       category: "view",
       run: () => requestToggleTerminal(),
+    },
+    {
+      id: "view.focusTerminal",
+      title: () => i18n.t("commands:view.focusTerminal"),
+      category: "view",
+      run: () => toggleTerminalFocus(),
     },
   ];
 }

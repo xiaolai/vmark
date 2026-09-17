@@ -146,6 +146,14 @@ On Linux this relies on the D-Bus session bus; in a session with no `DBUS_SESSIO
 
 On some AMD / Mesa / WebKitGTK combinations (Arch with KDE Plasma 6 was the reported case, #1058) WebKitGTK's DMABUF renderer fails and the content area stays blank. VMark sets `WEBKIT_DISABLE_DMABUF_RENDERER=1` before the webview starts so this does not happen. If you want the DMABUF renderer back, launch with `WEBKIT_DISABLE_DMABUF_RENDERER=0` — VMark only sets the variable when you have not.
 
+### A Shortcut Types a Character While a Chinese Input Method Is On
+
+Fixed. With Chinese punctuation on, an input method rewrites the punctuation keys — the backtick key produces `·`, the brackets produce `【】` — and it commits that character **before** the app is told the key was pressed. So `` Ctrl + ` `` used to toggle the terminal *and* leave a stray `·` in the document, marking a clean file as edited.
+
+VMark now vetoes the insertion itself rather than the keypress, so a command chord types nothing. Ordinary Chinese typing, dead keys (`Option + e`) and AltGr characters on European keyboards are untouched — only insertions arriving while `Ctrl` or `Cmd` is held are refused, and no VMark chord means "type this character".
+
+If you still see a stray character from a shortcut, it is worth [reporting](https://github.com/xiaolai/vmark/issues) with the input method's name and the exact chord.
+
 ### Smart Quotes and Dashes on macOS
 
 Typing `--` or `"` in VMark stays literal even if your Mac has *Use smart quotes and dashes* turned on. The system would otherwise rewrite text underneath the editor — `-->` in a Mermaid block became `—>` — so VMark turns off the automatic dash, quote and period substitutions for its own process only. Other apps are unaffected, as are input methods and your own text replacements. For typographic quotes inside VMark, use the [CJK formatter's smart-quote rules](/guide/cjk-formatting#smart-quote-styles) or the quote-style toggle (`Shift + Mod + '`).

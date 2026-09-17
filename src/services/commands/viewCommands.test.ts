@@ -9,6 +9,7 @@ const {
   toggleSourceModeWithCheckpoint,
   cleanupBeforeModeSwitch,
   requestToggleTerminal,
+  toggleTerminalFocus,
   toggleDocumentReadOnlyWithOwnership,
   scrollToSelectedDiagnostic,
   runActiveLint,
@@ -16,6 +17,7 @@ const {
   toggleSourceModeWithCheckpoint: vi.fn(),
   cleanupBeforeModeSwitch: vi.fn(),
   requestToggleTerminal: vi.fn(),
+  toggleTerminalFocus: vi.fn(),
   toggleDocumentReadOnlyWithOwnership: vi.fn(),
   scrollToSelectedDiagnostic: vi.fn(),
   runActiveLint: vi.fn(),
@@ -23,7 +25,7 @@ const {
 
 vi.mock("@/services/history/unifiedHistory", () => ({ toggleSourceModeWithCheckpoint }));
 vi.mock("@/services/assembly/modeSwitchCleanup", () => ({ cleanupBeforeModeSwitch }));
-vi.mock("@/services/terminal/terminalGate", () => ({ requestToggleTerminal }));
+vi.mock("@/services/terminal/terminalGate", () => ({ requestToggleTerminal, toggleTerminalFocus }));
 vi.mock("@/services/workspaces/fileOwnership", () => ({ toggleDocumentReadOnlyWithOwnership }));
 vi.mock("@/services/lint/lintNavigation", () => ({ scrollToSelectedDiagnostic }));
 vi.mock("@/services/lint/runActiveLint", () => ({ runActiveLint }));
@@ -164,7 +166,7 @@ describe("registerViewCommands — full command set", () => {
     expect(getCommand("view.toggleSourceMode")).toBeDefined();
   });
 
-  it("registers all 33 view/lint commands", () => {
+  it("registers all 34 view/lint commands", () => {
     const ids = listCommands().map((c) => c.id);
     expect(ids).toContain("view.toggleSidebar");
     expect(ids).toContain("view.toggleSourceMode");
@@ -179,7 +181,7 @@ describe("registerViewCommands — full command set", () => {
     expect(ids).toContain("explorer.toggleHiddenFiles");
     expect(ids).toContain("explorer.toggleAllFiles");
     expect(ids).toContain("view.toggleUniversalToolbar");
-    expect(ids.length).toBe(33);
+    expect(ids.length).toBe(34);
   });
 
   it("every command resolves a non-empty title and executes without throwing", async () => {
@@ -272,6 +274,14 @@ describe("view command behavior", () => {
   it("toggleTerminal requests the terminal gate", async () => {
     await executeCommand("view.toggleTerminal");
     expect(requestToggleTerminal).toHaveBeenCalled();
+  });
+
+  // Visibility and focus are different verbs: the focus chord must not be
+  // wired to the toggle, or leaving the terminal would close it.
+  it("focusTerminal moves focus without touching visibility", async () => {
+    await executeCommand("view.focusTerminal");
+    expect(toggleTerminalFocus).toHaveBeenCalled();
+    expect(requestToggleTerminal).not.toHaveBeenCalled();
   });
 
   it("lint.check runs the active linter for the window", async () => {
