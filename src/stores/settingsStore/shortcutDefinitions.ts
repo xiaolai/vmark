@@ -147,6 +147,11 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   { id: "wordWrap", label: "Toggle Word Wrap", category: "view", defaultKey: "Alt-z", menuId: "word-wrap" },
   { id: "lineNumbers", label: "Toggle Line Numbers", category: "view", defaultKey: "Alt-Mod-l", menuId: "line-numbers", description: "Show/hide the line-number gutter in Source and Split view" },
   { id: "toggleTerminal", label: "Toggle Terminal", category: "view", defaultKey: "Ctrl-`", menuId: "toggle-terminal" },
+  // Same physical key as the toggle, plus Shift: show/hide and go-there are the
+  // same gesture family. Off macOS `Mod` IS Ctrl, so `Ctrl-Shift-\`` would be
+  // the same accelerator as `code`'s `Mod-Shift-\`` there — hence the Alt
+  // variant, the resolution `toggleSidebar` and the transform trio already use.
+  { id: "focusTerminal", label: "Focus Terminal or Editor", category: "view", defaultKey: "Ctrl-Shift-`", defaultKeyOther: "Alt-Shift-`", description: "Move focus between the editor and the terminal, opening the terminal if it is hidden" },
   { id: "diagramPreview", label: "Toggle Diagram Preview", category: "view", defaultKey: "Alt-Mod-p", menuId: "diagram-preview", description: "Show/hide diagram preview" },
   { id: "fitTables", label: "Fit Tables to Width", category: "view", defaultKey: "", menuId: "fit-tables", description: "Force tables to fit editor width with word wrapping" },
   { id: "readOnly", label: "Read-Only Mode", category: "view", defaultKey: "F10", menuId: "read-only", description: "Lock/unlock document from editing" },

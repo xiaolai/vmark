@@ -48,6 +48,7 @@
   "view.toggleFitTables": "Fit Tables to Width",
   "view.toggleReadOnly": "Toggle Read-Only",
   "view.toggleTerminal": "Toggle Terminal",
+  "view.focusTerminal": "Focus Terminal or Editor",
   "view.zoomActual": "Actual Size",
   "view.zoomIn": "Zoom In",
   "view.zoomOut": "Zoom Out",

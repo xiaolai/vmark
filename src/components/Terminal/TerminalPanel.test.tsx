@@ -52,6 +52,7 @@ vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({
 }));
 
 import { TerminalPanel } from "./TerminalPanel";
+import { TERMINAL_SURFACE_SELECTOR } from "@/utils/terminalSurface";
 import { resetTerminalSessionStore, useUIStore } from "@/stores/uiStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useWorkspaceInstancesStore } from "@/stores/workspaceInstancesStore";
@@ -250,5 +251,24 @@ describe("TerminalPanel — rail-mode toggle realigns and auto-creates (R2-15)",
     const created = terminal.sessions.find((s) => s.workspaceInstanceId === "wsi-a");
     expect(created).toBeDefined();
     expect(terminal.activeSessionId).toBe(created?.id);
+  });
+
+  /**
+   * `TERMINAL_SURFACE_SELECTOR` is a STRING, and two layers steer off it: the
+   * keybinding scope resolver (which turns it into the `terminal` scope) and
+   * the editor⇄terminal focus toggle. Rename this container and both go
+   * silently blind — every terminal-scoped binding starts behaving like a
+   * window binding, and the focus toggle always believes focus is in the
+   * editor. Nothing fails; it just stops working.
+   *
+   * Every other test of that selector builds its own `<div class="…">` and so
+   * only proves the string equals itself. This one asks the REAL panel. The
+   * `.xterm` half is asked of the REAL xterm.js in
+   * `browserTier.smoke.webkit.test.ts`, because jsdom mocks that library.
+   */
+  it("renders a container the terminal-surface selector actually matches", () => {
+    useUIStore.setState({ terminalVisible: true });
+    const { container } = render(<TerminalPanel />);
+    expect(container.querySelector(TERMINAL_SURFACE_SELECTOR)).not.toBeNull();
   });
 });

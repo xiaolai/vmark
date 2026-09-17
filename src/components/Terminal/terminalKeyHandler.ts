@@ -9,9 +9,14 @@
  *     for SIGINT (Ctrl+C), maintaining standard terminal behavior.
  *   - Cmd+V → paste from clipboard directly into PTY (not xterm buffer).
  *   - Cmd+K → clear terminal scrollback and viewport.
- *   - The configured Toggle-Terminal binding (default Ctrl+`) → toggle and fully
- *     consume the event, so a CJK IME's remapped "·" never reaches the shell and
- *     the window handler doesn't double-toggle. Skipped during composition/grace.
+ *   - The configured panel chords — Toggle Terminal (default Ctrl+`) and Focus
+ *     Terminal (default Ctrl+Shift+`) → act and fully consume the event, so the
+ *     shell never sees the key and the window handler doesn't double-fire it.
+ *     Skipped during composition/grace. This does NOT stop a CJK IME's remapped
+ *     "·", whatever an earlier version of this note claimed: the IME commits
+ *     that character before the keydown exists, so preventDefault here is too
+ *     late by construction. services/keybinding/imeChordGuard.ts is what stops
+ *     it, at `beforeinput`.
  *   - Cmd+F → toggle search bar in the terminal panel (preventDefault so the
  *     native Find accelerator doesn't ALSO open the editor FindBar).
  *   - Cmd+1-5 → switch between terminal sessions (up to 5).
@@ -48,7 +53,7 @@ import { isImeKeyEvent } from "@/utils/imeGuard";
 import { isMacPlatform, matchesShortcutEvent } from "@/utils/shortcutMatch";
 import { clipboardWarn } from "@/utils/debug";
 import { errorMessage } from "@/utils/errorMessage";
-import { requestToggleTerminal } from "@/services/terminal/terminalGate";
+import { requestToggleTerminal, toggleTerminalFocus } from "@/services/terminal/terminalGate";
 import { getVisibleTerminalSessions } from "@/services/terminal/visibleTerminalSessions";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { handleReadlineNavKey } from "./terminalReadlineKeys";
@@ -59,6 +64,16 @@ import { handleReadlineNavKey } from "./terminalReadlineKeys";
  *  store clamps to the terminal range [8,32]. */
 const TERMINAL_FONT_SIZE_STEP = 2;
 const DEFAULT_TERMINAL_FONT_SIZE = settingsDefaults.terminal.fontSize;
+
+/**
+ * Panel chords the terminal claims from the shell: shortcut id → what it does.
+ * Both are user-rebindable, so the chord is read from the store per keypress
+ * rather than baked in here.
+ */
+const PANEL_CHORDS: ReadonlyArray<readonly [string, () => void]> = [
+  ["toggleTerminal", requestToggleTerminal],
+  ["focusTerminal", toggleTerminalFocus],
+];
 
 /** Nudge the terminal font size; the store clamps to the valid range. */
 function adjustTerminalFontSize(delta: number): void {
@@ -93,24 +108,27 @@ export function createTerminalKeyHandler(
   return (event: KeyboardEvent): boolean => {
     if (event.type !== "keydown") return true;
 
-    // Toggle-Terminal: own the CONFIGURED binding here and FULLY consume the
-    // event — matchesShortcutEvent resolves the physical Backquote even when a
-    // CJK IME remaps it to "·", and honours a custom binding.
+    // Panel chords the terminal OWNS: it acts on the CONFIGURED binding here and
+    // FULLY consumes the event — matchesShortcutEvent resolves the physical
+    // Backquote even when a CJK IME remaps it to "·", and honours a custom
+    // binding. (The remapped character itself is stopped one layer out, by
+    // services/keybinding/imeChordGuard.ts: the IME commits it BEFORE this
+    // keydown exists, so no preventDefault here could ever have caught it.)
     //
     // WI-1.4: ALWAYS stopPropagation on a match, even during composition. Without
     // it, xterm's keyCode-229 keydown doesn't cancel the event, so it bubbles to
     // the WINDOW handler, which toggles the panel anyway (audit: high). Owning it
-    // here makes the toggle fire exactly once. During a REAL active composition
-    // (event.isComposing) the Backquote is IME input, so we swallow without
-    // toggling. Gate mode commits synchronously at compositionend, so there is no
+    // here makes each chord fire exactly once. During a REAL active composition
+    // (event.isComposing) the key is IME input, so we swallow without acting.
+    // Gate mode commits synchronously at compositionend, so there is no
     // pending-commit state to flush before the panel hides.
-    if (
-      matchesShortcutEvent(event, useShortcutsStore.getState().getShortcut("toggleTerminal"))
-    ) {
+    const shortcuts = useShortcutsStore.getState();
+    for (const [shortcutId, act] of PANEL_CHORDS) {
+      if (!matchesShortcutEvent(event, shortcuts.getShortcut(shortcutId))) continue;
       event.preventDefault();
       event.stopPropagation();
-      if (event.isComposing) return false; // real composition — swallow, no toggle
-      requestToggleTerminal();
+      if (event.isComposing) return false; // real composition — swallow, no action
+      act();
       return false;
     }
 

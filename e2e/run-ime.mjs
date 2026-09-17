@@ -44,6 +44,8 @@ const PROFILE_PATH = process.env.VMARK_IME_PROFILE ?? join(repoRoot, ".vmark", "
 const KEYCODES = {
   n: 45, i: 34, h: 4, k: 40, m: 46, t: 17, ";": 41,
   Space: 49, Return: 36, Escape: 53, Backspace: 51, Shift: 56,
+  // The chord key: with Chinese punctuation on, the IME rewrites it to `\u00b7`.
+  "`": 50,
 };
 
 /** Schema-keyed keystroke tables (public knowledge; machines pick via profile). */
@@ -150,6 +152,22 @@ async function inject(keys, { targetName }) {
   }
 }
 
+/**
+ * Inject ONE chord (modifiers held), e.g. `key code 50 using {control down}`.
+ * Separate from `inject` because that one walks a composition sequence, where
+ * a held modifier would change every keystroke's meaning.
+ */
+async function injectChord(key, modifiers, { targetName }) {
+  frontmostVerify(targetName);
+  const code = KEYCODES[key];
+  if (code === undefined) throw new Error(`no keycode for ${JSON.stringify(key)}`);
+  const using = modifiers.length
+    ? ` using {${modifiers.map((m) => `${m} down`).join(", ")}}`
+    : "";
+  osascript(`tell application "System Events" to key code ${code}${using}`);
+  await sleep(400);
+}
+
 // ── the lane ──────────────────────────────────────────────────────────────
 async function main() {
   const cfg = parseArgs(process.argv.slice(2), { usage: "Usage: VMARK_REAL_IME=1 pnpm e2e:ime [--port 9323]" });
@@ -214,6 +232,47 @@ async function main() {
         const after = await getEditorText(client);
         if (after !== before) throw new Error(`document changed after backspace+cancel: ${JSON.stringify(after)}`);
       });
+
+      /**
+       * A COMMAND chord must type nothing, and only this tier can prove it.
+       *
+       * With Chinese punctuation on, the IME rewrites the backquote key to
+       * `·` and COMMITS that character before the keydown exists — so
+       * `preventDefault()` in the key handlers is too late by construction,
+       * and `Ctrl+\`` toggled the terminal AND dirtied the document
+       * (`services/keybinding/imeChordGuard.ts`). No synthetic tier can
+       * reproduce that ordering; a hand-built event always arrives in the
+       * order the test author chose.
+       *
+       * Scope split, stated so nobody reads more into a PASS than is there:
+       * this asserts the chord INSERTS NOTHING. That the chord still FIRES
+       * under an IME (the #1083 property, physical-key matching) is asserted
+       * by the unit tiers — `terminalKeyHandler.focus.test.ts` and
+       * `keybindingDefinitions.test.ts` — because the terminal's own
+       * workspace gate can refuse to open here for reasons unrelated to keys.
+       *
+       * The composition checks above are the other half of this fix's blast
+       * radius: if the guard were too broad, `你好` would stop committing.
+       */
+      for (const [label, mods] of [
+        ["Ctrl+` (Toggle Terminal)", ["control"]],
+        ["Ctrl+Shift+` (Focus Terminal)", ["control", "shift"]],
+      ]) {
+        await check(`${label} under the IME inserts no character`, async () => {
+          const before = await getEditorText(client);
+          await injectChord("`", mods, { targetName: appProcess.toLowerCase() });
+          await sleep(600);
+          const after = await getEditorText(client);
+          if (after !== before) {
+            throw new Error(
+              `chord typed into the document: ${JSON.stringify(before)} → ${JSON.stringify(after)}`,
+            );
+          }
+          // The chord may have moved focus into the terminal; take it back so
+          // the next check types where it expects to.
+          await evalJs(client, `(() => { document.querySelector('.ProseMirror')?.focus(); return true; })()`);
+        });
+      }
 
       // Tab dirtiness is store state — the identity a broken pipeline can't fake.
       await check("committed compositions dirtied the scratch tab", async () => {

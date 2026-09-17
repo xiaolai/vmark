@@ -48,6 +48,7 @@
   "view.toggleFitTables": "表格适应宽度",
   "view.toggleReadOnly": "切换只读模式",
   "view.toggleTerminal": "切换终端",
+  "view.focusTerminal": "聚焦终端或编辑器",
   "view.zoomActual": "实际大小",
   "view.zoomIn": "放大",
   "view.zoomOut": "缩小",

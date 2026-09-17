@@ -48,6 +48,7 @@
   "view.toggleFitTables": "Ajustar tabelas à largura",
   "view.toggleReadOnly": "Alternar somente leitura",
   "view.toggleTerminal": "Alternar terminal",
+  "view.focusTerminal": "Focar o terminal ou o editor",
   "view.zoomActual": "Tamanho real",
   "view.zoomIn": "Aumentar zoom",
   "view.zoomOut": "Diminuir zoom",

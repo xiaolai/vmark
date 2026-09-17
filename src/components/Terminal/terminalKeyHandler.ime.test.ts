@@ -46,7 +46,10 @@ import { describe, it, expect, vi } from "vitest";
 // (The sibling suite's mocks predate the gate and are baselined; the
 // baseline ratchets DOWN only, so a split file may not re-add them.)
 
-vi.mock("@/services/terminal/terminalGate", () => ({ requestToggleTerminal: vi.fn() }));
+vi.mock("@/services/terminal/terminalGate", () => ({
+  requestToggleTerminal: vi.fn(),
+  toggleTerminalFocus: vi.fn(),
+}));
 
 import type { Terminal } from "@xterm/xterm";
 import type { IPty } from "@/lib/pty";

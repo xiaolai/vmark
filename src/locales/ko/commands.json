@@ -48,6 +48,7 @@
   "view.toggleFitTables": "표를 너비에 맞추기",
   "view.toggleReadOnly": "읽기 전용 전환",
   "view.toggleTerminal": "터미널 전환",
+  "view.focusTerminal": "터미널 또는 편집기에 포커스",
   "view.zoomActual": "실제 크기",
   "view.zoomIn": "확대",
   "view.zoomOut": "축소",
