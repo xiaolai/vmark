@@ -36,6 +36,7 @@ import { fileURLToPath } from "node:url";
 import { BridgeClient, evalJs } from "./lib/bridge.mjs";
 import { withTabRestore, createScratchTab, getEditorText, getTabs, poll } from "./lib/vmark.mjs";
 import { parseArgs } from "./lib/config.mjs";
+import { CONSOLE_SESSION_COMMAND, isSessionLocked } from "./lib/sessionLock.mjs";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const PROFILE_PATH = process.env.VMARK_IME_PROFILE ?? join(repoRoot, ".vmark", "ime-machine-profile.json");
@@ -85,17 +86,28 @@ const profile = JSON.parse(readFileSync(PROFILE_PATH, "utf8"));
 const table = SEQUENCES[profile.schema];
 if (!table) refuse("schema-table", `no keystroke table for schema "${profile.schema}"`);
 
-// Session must be UNLOCKED — locked sessions swallow injected keys silently.
-const locked = osascript(
-  `use framework "Foundation"
-   set d to current application's NSClassFromString("NSDictionary")
-   try
-     set info to (current application's CGSessionCopyCurrentDictionary()) as record
-     if CGSSessionScreenIsLocked of info is not missing value then return "locked"
-   end try
-   return "unlocked"`.replaceAll("\n   ", "\n"),
-);
-if (locked === "locked") refuse("session-locked", "unlock the console session (Screen Sharing works)");
+/**
+ * Session must be UNLOCKED — a locked session swallows injected keys after the
+ * HID layer with no error anywhere, and any check shaped "the document did not
+ * change" then PASSES. The predicate, and the two reasons the previous
+ * AppleScript probe could never report a lock, live in `lib/sessionLock.mjs`
+ * with real captured fixtures in `sessionLock.test.mjs`.
+ *
+ * An unreadable console session refuses rather than guessing.
+ */
+let consoleSession;
+try {
+  consoleSession = sh("/bin/sh", ["-c", CONSOLE_SESSION_COMMAND]);
+} catch (e) {
+  refuse("session-probe", `cannot read console session state: ${e.message}`);
+}
+try {
+  if (isSessionLocked(consoleSession)) {
+    refuse("session-locked", "unlock the console session (Screen Sharing works)");
+  }
+} catch (e) {
+  refuse("session-probe", e.message);
+}
 
 // Schema verification — adapt, never mutate.
 const sv = profile.schemaVerification;
@@ -260,8 +272,41 @@ async function main() {
       ]) {
         await check(`${label} under the IME inserts no character`, async () => {
           const before = await getEditorText(client);
+
+          // DELIVERY PROOF, before the assertion that depends on it.
+          //
+          // "The document did not change" is also what you see when the
+          // keystroke never arrived — a locked session, a revoked Accessibility
+          // grant, another app frontmost. Without this counter the check
+          // reports PASS for "nothing happened", which is the exact false green
+          // this lane exists to avoid. Found the hard way on 2026-09-17: a
+          // remote Mac with a locked screen swallowed every injected key and
+          // this assertion was green throughout.
+          //
+          // A window keydown is the right witness: it fires whether or not the
+          // IME rewrote the character, and whether or not the guard cancels the
+          // insertion.
+          await evalJs(client, `(() => {
+            window.__imeProbeKeys = 0;
+            if (!window.__imeProbeBound) {
+              window.__imeProbeBound = true;
+              window.addEventListener("keydown", () => { window.__imeProbeKeys++; }, true);
+            }
+            return true;
+          })()`);
+
           await injectChord("`", mods, { targetName: appProcess.toLowerCase() });
           await sleep(600);
+
+          const delivered = await evalJs(client, `window.__imeProbeKeys`);
+          if (!delivered) {
+            throw new Error(
+              "no keydown reached the webview — the chord was never delivered, so this "
+                + "check proves nothing. Locked session, revoked Accessibility grant, or "
+                + "another app frontmost.",
+            );
+          }
+
           const after = await getEditorText(client);
           if (after !== before) {
             throw new Error(
