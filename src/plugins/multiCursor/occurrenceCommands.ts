@@ -4,6 +4,7 @@
  * Commands that match text occurrences of the current selection or word:
  * - selectNextOccurrence: Add next match (Cmd+D)
  * - selectAllOccurrences: Select all matches (Cmd+Shift+L)
+ * - selectAllOccurrencesInBlock: Select all matches in the current block (#1418)
  * - skipOccurrence: Skip current match, take the next (Cmd+Shift+D)
  *
  * Extracted from commands.ts, which remains the stable entry point.
@@ -13,6 +14,8 @@ import type { EditorState, Transaction } from "@tiptap/pm/state";
 import { MultiSelection } from "./MultiSelection";
 import { normalizeRangesWithPrimary } from "./rangeUtils";
 import { filterRangesToBounds, getCodeBlockBounds } from "./codeBlockBounds";
+import type { CodeBlockBounds } from "./codeBlockBounds";
+import { getTextblockBounds } from "./blockBounds";
 import { findAllOccurrences, getSelectionText, getWordAtCursor } from "./textSearch";
 import { multiCursorPluginKey } from "./multiCursorPlugin";
 import {
@@ -121,15 +124,45 @@ export function selectNextOccurrence(state: EditorState): Transaction | null {
 /**
  * Select all occurrences of current selection or word under cursor.
  *
+ * Scoped to the enclosing code block when there is one — matching across a
+ * fence boundary is never what the user meant.
+ *
  * @param state - Current editor state
  * @returns Transaction or null if no action
  */
 export function selectAllOccurrences(state: EditorState): Transaction | null {
+  return selectAllOccurrencesWithin(state, getCodeBlockBounds(state, state.selection.from));
+}
+
+/**
+ * Select all occurrences within the CURRENT BLOCK only (#1418).
+ *
+ * The document-wide command above is unchanged and keeps its chord; this is a
+ * sibling, not a mode. Multi-cursor editing in a long document is safer when
+ * the blast radius is the paragraph you can see, and a user who wants the whole
+ * document still has it one key away.
+ *
+ * Inside a fence `getTextblockBounds` returns the same range the code-block
+ * path would, so this degrades to the existing behaviour rather than fighting
+ * it. With no enclosing textblock there is no block to scope to, and the
+ * command declines rather than silently widening to the whole document — a
+ * quiet widening is exactly the surprise #1418 is about.
+ */
+export function selectAllOccurrencesInBlock(state: EditorState): Transaction | null {
+  const bounds = getTextblockBounds(state, state.selection.from);
+  if (!bounds) return null;
+  return selectAllOccurrencesWithin(state, bounds);
+}
+
+/** Shared body: everything below is bounds-agnostic. */
+function selectAllOccurrencesWithin(
+  state: EditorState,
+  bounds: CodeBlockBounds | null,
+): Transaction | null {
   const { selection } = state;
   let searchText: string;
   let initialFrom: number;
   let initialTo: number;
-  const bounds = getCodeBlockBounds(state, selection.from);
 
   if (selection.from === selection.to) {
     // Empty selection - get word under cursor

@@ -9,6 +9,7 @@ VMark supports powerful multi-cursor editing in both WYSIWYG and Source modes, a
 | Add cursor at next match | `Mod + D` |
 | Skip match, jump to next | `Mod + Shift + D` |
 | Add cursors at all matches | `Mod + Shift + L` |
+| Add cursors at all matches in the current block | `Alt + Mod + Shift + L` |
 | Undo last cursor addition | `Alt + Mod + Z` |
 | Add cursor above | `Mod + Alt + Up` |
 | Add cursor below | `Mod + Alt + Down` |
@@ -123,21 +124,21 @@ This lets you escape from multiple formatted regions simultaneously. See [Smart 
 - If the clipboard has the same number of lines as cursors, each line goes to each cursor
 - Otherwise, the full clipboard content is pasted at all cursors
 
-## Block Scoping
+## Scoping
 
-Multi-cursor operations are **scoped to the current block** to prevent unintended edits across unrelated sections.
+**Code is scoped; prose is not.** Inside a code block (WYSIWYG) or a fenced block (Source), cursors never cross the fence — matching a variable name in one snippet cannot place a cursor in another. In ordinary prose, `Mod + D` and `Mod + Shift + L` search the **whole document**.
 
-### In WYSIWYG Mode
-- Cursors cannot cross code block boundaries
-- If your primary cursor is inside a code block, new cursors stay within that block
+That is often what you want, and occasionally not: in a long document, matching a common word places cursors in paragraphs far off-screen.
 
-### In Source Mode
-- Blank lines act as block boundaries
-- `Mod + D` and `Mod + Shift + L` only match within the current paragraph
+### Select All Occurrences in Block
+
+`Alt + Mod + Shift + L` selects every match **within the current block only** — the paragraph, heading, or list item your cursor is in. Blank lines bound a block in Source mode; the enclosing block bounds it in WYSIWYG. Inside a code fence it behaves exactly like `Mod + Shift + L`, since the fence is already the block.
+
+The two are siblings, not a mode: `Mod + Shift + L` still reaches the whole document, so nothing you already rely on changes.
 
 <div class="feature-box">
-<strong>Why block scoping?</strong>
-<p>This prevents accidentally editing a variable name in unrelated code sections or changing text in different paragraphs that happen to match.</p>
+<strong>Which one?</strong>
+<p>Reach for the block-scoped version when the word is common — renaming a variable mentioned in prose, or editing one list item's pattern. Reach for the document-wide one when you genuinely mean everywhere.</p>
 </div>
 
 ## Collapsing Cursors
@@ -166,14 +167,15 @@ In dark mode, cursor and selection colors automatically adjust for visibility.
 | `Alt + Mod + Z` (Soft Undo) | ✓ | ✓ |
 | `Mod + Alt + Up/Down` | ✓ | ✓ |
 | `Alt + Click` | ✓ | ✓ |
-| Block scoping | Code fences | Blank lines |
+| Fence scoping | Code blocks | Code fences |
+| Block-scoped select-all | `Alt + Mod + Shift + L` | `Alt + Mod + Shift + L` |
 | Wrap-around search | ✓ | ✓ |
 
 ## Tips & Best Practices
 
 ### Renaming Variables
 1. Double-click the variable name
-2. `Mod + Shift + L` to select all in the block
+2. `Alt + Mod + Shift + L` to select every match in this block (or `Mod + Shift + L` for the whole document)
 3. Type the new name
 
 ### Adding Prefixes/Suffixes
@@ -192,7 +194,8 @@ In dark mode, cursor and selection colors automatically adjust for visibility.
 |----------|---------------|
 | Careful, incremental selection | `Mod + D` |
 | Skip unwanted match | `Mod + Shift + D` |
-| Replace all in block | `Mod + Shift + L` |
+| Replace all in the current block | `Alt + Mod + Shift + L` |
+| Replace all in the document | `Mod + Shift + L` |
 | Undo last cursor step | `Alt + Mod + Z` |
 | Edit consecutive lines | `Mod + Alt + Up/Down` |
 | Arbitrary positions | `Alt + Click` |

@@ -133,6 +133,7 @@ If you prefer keeping system functions on F-keys, you can customize VMark shortc
 | Action | Shortcut |
 |--------|----------|
 | Select Line | `Mod + L` |
+| Select All Occurrences in Block | `Alt + Mod + Shift + L` |
 | Expand Selection | `Ctrl + Shift + Up` |
 | Select Next Occurrence | `Mod + D` |
 | Skip Occurrence | `Mod + Shift + D` |

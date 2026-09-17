@@ -26,7 +26,7 @@ const FENCE_OPEN_PATTERN = /^(\s*)(`{3,}|~{3,})(\w*)?/;
 /*  Code fence boundary detection (position-based, no EditorView)     */
 /* ------------------------------------------------------------------ */
 
-interface FenceBounds {
+export interface FenceBounds {
   /** Document offset of the first character inside the fence (after opening line) */
   from: number;
   /** Document offset of the last character inside the fence (before closing line) */
@@ -37,7 +37,7 @@ interface FenceBounds {
  * Get code fence bounds containing `pos`, or null if not inside a fence.
  * Works directly on EditorState.doc — no EditorView required.
  */
-function getCodeFenceBounds(state: EditorState, pos: number): FenceBounds | null {
+export function getCodeFenceBounds(state: EditorState, pos: number): FenceBounds | null {
   const doc = state.doc;
   const cursorLine = doc.lineAt(pos);
 
@@ -178,7 +178,7 @@ function rangeExists(
  * - Empty selection: selects word under cursor (CJK-aware)
  * - Existing selection: finds and adds next occurrence
  * - Wraps around once, stops if next would be a duplicate
- * - Respects code fence boundaries
+ * - Respects code fence boundaries, or an explicit `scope` when given (#1418)
  *
  * @returns TransactionSpec or null if no action
  */
@@ -283,7 +283,7 @@ export function selectNextOccurrenceSource(state: EditorState): TransactionSpec 
  *
  * @returns TransactionSpec or null if no action
  */
-export function selectAllOccurrencesSource(state: EditorState): TransactionSpec | null {
+export function selectAllOccurrencesSource(state: EditorState, scope?: FenceBounds): TransactionSpec | null {
   const { selection } = state;
   const primary = selection.main;
   let searchText: string;
@@ -306,7 +306,7 @@ export function selectAllOccurrencesSource(state: EditorState): TransactionSpec 
   if (!searchText) return null;
 
   // Detect code fence bounds
-  const bounds = getCodeFenceBounds(state, initialFrom);
+  const bounds = scope ?? getCodeFenceBounds(state, initialFrom); // `scope`: block-scoped sibling (#1418)
 
   // Find all occurrences
   const occurrences = findAllOccurrences(state, searchText, bounds);
