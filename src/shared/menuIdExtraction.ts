@@ -34,6 +34,20 @@
 const MENU_ITEM_REGEX = /MenuItem::with_id\s*\(\s*&?\s*app\s*,\s*"([^"]+)"/g;
 
 /**
+ * Is this a Rust file under `menu/` whose menu items actually ship?
+ *
+ * Both consumers scan the directory recursively, and both used to take every
+ * `*.rs` — including `*.test.rs`. A test of menu-item handling constructs menu
+ * items, so its throwaway fixture ids landed in the shipped contract and broke
+ * the diff below for no product reason. A menu id declared in a test file is
+ * not a menu id; sibling test sources are excluded here, in the one place both
+ * the generator and the contract test read.
+ */
+export function isMenuSourceFile(fileName: string): boolean {
+  return fileName.endsWith(".rs") && !fileName.endsWith(".test.rs");
+}
+
+/**
  * Extract static menu IDs from Rust source text. Dynamic IDs containing
  * `{` placeholders (e.g. recent-file-{n}) are skipped.
  */

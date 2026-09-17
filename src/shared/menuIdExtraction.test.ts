@@ -15,6 +15,7 @@ import path from "node:path";
 import menuIdsJson from "./menu-ids.json";
 import {
   extractMenuIdsFromRust,
+  isMenuSourceFile,
   partitionMenuIds,
   EXCLUDED_MENU_IDS,
 } from "./menuIdExtraction";
@@ -26,13 +27,39 @@ function extractFromDisk(): string[] {
   // must stay covered when files move — this scan mirrors
   // scripts/extract-menu-ids.ts, which regenerates the contract.
   const files = (fs.readdirSync(MENU_DIR, { recursive: true }) as string[])
-    .filter((f) => f.endsWith(".rs"))
+    .filter(isMenuSourceFile)
     .sort();
   const combined = files
     .map((f) => fs.readFileSync(path.join(MENU_DIR, f), "utf-8"))
     .join("\n");
   return extractMenuIdsFromRust(combined);
 }
+
+// A menu id declared in a TEST file is not a menu id. The scan used to take
+// every `*.rs` under menu/, so a fixture that constructs a menu item — which is
+// exactly what a test of menu-item handling does — injected its throwaway ids
+// into the shipped contract and failed this suite for no product reason.
+describe("isMenuSourceFile", () => {
+  it("takes production menu sources", () => {
+    expect(isMenuSourceFile("localized/view_menu.rs")).toBe(true);
+    expect(isMenuSourceFile("dynamic.rs")).toBe(true);
+  });
+
+  it("rejects sibling test sources and non-Rust files", () => {
+    expect(isMenuSourceFile("conditional_items.test.rs")).toBe(false);
+    expect(isMenuSourceFile("localized.test.rs")).toBe(false);
+    expect(isMenuSourceFile("mod.rs.bak")).toBe(false);
+    expect(isMenuSourceFile("menu-ids.json")).toBe(false);
+  });
+
+  it("is what both the generator and this contract test scan with", () => {
+    const generator = fs.readFileSync(
+      path.resolve(__dirname, "../../scripts/extract-menu-ids.ts"),
+      "utf-8",
+    );
+    expect(generator).toContain("isMenuSourceFile");
+  });
+});
 
 describe("menu-ids.json contract", () => {
   it("matches the IDs actually declared in src-tauri/src/menu/*.rs", () => {
