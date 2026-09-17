@@ -45,8 +45,6 @@ const PROFILE_PATH = process.env.VMARK_IME_PROFILE ?? join(repoRoot, ".vmark", "
 const KEYCODES = {
   n: 45, i: 34, h: 4, k: 40, m: 46, t: 17, ";": 41,
   Space: 49, Return: 36, Escape: 53, Backspace: 51, Shift: 56,
-  // The chord key: with Chinese punctuation on, the IME rewrites it to `\u00b7`.
-  "`": 50,
 };
 
 /** Schema-keyed keystroke tables (public knowledge; machines pick via profile). */
@@ -164,22 +162,6 @@ async function inject(keys, { targetName }) {
   }
 }
 
-/**
- * Inject ONE chord (modifiers held), e.g. `key code 50 using {control down}`.
- * Separate from `inject` because that one walks a composition sequence, where
- * a held modifier would change every keystroke's meaning.
- */
-async function injectChord(key, modifiers, { targetName }) {
-  frontmostVerify(targetName);
-  const code = KEYCODES[key];
-  if (code === undefined) throw new Error(`no keycode for ${JSON.stringify(key)}`);
-  const using = modifiers.length
-    ? ` using {${modifiers.map((m) => `${m} down`).join(", ")}}`
-    : "";
-  osascript(`tell application "System Events" to key code ${code}${using}`);
-  await sleep(400);
-}
-
 // ── the lane ──────────────────────────────────────────────────────────────
 async function main() {
   const cfg = parseArgs(process.argv.slice(2), { usage: "Usage: VMARK_REAL_IME=1 pnpm e2e:ime [--port 9323]" });
@@ -246,78 +228,37 @@ async function main() {
       });
 
       /**
-       * A COMMAND chord must type nothing, and only this tier can prove it.
+       * THERE IS NO AUTOMATED CHORD CASE HERE, AND THAT IS A MEASUREMENT.
        *
-       * With Chinese punctuation on, the IME rewrites the backquote key to
-       * `·` and COMMITS that character before the keydown exists — so
-       * `preventDefault()` in the key handlers is too late by construction,
-       * and `Ctrl+\`` toggled the terminal AND dirtied the document
-       * (`services/keybinding/imeChordGuard.ts`). No synthetic tier can
-       * reproduce that ordering; a hand-built event always arrives in the
-       * order the test author chose.
+       * A command chord under a CJK IME is the #1420 / #1083 bug: the IME
+       * rewrites the key (Backquote becomes `·` with Chinese punctuation on)
+       * and COMMITS it before the keydown exists, so the character lands in the
+       * document. `services/keybinding/imeChordGuard.ts` vetoes it at
+       * `beforeinput`, where the modifier state comes from the preceding
+       * `Control` keydown.
        *
-       * Scope split, stated so nobody reads more into a PASS than is there:
-       * this asserts the chord INSERTS NOTHING. That the chord still FIRES
-       * under an IME (the #1083 property, physical-key matching) is asserted
-       * by the unit tiers — `terminalKeyHandler.focus.test.ts` and
-       * `keybindingDefinitions.test.ts` — because the terminal's own
-       * workspace gate can refuse to open here for reasons unrelated to keys.
+       * This lane cannot exercise that, because **System Events injection
+       * produces no modifier key event at all**. Measured 2026-09-17 against
+       * real Safari + the real macOS SCIM IME: `key down control` held for a
+       * full second logged ZERO DOM events, and so did `key down shift`;
+       * `key code 50 using {control down}` surfaced `ctrl: true` only on the
+       * backquote's OWN keydown, which arrives AFTER the insertion. A real
+       * finger does deliver it — the same page recorded
+       * `win-keydown key="Control"` immediately before `beforeinput`, the guard
+       * saw `heldCtrl: true`, vetoed, and the box stayed empty.
        *
-       * The composition checks above are the other half of this fix's blast
-       * radius: if the guard were too broad, `你好` would stop committing.
+       * So an injected chord tests the case where the guard is blind by
+       * construction: the check would FAIL against a correct app. A check that
+       * fails on correct code is worse than no check, which is why this is a
+       * comment and not a `check(...)`. The mechanism is covered by
+       * `src/services/keybinding/imeChordGuard.webkit.test.ts`, and the real-IME
+       * half is a MANUAL step on the release checklist in
+       * `src/test/editorComposition.webkit.test.ts`.
+       *
+       * Re-adding it needs a faithful injector (CGEvent posting a real
+       * flagsChanged), not a different AppleScript spelling — both spellings
+       * were tried and measured.
        */
-      for (const [label, mods] of [
-        ["Ctrl+` (Toggle Terminal)", ["control"]],
-        ["Ctrl+Shift+` (Focus Terminal)", ["control", "shift"]],
-      ]) {
-        await check(`${label} under the IME inserts no character`, async () => {
-          const before = await getEditorText(client);
-
-          // DELIVERY PROOF, before the assertion that depends on it.
-          //
-          // "The document did not change" is also what you see when the
-          // keystroke never arrived — a locked session, a revoked Accessibility
-          // grant, another app frontmost. Without this counter the check
-          // reports PASS for "nothing happened", which is the exact false green
-          // this lane exists to avoid. Found the hard way on 2026-09-17: a
-          // remote Mac with a locked screen swallowed every injected key and
-          // this assertion was green throughout.
-          //
-          // A window keydown is the right witness: it fires whether or not the
-          // IME rewrote the character, and whether or not the guard cancels the
-          // insertion.
-          await evalJs(client, `(() => {
-            window.__imeProbeKeys = 0;
-            if (!window.__imeProbeBound) {
-              window.__imeProbeBound = true;
-              window.addEventListener("keydown", () => { window.__imeProbeKeys++; }, true);
-            }
-            return true;
-          })()`);
-
-          await injectChord("`", mods, { targetName: appProcess.toLowerCase() });
-          await sleep(600);
-
-          const delivered = await evalJs(client, `window.__imeProbeKeys`);
-          if (!delivered) {
-            throw new Error(
-              "no keydown reached the webview — the chord was never delivered, so this "
-                + "check proves nothing. Locked session, revoked Accessibility grant, or "
-                + "another app frontmost.",
-            );
-          }
-
-          const after = await getEditorText(client);
-          if (after !== before) {
-            throw new Error(
-              `chord typed into the document: ${JSON.stringify(before)} → ${JSON.stringify(after)}`,
-            );
-          }
-          // The chord may have moved focus into the terminal; take it back so
-          // the next check types where it expects to.
-          await evalJs(client, `(() => { document.querySelector('.ProseMirror')?.focus(); return true; })()`);
-        });
-      }
 
       // Tab dirtiness is store state — the identity a broken pipeline can't fake.
       await check("committed compositions dirtied the scratch tab", async () => {
