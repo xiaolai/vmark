@@ -25,6 +25,7 @@ import { registerLintCommands } from "./lintCommands";
 import { registerExplorerCommands } from "./explorerCommands";
 import { useUIStore } from "@/stores/uiStore";
 import { useContentServerStore } from "@/stores/contentServerStore";
+import { knowledgeBaseAvailableHere } from "@/services/contentServer/availability";
 import { useWindowStatusStore } from "@/stores/windowStatusStore";
 import { useBreakdownStore } from "@/stores/breakdownStore";
 import { useSettingsStore } from "@/stores/settingsStore";
@@ -172,6 +173,11 @@ function sidebarCommandSpecs(): CommandDefinition[] {
       id: "view.toggleKnowledgeBase",
       title: () => i18n.t("commands:view.toggleKnowledgeBase"),
       category: "view",
+      // Developer Mode only (#1425): no packaged build carries the content
+      // server, so the palette, the shortcut and the native menu event all
+      // resolve availability through this one predicate rather than three
+      // checks that could disagree. See services/contentServer/availability.
+      when: knowledgeBaseAvailableHere,
       run: () => useContentServerStore.getState().togglePanel(),
     },
     {

@@ -136,7 +136,7 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   { id: "toggleOutline", label: "Toggle Outline", category: "view", defaultKey: "Ctrl-Shift-1", menuId: "outline" },
   { id: "fileExplorer", label: "Toggle File Explorer", category: "view", defaultKey: "Ctrl-Shift-2", menuId: "file-explorer" },
   { id: "viewHistory", label: "Toggle History", category: "view", defaultKey: "Ctrl-Shift-3", menuId: "view-history" },
-  { id: "knowledgeBase", label: "Toggle Knowledge Base", category: "view", defaultKey: "Ctrl-Shift-4", menuId: "knowledge-base", description: "Open the local knowledge-base inspector panel" },
+  { id: "knowledgeBase", label: "Toggle Knowledge Base", category: "view", defaultKey: "Ctrl-Shift-4", menuId: "knowledge-base", description: "Open the local knowledge-base inspector panel (requires Developer Mode)" },
   { id: "windowStatus", label: "Toggle Window Status", category: "view", defaultKey: "Ctrl-Shift-5", menuId: "window-status", description: "Show/hide the Window Status panel — every open window's live Claude Code status" },
   { id: "sourceMode", label: "Source Mode", category: "view", defaultKey: "F6", menuId: "source-mode", description: "Show source (markdown WYSIWYG⇄Source; split-pane formats Source⇄Split)" },
   { id: "markdownSplit", label: "Markdown Split View", category: "view", defaultKey: "Shift-F6", menuId: "markdown-split", description: "Toggle split view (markdown split; split-pane formats Preview⇄Split)" },

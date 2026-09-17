@@ -652,7 +652,7 @@
   "shortcuts.description.aiPrompts": "AI 지니 선택기 열기",
   "shortcuts.description.transformToggleCase": "대문자와 소문자 전환",
   "shortcuts.description.removeBlankLines": "선택 영역에서 빈 줄 제거",
-  "shortcuts.description.knowledgeBase": "로컬 지식 베이스 검사 패널 열기",
+  "shortcuts.description.knowledgeBase": "로컬 지식 베이스 검사 패널 열기(개발자 모드 필요)",
   "shortcuts.description.windowStatus": "창 상태 패널 표시/숨기기 — 열려 있는 모든 창의 Claude Code 실시간 상태",
   "shortcuts.description.sourceMode": "소스 보기(마크다운은 WYSIWYG⇄소스, 분할 형식은 소스⇄분할)",
   "shortcuts.description.markdownSplit": "분할 보기 전환(마크다운 분할, 분할 형식은 미리보기⇄분할)",

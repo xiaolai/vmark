@@ -652,7 +652,7 @@
   "shortcuts.description.aiPrompts": "Aprire il selettore dei geni IA",
   "shortcuts.description.transformToggleCase": "Alternare tra MAIUSCOLO e minuscolo",
   "shortcuts.description.removeBlankLines": "Rimuovere le righe vuote dalla selezione",
-  "shortcuts.description.knowledgeBase": "Aprire l’ispettore della base di conoscenza locale",
+  "shortcuts.description.knowledgeBase": "Aprire l’ispettore della base di conoscenza locale (richiede la modalità sviluppatore)",
   "shortcuts.description.windowStatus": "Mostra/Nascondi il pannello Stato finestre – stato in tempo reale di Claude Code in ogni finestra aperta",
   "shortcuts.description.sourceMode": "Mostrare il sorgente (markdown WYSIWYG⇄Sorgente; formati a riquadri Sorgente⇄Diviso)",
   "shortcuts.description.markdownSplit": "Attivare la vista divisa (markdown diviso; formati a riquadri Anteprima⇄Diviso)",

@@ -44,7 +44,7 @@ describe("runtimeMissingKeys", () => {
     expect(runtimeMissingKeys(rt, false)).toEqual([RUNTIME_KEYS.nodeMissing]);
   });
 
-  it("a missing CLI in a packaged build is 'not included in this build'", () => {
+  it("a missing CLI in a packaged build names every platform, not this build (#1425)", () => {
     const rt = withState({ cli: "missing", cliSource: null });
     expect(runtimeMissingKeys(rt, false)).toEqual([RUNTIME_KEYS.cliMissingPackaged]);
   });
