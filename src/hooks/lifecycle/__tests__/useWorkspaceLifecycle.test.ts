@@ -25,6 +25,9 @@ vi.mock("@/hooks/useAiProviderSync", () => ({
 vi.mock("@/hooks/useConfirmQuitSync", () => ({
   useConfirmQuitSync: () => calls.push("confirmQuitSync"),
 }));
+vi.mock("@/hooks/useCloseToTraySync", () => ({
+  useCloseToTraySync: () => calls.push("closeToTraySync"),
+}));
 vi.mock("@/hooks/useRecentFilesSync", () => ({
   useRecentFilesSync: () => calls.push("recentFilesSync"),
 }));
@@ -51,6 +54,7 @@ describe("useWorkspaceLifecycle", () => {
       "shortcutsSync",
       "aiProviderSync",
       "confirmQuitSync",
+      "closeToTraySync",
       "recentFilesSync",
       "recentWorkspacesSync",
       "formatSettingsBridge",

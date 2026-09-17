@@ -150,6 +150,15 @@ pub fn check_confirm_quit_gate(now: Instant) -> QuitGateResult {
     QuitGateResult::WaitForSecondPress
 }
 
+/// Whether a coordinated quit is under way.
+///
+/// Read by the close-to-tray decision (#1419), which must never turn one of
+/// quit's window closes into a hide — that would leave the quit waiting forever
+/// for a window that never goes away.
+pub(crate) fn is_quit_in_progress() -> bool {
+    QUIT_IN_PROGRESS.load(Ordering::SeqCst)
+}
+
 /// Menu Quit / Cmd+Q entry point.
 ///
 /// Applies the confirm-quit gate, then starts the coordinated quit flow if
@@ -200,6 +209,14 @@ pub fn start_quit(app: &AppHandle) {
         return;
     }
     set_exit_allowed(false);
+
+    // A window parked in the tray (#1419) is about to be asked to run its save
+    // flow. An unsaved-changes prompt from a HIDDEN window is one nobody can
+    // answer, and the quit would wait on it forever — so every quit path (tray
+    // menu, OS shutdown, anything) brings them back first. Windows-only because
+    // only Windows can park a window; macOS quit is untouched.
+    #[cfg(target_os = "windows")]
+    crate::close_to_tray::restore_hidden_windows(app);
 
     let mut targets = HashSet::new();
     let mut document_windows = Vec::new();

@@ -272,6 +272,8 @@
   "files.confirmQuit.label": "确认退出",
   "files.confirmQuit.descriptionMac": "按 ⌘Q 两次退出 — 防止意外退出",
   "files.confirmQuit.descriptionOther": "按 Ctrl+Q 两次退出 — 防止意外退出",
+  "files.closeToTray.label": "关闭时最小化到托盘",
+  "files.closeToTray.description": "关闭最后一个窗口时，VMark 会继续在系统托盘中运行，而不是退出",
   "files.group.saving": "保存",
   "files.autoSave.label": "启用自动保存",
   "files.autoSave.description": "编辑时自动保存文件",

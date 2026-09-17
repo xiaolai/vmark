@@ -272,6 +272,8 @@
   "files.confirmQuit.label": "終了の確認",
   "files.confirmQuit.descriptionMac": "⌘Q を2回押して終了 — 誤操作を防ぎます",
   "files.confirmQuit.descriptionOther": "Ctrl+Q を2回押して終了 — 誤操作を防ぎます",
+  "files.closeToTray.label": "閉じるときにトレイに最小化",
+  "files.closeToTray.description": "最後のウィンドウを閉じても VMark を終了せず、システムトレイで実行し続けます",
   "files.group.saving": "保存",
   "files.autoSave.label": "自動保存を有効にする",
   "files.autoSave.description": "編集時にファイルを自動的に保存する",

@@ -410,6 +410,10 @@ window:
   pdfExport.title: "PDF 내보내기"
   print.title: "VMark 인쇄"
 
+# #1419 — the Windows close-to-tray icon's menu. Quit reuses menu.app.quit.
+tray:
+  show: "VMark 표시"
+
 cli:
   dialogTitle: "셸 명령"
   installed: "'vmark' 명령을 %{path}에 설치했습니다"

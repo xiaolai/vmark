@@ -272,6 +272,8 @@
   "files.confirmQuit.label": "종료 확인",
   "files.confirmQuit.descriptionMac": "⌘Q를 두 번 눌러 종료 — 실수로 종료되는 것을 방지합니다",
   "files.confirmQuit.descriptionOther": "Ctrl+Q를 두 번 눌러 종료 — 실수로 종료되는 것을 방지합니다",
+  "files.closeToTray.label": "닫을 때 트레이로 최소화",
+  "files.closeToTray.description": "마지막 창을 닫아도 VMark를 종료하지 않고 시스템 트레이에서 계속 실행합니다",
   "files.group.saving": "저장",
   "files.autoSave.label": "자동 저장 사용",
   "files.autoSave.description": "편집 시 파일을 자동으로 저장합니다",

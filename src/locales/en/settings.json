@@ -272,6 +272,8 @@
   "files.confirmQuit.label": "Confirm quit",
   "files.confirmQuit.descriptionMac": "Press ⌘Q twice to quit — prevents accidental exits",
   "files.confirmQuit.descriptionOther": "Press Ctrl+Q twice to quit — prevents accidental exits",
+  "files.closeToTray.label": "Minimize to tray on close",
+  "files.closeToTray.description": "Closing the last window keeps VMark running in the system tray instead of quitting",
   "files.group.saving": "Saving",
   "files.autoSave.label": "Enable auto-save",
   "files.autoSave.description": "Automatically save files when edited",

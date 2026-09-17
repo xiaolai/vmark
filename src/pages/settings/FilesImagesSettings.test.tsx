@@ -206,4 +206,25 @@ describe("FilesImagesSettings — Quit behaviour", () => {
     expect(screen.getByText(/Ctrl\+Q twice/)).toBeInTheDocument();
     expect(screen.queryByText(/⌘Q twice/)).not.toBeInTheDocument();
   });
+
+  /**
+   * #1419 — close-to-tray is a Windows feature. Showing the switch anywhere
+   * else would offer a control that does nothing, which is worse than no
+   * control: Rust never acts on it off Windows.
+   */
+  it("offers Minimize to tray on Windows, off by default, and writes the setting", async () => {
+    Object.defineProperty(navigator, "platform", { value: "Win32", configurable: true });
+    const user = await renderPane();
+    const toggle = screen.getByRole("switch", { name: /^minimize to tray on close$/i });
+    expect(toggle).not.toBeChecked();
+
+    await user.click(toggle);
+    expect(store().general.closeToTray).toBe(true);
+  });
+
+  it.each(["MacIntel", "Linux x86_64"])("hides Minimize to tray on %s", async (platform) => {
+    Object.defineProperty(navigator, "platform", { value: platform, configurable: true });
+    await renderPane();
+    expect(screen.queryByRole("switch", { name: /minimize to tray/i })).not.toBeInTheDocument();
+  });
 });

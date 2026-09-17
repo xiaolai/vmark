@@ -272,6 +272,8 @@
   "files.confirmQuit.label": "Confirmer la fermeture",
   "files.confirmQuit.descriptionMac": "Appuyez deux fois sur ⌘Q pour quitter — évite les fermetures accidentelles",
   "files.confirmQuit.descriptionOther": "Appuyez deux fois sur Ctrl+Q pour quitter — évite les fermetures accidentelles",
+  "files.closeToTray.label": "Réduire dans la zone de notification à la fermeture",
+  "files.closeToTray.description": "Fermer la dernière fenêtre laisse VMark actif dans la zone de notification au lieu de le quitter",
   "files.group.saving": "Enregistrement",
   "files.autoSave.label": "Activer l'enregistrement automatique",
   "files.autoSave.description": "Enregistrer automatiquement les fichiers lors de la modification",

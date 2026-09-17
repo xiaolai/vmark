@@ -40,6 +40,8 @@ export const initialState: SettingsState = {
     coherenceCheckTau: 0.9,
     lineEndingsOnSave: "preserve",
     confirmQuit: true,
+    // #1419 — opt-in, Windows only: the last window's close button parks VMark in the tray.
+    closeToTray: false,
     // fix(#946) — opt-in: open existing files in a new tab (off keeps the legacy "reuse untitled tab" behavior).
     openInNewTab: false,
     workspaceRailMode: false,

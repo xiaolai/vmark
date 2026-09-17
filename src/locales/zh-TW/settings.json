@@ -272,6 +272,8 @@
   "files.confirmQuit.label": "確認結束",
   "files.confirmQuit.descriptionMac": "按兩次 ⌘Q 結束 — 防止誤操作",
   "files.confirmQuit.descriptionOther": "按兩次 Ctrl+Q 結束 — 防止誤操作",
+  "files.closeToTray.label": "關閉時最小化至系統匣",
+  "files.closeToTray.description": "關閉最後一個視窗時，VMark 會繼續在系統匣中執行，而不是結束",
   "files.group.saving": "儲存",
   "files.autoSave.label": "啟用自動儲存",
   "files.autoSave.description": "編輯時自動儲存檔案",

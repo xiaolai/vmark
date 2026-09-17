@@ -9,10 +9,26 @@
 //! where it was first written.
 //!
 //! @coordinates-with lib.rs — registers this as the `on_window_event` handler
+//! @coordinates-with close_to_tray/mod.rs — may park the last window instead of closing it
 //! @module window_manager/window_events
 
+#[cfg(test)]
+#[path = "window_events.test.rs"]
+mod tests;
+
+/// Whether a window's close is routed through the frontend (and, on Windows,
+/// the close-to-tray decision).
+///
+/// Delegates to the ONE definition of a document window. This handler used to
+/// carry its own copy of that rule; quit waits on exactly the windows
+/// `is_document_window_label` names, so the two must never be able to differ.
+fn intercepts_close(label: &str) -> bool {
+    crate::quit::is_document_window_label(label)
+}
+
 /// Intercept close requests for document windows so the frontend can run its
-/// save/confirm flow. Non-document windows (settings) close normally.
+/// save/confirm flow — or, on Windows with close-to-tray on, park the last one
+/// in the tray. Non-document windows (settings) close normally.
 pub(crate) fn handle_document_window_close_event(
     window: &tauri::Window,
     event: &tauri::WindowEvent,
@@ -33,11 +49,19 @@ pub(crate) fn handle_document_window_close_event(
         // that said nothing at all.
         log::info!("[Tauri] WindowEvent::CloseRequested for window '{}'", label);
         // Only intercept close for document windows
-        if label == "main" || label.starts_with("doc-") {
+        if intercepts_close(label) {
             api.prevent_close();
-            // Include target label in payload so frontend can filter
-            let _ = window.emit("window:close-requested", label);
-            log::info!("[Tauri] Emitted window:close-requested to '{}'", label);
+            if crate::close_to_tray::hides_to_tray(window) {
+                // #1419: the last window parks in the tray instead of quitting.
+                // Nothing is torn down, so there is no save flow to run. Never
+                // true off Windows, and never true during a quit.
+                let _ = window.hide();
+                log::info!("[Tauri] close-to-tray: hid '{}' instead of closing", label);
+            } else {
+                // Include target label in payload so frontend can filter
+                let _ = window.emit("window:close-requested", label);
+                log::info!("[Tauri] Emitted window:close-requested to '{}'", label);
+            }
         }
         // Settings and other non-document windows close normally
     }
