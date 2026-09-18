@@ -548,6 +548,12 @@ switch persists, an in-progress feature you enable stays reachable across sessio
 and in release builds — you do not need to re-enable Developer tools each time you
 open Settings.
 
+It also reveals the [Knowledge Base](/guide/knowledge-base) outside Settings: the
+**View → Knowledge Base** menu item, the palette command and the
+`Ctrl + Shift + 4` shortcut are hidden until Developer tools is on, because no
+release build on any platform ships the content-server runtime that feature
+needs.
+
 | Setting | Description | Default |
 |---------|-------------|---------|
 | Developer tools | Enable developer mode and reveal the experimental and development-only settings below | Off |

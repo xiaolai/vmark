@@ -652,7 +652,7 @@
   "shortcuts.description.aiPrompts": "Ouvrir le sélecteur de génies IA",
   "shortcuts.description.transformToggleCase": "Basculer entre MAJUSCULES et minuscules",
   "shortcuts.description.removeBlankLines": "Supprimer les lignes vides de la sélection",
-  "shortcuts.description.knowledgeBase": "Ouvrir l’inspecteur de base de connaissances locale",
+  "shortcuts.description.knowledgeBase": "Ouvrir l’inspecteur de base de connaissances locale (nécessite le mode développeur)",
   "shortcuts.description.windowStatus": "Afficher/masquer le panneau d’état des fenêtres – état en direct de Claude Code dans chaque fenêtre ouverte",
   "shortcuts.description.sourceMode": "Afficher la source (markdown WYSIWYG⇄Source ; formats en volets Source⇄Divisé)",
   "shortcuts.description.markdownSplit": "Basculer la vue divisée (markdown divisé ; formats en volets Aperçu⇄Divisé)",

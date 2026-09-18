@@ -20,7 +20,7 @@ import { startCoherenceScanOnChange } from "@/services/coherence/scanOnChange";
 import { startWindowWorkspaceSync } from "@/services/mcpBridge/windowWorkspaceSync";
 import { startBrowserAiPolicySync } from "@/services/browser/browserAiPolicySync";
 import { startWorkflowEnginePolicySync } from "@/services/workflow/workflowEnginePolicySync";
-import { startBrowserMenuSync } from "@/services/browser/browserMenuSync";
+import { startConditionalMenuItemSync } from "@/services/menu/conditionalMenuItemSync";
 import { appError } from "@/utils/debug";
 
 /** Every service a document window runs for its lifetime, in start order. */
@@ -46,8 +46,10 @@ const RUNTIME_SERVICES: ReadonlyArray<() => () => void> = [
   // The Rust workflow runner starts fail-closed; without this push it refuses
   // every command even for a user who has the engine switched on (WI-19).
   startWorkflowEnginePolicySync,
-  // Keep the native "New Browser Tab" menu item in step with the setting (WI-S0.5).
-  startBrowserMenuSync,
+  // Keep every conditional native menu item — "New Browser Tab" (WI-S0.5),
+  // "Toggle Knowledge Base" (#1425) — in step with the setting that decides it.
+  // Each ships off, and a permanently-dead menu row is worse than no row.
+  startConditionalMenuItemSync,
 ];
 
 /**

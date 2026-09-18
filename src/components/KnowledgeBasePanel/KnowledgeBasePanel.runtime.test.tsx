@@ -3,11 +3,12 @@
 // succeed. Only the Tauri boundary is mocked; the service, the hook and the
 // panel are real.
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-const mocks = vi.hoisted(() => ({ invoke: vi.fn() }));
+const mocks = vi.hoisted(() => ({ invoke: vi.fn(), openUrl: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: mocks.invoke }));
+vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: mocks.openUrl }));
 
 import { KnowledgeBasePanel } from "./KnowledgeBasePanel";
 import { useContentServerStore } from "@/stores/contentServerStore";
@@ -59,6 +60,8 @@ const runtimeCalls = () =>
 beforeEach(() => {
   useContentServerStore.getState().reset();
   mocks.invoke.mockReset();
+  mocks.openUrl.mockReset();
+  mocks.openUrl.mockResolvedValue(undefined);
 });
 
 describe("KnowledgeBasePanel runtime state (WI-FL1.1)", () => {
@@ -86,14 +89,30 @@ describe("KnowledgeBasePanel runtime state (WI-FL1.1)", () => {
     expect(onStart).not.toHaveBeenCalled();
   });
 
-  it("cli missing in a packaged build: the runtime is not included in this build", async () => {
+  // #1425 was filed as a Linux packaging fault because the copy said "this
+  // build", which reads as "this platform's build". No release on any platform
+  // carries the content server, and the message has to say so.
+  it("cli missing in a packaged build: no release bundles it, on any platform", async () => {
     probeAnswers(runtime({ cli: "missing", cliSource: null, detail: "content-server runtime not provisioned" }));
     renderPanel({ isDevBuild: false });
     const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent(/not included in this build/i);
+    expect(alert).toHaveTextContent(/no vmark release/i);
+    expect(alert).toHaveTextContent(/every platform/i);
+    expect(alert).not.toHaveTextContent(/this build/i);
     expect(alert).not.toHaveTextContent(/VMARK_CONTENT_SERVER_CLI/);
     expect(alert).not.toHaveTextContent(/Node\.js/);
     expect(startButton()).toBeNull();
+  });
+
+  // The Requirements section already documented the packaged-build truth; the
+  // reporter never found it, and asked for a clarification that existed.
+  it("offers the requirements documentation, and opens it in the browser", async () => {
+    probeAnswers(runtime({ cli: "missing", cliSource: null }));
+    renderPanel({ isDevBuild: false });
+    const alert = await screen.findByRole("alert");
+    const link = within(alert).getByRole("button", { name: /knowledge base requirements/i });
+    await userEvent.click(link);
+    expect(mocks.openUrl).toHaveBeenCalledWith("https://vmark.app/guide/knowledge-base#requirements");
   });
 
   it("cli missing in development: names VMARK_CONTENT_SERVER_CLI and a provisioned base-kb", async () => {
@@ -102,7 +121,7 @@ describe("KnowledgeBasePanel runtime state (WI-FL1.1)", () => {
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(/VMARK_CONTENT_SERVER_CLI/);
     expect(alert).toHaveTextContent(/base-kb/);
-    expect(alert).not.toHaveTextContent(/not included in this build/i);
+    expect(alert).not.toHaveTextContent(/no vmark release/i);
     expect(startButton()).toBeNull();
   });
 
@@ -112,7 +131,7 @@ describe("KnowledgeBasePanel runtime state (WI-FL1.1)", () => {
     const alert = await screen.findByRole("alert");
     const items = alert.querySelectorAll("li");
     expect(items).toHaveLength(2);
-    expect(items[0]).toHaveTextContent(/not included in this build/i);
+    expect(items[0]).toHaveTextContent(/no vmark release/i);
     expect(items[1]).toHaveTextContent(/Node\.js/);
     expect(startButton()).toBeNull();
   });

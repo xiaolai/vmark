@@ -15,12 +15,23 @@
  * Copy is decided in `runtimeState.ts` (packaged vs development wording); this
  * component only renders keys.
  *
+ * The missing state also links the Requirements documentation (#1425). That
+ * section already stated the packaged-build truth; the reporter never found it
+ * and asked for a clarification that existed, so the panel that delivers the bad
+ * news now carries the way out of it. It opens through `openUrl` rather than an
+ * `<a target="_blank">`, which is what the rest of the app's chrome does.
+ *
  * @coordinates-with ./runtimeState.ts — phases and key selection
  * @module components/KnowledgeBasePanel/KnowledgeBaseRuntimeState
  */
 import { useTranslation } from "react-i18next";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import type { ContentServerRuntime } from "@/services/contentServer";
+import { appError } from "@/utils/debug";
 import { isRuntimeReady, runtimeMissingKeys, type RuntimeProbe } from "./runtimeState";
+
+/** The guide section that states what the knowledge base needs, and why. */
+const REQUIREMENTS_URL = "https://vmark.app/guide/knowledge-base#requirements";
 
 export interface KnowledgeBaseRuntimeStateProps {
   probe: RuntimeProbe;
@@ -62,9 +73,22 @@ function RuntimeMissing({
           <li key={key}>{t(key)}</li>
         ))}
       </ul>
-      <button type="button" className="vm-btn" onClick={onRecheck}>
-        {t("contentServer.runtime.recheck")}
-      </button>
+      <div className="kb-panel__runtime-actions">
+        <button type="button" className="vm-btn" onClick={onRecheck}>
+          {t("contentServer.runtime.recheck")}
+        </button>
+        <button
+          type="button"
+          className="vm-btn vm-btn--plain"
+          onClick={() =>
+            void Promise.resolve(openUrl(REQUIREMENTS_URL)).catch((e: unknown) =>
+              appError("Failed to open the knowledge base requirements:", e),
+            )
+          }
+        >
+          {t("contentServer.runtime.learnMore")}
+        </button>
+      </div>
     </div>
   );
 }

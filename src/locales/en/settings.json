@@ -652,7 +652,7 @@
   "shortcuts.description.aiPrompts": "Open AI genie picker",
   "shortcuts.description.transformToggleCase": "Toggle between UPPERCASE and lowercase",
   "shortcuts.description.removeBlankLines": "Remove blank lines from selection",
-  "shortcuts.description.knowledgeBase": "Open the local knowledge-base inspector panel",
+  "shortcuts.description.knowledgeBase": "Open the local knowledge-base inspector panel (requires Developer Mode)",
   "shortcuts.description.windowStatus": "Show/hide the Window Status panel — every open window's live Claude Code status",
   "shortcuts.description.sourceMode": "Show source (markdown WYSIWYG⇄Source; split-pane formats Source⇄Split)",
   "shortcuts.description.markdownSplit": "Toggle split view (markdown split; split-pane formats Preview⇄Split)",

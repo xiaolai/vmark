@@ -198,11 +198,17 @@ pub(super) fn build(app: &tauri::AppHandle, accel: &AccelFn) -> tauri::Result<Su
                 true,
                 accel("view-history", "Ctrl+Shift+3"),
             )?,
+            // Knowledge Base (#1425). Starts DISABLED and is REMOVED by
+            // `menu::conditional_items` unless Developer Mode is on: no packaged
+            // build carries the content server, so the item could only ever open
+            // a panel that explains why it cannot start. Built here regardless so
+            // its accelerator stays in the rule-41 contract and the item exists to
+            // be restored when the setting is on.
             &MenuItem::with_id(
                 app,
                 "knowledge-base",
                 &t!("menu.view.knowledgeBase"),
-                true,
+                false,
                 accel("knowledge-base", "Ctrl+Shift+4"),
             )?,
             &MenuItem::with_id(

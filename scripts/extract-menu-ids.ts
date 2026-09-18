@@ -4,7 +4,8 @@
  *
  * Usage: npx tsx scripts/extract-menu-ids.ts
  *
- * Reads every .rs file under src-tauri/src/menu/ RECURSIVELY (the menu was
+ * Reads every production .rs file under src-tauri/src/menu/ RECURSIVELY — see
+ * isMenuSourceFile for why sibling *.test.rs sources are excluded (the menu was
  * split into submodules in 2026-02, and into localized/ section builders in
  * 2026-07; audit 20260612 H1 found this script still reading the deleted
  * menu.rs — the recursive scan makes future reshuffles a no-op). Extraction
@@ -16,6 +17,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   extractMenuIdsFromRust,
+  isMenuSourceFile,
   partitionMenuIds,
 } from "../src/shared/menuIdExtraction";
 
@@ -24,7 +26,7 @@ const OUTPUT_PATH = path.join(process.cwd(), "src/shared/menu-ids.json");
 
 function main() {
   const rustFiles = (fs.readdirSync(MENU_DIR, { recursive: true }) as string[])
-    .filter((f) => f.endsWith(".rs"))
+    .filter(isMenuSourceFile)
     .sort();
   if (rustFiles.length === 0) {
     console.error(`No .rs files found in ${MENU_DIR}`);

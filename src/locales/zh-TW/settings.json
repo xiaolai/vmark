@@ -663,7 +663,7 @@
   "shortcuts.description.formatToolbar": "顯示底部通用工具列",
   "shortcuts.description.sourcePeek": "以 Markdown 原始碼編輯所選內容",
   "shortcuts.description.aiPrompts": "開啟 AI 精靈選擇器",
-  "shortcuts.description.knowledgeBase": "開啟本機知識庫檢視面板",
+  "shortcuts.description.knowledgeBase": "開啟本機知識庫檢視面板（需啟用開發者模式）",
   "shortcuts.description.windowStatus": "顯示/隱藏視窗狀態面板——查看每個開啟視窗的 Claude Code 即時狀態",
   "shortcuts.description.markdownSplit": "切換分割檢視（Markdown 分割；分割格式為預覽⇄分割）",
   "shortcuts.description.splitDocuments": "並排開啟兩份不同的文件",

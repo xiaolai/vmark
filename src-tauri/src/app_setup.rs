@@ -71,6 +71,16 @@ pub(crate) fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::
     #[cfg(target_os = "macos")]
     crate::macos_menu::apply_menu_fixes(app.handle());
 
+    // Remove the items whose feature is off BEFORE any window paints a menu bar
+    // (#1425). Every conditional item is built disabled and hidden by default,
+    // and only the frontend's first push can turn one on — so without this the
+    // menu bar carries a greyed "Toggle Knowledge Base" / "New Browser Tab"
+    // until that push lands, and forever if it never does. Runs after the icon
+    // pass so a stashed item is already iconed; see `rebuild_menu`.
+    if let Err(e) = menu::conditional_items::reapply(app.handle()) {
+        log::warn!("[Tauri] Failed to apply conditional menu item visibility: {e}");
+    }
+
     // Best-effort cleanup of legacy ~/.vmark/ directory
     crate::app_paths::cleanup_legacy_home_dir(app.handle());
 

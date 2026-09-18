@@ -45,6 +45,9 @@ export const contentServerWarn = createWarnLogger("[ContentServer]");
 /** Warn logger for the embedded browser (driver gate, grants, surface). */
 export const browserWarn = createWarnLogger("[Browser]");
 
+/** Warn logger for native menu syncs (conditional item visibility). */
+export const menuWarn = createWarnLogger("[Menu]");
+
 /** Terminal lifecycle events worth a log line in production — a shell exit that
  *  silently hides the panel is otherwise indistinguishable from a crash. */
 export const terminalWarn = createWarnLogger("[Terminal]");

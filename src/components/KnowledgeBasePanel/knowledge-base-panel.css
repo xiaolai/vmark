@@ -92,6 +92,15 @@
   list-style: disc;
 }
 
+/* Check again + the requirements link (#1425). Wraps, because the panel is a
+   narrow dock and the two labels do not fit side by side at every width. */
+.kb-panel__runtime-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
 .kb-panel__toolbar {
   display: flex;
   flex-wrap: wrap;

@@ -34,6 +34,7 @@ import { registerAllCommands } from "@/services/commands/registerAllCommands";
 import { startRuntimeServices } from "@/services/runtimeWiring";
 import { closeBrowserTabById } from "@/services/browser/browserTabLifecycle";
 import { useRecentWorkspacesStore } from "@/stores/recentsStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { publishDebugHandle } from "@/utils/devDebugHandle";
 import { executeCommand } from "@/services/commands/CommandBus";
 import { signalMenuCommandsMounted } from "@/services/commands/menuCommandsReady";
@@ -180,6 +181,18 @@ export function useCommandBootstrap(): void {
     publishDebugHandle("forgetRecentWorkspace", (path: string) =>
       useRecentWorkspacesStore.getState().removeWorkspace(path),
     );
+    // Same seam, for the features that are hidden behind Developer Mode
+    // (#1425): the Knowledge Base's menu item, palette command and shortcut are
+    // all absent until it is on, so a journey that exercises the panel has to
+    // turn it on the way the user would — through the store's own action, which
+    // is what pushes the native menu item back too.
+    // Returns the PREVIOUS value: the setting persists into the dev profile, so
+    // a journey has to put back what it found rather than assume the default.
+    publishDebugHandle("setDeveloperMode", (on: boolean) => {
+      const previous = useSettingsStore.getState().advanced.developerMode;
+      useSettingsStore.getState().updateAdvancedSetting("developerMode", on);
+      return previous;
+    });
 
     // The window-lifetime services (grant/policy mirrors, tab events and
     // lifecycle, recorder, coherence, workspace sync, menu mirror) — one list,

@@ -59,17 +59,41 @@ beforeEach(() => {
 });
 
 describe("view.toggleKnowledgeBase", () => {
+  const setDeveloperMode = (developerMode: boolean) =>
+    useSettingsStore.setState((s) => ({ advanced: { ...s.advanced, developerMode } }));
+
+  afterEach(() => setDeveloperMode(false));
+
   it("is registered as a view command", () => {
     expect(getCommand("view.toggleKnowledgeBase")).toBeDefined();
     expect(getCommand("view.toggleKnowledgeBase")?.category).toBe("view");
   });
 
   it("toggles the KB panel open then closed", async () => {
+    setDeveloperMode(true);
     expect(useContentServerStore.getState().panelOpen).toBe(false);
     expect(await executeCommand("view.toggleKnowledgeBase")).toBe(true);
     expect(useContentServerStore.getState().panelOpen).toBe(true);
     await executeCommand("view.toggleKnowledgeBase");
     expect(useContentServerStore.getState().panelOpen).toBe(false);
+  });
+
+  // #1425. No packaged build carries the content server, so the command is
+  // Developer-Mode-only; `when` is what makes the palette, the shortcut and the
+  // native menu event agree about that without three separate checks.
+  it("is unavailable, and opens nothing, while Developer Mode is off", async () => {
+    setDeveloperMode(false);
+    expect(await executeCommand("view.toggleKnowledgeBase")).toBe(false);
+    expect(useContentServerStore.getState().panelOpen).toBe(false);
+  });
+
+  it("is hidden from the palette while Developer Mode is off, and listed once it is on", () => {
+    setDeveloperMode(false);
+    const hidden = searchCommands("knowledge").map((r) => r.command.id);
+    expect(hidden).not.toContain("view.toggleKnowledgeBase");
+    setDeveloperMode(true);
+    const shown = searchCommands("knowledge").map((r) => r.command.id);
+    expect(shown).toContain("view.toggleKnowledgeBase");
   });
 });
 

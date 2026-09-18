@@ -24,12 +24,14 @@ vi.mock("@/services/coherence/scanOnChange", () => ({ startCoherenceScanOnChange
 vi.mock("@/services/mcpBridge/windowWorkspaceSync", () => ({ startWindowWorkspaceSync: service("workspace") }));
 vi.mock("@/services/browser/browserAiPolicySync", () => ({ startBrowserAiPolicySync: service("aiPolicy") }));
 vi.mock("@/services/workflow/workflowEnginePolicySync", () => ({ startWorkflowEnginePolicySync: service("engine") }));
-vi.mock("@/services/browser/browserMenuSync", () => ({ startBrowserMenuSync: service("menu") }));
+vi.mock("@/services/menu/conditionalMenuItemSync", () => ({
+  startConditionalMenuItemSync: service("menu"),
+}));
 vi.mock("@/utils/debug", () => ({ appError: vi.fn() }));
 
 import { startRuntimeServices } from "./runtimeWiring";
 import { startBrowserTabEvents } from "@/services/browser/browserTabEvents";
-import { startBrowserMenuSync } from "@/services/browser/browserMenuSync";
+import { startConditionalMenuItemSync } from "@/services/menu/conditionalMenuItemSync";
 import { startBrowserLeaseWiring } from "@/services/browser/browserLeaseWiring";
 import { appError } from "@/utils/debug";
 
@@ -73,7 +75,7 @@ describe("startRuntimeServices", () => {
   // to stop.
   it("one disposer that throws does not stop the others from running", () => {
     order.length = 0;
-    vi.mocked(startBrowserMenuSync).mockImplementationOnce(() => {
+    vi.mocked(startConditionalMenuItemSync).mockImplementationOnce(() => {
       order.push("start:menu");
       return () => {
         order.push("stop:menu");

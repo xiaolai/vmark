@@ -5,8 +5,9 @@
 //!
 //! Pipeline: `app_setup::setup_app` -> `localized::create_localized_menu()` -> Tauri `app.set_menu()`.
 //! Items whose presence depends on a setting are adjusted after that:
-//! `browser_menu_item` shows/hides "New Browser Tab" and re-applies itself after
-//! every rebuild.
+//! `conditional_items` removes and restores the items whose feature is off
+//! ("New Browser Tab", "Toggle Knowledge Base") and re-applies itself after
+//! every rebuild — including the first `set_menu`.
 //! When user changes locale (label change): frontend invokes `rebuild_menu`
 //!   -> `localized::create_localized_menu()` with custom shortcuts.
 //! When user edits a keyboard shortcut (accelerator-only change): frontend
@@ -98,8 +99,8 @@ pub use dynamic::*;
 // items that `generate_handler!` in `lib.rs` must resolve.
 pub use menu_state::*;
 
-pub mod browser_menu_item;
-pub use browser_menu_item::*;
+pub mod conditional_items;
+pub use conditional_items::*;
 // Wildcard re-export required: `#[tauri::command]` generates hidden `__cmd__*` items
 // that `generate_handler!` in `lib.rs` must resolve.
 pub use localized::*;
