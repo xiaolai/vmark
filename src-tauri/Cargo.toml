@@ -108,7 +108,7 @@ toml = "1.1"
 # features (`parse` + `display`) only; `serde` is deliberately off — the
 # document model is used directly, nothing is deserialised through it.
 toml_edit = "0.25"
-dirs = "6"
+dirs = "7"
 chrono = "0.4"
 reqwest = { version = "0.13", features = ["json"] }
 tauri-plugin-window-state = "2"
@@ -131,7 +131,7 @@ serde_yaml_ng = "0.10"
 # canonicalization per spec §3.1 needs the real Unicode tables.
 rusqlite = { version = "0.40", features = ["bundled"] }
 unicode-normalization = "0.1"
-lopdf = { version = "0.44.0", default-features = false }
+lopdf = { version = "0.45.0", default-features = false }
 
 # Windows and Linux start a FRESH process for every file-association
 # double-click; macOS does not (one process per bundle identifier, later opens
