@@ -64,8 +64,16 @@ export function PdfSettingsSidebar({ options, onOptionChange: set, onExport, exp
   const orientationOptions = useMemo(() => buildOrientationOptions(t), [t]);
   const marginPresetOptions = useMemo(() => buildMarginPresetOptions(t), [t]);
   const cjkSpacingOptions = useMemo(() => buildCjkSpacingOptions(t), [t]);
-  const latinFontOptions = useMemo(() => buildLatinFontOptions(t), [t]);
-  const cjkFontOptions = useMemo(() => buildCjkFontOptions(t), [t]);
+  // The current value is passed in so a custom family is listed too — a
+  // `<select>` whose value matches no option renders blank (#1429).
+  const latinFontOptions = useMemo(
+    () => buildLatinFontOptions(t, options.latinFont),
+    [t, options.latinFont],
+  );
+  const cjkFontOptions = useMemo(
+    () => buildCjkFontOptions(t, options.cjkFont),
+    [t, options.cjkFont],
+  );
 
   // Apply a style preset — sets fonts, sizes, margins in one click
   const handleStylePresetChange = useCallback((preset: string) => {

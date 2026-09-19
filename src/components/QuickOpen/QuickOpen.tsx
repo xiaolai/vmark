@@ -9,7 +9,15 @@
  * click-outside via useDismissOnOutsideOrEscape (deferred attach),
  * IME guard, and data-index scroll tracking.
  *
+ * The workspace tier is scoped by the SAME workspace config the file explorer
+ * renders from (`showHiddenFiles`, `showAllFiles`) and opens each hit through
+ * the same by-file-type routing — #1428, where a hardcoded `showHidden: false`
+ * made every file under a dot-directory unfindable by name until it had been
+ * opened once and entered the unfiltered `recent` tier.
+ *
  * @coordinates-with quickOpenStore.ts, useQuickOpenItems.ts, fuzzyMatch.ts
+ * @coordinates-with Sidebar/FileExplorer/useFileTree.ts — the workspace tier's listing
+ * @coordinates-with services/navigation/openWithDefaultApp.ts — the system-app door
  */
 
 import {
@@ -26,6 +34,9 @@ import { useGeniePickerStore } from "@/stores/geniePickerStore";
 import { useActiveWorkspaceScope } from "@/workspace";
 import { useFileTree } from "@/components/Sidebar/FileExplorer/useFileTree";
 import { openFileInNewTabCore, handleOpen } from "@/services/navigation/fileOpen";
+import { openWithDefaultApp } from "@/services/navigation/openWithDefaultApp";
+import { opensInVMark } from "@/utils/dropPaths";
+import { getFileName } from "@/utils/pathUtils";
 import {
   buildQuickOpenItems,
   filterAndRankItems,
@@ -62,12 +73,18 @@ export function QuickOpen({ windowLabel }: QuickOpenProps) {
   const ime = useImeComposition();
 
   // Only load the workspace tree while open; this avoids an idle watcher.
-  const { rootPath, isWorkspaceMode, excludeFolders } =
+  const { rootPath, isWorkspaceMode, excludeFolders, config } =
     useActiveWorkspaceScope(windowLabel);
+  // #1428: the workspace tier is scoped by the SAME workspace config the file
+  // explorer renders from, never by a literal. Hardcoding both off made a file
+  // under any dot-directory unreachable by name until it had been opened once
+  // — the `recent` tier is unfiltered, so opening it was what made it findable.
+  // Searchability then depended on history rather than on the setting the user
+  // had already chosen.
   const { tree } = useFileTree(isOpen ? rootPath : null, {
     excludeFolders,
-    showHidden: false,
-    showAllFiles: false,
+    showHidden: config?.showHiddenFiles ?? false,
+    showAllFiles: config?.showAllFiles ?? false,
     watchId: `quick-open-${windowLabel}`,
   });
 
@@ -131,12 +148,20 @@ export function QuickOpen({ windowLabel }: QuickOpenProps) {
   const handleSelectItem = useCallback(
     async (path: string) => {
       handleClose();
+      // #1428: route by file type, on the same predicate the file explorer
+      // uses. The workspace tier now honours `showAllFiles`, so this list can
+      // hold types VMark does not open itself — reading one as UTF-8 text
+      // would open the same file differently from a click in the sidebar.
       // openFileInNewTabCore handles most errors internally (detaches orphaned
       // tab, shows toast). But pre-read routing/dialog steps (routeOpenBySize)
       // can still reject before that internal try/catch — callers ignore the
       // returned promise, so guard here to avoid an unhandled rejection.
       try {
-        await openFileInNewTabCore(windowLabel, path);
+        if (opensInVMark(getFileName(path))) {
+          await openFileInNewTabCore(windowLabel, path);
+        } else {
+          await openWithDefaultApp(path);
+        }
       } catch (err) {
         quickOpenWarn("Failed to open file:", err);
       }

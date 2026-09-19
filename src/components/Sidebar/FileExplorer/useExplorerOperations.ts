@@ -37,6 +37,7 @@ import { reconcilePathChange } from "@/utils/pathReconciliation";
 import { applyPathReconciliation } from "@/services/persistence/applyPathReconciliation";
 import { showError, FileErrors } from "@/services/dialogs/errorDialog";
 import { emitOpenFileInCurrentWindow } from "@/services/navigation/openFileEvent";
+import { openWithDefaultApp as openWithDefaultAppCore } from "@/services/navigation/openWithDefaultApp";
 import { fileExplorerError } from "@/utils/debug";
 import { fileExtensionOf, renameFile, type RenameOptions } from "@/services/persistence/renameFile";
 import { captureExplorerNewFile } from "@/services/coherence/captureFunnel";
@@ -232,16 +233,12 @@ export function useExplorerOperations() {
     await emitOpenFileInCurrentWindow(path);
   }, []);
 
-  const openWithDefaultApp = useCallback(async (path: string): Promise<void> => {
-    try {
-      const { openPath } = await import("@tauri-apps/plugin-opener");
-      await openPath(path);
-    } catch (error) {
-      fileExplorerError(" Failed to open with default app:", error);
-      const name = await basename(path);
-      toast.error(i18n.t("dialog:toast.failedToOpenWithDefaultApp", { name }));
-    }
-  }, []);
+  // The system-app door lives in services/navigation: Quick Open reaches the
+  // same one now that its workspace tier follows `showAllFiles` (#1428).
+  const openWithDefaultApp = useCallback(
+    (path: string): Promise<void> => openWithDefaultAppCore(path),
+    [],
+  );
 
   const duplicateFile = useCallback(
     async (path: string): Promise<string | null> => {

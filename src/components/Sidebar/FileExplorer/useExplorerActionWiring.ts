@@ -26,7 +26,7 @@ import type { ContextMenuActionId } from "./ContextMenu";
 import type { ContextMenuState } from "./useExplorerContextMenu";
 import type { FileNode as FileNodeType } from "./types";
 import { getFileName, getParentDir, isWithinRoot } from "@/utils/paths";
-import { isSupportedFileName, isVMarkFileName } from "@/utils/dropPaths";
+import { opensInVMark } from "@/utils/dropPaths";
 import { openTerminalHere } from "@/services/terminal/openTerminalHere";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import { fileExplorerError } from "@/utils/debug";
@@ -114,11 +114,9 @@ export function useExplorerActionWiring({
   const openFileByType = useCallback(
     async (path: string): Promise<void> => {
       const fileName = getFileName(path);
-      // Phase 1B: any registered format opens in VMark; `isVMarkFileName`
-      // (markdown or yaml) covers the pre-bootstrap edge before the registry
-      // knows its formats — the workflow viewer has no switch since D6.
-      const isSupported = fileName && (isSupportedFileName(fileName) || isVMarkFileName(fileName));
-      if (isSupported) {
+      // `opensInVMark` (utils/dropPaths) is the ONE definition of this split —
+      // Quick Open routes on the same predicate since #1428.
+      if (opensInVMark(fileName)) {
         try {
           await openFile(path);
         } catch (error) {

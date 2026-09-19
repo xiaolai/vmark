@@ -30,7 +30,7 @@
     "src/components/Editor/WorkflowEditor/StepForm.tsx": 542,
     "src/components/Editor/WorkflowEditor/TriggerForm.tsx": 356,
     "src/components/GeniePicker/GeniePicker.tsx": 494,
-    "src/components/Sidebar/FileExplorer/useExplorerOperations.ts": 315,
+    "src/components/Sidebar/FileExplorer/useExplorerOperations.ts": 312,
     "src/components/StatusBar/StatusBar.tsx": 310,
     "src/components/StatusBar/useStatusBarTabDrag.ts": 330,
     "src/export/reader/vmark-reader.js": 1342,

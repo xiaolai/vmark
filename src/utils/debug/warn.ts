@@ -195,3 +195,9 @@ export const mcpContractWarn = createWarnLogger("[MCP Contract]");
  *  so the only trace a user could otherwise report is "completion stopped
  *  working"; this makes the cause visible in the log file. */
 export const formatsWarn = createWarnLogger("[Formats]");
+
+/** Warn logger for font discovery (#1429). A platform that does not enumerate
+ *  answers an empty list, which is normal; this fires only when the query
+ *  itself failed, and the symptom — an empty suggestion list — looks exactly
+ *  the same either way. */
+export const fontsWarn = createWarnLogger("[Fonts]");

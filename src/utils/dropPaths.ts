@@ -77,6 +77,24 @@ export function isVMarkFileName(name: string): boolean {
   return isMarkdownFileName(name) || isYamlFileName(name);
 }
 
+/**
+ * True iff VMark opens `name` in a tab itself, rather than handing it to the
+ * system's default app.
+ *
+ * ONE definition, because two doors route on it: the file explorer's activate
+ * and context-menu Open, and Quick Open — which lists non-markdown files
+ * whenever the workspace's `showAllFiles` is on (#1428). Two copies would let
+ * the same file open two different ways depending on which door was used.
+ *
+ * `isVMarkFileName` is the OR, not a duplicate of `isSupportedFileName`: it
+ * covers the pre-bootstrap edge where the format registry has not been
+ * populated yet, and a standalone `.yml` is a VMark file regardless (WI-19).
+ */
+export function opensInVMark(name: string): boolean {
+  if (!name) return false;
+  return isSupportedFileName(name) || isVMarkFileName(name);
+}
+
 /** Strip any registered extension off `name`. */
 export function stripSupportedExtension(name: string): string {
   const lower = name.toLowerCase();

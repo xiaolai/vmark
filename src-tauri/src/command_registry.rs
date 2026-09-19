@@ -209,6 +209,7 @@ macro_rules! all_commands {
             pty::pty_pause,
             pty::pty_resume,
             shell_integration::prepare_shell_integration,
+            system_fonts::list_system_font_families,
         ]
     };
 }
