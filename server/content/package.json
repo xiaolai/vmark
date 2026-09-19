@@ -22,7 +22,7 @@
   "license": "MIT",
   "dependencies": {
     "@hono/node-server": "^2.1.0",
-    "@slidev/cli": "^52.19.0",
+    "@slidev/cli": "^53.0.0",
     "chokidar": "^5.0.0",
     "dompurify": "^3.4.13",
     "hastscript": "^9.0.1",
