@@ -17,6 +17,17 @@
  * addon-private fields; if they move, the guards below fail loudly — which
  * also means the addon changed and the patch needs re-checking.
  *
+ * **Re-verifying this test means clearing `node_modules/.vite` first.** Vite
+ * PRE-BUNDLES the addon, and vitest keeps its own optimizer cache under
+ * `node_modules/.vite/vitest/<hash>/deps/`. Editing the addon in
+ * `node_modules` does not invalidate it, so a run against a deliberately
+ * unpatched build loads the previously optimized PATCHED bundle and passes —
+ * a false green that looks exactly like "the test is vacuous" or "the bug is
+ * gone". Observed while reviewing this PR: unpatched passed in 2.9s, then
+ * failed with six stale slots once the cache was removed. Whenever the addon
+ * is bumped and this test is re-run per setupWebglRenderer.ts's exit
+ * condition, delete that directory or the result means nothing.
+ *
  * @coordinates-with patches/@xterm__addon-webgl@0.19.0.patch — global page versions
  * @coordinates-with setupWebglRenderer.ts — header records the patch's exit condition
  */
