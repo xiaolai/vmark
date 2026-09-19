@@ -170,7 +170,7 @@
     "markmap-lib": "^0.18.12",
     "markmap-view": "^0.18.12",
     "mdast-util-find-and-replace": "^3.0.2",
-    "mermaid": "^11.16.1",
+    "mermaid": "^12.0.0",
     "react": "^19.2.8",
     "react-arborist": "^3.16.0",
     "react-dom": "^19.2.8",
