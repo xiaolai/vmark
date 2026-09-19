@@ -221,7 +221,8 @@
     },
     "patchedDependencies": {
       "micromark@4.0.2": "patches/micromark@4.0.2.patch",
-      "mdast-util-to-markdown@2.1.2": "patches/mdast-util-to-markdown@2.1.2.patch"
+      "mdast-util-to-markdown@2.1.2": "patches/mdast-util-to-markdown@2.1.2.patch",
+      "@xterm/addon-webgl@0.19.0": "patches/@xterm__addon-webgl@0.19.0.patch"
     }
   },
   "devDependencies": {

@@ -48,6 +48,19 @@
  *     upgrade is never blocked on this. The page-count bounding stays
  *     deleted either way: it was VMark's own defect, and the upstream fix
  *     does not address it.
+ *   - A SECOND atlas defect is fixed by patching the addon, not here:
+ *     patches/@xterm__addon-webgl@0.19.0.patch. GlyphRenderer re-uploads a
+ *     texture slot only when the page's version differs from the slot's, and
+ *     0.19.0 counts versions per page, so after a page merge a DIFFERENT page
+ *     can sit in a slot with the version the slot already records. The upload
+ *     is skipped and every glyph on that page samples the old page's pixels —
+ *     fragment garble even in a single terminal. It cannot be fixed from
+ *     outside the addon, so the patch backports upstream's globally monotonic
+ *     AtlasPage.nextVersion; webglAtlasPageUpload.webkit.test.ts is the
+ *     regression test. The patch is keyed to 0.19.0, so a bump of the addon
+ *     fails `pnpm install` until the patch entry is removed from package.json
+ *     — drop it then if the new release carries AtlasPage.nextVersion, and
+ *     re-run that test either way.
  *   - Context loss is detected at TWO layers: the addon's onContextLoss
  *     callback and a DOM-level webglcontextlost listener on each render
  *     canvas. VS Code's microsoft/vscode#120393 documents that the addon
