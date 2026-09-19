@@ -17,12 +17,16 @@
  *   - What this module returns is the PREFERRED stack. It is not verified, and
  *     on WebKitGTK the engine does not always render it — callers that need a
  *     real character grid go through `services/fonts/verifiedMonoStack`.
+ *   - A setting may also name a family VMark does not curate. That encoding
+ *     and its validator live in `./customFont`; this module only resolves an
+ *     already-sanitized family into a stack.
  *
  * @coordinates-with hooks/useTheme.ts — consumes these to emit CSS vars
  * @coordinates-with components/Terminal/terminalSessionStoreSync.ts — live mono sync
  * @module utils/fontStacks
  */
 import type { RuntimePlatform } from "./platform";
+import { parseCustomFont, quoteFamily } from "./customFont";
 
 export const fontStacks = {
   latin: {
@@ -135,9 +139,12 @@ export function resolveMonoFontStack(
   monoFont: string,
   platform: RuntimePlatform,
 ): string {
+  const custom = parseCustomFont(monoFont);
   const named =
-    fontStacks.mono[monoFont as keyof typeof fontStacks.mono] ??
-    fontStacks.mono.system;
+    custom !== null
+      ? quoteFamily(custom)
+      : (fontStacks.mono[monoFont as keyof typeof fontStacks.mono] ??
+         fontStacks.mono.system);
   const tail = MONO_TAIL[platform];
   return named ? `${named}, ${tail}` : tail;
 }
@@ -199,12 +206,21 @@ export function buildFontStack(
   monoFont: string,
   platform: RuntimePlatform
 ): { sans: string; mono: string } {
+  const customLatin = parseCustomFont(latinFont);
   const latinStack =
-    fontStacks.latin[latinFont as keyof typeof fontStacks.latin] ||
-    fontStacks.latin.system;
+    customLatin !== null
+      ? quoteFamily(customLatin)
+      : (fontStacks.latin[latinFont as keyof typeof fontStacks.latin] ||
+         fontStacks.latin.system);
+  // A custom CJK family keeps the SYSTEM CJK stack behind it, not a bare
+  // generic: a font chosen for its Han glyphs still misses some, and the
+  // fallback is what decides whether those render or become tofu.
+  const customCjk = parseCustomFont(cjkFont);
   const cjkStack =
-    fontStacks.cjk[cjkFont as keyof typeof fontStacks.cjk] ||
-    fontStacks.cjk.system;
+    customCjk !== null
+      ? `${quoteFamily(customCjk)}, ${fontStacks.cjk.system}`
+      : (fontStacks.cjk[cjkFont as keyof typeof fontStacks.cjk] ||
+         fontStacks.cjk.system);
 
   // Strip the Latin stack's trailing generic so CJK glyph resolution reaches
   // the CJK stack (#1056). The CJK stack keeps its own trailing generic, which

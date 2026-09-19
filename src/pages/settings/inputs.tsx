@@ -41,6 +41,7 @@ export function Toggle({
 export function Select<T extends string>({
   value,
   options,
+  groups,
   onChange,
   disabled,
   id,
@@ -48,6 +49,11 @@ export function Select<T extends string>({
 }: {
   value: T;
   options: { value: T; label: string }[];
+  /** Optional `<optgroup>`s rendered after `options`. Added for the font
+   *  pickers (#1429), where a short curated list is followed by every family
+   *  installed on the machine and the heading is what keeps the second list
+   *  from reading as more of the first. */
+  groups?: { label: string; options: { value: T; label: string }[] }[];
   onChange: (v: T) => void;
   disabled?: boolean;
   id?: string;
@@ -70,6 +76,15 @@ export function Select<T extends string>({
           <option key={opt.value} value={opt.value}>
             {opt.label}
           </option>
+        ))}
+        {groups?.map((group) => (
+          <optgroup key={group.label} label={group.label}>
+            {group.options.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </optgroup>
         ))}
       </select>
     </span>
@@ -164,6 +179,8 @@ export function SearchInput({
 export interface FieldInputProps extends BaseInputProps {
   /** Default `"text"`. `"password"` masks the value (used for API keys). */
   type?: "text" | "password";
+  /** id of a sibling `<datalist>` for native autocompletion (#1429). */
+  list?: string;
 }
 
 /**
@@ -197,6 +214,7 @@ export function FieldInput({
   spellCheck = false,
   autoFocus,
   type = "text",
+  list,
   ref,
   ...ariaProps
 }: FieldInputProps) {
@@ -204,6 +222,7 @@ export function FieldInput({
     <input
       ref={ref}
       type={type}
+      list={list}
       value={value}
       onChange={(e) => onChange(e.target.value)}
       onBlur={onBlur}

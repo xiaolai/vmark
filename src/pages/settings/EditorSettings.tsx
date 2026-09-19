@@ -13,46 +13,7 @@ import {
 } from "@/stores/settingsStore";
 import { SettingRow, SettingsGroup, Select, Toggle } from "./components";
 import { WhitespaceSettings } from "./WhitespaceSettings";
-
-/** Font option definitions (labels are not translated — font names are proper nouns) */
-const fontOptions = {
-  latin: [
-    { value: "system", label: null },
-    { value: "athelas", label: "Athelas" },
-    { value: "palatino", label: "Palatino" },
-    { value: "georgia", label: "Georgia" },
-    { value: "charter", label: "Charter" },
-    { value: "literata", label: "Literata" },
-  ],
-  cjk: [
-    { value: "system", label: null },
-    { value: "pingfang", label: "PingFang SC" },
-    { value: "songti", label: "Songti SC" },
-    { value: "kaiti", label: "Kaiti SC" },
-    { value: "notoserif", label: "Noto Serif CJK" },
-    { value: "sourcehans", label: "Source Han Sans" },
-  ],
-  mono: [
-    { value: "system", label: null },
-    { value: "sfmono", label: "SF Mono" },
-    { value: "monaco", label: "Monaco" },
-    { value: "menlo", label: "Menlo" },
-    { value: "consolas", label: "Consolas" },
-    // Linux distribution defaults (#1334) — without these a Linux user had no
-    // monospace family in the list that ships on their machine.
-    { value: "dejavu", label: "DejaVu Sans Mono" },
-    { value: "liberation", label: "Liberation Mono" },
-    { value: "ubuntumono", label: "Ubuntu Mono" },
-    { value: "notosansmono", label: "Noto Sans Mono" },
-    { value: "notosansmonocjk", label: "Noto Sans Mono CJK SC" },
-    { value: "jetbrains", label: "JetBrains Mono" },
-    { value: "firacode", label: "Fira Code" },
-    { value: "saucecodepro", label: "SauceCodePro NFM" },
-    { value: "ibmplexmono", label: "IBM Plex Mono" },
-    { value: "hack", label: "Hack" },
-    { value: "inconsolata", label: "Inconsolata" },
-  ],
-};
+import { FontSettings } from "./FontSettings";
 
 /** Numeric option definitions */
 const numericOptions = {
@@ -65,11 +26,13 @@ const numericOptions = {
   ],
 };
 
-/** Typography settings configuration for data-driven rendering */
+/** Typography settings configuration for data-driven rendering.
+ *  The three FONT roles moved to `FontSettings.tsx` with #1429; what is left
+ *  here is the numeric/enum half, whose labels are never the system default. */
 type TypographyConfig = {
   labelKey: string;
   key: keyof AppearanceSettingsType;
-  options: { value: string; label: string | null }[];
+  options: { value: string; label: string }[];
   isNumeric: boolean;
   optionLabelKey?: string;
 };
@@ -91,13 +54,8 @@ export function EditorSettings() {
   const cjkPairingEnabled = autoPairCJKStyle !== "off";
   const curlyQuotesEnabled = markdown.autoPairCurlyQuotes ?? true;
 
-  const systemDefaultLabel = t("editor.font.systemDefault");
-
   /** Typography settings configuration for data-driven rendering */
   const typographySettings: TypographyConfig[] = [
-    { labelKey: "editor.latinFont.label", key: "latinFont", options: fontOptions.latin, isNumeric: false },
-    { labelKey: "editor.cjkFont.label", key: "cjkFont", options: fontOptions.cjk, isNumeric: false },
-    { labelKey: "editor.monoFont.label", key: "monoFont", options: fontOptions.mono, isNumeric: false },
     { labelKey: "editor.fontSize.label", key: "fontSize", options: numericOptions.fontSize, isNumeric: true },
     {
       labelKey: "editor.lineHeight.label", key: "lineHeight", isNumeric: true,
@@ -145,14 +103,14 @@ export function EditorSettings() {
     <div>
       {/* Typography */}
       <SettingsGroup title={t("editor.group.typography")}>
+        {/* The three font roles live in their own module — they carry the
+            installed-font picker and its custom-family field (#1429). */}
+        <FontSettings />
         {typographySettings.map(({ labelKey, key, options, isNumeric }) => (
           <SettingRow key={key} label={t(labelKey)}>
             <Select
               value={String(appearance[key])}
-              options={options.map((o) => ({
-                value: o.value,
-                label: o.label ?? systemDefaultLabel,
-              }))}
+              options={options}
               onChange={(v) =>
                 updateAppearanceSetting(key, isNumeric ? Number(v) : v)
               }
