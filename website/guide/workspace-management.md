@@ -102,9 +102,17 @@ Press `Mod + O` to open the Quick Open overlay. It provides fuzzy search across 
 
 1. **Recent files** you have opened before
 2. **Open tabs** in the current window (marked with a dot indicator)
-3. **All markdown files** in the workspace
+3. **Every file the file explorer is currently showing** in the workspace
 
 Type a few characters to filter — matching is fuzzy, so `rme` finds `README.md`. Use arrow keys to navigate and **Enter** to open. A pinned **Browse...** row at the bottom opens a file dialog.
+
+The third source follows the file explorer exactly, so the two never disagree
+about what exists. Turn on **Show hidden files** and Quick Open finds documents
+under `.claude/`, `.github/workflows/` and any other dot-directory; turn on
+**Show all files** and it finds the non-markdown ones too, opening each the same
+way a click in the sidebar would — VMark's own formats in a tab, everything else
+in your system's default application. Folders on the always-skipped list
+(`.git`, `node_modules`, `.vscode`, and the rest) stay out of both.
 
 | Action | Shortcut |
 |--------|----------|
