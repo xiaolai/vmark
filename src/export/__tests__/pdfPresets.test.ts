@@ -18,6 +18,8 @@ import {
   detectMarginPreset,
   STYLE_PRESETS,
 } from "../pdfPresets";
+import { FONT_OPTIONS } from "@/utils/fontOptions";
+import { fontStacks } from "@/utils/fontStacks";
 import type { PdfOptions } from "../pdfHtmlTemplate";
 
 /** Mock translation function — returns the key's last segment for easy assertion. */
@@ -104,5 +106,62 @@ describe("pdfPresets detection functions", () => {
   it("detectMarginPreset returns 'custom' for non-matching margins", () => {
     const opts = { ...createDefaultOptions(), marginTop: 99 };
     expect(detectMarginPreset(opts)).toBe("custom");
+  });
+});
+
+/**
+ * #1429 — the PDF sidebar carried its OWN hand-written font lists, four Latin
+ * families against Settings' six. The dialog seeds its fonts from the app's
+ * appearance settings, so an editor set to Literata or Source Han Sans opened
+ * it with a BLANK select over a perfectly correct value. Both lists now come
+ * from the one curated table, and the current value is always present.
+ */
+describe("PDF font options cover every value the dialog can be seeded with", () => {
+  it("offers the same Latin families Settings does", () => {
+    const values = buildLatinFontOptions(mockT).map((o) => o.value);
+    expect(values).toEqual(FONT_OPTIONS.latin.map((o) => o.value));
+  });
+
+  it("offers the same CJK families Settings does", () => {
+    const values = buildCjkFontOptions(mockT).map((o) => o.value);
+    expect(values).toEqual(FONT_OPTIONS.cjk.map((o) => o.value));
+  });
+
+  it("appends a custom family so the select is never blank", () => {
+    const options = buildCjkFontOptions(mockT, "custom:LXGW WenKai");
+    expect(options).toContainEqual({ value: "custom:LXGW WenKai", label: "LXGW WenKai" });
+  });
+
+  it("does not append a curated value that is already listed", () => {
+    const options = buildLatinFontOptions(mockT, "athelas");
+    expect(options.filter((o) => o.value === "athelas")).toHaveLength(1);
+  });
+
+  it("ignores a current value that is not usable", () => {
+    const options = buildLatinFontOptions(mockT, 'custom:X"; color: red');
+    expect(options.map((o) => o.value)).toEqual(FONT_OPTIONS.latin.map((o) => o.value));
+  });
+
+  it("is unchanged when no current value is given", () => {
+    expect(buildLatinFontOptions(mockT)).toEqual(buildLatinFontOptions(mockT, "system"));
+  });
+});
+
+/**
+ * Every curated key must resolve to a real stack. A key with no entry falls
+ * back to `system` SILENTLY, which is how a picker offers a font that does
+ * nothing (#1429).
+ */
+describe("every curated font key resolves", () => {
+  it("resolves each Latin and CJK key to a distinct stack", () => {
+    for (const { value } of FONT_OPTIONS.latin) {
+      expect(fontStacks.latin).toHaveProperty(value);
+    }
+    for (const { value } of FONT_OPTIONS.cjk) {
+      expect(fontStacks.cjk).toHaveProperty(value);
+    }
+    for (const { value } of FONT_OPTIONS.mono) {
+      expect(fontStacks.mono).toHaveProperty(value);
+    }
   });
 });

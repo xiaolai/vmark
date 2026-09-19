@@ -15,6 +15,11 @@ vi.mock("@/components/Sidebar/FileExplorer/useFileTree", () => ({
   useFileTree: vi.fn(() => ({ tree: [], isLoading: false, refresh: vi.fn() })),
 }));
 
+const mockOpenWithDefaultApp = vi.fn();
+vi.mock("@/services/navigation/openWithDefaultApp", () => ({
+  openWithDefaultApp: (...args: unknown[]) => mockOpenWithDefaultApp(...args),
+}));
+
 const mockOpenFileInNewTabCore = vi.fn();
 const mockHandleOpen = vi.fn();
 vi.mock("@/services/navigation/fileOpen", () => ({
@@ -25,7 +30,9 @@ vi.mock("@/services/navigation/fileOpen", () => ({
 const mockWorkspaceState = {
   rootPath: null as string | null,
   isWorkspaceMode: false,
-  config: null as { excludeFolders?: string[] } | null,
+  config: null as
+    | { excludeFolders?: string[]; showHiddenFiles?: boolean; showAllFiles?: boolean }
+    | null,
 };
 
 const mockRecentFilesState = { files: [] as { path: string; timestamp: number }[], removeFile: vi.fn() };
@@ -87,6 +94,7 @@ vi.mock("@/stores/geniePickerStore", () => ({
 
 // --- Imports (after mocks) ---
 
+import { useFileTree } from "@/components/Sidebar/FileExplorer/useFileTree";
 import { useQuickOpenStore } from "@/stores/quickOpenStore";
 import { useGeniePickerStore } from "@/stores/geniePickerStore";
 import { QuickOpen } from "./QuickOpen";
@@ -461,5 +469,98 @@ describe("shared overlay shell (WI-UI3.1)", () => {
     expect(backdrop!.querySelector(".vm-overlay__panel.quick-open")).not.toBeNull();
     expect(backdrop!.querySelector("input.vm-overlay__input")).not.toBeNull();
     expect(backdrop!.querySelector(".vm-overlay__footer")).not.toBeNull();
+  });
+});
+
+/**
+ * #1428 — Quick Open's workspace tier used to hardcode `showHidden: false` and
+ * `showAllFiles: false`, so a file under any dot-directory (`.claude/`,
+ * `.github/workflows/`) was unreachable by name until it had been opened once
+ * and entered the unfiltered `recent` tier. The scope must be the one the file
+ * explorer is currently showing, which is the workspace config — otherwise
+ * searchability depends on history rather than on the setting.
+ */
+describe("workspace tier visibility follows the workspace config (#1428)", () => {
+  it("passes the config's showHiddenFiles / showAllFiles through to the file tree", () => {
+    mockWorkspaceState.rootPath = "/ws";
+    mockWorkspaceState.isWorkspaceMode = true;
+    mockWorkspaceState.config = { showHiddenFiles: true, showAllFiles: true };
+    useQuickOpenStore.setState({ isOpen: true });
+
+    render(<QuickOpen windowLabel="main" />);
+
+    expect(useFileTree).toHaveBeenCalledWith(
+      "/ws",
+      expect.objectContaining({ showHidden: true, showAllFiles: true }),
+    );
+  });
+
+  it("keeps both off when the config leaves them off", () => {
+    mockWorkspaceState.rootPath = "/ws";
+    mockWorkspaceState.isWorkspaceMode = true;
+    mockWorkspaceState.config = { showHiddenFiles: false, showAllFiles: false };
+    useQuickOpenStore.setState({ isOpen: true });
+
+    render(<QuickOpen windowLabel="main" />);
+
+    expect(useFileTree).toHaveBeenCalledWith(
+      "/ws",
+      expect.objectContaining({ showHidden: false, showAllFiles: false }),
+    );
+  });
+
+  it("defaults to hiding both when the workspace has no config yet", () => {
+    mockWorkspaceState.rootPath = "/ws";
+    mockWorkspaceState.isWorkspaceMode = true;
+    mockWorkspaceState.config = null;
+    useQuickOpenStore.setState({ isOpen: true });
+
+    render(<QuickOpen windowLabel="main" />);
+
+    expect(useFileTree).toHaveBeenCalledWith(
+      "/ws",
+      expect.objectContaining({ showHidden: false, showAllFiles: false }),
+    );
+  });
+});
+
+/**
+ * #1428 — with `showAllFiles` on, the workspace tier lists file types VMark
+ * does not open itself. Selecting one must go through the same door the file
+ * explorer uses, or the SAME file opens two different ways depending on
+ * whether the user clicked it in the sidebar or found it with Cmd+O.
+ */
+describe("selection routes by file type (#1428)", () => {
+  beforeEach(() => {
+    mockRecentFilesGetState.mockReturnValue({
+      files: [
+        { path: "/ws/notes.md", timestamp: Date.now() },
+        { path: "/ws/archive.zip", timestamp: Date.now() - 1000 },
+      ],
+      removeFile: vi.fn(),
+    });
+  });
+
+  it("opens a registered format in a VMark tab", () => {
+    useQuickOpenStore.setState({ isOpen: true });
+    render(<QuickOpen windowLabel="main" />);
+    fireEvent.click(screen.getByText("notes.md").closest("[role='option']")!);
+    expect(mockOpenFileInNewTabCore).toHaveBeenCalledWith("main", "/ws/notes.md");
+    expect(mockOpenWithDefaultApp).not.toHaveBeenCalled();
+  });
+
+  it("hands an unregistered type to the system default app", () => {
+    useQuickOpenStore.setState({ isOpen: true });
+    render(<QuickOpen windowLabel="main" />);
+    fireEvent.click(screen.getByText("archive.zip").closest("[role='option']")!);
+    expect(mockOpenWithDefaultApp).toHaveBeenCalledWith("/ws/archive.zip");
+    expect(mockOpenFileInNewTabCore).not.toHaveBeenCalled();
+  });
+
+  it("closes the overlay either way", () => {
+    useQuickOpenStore.setState({ isOpen: true });
+    render(<QuickOpen windowLabel="main" />);
+    fireEvent.click(screen.getByText("archive.zip").closest("[role='option']")!);
+    expect(useQuickOpenStore.getState().isOpen).toBe(false);
   });
 });

@@ -11,11 +11,15 @@
  * @coordinates-with PdfSettingsSidebar.tsx — consumes presets and options
  * @coordinates-with pdfHtmlTemplate.ts — PdfOptions type, MARGIN_PRESETS
  * @coordinates-with locales/en/export.json — i18n keys for translatable labels
+ * @coordinates-with utils/fontOptions.ts — the curated font shortlists, shared with Settings
  */
 
 import type { PdfOptions } from "./pdfHtmlTemplate";
 import { MARGIN_PRESETS } from "./pdfHtmlTemplate";
 import type { PageNumberFormat, PageNumberPosition } from "./pdfOptions";
+import type { FontRole } from "@/utils/fontOptions";
+import { FONT_OPTIONS } from "@/utils/fontOptions";
+import { customFontValue, parseCustomFont } from "@/utils/customFont";
 
 /** Translation function signature (matches react-i18next `t`). */
 type TFn = (key: string) => string;
@@ -211,24 +215,36 @@ export function buildCjkSpacingOptions(t: TFn) {
   ];
 }
 
+/**
+ * Select options for one font role, from the ONE curated table (#1429).
+ *
+ * `current` is the value the dialog holds. It is appended when the curated
+ * list does not already carry it — a custom family, which no curated list can
+ * know. Without that a `<select>` whose value matches no option renders
+ * BLANK, over a value that is perfectly correct and will be used.
+ *
+ * This file used to hand-write its own shorter lists, and they had already
+ * drifted: four Latin families here against six in Settings, while the dialog
+ * seeds its fonts FROM those settings.
+ */
+function buildFontOptions(t: TFn, role: FontRole, current?: string) {
+  const options = FONT_OPTIONS[role].map((option) => ({
+    value: option.value,
+    label: option.label ?? t("pdf.typography.font.systemDefault"),
+  }));
+  const family = current === undefined ? null : parseCustomFont(current);
+  if (family !== null && !options.some((o) => o.value === current)) {
+    options.push({ value: customFontValue(family), label: family });
+  }
+  return options;
+}
+
 /** Build select options for Latin font family. */
-export function buildLatinFontOptions(t: TFn) {
-  return [
-    { value: "system", label: t("pdf.typography.font.systemDefault") },
-    { value: "athelas", label: "Athelas" },
-    { value: "palatino", label: "Palatino" },
-    { value: "georgia", label: "Georgia" },
-    { value: "charter", label: "Charter" },
-  ];
+export function buildLatinFontOptions(t: TFn, current?: string) {
+  return buildFontOptions(t, "latin", current);
 }
 
 /** Build select options for CJK font family. */
-export function buildCjkFontOptions(t: TFn) {
-  return [
-    { value: "system", label: t("pdf.typography.font.systemDefault") },
-    { value: "pingfang", label: "PingFang SC" },
-    { value: "songti", label: "Songti SC" },
-    { value: "kaiti", label: "Kaiti SC" },
-    { value: "notoserif", label: "Noto Serif CJK" },
-  ];
+export function buildCjkFontOptions(t: TFn, current?: string) {
+  return buildFontOptions(t, "cjk", current);
 }

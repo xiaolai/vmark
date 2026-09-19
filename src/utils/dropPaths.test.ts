@@ -20,6 +20,7 @@ import {
   isSupportedFileName,
   isVMarkFileName,
   isYamlFileName,
+  opensInVMark,
   stripSupportedExtension,
 } from "./dropPaths";
 import { __resetRegistry } from "@/lib/formats/registry";
@@ -236,5 +237,45 @@ describe("isVMarkFileName (markdown OR YAML)", () => {
   it("rejects everything else", () => {
     expect(isVMarkFileName("data.json")).toBe(false);
     expect(isVMarkFileName("image.png")).toBe(false);
+  });
+});
+
+/**
+ * #1428 — the ONE definition of "VMark opens this itself" vs "hand it to the
+ * system's default app". Two doors route on it: the file explorer's activate
+ * and context-menu Open, and Quick Open, which lists non-markdown files
+ * whenever the workspace's `showAllFiles` is on. A second copy would let the
+ * same file open two different ways depending on which door the user used.
+ */
+describe("opensInVMark", () => {
+  it("claims every registered extension", () => {
+    for (const ext of getSupportedExtensionsWithDots()) {
+      expect(opensInVMark(`file${ext}`)).toBe(true);
+    }
+  });
+
+  it("defers an unregistered extension to the system", () => {
+    const registered = new Set(getSupportedExtensionsWithDots());
+    const unregistered = [".zip", ".docx", ".sqlite"].filter((e) => !registered.has(e));
+    // Guard the guard: were VMark ever to register all three, this test would
+    // pass vacuously while asserting nothing.
+    expect(unregistered.length).toBeGreaterThan(0);
+    for (const ext of unregistered) {
+      expect(opensInVMark(`file${ext}`)).toBe(false);
+    }
+  });
+
+  it("is case-insensitive", () => {
+    expect(opensInVMark("NOTES.MD")).toBe(true);
+    expect(opensInVMark("Workflow.YAML")).toBe(true);
+  });
+
+  it("refuses an empty name rather than claiming it", () => {
+    expect(opensInVMark("")).toBe(false);
+  });
+
+  it("does not claim an extensionless name", () => {
+    expect(opensInVMark("Makefile")).toBe(false);
+    expect(opensInVMark("LICENSE")).toBe(false);
   });
 });

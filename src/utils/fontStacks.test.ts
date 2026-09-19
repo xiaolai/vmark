@@ -170,3 +170,63 @@ describe("fontStacks", () => {
     expect(fontStacks.mono).toHaveProperty("system");
   });
 });
+
+/**
+ * #1429 — a font setting may also name a family VMark does not curate. The
+ * encoding and its validator live in `./customFont`; what is asserted here is
+ * how a parsed family is RESOLVED into a stack.
+ */
+describe("custom font families (#1429)", () => {
+  it("puts a custom Latin family at the head, CJK stack behind it", () => {
+    const { sans } = buildFontStack("custom:Literata Display", "songti", "system", "macos");
+    expect(sans.startsWith('"Literata Display", ')).toBe(true);
+    expect(sans).toContain("Songti SC");
+  });
+
+  it("puts a custom CJK family ahead of the system CJK fallback", () => {
+    const { sans } = buildFontStack("system", "custom:LXGW WenKai", "system", "macos");
+    expect(sans).toContain('"LXGW WenKai"');
+    // The system CJK stack stays behind it, so a glyph the custom font lacks
+    // still renders instead of dropping to the browser's last resort.
+    expect(sans).toContain("PingFang SC");
+    expect(sans.indexOf('"LXGW WenKai"')).toBeLessThan(sans.indexOf("PingFang SC"));
+  });
+
+  it("keeps the platform tail behind a custom mono family", () => {
+    expect(buildFontStack("system", "system", "custom:Iosevka", "macos").mono)
+      .toBe('"Iosevka", ui-monospace, monospace');
+    expect(buildFontStack("system", "system", "custom:Iosevka", "linux").mono)
+      .toBe('"Iosevka", monospace');
+  });
+
+  it("falls back to the curated stack when the custom value is unusable", () => {
+    const hostile = buildFontStack('custom:X"; color: red', "system", "system", "macos");
+    expect(hostile.sans).toBe(buildFontStack("system", "system", "system", "macos").sans);
+    expect(hostile.sans).not.toContain("color: red");
+  });
+
+  it("never emits an unbalanced quote for any accepted family", () => {
+    const { sans, mono } = buildFontStack(
+      "custom:LXGW WenKai",
+      "custom:霞鹜文楷",
+      "custom:M+ 1p",
+      "macos",
+    );
+    for (const stack of [sans, mono]) {
+      expect((stack.match(/"/g) ?? []).length % 2).toBe(0);
+      expect(stack).not.toContain(";");
+      expect(stack).not.toContain("{");
+    }
+  });
+
+  it.each(PLATFORMS)("quotes a custom mono family and keeps %s's tail", (platform) => {
+    expect(resolveMonoFontStack("custom:Cascadia Code", platform).startsWith('"Cascadia Code", '))
+      .toBe(true);
+  });
+
+  it("falls back to the platform tail alone when the mono family is unusable", () => {
+    expect(resolveMonoFontStack("custom:;evil", "linux")).toBe(
+      resolveMonoFontStack("system", "linux"),
+    );
+  });
+});

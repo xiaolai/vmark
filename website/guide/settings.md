@@ -62,13 +62,38 @@ Typography, display, editing behavior, and whitespace settings.
 
 | Setting | Description | Default | Options |
 |---------|-------------|---------|---------|
-| Latin Font | Font family for Latin (English) text | System Default | System Default, Athelas, Palatino, Georgia, Charter, Literata |
-| CJK Font | Font family for Chinese, Japanese, Korean text | System Default | System Default, PingFang SC, Songti SC, Kaiti SC, Noto Serif CJK, Source Han Sans |
-| Mono Font | Font family for code and monospace text — also used by the integrated terminal | System Default | System Default, SF Mono, Monaco, Menlo, Consolas, DejaVu Sans Mono, Liberation Mono, Ubuntu Mono, Noto Sans Mono, Noto Sans Mono CJK SC, JetBrains Mono, Fira Code, SauceCodePro NFM, IBM Plex Mono, Hack, Inconsolata |
+| Latin Font | Font family for Latin (English) text | System Default | System Default, Athelas, Palatino, Georgia, Charter, Literata — plus any installed font |
+| CJK Font | Font family for Chinese, Japanese, Korean text | System Default | System Default, PingFang SC, Songti SC, Kaiti SC, Noto Serif CJK, Source Han Sans — plus any installed font |
+| Mono Font | Font family for code and monospace text — also used by the integrated terminal | System Default | System Default, SF Mono, Monaco, Menlo, Consolas, DejaVu Sans Mono, Liberation Mono, Ubuntu Mono, Noto Sans Mono, Noto Sans Mono CJK SC, JetBrains Mono, Fira Code, SauceCodePro NFM, IBM Plex Mono, Hack, Inconsolata — plus any installed font |
 | Font Size | Base font size for editor content | 18px | 14px, 16px, 18px, 20px, 22px |
 | Line Height | Vertical spacing between lines | 1.8 (Relaxed) | 1.4 (Compact), 1.6 (Normal), 1.8 (Relaxed), 2.0 (Spacious), 2.2 (Extra) |
 | Block Spacing | Visual gap between block elements (headings, paragraphs, lists) measured in multiples of line height | 1x (Normal) | 0.5x (Tight), 1x (Normal), 1.5x (Relaxed), 2x (Spacious) |
 | CJK Letter Spacing | Extra spacing between CJK characters, in em units | Off | Off, 0.02em (Subtle), 0.03em (Light), 0.05em (Normal), 0.08em (Wide), 0.10em (Wider), 0.12em (Extra) |
+
+#### Using a font you installed yourself
+
+The names listed above are a shortlist, not the limit. Each of the three font
+pickers also carries an **Installed Fonts** section listing every font family
+on the machine, so a face you installed — LXGW WenKai, Iosevka, Source Han
+Serif — is chosen the same way the built-in ones are.
+
+Pick **Custom…** at the end of the list to type a family name instead. Use the
+name exactly as the system reports it (macOS: Font Book; Windows: Settings →
+Personalisation → Fonts) — for LXGW WenKai / 霞鹜文楷 that is `LXGW WenKai`.
+The font applies as soon as the name is complete; if nothing changes, the name
+does not match an installed family. A name containing quotes, commas,
+semicolons or brackets is refused, and the row says so.
+
+::: tip Installed Fonts is macOS-only
+macOS lists every installed family for you. On Windows and Linux the section is
+empty and **Custom…** is the way in — typing the family name works identically
+on all three platforms.
+:::
+
+The choice carries into PDF export, which renders through the same engine with
+the same fonts. HTML export cannot bundle a font from your machine, so an
+exported page falls back to the reader's own fonts unless they have the same
+family installed.
 
 ### Display
 

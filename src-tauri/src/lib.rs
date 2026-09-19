@@ -61,6 +61,7 @@ mod shell_env;
 mod shell_integration;
 mod single_instance;
 mod supported_files;
+mod system_fonts;
 mod tab_transfer;
 mod task;
 mod temp_html;
