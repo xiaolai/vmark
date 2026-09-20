@@ -14,6 +14,7 @@ import {
 } from "@/plugins/shared/diagramThemeTokens";
 import { buildMermaidThemeVariables, exportThemeVariables } from "./themeConfig";
 import { cleanupMermaidContainer, getMonoFontSize } from "./renderDomUtils";
+import { MERMAID_V11_RENDERING } from "./constants";
 import { ensureSvgSize } from "./ensureSvgSize";
 
 // Lazy-loaded mermaid instance
@@ -102,6 +103,7 @@ function applyMermaidConfig(): void {
     // Use "antiscript" (mermaid's default) to allow inline styles from `style` directives
     // while still sanitizing scripts. "strict" would strip all custom styling.
     securityLevel: "antiscript",
+    ...MERMAID_V11_RENDERING,
     fontFamily: tokens.fontMono,
     fontSize: currentFontSize,
     themeVariables,
@@ -232,6 +234,7 @@ export async function renderMermaidForExport(
         startOnLoad: false,
         theme: exportTheme,
         securityLevel: "antiscript",
+        ...MERMAID_V11_RENDERING,
         fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
         fontSize: currentFontSize,
         themeVariables: themeVars,
