@@ -103,6 +103,42 @@ describe("renderMermaid", () => {
   });
 });
 
+describe("mermaid 12 defaults are pinned to the v11 rendering", () => {
+  // Mermaid 12 changed two defaults: `layout` dagre → elk, and `look`
+  // classic → neo. Both re-lay-out and re-colour EVERY existing diagram in
+  // every user's documents. A dependency bump must not silently redraw the
+  // user's files, so both are pinned explicitly — on the live config AND on
+  // the export config, which is a separate initialize() call that would
+  // otherwise export something that does not match the screen.
+  it("pins layout and look on the live config", async () => {
+    const { renderMermaid } = await loadPlugin();
+    await renderMermaid("graph TD; A");
+
+    const live = mockInitialize.mock.calls.at(-1)?.[0] as {
+      layout?: string;
+      look?: string;
+    };
+    expect(live.layout).toBe("dagre");
+    expect(live.look).toBe("classic");
+  });
+
+  it("pins layout and look on the export config too", async () => {
+    const { renderMermaid, renderMermaidForExport } = await loadPlugin();
+    await renderMermaid("graph TD; A"); // warm live init
+    mockInitialize.mockClear();
+
+    await renderMermaidForExport("graph TD; A", "dark");
+
+    // The export call is the one carrying the export theme; the last call is
+    // the restored live config.
+    const exportCall = mockInitialize.mock.calls
+      .map((call) => call[0] as { theme?: string; layout?: string; look?: string })
+      .find((cfg) => cfg.theme === "dark");
+    expect(exportCall?.layout).toBe("dagre");
+    expect(exportCall?.look).toBe("classic");
+  });
+});
+
 describe("renderMermaidForExport", () => {
   it("renders with the export theme, then restores the live config", async () => {
     const { renderMermaid, renderMermaidForExport } = await loadPlugin();

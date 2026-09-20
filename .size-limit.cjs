@@ -123,9 +123,16 @@ module.exports = [
     // Bumped 1750 → 2600 kB: Mermaid 11.12 → 11.16 added ~800 kB (new diagram
     // types + deps); actual ~2.49 MB. Acceptable because this chunk is lazy
     // (never in the cold-start path).
+    // Bumped 2600 → 4400 kB: Mermaid 11.16 → 12.0 bundles ELK internally
+    // (it became the default layout engine); actual 4.19 MB. VMark pins
+    // `layout: "dagre"` so it does not USE elk, but v12 ships it either way —
+    // the cost is not opt-out-able short of staying on v11. Still acceptable
+    // on the same grounds as before, and more so here: VMark is a desktop app,
+    // so this is bytes on disk rather than bytes over a network, and the chunk
+    // is parsed only when a document actually contains a diagram.
     name: "LAZY: vendor-mermaid",
     path: "dist/assets/vendor-mermaid-*.js",
-    limit: "2600 kB",
+    limit: "4400 kB",
     brotli: false,
   },
   {
