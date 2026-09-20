@@ -171,8 +171,13 @@ src/**/__screenshots__/
 # jscpd duplication reports (run with `pnpm dup`)
 reports/duplication/
 
+
+# Python bytecode caches (scripts/lib/ptyRun.py) — a .pyc is binary and would trip lint:no-nul-bytes
+__pycache__/
+*.pyc
+
 # >>> cc-suite >>>
-# cc-suite-schema: 6
+# cc-suite-schema: 8
 # AI assistant local state
 .claude/settings.local.json
 .claude/CLAUDE.local.md
@@ -196,6 +201,11 @@ CLAUDE.local.md
 # so it is ignored as a DIRECTORY rather than file-by-file — naming the three
 # files individually meant any fourth that cc-suite later wrote showed up as
 # untracked and was one `git add -A` away from being committed.
+#
+# cc-suite's schema-8 migration replaced this with those three file-by-file
+# entries, reinstating exactly that hole. Restored deliberately. If a bridge
+# run narrows it again, widen it back rather than accepting the narrower form —
+# the generated files are mode 0600 for a reason.
 .agents/
 
 # cc-suite tool-profile bridge (grok/opencode/qwen) — derived provenance
@@ -207,9 +217,7 @@ CLAUDE.local.md
 # .cc-suite/agents/ holds declared advisors and IS meant to be committed.
 .cc-suite/provenance
 .cc-suite/original-claude.md
+# Audit findings files written by /cc-suite:audit and the audit-fix loop —
+# per-run working state (findings + fix statuses), not authored content.
+.cc-suite/audits/
 # <<< cc-suite <<<
-
-
-# Python bytecode caches (scripts/lib/ptyRun.py) — a .pyc is binary and would trip lint:no-nul-bytes
-__pycache__/
-*.pyc
