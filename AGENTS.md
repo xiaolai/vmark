@@ -669,7 +669,16 @@ Shared instructions for all AI agents (Claude, Codex, etc.).
 
 - Mermaid diagrams:
 
-  - VMark uses Mermaid v11 (strict Langium parser). Always validate diagrams with the `mermaid-validator` MCP tool before outputting.
+  - VMark uses Mermaid v12 (strict Langium parser). Always validate diagrams with the `mermaid-validator` MCP tool before outputting — note that validator tracks v11, so it is a lower bound: syntax it accepts is valid here, but it cannot vet v12-only diagram types.
+  - **v12's two changed defaults are pinned back to v11's rendering**, in
+    `plugins/mermaid/constants.ts` (`MERMAID_V11_RENDERING`): `layout: "dagre"`
+    (v12 defaults to ELK) and `look: "classic"` (v12 defaults to `neo`). Both
+    re-lay-out and re-colour every diagram already written in a user's
+    documents, which a dependency bump must not do silently. The constant is
+    spread into BOTH `initialize()` calls in `plugin.ts` — the export path is a
+    separate initialize, so pinning only the live one would export diagrams
+    that do not match the editor. Adopting v12's new look is a deliberate
+    visual decision; that constant is the one place to make it.
 
   - When sending content to VMark, prefer validated Mermaid diagrams over plain-text graphs whenever possible.
 
