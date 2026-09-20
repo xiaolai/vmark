@@ -247,6 +247,25 @@ Both files open offline, with one difference for documents that contain math:
 
 Fonts are downloaded while you export (KaTeX fonts, and any web font you chose in Settings), so export on a machine with internet access if you want them embedded — an offline export falls back to system fonts.
 
+### Which Images Get Embedded
+
+An exported file carries real image bytes, and exports get shared — so VMark
+bounds where those bytes may come from:
+
+| Your document is… | Images may come from |
+|---|---|
+| inside an open workspace | anywhere in that workspace |
+| opened on its own | the document's own folder and below |
+
+Relative paths resolve from the document's folder, exactly as they do in the
+editor — so `../images/photo.png` works whenever the target stays inside the
+boundary above. Anything outside it (`~/.ssh/id_rsa`, `/etc/passwd`, an
+absolute path elsewhere on disk) is refused and exported as an
+"Image not found" placeholder, counted in the export's warning.
+
+If a `../` image exports as a placeholder, open its folder as a workspace and
+export again.
+
 ### Best Practices
 
 1. **Host `index.html`** for documents you'll publish — keep the `assets/` folder beside it

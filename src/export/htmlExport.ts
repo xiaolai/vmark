@@ -45,7 +45,8 @@
 
 import { writeTextFile, mkdir } from "@tauri-apps/plugin-fs";
 import { captureThemeCSS, isDarkTheme } from "./themeSnapshot";
-import { getDocumentBaseDir } from "./resourceResolver";
+import { getDocumentBaseDir, getExportContainmentRoot } from "./resourcePaths";
+import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { contentHasMath } from "./fontEmbedder";
 import { prepareExportFonts, resolveExportResources } from "./htmlExportAssets";
 import { getReaderCSS, getReaderJS } from "./reader";
@@ -162,7 +163,19 @@ async function exportHtmlStaged(
     // The bytes the resolver measured belong in the total, which counted only
     // what THIS module wrote — text and fonts (audit R2, #688).
     const baseDir = await getDocumentBaseDir(sourceFilePath ?? null);
-    const resources = await resolveExportResources(sanitizedHtml, baseDir, stage);
+    // Relative paths resolve from the document's folder; the WORKSPACE bounds
+    // how far they may reach, so a shared assets folder beside the notes
+    // folder exports instead of becoming a placeholder (#1433).
+    const containWithin = await getExportContainmentRoot(
+      sourceFilePath ?? null,
+      useWorkspaceStore.getState().rootPath,
+    );
+    const resources = await resolveExportResources(
+      sanitizedHtml,
+      baseDir,
+      stage,
+      containWithin,
+    );
     totalSize += resources.bytesWritten;
     if (resources.missing.size > 0) {
       warnings.push(`${resources.missing.size} resource(s) not found`);

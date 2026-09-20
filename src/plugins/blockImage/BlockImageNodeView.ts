@@ -13,7 +13,9 @@
  *     `resolveMediaSrc`, so a relative `src` resolves against this
  *     document rather than whichever tab has focus when the node renders.
  *   - Image src resolution delegated to shared resolveMediaSrc utility
- *   - Security: relative paths validated against directory traversal attacks
+ *   - Security: a media source carrying a URI scheme is refused; a relative
+ *     path may contain `..` and resolves against the document's directory
+ *     (#1433) — see plugins/shared/mediaSecurity.ts
  *
  * Known limitations:
  *   - No lazy loading — all visible block images resolve immediately

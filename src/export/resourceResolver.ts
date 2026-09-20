@@ -6,7 +6,8 @@
  */
 
 import { readFile, copyFile, exists, mkdir, stat, lstat } from "@tauri-apps/plugin-fs";
-import { join, dirname, basename, normalize } from "@tauri-apps/api/path";
+import { basename, join } from "@tauri-apps/api/path";
+import { isAssetUrl, resolveRelativePath } from "./resourcePaths";
 import { uint8ArrayToBase64 } from "./fontEmbedder";
 import { exportWarn } from "@/utils/debug";
 
@@ -50,24 +51,19 @@ const COPY_FAIL_PLACEHOLDER =
 export interface ResolveOptions {
   /** Base directory for resolving relative paths (usually document directory) */
   baseDir: string;
+  /**
+   * Outermost directory an embedded resource may come from. Defaults to
+   * `baseDir`, which is the document's own folder.
+   *
+   * Separate from `baseDir` on purpose: `baseDir` says where `../x.png`
+   * resolves FROM, this says how far the result may reach. Collapsing them
+   * would re-anchor every relative path (see `getExportContainmentRoot`).
+   */
+  containWithin?: string;
   /** Export mode: 'folder' creates assets/ subfolder, 'single' embeds as data URIs */
   mode: "folder" | "single";
   /** Output directory for folder mode (the document folder containing index.html) */
   outputDir?: string;
-}
-
-/**
- * Check that `normalizedPath` is `normalizedBase` or sits under it, with a
- * separator boundary so a sibling directory like `/a/b-evil` cannot pass a
- * `/a/b` baseDir check via plain `startsWith`. Tries both POSIX and Windows
- * separators because Tauri's `normalize()` returns platform-native paths.
- */
-export function isInsideBase(normalizedPath: string, normalizedBase: string): boolean {
-  if (normalizedPath === normalizedBase) return true;
-  return (
-    normalizedPath.startsWith(normalizedBase + "/") ||
-    normalizedPath.startsWith(normalizedBase + "\\")
-  );
 }
 
 /**
@@ -82,20 +78,6 @@ export function isRemoteUrl(src: string): boolean {
  */
 export function isDataUri(src: string): boolean {
   return src.startsWith("data:");
-}
-
-/**
- * Check if a URL is a Tauri asset URL — a LOCAL file served through Tauri's
- * protocol handler, not a remote resource. convertFileSrc() emits these as
- * `asset://localhost/…` (macOS/Linux WebKit) or `http(s)://asset.localhost/…`
- * (newer macOS/WebKit + Windows). Correct classification matters for inlining.
- */
-export function isAssetUrl(src: string): boolean {
-  return (
-    src.startsWith("asset://") ||
-    src.startsWith("tauri://") ||
-    /^https?:\/\/asset\.localhost\//.test(src)
-  );
 }
 
 /**
@@ -116,71 +98,6 @@ export function extractImageSources(html: string): string[] {
   }
 
   return sources;
-}
-
-/**
- * Resolve a relative path against a base directory.
- * Returns null if the resolved path escapes baseDir (path traversal).
- */
-export async function resolveRelativePath(
-  src: string,
-  baseDir: string
-): Promise<string | null> {
-  // Handle absolute paths — must still be within baseDir
-  if (src.startsWith("/")) {
-    const normalizedPath = await normalize(src);
-    const normalizedBase = await normalize(baseDir);
-    if (!isInsideBase(normalizedPath, normalizedBase)) {
-      exportWarn(`Absolute path traversal blocked: ${src}`);
-      return null;
-    }
-    return normalizedPath;
-  }
-
-  // Handle asset URLs - extract the path, then validate against baseDir
-  // Formats: asset://localhost/path (macOS/Linux), https://asset.localhost/path (Windows)
-  if (isAssetUrl(src)) {
-    try {
-      const url = new URL(src);
-      // Tauri's convertFileSrc() always encodes the whole absolute path via
-      // encodeURIComponent, so url.pathname is exactly "/" + encoded(origPath).
-      // Strip that one structural slash before decoding to recover the
-      // original path verbatim — works for macOS ("/Users/..."), Windows
-      // forward-slash ("C:/Users/..."), and Windows backslash paths.
-      // Naively decoding url.pathname would produce "//Users/..." on macOS
-      // (the encoded leading "/" becomes a second slash) which Tauri's
-      // normalize() does not collapse, breaking the baseDir check below.
-      const extractedPath = decodeURIComponent(url.pathname.slice(1));
-      const normalizedPath = await normalize(extractedPath);
-      const normalizedBase = await normalize(baseDir);
-      if (!isInsideBase(normalizedPath, normalizedBase)) {
-        exportWarn(`Asset URL path traversal blocked: ${src}`);
-        return null;
-      }
-      return normalizedPath;
-    } catch (error) {
-      /* v8 ignore start -- @preserve reason: asset:// and https://asset.localhost/ URLs always parse successfully via new URL(); catch is defensive only */
-      exportWarn("Failed to parse asset URL:", src, error);
-      return null;
-      /* v8 ignore stop */
-    }
-  }
-
-  // Decode percent-encoded sequences before joining to catch encoded traversal
-  const decodedSrc = decodeURIComponent(src);
-
-  // Resolve relative to base directory
-  const resolved = await join(baseDir, decodedSrc);
-  const normalizedPath = await normalize(resolved);
-  const normalizedBase = await normalize(baseDir);
-
-  // Block path traversal: resolved path must stay within baseDir
-  if (!isInsideBase(normalizedPath, normalizedBase)) {
-    exportWarn(`Path traversal blocked: ${src}`);
-    return null;
-  }
-
-  return normalizedPath;
 }
 
 /**
@@ -240,7 +157,7 @@ export async function resolveResources(
   html: string,
   options: ResolveOptions
 ): Promise<{ html: string; report: ResourceReport }> {
-  const { baseDir, mode, outputDir } = options;
+  const { baseDir, containWithin = baseDir, mode, outputDir } = options;
   const sources = extractImageSources(html);
 
   const resources: ResourceInfo[] = [];
@@ -290,7 +207,7 @@ export async function resolveResources(
 
     // Resolve local path
     try {
-      const resolvedPath = await resolveRelativePath(src, baseDir);
+      const resolvedPath = await resolveRelativePath(src, baseDir, containWithin);
 
       // Path traversal blocked — treat as missing.
       // Substitute the placeholder so the exported HTML doesn't carry the
@@ -422,17 +339,6 @@ export async function resolveResources(
       totalSize,
     },
   };
-}
-
-/**
- * Get the document's base directory from its file path.
- */
-export async function getDocumentBaseDir(filePath: string | null): Promise<string> {
-  if (!filePath) {
-    // Return current working directory or home as fallback
-    return "/";
-  }
-  return await dirname(filePath);
 }
 
 /**

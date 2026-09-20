@@ -70,15 +70,29 @@ async function smokeCliWrapper() {
   // Scrub the CS env vars: with them inherited, the missing-args child would
   // START A SERVER (env fallback) and hang instead of exiting 2. Timeouts
   // bound both spawns for the same no-wedge reason as the fetches above.
+  //
+  // The timeout guards against a WEDGED child, not against a slow one, so it
+  // is generous: at 15s this fired during a 44-way parallel `check:predelta`
+  // purely from node's own cold start, and a wedge is still caught at 60s.
   const childEnv = { ...process.env };
   delete childEnv.VMARK_CS_ROOT;
   delete childEnv.VMARK_CS_TOKEN;
-  const spawnOpts = { env: childEnv, timeout: 15_000 };
+  const spawnOpts = { env: childEnv, timeout: 60_000 };
 
   const version = await run(process.execPath, [cliPath, "--version"], spawnOpts);
   assert(/^\d+\.\d+\.\d+\s*$/.test(version.stdout), `--version output: ${version.stdout}`);
 
   const missing = await run(process.execPath, [cliPath], spawnOpts).catch((err) => err);
+  // A child KILLED by the timeout reports `code: null`, not an exit code, and
+  // saying "exit code null" sends the reader hunting a CLI regression that did
+  // not happen. Name the actual failure instead — it cost two debugging rounds
+  // before it said this.
+  assert(
+    !missing.killed && missing.signal == null,
+    `missing-args child was killed by ${missing.signal ?? "timeout"} after ` +
+      `${spawnOpts.timeout}ms — it never reported an exit code, so this is a ` +
+      `wedge or a starved machine, not a CLI regression`
+  );
   assert(missing.code === 2, `missing-args exit code ${missing.code}`);
   assert(
     String(missing.stderr).includes("--root and --token"),

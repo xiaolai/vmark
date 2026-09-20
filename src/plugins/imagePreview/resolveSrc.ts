@@ -19,7 +19,6 @@ import {
   isExternalUrl,
   isRelativePath,
   hasUriScheme,
-  validateImagePath,
 } from "@/plugins/shared/mediaSecurity";
 
 /** Maximum thumbnail dimensions (used by the view for initial positioning). */
@@ -70,14 +69,11 @@ export async function resolveImageSrc(src: string): Promise<string> {
     return convertFileSrc(normalizePathForAsset(decodedSrc));
   }
 
-  // Relative paths - resolve against document directory
+  // Relative paths — resolve against the document's directory, `..` segments
+  // included (#1433). `isRelativePath` is the whole gate: the second
+  // `validateImagePath` call that used to sit here had an identical truth
+  // table once `..` stopped being a refusal, so the branch could never run.
   if (isRelativePath(decodedSrc)) {
-    // Validate against directory traversal (mirrors the editor NodeView).
-    if (!validateImagePath(decodedSrc)) {
-      imagePreviewError("Rejected invalid image path:", decodedSrc);
-      return "";
-    }
-
     const filePath = getActiveFilePath();
     if (!filePath) {
       return src;
@@ -94,13 +90,13 @@ export async function resolveImageSrc(src: string): Promise<string> {
     }
   }
 
-  // Fall-through: not external, not absolute, not a relative path.
+  // Fall-through: not external, not absolute, not a resolvable relative path.
   //
   // Two very different things land here, and they must not share a verdict.
-  // A leading `../` path is rejected one layer earlier by `isRelativePath` and
-  // is INERT: the webview resolves an unresolved relative src against the app
-  // origin, never `file://`, so it cannot read the disk. Returning it unchanged
-  // is the honest answer and is asserted by the tests.
+  // A path naming a DIRECTORY (`../`, `.`, `assets/`) lands here and is INERT:
+  // the webview resolves an unresolved relative src against the app origin,
+  // never `file://`, so it cannot read the disk. Returning it unchanged is the
+  // honest answer and is asserted by the tests.
   //
   // A SCHEME-bearing source is not inert, and used to leave by this same door —
   // `javascript:`, `file:`, `blob:` and any custom scheme, including the

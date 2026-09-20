@@ -14,8 +14,9 @@
  *     disk is re-fetched: an element whose `src` is unchanged never reloads,
  *     and the webview's cache defeats a fresh element too (issue #1328)
  *   - Windows path normalization handles backslash-to-forward-slash conversion
- *   - Security: relative paths are validated against directory traversal attacks,
- *     and any source carrying a URI scheme this module does not serve
+ *   - Security: a relative path may contain `..` and is resolved against the
+ *     document's directory (#1433); what is refused is a directory-naming or
+ *     home-relative path, and any source carrying a URI scheme this module does not serve
  *     (`javascript:`, `file:`, a custom one) is REFUSED rather than returned —
  *     the closing `return src` used to hand it back into an element's `src`.
  *     Shared refusal table: src/test/adversarialMediaSources.ts
@@ -129,10 +130,13 @@ export async function resolveMediaSrc(
   //
   // This replaced a hand-rolled `..` segment scan followed by an
   // `isRelativePath` guard wrapping a `!validateImagePath` branch that could
-  // never run — `validateImagePath` checks traversal, absoluteness and
-  // `isRelativePath`, every one of which the code above had already decided,
-  // so the branch was dead and carried a `v8 ignore` to hide that it was never
+  // never run — every condition it tested had already been decided above, so
+  // the branch was dead and carried a `v8 ignore` to hide that it was never
   // covered.
+  //
+  // What it refuses: a URI scheme, a home-relative path, and a path naming a
+  // directory. NOT a `..` segment — that is ordinary path syntax and resolves
+  // against the document's directory (#1433). See plugins/shared/mediaSecurity.ts.
   //
   // The fall-through mattered more. A source that was neither external, nor
   // absolute, nor a valid relative path reached a final `return src` and was

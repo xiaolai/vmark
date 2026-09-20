@@ -40,7 +40,10 @@ vi.mock("@tauri-apps/api/core", () => ({
 // the resolved HTML without exercising the real Tauri fs/path layer.
 vi.mock("../resourceResolver", () => ({
   resolveResources: (...args: unknown[]) => mockResolveResources(...args),
+}));
+vi.mock("../resourcePaths", () => ({
   getDocumentBaseDir: (...args: unknown[]) => mockGetDocumentBaseDir(...args),
+  getExportContainmentRoot: (...args: unknown[]) => mockGetDocumentBaseDir(...args),
 }));
 
 vi.mock("@/utils/shortcutMatch", () => ({
@@ -126,7 +129,11 @@ describe("exportToPdf — local image inlining (issue #999)", () => {
     expect(mockResolveResources).toHaveBeenCalledTimes(1);
     const [htmlArg, opts] = mockResolveResources.mock.calls[0];
     expect(htmlArg).toContain('asset://localhost/docs/my-notes/img/cat.png');
-    expect(opts).toEqual({ baseDir: "/docs/my-notes", mode: "single" });
+    expect(opts).toEqual({
+      baseDir: "/docs/my-notes",
+      containWithin: "/docs/my-notes",
+      mode: "single",
+    });
   });
 
   it("derives the base dir from the source document path", async () => {

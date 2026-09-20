@@ -840,17 +840,17 @@ describe("ImagePreviewView path resolution", () => {
     view.destroy();
   });
 
-  it("does not resolve a parent-traversal relative path", async () => {
+  // `..` is ordinary path syntax and the preview must resolve it (#1433); a
+  // directory still resolves to nothing.
+  it.each([["../images/photo.png", true], ["../", false]])("preview resolves %s: %s (#1433)", async (src, ok) => {
     const { join } = await import("@tauri-apps/api/path");
     (join as ReturnType<typeof vi.fn>).mockClear();
     const view = new ImagePreviewView();
     const editorDom = container.querySelector(".ProseMirror") as HTMLElement;
-
-    view.show("../secrets/key.png", anchorRect, editorDom);
+    view.show(src as string, anchorRect, editorDom);
     await new Promise((r) => setTimeout(r, 50));
-
-    expect(join).not.toHaveBeenCalled();
-
+    if (ok) expect(join).toHaveBeenCalledWith("/test/dir", src);
+    else expect(join).not.toHaveBeenCalled();
     view.destroy();
   });
 

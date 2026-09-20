@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import { posix } from "node:path";
 import { resolveImageSrc } from "./resolveSrc";
 import { bindHostDocument, resetHostDocument } from "@/plugins/shared/hostDocument";
 import { ADVERSARIAL_MEDIA_SOURCES } from "@/test/adversarialMediaSources";
@@ -8,9 +9,16 @@ vi.mock("@tauri-apps/api/core", () => ({
   convertFileSrc: (p: string) => `asset://localhost/${p}`,
 }));
 
+// Real path semantics via `node:path`'s POSIX implementation, for the reason
+// `src/test/setup.ts` records at length: a hand-rolled `parts.join("/")`
+// disagrees with the real API precisely at the inputs path-safety code exists
+// to handle — it leaves `join("/docs", "../a.png")` as `/docs/../a.png`
+// instead of resolving it to `/a.png`. This file's local mock WAS that
+// approximation, so a `..` path could only ever have been asserted against a
+// normalization the app never receives.
 vi.mock("@tauri-apps/api/path", () => ({
-  dirname: async (p: string) => p.slice(0, p.lastIndexOf("/")),
-  join: async (...parts: string[]) => parts.join("/"),
+  dirname: async (p: string) => posix.dirname(p),
+  join: async (...parts: string[]) => posix.join(...parts),
 }));
 
 /**
@@ -59,21 +67,27 @@ describe("resolveImageSrc", () => {
     expect(await resolveImageSrc("a.png")).toBe("a.png");
   });
 
-  it("returns empty for an embedded traversal segment", async () => {
-    // `isRelativePath` only rejects a LEADING `../`, so this one reaches
-    // `validateImagePath` — the layer that rejects `..` anywhere — and is
-    // blanked rather than resolved into the user's home directory.
-    bindHostDocument(openIn("/docs/note.md"));
-    expect(await resolveImageSrc("img/../../../etc/passwd")).toBe("");
+  it("resolves a parent-relative path against the document directory (#1433)", async () => {
+    // The issue's layout: project/images/photo.png referenced from
+    // project/notes/report.md. This rendered a broken placeholder.
+    bindHostDocument(openIn("/project/notes/report.md"));
+    expect(await resolveImageSrc("../images/photo.png")).toBe(
+      "asset://localhost//project/images/photo.png",
+    );
   });
 
-  it("leaves a leading-`../` path unresolved rather than blanking it", async () => {
-    // Rejected one layer earlier, by `isRelativePath`, so it falls through to
-    // "unknown format". Harmless: an unresolved relative src in the webview
-    // has the app origin as its base, not `file://`, so it cannot read the
-    // filesystem. Asserted so the two rejection layers stay distinguishable.
+  it("resolves an embedded `..` segment (#1433)", async () => {
     bindHostDocument(openIn("/docs/note.md"));
-    expect(await resolveImageSrc("../../../etc/passwd")).toBe("../../../etc/passwd");
+    expect(await resolveImageSrc("img/../pic.png")).toBe("asset://localhost//docs/pic.png");
+  });
+
+  it("returns the original src for a relative path that names a directory", async () => {
+    // Not a media file, so no branch claims it; it falls through to "unknown
+    // format" and is handed back. Harmless: an unresolved relative src in the
+    // webview has the app origin as its base, not `file://`, so it cannot
+    // read the filesystem.
+    bindHostDocument(openIn("/docs/note.md"));
+    expect(await resolveImageSrc("../")).toBe("../");
   });
 
   // The class this shares with the other two resolvers: a source none of the

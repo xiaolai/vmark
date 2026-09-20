@@ -1,8 +1,10 @@
 // @vitest-environment node
 /**
- * Tests for image path security.
+ * Tests for media path classification.
  *
- * These tests verify protection against path traversal attacks.
+ * The refusals that carry weight are URI schemes, home-relative paths and
+ * directory-naming paths. A `..` segment is NOT refused (#1433) — see the
+ * header of `mediaSecurity.ts` for the measurement behind that.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -44,9 +46,13 @@ describe("imageView security", () => {
       expect(isRelativePath("tauri://localhost/image.png")).toBe(false);
     });
 
-    it("returns false for parent traversal paths", () => {
-      expect(isRelativePath("../parent/image.png")).toBe(false);
-      expect(isRelativePath("../../etc/passwd")).toBe(false);
+    it("returns true for parent-relative paths (#1433)", () => {
+      // `notes/report.md` referencing `../images/photo.png` is the standard
+      // layout for a shared assets folder, and every other markdown tool
+      // resolves it. Rejecting it rendered a broken placeholder.
+      expect(isRelativePath("../parent/image.png")).toBe(true);
+      expect(isRelativePath("../../images/photo.png")).toBe(true);
+      expect(isRelativePath("./../sibling/photo.png")).toBe(true);
     });
 
     it("returns false for home-relative paths", () => {
@@ -58,6 +64,17 @@ describe("imageView security", () => {
       expect(isRelativePath("")).toBe(false);
       expect(isRelativePath("   ")).toBe(false);
       expect(isRelativePath(".")).toBe(false);
+    });
+
+    it("returns false for a path that names a DIRECTORY, not a file", () => {
+      // Allowing `..` as a segment must not start accepting sources that
+      // resolve to a directory: no loader can decode one, so the honest
+      // answer is a refusal rather than a broken element.
+      expect(isRelativePath("..")).toBe(false);
+      expect(isRelativePath("../")).toBe(false);
+      expect(isRelativePath("../images/")).toBe(false);
+      expect(isRelativePath("assets/..")).toBe(false);
+      expect(isRelativePath("./")).toBe(false);
     });
 
     it("returns false for non-standard URI schemes", () => {
@@ -129,13 +146,22 @@ describe("imageView security", () => {
   });
 
   describe("validateImagePath", () => {
-    describe("path traversal attacks", () => {
-      it("rejects paths with .. as a path segment", () => {
-        expect(validateImagePath("../../../etc/passwd")).toBe(false);
-        expect(validateImagePath("./assets/../../../etc/passwd")).toBe(false);
-        expect(validateImagePath("assets/../secret.txt")).toBe(false);
+    describe("parent-relative paths", () => {
+      it("accepts `..` as a path segment (#1433)", () => {
+        // `..` is ordinary path syntax, not an attack signature. The set of
+        // files reachable through it is already reachable by writing an
+        // absolute path, which every resolver converts one branch earlier
+        // with no validation at all — so refusing `..` cost the common
+        // authoring layout and bought no containment. See the module header.
+        expect(validateImagePath("../images/photo.png")).toBe(true);
+        expect(validateImagePath("./assets/../photo.png")).toBe(true);
+        expect(validateImagePath("assets/../secret.txt")).toBe(true);
+      });
+
+      it("still rejects a path that names a directory", () => {
         expect(validateImagePath("..")).toBe(false);
         expect(validateImagePath("../")).toBe(false);
+        expect(validateImagePath("../images/")).toBe(false);
       });
 
       it("allows filenames containing consecutive dots (not traversal)", () => {
@@ -203,8 +229,13 @@ describe("imageView security", () => {
       expect(sanitizeImagePath("images/photo.jpg")).toBe("images/photo.jpg");
     });
 
-    it("returns null for path traversal attempts", () => {
-      expect(sanitizeImagePath("../../../etc/passwd")).toBeNull();
+    it("passes a parent-relative path through (#1433)", () => {
+      expect(sanitizeImagePath("../images/photo.png")).toBe("../images/photo.png");
+      expect(warnSpy).not.toHaveBeenCalled();
+    });
+
+    it("returns null for a source carrying a URI scheme", () => {
+      expect(sanitizeImagePath("javascript:alert(1)")).toBeNull();
       expect(warnSpy).toHaveBeenCalled();
     });
 
@@ -214,11 +245,11 @@ describe("imageView security", () => {
     });
 
     it("logs warning for rejected paths", () => {
-      sanitizeImagePath("../malicious.txt");
+      sanitizeImagePath("~/malicious.txt");
       expect(warnSpy).toHaveBeenCalledWith(
         "[ImageView]",
         "Rejected suspicious image path:",
-        "../malicious.txt"
+        "~/malicious.txt"
       );
     });
   });

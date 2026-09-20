@@ -1,7 +1,47 @@
 /**
- * Image Path Security
+ * Media Path Classification
  *
- * Validates image paths to prevent path traversal attacks.
+ * Decides what a media `src` written in Markdown IS — an external URL, an
+ * absolute path, a resolvable relative path, or a source to refuse outright.
+ *
+ * What this module refuses, and why each refusal is real:
+ *   - a URI SCHEME (`javascript:`, `file:`, `blob:`, `vmark-trusted://`, any
+ *     custom one). Not inert: `file:` addresses the disk and a custom scheme
+ *     addresses whatever this app registered for it.
+ *   - a home-relative path (`~/…`), which no resolver here expands, so it
+ *     would be joined onto the document directory as a literal `~` segment.
+ *   - a path naming a DIRECTORY rather than a file — nothing can decode one.
+ *
+ * What it deliberately does NOT refuse: a `..` segment (#1433).
+ *
+ * `..` was rejected as a "path traversal attack" until 2026-09-19. It is not
+ * one here, and the check was costing the common authoring layout —
+ * `notes/report.md` referencing `../images/photo.png` — while buying no
+ * containment at all, for a checkable reason: every resolver converts an
+ * ABSOLUTE path on an earlier branch with no validation whatsoever, and the
+ * asset protocol scope is `**` (`src-tauri/tauri.conf.json`). So the set of
+ * files a document can address is identical with the check and without it —
+ * a hostile document simply writes `/Users/you/.ssh/id_rsa` instead. Removing
+ * it grants no capability that was not already granted; it only stops
+ * punishing the honest case.
+ *
+ * Three of VMark's own subsystems already agreed `..` is ordinary path syntax,
+ * which is what made the renderer the outlier rather than the rule:
+ * `utils/imagePathDetection.ts` classifies a pasted `../images/photo.jpg` as a
+ * relative path and inserts it, and `lib/markdownLinkCheck/check.ts` resolves
+ * `..` and reports the link as VALID. The renderer then drew a broken
+ * placeholder for a link its own linter had just passed.
+ *
+ * A real containment boundary would have to constrain the RESOLVED absolute
+ * path — for every branch, absolute paths included — not the syntax of one
+ * branch's input. That is a deliberate product decision about whether a
+ * document may embed an image from outside its workspace, and it does not
+ * exist today.
+ *
+ * @coordinates-with services/media/resolveMediaSrc.ts — the block-media resolver
+ * @coordinates-with plugins/imageView/resolveSrc.ts — the WYSIWYG node view resolver
+ * @coordinates-with plugins/imagePreview/resolveSrc.ts — the Source-mode preview resolver
+ * @module plugins/shared/mediaSecurity
  */
 
 import { imageViewWarn } from "@/utils/debug";
@@ -26,9 +66,29 @@ export function hasUriScheme(src: string): boolean {
 }
 
 /**
- * Check if a path is relative.
- * A path is relative if it is not a URL, not absolute, not home-relative,
- * not parent traversal, and not degenerate (whitespace, dot-only).
+ * Does this path name a DIRECTORY rather than a file?
+ *
+ * A media `src` has to name a file. `.`, `..`, `../`, `assets/` and
+ * `img/..` all resolve to a directory, which no image, audio or video loader
+ * can decode — so they are refused as degenerate rather than turned into an
+ * element that is guaranteed to break.
+ *
+ * This is the check that keeps "allow `..` as a segment" from also meaning
+ * "accept a bare `..`": the difference is whether a filename follows.
+ */
+function namesDirectory(path: string): boolean {
+  const last = path.replace(/\\/g, "/").split("/").pop() ?? "";
+  return last === "" || last === "." || last === "..";
+}
+
+/**
+ * Check if a path is a relative path this app can resolve to a media FILE.
+ *
+ * Relative means: no URI scheme, not absolute, not home-relative, not
+ * degenerate (empty/whitespace), and it names a file rather than a directory.
+ *
+ * A `..` segment is ORDINARY here and is resolved against the document's
+ * directory — see the module header for why refusing it protected nothing.
  */
 export function isRelativePath(src: string): boolean {
   const trimmed = src.trim();
@@ -36,12 +96,11 @@ export function isRelativePath(src: string): boolean {
   // Reject any URI scheme (case-insensitive): http:, javascript:, blob:, etc.
   if (hasUriScheme(trimmed)) return false;
   if (isAbsolutePath(trimmed)) return false;
-  // Reject home-relative paths (~/)
+  // Reject home-relative paths (~/) — no resolver here expands `~`, so this
+  // would be joined on as a literal segment.
   if (trimmed.startsWith("~/") || trimmed === "~") return false;
-  // Reject parent traversal
-  if (trimmed.startsWith("../") || trimmed === "..") return false;
-  // Reject dot-only
-  if (trimmed === ".") return false;
+  // Reject anything that names a directory, including a bare `.` or `..`.
+  if (namesDirectory(trimmed)) return false;
   return true;
 }
 
@@ -66,23 +125,22 @@ export function isExternalUrl(src: string): boolean {
 }
 
 /**
- * Validate an image path for security.
- * Rejects paths that attempt path traversal via `..` segments.
+ * The gate a resolver applies before joining a media path onto the document's
+ * directory: may this source be resolved as a relative media file?
+ *
+ * Absolute paths are rejected HERE but not by the app — every resolver
+ * converts them on an earlier branch, because an absolute path needs no
+ * document directory to resolve against. This function's job is the relative
+ * branch alone.
+ *
+ * It does NOT reject `..`; see the module header for the measurement behind
+ * that (#1433).
  */
 export function validateImagePath(src: string): boolean {
-  // Reject paths with ".." as a path segment (parent traversal)
-  // Allows filenames like "my..photo.png" where ".." is not a segment
-  const segments = src.replace(/\\/g, "/").split("/");
-  if (segments.some((s) => s === "..")) {
-    return false;
-  }
+  // Reject absolute paths — not because they are unsafe (the resolvers accept
+  // them one branch earlier), but because they are not this branch's input.
+  if (isAbsolutePath(src)) return false;
 
-  // Reject absolute paths (could access system files)
-  if (src.startsWith("/") || /^[A-Za-z]:/.test(src)) {
-    return false;
-  }
-
-  // Allow relative paths (bare, ./ prefixed, or assets/)
   return isRelativePath(src);
 }
 

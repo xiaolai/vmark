@@ -83,7 +83,10 @@ vi.mock("../resourceResolver", () => ({
             totalSize: 0,
           },
   }),
+}));
+vi.mock("../resourcePaths", () => ({
   getDocumentBaseDir: async () => "/docs",
+  getExportContainmentRoot: async () => "/docs",
 }));
 
 vi.mock("../fontEmbedder", () => ({

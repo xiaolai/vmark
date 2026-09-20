@@ -80,7 +80,10 @@ vi.mock("../resourceResolver", () => ({
     html: "<p>test</p>",
     report: { resources: [], missing: [] },
   }),
+}));
+vi.mock("../resourcePaths", () => ({
   getDocumentBaseDir: async () => "/tmp",
+  getExportContainmentRoot: async () => "/tmp",
 }));
 
 vi.mock("../fontEmbedder", () => ({

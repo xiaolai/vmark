@@ -15,7 +15,10 @@ const { mockWriteText, mockRender, mockToastError, mockToastSuccess, mockResolve
 
 vi.mock("../resourceResolver", () => ({
   resolveResources: (...args: unknown[]) => mockResolve(...args),
+}));
+vi.mock("../resourcePaths", () => ({
   getDocumentBaseDir: (...args: unknown[]) => mockBaseDir(...args),
+  getExportContainmentRoot: (...args: unknown[]) => mockBaseDir(...args),
 }));
 
 vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({
@@ -77,7 +80,13 @@ describe("copyAsHtml — the clipboard gets a real export body", () => {
     const sanitized = mockResolve.mock.calls[0][0] as string;
     expect(sanitized).not.toContain("contenteditable");
     expect(sanitized).not.toContain("ProseMirror-trailingBreak");
-    expect(mockResolve.mock.calls[0][1]).toEqual({ baseDir: "/docs", mode: "single" });
+    // `containWithin` bounds how far an embed may reach; it equals baseDir
+    // when no workspace is open (#1433).
+    expect(mockResolve.mock.calls[0][1]).toEqual({
+      baseDir: "/docs",
+      containWithin: "/docs",
+      mode: "single",
+    });
     expect(mockWriteText).toHaveBeenCalledWith('<p>hi<img src="data:image/png;base64,AA"></p>');
   });
 

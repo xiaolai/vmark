@@ -34,6 +34,26 @@ describe("resolving against the active document", () => {
     expect(await resolveImageSrc("pic.png")).toBe("asset:///docs/pic.png");
   });
 
+  it("resolves a parent-relative src against the document's directory (#1433)", async () => {
+    // The third resolver had no `..` coverage at all, which is how it came to
+    // share the defect with the other two. The issue's layout.
+    bindHostDocument({
+      currentWindowLabel: () => "main",
+      activeFilePath: () => "/project/notes/report.md",
+    });
+    expect(await resolveImageSrc("../images/photo.png")).toBe(
+      "asset:///project/images/photo.png",
+    );
+  });
+
+  it("hands back a relative src that names a directory rather than resolving it", async () => {
+    bindHostDocument({
+      currentWindowLabel: () => "main",
+      activeFilePath: () => "/docs/note.md",
+    });
+    expect(await resolveImageSrc("../")).toBe("../");
+  });
+
   it("survives a window lookup that THROWS", async () => {
     // The host's window lookup raises outside a Tauri window. Falling back to
     // the unresolved src is what keeps a preview from taking the editor down.

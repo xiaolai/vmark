@@ -8,6 +8,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { posix } from "node:path";
 
 // Mock Tauri APIs — matches real runtime: convertFileSrc calls encodeURIComponent
 // (see @tauri-apps/api mocks.ts and crates/tauri/scripts/core.js)
@@ -19,11 +20,19 @@ vi.mock("@tauri-apps/api/core", () => ({
   convertFileSrc: (path: string) => mockConvertFileSrc(path),
 }));
 
-const mockDirname = vi.fn((p: string) =>
-  Promise.resolve(p.split("/").slice(0, -1).join("/") || "/"),
-);
+// Real path semantics via `node:path`'s POSIX implementation, kept behind
+// `vi.fn` so the call arguments stay assertable.
+//
+// These were `parts.join("/")` and `split("/").slice(0,-1).join("/")`, the
+// hand-rolled approximation `src/test/setup.ts` documents at length: it
+// disagrees with the real API precisely at the inputs path code exists to
+// handle, leaving `join("/docs", "../a.png")` as `/docs/../a.png` instead of
+// resolving it to `/a.png`. Verified against the real implementation rather
+// than assumed — tauri's `path::plugin::join` runs `normalize_path_no_absolute`,
+// whose `Component::ParentDir` arm calls `ret.pop()`.
+const mockDirname = vi.fn((p: string) => Promise.resolve(posix.dirname(p)));
 const mockJoin = vi.fn((...parts: string[]) =>
-  Promise.resolve(parts.join("/")),
+  Promise.resolve(posix.join(...parts)),
 );
 vi.mock("@tauri-apps/api/path", () => ({
   dirname: (...args: unknown[]) => mockDirname(...(args as [string])),
@@ -125,13 +134,11 @@ describe("resolveMediaSrc — classification and refusal", () => {
     );
   });
 
-  it("still refuses parent traversal", async () => {
-    await expect(resolveMediaSrc("../../etc/passwd")).resolves.toBe("");
-    await expect(resolveMediaSrc("assets/../../../etc/passwd")).resolves.toBe("");
-  });
-
-  it("still refuses traversal hidden by percent-encoding", async () => {
-    await expect(resolveMediaSrc("assets/%2E%2E/%2E%2E/etc/passwd")).resolves.toBe("");
+  it("still refuses a relative source that names a directory", async () => {
+    // `..` is now ordinary path syntax (#1433), but a directory is still not
+    // a media file.
+    await expect(resolveMediaSrc("../")).resolves.toBe("");
+    await expect(resolveMediaSrc("assets/..")).resolves.toBe("");
   });
 
   it("keeps allowing an ordinary relative filename", async () => {
@@ -307,15 +314,29 @@ describe("resolveMediaSrc", () => {
       setupDocWithPath("/Users/test/docs/readme.md");
     });
 
-    it("rejects ../ traversal — blocked by early traversal check", async () => {
-      // "../../../etc/passwd" is rejected early because it contains ".."
-      const result = await resolveMediaSrc("../../../etc/passwd");
-      expect(result).toBe("");
+    it("resolves a parent-relative path against the document directory (#1433)", async () => {
+      // notes/report.md → ../images/photo.png → project/images/photo.png.
+      // This is the issue's exact layout.
+      const result = await resolveMediaSrc("../images/photo.png");
+      expect(mockConvertFileSrc).toHaveBeenCalledWith("/Users/test/images/photo.png");
+      expect(result).toContain("asset://localhost/");
     });
 
-    it("rejects ./../../secret — validateImagePath catches ..", async () => {
-      const result = await resolveMediaSrc("./../../secret");
-      expect(result).toBe("");
+    it("resolves a `..` segment in the middle of a path (#1433)", async () => {
+      await resolveMediaSrc("./assets/../images/photo.png");
+      expect(mockConvertFileSrc).toHaveBeenCalledWith("/Users/test/docs/images/photo.png");
+    });
+
+    it("resolves a percent-encoded `..` the same way as a literal one", async () => {
+      // Decoding happens before resolution, so the two spellings must not
+      // reach different verdicts.
+      await resolveMediaSrc("%2E%2E/images/photo.png");
+      expect(mockConvertFileSrc).toHaveBeenCalledWith("/Users/test/images/photo.png");
+    });
+
+    it("refuses a relative source that names a directory, not a file", async () => {
+      expect(await resolveMediaSrc("../")).toBe("");
+      expect(await resolveMediaSrc("./assets/..")).toBe("");
     });
   });
 
@@ -392,7 +413,7 @@ describe("resolveMediaSrc", () => {
     });
 
     it("uses custom log prefix", async () => {
-      const result = await resolveMediaSrc("../secret", "[Test]");
+      const result = await resolveMediaSrc("~/secret.png", "[Test]");
       expect(result).toBe("");
     });
 

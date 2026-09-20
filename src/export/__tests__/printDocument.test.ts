@@ -5,16 +5,26 @@
 // is printed live.
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const { mockResolveResources, mockGetDocumentBaseDir, mockToastWarning, mockRender } = vi.hoisted(() => ({
+const {
+  mockResolveResources,
+  mockGetDocumentBaseDir,
+  mockGetContainmentRoot,
+  mockToastWarning,
+  mockRender,
+} = vi.hoisted(() => ({
   mockResolveResources: vi.fn(),
   mockGetDocumentBaseDir: vi.fn(),
+  mockGetContainmentRoot: vi.fn(),
   mockToastWarning: vi.fn(),
   mockRender: vi.fn(),
 }));
 
 vi.mock("../resourceResolver", () => ({
   resolveResources: (...args: unknown[]) => mockResolveResources(...args),
+}));
+vi.mock("../resourcePaths", () => ({
   getDocumentBaseDir: (...args: unknown[]) => mockGetDocumentBaseDir(...args),
+  getExportContainmentRoot: (...args: unknown[]) => mockGetContainmentRoot(...args),
 }));
 vi.mock("../renderMarkdownToHtml", () => ({
   renderMarkdownToHtml: (...args: unknown[]) => mockRender(...args),
@@ -44,13 +54,48 @@ vi.mock("../pdfHtmlTemplate", async () => {
 vi.mock("@/i18n", () => ({ default: { t: (key: string) => key } }));
 
 import { buildPrintHtml, prepareExportBody, renderPrintableHtml } from "../printDocument";
+import { useWorkspaceStore } from "@/stores/workspaceStore";
 
 const report = (missing: unknown[] = []) => ({ resources: [], resolved: [], missing, totalSize: 0 });
 
 beforeEach(() => {
   vi.clearAllMocks();
   mockGetDocumentBaseDir.mockResolvedValue("/docs");
+  mockGetContainmentRoot.mockResolvedValue("/docs");
+  useWorkspaceStore.setState({ rootPath: null });
   mockResolveResources.mockImplementation((html: string) => Promise.resolve({ html, report: report() }));
+});
+
+// The wiring, asserted rather than assumed (#1433). Mocking the resolver
+// means every test above stays green whether or not the workspace root ever
+// reaches it — so these two pin the one thing those cannot see.
+describe("workspace containment is actually wired through", () => {
+  it("hands the OPEN workspace root to getExportContainmentRoot", async () => {
+    useWorkspaceStore.setState({ rootPath: "/Users/test/project" });
+    await prepareExportBody("<p>raw</p>", "/Users/test/project/notes/report.md");
+    expect(mockGetContainmentRoot).toHaveBeenCalledWith(
+      "/Users/test/project/notes/report.md",
+      "/Users/test/project",
+    );
+  });
+
+  it("passes the containment root through as `containWithin`, distinct from baseDir", async () => {
+    // The two must not collapse: baseDir stays the document's folder so a
+    // relative src still resolves from there.
+    mockGetDocumentBaseDir.mockResolvedValue("/Users/test/project/notes");
+    mockGetContainmentRoot.mockResolvedValue("/Users/test/project");
+    await prepareExportBody("<p>raw</p>", "/Users/test/project/notes/report.md");
+    expect(mockResolveResources).toHaveBeenCalledWith("<p>raw</p>", {
+      baseDir: "/Users/test/project/notes",
+      containWithin: "/Users/test/project",
+      mode: "single",
+    });
+  });
+
+  it("passes a null workspace root when none is open", async () => {
+    await prepareExportBody("<p>raw</p>", "/docs/note.md");
+    expect(mockGetContainmentRoot).toHaveBeenCalledWith("/docs/note.md", null);
+  });
 });
 
 describe("prepareExportBody", () => {
@@ -58,7 +103,11 @@ describe("prepareExportBody", () => {
     mockResolveResources.mockResolvedValueOnce({ html: "<p>resolved</p>", report: report() });
     const html = await prepareExportBody("<p>raw</p>", "/docs/note.md");
     expect(mockGetDocumentBaseDir).toHaveBeenCalledWith("/docs/note.md");
-    expect(mockResolveResources).toHaveBeenCalledWith("<p>raw</p>", { baseDir: "/docs", mode: "single" });
+    expect(mockResolveResources).toHaveBeenCalledWith("<p>raw</p>", {
+      baseDir: "/docs",
+      containWithin: "/docs",
+      mode: "single",
+    });
     expect(html).toBe("<p>resolved</p>");
   });
 
@@ -102,7 +151,11 @@ describe("renderPrintableHtml", () => {
     mockResolveResources.mockResolvedValueOnce({ html: "<p>inlined</p>", report: report() });
     const html = await renderPrintableHtml("# hi", "/docs/note.md");
     expect(mockRender).toHaveBeenCalledWith("# hi", true);
-    expect(mockResolveResources).toHaveBeenCalledWith("<p>rendered</p>", { baseDir: "/docs", mode: "single" });
+    expect(mockResolveResources).toHaveBeenCalledWith("<p>rendered</p>", {
+      baseDir: "/docs",
+      containWithin: "/docs",
+      mode: "single",
+    });
     expect(html).toBe("<p>inlined</p>");
   });
 });
