@@ -21,7 +21,10 @@ vi.mock("@tauri-apps/api/core", () => ({
 vi.mock("../resourceResolver", () => ({
   resolveResources: (html: string) =>
     Promise.resolve({ html, report: { resources: [], resolved: [], missing: [], totalSize: 0 } }),
+}));
+vi.mock("../resourcePaths", () => ({
   getDocumentBaseDir: () => Promise.resolve("/docs"),
+  getExportContainmentRoot: () => Promise.resolve("/docs"),
 }));
 vi.mock("../renderMarkdownToHtml", () => ({
   renderMarkdownToHtml: (...args: unknown[]) => mockRender(...args),

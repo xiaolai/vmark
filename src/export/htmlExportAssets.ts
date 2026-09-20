@@ -91,9 +91,11 @@ export async function resolveExportResources(
   sanitizedHtml: string,
   baseDir: string,
   stage: AssetStage,
+  containWithin: string = baseDir,
 ): Promise<ResolvedResources> {
   const { html: indexContent, report } = await resolveResources(sanitizedHtml, {
     baseDir,
+    containWithin,
     mode: "folder",
     outputDir: stage.root,
   });
@@ -106,7 +108,7 @@ export async function resolveExportResources(
 
   const { html: standaloneContent, report: standaloneReport } = await resolveResources(
     sanitizedHtml,
-    { baseDir, mode: "single" },
+    { baseDir, containWithin, mode: "single" },
   );
 
   return {

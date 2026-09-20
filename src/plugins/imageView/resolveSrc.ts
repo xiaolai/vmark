@@ -9,9 +9,11 @@
  * Key decisions:
  *   - The document path comes from the `hostDocument` seam, not the app's
  *     store, so the plugin stands alone (ADR-015).
- *   - A traversal-invalid relative path returns "" (render nothing), while an
- *     unresolvable one returns the original `src` — a blank image is the safe
- *     answer only when the path is hostile, not when it is merely unresolved.
+ *   - An unresolvable relative path returns the original `src` rather than "" —
+ *     a blank image is the right answer only when the source is hostile, not
+ *     when it is merely unresolved.
+ *   - A `..` segment is ordinary path syntax and is resolved, not refused
+ *     (#1433). See `plugins/shared/mediaSecurity.ts` for why.
  *   - A source carrying a URI SCHEME returns "" even though an unresolved PATH
  *     does not. An unresolved path is inert (the webview resolves it against
  *     the app origin, never `file://`); a scheme is not — `file:` addresses the
@@ -30,7 +32,6 @@ import {
   isAbsolutePath,
   isExternalUrl,
   hasUriScheme,
-  validateImagePath,
 } from "../shared/mediaSecurity";
 import { decodeMarkdownUrl } from "@/utils/markdownUrl";
 import { normalizePathForAsset } from "@/services/media/resolveMediaSrc";
@@ -64,14 +65,13 @@ export async function resolveImageSrc(src: string): Promise<string> {
     return convertFileSrc(normalizePathForAsset(decodedSrc));
   }
 
-  // Relative paths - resolve against document directory
+  // Relative paths — resolve against the document's directory, `..` segments
+  // included (#1433). `isRelativePath` is the whole gate: a second
+  // `validateImagePath` call used to sit here, and once `..` stopped being a
+  // refusal the two predicates had identical truth tables, so the branch could
+  // never run. `services/media/resolveMediaSrc.ts` removed exactly this dead
+  // branch once before; it is not worth keeping a third copy of.
   if (isRelativePath(decodedSrc)) {
-    // Validate path to prevent traversal attacks
-    if (!validateImagePath(decodedSrc)) {
-      imageViewWarn("Rejected invalid image path:", decodedSrc);
-      return "";
-    }
-
     try {
       const filePath = activeFilePathForCurrentWindow();
       if (!filePath) {
@@ -87,13 +87,13 @@ export async function resolveImageSrc(src: string): Promise<string> {
     }
   }
 
-  // Fall-through: not external, not absolute, not a relative path.
+  // Fall-through: not external, not absolute, not a resolvable relative path.
   //
   // Two very different things land here, and they must not share a verdict.
-  // A leading `../` path is rejected one layer earlier by `isRelativePath` and
-  // is INERT: the webview resolves an unresolved relative src against the app
-  // origin, never `file://`, so it cannot reach the disk. Returning it
-  // unchanged is the honest answer and the tests assert it.
+  // A path naming a DIRECTORY (`../`, `.`, `assets/`) lands here and is INERT:
+  // the webview resolves an unresolved relative src against the app origin,
+  // never `file://`, so it cannot reach the disk. Returning it unchanged is
+  // the honest answer and the tests assert it.
   //
   // A SCHEME-bearing source is not inert, and used to leave by this same door —
   // `javascript:`, `file:`, `blob:` and any custom scheme, including the

@@ -33,6 +33,7 @@
  */
 
 import { useEditorStore } from "@/stores/editorStore";
+import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { renderMarkdownToHtml } from "./renderMarkdownToHtml";
 import { sanitizeExportHtml } from "./htmlSanitizer";
 import { captureThemeCSS } from "./themeSnapshot";
@@ -52,10 +53,19 @@ import { contentHasMath } from "./fontEmbedder";
  * about, on its way to being deleted.
  */
 export async function prepareExportBody(html: string, sourceFilePath: string | null): Promise<string> {
-  const { resolveResources, getDocumentBaseDir } = await import("./resourceResolver");
+  const { resolveResources } = await import("./resourceResolver");
+  const { getDocumentBaseDir, getExportContainmentRoot } = await import("./resourcePaths");
   const baseDir = await getDocumentBaseDir(sourceFilePath);
+  // Relative paths resolve from the document's folder; the WORKSPACE bounds
+  // how far they may reach, so a shared assets folder beside the notes folder
+  // prints instead of becoming a placeholder (#1433).
+  const containWithin = await getExportContainmentRoot(
+    sourceFilePath,
+    useWorkspaceStore.getState().rootPath,
+  );
   const { html: resolved, report } = await resolveResources(sanitizeExportHtml(html), {
     baseDir,
+    containWithin,
     mode: "single",
   });
   warnMissingResources(report);

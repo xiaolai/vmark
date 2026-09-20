@@ -149,13 +149,19 @@ VMark supports three types of media paths:
 | Path Type | Example | Behavior |
 |-----------|---------|----------|
 | Relative | `./assets/video.mp4` | Resolved relative to the document's directory |
+| Parent-relative | `../images/photo.png` | Resolved relative to the document's directory, walking up as many levels as the path asks for |
 | Absolute | `/Users/me/video.mp4` | Used directly via Tauri asset protocol |
 | External URL | `https://example.com/video.mp4` | Loaded directly from the web |
 
 Relative paths are recommended — they keep your documents portable across machines.
 
+A shared assets folder beside your notes works as written — `notes/report.md`
+can reference `../images/photo.png`. (Before 0.9.79 these rendered as broken
+placeholders.)
+
 ## Security
 
-- Relative paths are validated against directory traversal attacks
+- A media path may not carry a URI scheme (`javascript:`, `file:`, or a custom one); such sources are refused rather than loaded
+- A path that names a directory rather than a file is refused
 - Video embed iframes are restricted to allowed domains: `youtube.com`, `youtube-nocookie.com`, `player.vimeo.com`, and `player.bilibili.com`
 - Other iframe sources are stripped by the sanitizer

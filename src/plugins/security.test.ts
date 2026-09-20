@@ -68,19 +68,37 @@ describe("Security: LaTeX", () => {
   });
 });
 
-describe("Security: Image Path Traversal", () => {
-  it("should reject paths containing ..", async () => {
+describe("Security: Image Path Classification", () => {
+  it("should reject sources that are not resolvable media paths", async () => {
     // Import the validation function
     const { validateImagePath } = await import("./shared/mediaSecurity");
 
-    // These should be rejected
-    expect(validateImagePath("../../../etc/passwd")).toBe(false);
-    expect(validateImagePath("assets/../../../etc/passwd")).toBe(false);
-    expect(validateImagePath("./assets/../../secret.txt")).toBe(false);
+    // A URI scheme is the refusal that carries weight: `file:` addresses the
+    // disk and a custom scheme addresses whatever this app registered for it.
+    expect(validateImagePath("javascript:alert(1)")).toBe(false);
+    expect(validateImagePath("file:///etc/passwd")).toBe(false);
+    // Home-relative: no resolver expands `~`, so it would be joined on as a
+    // literal segment.
+    expect(validateImagePath("~/secrets/key.png")).toBe(false);
+    // Names a directory, which nothing can decode.
+    expect(validateImagePath("../")).toBe(false);
+    expect(validateImagePath("..")).toBe(false);
 
     // These should be accepted
     expect(validateImagePath("./assets/images/photo.png")).toBe(true);
     expect(validateImagePath("assets/images/photo.png")).toBe(true);
+  });
+
+  it("should accept `..` segments — they are path syntax, not an attack (#1433)", async () => {
+    const { validateImagePath } = await import("./shared/mediaSecurity");
+
+    // Refusing these blocked the standard shared-assets layout while
+    // blocking nothing: an absolute path reaches the same files, is converted
+    // one branch earlier with no validation, and the asset scope is `**/*`.
+    // See the header of plugins/shared/mediaSecurity.ts.
+    expect(validateImagePath("../images/photo.png")).toBe(true);
+    expect(validateImagePath("assets/../images/photo.png")).toBe(true);
+    expect(validateImagePath("./assets/../../shared/photo.png")).toBe(true);
   });
 });
 

@@ -73,13 +73,9 @@ vi.mock("@/utils/debug", () => ({
 import {
   isRemoteUrl,
   isDataUri,
-  isAssetUrl,
-  isInsideBase,
   extractImageSources,
-  resolveRelativePath,
   fileToDataUri,
   resolveResources,
-  getDocumentBaseDir,
   formatFileSize,
 } from "./resourceResolver";
 
@@ -144,43 +140,6 @@ describe("isDataUri", () => {
 });
 
 // ---------------------------------------------------------------------------
-// isAssetUrl
-// ---------------------------------------------------------------------------
-describe("isAssetUrl", () => {
-  it("returns true for asset:// protocol", () => {
-    expect(isAssetUrl("asset://localhost/path/to/file.png")).toBe(true);
-  });
-
-  it("returns true for tauri:// protocol", () => {
-    expect(isAssetUrl("tauri://some-resource")).toBe(true);
-  });
-
-  it("returns true for https://asset.localhost/", () => {
-    expect(isAssetUrl("https://asset.localhost/path/to/file.png")).toBe(true);
-  });
-
-  it("returns true for http://asset.localhost/ (Windows/WebView2 scheme)", () => {
-    expect(isAssetUrl("http://asset.localhost/path/to/file.png")).toBe(true);
-  });
-
-  it("returns false for regular https URLs", () => {
-    expect(isAssetUrl("https://example.com/image.png")).toBe(false);
-  });
-
-  it("returns false for regular http URLs", () => {
-    expect(isAssetUrl("http://example.com/image.png")).toBe(false);
-  });
-
-  it("returns false for relative paths", () => {
-    expect(isAssetUrl("images/photo.png")).toBe(false);
-  });
-
-  it("returns false for empty string", () => {
-    expect(isAssetUrl("")).toBe(false);
-  });
-});
-
-// ---------------------------------------------------------------------------
 // extractImageSources
 // ---------------------------------------------------------------------------
 describe("extractImageSources", () => {
@@ -240,199 +199,6 @@ describe("extractImageSources", () => {
   it("extracts src containing double quote in single-quoted attribute", () => {
     const html = `<img src='path/with&quot;quote/file.png' alt='test'>`;
     expect(extractImageSources(html)).toEqual([`path/with&quot;quote/file.png`]);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// resolveRelativePath
-// ---------------------------------------------------------------------------
-describe("resolveRelativePath", () => {
-  it("blocks absolute paths outside baseDir", async () => {
-    const result = await resolveRelativePath("/etc/passwd", "/Users/test/docs");
-    expect(result).toBeNull();
-  });
-
-  it("allows absolute paths within baseDir", async () => {
-    const result = await resolveRelativePath(
-      "/Users/test/docs/images/photo.png",
-      "/Users/test/docs",
-    );
-    expect(result).toBe("/Users/test/docs/images/photo.png");
-  });
-
-  it("resolves relative paths against base directory", async () => {
-    const result = await resolveRelativePath(
-      "images/photo.png",
-      "/Users/test/docs",
-    );
-    expect(result).toBe("/Users/test/docs/images/photo.png");
-  });
-
-  it("allows asset:// URLs within baseDir", async () => {
-    const src = `asset://localhost/${encodeURIComponent("/Users/test/docs/file.png")}`;
-    const result = await resolveRelativePath(src, "/Users/test/docs");
-    expect(result).toBe("/Users/test/docs/file.png");
-  });
-
-  it("blocks asset:// URLs outside baseDir", async () => {
-    const src = `asset://localhost/${encodeURIComponent("/etc/passwd")}`;
-    const result = await resolveRelativePath(src, "/Users/test/docs");
-    expect(result).toBeNull();
-  });
-
-  it("allows https://asset.localhost/ URLs within baseDir", async () => {
-    const src = `https://asset.localhost/${encodeURIComponent("/Users/test/docs/file.png")}`;
-    const result = await resolveRelativePath(src, "/Users/test/docs");
-    expect(result).toBe("/Users/test/docs/file.png");
-  });
-
-  it("blocks https://asset.localhost/ URLs outside baseDir", async () => {
-    const src = `https://asset.localhost/${encodeURIComponent("/etc/shadow")}`;
-    const result = await resolveRelativePath(src, "/Users/test/docs");
-    expect(result).toBeNull();
-  });
-
-  it("decodes URI-encoded characters in asset URLs", async () => {
-    // Real convertFileSrc() output: asset://localhost/ + encodeURIComponent(absPath).
-    // encodeURIComponent encodes the leading "/" as "%2F", so after decoding
-    // the URL path has a double-slash at the start. The resolver must collapse
-    // it back to a single slash to match baseDir.
-    const absPath = "/Users/test/docs/my file.png";
-    const src = `asset://localhost/${encodeURIComponent(absPath)}`;
-    const result = await resolveRelativePath(src, "/Users/test/docs");
-    expect(result).toBe("/Users/test/docs/my file.png");
-  });
-
-  it("handles Windows convertFileSrc shape (https://asset.localhost/ with drive letter)", async () => {
-    // On Windows, convertFileSrc uses the https://asset.localhost/ scheme
-    // and encodes the whole path including the drive letter's ":".
-    // No leading-slash artifact exists on Windows, but the resolver must
-    // still strip the URL's own structural slash to recover "C:/...".
-    const absPath = "C:/Users/test/docs/photo.png";
-    const src = `https://asset.localhost/${encodeURIComponent(absPath)}`;
-    const result = await resolveRelativePath(src, "C:/Users/test/docs");
-    expect(result).toBe("C:/Users/test/docs/photo.png");
-  });
-
-  it("blocks tauri:// URLs outside baseDir", async () => {
-    const result = await resolveRelativePath(
-      "tauri://localhost/resource.png",
-      "/Users/test/docs",
-    );
-    expect(result).toBeNull();
-  });
-
-  it("returns src as-is for invalid asset URL parse", async () => {
-    // A URL that the URL constructor can parse but has unusual shape
-    const result = await resolveRelativePath("simple-file.png", "/base");
-    expect(result).toBe("/base/simple-file.png");
-  });
-
-  it("blocks path traversal with ..", async () => {
-    const result = await resolveRelativePath(
-      "../../.ssh/id_rsa",
-      "/Users/test/docs",
-    );
-    // Should return null when traversal escapes baseDir
-    expect(result).toBeNull();
-  });
-
-  it("blocks path traversal with encoded ..", async () => {
-    const result = await resolveRelativePath(
-      "..%2F..%2F.ssh/id_rsa",
-      "/Users/test/docs",
-    );
-    expect(result).toBeNull();
-  });
-
-  it("allows .. that stays within baseDir", async () => {
-    const result = await resolveRelativePath(
-      "subdir/../photo.png",
-      "/Users/test/docs",
-    );
-    // subdir/.. resolves back to /Users/test/docs — still within baseDir
-    expect(result).toBe("/Users/test/docs/photo.png");
-  });
-
-  // ------------------------------------------------------------------
-  // Sibling-directory prefix-confusion: /a/b-evil must not match /a/b
-  // ------------------------------------------------------------------
-  describe("sibling-directory prefix confusion", () => {
-    it("absolute branch: blocks sibling directory whose name starts with baseDir", async () => {
-      const result = await resolveRelativePath("/a/b-evil/x.png", "/a/b");
-      expect(result).toBeNull();
-    });
-
-    it("absolute branch: allows file inside baseDir", async () => {
-      const result = await resolveRelativePath("/a/b/x.png", "/a/b");
-      expect(result).toBe("/a/b/x.png");
-    });
-
-    it("absolute branch: allows the baseDir itself", async () => {
-      const result = await resolveRelativePath("/a/b", "/a/b");
-      expect(result).toBe("/a/b");
-    });
-
-    it("relative branch: blocks `../b-evil/x.png` from /a/b", async () => {
-      const result = await resolveRelativePath("../b-evil/x.png", "/a/b");
-      expect(result).toBeNull();
-    });
-
-    it("relative branch: allows file resolved into baseDir", async () => {
-      const result = await resolveRelativePath("./x.png", "/a/b");
-      expect(result).toBe("/a/b/x.png");
-    });
-
-    it("relative branch: allows `.` resolving to baseDir itself", async () => {
-      const result = await resolveRelativePath(".", "/a/b");
-      expect(result).toBe("/a/b");
-    });
-
-    it("asset-URL branch: blocks sibling directory via asset:// scheme", async () => {
-      const src = `asset://localhost/${encodeURIComponent("/a/b-evil/x.png")}`;
-      const result = await resolveRelativePath(src, "/a/b");
-      expect(result).toBeNull();
-    });
-
-    it("asset-URL branch: allows file inside baseDir via asset:// scheme", async () => {
-      const src = `asset://localhost/${encodeURIComponent("/a/b/x.png")}`;
-      const result = await resolveRelativePath(src, "/a/b");
-      expect(result).toBe("/a/b/x.png");
-    });
-
-    it("asset-URL branch: allows the baseDir itself via asset:// scheme", async () => {
-      const src = `asset://localhost/${encodeURIComponent("/a/b")}`;
-      const result = await resolveRelativePath(src, "/a/b");
-      expect(result).toBe("/a/b");
-    });
-  });
-
-});
-
-// ---------------------------------------------------------------------------
-// isInsideBase — direct unit tests for the helper, including the Windows
-// separator branch that is unreachable via the POSIX-only normalize() mock.
-// ---------------------------------------------------------------------------
-describe("isInsideBase", () => {
-  it("returns true when path equals base (===  branch)", () => {
-    expect(isInsideBase("/a/b", "/a/b")).toBe(true);
-  });
-
-  it("returns true when path is inside base via POSIX separator", () => {
-    expect(isInsideBase("/a/b/x.png", "/a/b")).toBe(true);
-  });
-
-  it("returns true when path is inside base via Windows separator", () => {
-    expect(isInsideBase("C:\\a\\b\\x.png", "C:\\a\\b")).toBe(true);
-  });
-
-  it("returns false for sibling directory whose name shares the base prefix", () => {
-    expect(isInsideBase("/a/b-evil/x.png", "/a/b")).toBe(false);
-    expect(isInsideBase("C:\\a\\b-evil\\x.png", "C:\\a\\b")).toBe(false);
-  });
-
-  it("returns false for completely unrelated paths", () => {
-    expect(isInsideBase("/c/d", "/a/b")).toBe(false);
   });
 });
 
@@ -1023,21 +789,6 @@ describe("resolveResources", () => {
     expect(report.resolved).toHaveLength(1);
     // Size unknown since stat failed
     expect(report.totalSize).toBe(0);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// getDocumentBaseDir
-// ---------------------------------------------------------------------------
-describe("getDocumentBaseDir", () => {
-  it("returns dirname for a file path", async () => {
-    const result = await getDocumentBaseDir("/Users/test/docs/file.md");
-    expect(result).toBe("/Users/test/docs");
-  });
-
-  it("returns root for null file path", async () => {
-    const result = await getDocumentBaseDir(null);
-    expect(result).toBe("/");
   });
 });
 

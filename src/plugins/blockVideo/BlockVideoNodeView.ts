@@ -13,7 +13,9 @@
  *     document rather than whichever tab has focus when the node renders.
  *   - Video src resolution delegated to shared resolveMediaSrc utility
  *   - Uses `loadedmetadata` event instead of `load` (video loads metadata first)
- *   - Security: relative paths validated against directory traversal attacks
+ *   - Security: a media source carrying a URI scheme is refused; a relative
+ *     path may contain `..` and resolves against the document's directory
+ *     (#1433) — see plugins/shared/mediaSecurity.ts
  *
  * @coordinates-with tiptap.ts — registers this NodeView for the block_video node type
  * @coordinates-with services/media/resolveMediaSrc.ts — shared media path resolution
