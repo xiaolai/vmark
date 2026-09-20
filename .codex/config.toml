@@ -6,11 +6,6 @@
 # project_doc_fallback_filenames = ["CLAUDE.md"]
 
 # MCP servers mirrored from .mcp.json are added below by /cc-suite:bridge-mcp.
-# >>> cc-suite-mcp >>>
-[mcp_servers.tauri]
-command = "npx"
-args = ["-y", "@hypothesi/tauri-mcp-server"]
-# <<< cc-suite-mcp <<<
 
 # >>> cc-suite-claude-mcp >>>
 [mcp_servers.claude-code]
@@ -24,3 +19,8 @@ env     = {}
 startup_timeout_sec = 60
 tool_timeout_sec    = 900
 # <<< cc-suite-claude-mcp <<<
+# >>> cc-suite-mcp >>>
+[mcp_servers.tauri]
+command = "npx"
+args = ["-y", "@hypothesi/tauri-mcp-server"]
+# <<< cc-suite-mcp <<<
