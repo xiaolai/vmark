@@ -65,6 +65,33 @@ function run(label, args) {
   return res.status ?? 1;
 }
 
+/**
+ * Files that are new and not yet committed. `git diff` cannot see them — it
+ * compares COMMITS — so a brand-new file was invisible to this selector, which
+ * is the worst case for it to miss: nothing has ever run that file's tests, and
+ * the run still printed "gate tier skipped". Found live when
+ * `scripts/check-release-updater-targets.test.mjs` was added and the gate tier
+ * did not run. `--exclude-standard` honours .gitignore, so build output and
+ * `dev-docs/` do not select anything.
+ *
+ * This is needed for the GATE-TIER decision only. vitest's own `--changed`
+ * already picks untracked files up, so the app tier above never had the hole —
+ * measured, not assumed, before narrowing the fix to here.
+ */
+function untrackedFiles() {
+  const res = spawnSync("git", ["ls-files", "--others", "--exclude-standard"], {
+    encoding: "utf8",
+  });
+  // A failure here is not fatal the way an unresolvable base is: the tracked
+  // diff is still meaningful. Report it rather than pretending the tree is
+  // clean, since the consequence is under-selection.
+  if (res.status !== 0) {
+    console.error("test-changed: could not list untracked files — new files may not be selected.");
+    return [];
+  }
+  return res.stdout.split("\n").filter(Boolean);
+}
+
 function changedFiles() {
   const res = spawnSync("git", ["diff", "--name-only", BASE], { encoding: "utf8" });
   if (res.status !== 0) {
@@ -76,7 +103,7 @@ function changedFiles() {
     );
     return null;
   }
-  return res.stdout.split("\n").filter(Boolean);
+  return [...new Set([...res.stdout.split("\n").filter(Boolean), ...untrackedFiles()])];
 }
 
 const changed = changedFiles();

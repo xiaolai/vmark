@@ -95,4 +95,25 @@ describe("test-changed gate-tier selection", () => {
     // root left the operator reading a list that was missing one.
     expect(selector).toContain("GATE_PREFIXES.join(");
   });
+
+  it("sees a NEW, still-untracked file as changed", () => {
+    // Third instance of this file's own defect class. `git diff --name-only`
+    // lists tracked modifications ONLY, so a brand-new gate test — the case
+    // where "did it run?" matters most, because nothing has ever run it —
+    // selected no tests and `check:fast` reported green. Observed live while
+    // adding `scripts/check-release-updater-targets.test.mjs`: the run printed
+    // "gate tier skipped — no change under scripts/" with a new file sitting
+    // in `scripts/`.
+    //
+    // Scope, MEASURED rather than assumed: vitest's own `--changed` already
+    // selects untracked files (verified by running it against a new probe test
+    // and watching it get picked up), so the app tier was never affected. Only
+    // this file's `git diff`-based gate-tier prefix check was.
+    //
+    // `AGENTS.md` already records this class for `lint:no-nul-bytes` ("a bare
+    // `git ls-files` scan is blind to new files until they are committed").
+    // `--exclude-standard` is what keeps it from selecting ignored build output.
+    expect(selector).toContain("--others");
+    expect(selector).toContain("--exclude-standard");
+  });
 });
