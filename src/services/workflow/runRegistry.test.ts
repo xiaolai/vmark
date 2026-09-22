@@ -23,6 +23,7 @@ import {
   setPendingApproval,
   updateRun,
   writeStepAlreadyDone,
+  MAX_FINISHED_RUNS,
   __resetRunRegistry,
 } from "./runRegistry";
 
@@ -181,3 +182,47 @@ describe("completed-write ledger (re-run refusal)", () => {
     expect(writeStepAlreadyDone("t1", "h1+i1", "step-3")).toBe(false);
   });
 });
+
+// Each finished run keeps its step results — an extract step's `data` among
+// them — so an unbounded map grew by one run per workflow for the session.
+describe("finished-run retention", () => {
+  const finishNew = (tabId: string) => {
+    const run = createRun({ tabId, ...base });
+    updateRun(run.runId, { status: "completed" });
+    return run.runId;
+  };
+
+  it("keeps only the most recently finished runs", () => {
+    const ids = Array.from({ length: MAX_FINISHED_RUNS + 1 }, (_, i) => finishNew(`tab-${i}`));
+    expect(getRun(ids[0])).toBeNull();
+    expect(getRun(ids[1])?.status).toBe("completed");
+    expect(getRun(ids[MAX_FINISHED_RUNS])?.status).toBe("completed");
+  });
+
+  it("orders eviction by FINISH time, not creation time", () => {
+    const early = createRun({ tabId: "tab-early", ...base });
+    const others = Array.from({ length: MAX_FINISHED_RUNS }, (_, i) => finishNew(`tab-${i}`));
+    updateRun(early.runId, { status: "failed" });
+    expect(getRun(early.runId)?.status).toBe("failed");
+    expect(getRun(others[0])).toBeNull();
+  });
+
+  it("never evicts a paused or running run — resume and status need them", () => {
+    const paused = createRun({ tabId: "tab-paused", ...base });
+    updateRun(paused.runId, { status: "paused" });
+    const running = createRun({ tabId: "tab-running", ...base });
+    for (let i = 0; i < MAX_FINISHED_RUNS * 2; i++) finishNew(`tab-${i}`);
+    expect(getRun(paused.runId)?.status).toBe("paused");
+    expect(getRun(running.runId)?.status).toBe("running");
+  });
+
+  it("counts a run once even if a finished run is patched again", () => {
+    const first = finishNew("tab-first");
+    updateRun(first, { reason: "late detail" });
+    updateRun(first, { status: "cancelled" });
+    const rest = Array.from({ length: MAX_FINISHED_RUNS - 1 }, (_, i) => finishNew(`tab-${i}`));
+    expect(getRun(first)).not.toBeNull();
+    expect(getRun(rest[0])).not.toBeNull();
+  });
+});
+

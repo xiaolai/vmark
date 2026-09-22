@@ -23,7 +23,10 @@
  *     ledgered.
  *
  * Session-scoped by design (a residual): the ledger does not survive an app
- * restart. Durable runs are future work.
+ * restart. Durable runs are future work. FINISHED runs are retained only up to
+ * `MAX_FINISHED_RUNS`, oldest-finished first out: each keeps its step results
+ * (an extract's `data` among them), and a status poll only needs a run until
+ * it has read the terminal state. Running and paused runs are never evicted.
  *
  * @coordinates-with services/workflow/workflowRunService.ts — the orchestrator
  * @coordinates-with lib/browser/workflow/identity.ts — computes the ledgerId
@@ -80,7 +83,12 @@ export interface RunState {
 
 const TERMINAL: ReadonlySet<RunStatus> = new Set<RunStatus>(["completed", "failed", "cancelled", "superseded"]);
 
+/** Finished runs kept for `workflow_status` after they end. */
+export const MAX_FINISHED_RUNS = 64;
+
 const runs = new Map<string, RunState>();
+/** runIds of finished runs, oldest-finished first — the eviction order. */
+const finishedOrder: string[] = [];
 /** tabId → runId of the one RUNNING run, if any. */
 const liveByTab = new Map<string, string>();
 /** tabId → runId of the run that currently holds the tab's AI lease. */
@@ -135,9 +143,20 @@ export function isTerminalStatus(status: RunStatus): boolean {
 export function updateRun(runId: string, patch: Partial<RunState>): void {
   const state = runs.get(runId);
   if (!state) return;
+  const wasFinished = TERMINAL.has(state.status);
   Object.assign(state, patch);
   if (state.status !== "running" && liveByTab.get(state.tabId) === runId) {
     liveByTab.delete(state.tabId);
+  }
+  if (!wasFinished && TERMINAL.has(state.status)) retainFinished(runId);
+}
+
+/** Record a newly finished run and evict the oldest-finished beyond the cap. */
+function retainFinished(runId: string): void {
+  finishedOrder.push(runId);
+  while (finishedOrder.length > MAX_FINISHED_RUNS) {
+    const evicted = finishedOrder.shift();
+    if (evicted !== undefined) runs.delete(evicted);
   }
 }
 
@@ -249,6 +268,7 @@ export function markWriteStepDone(tabId: string, ledgerId: string, stepId: strin
 /** Test-only: clear all run + ledger state. */
 export function __resetRunRegistry(): void {
   runs.clear();
+  finishedOrder.length = 0;
   liveByTab.clear();
   leaseOwners.clear();
   aborts.clear();
