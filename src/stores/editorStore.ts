@@ -158,7 +158,13 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     }
   },
   clearSourceViewIfMatch: (view) => {
-    if (get().active.activeSourceView === view) {
+    // Called as the view is destroyed: forget it in EVERY slice that holds
+    // it. Clearing only `active` left the `source` slice pinning the dead
+    // view — its document, state and detached DOM — until the next Source
+    // editor mounted. Each slice is match-guarded on its own, because in a
+    // split another pane may already have registered in one of them.
+    const { active, source } = get();
+    if (active.activeSourceView === view) {
       set((s) => ({
         active: {
           ...s.active,
@@ -167,6 +173,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
         },
       }));
     }
+    if (source.editorView === view) set({ source: initialSource });
   },
   clearActiveEditors: () => set({ active: initialActive }),
 
