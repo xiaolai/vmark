@@ -9,6 +9,34 @@
  * Change chunk assignments only together with those gates.
  */
 
+/**
+ * The CodeMirror packages the app reaches through STATIC imports, and so the
+ * only ones allowed on the cold-start path. `@codemirror/lang-markdown` (the
+ * Source editor's language) statically imports lang-html, which imports
+ * lang-css and lang-javascript — those four and their parsers are eager
+ * whichever chunk holds them.
+ */
+const EAGER_CODEMIRROR_CORE: ReadonlySet<string> = new Set([
+  "@codemirror/state",
+  "@codemirror/view",
+  "@codemirror/language",
+  "@codemirror/commands",
+  "@codemirror/autocomplete",
+  "@codemirror/search",
+  "@codemirror/lint",
+  "@codemirror/lang-markdown",
+  "@codemirror/lang-html",
+  "@codemirror/lang-css",
+  "@codemirror/lang-javascript",
+  "@lezer/common",
+  "@lezer/lr",
+  "@lezer/highlight",
+  "@lezer/markdown",
+  "@lezer/html",
+  "@lezer/css",
+  "@lezer/javascript",
+]);
+
 export function manualChunks(id: string): string | undefined {
   // Vite's preload helper is a tiny runtime module. Left to Rollup it
   // gets co-located into whichever vendor chunk is convenient
@@ -21,7 +49,7 @@ export function manualChunks(id: string): string | undefined {
   // reaching here IS "\0vite/preload-helper.js" and this branch DOES return
   // "vendor-react", but vite 8 / rolldown emits the helper into
   // `vendor-codemirror-languages-*` regardless, and `vendor-react-*` imports
-  // it back from there. Because that chunk statically imports the 1.6 MB
+  // it back from there. Because that chunk statically imports
   // `vendor-codemirror`, every chunk containing a dynamic import transitively
   // reaches vendor-codemirror — which is why check-eager-chunks.mjs cannot
   // denylist the codemirror family. Relocating the helper under rolldown is
@@ -52,16 +80,20 @@ export function manualChunks(id: string): string | undefined {
     ? pkgPath.split("/").slice(0, 2).join("/")
     : pkgPath.split("/")[0];
 
-  // @lezer/* rides with vendor-codemirror: both are eager and always
-  // co-loaded (code blocks render on first paint), and vite 8's
-  // rolldown merges the two groups anyway — returning one name makes
-  // that deterministic so the size budget matches a real chunk.
-  if (pkgName.startsWith("@lezer/")) return "vendor-codemirror";
   if (pkgName === "@codemirror/language-data") return "vendor-codemirror-languages";
-  // Keep all @codemirror packages together to avoid circular dependency issues
-  // Previously splitting @codemirror/lang-* and @codemirror/language caused
-  // "Cannot access 'kn' before initialization" in production builds
-  if (pkgName.startsWith("@codemirror/")) return "vendor-codemirror";
+  // Only the CodeMirror CORE is eager — everything the Source editor reaches
+  // through static imports. It stays one chunk: splitting @codemirror/lang-*
+  // from @codemirror/language into separate NAMED chunks once caused
+  // "Cannot access 'kn' before initialization" in production builds.
+  if (EAGER_CODEMIRROR_CORE.has(pkgName)) return "vendor-codemirror";
+  // Every other grammar is reached only through language-data's `load()` or
+  // sourceLanguage.ts's `await import()`. Pinning them here made ~1 MB of
+  // grammars (legacy-modes alone is 448 kB) cold-start cost in every window:
+  // +29 MB WebContent footprint to evaluate the chunk in WebKit, against
+  // +13 MB for the core alone (measured 2026-09-22). Left unassigned, each
+  // chunks by its import site and imports the core one way, so no cycle can
+  // form. An unknown future package lands here too — lazy is the safe default.
+  if (pkgName.startsWith("@codemirror/") || pkgName.startsWith("@lezer/")) return undefined;
   if (pkgName.startsWith("@tiptap/") || pkgName.startsWith("prosemirror")) return "vendor-tiptap";
   // DOMPurify is imported eagerly by src/utils/sanitize.ts. Without an
   // explicit chunk, Rollup co-locates it into vendor-mermaid, which then

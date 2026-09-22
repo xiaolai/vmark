@@ -35,6 +35,11 @@ import {
   getEditorScrollOffset,
   setEditorScrollOffset,
 } from "@/services/editor/scrollPosition";
+import {
+  bumpLintDocEpoch,
+  markLintRunStart,
+  isLintRunCurrent,
+} from "@/plugins/lint/docEpoch";
 
 describe("cleanupTabState", () => {
   beforeEach(() => {
@@ -72,5 +77,17 @@ describe("cleanupTabState", () => {
     expect(getEditorScrollOffset("tab-123", "source")).toBeUndefined();
     // A closing tab must not take another tab's position with it.
     expect(getEditorScrollOffset("tab-456", "wysiwyg")).toBe(400);
+  });
+
+  it("forgets the lint doc-epoch counters for the tabId", () => {
+    markLintRunStart("tab-123");
+    bumpLintDocEpoch("tab-123");
+    markLintRunStart("tab-456");
+    bumpLintDocEpoch("tab-456");
+
+    cleanupTabState("tab-123");
+
+    expect(isLintRunCurrent("tab-123")).toBe(true);
+    expect(isLintRunCurrent("tab-456")).toBe(false);
   });
 });

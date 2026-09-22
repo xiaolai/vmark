@@ -92,19 +92,22 @@ module.exports = [
     brotli: false,
   },
   {
-    // CodeMirror core + @lezer/* parsers. Eager today; narrowing language-data
-    // is a separate (B5) win. The negation glob excludes the
-    // `vendor-codemirror-languages-*` chunk below so growth in EITHER chunk
-    // fails its own budget rather than hiding in the sum.
-    // Absorbed the former vendor-lezer budget (650 kB): vite 8's rolldown
-    // merges the always-co-loaded @lezer group into this chunk, so the two
-    // budgets are now one (1050 + 650 -> 1700; actual 1.64 MB post-merge).
+    // CodeMirror CORE only (EAGER_CODEMIRROR_CORE in scripts/manualChunks.ts).
+    // The negation glob excludes the `vendor-codemirror-languages-*` chunk
+    // below so growth in EITHER chunk fails its own budget rather than hiding
+    // in the sum.
+    // Ratcheted 1700 → 660 kB (B5, 2026-09-22; actual 626 kB): every grammar
+    // language-data loads lazily used to be pinned here — 1.64 MB, of which
+    // legacy-modes alone was 459 kB — and evaluating it cost +29 MB of
+    // WebContent footprint per window vs +13 MB for the core. This budget is
+    // what keeps them out: a pin that re-captures the grammars more than
+    // doubles the chunk and fails here.
     name: "EAGER: vendor-codemirror",
     path: [
       "dist/assets/vendor-codemirror-*.js",
       "!dist/assets/vendor-codemirror-languages-*.js",
     ],
-    limit: "1700 kB",
+    limit: "660 kB",
     brotli: false,
   },
   {

@@ -164,6 +164,14 @@ impl McpBridgeState {
     }
 }
 
+impl McpBridgeState {
+    /// Forget everything keyed by a destroyed window's label. Its webview
+    /// dies without clearing its own workspace registration.
+    pub(crate) async fn forget_window(&self, label: &str) {
+        self.lock().await.window_workspaces.remove(label);
+    }
+}
+
 /// Reach the bridge state an app manages.
 ///
 /// Panics if it was never managed. That is a composition-root bug, not a

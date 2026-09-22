@@ -19,6 +19,7 @@
  *
  * @coordinates-with tiptap.ts — bumps the epoch and enforces the guard
  * @coordinates-with services/lint/runActiveLint.ts — marks the run start
+ * @coordinates-with services/windowClose/tabCleanup.ts — forgets a closed tab
  * @module plugins/lint/docEpoch
  */
 
@@ -45,4 +46,10 @@ export function markLintRunStart(tabId: string): void {
 export function isLintRunCurrent(tabId: string): boolean {
   const started = runEpochs.get(tabId);
   return started === undefined || started === (docEpochs.get(tabId) ?? 0);
+}
+
+/** Drop a closed tab's counters — both maps are keyed by tab id, which is never reused. */
+export function forgetLintTab(tabId: string): void {
+  docEpochs.delete(tabId);
+  runEpochs.delete(tabId);
 }

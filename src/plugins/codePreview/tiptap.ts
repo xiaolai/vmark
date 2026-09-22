@@ -19,6 +19,9 @@
  *   - Shared module state (plugin key, meta keys, view registry, preview cache)
  *     lives in pluginState.ts; this file re-exports the public names so import
  *     paths stay stable
+ *   - Diagram instances die with their editor: the plugin view's destroy() runs
+ *     cleanupDescendants(view.dom). sweepDetached() alone only fires in a full
+ *     rebuild, which prose-only documents never reach
  *
  * @coordinates-with pluginState.ts — shared state, meta keys, plugin state types
  * @coordinates-with transactionScan.ts — previewability + fast-path transaction checks
@@ -26,13 +29,14 @@
  * @coordinates-with editMode.ts — debounced live preview + save/cancel edit mode
  * @coordinates-with themeObserver.ts — theme changes (class or token flips) invalidate previews
  * @coordinates-with blockMathKeymap.ts — keyboard shortcuts for math editing
+ * @coordinates-with plugins/shared/diagramCleanup.ts — diagram destroy registry
  * @module plugins/codePreview/tiptap
  */
 
 import { Extension } from "@tiptap/core";
 import { Plugin } from "@tiptap/pm/state";
 import { DecorationSet } from "@tiptap/pm/view";
-import { sweepDetached } from "@/plugins/shared/diagramCleanup";
+import { cleanupDescendants, sweepDetached } from "@/plugins/shared/diagramCleanup";
 import { blockMathEditing } from "./editingRegistry";
 import {
   codePreviewPluginKey,
@@ -188,6 +192,13 @@ export const codePreviewExtension = Extension.create({
             },
             destroy() {
               activeEditorViews.delete(view);
+              // Release this editor's diagrams now. sweepDetached() only runs
+              // in a full decoration rebuild of SOME editor, which prose-only
+              // documents never reach — so after a tab switch the old doc's
+              // pan-zoom/markmap instances (and their `document` listeners)
+              // lived on. PM destroys plugin views before clearing its DOM,
+              // so the widgets are still inside view.dom here.
+              cleanupDescendants(view.dom);
             },
           };
         },

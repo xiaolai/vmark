@@ -9,6 +9,7 @@ import {
   canonicalizeWorkflowYaml,
   __resetSnapshotForTests,
   __injectRendererForTests,
+  SNAPSHOT_CACHE_MAX,
 } from "../renderXyflowSnapshot";
 
 const SIMPLE_WORKFLOW = [
@@ -171,5 +172,36 @@ describe("renderXyflowSnapshot — cache + queue", () => {
       renderXyflowSnapshot(SIMPLE_WORKFLOW),
     ]);
     expect(renderFn).toHaveBeenCalledTimes(1);
+  });
+
+  // Each value is an SVG wrapping a base64 PNG, keyed on the fence's YAML, so
+  // an unbounded map kept one snapshot per distinct edit for the session.
+  describe("cache bound", () => {
+    const variant = (i: number) => SIMPLE_WORKFLOW.replace("echo hi", `echo ${i}`);
+
+    it("evicts the least-recently-used snapshot once the cap is exceeded", async () => {
+      const renderFn = vi.fn(async (yaml: string) => `<svg data-len="${yaml.length}"/>`);
+      __injectRendererForTests(renderFn);
+      for (let i = 0; i <= SNAPSHOT_CACHE_MAX; i++) await renderXyflowSnapshot(variant(i));
+      expect(renderFn).toHaveBeenCalledTimes(SNAPSHOT_CACHE_MAX + 1);
+
+      // variant(0) was the oldest and must have been evicted: re-render.
+      await renderXyflowSnapshot(variant(0));
+      expect(renderFn).toHaveBeenCalledTimes(SNAPSHOT_CACHE_MAX + 2);
+    });
+
+    it("keeps a snapshot that was read recently", async () => {
+      const renderFn = vi.fn(async (yaml: string) => `<svg data-len="${yaml.length}"/>`);
+      __injectRendererForTests(renderFn);
+      for (let i = 0; i < SNAPSHOT_CACHE_MAX; i++) await renderXyflowSnapshot(variant(i));
+      await renderXyflowSnapshot(variant(0)); // touch the oldest
+      await renderXyflowSnapshot(variant(SNAPSHOT_CACHE_MAX)); // evicts variant(1)
+      const before = renderFn.mock.calls.length;
+
+      await renderXyflowSnapshot(variant(0));
+      expect(renderFn).toHaveBeenCalledTimes(before);
+      await renderXyflowSnapshot(variant(1));
+      expect(renderFn).toHaveBeenCalledTimes(before + 1);
+    });
   });
 });
