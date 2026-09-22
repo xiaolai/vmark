@@ -16,7 +16,10 @@
  *     setEdges. A doc with N fences pays one React mount cost.
  *   - Content-hash cache. Canonicalize the YAML (strip comments,
  *     trailing whitespace) and key the cached SVG on that. N identical
- *     fences across a doc produce 1 render + N-1 lookups.
+ *     fences across a doc produce 1 render + N-1 lookups. LRU-bounded
+ *     (SNAPSHOT_CACHE_MAX): each value wraps a base64 PNG and every
+ *     distinct edit of a fence is a new key, so an unbounded map kept
+ *     one snapshot per edit for the whole session.
  *   - FIFO single-flight queue. Snapshot requests serialize through one
  *     queue. Concurrent renders contend for layout + html-to-image's
  *     main-thread DOM walk; serializing eliminates contention.
@@ -31,6 +34,13 @@
 
 import { diagramWarn } from "@/utils/debug";
 import { errorMessage } from "@/utils/errorMessage";
+import { LruCache } from "@/utils/lruCache";
+
+/**
+ * Snapshots kept at once. A document rarely holds more than a handful of
+ * distinct workflow fences, and an evicted one only costs a re-render.
+ */
+export const SNAPSHOT_CACHE_MAX = 16;
 
 const CONTAINER_ID = "vmark-workflow-snapshot-root";
 const CONTAINER_WIDTH = 800;
@@ -50,7 +60,7 @@ interface SnapshotState {
   containerEl: HTMLDivElement | null;
   reactRoot: ReactRootLike | null;
   /** Memoized snapshot cache, keyed on canonicalized YAML. */
-  cache: Map<string, string>;
+  cache: LruCache<string, string>;
   /** FIFO of pending snapshot requests. */
   queue: QueueJob[];
   /** True while a snapshot is in flight; prevents re-entrant queue drain. */
@@ -60,7 +70,7 @@ interface SnapshotState {
 const state: SnapshotState = {
   containerEl: null,
   reactRoot: null,
-  cache: new Map(),
+  cache: new LruCache(SNAPSHOT_CACHE_MAX),
   queue: [],
   processing: false,
 };
