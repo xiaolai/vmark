@@ -3,8 +3,9 @@
  * (scripts/manualChunks.ts, consumed by vite.config.ts).
  *
  * The expectations below were derived from the in-config function as of
- * the vite 8 recalibration (htmlExportStyles pinning, @lezer →
- * vendor-codemirror). They lock the chunk assignments in place: any
+ * the vite 8 recalibration (htmlExportStyles pinning), then narrowed so only
+ * the CodeMirror core rides vendor-codemirror (lazily-loaded grammars chunk by
+ * import site). They lock the chunk assignments in place: any
  * behavioral drift during refactors must show up here, because
  * .size-limit.cjs budgets and scripts/check-eager-chunks.mjs assumptions
  * are keyed to these exact chunk names.
@@ -59,14 +60,64 @@ describe("manualChunks — special pins (checked before node_modules dispatch)",
   });
 });
 
+describe("manualChunks — CodeMirror core vs lazily-loaded grammars", () => {
+  it.each([
+    "@codemirror/state",
+    "@codemirror/view",
+    "@codemirror/language",
+    "@codemirror/commands",
+    "@codemirror/autocomplete",
+    "@codemirror/search",
+    "@codemirror/lint",
+    // lang-markdown is the Source editor's language, and it STATICALLY
+    // imports lang-html, which imports lang-css and lang-javascript — so all
+    // four are cold-start cost whichever chunk they land in.
+    "@codemirror/lang-markdown",
+    "@codemirror/lang-html",
+    "@codemirror/lang-css",
+    "@codemirror/lang-javascript",
+    "@lezer/common",
+    "@lezer/lr",
+    "@lezer/highlight",
+    "@lezer/markdown",
+    "@lezer/html",
+    "@lezer/css",
+    "@lezer/javascript",
+  ])("pins eager core %s to vendor-codemirror", (pkg) => {
+    expect(manualChunks(pnpmId(pkg))).toBe("vendor-codemirror");
+  });
+
+  it.each([
+    // Reached only through language-data's `load()` or sourceLanguage.ts's
+    // `await import()`. Pinning them into vendor-codemirror made ~1 MB of
+    // grammars cold-start cost: +29 MB WebContent footprint to evaluate the
+    // chunk in WebKit, vs +13 MB for the core alone (measured 2026-09-22).
+    "@codemirror/legacy-modes",
+    "@codemirror/lang-cpp",
+    "@codemirror/lang-php",
+    "@codemirror/lang-rust",
+    "@codemirror/lang-python",
+    "@codemirror/lang-sql",
+    "@codemirror/lang-yaml",
+    "@lezer/cpp",
+    "@lezer/php",
+    "@lezer/rust",
+    "@lezer/python",
+    "@lezer/yaml",
+  ])("leaves lazily-loaded grammar %s unassigned so it chunks by import site", (pkg) => {
+    expect(manualChunks(pnpmId(pkg))).toBeUndefined();
+  });
+
+  it("leaves an unknown future CodeMirror package unassigned (fails lazy, not eager)", () => {
+    expect(manualChunks(pnpmId("@codemirror/lang-newthing"))).toBeUndefined();
+    expect(manualChunks(pnpmId("@lezer/newthing"))).toBeUndefined();
+  });
+});
+
 describe("manualChunks — vendor dispatch (pnpm-style ids)", () => {
   it.each<[string, string | undefined]>([
-    // CodeMirror family — @lezer rides with vendor-codemirror (vite 8)
-    ["@lezer/common", "vendor-codemirror"],
-    ["@lezer/highlight", "vendor-codemirror"],
+    // CodeMirror registry (the grammar split is covered above)
     ["@codemirror/language-data", "vendor-codemirror-languages"],
-    ["@codemirror/view", "vendor-codemirror"],
-    ["@codemirror/lang-markdown", "vendor-codemirror"],
     // Editor
     ["@tiptap/core", "vendor-tiptap"],
     ["prosemirror-state", "vendor-tiptap"],
