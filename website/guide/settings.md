@@ -466,6 +466,21 @@ Displays app version, links to the website and GitHub repository, and update man
 
 When an update is available, a card appears showing the new version number, release date, and release notes. You can **Download** the update, **Skip** this version, or — once downloaded — **Restart to Update**.
 
+#### The update matches how you installed VMark
+
+The updater downloads the same package format you installed, not a fixed one per platform:
+
+| You installed | The updater fetches |
+|---|---|
+| macOS `.dmg` | the signed app bundle |
+| Windows `.exe` (NSIS) | the `.exe` installer |
+| Windows `.msi` | the `.msi` package |
+| Linux `.deb` | the `.deb` package |
+| Linux `.rpm` | the `.rpm` package |
+| Linux AppImage | the AppImage |
+
+On Linux, updating a `.deb` or `.rpm` install runs the system package manager, so you are prompted to authenticate — installing a system package needs root. AppImage updates replace the file in place and need no prompt.
+
 #### If an update gets stuck
 
 Checking and downloading both go over the network, and a connection that hangs rather than failing outright can leave the status bar indicator spinning indefinitely. If it stops making progress, the indicator becomes clickable and its tooltip reads **Update stalled — click to reset**. Clicking it returns the updater to idle so you can try again; it does not change anything you have already downloaded, and a retry starts from a fresh check.
