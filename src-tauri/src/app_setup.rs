@@ -7,6 +7,9 @@
 //! Key decisions:
 //!   - Window close is intercepted for document windows (main, doc-*) to allow
 //!     dirty-document prompts; non-document windows close immediately.
+//!   - A destroyed window's backend state is reaped on `Destroyed`, not left to
+//!     the frontend: its webview dies without running its own teardown. That
+//!     covers its file watcher and its PTY sessions.
 //!   - `machine_id_hash()` generates a stable anonymous device identifier via
 //!     SHA-256(hostname + OS + arch), sent as `X-Machine-Id` header on update checks.
 
@@ -199,6 +202,9 @@ pub(crate) fn handle_run_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
             if let Err(e) = crate::watcher::stop_watching(label.clone()) {
                 log::warn!("[Tauri] Failed to stop watcher for '{}': {}", label, e);
             }
+            // Same race for the window's terminals: its `pty_close` calls die
+            // with the webview, so an idle shell would outlive the window.
+            crate::pty::close_window_sessions(app, &label);
         }
         tauri::RunEvent::WindowEvent {
             label,

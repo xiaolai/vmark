@@ -25,6 +25,9 @@
 //!     via `child.wait()`, then emitted as a `pty:exit:{pid}` event.
 //!   - Sessions are removed from the map via `pty_close` (called by the
 //!     frontend after receiving the exit event) to prevent FD/memory leaks.
+//!     Each session records the window that spawned it, and that window's
+//!     `Destroyed` event terminates whatever is left (`close_window_sessions`):
+//!     a dying webview never gets to call `pty_close`.
 //!     A close BETWEEN spawn and start kills + reaps the still-owned child
 //!     (no reader thread exists yet to `wait()` on it).
 //!   - Writer and master use `std::sync::Mutex` (not tokio) because the
@@ -38,7 +41,8 @@
 //! `pty_resume`) and their shared error helpers. `pty_start` and its reader
 //! thread live in `reader.rs` — it was longer than the other eight together
 //! and pushed this file past the file-size gate (WI-DP2.5). `session.rs` owns
-//! the session map and `PtyExitEvent`.
+//! the session map and `PtyExitEvent`; `window_sessions.rs` reaps a destroyed
+//! window's sessions.
 //!
 //! @coordinates-with lib.rs — commands registered in generate_handler![]
 //! @coordinates-with pty/reader.rs — `pty_start`; registered as
@@ -49,8 +53,10 @@
 
 pub mod reader;
 mod session;
+mod window_sessions;
 
 pub use session::{kill_all, PtyState};
+pub use window_sessions::close_window_sessions;
 
 use crate::command_error::CommandError;
 use portable_pty::PtySize;
@@ -59,6 +65,7 @@ use std::collections::BTreeMap;
 use std::io::Write;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use tauri::Manager;
 
 // WI-DP2.2 — the PTY command surface, typed. Three classes, and the reason each
 // is what it is:
@@ -101,15 +108,21 @@ pub async fn pty_spawn(
     rows: u16,
     cwd: Option<String>,
     env: BTreeMap<String, String>,
-    state: tauri::State<'_, PtyState>,
+    // The spawning window owns the session (reaped when it is destroyed —
+    // `window_sessions.rs`); the map is reached through it rather than a
+    // `State` parameter, which would push this command past clippy's
+    // argument limit.
+    window: tauri::Window,
 ) -> Result<u32, CommandError> {
+    let owner = window.label().to_string();
     let session = tokio::task::spawn_blocking(move || {
-        session::create_session(file, args, cols, rows, cwd, env)
+        session::create_session(owner, file, args, cols, rows, cwd, env)
     })
     .await
     .map_err(|e| pty_internal("PTY spawn task failed", e))?
     .map_err(pty_io)?;
 
+    let state = window.state::<PtyState>();
     let pid = state.next_id.fetch_add(1, Ordering::Relaxed);
     state.sessions.write().await.insert(pid, Arc::new(session));
     Ok(pid)

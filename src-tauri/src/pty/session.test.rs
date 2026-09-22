@@ -17,6 +17,7 @@ fn expect_create_err(result: Result<Session, String>) -> String {
 #[test]
 fn create_session_rejects_relative_shell_path() {
     let err = expect_create_err(create_session(
+        "doc-1".into(),
         "sh".into(),
         vec![],
         80,
@@ -38,6 +39,7 @@ fn create_session_rejects_missing_shell() {
         "/nonexistent/vmark-test-shell"
     };
     let err = expect_create_err(create_session(
+        "doc-1".into(),
         missing.into(),
         vec![],
         80,
@@ -58,6 +60,7 @@ fn pid_alive(pid: u32) -> bool {
 #[cfg(unix)]
 fn sleeping_session() -> Session {
     create_session(
+        "doc-1".into(),
         "/bin/sleep".into(),
         vec!["30".into()],
         80,

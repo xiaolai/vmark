@@ -5,6 +5,7 @@
 //! `Session` record and its blocking `create_session` /
 //! `kill_and_reap_unstarted` lifecycle helpers, the managed `PtyState` map
 //! (with its `Drop` fallback), and the explicit quit-path `kill_all`.
+//! Window-destroy cleanup lives in `window_sessions.rs`.
 
 use portable_pty::{native_pty_system, Child, ChildKiller, CommandBuilder, MasterPty, PtySize};
 use serde::Serialize;
@@ -55,6 +56,10 @@ impl PauseControl {
 // ---------------------------------------------------------------------------
 
 pub(super) struct Session {
+    /// Label of the window whose terminal spawned this session. Sessions never
+    /// migrate between windows (moving a workspace instance kills its
+    /// sessions), so this is fixed for the session's life.
+    pub(super) owner: String,
     pub(super) reader: Mutex<Option<Box<dyn Read + Send>>>,
     pub(super) child: Mutex<Option<Box<dyn Child + Send + Sync>>>,
     pub(super) child_killer: StdMutex<Box<dyn ChildKiller + Send + Sync>>,
@@ -69,6 +74,7 @@ pub(super) struct Session {
 /// Blocking (`openpty` / `spawn_command` are synchronous syscalls) — call
 /// from `spawn_blocking` or a plain thread, never directly on a tokio worker.
 pub(super) fn create_session(
+    owner: String,
     file: String,
     args: Vec<String>,
     cols: u16,
@@ -117,6 +123,7 @@ pub(super) fn create_session(
     drop(pair.slave);
 
     Ok(Session {
+        owner,
         reader: Mutex::new(Some(reader)),
         child: Mutex::new(Some(child)),
         child_killer: StdMutex::new(child_killer),
