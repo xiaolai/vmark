@@ -32,6 +32,23 @@
  *     ctrl or meta; off macOS `ctrl+alt` IS AltGr, which types real characters
  *     on European layouts, so that pair is spared explicitly. On macOS
  *     Option+Command produces no text and is therefore still vetoed.
+ *   - **"Command modifier" is per-platform, and Super is not one off macOS.**
+ *     `Mod` resolves to Ctrl there, no shortcut spells `Meta-`, and
+ *     `matchesShortcutEvent`'s non-mac branch never reads `metaKey` — so a veto
+ *     armed by meta off macOS has no true positive it could be catching. It
+ *     shipped arming on either modifier on every platform and cost a Windows
+ *     user the ability to type `，` (#1445).
+ *
+ * **A modifier flag is the OS's belief, not a fact, and a stale one is this
+ * guard's worst failure.** A global low-level keyboard hook (AltSnap, and
+ * anything else that swallows Super's keyup to suppress the Start menu) leaves
+ * every later key event reporting `metaKey: true`. Because the state is re-read
+ * from each event, the `blur` reset below is undone by the very next keystroke
+ * — which is why the reporter's only cure was switching apps. Narrowing the
+ * arming set is what removes that path off macOS; on macOS Cmd is load-bearing
+ * and the risk is accepted. Keep the arming set as small as each platform's
+ * real chord vocabulary, because everything else here fails SILENTLY: the
+ * character simply never appears.
  *
  * It runs at `beforeinput` in the CAPTURE phase on the window, which precedes
  * the commit under BOTH event orderings — so it is correct whether or not a
@@ -82,7 +99,10 @@ export function isChordArtifactInsertion(
   if (event.isComposing) return false;
   if (event.inputType !== "insertText") return false;
   if (!event.data || event.data.length > MAX_ARTIFACT_LENGTH) return false;
-  if (!held.ctrl && !held.meta) return false;
+  // Which modifiers mean "command" on THIS platform. Off macOS the Super key is
+  // not one of them, so it must not arm the veto (#1445).
+  const commandHeld = platform === "mac" ? held.ctrl || held.meta : held.ctrl;
+  if (!commandHeld) return false;
   // AltGr is ctrl+alt off macOS, and it types real characters.
   if (platform !== "mac" && held.alt) return false;
   return true;

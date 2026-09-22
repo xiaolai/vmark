@@ -106,6 +106,42 @@ describe("isChordArtifactInsertion", () => {
     expect(isChordArtifactInsertion(insertion(), { ...NONE, ctrl: true }, "other")).toBe(true);
   });
 
+  // #1445 — a Windows user could intermittently not type `，`, and switching to
+  // another app and back cured it. Off macOS the Super/Windows key is not a
+  // command modifier for this app AT ALL: no entry in `shortcutDefinitions.ts`
+  // spells `Meta-`/`Cmd-`/`Win-`, and `matchesShortcutEvent`'s non-mac branch
+  // never reads `event.metaKey` — it resolves `Mod` to `ctrlKey`. So a veto
+  // armed by meta off macOS has no true positive it could ever be catching; it
+  // can only swallow text.
+  //
+  // That matters because `metaKey` is not a fact, it is the OS's belief. A
+  // global low-level keyboard hook (the reporter's screenshot points at
+  // AltSnap) swallows the Super key's keyup to suppress the Start menu, and
+  // every subsequent key event then arrives with `metaKey: true`. The guard
+  // re-reads that flag on every event, so the stale belief survives the `blur`
+  // reset — which is exactly why only an app switch cleared it.
+  //
+  // Only symbols broke because only symbols reach here: under a Chinese IME,
+  // letters and CJK arrive as composition (exempted above), while a punctuation
+  // rewrite like `,`→`，` is committed directly as a one-glyph `insertText`.
+  it("spares Meta off macOS — the Super key is not a chord modifier there (#1445)", () => {
+    expect(
+      isChordArtifactInsertion(insertion({ data: "，" }), { ...NONE, meta: true }, "other"),
+    ).toBe(false);
+  });
+
+  it("still vetoes Meta on macOS, where it is the Mod key", () => {
+    expect(isChordArtifactInsertion(insertion(), { ...NONE, meta: true }, "mac")).toBe(true);
+  });
+
+  it("spares Meta+Ctrl off macOS only when Alt is present (AltGr), not otherwise", () => {
+    // Ctrl is a real chord modifier off macOS, so a genuine Ctrl chord must
+    // still be vetoed even if the Super key is also (believed) down.
+    expect(
+      isChordArtifactInsertion(insertion(), { ctrl: true, meta: true, alt: false }, "other"),
+    ).toBe(true);
+  });
+
   it("leaves Option-only insertions alone (macOS dead keys)", () => {
     expect(isChordArtifactInsertion(insertion({ data: "é" }), { ...NONE, alt: true }, "mac")).toBe(
       false,
