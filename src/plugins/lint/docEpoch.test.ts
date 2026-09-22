@@ -11,6 +11,7 @@ import {
   bumpLintDocEpoch,
   markLintRunStart,
   isLintRunCurrent,
+  forgetLintTab,
 } from "./docEpoch";
 
 describe("docEpoch", () => {
@@ -58,5 +59,18 @@ describe("docEpoch", () => {
     expect(isLintRunCurrent("epoch-unit-e")).toBe(false);
     markLintRunStart("epoch-unit-e");
     expect(isLintRunCurrent("epoch-unit-e")).toBe(true);
+  });
+
+  it("forgets a closed tab entirely, leaving other tabs' state alone", () => {
+    markLintRunStart("epoch-unit-f1");
+    bumpLintDocEpoch("epoch-unit-f1");
+    markLintRunStart("epoch-unit-f2");
+    bumpLintDocEpoch("epoch-unit-f2");
+
+    forgetLintTab("epoch-unit-f1");
+
+    // No recorded run any more — the fresh-tab rule applies again.
+    expect(isLintRunCurrent("epoch-unit-f1")).toBe(true);
+    expect(isLintRunCurrent("epoch-unit-f2")).toBe(false);
   });
 });

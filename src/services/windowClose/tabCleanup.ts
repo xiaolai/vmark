@@ -8,6 +8,7 @@ import { clearPendingContentSearchNav } from "@/services/navigation/contentSearc
 import { clearPendingLintScroll } from "@/services/lint/lintNavigation";
 import { clearEditorScrollOffsets } from "@/services/editor/scrollPosition";
 import { forgetSaveTarget } from "@/services/persistence/saveTargetClaim";
+import { forgetLintTab } from "@/plugins/lint/docEpoch";
 
 /**
  * Clean up all per-tab state when a tab is closed or detached.
@@ -23,6 +24,7 @@ export function cleanupTabState(tabId: string): void {
   clearPendingContentSearchNav(tabId);
   clearPendingLintScroll(tabId);
   clearEditorScrollOffsets(tabId);
+  forgetLintTab(tabId);
   // A save still in flight for this tab must not re-point stores that no
   // longer describe an open document (audit 20260906, F3).
   forgetSaveTarget(tabId);
