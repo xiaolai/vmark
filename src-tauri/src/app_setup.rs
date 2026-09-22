@@ -9,7 +9,8 @@
 //!     dirty-document prompts; non-document windows close immediately.
 //!   - A destroyed window's backend state is reaped on `Destroyed`, not left to
 //!     the frontend: its webview dies without running its own teardown. That
-//!     covers its file watcher and its PTY sessions.
+//!     covers its file watcher, its PTY sessions and its MCP bridge workspace
+//!     registration.
 //!   - `machine_id_hash()` generates a stable anonymous device identifier via
 //!     SHA-256(hostname + OS + arch), sent as `X-Machine-Id` header on update checks.
 
@@ -205,6 +206,13 @@ pub(crate) fn handle_run_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
             // Same race for the window's terminals: its `pty_close` calls die
             // with the webview, so an idle shell would outlive the window.
             crate::pty::close_window_sessions(app, &label);
+            // And its MCP workspace registration, cleared by the same webview.
+            let app = app.clone();
+            tauri::async_runtime::spawn(async move {
+                crate::mcp_bridge::managed::bridge(&app)
+                    .forget_window(&label)
+                    .await;
+            });
         }
         tauri::RunEvent::WindowEvent {
             label,

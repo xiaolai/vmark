@@ -194,3 +194,30 @@ async fn an_unknown_client_id_authorizes_nothing() {
         BridgePrincipal::Anonymous
     );
 }
+
+// A window's workspace registration is cleared by the frontend on workspace
+// close — a call the dying webview of a CLOSED window never makes, so the
+// Destroyed handler forgets it instead.
+#[tokio::test]
+async fn forget_window_drops_only_that_windows_workspace_registration() {
+    let state = McpBridgeState::default();
+    {
+        let mut guard = state.lock().await;
+        guard
+            .window_workspaces
+            .insert("doc-1".into(), "/work/a".into());
+        guard
+            .window_workspaces
+            .insert("doc-2".into(), "/work/b".into());
+    }
+
+    state.forget_window("doc-1").await;
+    state.forget_window("never-registered").await;
+
+    let guard = state.lock().await;
+    assert_eq!(guard.window_workspaces.len(), 1);
+    assert_eq!(
+        guard.window_workspaces.get("doc-2").map(String::as_str),
+        Some("/work/b")
+    );
+}
