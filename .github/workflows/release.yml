@@ -485,67 +485,84 @@ jobs:
           fi
           echo "Found $DOWNLOADED_SIGS signature files"
 
-          # Read signatures
-          MACOS_AARCH64_SIG=""
-          MACOS_X64_SIG=""
-          LINUX_SIG=""
-          WINDOWS_MSI_SIG=""
-          WINDOWS_EXE_SIG=""
-
-          # tauri-action v1.0.0 versions the .app.tar.gz assets like all
-          # other bundles: VMark_<version>_<arch>.app.tar.gz
-          if [ -f "sigs/VMark_${VERSION#v}_aarch64.app.tar.gz.sig" ]; then
-            MACOS_AARCH64_SIG=$(cat "sigs/VMark_${VERSION#v}_aarch64.app.tar.gz.sig")
-          fi
-          if [ -f "sigs/VMark_${VERSION#v}_x64.app.tar.gz.sig" ]; then
-            MACOS_X64_SIG=$(cat "sigs/VMark_${VERSION#v}_x64.app.tar.gz.sig")
-          fi
-          if [ -f "sigs/VMark_${VERSION#v}_amd64.AppImage.sig" ]; then
-            LINUX_SIG=$(cat "sigs/VMark_${VERSION#v}_amd64.AppImage.sig")
-          fi
-          if [ -f "sigs/VMark_${VERSION#v}_x64_en-US.msi.sig" ]; then
-            WINDOWS_MSI_SIG=$(cat "sigs/VMark_${VERSION#v}_x64_en-US.msi.sig")
-          fi
-          if [ -f "sigs/VMark_${VERSION#v}_x64-setup.exe.sig" ]; then
-            WINDOWS_EXE_SIG=$(cat "sigs/VMark_${VERSION#v}_x64-setup.exe.sig")
-          fi
-
           # Get current timestamp
           PUB_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-          # Base URL for downloads
+          # Base URL for downloads. VERSION is the tag (v0.6.56); VER is the
+          # SemVer the manifest and every asset filename use — Tauri parses the
+          # version field with `semver`, which strictly rejects a leading `v`,
+          # and a manifest it cannot parse surfaces as "no update available".
+          VER="${VERSION#v}"
           BASE_URL="https://github.com/$REPO/releases/download/$VERSION"
 
-          # Generate latest.json — Tauri's updater parses the version field
-          # with `semver`, which strictly rejects a leading `v`. The git tag
-          # is `v0.6.56`, so we must strip the `v` here or the in-app updater
-          # silently fails to parse and reports "no update available".
-          # (Asset URLs below already use ${VERSION#v} for the same reason.)
-          cat > latest.json << EOF
-          {
-            "version": "${VERSION#v}",
-            "notes": "See release notes at https://github.com/$REPO/releases/tag/$VERSION",
-            "pub_date": "$PUB_DATE",
-            "platforms": {
-              "darwin-aarch64": {
-                "signature": "$MACOS_AARCH64_SIG",
-                "url": "$BASE_URL/VMark_${VERSION#v}_aarch64.app.tar.gz"
-              },
-              "darwin-x86_64": {
-                "signature": "$MACOS_X64_SIG",
-                "url": "$BASE_URL/VMark_${VERSION#v}_x64.app.tar.gz"
-              },
-              "linux-x86_64": {
-                "signature": "$LINUX_SIG",
-                "url": "$BASE_URL/VMark_${VERSION#v}_amd64.AppImage"
-              },
-              "windows-x86_64": {
-                "signature": "$WINDOWS_MSI_SIG",
-                "url": "$BASE_URL/VMark_${VERSION#v}_x64_en-US.msi"
-              }
-            }
-          }
-          EOF
+          # Platform key -> the bundle that key must serve, as a glob (the RPM
+          # carries a package release number that is not the app version).
+          #
+          # Tauri's updater does NOT look up one key per OS. It builds
+          # [`{os}-{arch}-{installer}`, `{os}-{arch}`] and takes the first that
+          # resolves, where {installer} is appimage|deb|rpm|app|msi|nsis read
+          # from a marker tauri-bundler patches into the binary at package
+          # time. So a .deb install asks for `linux-x86_64-deb` FIRST.
+          #
+          # Publishing only the bare keys served every .deb and .rpm install
+          # the 116MB AppImage (#1444), and that download cannot install even
+          # when it completes: the Linux installer dispatches on the INSTALLED
+          # bundle type, so install_deb() sniffs the AppImage bytes and returns
+          # InvalidUpdaterFormat. The same omission sent every NSIS install the
+          # MSI — its signature was read into a variable and then referenced by
+          # nothing, which is why the manifest is DERIVED from this table now
+          # and cross-checked against the signatures below.
+          #
+          # macOS is deliberately bare: `app` is its only updater format, so a
+          # `darwin-*-app` key would duplicate the fallback it falls back to.
+          TARGETS=(
+            "darwin-aarch64|VMark_${VER}_aarch64.app.tar.gz"
+            "darwin-x86_64|VMark_${VER}_x64.app.tar.gz"
+            "linux-x86_64-appimage|VMark_${VER}_amd64.AppImage"
+            "linux-x86_64-deb|VMark_${VER}_amd64.deb"
+            "linux-x86_64-rpm|VMark-${VER}-*.x86_64.rpm"
+            "linux-x86_64|VMark_${VER}_amd64.AppImage"
+            "windows-x86_64-nsis|VMark_${VER}_x64-setup.exe"
+            "windows-x86_64-msi|VMark_${VER}_x64_en-US.msi"
+            "windows-x86_64|VMark_${VER}_x64_en-US.msi"
+          )
+
+          # Build the manifest with jq rather than a heredoc: a signature is
+          # base64 with embedded newlines, and only jq is guaranteed to encode
+          # it as a legal JSON string.
+          MANIFEST=$(jq -n \
+            --arg version "$VER" \
+            --arg notes "See release notes at https://github.com/$REPO/releases/tag/$VERSION" \
+            --arg pub_date "$PUB_DATE" \
+            '{version: $version, notes: $notes, pub_date: $pub_date, platforms: {}}')
+
+          USED_SIGS=""
+          for entry in "${TARGETS[@]}"; do
+            key="${entry%%|*}"
+            glob="${entry#*|}"
+            matches=( sigs/$glob.sig )
+            if [ ! -e "${matches[0]}" ]; then
+              echo "::error::no signature matched 'sigs/$glob.sig' for platform key '$key'."
+              echo "::error::That bundle either was not built or was not signed; releasing without it would strand every install of that format."
+              exit 1
+            fi
+            if [ "${#matches[@]}" -ne 1 ]; then
+              echo "::error::'sigs/$glob.sig' matched ${#matches[@]} files for '$key': ${matches[*]}"
+              exit 1
+            fi
+            sig_file="${matches[0]}"
+            asset="$(basename "$sig_file" .sig)"
+            sig="$(cat "$sig_file")"
+            if [ -z "$sig" ]; then
+              echo "::error::$sig_file is empty — signing produced no signature for '$key'"
+              exit 1
+            fi
+            MANIFEST=$(jq --arg key "$key" --arg sig "$sig" --arg url "$BASE_URL/$asset" \
+              '.platforms[$key] = {signature: $sig, url: $url}' <<< "$MANIFEST")
+            USED_SIGS="${USED_SIGS}${sig_file}"$'\n'
+            echo "  $key -> $asset"
+          done
+          printf '%s\n' "$MANIFEST" > latest.json
 
           echo "Generated latest.json:"
           cat latest.json
@@ -582,7 +599,22 @@ jobs:
             echo "::error::This usually means tauri-action's signing step failed silently. Check the build-tauri matrix for warnings."
             exit 1
           fi
-          echo "✅ latest.json validates: version=$MANIFEST_VERSION, all platform signatures present"
+          # The REVERSE direction, and the one this release pipeline had been
+          # missing. The loop above proves every platform key resolves to a real
+          # signature; this proves every signature is reachable from some key.
+          # Nothing caught `WINDOWS_EXE_SIG` being read from the NSIS bundle and
+          # then referenced by no platform key, so every NSIS install silently
+          # received the MSI — a signed bundle that no client could ever be
+          # offered looks exactly like a correct release (#1444).
+          UNREFERENCED=$(comm -23 \
+            <(find sigs -maxdepth 1 -name '*.sig' -type f | sort -u) \
+            <(printf '%s' "$USED_SIGS" | sort -u))
+          if [ -n "$UNREFERENCED" ]; then
+            echo "::error::these signed bundles are not reachable from latest.json: $(echo "$UNREFERENCED" | tr '\n' ' ')"
+            echo "::error::Add a platform key for each in TARGETS, or the installs of that format will be served a different bundle."
+            exit 1
+          fi
+          echo "✅ latest.json validates: version=$MANIFEST_VERSION, $(jq -r '.platforms | length' latest.json) platform keys, every signed bundle reachable"
 
           # Upload latest.json to release
           gh release upload "$VERSION" latest.json --repo "$REPO" --clobber
