@@ -19,8 +19,8 @@
 import type { EditorState } from "@tiptap/pm/state";
 
 /**
- * True when `[from, to)` is in bounds and every text node inside it carries a
- * link mark whose href equals `href`.
+ * True when `[from, to)` is in bounds and every inline node inside it — text
+ * or a linked image — carries a link mark whose href equals `href`.
  */
 export function linkRangeIsIntact(
   state: EditorState,
@@ -36,7 +36,7 @@ export function linkRangeIsIntact(
   let matches = true;
   state.doc.nodesBetween(from, to, (node, pos) => {
     if (!matches) return false;
-    if (!node.isText) return true;
+    if (!node.isInline) return true;
     const mark = linkType.isInSet(node.marks);
     if (!mark || (mark.attrs.href ?? "") !== href) {
       matches = false;

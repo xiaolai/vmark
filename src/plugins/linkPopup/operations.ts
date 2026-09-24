@@ -2,9 +2,10 @@
  * Link operations — ADR-010 unification surface.
  *
  * Shared logic between the Tiptap (wysiwyg) and CodeMirror (source) link
- * popups. Both controllers call these functions for navigation and edit
- * dispatch; the controllers themselves remain thin engine-specific
- * wrappers (`tiptap.ts`, `sourceLinkPopup/sourceLinkPopupPlugin.ts`).
+ * popups; the controllers themselves remain thin engine-specific wrappers
+ * (`tiptap.ts`, `sourceLinkPopup/sourceLinkPopupPlugin.ts`). OPENING a link
+ * lives one tier down, in `services/navigation/linkOpen.ts#openLinkTarget`,
+ * because both controllers — which may not import each other — need it.
  *
  * This file is the first realization of the revised ADR-010 pattern:
  * one operations module per feature, two thin controllers. Future
@@ -14,8 +15,7 @@
  * @module plugins/linkPopup/operations
  */
 
-import { classifyHref, openFilepathLink } from "@/services/navigation/linkOpen";
-import { linkPopupError } from "@/utils/debug";
+import { classifyHref } from "@/services/navigation/linkOpen";
 
 export type LinkAction =
   | { kind: "fragment"; targetId: string }
@@ -33,33 +33,4 @@ export function classifyLinkAction(href: string): LinkAction {
   if (kind === "external") return { kind: "external" };
   if (kind === "filepath") return { kind: "filepath" };
   return { kind: "noop" };
-}
-
-/**
- * Engine-agnostic open. The Tiptap controller passes its EditorView for
- * fragment navigation; the CodeMirror controller passes `null` because
- * source mode does not support in-doc heading navigation today.
- */
-export async function openLink(
-  href: string,
-  sourcePath: string | null,
-  navigateToFragment: ((targetId: string) => boolean) | null,
-): Promise<void> {
-  const action = classifyLinkAction(href);
-
-  switch (action.kind) {
-    case "fragment":
-      if (navigateToFragment) navigateToFragment(action.targetId);
-      break;
-    case "filepath":
-      try {
-        await openFilepathLink(href, sourcePath);
-      } catch (err) {
-        linkPopupError(err);
-      }
-      break;
-    case "external":
-    case "noop":
-      break;
-  }
 }

@@ -110,13 +110,20 @@ describe("checkLocalLinks", () => {
     expect(existsMock).toHaveBeenCalledWith("/repo/docs/sibling.md");
   });
 
-  it("resolves /-rooted absolute URLs against the file's workspace root", async () => {
+  it("checks a /-rooted URL as the filesystem-absolute path it names (#1448)", async () => {
+    // The image renderer already loads `/`-rooted sources as absolute paths;
+    // the checker must look at the same file, not `<doc dir>/docs/intro.md`.
     existsMock.mockResolvedValue(true);
     const md = "[s](/docs/intro.md)\n";
     await checkLocalLinks(md, "/repo/docs/index.md");
-    // `/`-rooted paths resolve against the FILE's directory parent
-    // chain — for safety, treat as relative to file's directory.
-    expect(existsMock).toHaveBeenCalled();
+    expect(existsMock).toHaveBeenCalledWith("/docs/intro.md");
+  });
+
+  it("resolves relative links against a Windows source path with its drive intact (#1448)", async () => {
+    existsMock.mockResolvedValue(true);
+    const md = "[s](A.md)\n";
+    await checkLocalLinks(md, "C:\\Users\\p\\notes\\B.md");
+    expect(existsMock).toHaveBeenCalledWith("C:/Users/p/notes/A.md");
   });
 
   it("dedupes repeated link targets — fs.exists called once per unique path", async () => {
@@ -210,5 +217,62 @@ describe("resolveMarkdownUrl — percent-decoding", () => {
     expect(resolveMarkdownUrl("bad%zz.md", "/repo/docs/index.md")).toBe(
       "/repo/docs/bad%zz.md",
     );
+  });
+});
+
+// #1448 — absolute links were base-prefixed onto the document's directory, and
+// Windows sources lost their drive (`/C:/…`), so neither opened.
+describe("resolveMarkdownUrl — absolute and cross-platform paths", () => {
+  it.each([
+    // [href, sourcePath, expected]
+    ["/Users/me/Documents/记事本/A.md", "/Users/me/Documents/记事本/B.md", "/Users/me/Documents/记事本/A.md"],
+    ["/Users/p/%E8%AE%B0%E4%BA%8B.md", "/Users/p/notes/B.md", "/Users/p/记事.md"],
+    ["/a/../b/./c.md", "/repo/x.md", "/b/c.md"],
+    ["A.md", "C:\\Users\\p\\notes\\B.md", "C:/Users/p/notes/A.md"],
+    ["..\\A.md", "C:\\Users\\p\\notes\\B.md", "C:/Users/p/A.md"],
+    ["../../../../../x.md", "C:/a/b.md", "C:/x.md"],
+    ["D:\\x\\y.md", "/repo/docs/index.md", "D:/x/y.md"],
+    ["C:/a/../b.md", "/repo/docs/index.md", "C:/b.md"],
+    ["/x/y.md", "D:\\notes\\a.md", "D:/x/y.md"],
+    ["b.md", "\\\\server\\share\\docs\\a.md", "//server/share/docs/b.md"],
+    ["../../../b.md", "\\\\server\\share\\docs\\a.md", "//server/share/b.md"],
+    ["../../../../x.md", "/a/b.md", "/x.md"],
+  ])("%s from %s → %s", (href, source, expected) => {
+    expect(resolveMarkdownUrl(href, source)).toBe(expected);
+  });
+
+  it("resolves absolute paths without a source document", () => {
+    expect(resolveMarkdownUrl("/abs/%E8%AE%B0.md#h", null)).toBe("/abs/记.md");
+    expect(resolveMarkdownUrl("C:\\x\\y.md", null)).toBe("C:/x/y.md");
+  });
+
+  // A UNC or protocol-relative href names a NETWORK host. Opening one on
+  // Windows reaches out over SMB, which can hand the user's NTLM credentials to
+  // whoever the document names — so a link may never pick the host. (A document
+  // that itself lives on a share still resolves relative links, above.)
+  it.each([
+    "\\\\attacker\\share\\a.md",
+    "//attacker/share/a.md",
+    "//example.com/docs/A.md",
+    "/\\attacker\\share\\a.md",
+  ])("refuses the network path %s", (href) => {
+    expect(resolveMarkdownUrl(href, "/repo/docs/index.md")).toBe("");
+    expect(resolveMarkdownUrl(href, "C:\\notes\\B.md")).toBe("");
+    expect(resolveMarkdownUrl(href, null)).toBe("");
+  });
+
+  // `C:foo.md` is relative to the process's current directory on drive C —
+  // meaningless for a document, so it is refused rather than guessed at.
+  it.each(["C:foo.md", "C:", "c:..\\x.md"])("refuses the drive-relative path %s", (href) => {
+    expect(resolveMarkdownUrl(href, "C:/notes/B.md")).toBe("");
+  });
+
+  it("returns empty for a relative path without a source document", () => {
+    expect(resolveMarkdownUrl("./a.md", null)).toBe("");
+  });
+
+  it("returns empty for a fragment-only or empty URL", () => {
+    expect(resolveMarkdownUrl("#h", "/repo/a.md")).toBe("");
+    expect(resolveMarkdownUrl("", "/repo/a.md")).toBe("");
   });
 });

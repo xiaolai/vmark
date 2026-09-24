@@ -33,7 +33,7 @@ const SOURCE = "/repo/docs/index.md";
 
 // ---------------------------------------------------------------------------
 
-import { classifyHref, openFilepathLink } from "./linkOpen";
+import { classifyHref, openFilepathLink, openLinkTarget } from "./linkOpen";
 
 describe("classifyHref", () => {
   it("classifies fragment-only as 'fragment'", () => {
@@ -124,6 +124,16 @@ describe("openFilepathLink", () => {
     });
   });
 
+  it("keeps a malformed %-fragment raw instead of rejecting", async () => {
+    // decodeURIComponent throws on `%zz`; the path half already falls back.
+    await expect(openFilepathLink("./neighbour.md#%zz", SOURCE)).resolves.toBe(true);
+    expect(mockEmit).toHaveBeenCalledWith("open-file", {
+      path: "/repo/docs/neighbour.md",
+      windowLabel: "main",
+      fragment: "%zz",
+    });
+  });
+
   it("omits `fragment` entirely when the href has none", async () => {
     // Absent rather than empty-string: a payload field that is always present
     // but usually meaningless invites callers to test truthiness incorrectly.
@@ -188,6 +198,51 @@ describe("openFilepathLink", () => {
     });
   });
 
+  // #1448 — an absolute link in a saved document was base-prefixed onto the
+  // document's own directory, so `/Users/…/A.md` never opened on macOS.
+  it("opens a POSIX absolute link from a saved document as the path it names", async () => {
+    const result = await openFilepathLink(
+      "/Users/me/Documents/记事本/A.md",
+      "/Users/me/Documents/记事本/B.md",
+    );
+    expect(result).toBe(true);
+    expect(mockEmit).toHaveBeenCalledWith("open-file", {
+      path: "/Users/me/Documents/记事本/A.md",
+      windowLabel: "main",
+    });
+  });
+
+  // #1448 — a relative link in a Windows document resolved to `/C:/…`.
+  it("keeps the drive when resolving a relative link from a Windows document", async () => {
+    const result = await openFilepathLink("A.md", "C:\\Users\\p\\notes\\B.md");
+    expect(result).toBe(true);
+    expect(mockEmit).toHaveBeenCalledWith("open-file", {
+      path: "C:/Users/p/notes/A.md",
+      windowLabel: "main",
+    });
+  });
+
+  it("percent-decodes an absolute link from an untitled document", async () => {
+    const result = await openFilepathLink("/abs/%E8%AE%B0.md", null);
+    expect(result).toBe(true);
+    expect(mockEmit).toHaveBeenCalledWith("open-file", {
+      path: "/abs/记.md",
+      windowLabel: "main",
+    });
+  });
+
+  it("returns false for a fragment-only-after-path href with an empty path", async () => {
+    const result = await openFilepathLink("#only", SOURCE);
+    expect(result).toBe(false);
+    expect(mockEmit).not.toHaveBeenCalled();
+  });
+
+  it("never opens a network (UNC) path a document names", async () => {
+    expect(await openFilepathLink("\\\\attacker\\share\\a.md", SOURCE)).toBe(false);
+    expect(await openFilepathLink("//attacker/share/a.md", SOURCE)).toBe(false);
+    expect(mockEmit).not.toHaveBeenCalled();
+  });
+
   it("returns false and logs when emit rejects", async () => {
     const { linkPopupError } = await import("@/utils/debug");
     mockEmit.mockRejectedValueOnce(new Error("emit failed"));
@@ -234,6 +289,53 @@ describe("openExternalLink (scheme allowlist, audit 20260612)", () => {
   it("blocks malformed URLs", async () => {
     const { openExternalLink } = await import("./linkOpen");
     await expect(openExternalLink("http://[broken")).resolves.toBe(false);
+    expect(openUrlMock).not.toHaveBeenCalled();
+  });
+});
+
+// The single routing decision both link controllers share (#1448 — Source
+// mode used to send file paths to the external opener, which rejects them).
+describe("openLinkTarget", () => {
+  beforeEach(() => {
+    mockEmit.mockClear();
+    openUrlMock.mockClear();
+  });
+
+  it("hands a fragment to the caller's heading navigator", async () => {
+    const nav = vi.fn(() => true);
+    await openLinkTarget("#section", SOURCE, nav);
+    expect(nav).toHaveBeenCalledWith("section");
+    expect(mockEmit).not.toHaveBeenCalled();
+  });
+
+  it("is a no-op for a fragment without a navigator", async () => {
+    await expect(openLinkTarget("#section", SOURCE, null)).resolves.toBeUndefined();
+  });
+
+  it("opens a file link as a tab and never reaches the external opener", async () => {
+    await openLinkTarget("A.md#part", "/Users/p/notes/B.md", null);
+    expect(mockEmit).toHaveBeenCalledWith("open-file", {
+      path: "/Users/p/notes/A.md",
+      windowLabel: "main",
+      fragment: "part",
+    });
+    expect(openUrlMock).not.toHaveBeenCalled();
+  });
+
+  it("opens an external URL through the allowlisted opener", async () => {
+    await openLinkTarget("https://example.com", SOURCE, null);
+    expect(openUrlMock).toHaveBeenCalledWith("https://example.com");
+    expect(mockEmit).not.toHaveBeenCalled();
+  });
+
+  it("does not reject when the opener fails", async () => {
+    openUrlMock.mockRejectedValueOnce(new Error("opener down"));
+    await expect(openLinkTarget("https://example.com", SOURCE, null)).resolves.toBeUndefined();
+  });
+
+  it("is a no-op for an empty href", async () => {
+    await openLinkTarget("", SOURCE, vi.fn());
+    expect(mockEmit).not.toHaveBeenCalled();
     expect(openUrlMock).not.toHaveBeenCalled();
   });
 });

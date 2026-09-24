@@ -384,6 +384,39 @@ describe("SourcePopupView", () => {
     vi.useRealTimers();
   });
 
+  it("leaves focus in the editor when shouldFocusOnShow declines (#1448)", () => {
+    vi.useFakeTimers();
+    const container = (popup as unknown as { container: HTMLElement }).container;
+    const input = document.createElement("input");
+    const focusSpy = vi.spyOn(input, "focus");
+    container.appendChild(input);
+    (popup as unknown as { shouldFocusOnShow: () => boolean }).shouldFocusOnShow = () => false;
+
+    store.trigger({ isOpen: true, anchorRect: ANCHOR, closePopup: () => {} });
+    vi.advanceTimersByTime(20);
+
+    expect(view.contentDOM.blur).not.toHaveBeenCalled();
+    expect(focusSpy).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  it("drops a focus queued by an earlier open once the popup closes", () => {
+    vi.useFakeTimers();
+    const container = (popup as unknown as { container: HTMLElement }).container;
+    const input = document.createElement("input");
+    const focusSpy = vi.spyOn(input, "focus");
+    container.appendChild(input);
+
+    store.trigger({ isOpen: true, anchorRect: ANCHOR, closePopup: () => {} });
+    store.trigger({ isOpen: false, anchorRect: null, closePopup: () => {} });
+    (popup as unknown as { shouldFocusOnShow: () => boolean }).shouldFocusOnShow = () => false;
+    store.trigger({ isOpen: true, anchorRect: ANCHOR, closePopup: () => {} });
+    vi.advanceTimersByTime(20);
+
+    expect(focusSpy).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
   it("show() handles no focusable elements gracefully", () => {
     vi.useFakeTimers();
 

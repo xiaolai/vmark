@@ -20,9 +20,15 @@ vi.mock("@/utils/headingSlug", () => ({
   findHeadingByIdCM: vi.fn(() => null),
 }));
 
+const { mockEmit } = vi.hoisted(() => ({ mockEmit: vi.fn(() => Promise.resolve()) }));
+vi.mock("@tauri-apps/api/webviewWindow", () => ({
+  getCurrentWebviewWindow: () => ({ label: "main", emit: mockEmit }),
+}));
+
 import { saveLinkChanges, openLink, copyLinkHref, removeLink } from "../sourceLinkActions";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { findHeadingByIdCM } from "@/utils/headingSlug";
+import { bindHostDocument, resetHostDocument } from "@/plugins/shared/hostDocument";
 
 function createView(doc: string): EditorView {
   const parent = document.createElement("div");
@@ -196,6 +202,35 @@ describe("source link actions", () => {
 
       const { openUrl } = await import("@tauri-apps/plugin-opener");
       expect(openUrl).toHaveBeenCalledWith("https://example.com");
+      view.destroy();
+    });
+
+    // #1448 — the open button sent every non-`#` href to the external opener,
+    // where `new URL("A.md")` throws: file links never opened in Source mode.
+    it("opens a relative file link as a tab, resolved against the document", async () => {
+      bindHostDocument({
+        currentWindowLabel: () => "main",
+        activeFilePath: () => "/Users/p/notes/B.md",
+      });
+      useLinkPopupStore.setState({
+        isOpen: true,
+        href: "A.md#part",
+        linkFrom: 0,
+        linkTo: 5,
+        anchorRect: null,
+      });
+
+      const view = createView("test");
+      await openLink(view, store);
+
+      expect(mockEmit).toHaveBeenCalledWith("open-file", {
+        path: "/Users/p/notes/A.md",
+        windowLabel: "main",
+        fragment: "part",
+      });
+      const { openUrl } = await import("@tauri-apps/plugin-opener");
+      expect(openUrl).not.toHaveBeenCalled();
+      resetHostDocument();
       view.destroy();
     });
 

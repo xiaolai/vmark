@@ -24,6 +24,7 @@ let storeState = {
   linkFrom: 0,
   linkTo: 0,
   anchorRect: null as AnchorRect | null,
+  autoFocus: true,
   closePopup: mockClosePopup,
   setHref: mockSetHref,
   openPopup: mockOpenPopup,
@@ -122,6 +123,7 @@ function resetState() {
     linkFrom: 0,
     linkTo: 0,
     anchorRect: null,
+    autoFocus: true,
     closePopup: mockClosePopup,
     setHref: mockSetHref,
     openPopup: mockOpenPopup,
@@ -182,6 +184,55 @@ describe("SourceLinkPopupView", () => {
       popup.destroy();
       // Both the base subscription and the WI-1 reshow subscription are gone.
       expect(subscribers.length).toBe(0);
+    });
+  });
+
+  // #1448 — clicking into `[text](url)` to edit the markdown opened the popup
+  // and moved the keyboard into it: typing, Backspace and Ctrl+C/V then worked
+  // only "sometimes" — whenever the caret happened not to be inside a link.
+  describe("Focus on open", () => {
+    const settle = async () => {
+      await new Promise((r) => setTimeout(r, 20));
+      await new Promise((r) => requestAnimationFrame(r));
+    };
+
+    it("moves focus into the URL for an explicit edit", async () => {
+      const input = (popup as unknown as { hrefInput: HTMLInputElement }).hrefInput;
+      const focusSpy = vi.spyOn(input, "focus");
+      emitStateChange({ isOpen: true, href: "a.md", linkFrom: 1, linkTo: 9, anchorRect, autoFocus: true });
+      await settle();
+      expect(focusSpy).toHaveBeenCalled();
+    });
+
+    it("leaves focus in the editor when a click opened it", async () => {
+      const input = (popup as unknown as { hrefInput: HTMLInputElement }).hrefInput;
+      const focusSpy = vi.spyOn(input, "focus");
+      const blurSpy = vi.spyOn(view.contentDOM, "blur");
+      emitStateChange({ isOpen: true, href: "a.md", linkFrom: 1, linkTo: 9, anchorRect, autoFocus: false });
+      await settle();
+      expect(focusSpy).not.toHaveBeenCalled();
+      expect(blurSpy).not.toHaveBeenCalled();
+      expect(input.value).toBe("a.md");
+    });
+
+    it("does not let an earlier explicit open's queued focus land on a click-opened popup", async () => {
+      const input = (popup as unknown as { hrefInput: HTMLInputElement }).hrefInput;
+      const focusSpy = vi.spyOn(input, "focus");
+      emitStateChange({ isOpen: true, href: "a.md", linkFrom: 1, linkTo: 9, anchorRect, autoFocus: true });
+      emitStateChange({ isOpen: false, anchorRect: null });
+      emitStateChange({ isOpen: true, href: "b.md", linkFrom: 20, linkTo: 29, anchorRect, autoFocus: false });
+      await settle();
+      expect(focusSpy).not.toHaveBeenCalled();
+    });
+
+    it("takes focus when an explicit edit follows a click on the same link", async () => {
+      const input = (popup as unknown as { hrefInput: HTMLInputElement }).hrefInput;
+      const focusSpy = vi.spyOn(input, "focus");
+      emitStateChange({ isOpen: true, href: "a.md", linkFrom: 1, linkTo: 9, anchorRect, autoFocus: false });
+      await settle();
+      emitStateChange({ autoFocus: true });
+      await settle();
+      expect(focusSpy).toHaveBeenCalled();
     });
   });
 

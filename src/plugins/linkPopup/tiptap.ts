@@ -6,112 +6,31 @@
  * (relative or absolute filesystem paths) resolved against the active
  * document's directory.
  *
- * Regular click on a link opens the edit popup.
- * Cmd+K also opens the edit popup (handled in editorPlugins.tiptap.ts).
+ * Regular click on a link opens the edit popup WITHOUT taking focus, so the
+ * link text stays editable (#1448); the popup closes as soon as that editing
+ * makes its snapshot stale. Cmd+K opens it focused for an explicit URL edit
+ * (handled in editorPlugins.tiptap.ts).
  */
 
 import { Extension } from "@tiptap/core";
-import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { Plugin, PluginKey, type EditorState } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
-import type { Mark } from "@tiptap/pm/model";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { linkPopupError } from "@/utils/debug";
 import type { StoreApi } from "zustand";
 import type { PopupStoreBase } from "@/plugins/shared";
 import type { LinkPopupState } from "@/plugins/shared/popupPorts";
-import { hostDocument } from "@/plugins/shared/hostDocument";
+import { activeFilePathForCurrentWindow, hostDocument } from "@/plugins/shared/hostDocument";
 import { navigateToHeadingById } from "@/utils/headingSlug";
-import { classifyLinkAction, openLink } from "./operations";
+import { classifyLinkAction } from "./operations";
 import { LinkPopupView } from "./LinkPopupView";
+import { findLinkMarkRange } from "./findLinkMarkRange";
 import "./link-popup.css";
-import { openExternalLink } from "@/services/navigation/linkOpen";
+import { openExternalLink, openFilepathLink, openLinkTarget } from "@/services/navigation/linkOpen";
+
+export { findLinkMarkRange };
 
 const linkPopupPluginKey = new PluginKey("linkPopup");
-
-interface MarkRange {
-  mark: Mark;
-  from: number;
-  to: number;
-}
-
-/** Finds the range of a link mark at the given document position, or null. */
-export function findLinkMarkRange(view: EditorView, pos: number): MarkRange | null {
-  const { state } = view;
-  const $pos = state.doc.resolve(pos);
-  const parent = $pos.parent;
-  const parentStart = $pos.start();
-
-  // First pass: find the link mark at the given position
-  let linkMark: Mark | null = null;
-  let currentOffset = 0;
-
-  for (let i = 0; i < parent.childCount; i++) {
-    const child = parent.child(i);
-    const childFrom = parentStart + currentOffset;
-    const childTo = childFrom + child.nodeSize;
-
-    if (pos >= childFrom && pos < childTo && child.isText) {
-      const mark = child.marks.find((m) => m.type.name === "link");
-      if (mark) {
-        linkMark = mark;
-        break;
-      }
-    }
-    currentOffset += child.nodeSize;
-  }
-
-  if (!linkMark) return null;
-
-  // Second pass: find the continuous range covered by an *equal* link mark that
-  // contains pos. Mark.eq compares attrs, not just href — two adjacent links
-  // that share an href but differ in any other attribute stay separate ranges,
-  // so editing one can no longer rewrite its neighbour.
-  const target = linkMark;
-  currentOffset = 0;
-
-  for (let i = 0; i < parent.childCount; i++) {
-    const child = parent.child(i);
-    const childFrom = parentStart + currentOffset;
-
-    if (child.isText) {
-      const mark = child.marks.find((m) => m.eq(target));
-
-      if (mark) {
-        const rangeFrom = childFrom;
-        let rangeTo = childFrom + child.nodeSize;
-        const foundMark = mark;
-
-        // Continue checking subsequent children for continuous equal marks
-        let j = i + 1;
-        while (j < parent.childCount) {
-          const nextChild = parent.child(j);
-          if (nextChild.isText) {
-            const nextMark = nextChild.marks.find((m) => m.eq(target));
-            if (nextMark) {
-              rangeTo += nextChild.nodeSize;
-              j++;
-            } else {
-              break;
-            }
-          } else {
-            break;
-          }
-        }
-
-        if (pos >= rangeFrom && pos < rangeTo) {
-          return { mark: foundMark, from: rangeFrom, to: rangeTo };
-        }
-
-        currentOffset = rangeTo - parentStart;
-        i = j - 1;
-        continue;
-      }
-    }
-    currentOffset += child.nodeSize;
-  }
-
-  return null;
-}
 
 /**
  * Click handler: Cmd/Ctrl+click opens link in browser, navigates to fragment,
@@ -130,8 +49,8 @@ function makeHandleClick(
       if (linkRange) {
         const href = linkRange.mark.attrs.href as string;
         if (href) {
-          // ADR-010: route through shared operations.ts so source and
-          // WYSIWYG controllers share classification + open logic.
+          // ADR-010: classification comes from shared operations.ts, and every
+          // open goes through services/navigation/linkOpen, as in Source mode.
           const action = classifyLinkAction(href);
           if (action.kind === "fragment") {
             if (navigateToHeadingById(view, action.targetId)) {
@@ -151,10 +70,7 @@ function makeHandleClick(
             const sourcePath = hostDocument.activeFilePath(
               getCurrentWebviewWindow().label
             );
-            // navigateToFragment passed as null — Tiptap path uses
-            // navigateToHeadingById above for fragments, so openLink
-            // only handles filepath here.
-            void openLink(href, sourcePath, null);
+            void openFilepathLink(href, sourcePath);
             event.preventDefault();
             return true;
           }
@@ -192,6 +108,7 @@ function makeHandleClick(
           linkFrom: linkRange.from,
           linkTo: linkRange.to,
           anchorRect,
+          autoFocus: false,
         });
         return false; // let ProseMirror place cursor normally
       }
@@ -210,19 +127,90 @@ function makeHandleClick(
 }
 
 /**
+ * Native `click` on a link anchor: mark it handled, and activate what
+ * `handleClick` cannot reach.
+ *
+ * VMark activates links itself — `handleClick`, which ProseMirror runs on
+ * MOUSEUP, so its `preventDefault` never reaches the native click that follows.
+ * That click still bubbles to `tauri-plugin-opener`'s window listener, which
+ * opens any Ctrl/Shift-clicked anchor whose resolved href is `http(s):` in the
+ * OS browser unless the event is already defaultPrevented. On Windows the app
+ * origin is `http://tauri.localhost`, so `A.md` became
+ * `http://tauri.localhost/A.md` in the browser and a scheme-less href like
+ * `C:\…` (rendered as `href=""`) became the app's own URL (#1448). macOS's
+ * `tauri://` origin never matched, which is why it was Windows-only.
+ *
+ * Registered on the editor DOM, not as a ProseMirror handler: the image node
+ * view's `stopEvent` keeps clicks from ProseMirror entirely, so a handler there
+ * would never see a click on a linked image — and neither does `handleClick`,
+ * which is why a modified click on a linked non-text node is activated here.
+ */
+function handleNativeLinkClick(view: EditorView, event: MouseEvent): void {
+  const target = event.target instanceof Element ? event.target : null;
+  const anchor = target?.closest("a");
+  const link = view.state.schema.marks.link;
+  if (!target || !anchor || !link || !view.dom.contains(anchor)) return;
+  try {
+    // The node the anchor opens on — text or an inline image — must carry a
+    // link mark, i.e. the anchor is one of ours.
+    const first = view.state.doc.resolve(view.posAtDOM(anchor, 0)).nodeAfter;
+    if (!first || !link.isInSet(first.marks)) return;
+    event.preventDefault();
+    if (!event.metaKey && !event.ctrlKey) return;
+
+    const at = view.posAtDOM(target, 0);
+    const clicked = view.state.doc.nodeAt(at);
+    const clickedDom = view.nodeDOM(at);
+    if (!clicked || clicked.isText || !clickedDom?.contains(target)) return;
+    const href = link.isInSet(clicked.marks)?.attrs.href as string | undefined;
+    if (href) {
+      void openLinkTarget(href, activeFilePathForCurrentWindow(), (id) =>
+        navigateToHeadingById(view, id)
+      );
+    }
+  } catch (error) {
+    // posAtDOM throws for DOM outside the document content (node-view chrome).
+    linkPopupError("Native link click:", error);
+  }
+}
+
+/**
  * Plugin view - manages the popup view for link editing.
  * Triggered by clicking a link or via Cmd+K.
  */
 class LinkPopupPluginView {
   private popupView: LinkPopupView;
+  private store: StoreApi<LinkPopupState>;
+  private view: EditorView;
 
   constructor(view: EditorView, store: StoreApi<LinkPopupState>) {
+    this.view = view;
+    this.store = store;
     this.popupView = new LinkPopupView(view, store);
+    view.dom.addEventListener("click", this.onNativeClick);
   }
 
-  // No update() — the popup tracks the store, not the plugin view lifecycle.
+  private onNativeClick = (event: MouseEvent) => handleNativeLinkClick(this.view, event);
+
+  /**
+   * A click-opened popup leaves the keyboard in the document (#1448). When the
+   * user edits there, or moves the caret off the link, the popup's snapshot of
+   * the link is stale — close it rather than let a later save act on it.
+   * Changes arriving while the popup itself has focus (MCP edits) are left to
+   * the save path's own range guard, as before.
+   */
+  update(view: EditorView, prevState: EditorState) {
+    const popup = this.store.getState();
+    if (!popup.isOpen || !view.hasFocus()) return;
+    const docChanged = view.state.doc !== prevState.doc;
+    const { head } = view.state.selection;
+    if (docChanged || head < popup.linkFrom || head > popup.linkTo) {
+      popup.closePopup();
+    }
+  }
 
   destroy() {
+    this.view.dom.removeEventListener("click", this.onNativeClick);
     this.popupView.destroy();
   }
 }

@@ -8,6 +8,7 @@ import { describe, it, expect } from "vitest";
 import { Schema } from "@tiptap/pm/model";
 import { EditorState } from "@tiptap/pm/state";
 import { linkRangeIsIntact } from "./linkRange";
+import { getProductionSchema } from "@/test/productionSchema";
 
 const schema = new Schema({
   nodes: {
@@ -107,5 +108,33 @@ describe("linkRangeIsIntact", () => {
       ]),
     });
     expect(linkRangeIsIntact(state, 1, 3, HREF)).toBe(false);
+  });
+});
+
+// #1448 — a link that contains an image. The markdown pipeline now keeps the
+// link mark on the image (it used to drop it), so every mark-span helper must
+// treat a marked inline image as part of the span, not as a gap in it.
+const prod = getProductionSchema();
+/** "before " + image + " after" under one link to A.md: the link spans 1..15. */
+function linkedImageDoc(imageMarked = true) {
+  const link = prod.marks.link.create({ href: "A.md" });
+  return prod.node("doc", null, [
+    prod.node("paragraph", null, [
+      prod.text("before ", [link]),
+      prod.node("image", { src: "p.png" }, undefined, imageMarked ? [link] : []),
+      prod.text(" after", [link]),
+    ]),
+  ]);
+}
+
+describe("linkRangeIsIntact with a linked image inside the link", () => {
+  it("counts the image as covered by the link", () => {
+    const state = EditorState.create({ doc: linkedImageDoc(), schema: prod });
+    expect(linkRangeIsIntact(state, 1, 15, "A.md")).toBe(true);
+  });
+
+  it("rejects the range when the image in it is not linked", () => {
+    const state = EditorState.create({ doc: linkedImageDoc(false), schema: prod });
+    expect(linkRangeIsIntact(state, 1, 15, "A.md")).toBe(false);
   });
 });

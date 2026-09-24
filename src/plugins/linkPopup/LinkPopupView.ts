@@ -17,6 +17,9 @@
  *     rewrite whatever now occupies those positions.
  *   - `shouldReshow` reopens the popup when it is retargeted at a different
  *     link range, so the input can never keep the previous link's URL.
+ *   - Focus follows `autoFocus`: a click-opened popup leaves the keyboard in
+ *     the document (#1448), and an explicit edit (Cmd+K) arriving while it is
+ *     open re-shows it to take focus.
  */
 
 import i18n from "@/i18n";
@@ -96,14 +99,20 @@ export class LinkPopupView extends WysiwygPopupView<LinkPopupState> {
    *  input keeps the previous link's URL while the store already points at the
    *  new range — saving would then write URL A over link B. */
   protected override shouldReshow(prev: LinkPopupState, next: LinkPopupState): boolean {
-    return prev.linkFrom !== next.linkFrom || prev.linkTo !== next.linkTo;
+    return (
+      prev.linkFrom !== next.linkFrom ||
+      prev.linkTo !== next.linkTo ||
+      (next.autoFocus && !prev.autoFocus)
+    );
   }
 
   /** The base class focuses this in a deferred frame; yield nothing once the
    *  popup is hidden, so a fast Escape / outside click cannot pull focus back
-   *  out of the editor and into a hidden input. */
+   *  out of the editor and into a hidden input — nor for a click-opened popup,
+   *  which must leave the keyboard in the document. */
   protected override getFirstFocusable(): HTMLElement | null {
     if (!this.isVisible() || !this.container.isConnected) return null;
+    if (!this.store.getState().autoFocus) return null;
     return this.input;
   }
 
@@ -118,13 +127,17 @@ export class LinkPopupView extends WysiwygPopupView<LinkPopupState> {
     this.openBtn.title = openLabel;
     this.openBtn.setAttribute("aria-label", openLabel);
 
-    // Focus and select input. Guarded: a fast Escape / outside click can close
-    // the popup before the frame runs, and focusing a hidden input would steal
-    // focus back from the editor.
+    // Focus and select input — only for an explicit edit. Guarded: a fast
+    // Escape / outside click can close the popup before the frame runs, and
+    // focusing a hidden input would steal focus back from the editor.
     this.cancelFocusFrame();
+    if (!state.autoFocus) return;
     this.focusFrame = requestAnimationFrame(() => {
       this.focusFrame = null;
       if (!this.isVisible() || !this.container.isConnected) return;
+      // Re-read at run time: a click on the same link may have followed the
+      // Cmd+K that queued this frame, without a range change to re-show on.
+      if (!this.store.getState().autoFocus) return;
       this.input.focus();
       this.input.select();
     });

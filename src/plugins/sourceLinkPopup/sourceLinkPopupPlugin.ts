@@ -2,7 +2,8 @@
  * Source Link Popup Plugin
  *
  * CodeMirror 6 plugin for editing links in Source mode.
- * Click on a link opens the edit popup. Cmd+Click opens in browser / navigates to heading.
+ * Click on a link opens the edit popup. Cmd+Click opens the link — a heading,
+ * a file in a tab, or a URL in the browser — through the shared `openLinkTarget`.
  */
 
 import { type Extension } from "@codemirror/state";
@@ -14,7 +15,8 @@ import type { LinkPopupState } from "@/plugins/shared/popupPorts";
 import { SourceLinkPopupView } from "./SourceLinkPopupView";
 import { findMarkdownLinkAtPosition } from "@/utils/markdownLinkPatterns";
 import { extractMarkdownHeadings } from "@/plugins/toolbarActions/sourceAdapterLinks";
-import { openExternalLink } from "@/services/navigation/linkOpen";
+import { activeFilePathForCurrentWindow } from "@/plugins/shared/hostDocument";
+import { openLinkTarget } from "@/services/navigation/linkOpen";
 
 /**
  * Link range result from detection.
@@ -64,12 +66,14 @@ function detectLinkTrigger(view: EditorView): { from: number; to: number } | nul
 }
 
 /**
- * Extract link data for the popup.
+ * Extract link data for the popup. Only the pointer trigger calls this, so
+ * the popup opens without focus: the user clicked into the markdown to edit
+ * it, and the caret must stay there (#1448).
  */
 function extractLinkData(
   view: EditorView,
   range: { from: number; to: number }
-): { href: string; linkFrom: number; linkTo: number } {
+): { href: string; linkFrom: number; linkTo: number; autoFocus: false } {
   // Re-run detection to get full data
   const link = findLinkAtPos(view, range.from);
   if (!link) {
@@ -77,6 +81,7 @@ function extractLinkData(
       href: "",
       linkFrom: range.from,
       linkTo: range.to,
+      autoFocus: false,
     };
   }
 
@@ -84,12 +89,14 @@ function extractLinkData(
     href: link.href,
     linkFrom: link.from,
     linkTo: link.to,
+    autoFocus: false,
   };
 }
 
 /**
- * Cmd+Click handler: opens links in browser or navigates to headings.
- * Registered at capture phase so it runs before the popup click handler.
+ * Cmd+Click handler: opens the link under the pointer via the shared
+ * `openLinkTarget`. Registered at capture phase so it runs before the popup click
+ * handler.
  */
 function createCmdClickPlugin(): Extension {
   return ViewPlugin.fromClass(
@@ -118,53 +125,53 @@ function createCmdClickPlugin(): Extension {
         e.stopPropagation();
         e.preventDefault();
 
-        const { href } = link;
+        // Fragment → heading, file path → tab, URL → allowlisted opener.
+        openLinkTarget(link.href, activeFilePathForCurrentWindow(), this.navigateToHeading).catch(
+          /* v8 ignore next -- @preserve reason: openLinkTarget never rejects; defensive */
+          (error: unknown) => sourceLinkError("Failed to open link:", error),
+        );
+      };
 
-        // Handle bookmark links — navigate to heading
-        if (href.startsWith("#")) {
-          const targetId = href.slice(1);
-          const docText = this.view.state.doc.toString();
-          const headings = extractMarkdownHeadings(docText);
-          const heading = headings.find((h) => h.id === targetId);
-
-          /* v8 ignore next -- @preserve reason: bookmark heading not found is an untested edge case */
-          if (heading && heading.pos !== undefined) {
-            this.view.dispatch({
-              selection: { anchor: heading.pos },
-              scrollIntoView: true,
-            });
-            this.view.focus();
-          }
-          return;
-        }
-
-        // External link — open in browser (scheme-allowlisted opener,
-        // audit 20260612)
-        /* v8 ignore next 3 -- @preserve reason: error handler not tested in unit tests */
-        openExternalLink(href).catch((error: unknown) => {
-          sourceLinkError("Failed to open link:", error);
+      private navigateToHeading = (targetId: string): boolean => {
+        const docText = this.view.state.doc.toString();
+        const heading = extractMarkdownHeadings(docText).find((h) => h.id === targetId);
+        /* v8 ignore next -- @preserve reason: bookmark heading not found is an untested edge case */
+        if (!heading || heading.pos === undefined) return false;
+        this.view.dispatch({
+          selection: { anchor: heading.pos },
+          scrollIntoView: true,
         });
+        this.view.focus();
+        return true;
       };
     }
   );
 }
 
 /**
- * Stale-range sync (WI-1 / D1: remap-when-mappable, close-when-destroyed).
+ * Stale-range sync (WI-1 / D1: remap-when-mappable, close-when-destroyed),
+ * plus close-when-the-caret-moves-to-another-link.
  *
- * While the popup is open, every doc change (typing is impossible — focus is
- * in the popup — so this is MCP/AI edits, external reloads) either remaps the
- * tracked `[linkFrom, linkTo)` through the transaction's change mapping or
- * closes the popup. The remap is accepted only when the mapped slice is
+ * While the popup is open, every doc change — the user typing in the markdown
+ * under a click-opened popup (#1448), MCP/AI edits, external reloads — either
+ * remaps the tracked `[linkFrom, linkTo)` through the transaction's change
+ * mapping or closes the popup. The remap is accepted only when the mapped slice is
  * byte-identical to the pre-change slice — the same link, merely moved. A
  * parse-success check alone would accept a same-length replacement of the
  * whole link and let save rewrite the WRONG link.
  */
 function createLinkRangeSyncExtension(store: StoreApi<LinkPopupState>): Extension {
   return EditorView.updateListener.of((update) => {
-    if (!update.docChanged) return;
     const state = store.getState();
     if (!state.isOpen) return;
+    if (!update.docChanged) {
+      // The caret, left in the markdown by a click-opened popup, moved into a
+      // DIFFERENT link: the popup's buttons would still act on the old one.
+      // (Leaving links altogether is the popup plugin's delayed close.)
+      const at = update.selectionSet ? detectLinkTrigger(update.view) : null;
+      if (at && (at.from !== state.linkFrom || at.to !== state.linkTo)) state.closePopup?.();
+      return;
+    }
 
     const { linkFrom, linkTo } = state;
     const mappedFrom = update.changes.mapPos(linkFrom, 1);
@@ -187,7 +194,7 @@ function createLinkRangeSyncExtension(store: StoreApi<LinkPopupState>): Extensio
 /**
  * Create the Source link popup plugin.
  *
- * Click on a link opens the edit popup. Cmd+Click opens in browser.
+ * Click on a link opens the edit popup. Cmd+Click opens the link.
  */
 export function createSourceLinkPopupPlugin(store: StoreApi<LinkPopupState>): Extension {
   return [

@@ -4,7 +4,10 @@
  *   (`#anchor`) are handled by the existing `linkFragments` rule;
  *   external URLs — any RFC-3986 scheme (`https:`, `mailto:`,
  *   `obsidian:`, …) or protocol-relative `//host/…` — are skipped.
- *   Windows drive-letter paths (`C:\…`, `C:/…`) are still checked.
+ *   Windows drive-letter paths (`C:\…`, `C:/…`) are still checked, and
+ *   a `/`-rooted path is the filesystem path it names. A UNC `\\host\…`
+ *   or drive-relative `C:foo` target is never probed (see
+ *   `resolveMarkdownUrl`): touching a network path can leak credentials.
  *
  *   This is a CORRECTNESS check, not style. A broken local link is
  *   a bug — the published doc points at a file that won't load.
@@ -94,17 +97,44 @@ function extractLocalRefs(mdast: Root): ExtractedRef[] {
 }
 
 /**
- * Resolve a markdown URL against the source file's directory.
- * Handles `./`, `../`, and `/`-rooted paths. Returns POSIX absolute
- * path. Strips any `#fragment` suffix before resolution, then
- * percent-decodes the path part (so `photo%20one.png` resolves to
- * the same file the media renderer loads — see
- * `services/media/resolveMediaSrc.ts`); malformed `%` sequences fall
- * back to the raw path.
+ * Split a forward-slashed path into its absolute root and the remainder.
+ * Roots are a Windows drive (`C:/`), a UNC share (`//server/share/`) or the
+ * POSIX `/`; a relative path has none.
+ */
+function splitPathRoot(path: string): { root: string; rest: string } | null {
+  const drive = /^([A-Za-z]:)\//.exec(path);
+  if (drive) return { root: `${drive[1]}/`, rest: path.slice(drive[0].length) };
+  const unc = /^\/\/([^/]+)\/([^/]+)(\/|$)/.exec(path);
+  if (unc) return { root: `//${unc[1]}/${unc[2]}/`, rest: path.slice(unc[0].length) };
+  if (path.startsWith("/")) return { root: "/", rest: path.slice(1) };
+  return null;
+}
+
+/**
+ * Resolve a markdown URL to an absolute, forward-slashed filesystem path.
+ *
+ * A relative URL resolves against the source file's directory, keeping the
+ * source's root — its drive or UNC share on Windows, where dropping it used
+ * to yield `/C:/…`. An absolute URL (`/…`, `C:\…`) names that file directly,
+ * the same reading the media renderer gives an image `src` (#1448); a
+ * `/`-rooted URL in a Windows document lands on that document's drive, as it
+ * would for the OS. `..` never climbs above a root.
+ *
+ * Refused (""): a URL naming a NETWORK host — UNC `\\server\share\…` or
+ * protocol-relative `//host/…` — because opening one on Windows goes out over
+ * SMB and can hand the user's NTLM credentials to whatever host the document
+ * picked; and a drive-relative `C:foo`, which is relative to the process's
+ * working directory and means nothing for a document.
+ *
+ * Strips any `#fragment` suffix, then percent-decodes the path part (so
+ * `photo%20one.png` resolves to the file the media renderer loads — see
+ * `services/media/resolveMediaSrc.ts`); malformed `%` sequences fall back to
+ * the raw path. Returns "" for an empty path, or a relative one with no
+ * source document to resolve against.
  */
 export function resolveMarkdownUrl(
   url: string,
-  sourcePath: string,
+  sourcePath: string | null,
 ): string {
   // Strip fragment, then decode the path part. Decoding after the
   // fragment split keeps an encoded `%23` inside the path from being
@@ -115,28 +145,30 @@ export function resolveMarkdownUrl(
   );
   if (!pathPart) return "";
 
-  const sourceNorm = sourcePath.replace(/\\/g, "/");
-  const baseDir = sourceNorm.slice(0, sourceNorm.lastIndexOf("/"));
+  const target = pathPart.replace(/\\/g, "/");
+  if (target.startsWith("//") || /^[A-Za-z]:(?!\/)/.test(target)) return "";
+  const source = sourcePath ? splitPathRoot(sourcePath.replace(/\\/g, "/")) : null;
+  const absolute = splitPathRoot(target);
 
-  // `/`-rooted: GitHub-flavored "absolute within repo" — without a
-  // workspace-root concept we treat as relative to file's directory
-  // (best-effort; safer than walking outside the dir).
-  let rel = pathPart.replace(/\\/g, "/");
-  if (rel.startsWith("/")) rel = rel.slice(1);
-  if (rel.startsWith("./")) rel = rel.slice(2);
-
-  const segments = (baseDir + "/" + rel).split("/").filter(Boolean);
-  const stack: string[] = [];
-  for (const seg of segments) {
-    if (seg === ".") continue;
-    if (seg === "..") {
-      if (stack.length === 0) continue;
-      stack.pop();
-      continue;
-    }
-    stack.push(seg);
+  let root: string;
+  let rest: string;
+  if (absolute) {
+    root = absolute.root === "/" && source ? source.root : absolute.root;
+    rest = absolute.rest;
+  } else {
+    if (!source) return "";
+    root = source.root;
+    const dirEnd = source.rest.lastIndexOf("/");
+    rest = `${dirEnd >= 0 ? source.rest.slice(0, dirEnd) : ""}/${target}`;
   }
-  return "/" + stack.join("/");
+
+  const stack: string[] = [];
+  for (const seg of rest.split("/")) {
+    if (!seg || seg === ".") continue;
+    if (seg === "..") stack.pop();
+    else stack.push(seg);
+  }
+  return root + stack.join("/");
 }
 
 /**

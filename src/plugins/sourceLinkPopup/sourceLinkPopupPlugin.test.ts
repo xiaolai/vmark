@@ -39,9 +39,15 @@ vi.mock("@tauri-apps/plugin-opener", () => ({
   openUrl: vi.fn(() => Promise.resolve()),
 }));
 
+const { mockEmit } = vi.hoisted(() => ({ mockEmit: vi.fn(() => Promise.resolve()) }));
+vi.mock("@tauri-apps/api/webviewWindow", () => ({
+  getCurrentWebviewWindow: () => ({ label: "main", emit: mockEmit }),
+}));
+
 import { createSourcePopupPlugin } from "@/plugins/sourcePopup";
 import { createSourceLinkPopupPlugin } from "./sourceLinkPopupPlugin";
 import { findMarkdownLinkAtPosition } from "@/utils/markdownLinkPatterns";
+import { bindHostDocument, resetHostDocument } from "@/plugins/shared/hostDocument";
 
 // Helper to create a CM6 view
 function createView(doc: string, cursorPos?: number): EditorView {
@@ -187,7 +193,7 @@ describe("extractLinkData (via plugin config)", () => {
   let extractData: (
     view: EditorView,
     range: { from: number; to: number }
-  ) => { href: string; linkFrom: number; linkTo: number };
+  ) => { href: string; linkFrom: number; linkTo: number; autoFocus: boolean };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -212,6 +218,8 @@ describe("extractLinkData (via plugin config)", () => {
     expect(result.href).toBe("https://example.com");
     expect(result.linkFrom).toBe(0);
     expect(result.linkTo).toBe(31);
+    // #1448 — a click opens the popup without taking the keyboard.
+    expect(result.autoFocus).toBe(false);
   });
 
   it("returns defaults when no link found at range", () => {
@@ -323,6 +331,35 @@ describe("CmdClick handler", () => {
     await vi.dynamicImportSettled();
     const { openUrl } = await import("@tauri-apps/plugin-opener");
     expect(openUrl).toHaveBeenCalledWith("https://example.com");
+  });
+
+  // #1448 — Cmd/Ctrl+click sent file links to the external opener, which
+  // rejects anything without a URI scheme, so they never opened.
+  it.each([
+    ["A.md", "/Users/p/notes/A.md"],
+    ["/Users/me/Documents/记事本/A.md", "/Users/me/Documents/记事本/A.md"],
+  ])("opens file link %s in a tab on Cmd+click", async (url, expected) => {
+    bindHostDocument({
+      currentWindowLabel: () => "main",
+      activeFilePath: () => "/Users/p/notes/B.md",
+    });
+    vi.mocked(findMarkdownLinkAtPosition).mockReturnValue({
+      from: 0, to: 24, text: "link", url,
+      fullMatch: `[link](${url})`,
+    });
+
+    const { handler } = getCmdClickHandler();
+    const event = new MouseEvent("click", { ctrlKey: true, clientX: 50, clientY: 50 });
+    const preventDefault = vi.spyOn(event, "preventDefault");
+    handler(event);
+    expect(preventDefault).toHaveBeenCalled();
+
+    await vi.waitFor(() =>
+      expect(mockEmit).toHaveBeenCalledWith("open-file", { path: expected, windowLabel: "main" }),
+    );
+    const { openUrl } = await import("@tauri-apps/plugin-opener");
+    expect(openUrl).not.toHaveBeenCalled();
+    resetHostDocument();
   });
 
   it("navigates to heading for bookmark links", async () => {

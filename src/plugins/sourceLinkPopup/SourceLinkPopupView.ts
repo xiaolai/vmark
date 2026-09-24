@@ -3,6 +3,10 @@
  *
  * Popup view for editing links in Source mode (CodeMirror 6).
  * Allows editing link URL, opening, copying, and removing links.
+ *
+ * Focus follows `autoFocus`: a click-opened popup leaves the caret in the
+ * markdown so typing and Ctrl+C/V keep editing the document (#1448); an
+ * explicit edit (Cmd+K) focuses the URL field, including while it is open.
  */
 
 import type { EditorView } from "@codemirror/view";
@@ -42,7 +46,10 @@ export class SourceLinkPopupView extends SourcePopupView<LinkPopupState> {
       const prev = this.reshowPrev;
       this.reshowPrev = state;
       if (!prev?.isOpen || !state.isOpen) return;
-      if (prev.linkFrom === state.linkFrom && prev.linkTo === state.linkTo) return;
+      if (prev.linkFrom === state.linkFrom && prev.linkTo === state.linkTo) {
+        if (state.autoFocus && !prev.autoFocus) this.focusPrimaryControl();
+        return;
+      }
       this.refreshOnRetarget(state);
     });
   }
@@ -120,6 +127,8 @@ export class SourceLinkPopupView extends SourcePopupView<LinkPopupState> {
 
   private focusPrimaryControl(): void {
     requestAnimationFrame(() => {
+      // Re-checked at run time: a click may have reopened it meanwhile (#1448).
+      if (!this.isVisible() || !this.store.getState().autoFocus) return;
       if (this.isBookmark) {
         this.openBtn.focus();
       } else {
@@ -129,10 +138,14 @@ export class SourceLinkPopupView extends SourcePopupView<LinkPopupState> {
     });
   }
 
+  protected override shouldFocusOnShow(state: LinkPopupState): boolean {
+    return state.autoFocus;
+  }
+
   protected onShow(state: LinkPopupState): void {
     this.applyState(state);
-    // Focus appropriate input (base class has already blurred the editor)
-    this.focusPrimaryControl();
+    // Focus the appropriate control for an explicit edit only.
+    if (state.autoFocus) this.focusPrimaryControl();
   }
 
   /** Open→open transition onto a different link range: refresh fields and
@@ -145,7 +158,7 @@ export class SourceLinkPopupView extends SourcePopupView<LinkPopupState> {
     if (state.anchorRect) {
       this.updatePosition(state.anchorRect);
     }
-    if (hrefChanged) {
+    if (hrefChanged && state.autoFocus) {
       this.focusPrimaryControl();
     }
   }

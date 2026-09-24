@@ -31,6 +31,13 @@ export interface LinkPopupState extends PopupStoreBase {
   href: string;
   linkFrom: number;
   linkTo: number;
+  /**
+   * Whether the popup takes keyboard focus when it opens. A pointer click on a
+   * link opens it WITHOUT focus, so the caret stays in the document and the
+   * link text stays editable (#1448); an explicit edit (Cmd+K, context menu)
+   * focuses the URL field.
+   */
+  autoFocus: boolean;
   setHref: (href: string) => void;
   /**
    * Remap the tracked range after a doc change while the popup is open
@@ -43,6 +50,8 @@ export interface LinkPopupState extends PopupStoreBase {
     linkFrom: number;
     linkTo: number;
     anchorRect: Anchor;
+    /** Defaults to true — only a pointer open opts out. */
+    autoFocus?: boolean;
   }) => void;
 }
 
