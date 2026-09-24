@@ -166,8 +166,16 @@ export function convertLink(
 
 /**
  * Convert image node with URL validation.
+ *
+ * `marks` are the marks in force around the image — a link wrapping it
+ * (`[![a](p.png)](A.md)`), emphasis — and ride on the node. Dropping them
+ * rewrote the author's file on save: the link was simply gone.
  */
-export function convertImage(schema: Schema, node: Image): PMNode | null {
+export function convertImage(
+  schema: Schema,
+  node: Image,
+  marks: readonly Mark[] = []
+): PMNode | null {
   const type = schema.nodes.image;
   if (!type) return null;
 
@@ -182,7 +190,7 @@ export function convertImage(schema: Schema, node: Image): PMNode | null {
     title: node.title || null,
     referenceId: ref?.referenceId ?? null,
     referenceType: ref?.referenceType ?? null,
-  });
+  }, null, marks);
 }
 
 /**

@@ -16,6 +16,7 @@ import {
   findWordAtPos,
   determineContextMode,
 } from "./tiptapContextHelpers";
+import { getProductionSchema } from "@/test/productionSchema";
 import type { CursorContext } from "@/plugins/toolbarContext/types";
 
 const schema = new Schema({
@@ -345,5 +346,57 @@ describe("determineContextMode", () => {
     const state = createState(doc);
     const $from = state.doc.resolve(3);
     expect(determineContextMode($from, true)).toBe("insert");
+  });
+});
+
+// #1448 — a link that contains an image. The markdown pipeline now keeps the
+// link mark on the image (it used to drop it), so every mark-span helper must
+// treat a marked inline image as part of the span, not as a gap in it.
+const prod = getProductionSchema();
+/** "before " + image + " after" under one link to A.md: the link spans 1..15. */
+function linkedImageDoc(imageMarked = true) {
+  const link = prod.marks.link.create({ href: "A.md" });
+  return prod.node("doc", null, [
+    prod.node("paragraph", null, [
+      prod.text("before ", [link]),
+      prod.node("image", { src: "p.png" }, undefined, imageMarked ? [link] : []),
+      prod.text(" after", [link]),
+    ]),
+  ]);
+}
+
+describe("findMarkRange with a linked image inside the link", () => {
+  it.each([3, 8, 11])("spans text, image and text from position %i", (pos) => {
+    const doc = linkedImageDoc();
+    expect(findMarkRange(doc.resolve(pos), prod.marks.link)).toEqual({ from: 1, to: 15 });
+  });
+
+  it("stops at an UNLINKED image in the middle", () => {
+    expect(findMarkRange(linkedImageDoc(false).resolve(3), prod.marks.link)).toEqual({ from: 1, to: 8 });
+  });
+});
+
+describe("findMarkRange keeps adjacent DIFFERENT marks of one type apart", () => {
+  it("does not merge links with different targets across an image", () => {
+    const [a, b] = [prod.marks.link.create({ href: "A.md" }), prod.marks.link.create({ href: "B.md" })];
+    const doc = prod.node("doc", null, [
+      prod.node("paragraph", null, [
+        prod.text("before ", [a]),
+        prod.node("image", { src: "p.png" }, undefined, [b]),
+        prod.text(" after", [a]),
+      ]),
+    ]);
+    expect(findMarkRange(doc.resolve(3), prod.marks.link)).toEqual({ from: 1, to: 8 });
+    // At a boundary the run to the LEFT wins, so probe the image's right edge.
+    expect(findMarkRange(doc.resolve(9), prod.marks.link)).toEqual({ from: 8, to: 9 });
+  });
+
+  it("does not merge adjacent text links with different targets", () => {
+    const [a, b] = [prod.marks.link.create({ href: "A.md" }), prod.marks.link.create({ href: "B.md" })];
+    const doc = prod.node("doc", null, [
+      prod.node("paragraph", null, [prod.text("ab", [a]), prod.text("cd", [b])]),
+    ]);
+    expect(findMarkRange(doc.resolve(1), prod.marks.link)).toEqual({ from: 1, to: 3 });
+    expect(findMarkRange(doc.resolve(4), prod.marks.link)).toEqual({ from: 3, to: 5 });
   });
 });

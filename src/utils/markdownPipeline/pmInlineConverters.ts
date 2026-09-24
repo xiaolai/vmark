@@ -98,6 +98,15 @@ export function textToInlineItems(node: PMNode): InlineItem[] {
   return [{ content, marks: factorableMarks(node.marks) }];
 }
 
+/**
+ * An inline image as a groupable item: it carries its own marks, so a link or
+ * emphasis around it is written back (`[![a](p.png)](A.md)`), shared with
+ * neighbouring text where the marks are the same.
+ */
+export function imageToInlineItem(node: PMNode): InlineItem {
+  return { content: convertImage(node), marks: factorableMarks(node.marks) };
+}
+
 /** Length of the run of items starting at `start` that all carry `mark`. */
 function markRunLength(
   items: readonly InlineItem[],

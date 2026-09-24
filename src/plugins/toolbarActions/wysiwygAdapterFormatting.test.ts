@@ -58,7 +58,7 @@ describe("clearFormattingInView — MultiSelection branch (line 29)", () => {
     const tr = { removeMark, docChanged: true };
 
     const nodesBetween = vi.fn((_from: number, _to: number, cb: (node: Record<string, unknown>, pos: number) => void) => {
-      cb({ isText: true, marks, text: "hello", nodeSize: 5 }, 5);
+      cb({ isText: true, isInline: true, marks, text: "hello", nodeSize: 5 }, 5);
     });
 
     // Build a selection that is instanceof MockMultiSelection (the mocked class)
@@ -107,7 +107,7 @@ describe("clearFormattingInView", () => {
 
     const nodesBetween = vi.fn((_from: number, _to: number, cb: (node: Record<string, unknown>, pos: number) => void) => {
       if (!empty) {
-        cb({ isText: true, marks, text: "hello", nodeSize: 5 }, 10);
+        cb({ isText: true, isInline: true, marks, text: "hello", nodeSize: 5 }, 10);
       }
     });
 
@@ -157,7 +157,7 @@ describe("clearFormattingInView", () => {
         },
         doc: {
           nodesBetween: vi.fn((_from: number, _to: number, cb: (node: Record<string, unknown>, pos: number) => void) => {
-            cb({ isText: true, marks: [], text: "hello", nodeSize: 5 }, 10);
+            cb({ isText: true, isInline: true, marks: [], text: "hello", nodeSize: 5 }, 10);
           }),
         },
         tr,

@@ -35,8 +35,8 @@ export function findAnyMarkRangeAtCursor(
     const from = parentStart + childOffset;
     const to = from + child.nodeSize;
 
-    // Check if cursor is in this text node
-    if (pos >= from && pos <= to && child.isText && child.marks.length > 0) {
+    // Check if cursor is in this inline node — text, or a marked image (#1448)
+    if (pos >= from && pos <= to && child.isInline && child.marks.length > 0) {
       // Find ranges for each mark and pick the smallest
       for (const mark of child.marks) {
         const markRange = findMarkRange(pos, mark, parentStart, parent);
@@ -103,7 +103,9 @@ export function findMarkRange(
     const childFrom = parentStart + childOffset;
     const childTo = childFrom + child.nodeSize;
 
-    if (child.isText && mark.isInSet(child.marks)) {
+    // Any inline node carrying the mark extends the run — a linked image inside
+    // a link is part of it, not a gap (#1448).
+    if (child.isInline && mark.isInSet(child.marks)) {
       // Extend current range
       /* v8 ignore next -- @preserve reason: multi-node mark continuation not exercised in tests */
       if (currentFrom === -1) {

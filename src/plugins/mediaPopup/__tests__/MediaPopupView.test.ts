@@ -248,7 +248,7 @@ function createMockView(editorDom: HTMLElement, nodeType = "block_video") {
         nodeAt: vi.fn(() => ({
           type: { name: nodeType },
           attrs: { src: "", alt: "", title: "", poster: "" },
-          nodeSize: 1,
+          nodeSize: 1, marks: [],
         })),
       },
       schema: {
@@ -1043,7 +1043,7 @@ describe("MediaPopupView", () => {
       view.state.doc.nodeAt = vi.fn(() => ({
         type: { name: "paragraph" },
         attrs: {},
-        nodeSize: 5,
+        nodeSize: 5, marks: [],
       }));
 
       const srcInput = dom.container.querySelector(".media-popup-src") as HTMLInputElement;
@@ -1228,7 +1228,7 @@ describe("MediaPopupView", () => {
       view.state.doc.nodeAt = vi.fn(() => ({
         type: { name: "paragraph" },
         attrs: {},
-        nodeSize: 5,
+        nodeSize: 5, marks: [],
       }));
       emitStateChange({
         isOpen: true,
@@ -1293,7 +1293,7 @@ describe("MediaPopupView", () => {
       view.state.doc.nodeAt = vi.fn(() => ({
         type: { name: "paragraph" },
         attrs: {},
-        nodeSize: 5,
+        nodeSize: 5, marks: [],
       }));
       emitStateChange({
         isOpen: true,
