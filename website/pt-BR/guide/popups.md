@@ -12,29 +12,23 @@ Todos os popups compartilham estes comportamentos de teclado:
 | Confirmar/Salvar | `Enter` |
 | Navegar campos | `Tab` / `Shift + Tab` |
 
-## Dica e Popup de Link
+## Popup de Link
 
-O VMark usa um sistema de dois níveis para links: uma dica somente leitura ao passar o mouse, e um popup de edição via atalho de teclado.
-
-### Dica ao Passar o Mouse (Somente Leitura)
-
-**Ativação:** Passar o mouse sobre o link (atraso de 300ms)
-
-**Mostra:**
-- **Prévia da URL** — URL truncada com URL completa ao passar o mouse
-- **Botão Abrir** — Abre o link no navegador (ou vai para o título para `#favoritos`)
-
-**Comportamento:** Somente visualização. Afaste o mouse para dispensar.
+Clicar em um link mostra seu popup de edição. O cursor permanece onde você clicou, então você pode continuar editando o texto do link — digitar, `Backspace` e copiar/colar atuam no documento. O popup fecha assim que você edita o texto ou move o cursor para fora do link.
 
 ### Editar Link Existente
 
-**Ativação:** Posicionar cursor no link + `Mod + K`
+**Ativação:** Clicar em um link, ou posicionar o cursor no link + `Mod + K`
+
+Um clique mantém o teclado no documento; clique no campo URL para editar o destino. `Mod + K` move o foco diretamente para o campo URL.
 
 **Campos:**
 - **URL** — Editar o destino do link
 - **Abrir** — Abrir link no navegador
 - **Copiar** — Copiar URL para a área de transferência
 - **Excluir** — Remover link, manter texto
+
+**Abrir sem o popup:** `Cmd + Clique` (`Ctrl + Clique` no Windows/Linux) em um link abre o destino diretamente.
 
 ### Criar Novo Link
 
@@ -49,12 +43,16 @@ O VMark usa um sistema de dois níveis para links: uma dica somente leitura ao p
 
 ### Modo Fonte
 
-- **`Cmd + Clique`** no link → abre no navegador
-- **Clique** na sintaxe `[texto](url)` → mostra popup de edição
-- **`Mod + K`** dentro do link → mostra popup de edição
+- **`Cmd + Clique`** (`Ctrl + Clique` no Windows/Linux) no link → URLs externas abrem no navegador, links `#favorito` vão para o título e caminhos de arquivos locais abrem o arquivo em uma nova aba
+- **Clique** na sintaxe `[texto](url)` → mostra popup de edição; o cursor permanece no markdown para você continuar digitando
+- **`Mod + K`** dentro do link → mostra popup de edição com o foco no campo URL
 
 ::: tip Links de Favorito
 Links que começam com `#` são tratados como favoritos (links de títulos internos). Abrir vai para o título em vez de abrir um navegador.
+:::
+
+::: tip Links Entre Arquivos
+Links que apontam para arquivos locais abrem o arquivo de destino em uma nova aba, indo para o título quando o link tem um `#fragment`. Caminhos relativos como `../appendix/cards.md` ou `./notes.md` são resolvidos a partir do diretório do documento atual. Caminhos absolutos — `/Users/me/notes/a.md` no macOS/Linux, `C:\notes\a.md` no Windows — abrem exatamente o arquivo indicado. Caminhos de rede (`\\server\share\…`) não são abertos a partir de links. Se o documento não tiver título, apenas caminhos absolutos podem ser abertos.
 :::
 
 ## Popup de Mídia (Imagens, Vídeo, Áudio)
@@ -76,7 +74,7 @@ Um popup unificado para editar todos os tipos de mídia — imagens, vídeo e á
 | Título | — | Sim | Sim |
 | Pôster | — | Sim | — |
 | Dimensões | Somente leitura | — | — |
-| Alternância Inline/Bloco | Sim | — | — |
+| Alternância Inline/Bloco | Sim (exceto imagens com link) | — | — |
 
 **Botões:**
 - **Navegar** — Escolher arquivo do sistema de arquivos
@@ -201,7 +199,7 @@ Corrija erros de ortografia com sugestões.
 
 | Elemento | Edição WYSIWYG | Fonte |
 |----------|----------------|-------|
-| Link | Dica ao passar / `Mod+K` | Clique / `Mod+K` / `Cmd+Clique` para abrir |
+| Link | Clique / `Mod+K` / `Cmd+Clique` para abrir | Clique / `Mod+K` / `Cmd+Clique` para abrir |
 | Imagem | Duplo clique | Clique em `![](caminho)` |
 | Vídeo | Duplo clique | — |
 | Áudio | Duplo clique | — |
@@ -226,7 +224,7 @@ Corrija erros de ortografia com sugestões.
 
 ### Comportamento do Mouse
 - Clique fora do popup para fechar (as alterações são descartadas)
-- Popups de hover (link, rodapé, wiki) têm atraso de 300ms antes de aparecerem
+- Popups de hover (rodapé, wiki) têm atraso de 300ms antes de aparecerem
 - Mover o mouse de volta para o popup mantém-no aberto
 
 <!-- Styles in style.css -->

@@ -12,29 +12,23 @@ All popups share these keyboard behaviors:
 | Confirm/Save | `Enter` |
 | Navigate fields | `Tab` / `Shift + Tab` |
 
-## Link Tooltip & Popup
+## Link Popup
 
-VMark uses a two-tier system for links: a read-only tooltip on hover, and an edit popup via keyboard shortcut.
-
-### Hover Tooltip (Read-Only)
-
-**Trigger:** Hover over link (300ms delay)
-
-**Shows:**
-- **URL preview** — Truncated URL with full URL on hover
-- **Open button** — Opens link in browser (or jumps to heading for `#bookmarks`)
-
-**Behavior:** View-only. Move mouse away to dismiss.
+Clicking a link shows its edit popup. The caret stays where you clicked, so you can keep editing the link text — typing, `Backspace`, and copy/paste all act on the document. The popup closes as soon as you edit the text or move the caret off the link.
 
 ### Edit Existing Link
 
-**Trigger:** Place cursor in link + `Mod + K`
+**Trigger:** Click a link, or place the cursor in a link + `Mod + K`
+
+A click leaves the keyboard in the document; click the URL field to edit the destination. `Mod + K` moves focus straight into the URL field.
 
 **Fields:**
 - **URL** — Edit the link destination
 - **Open target** — Opens an external URL in the browser, jumps to the heading for `#bookmark` links, or opens a local file in a new tab for cross-file links
 - **Copy** — Copy URL to clipboard
 - **Delete** — Remove link, keep text
+
+**Open without the popup:** `Cmd + Click` (`Ctrl + Click` on Windows/Linux) on a link opens its target directly.
 
 ### Create New Link
 
@@ -49,16 +43,16 @@ VMark uses a two-tier system for links: a read-only tooltip on hover, and an edi
 
 ### Source Mode
 
-- **`Cmd + Click`** on link → external URLs open in the browser, `#bookmark` links jump to the heading, and local file paths open the file in a new tab
-- **Click** on `[text](url)` syntax → shows edit popup
-- **`Mod + K`** inside link → shows edit popup
+- **`Cmd + Click`** (`Ctrl + Click` on Windows/Linux) on link → external URLs open in the browser, `#bookmark` links jump to the heading, and local file paths open the file in a new tab
+- **Click** on `[text](url)` syntax → shows edit popup; the caret stays in the markdown so you can keep typing
+- **`Mod + K`** inside link → shows edit popup with focus in the URL field
 
 ::: tip Bookmark Links
 Links starting with `#` are treated as bookmarks (internal heading links). Open jumps to the heading instead of opening a browser.
 :::
 
 ::: tip Cross-File Links
-Links pointing to local files — relative paths like `../appendix/cards.md` or `./notes.md`, including `#fragment` suffixes — open the target file in a new tab. Paths are resolved against the current document's directory; if the document is untitled, only absolute paths can be opened. Fragment navigation inside the opened file is not yet supported — the file opens at its top.
+Links pointing to local files open the target file in a new tab, landing on the heading when the link carries a `#fragment`. Relative paths like `../appendix/cards.md` or `./notes.md` are resolved against the current document's directory. Absolute paths — `/Users/me/notes/a.md` on macOS/Linux, `C:\notes\a.md` on Windows — open exactly the file they name. Network paths (`\\server\share\…`) are not opened from links. If the document is untitled, only absolute paths can be opened.
 :::
 
 ## Heading Picker (Bookmark Links)
@@ -91,7 +85,7 @@ A unified popup for editing all media types — images, video, and audio.
 | Title | — | Yes | Yes |
 | Poster | — | Yes | — |
 | Dimensions | Read-only | — | — |
-| Inline/Block toggle | Yes | — | — |
+| Inline/Block toggle | Yes (not for linked images) | — | — |
 
 **Buttons:**
 - **Browse** — Pick file from filesystem
@@ -221,7 +215,7 @@ In WYSIWYG mode you can move a selection with the mouse: press on the selected t
 
 | Element | WYSIWYG Edit | Source |
 |---------|--------------|--------|
-| Link | Hover tooltip / `Mod+K` | Click / `Mod+K` / `Cmd+Click` to open |
+| Link | Click / `Mod+K` / `Cmd+Click` to open | Click / `Mod+K` / `Cmd+Click` to open |
 | Image | Double-click | Click on `![](path)` |
 | Video | Double-click | — |
 | Audio | Double-click | — |
@@ -248,7 +242,7 @@ In WYSIWYG mode you can move a selection with the mouse: press on the selected t
 - Click outside popup to close. Default behavior is **discard** unsaved
   changes; the math popup is an exception and **commits** the edit on
   click-outside (see the [Math Popup](#math-popup) section).
-- Hover popups (link, footnote, wiki) have 300ms delay before showing
+- Hover popups (footnote, wiki) have 300ms delay before showing
 - Moving mouse back to popup keeps it open
 
 <!-- Styles in style.css -->

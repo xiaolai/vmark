@@ -12,29 +12,23 @@ Tutti i popup condividono questi comportamenti da tastiera:
 | Conferma/Salva | `Invio` |
 | Naviga tra i campi | `Tab` / `Shift + Tab` |
 
-## Tooltip e Popup dei Collegamenti
+## Popup dei Collegamenti
 
-VMark usa un sistema a due livelli per i collegamenti: un tooltip di sola lettura al passaggio del mouse e un popup di modifica tramite scorciatoia da tastiera.
-
-### Tooltip al Passaggio del Mouse (Sola Lettura)
-
-**Attivazione:** Passa il mouse sul collegamento (ritardo di 300ms)
-
-**Mostra:**
-- **Anteprima URL** — URL troncato con URL completo al passaggio
-- **Pulsante Apri** — Apre il collegamento nel browser (o salta all'intestazione per i `#segnalibri`)
-
-**Comportamento:** Solo visualizzazione. Allontana il mouse per chiuderlo.
+Facendo clic su un collegamento si apre il suo popup di modifica. Il cursore resta dove hai fatto clic, quindi puoi continuare a modificare il testo del collegamento — digitazione, `Backspace` e copia/incolla agiscono tutti sul documento. Il popup si chiude non appena modifichi il testo o sposti il cursore fuori dal collegamento.
 
 ### Modifica Collegamento Esistente
 
-**Attivazione:** Posiziona il cursore nel collegamento + `Mod + K`
+**Attivazione:** Fai clic su un collegamento, oppure posiziona il cursore nel collegamento + `Mod + K`
+
+Un clic lascia la tastiera nel documento; fai clic sul campo URL per modificare la destinazione. `Mod + K` sposta il focus direttamente nel campo URL.
 
 **Campi:**
 - **URL** — Modifica la destinazione del collegamento
 - **Apri** — Apri il collegamento nel browser
 - **Copia** — Copia l'URL negli appunti
 - **Elimina** — Rimuovi il collegamento, mantieni il testo
+
+**Apri senza il popup:** `Cmd + Clic` (`Ctrl + Clic` su Windows/Linux) su un collegamento ne apre direttamente la destinazione.
 
 ### Crea Nuovo Collegamento
 
@@ -49,12 +43,16 @@ VMark usa un sistema a due livelli per i collegamenti: un tooltip di sola lettur
 
 ### Modalità Sorgente
 
-- **`Cmd + Clic`** su collegamento → apre nel browser
-- **Clic** sulla sintassi `[testo](url)` → mostra il popup di modifica
-- **`Mod + K`** all'interno del collegamento → mostra il popup di modifica
+- **`Cmd + Clic`** (`Ctrl + Clic` su Windows/Linux) su collegamento → gli URL esterni si aprono nel browser, i collegamenti `#segnalibro` saltano all'intestazione e i percorsi di file locali aprono il file in una nuova scheda
+- **Clic** sulla sintassi `[testo](url)` → mostra il popup di modifica; il cursore resta nel markdown così puoi continuare a scrivere
+- **`Mod + K`** all'interno del collegamento → mostra il popup di modifica con il focus nel campo URL
 
 ::: tip Collegamento Segnalibro
 I collegamenti che iniziano con `#` vengono trattati come segnalibri (collegamenti interni all'intestazione). L'apertura salta all'intestazione invece di aprire un browser.
+:::
+
+::: tip Collegamenti tra File
+I collegamenti che puntano a file locali aprono il file di destinazione in una nuova scheda, posizionandosi sull'intestazione quando il collegamento contiene un `#fragment`. I percorsi relativi come `../appendix/cards.md` o `./notes.md` vengono risolti rispetto alla cartella del documento corrente. I percorsi assoluti — `/Users/me/notes/a.md` su macOS/Linux, `C:\notes\a.md` su Windows — aprono esattamente il file indicato. I percorsi di rete (`\\server\share\…`) non vengono aperti dai collegamenti. Se il documento è senza titolo, è possibile aprire solo percorsi assoluti.
 :::
 
 ## Popup Media (Immagini, Video, Audio)
@@ -76,7 +74,7 @@ Un popup unificato per la modifica di tutti i tipi di media — immagini, video 
 | Titolo | — | Sì | Sì |
 | Poster | — | Sì | — |
 | Dimensioni | Sola lettura | — | — |
-| Attiva/disattiva Inline/Blocco | Sì | — | — |
+| Attiva/disattiva Inline/Blocco | Sì (non per immagini collegate) | — | — |
 
 **Pulsanti:**
 - **Sfoglia** — Scegli il file dal filesystem
@@ -201,7 +199,7 @@ Correggi gli errori di ortografia con suggerimenti.
 
 | Elemento | Modifica WYSIWYG | Sorgente |
 |----------|-----------------|---------|
-| Collegamento | Tooltip al passaggio / `Mod+K` | Clic / `Mod+K` / `Cmd+Clic` per aprire |
+| Collegamento | Clic / `Mod+K` / `Cmd+Clic` per aprire | Clic / `Mod+K` / `Cmd+Clic` per aprire |
 | Immagine | Doppio clic | Clic su `![](path)` |
 | Video | Doppio clic | — |
 | Audio | Doppio clic | — |
@@ -226,7 +224,7 @@ Correggi gli errori di ortografia con suggerimenti.
 
 ### Comportamento del Mouse
 - Fai clic fuori dal popup per chiudere (le modifiche vengono scartate)
-- I popup al passaggio del mouse (collegamento, nota, wiki) hanno un ritardo di 300ms prima di essere mostrati
+- I popup al passaggio del mouse (nota, wiki) hanno un ritardo di 300ms prima di essere mostrati
 - Spostare il mouse di nuovo sul popup lo mantiene aperto
 
 <!-- Styles in style.css -->
