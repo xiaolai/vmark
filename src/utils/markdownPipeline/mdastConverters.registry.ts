@@ -88,7 +88,7 @@ const ENTRIES: ReadonlyArray<[string, string, (a: A) => MdastToPmResult]> = [
   ["delete", "vmark.strike", (a) => inlineConverters.convertDelete(a.schema, a.node as any, a.marks, a.convertInlineChildren)],
   ["inlineCode", "vmark.code", (a) => inlineConverters.convertInlineCode(a.schema, a.node as any, a.marks)],
   ["link", "vmark.link", (a) => inlineConverters.convertLink(a.schema, a.node as any, a.marks, a.convertInlineChildren)],
-  ["image", "vmark.imageView", (a) => inlineConverters.convertImage(a.schema, a.node as any)],
+  ["image", "vmark.imageView", (a) => inlineConverters.convertImage(a.schema, a.node as any, a.marks)],
   ["break", "vmark.hardBreak", (a) => inlineConverters.convertBreak(a.schema)],
   ["subscript", "vmark.subSuperscript.sub", (a) => inlineConverters.convertSubscript(a.schema, a.node as any, a.marks, a.convertInlineChildren)],
   ["superscript", "vmark.subSuperscript.super", (a) => inlineConverters.convertSuperscript(a.schema, a.node as any, a.marks, a.convertInlineChildren)],

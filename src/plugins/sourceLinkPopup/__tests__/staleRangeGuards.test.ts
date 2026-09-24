@@ -281,3 +281,21 @@ describe("double save without changes", () => {
     expect(v.state.doc.toString()).toBe("before [text](new) after");
   });
 });
+
+// #1448 — a click-opened popup leaves the caret in the markdown, so the user
+// can arrow straight into a NEIGHBOURING link. The popup (and its Open/Delete)
+// still pointed at the first link while the caret sat in the second.
+describe("caret moves to a different link while the popup is open", () => {
+  it("closes the popup rather than keep acting on the previous link", () => {
+    const doc = "[a](A.md)[b](B.md)";
+    const v = createView(doc, true);
+    openPopupOn(doc, "[a](A.md)", "A.md");
+
+    v.dispatch({ selection: { anchor: 4 } }); // still inside [a](A.md)
+    expect(useLinkPopupStore.getState().isOpen).toBe(true);
+
+    v.dispatch({ selection: { anchor: 11 } }); // inside [b](B.md)
+    expect(useLinkPopupStore.getState().isOpen).toBe(false);
+  });
+});
+

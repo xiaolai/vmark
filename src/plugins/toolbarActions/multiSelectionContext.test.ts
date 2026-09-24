@@ -526,6 +526,24 @@ describe("getWysiwygMultiSelectionContext", () => {
     expect(result.inLink).toBe(true);
   });
 
+  it("detects inLink when the only linked node in range is an image (#1448)", () => {
+    const ranges = [createMockRange("paragraph"), createMockRange("paragraph")];
+    const selection = new MultiSelection(ranges as unknown as ConstructorParameters<typeof MultiSelection>[0]);
+    const mockView = {
+      state: {
+        selection,
+        doc: {
+          nodesBetween: vi.fn((_from: number, _to: number, callback: (node: unknown) => boolean | void) => {
+            callback({ isText: false, isInline: true, marks: [{ type: { name: "link" } }], type: { name: "image" } });
+          }),
+          resolve: vi.fn(() => ({ marks: () => [] })),
+        },
+      },
+    } as unknown as import("@tiptap/pm/view").EditorView;
+
+    expect(getWysiwygMultiSelectionContext(mockView).inLink).toBe(true);
+  });
+
   it("detects inImage when nodesBetween finds image node", () => {
     const range1 = createMockRange("paragraph");
     const range2 = createMockRange("paragraph");

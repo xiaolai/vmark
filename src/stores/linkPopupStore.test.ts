@@ -174,4 +174,18 @@ describe("linkPopupStore — T09 revert contract pins", () => {
       expect(dataOf(useLinkPopupStore.getState())).toEqual(initialData);
     });
   });
+
+  // #1448 — a click must open the popup without taking the keyboard from the
+  // document; an explicit edit (Cmd+K, context menu) still focuses the URL.
+  it("focuses the URL by default and records a pointer open's opt-out", () => {
+    const store = useLinkPopupStore.getState();
+    store.openPopup({ href: "a.md", linkFrom: 1, linkTo: 2, anchorRect: rect });
+    expect(useLinkPopupStore.getState().autoFocus).toBe(true);
+
+    store.openPopup({ href: "a.md", linkFrom: 1, linkTo: 2, anchorRect: rect, autoFocus: false });
+    expect(useLinkPopupStore.getState().autoFocus).toBe(false);
+
+    store.closePopup();
+    expect(useLinkPopupStore.getState().autoFocus).toBe(true);
+  });
 });

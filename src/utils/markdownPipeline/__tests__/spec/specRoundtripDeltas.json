@@ -841,46 +841,6 @@
       "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct — URL included — is dropped on serialize. Honest, pinned data loss."
     },
     {
-      "exampleId": "cm-517",
-      "path": "root.children[0].children[0]",
-      "kind": "type",
-      "detail": "link vs image",
-      "inputValue": "link",
-      "outputValue": "image",
-      "verdict": "defect",
-      "reason": "Bracket-escape growth (ruler's eyes): escape-heavy link/reference brackets gain escapes across the roundtrip and stock remark reads a different inline shape than the input. Fixable corruption; ratcheted."
-    },
-    {
-      "exampleId": "cm-517",
-      "path": "root.children[0].children[0].children[0]",
-      "kind": "missing",
-      "detail": "absent in source-position",
-      "inputValue": "image",
-      "outputValue": "__undefined__",
-      "verdict": "defect",
-      "reason": "Bracket-escape growth (ruler's eyes): escape-heavy link/reference brackets gain escapes across the roundtrip and stock remark reads a different inline shape than the input. Fixable corruption; ratcheted."
-    },
-    {
-      "exampleId": "cm-531",
-      "path": "root.children[0].children[0]",
-      "kind": "type",
-      "detail": "linkReference vs image",
-      "inputValue": "linkReference",
-      "outputValue": "image",
-      "verdict": "normalization",
-      "reason": "Reference flattening through the ruler's eyes: VMark resolves reference links/images at parse and serializes the DIRECT form, so stock remark reads linkReference/imageReference in the input and link/image in the output. Rendered document identical; reference spelling not preserved."
-    },
-    {
-      "exampleId": "cm-531",
-      "path": "root.children[0].children[0].children[0]",
-      "kind": "missing",
-      "detail": "absent in source-position",
-      "inputValue": "image",
-      "outputValue": "__undefined__",
-      "verdict": "defect",
-      "reason": "Bracket-escape growth (ruler's eyes): escape-heavy link/reference brackets gain escapes across the roundtrip and stock remark reads a different inline shape than the input. Fixable corruption; ratcheted."
-    },
-    {
       "exampleId": "cm-564",
       "path": "root.children[1].children[1]",
       "kind": "attribute",
@@ -3729,46 +3689,6 @@
       "outputValue": "__undefined__",
       "verdict": "model-limit",
       "reason": "Empty-text link: ProseMirror represents links as marks on text, so a link with no text has nothing to carry the mark and the whole construct — URL included — is dropped on serialize. Honest, pinned data loss."
-    },
-    {
-      "exampleId": "cm-517",
-      "path": "root.children[0].children[0]",
-      "kind": "type",
-      "detail": "link vs image",
-      "inputValue": "link",
-      "outputValue": "image",
-      "verdict": "defect",
-      "reason": "Bracket-escape growth (fidelity side): nested/escape-heavy link brackets gain escapes across the roundtrip and the re-parse reads a different inline shape than the input. Same family as this example's stability oscillation; fixable corruption, ratcheted."
-    },
-    {
-      "exampleId": "cm-517",
-      "path": "root.children[0].children[0].children[0]",
-      "kind": "missing",
-      "detail": "absent in source-position",
-      "inputValue": "image",
-      "outputValue": "__undefined__",
-      "verdict": "defect",
-      "reason": "Bracket-escape growth (fidelity side): nested/escape-heavy link brackets gain escapes across the roundtrip and the re-parse reads a different inline shape than the input. Same family as this example's stability oscillation; fixable corruption, ratcheted."
-    },
-    {
-      "exampleId": "cm-531",
-      "path": "root.children[0].children[0]",
-      "kind": "type",
-      "detail": "link vs image",
-      "inputValue": "link",
-      "outputValue": "image",
-      "verdict": "defect",
-      "reason": "Bracket-escape growth (fidelity side): nested/escape-heavy link brackets gain escapes across the roundtrip and the re-parse reads a different inline shape than the input. Same family as this example's stability oscillation; fixable corruption, ratcheted."
-    },
-    {
-      "exampleId": "cm-531",
-      "path": "root.children[0].children[0].children[0]",
-      "kind": "missing",
-      "detail": "absent in source-position",
-      "inputValue": "image",
-      "outputValue": "__undefined__",
-      "verdict": "defect",
-      "reason": "Bracket-escape growth (fidelity side): nested/escape-heavy link brackets gain escapes across the roundtrip and the re-parse reads a different inline shape than the input. Same family as this example's stability oscillation; fixable corruption, ratcheted."
     },
     {
       "exampleId": "cm-638",

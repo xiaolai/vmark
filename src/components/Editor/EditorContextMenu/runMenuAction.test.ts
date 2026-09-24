@@ -112,7 +112,7 @@ describe("runEditorMenuItem", () => {
           nodesBetween: (from: number, to: number, cb: (node: unknown, pos: number) => boolean) => {
             const start = Math.max(from, nodeFrom);
             if (start < Math.min(to, nodeTo)) {
-              cb({ isText: true, marks, nodeSize: nodeTo - nodeFrom }, nodeFrom);
+              cb({ isText: true, isInline: true, marks, nodeSize: nodeTo - nodeFrom }, nodeFrom);
             }
           },
         },

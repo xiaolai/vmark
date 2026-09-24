@@ -163,7 +163,6 @@
   "src/plugins/latex/tiptapInlineMath.test.ts": 11,
   "src/plugins/linkCreatePopup/__tests__/LinkCreatePopupView.test.ts": 9,
   "src/plugins/linkPopup/__tests__/LinkPopupView.test.ts": 1,
-  "src/plugins/linkPopup/operations.test.ts": 1,
   "src/plugins/linkPopup/tiptap.test.ts": 14,
   "src/plugins/lint/tiptap.test.ts": 4,
   "src/plugins/listClickFix/tiptap.test.ts": 1,

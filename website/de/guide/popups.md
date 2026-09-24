@@ -12,29 +12,23 @@ Alle Popups teilen dieses Tastaturverhalten:
 | Bestätigen/Speichern | `Eingabe` |
 | Felder navigieren | `Tab` / `Umschalt + Tab` |
 
-## Link-Tooltip & Popup
+## Link-Popup
 
-VMark verwendet ein zweistufiges System für Links: ein Nur-Lese-Tooltip beim Hovern und ein Bearbeitungs-Popup über Tastaturkürzel.
-
-### Hover-Tooltip (Nur-Lese)
-
-**Auslöser:** Über Link hovern (300ms Verzögerung)
-
-**Zeigt:**
-- **URL-Vorschau** — Gekürzte URL mit vollständiger URL beim Hovern
-- **Öffnen-Schaltfläche** — Öffnet Link im Browser (oder springt zur Überschrift bei `#Lesezeichen`)
-
-**Verhalten:** Nur anzeigen. Maus wegbewegen zum Schließen.
+Ein Klick auf einen Link zeigt sein Bearbeitungs-Popup. Der Cursor bleibt dort, wo Sie geklickt haben, sodass Sie den Linktext weiter bearbeiten können — Tippen, `Backspace` und Kopieren/Einfügen wirken alle auf das Dokument. Das Popup schließt sich, sobald Sie den Text bearbeiten oder den Cursor aus dem Link bewegen.
 
 ### Bestehenden Link bearbeiten
 
-**Auslöser:** Cursor im Link platzieren + `Mod + K`
+**Auslöser:** Auf einen Link klicken oder Cursor im Link platzieren + `Mod + K`
+
+Nach einem Klick bleibt die Tastatur im Dokument; klicken Sie in das URL-Feld, um das Ziel zu bearbeiten. `Mod + K` setzt den Fokus direkt in das URL-Feld.
 
 **Felder:**
 - **URL** — Link-Ziel bearbeiten
 - **Öffnen** — Link im Browser öffnen
 - **Kopieren** — URL in die Zwischenablage kopieren
 - **Löschen** — Link entfernen, Text behalten
+
+**Ohne Popup öffnen:** `Cmd + Klick` (`Strg + Klick` unter Windows/Linux) auf einen Link öffnet sein Ziel direkt.
 
 ### Neuen Link erstellen
 
@@ -49,12 +43,16 @@ VMark verwendet ein zweistufiges System für Links: ein Nur-Lese-Tooltip beim Ho
 
 ### Quellmodus
 
-- **`Cmd + Klick`** auf Link → im Browser öffnen
-- **Klick** auf `[Text](url)`-Syntax → Bearbeitungs-Popup anzeigen
-- **`Mod + K`** innerhalb Link → Bearbeitungs-Popup anzeigen
+- **`Cmd + Klick`** (`Strg + Klick` unter Windows/Linux) auf Link → externe URLs öffnen im Browser, `#Lesezeichen`-Links springen zur Überschrift, und lokale Dateipfade öffnen die Datei in einem neuen Tab
+- **Klick** auf `[Text](url)`-Syntax → Bearbeitungs-Popup anzeigen; der Cursor bleibt im Markdown, sodass Sie weitertippen können
+- **`Mod + K`** innerhalb Link → Bearbeitungs-Popup mit Fokus im URL-Feld anzeigen
 
 ::: tip Lesezeichen-Links
 Links, die mit `#` beginnen, werden als Lesezeichen (interne Überschriften-Links) behandelt. Öffnen springt zur Überschrift anstatt einen Browser zu öffnen.
+:::
+
+::: tip Dateiübergreifende Links
+Links auf lokale Dateien öffnen die Zieldatei in einem neuen Tab und springen zur Überschrift, wenn der Link ein `#fragment` enthält. Relative Pfade wie `../appendix/cards.md` oder `./notes.md` werden relativ zum Verzeichnis des aktuellen Dokuments aufgelöst. Absolute Pfade — `/Users/me/notes/a.md` unter macOS/Linux, `C:\notes\a.md` unter Windows — öffnen genau die Datei, die sie benennen. Netzwerkpfade (`\\server\share\…`) werden aus Links nicht geöffnet. Ist das Dokument unbenannt, können nur absolute Pfade geöffnet werden.
 :::
 
 ## Medien-Popup (Bilder, Video, Audio)
@@ -76,7 +74,7 @@ Ein einheitliches Popup zum Bearbeiten aller Medientypen — Bilder, Video und A
 | Titel | — | Ja | Ja |
 | Poster | — | Ja | — |
 | Abmessungen | Nur-Lese | — | — |
-| Inline/Block-Umschalter | Ja | — | — |
+| Inline/Block-Umschalter | Ja (nicht für verlinkte Bilder) | — | — |
 
 **Schaltflächen:**
 - **Durchsuchen** — Datei aus dem Dateisystem auswählen
@@ -201,7 +199,7 @@ Rechtschreibfehler mit Vorschlägen korrigieren.
 
 | Element | WYSIWYG-Bearbeitung | Quelle |
 |---------|---------------------|--------|
-| Link | Hover-Tooltip / `Mod+K` | Klick / `Mod+K` / `Cmd+Klick` zum Öffnen |
+| Link | Klick / `Mod+K` / `Cmd+Klick` zum Öffnen | Klick / `Mod+K` / `Cmd+Klick` zum Öffnen |
 | Bild | Doppelklick | Klick auf `![](pfad)` |
 | Video | Doppelklick | — |
 | Audio | Doppelklick | — |
@@ -226,7 +224,7 @@ Rechtschreibfehler mit Vorschlägen korrigieren.
 
 ### Mausverhalten
 - Außerhalb des Popups klicken zum Schließen (Änderungen werden verworfen)
-- Hover-Popups (Link, Fußnote, Wiki) haben 300ms Verzögerung vor dem Anzeigen
+- Hover-Popups (Fußnote, Wiki) haben 300ms Verzögerung vor dem Anzeigen
 - Maus zurück zum Popup bewegen hält es offen
 
 <!-- Styles in style.css -->

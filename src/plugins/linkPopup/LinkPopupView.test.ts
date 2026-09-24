@@ -152,6 +152,7 @@ let storeState = {
   href: HREF,
   linkFrom: 1,
   linkTo: 5,
+  autoFocus: true as boolean,
   closePopup: mockClosePopup,
   setHref: mockSetHref,
 };
@@ -221,6 +222,7 @@ describe("LinkPopupView", () => {
       href: HREF,
       linkFrom: 1,
       linkTo: 5,
+      autoFocus: true,
       closePopup: mockClosePopup,
       setHref: mockSetHref,
     };
@@ -721,6 +723,27 @@ describe("LinkPopupView", () => {
 
     expect(focusSpy).not.toHaveBeenCalled();
 
+    popup.destroy();
+  });
+
+  // #1448 — a click on a link must leave the keyboard in the document, or the
+  // next Backspace / paste lands in the popup's pre-selected URL instead.
+  it.each([
+    ["an explicit edit focuses the URL", [true], true],
+    ["a click leaves focus in the document", [false], false],
+    ["an explicit edit after a click takes focus", [false, true], true],
+    // Codex round 2: Cmd+K queued a focus frame, then a click on the SAME link
+    // (no range change, so no re-show) must still keep the keyboard.
+    ["a click right after an explicit edit keeps focus in the document", [true, false], false],
+  ])("%s", async (_label, autoFocusSteps, expectFocused) => {
+    const popup = new LinkPopupView(view as never, mockStore as never);
+    const focusSpy = vi.spyOn(popup["input"] as HTMLInputElement, "focus");
+    for (const autoFocus of autoFocusSteps) {
+      triggerStore({ isOpen: true, anchorRect: ANCHOR, href: HREF, autoFocus });
+    }
+    for (let i = 0; i < 2; i++) await new Promise((r) => requestAnimationFrame(r));
+    expect(focusSpy.mock.calls.length > 0).toBe(expectFocused);
+    expect((popup["input"] as HTMLInputElement).value).toBe(HREF);
     popup.destroy();
   });
 

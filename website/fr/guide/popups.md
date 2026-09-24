@@ -12,29 +12,23 @@ Toutes les fenêtres contextuelles partagent ces comportements clavier :
 | Confirmer/Enregistrer | `Entrée` |
 | Naviguer entre les champs | `Tab` / `Shift + Tab` |
 
-## Infobulle et fenêtre contextuelle de lien
+## Fenêtre contextuelle de lien
 
-VMark utilise un système à deux niveaux pour les liens : une infobulle en lecture seule au survol, et une fenêtre contextuelle d'édition via raccourci clavier.
-
-### Infobulle au survol (lecture seule)
-
-**Déclencheur :** Survoler le lien (délai de 300ms)
-
-**Affiche :**
-- **Aperçu de l'URL** — URL tronquée avec URL complète au survol
-- **Bouton Ouvrir** — Ouvre le lien dans le navigateur (ou accède au titre pour les `#signets`)
-
-**Comportement :** Vue uniquement. Éloignez la souris pour fermer.
+Cliquer sur un lien affiche sa fenêtre contextuelle d'édition. Le curseur reste là où vous avez cliqué, vous pouvez donc continuer à modifier le texte du lien — la saisie, `Backspace` et le copier/coller agissent tous sur le document. La fenêtre contextuelle se ferme dès que vous modifiez le texte ou déplacez le curseur hors du lien.
 
 ### Modifier un lien existant
 
-**Déclencheur :** Placez le curseur dans un lien + `Mod + K`
+**Déclencheur :** Cliquez sur un lien, ou placez le curseur dans un lien + `Mod + K`
+
+Un clic laisse le clavier dans le document ; cliquez dans le champ URL pour modifier la destination. `Mod + K` place directement le focus dans le champ URL.
 
 **Champs :**
 - **URL** — Modifier la destination du lien
 - **Ouvrir** — Ouvrir le lien dans le navigateur
 - **Copier** — Copier l'URL dans le presse-papiers
 - **Supprimer** — Supprimer le lien, conserver le texte
+
+**Ouvrir sans la fenêtre contextuelle :** `Cmd + Clic` (`Ctrl + Clic` sous Windows/Linux) sur un lien ouvre directement sa cible.
 
 ### Créer un nouveau lien
 
@@ -49,12 +43,16 @@ VMark utilise un système à deux niveaux pour les liens : une infobulle en lect
 
 ### Mode Source
 
-- **`Cmd + Clic`** sur le lien → ouvre dans le navigateur
-- **Clic** sur la syntaxe `[texte](url)` → affiche la fenêtre contextuelle d'édition
-- **`Mod + K`** à l'intérieur du lien → affiche la fenêtre contextuelle d'édition
+- **`Cmd + Clic`** (`Ctrl + Clic` sous Windows/Linux) sur le lien → les URL externes s'ouvrent dans le navigateur, les liens `#signet` accèdent au titre, et les chemins de fichiers locaux ouvrent le fichier dans un nouvel onglet
+- **Clic** sur la syntaxe `[texte](url)` → affiche la fenêtre contextuelle d'édition ; le curseur reste dans le markdown pour que vous puissiez continuer à taper
+- **`Mod + K`** à l'intérieur du lien → affiche la fenêtre contextuelle d'édition avec le focus dans le champ URL
 
 ::: tip Liens signet
 Les liens commençant par `#` sont traités comme des signets (liens de titre internes). Ouvrir accède au titre au lieu d'ouvrir un navigateur.
+:::
+
+::: tip Liens entre fichiers
+Les liens pointant vers des fichiers locaux ouvrent le fichier cible dans un nouvel onglet, en se positionnant sur le titre lorsque le lien comporte un `#fragment`. Les chemins relatifs comme `../appendix/cards.md` ou `./notes.md` sont résolus par rapport au dossier du document actuel. Les chemins absolus — `/Users/me/notes/a.md` sous macOS/Linux, `C:\notes\a.md` sous Windows — ouvrent exactement le fichier qu'ils désignent. Les chemins réseau (`\\server\share\…`) ne sont pas ouverts depuis un lien. Si le document est sans titre, seuls les chemins absolus peuvent être ouverts.
 :::
 
 ## Fenêtre contextuelle multimédia (Images, Vidéo, Audio)
@@ -76,7 +74,7 @@ Une fenêtre contextuelle unifiée pour modifier tous les types de médias — i
 | Titre | — | Oui | Oui |
 | Couverture | — | Oui | — |
 | Dimensions | Lecture seule | — | — |
-| Basculer en ligne/bloc | Oui | — | — |
+| Basculer en ligne/bloc | Oui (sauf images liées) | — | — |
 
 **Boutons :**
 - **Parcourir** — Sélectionner un fichier depuis le système de fichiers
@@ -201,7 +199,7 @@ Corriger les erreurs orthographiques avec des suggestions.
 
 | Élément | Édition WYSIWYG | Source |
 |---------|-----------------|--------|
-| Lien | Infobulle au survol / `Mod+K` | Clic / `Mod+K` / `Cmd+Clic` pour ouvrir |
+| Lien | Clic / `Mod+K` / `Cmd+Clic` pour ouvrir | Clic / `Mod+K` / `Cmd+Clic` pour ouvrir |
 | Image | Double-clic | Clic sur `![](chemin)` |
 | Vidéo | Double-clic | — |
 | Audio | Double-clic | — |
@@ -226,7 +224,7 @@ Corriger les erreurs orthographiques avec des suggestions.
 
 ### Comportement de la souris
 - Cliquer en dehors de la fenêtre contextuelle pour fermer (les modifications sont ignorées)
-- Les fenêtres contextuelles au survol (lien, note de bas de page, wiki) ont un délai de 300ms avant l'affichage
+- Les fenêtres contextuelles au survol (note de bas de page, wiki) ont un délai de 300ms avant l'affichage
 - Ramener la souris vers la fenêtre contextuelle la maintient ouverte
 
 <!-- Styles in style.css -->

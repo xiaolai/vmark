@@ -92,7 +92,7 @@ function getInlineAtomFlags(view: TiptapEditorView, from: number, to: number) {
 function rangeHasLinkMark(view: TiptapEditorView, from: number, to: number): boolean {
   let found = false;
   view.state.doc.nodesBetween(from, to, (node) => {
-    if (node.isText && node.marks.some((mark) => mark.type.name === "link")) {
+    if (node.isInline && node.marks.some((mark) => mark.type.name === "link")) {
       found = true;
       return false;
     }

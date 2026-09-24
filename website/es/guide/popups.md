@@ -12,29 +12,23 @@ Todos los popups comparten estos comportamientos de teclado:
 | Confirmar/Guardar | `Enter` |
 | Navegar campos | `Tab` / `Shift + Tab` |
 
-## Tooltip y Popup de Enlace
+## Popup de Enlace
 
-VMark usa un sistema de dos niveles para los enlaces: un tooltip de solo lectura al pasar el ratón, y un popup de edición mediante atajo de teclado.
-
-### Tooltip al Pasar el Ratón (Solo Lectura)
-
-**Activación:** Pasa el ratón sobre el enlace (retraso de 300ms)
-
-**Muestra:**
-- **Vista previa de URL** — URL truncada con URL completa al pasar el ratón
-- **Botón Abrir** — Abre el enlace en el navegador (o salta al encabezado para `#marcadores`)
-
-**Comportamiento:** Solo lectura. Mueve el ratón para cerrar.
+Al hacer clic en un enlace se muestra su popup de edición. El cursor se queda donde hiciste clic, así que puedes seguir editando el texto del enlace — escribir, `Backspace` y copiar/pegar actúan sobre el documento. El popup se cierra en cuanto editas el texto o mueves el cursor fuera del enlace.
 
 ### Editar un Enlace Existente
 
-**Activación:** Coloca el cursor en el enlace + `Mod + K`
+**Activación:** Haz clic en un enlace, o coloca el cursor en un enlace + `Mod + K`
+
+Un clic deja el teclado en el documento; haz clic en el campo URL para editar el destino. `Mod + K` lleva el foco directamente al campo URL.
 
 **Campos:**
 - **URL** — Editar el destino del enlace
 - **Abrir** — Abre el enlace en el navegador
 - **Copiar** — Copia la URL al portapapeles
 - **Eliminar** — Elimina el enlace, conserva el texto
+
+**Abrir sin el popup:** `Cmd + Clic` (`Ctrl + Clic` en Windows/Linux) sobre un enlace abre su destino directamente.
 
 ### Crear un Nuevo Enlace
 
@@ -49,12 +43,16 @@ VMark usa un sistema de dos niveles para los enlaces: un tooltip de solo lectura
 
 ### Modo Fuente
 
-- **`Cmd + Clic`** en un enlace → abre en el navegador
-- **Clic** en la sintaxis `[texto](url)` → muestra el popup de edición
-- **`Mod + K`** dentro de un enlace → muestra el popup de edición
+- **`Cmd + Clic`** (`Ctrl + Clic` en Windows/Linux) en un enlace → las URL externas se abren en el navegador, los enlaces `#marcador` saltan al encabezado y las rutas de archivos locales abren el archivo en una nueva pestaña
+- **Clic** en la sintaxis `[texto](url)` → muestra el popup de edición; el cursor se queda en el markdown para que puedas seguir escribiendo
+- **`Mod + K`** dentro de un enlace → muestra el popup de edición con el foco en el campo URL
 
 ::: tip Enlace Marcador
 Los enlaces que comienzan con `#` se tratan como marcadores (enlaces internos de encabezado). Abrir salta al encabezado en lugar de abrir un navegador.
+:::
+
+::: tip Enlaces entre Archivos
+Los enlaces que apuntan a archivos locales abren el archivo de destino en una nueva pestaña, situándose en el encabezado cuando el enlace lleva un `#fragment`. Las rutas relativas como `../appendix/cards.md` o `./notes.md` se resuelven respecto al directorio del documento actual. Las rutas absolutas — `/Users/me/notes/a.md` en macOS/Linux, `C:\notes\a.md` en Windows — abren exactamente el archivo que indican. Las rutas de red (`\\server\share\…`) no se abren desde los enlaces. Si el documento no tiene título, solo se pueden abrir rutas absolutas.
 :::
 
 ## Popup de Medios (Imágenes, Vídeo, Audio)
@@ -76,7 +74,7 @@ Un popup unificado para editar todos los tipos de medios — imágenes, vídeo y
 | Título | — | Sí | Sí |
 | Portada | — | Sí | — |
 | Dimensiones | Solo lectura | — | — |
-| Alternar en línea/bloque | Sí | — | — |
+| Alternar en línea/bloque | Sí (no en imágenes enlazadas) | — | — |
 
 **Botones:**
 - **Examinar** — Selecciona un archivo del sistema de archivos
@@ -201,7 +199,7 @@ Corrige errores ortográficos con sugerencias.
 
 | Elemento | Edición WYSIWYG | Fuente |
 |----------|-----------------|--------|
-| Enlace | Tooltip al pasar / `Mod+K` | Clic / `Mod+K` / `Cmd+Clic` para abrir |
+| Enlace | Clic / `Mod+K` / `Cmd+Clic` para abrir | Clic / `Mod+K` / `Cmd+Clic` para abrir |
 | Imagen | Doble clic | Clic en `![](ruta)` |
 | Vídeo | Doble clic | — |
 | Audio | Doble clic | — |
@@ -226,7 +224,7 @@ Corrige errores ortográficos con sugerencias.
 
 ### Comportamiento del Ratón
 - Haz clic fuera del popup para cerrarlo (los cambios se descartan)
-- Los popups al pasar el ratón (enlace, nota al pie, wiki) tienen un retraso de 300ms antes de mostrarse
+- Los popups al pasar el ratón (nota al pie, wiki) tienen un retraso de 300ms antes de mostrarse
 - Mover el ratón de vuelta al popup lo mantiene abierto
 
 <!-- Styles in style.css -->

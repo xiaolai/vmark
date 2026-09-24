@@ -9,7 +9,7 @@
  * @module plugins/formatToolbar/tiptapContextHelpers
  */
 
-import type { ResolvedPos } from "@tiptap/pm/model";
+import type { Mark, ResolvedPos } from "@tiptap/pm/model";
 import type { CursorContext } from "@/plugins/toolbarContext/types";
 import { findWordBoundaries } from "@/utils/wordSegmentation";
 
@@ -72,9 +72,13 @@ export function findMarkRange(
   // Calculate base position
   const basePos = $pos.pos - parentOffset;
 
-  // Walk through parent's children to find exact mark boundaries
+  // Walk through parent's children to find exact mark boundaries. A run spans
+  // consecutive inline nodes carrying an EQUAL mark — a linked image inside a
+  // link is part of it (#1448), but two adjacent links with different targets
+  // are two runs, not one.
   let markFrom = -1;
   let markTo = -1;
+  let runMark: Mark | null = null;
 
   let offset = 0;
   let found = false;
@@ -85,25 +89,16 @@ export function findMarkRange(
     const childTo = childFrom + child.nodeSize;
     offset += child.nodeSize;
 
-    /* v8 ignore next -- @preserve Non-text inline nodes (e.g. images) break a mark run; they exist but the test schema has no such nodes */
-    if (child.isText) {
-      const hasMark = child.marks.some((m) => m.type.name === markType.name);
-      if (hasMark) {
-        /* v8 ignore next -- @preserve markFrom stays -1 for the first marked node; multiple separate marked text nodes with the same type are merged by ProseMirror and cannot be produced in tests */
-        if (markFrom === -1) markFrom = childFrom;
-        markTo = childTo;
-        continue;
-      }
+    const mark = child.isInline ? child.marks.find((m) => m.type.name === markType.name) : undefined;
+    if (mark && runMark && mark.eq(runMark)) {
+      markTo = childTo;
+      continue;
     }
-
-    if (markFrom !== -1) {
-      if ($pos.pos >= markFrom && $pos.pos <= markTo) {
-        found = true;
-        break;
-      }
-      markFrom = -1;
-      markTo = -1;
+    if (markFrom !== -1 && $pos.pos >= markFrom && $pos.pos <= markTo) {
+      found = true;
+      break;
     }
+    [markFrom, markTo, runMark] = mark ? [childFrom, childTo, mark] : [-1, -1, null];
   }
 
   if (!found && markFrom !== -1 && $pos.pos >= markFrom && $pos.pos <= markTo) {

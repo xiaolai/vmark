@@ -28,6 +28,7 @@ import {
   findAnyMarkRangeAtCursor,
   findWordAtCursor,
 } from "./marks";
+import { getProductionSchema } from "@/test/productionSchema";
 
 // ---------------------------------------------------------------------------
 // Schema helpers
@@ -358,5 +359,47 @@ describe("findWordAtCursor", () => {
     if (result) {
       expect(result.from).toBeLessThan(result.to);
     }
+  });
+});
+
+// #1448 — a link that contains an image. The markdown pipeline now keeps the
+// link mark on the image (it used to drop it), so every mark-span helper must
+// treat a marked inline image as part of the span, not as a gap in it.
+const prod = getProductionSchema();
+/** "before " + image + " after" under one link to A.md: the link spans 1..15. */
+function linkedImageDoc(imageMarked = true) {
+  const link = prod.marks.link.create({ href: "A.md" });
+  return prod.node("doc", null, [
+    prod.node("paragraph", null, [
+      prod.text("before ", [link]),
+      prod.node("image", { src: "p.png" }, undefined, imageMarked ? [link] : []),
+      prod.text(" after", [link]),
+    ]),
+  ]);
+}
+
+describe("findMarkRange with a linked image inside the link", () => {
+  it.each([3, 8, 11])("spans text, image and text from position %i", (pos) => {
+    const doc = linkedImageDoc();
+    const paragraph = doc.child(0);
+    const link = paragraph.child(0).marks[0];
+    expect(findMarkRange(pos, link, 1, paragraph)).toEqual({ mark: link, from: 1, to: 15 });
+  });
+
+  it("stops at an UNLINKED image in the middle", () => {
+    const doc = linkedImageDoc(false);
+    const paragraph = doc.child(0);
+    const link = paragraph.child(0).marks[0];
+    expect(findMarkRange(3, link, 1, paragraph)).toEqual({ mark: link, from: 1, to: 8 });
+  });
+});
+
+describe("findAnyMarkRangeAtCursor on an image-only formatting span", () => {
+  it("finds the span so Escape can leave it", () => {
+    const bold = prod.marks.bold.create();
+    const doc = prod.node("doc", null, [
+      prod.node("paragraph", null, [prod.node("image", { src: "p.png" }, undefined, [bold])]),
+    ]);
+    expect(findAnyMarkRangeAtCursor(2, doc.resolve(2))).toEqual({ from: 1, to: 2, isLink: false });
   });
 });

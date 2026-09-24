@@ -9,7 +9,7 @@
  * Key decisions:
  *   - Store-driven: subscribes to the injected state PORT for visibility/position
  *   - Conditional rows: alt row for images, title row for video/audio, poster row for video
- *   - Toggle button only visible for image types (inline ↔ block)
+ *   - Toggle only for UNMARKED images: a block image cannot carry a link (#1448)
  *   - Copy resolves relative paths to absolute via document directory for external tool compatibility
  *   - justOpened guard prevents same-click open/close race
  *   - pendingCloseRaf defers outside-click close to allow reopen on different node
@@ -143,7 +143,6 @@ export class MediaPopupView {
   }): void {
     const { mediaSrc, mediaAlt, mediaTitle, mediaPoster, mediaNodeType, mediaDimensions, anchorRect } = state;
     const isImage = isImageType(mediaNodeType);
-    const isVideo = mediaNodeType === "block_video";
 
     // Set input values
     this.dom.srcInput.value = mediaSrc;
@@ -154,8 +153,9 @@ export class MediaPopupView {
     // Conditional row visibility
     this.dom.altRow.style.display = isImage ? "" : "none";
     this.dom.titleRow.style.display = isImage ? "none" : "";
-    this.dom.posterRow.style.display = isVideo ? "" : "none";
-    this.dom.toggleBtn.style.display = isImage ? "" : "none";
+    this.dom.posterRow.style.display = mediaNodeType === "block_video" ? "" : "none";
+    const marked = !!this.editorView.state?.doc.nodeAt(this.store.getState().mediaNodePos)?.marks.length;
+    this.dom.toggleBtn.style.display = isImage && !marked ? "" : "none";
 
     // Dimensions: only for images with valid values
     if (isImage && mediaDimensions && mediaDimensions.width > 0 && mediaDimensions.height > 0) {
@@ -305,7 +305,7 @@ export class MediaPopupView {
       if (!editorState) return;
 
       const node = editorState.doc.nodeAt(mediaNodePos);
-      if (!node) return;
+      if (!node || node.marks.length > 0) return; // marks cannot ride on a block image
 
       const attrs = { ...node.attrs };
       const targetType = mediaNodeType === "block_image" ? "image" : "block_image";

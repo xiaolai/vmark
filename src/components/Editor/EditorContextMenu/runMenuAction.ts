@@ -13,7 +13,6 @@
  */
 
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import type { EditorView as TiptapEditorView } from "@tiptap/pm/view";
 import { runOrQueueCodeMirrorAction } from "@/utils/imeGuard";
 import { dispatchEditorAction } from "@/plugins/toolbarActions/dispatch";
 import { useEditorStore } from "@/stores/editorStore";
@@ -21,35 +20,7 @@ import { useLinkPopupStore } from "@/stores/linkPopupStore";
 import type { EditorContextMenuSnapshot } from "@/types/editorContextMenu";
 import { focusEditorSurface, runClipboardCommand } from "./clipboardBridge";
 import type { EditorMenuRun } from "./menuModel";
-
-/**
- * True when [from, to) is still ONE continuous link with `href` in the
- * live doc. `rangeHasMark` is not enough — it matches when the mark
- * occurs anywhere in the range, which would let a partially stale range
- * through to the link popup (which rewrites the whole range on save).
- */
-function rangeIsSameLink(
-  view: TiptapEditorView,
-  from: number,
-  to: number,
-  href: string
-): boolean {
-  const linkType = view.state.schema.marks.link;
-  if (!linkType) return false;
-  let covered = 0;
-  let matches = true;
-  view.state.doc.nodesBetween(from, to, (node, pos) => {
-    if (!node.isText) return true;
-    const mark = linkType.isInSet(node.marks);
-    if (!mark || (mark.attrs.href ?? "") !== href) {
-      matches = false;
-      return false;
-    }
-    covered += Math.min(to, pos + node.nodeSize) - Math.max(from, pos);
-    return true;
-  });
-  return matches && covered === to - from;
-}
+import { linkRangeIsIntact } from "@/plugins/linkPopup/linkRange";
 
 async function runLinkCommand(
   command: "editLink" | "copyLink" | "removeLink",
@@ -76,10 +47,9 @@ async function runLinkCommand(
       // The range was captured at right-click; the doc can change while
       // the menu is open (MCP edits, external reload). Re-validate
       // against the live state so a stale range is never handed to the
-      // link popup, which would rewrite whatever now occupies it.
-      const docSize = view.state.doc.content.size;
-      if (link.from < 0 || link.to > docSize || link.from >= link.to) return;
-      if (!rangeIsSameLink(view, link.from, link.to, link.href)) return;
+      // link popup, which would rewrite whatever now occupies it. The shared
+      // guard checks bounds too, and the same one the popup's save uses.
+      if (!linkRangeIsIntact(view.state, link.from, link.to, link.href)) return;
       const coords = view.coordsAtPos(link.from);
       useLinkPopupStore.getState().openPopup({
         href: link.href,

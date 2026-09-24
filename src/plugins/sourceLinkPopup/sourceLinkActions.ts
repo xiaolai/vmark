@@ -15,6 +15,8 @@ type Store = StoreApi<LinkPopupState>;
 import { sourceActionError } from "@/utils/debug";
 import { runOrQueueCodeMirrorAction } from "@/utils/imeGuard";
 import { findHeadingByIdCM } from "@/utils/headingSlug";
+import { activeFilePathForCurrentWindow } from "@/plugins/shared/hostDocument";
+import { openLinkTarget } from "@/services/navigation/linkOpen";
 
 /**
  * Build link markdown syntax.
@@ -118,7 +120,8 @@ export function saveLinkChanges(view: EditorView, store: Store): void {
 }
 
 /**
- * Open link in browser or navigate to bookmark.
+ * Open the popup's link: navigate to a bookmark, or hand anything else to the
+ * shared `openLinkTarget` (file path → tab, URL → allowlisted browser opener).
  */
 export async function openLink(view: EditorView, store: Store): Promise<void> {
   const { href } = store.getState();
@@ -144,15 +147,7 @@ export async function openLink(view: EditorView, store: Store): Promise<void> {
     return;
   }
 
-  // External link - open in browser (scheme-allowlisted opener,
-  // audit 20260612)
-  try {
-    const { openExternalLink } = await import("@/services/navigation/linkOpen");
-    await openExternalLink(href);
-  } catch (error) {
-    /* v8 ignore next -- @preserve reason: dynamic import failure not tested */
-    sourceActionError("Failed to open link:", error);
-  }
+  await openLinkTarget(href, activeFilePathForCurrentWindow(), null);
 }
 
 /**

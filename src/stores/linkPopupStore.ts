@@ -17,6 +17,8 @@ interface LinkPopupData {
   linkFrom: number;
   linkTo: number;
   anchorRect: AnchorRect | null;
+  /** Take keyboard focus on open — false for a pointer click (#1448). */
+  autoFocus: boolean;
 }
 
 interface LinkPopupState extends LinkPopupData {
@@ -25,6 +27,7 @@ interface LinkPopupState extends LinkPopupData {
     linkFrom: number;
     linkTo: number;
     anchorRect: AnchorRect;
+    autoFocus?: boolean;
   }) => void;
   closePopup: () => void;
   setHref: (href: string) => void;
@@ -38,6 +41,7 @@ const initialState: LinkPopupData = {
   linkFrom: 0,
   linkTo: 0,
   anchorRect: null,
+  autoFocus: true,
 };
 
 export const useLinkPopupStore = create<LinkPopupState>((set) => ({
@@ -49,6 +53,7 @@ export const useLinkPopupStore = create<LinkPopupState>((set) => ({
       linkFrom: data.linkFrom,
       linkTo: data.linkTo,
       anchorRect: data.anchorRect,
+      autoFocus: data.autoFocus ?? true,
     }),
   closePopup: () => set(initialState),
   setHref: (href) => set({ href }),

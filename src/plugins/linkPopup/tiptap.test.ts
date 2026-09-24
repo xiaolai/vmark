@@ -116,7 +116,7 @@ function createMockView(state: EditorState): EditorView {
     focus: vi.fn(),
     coordsAtPos: vi.fn(() => ({ top: 100, bottom: 120, left: 50, right: 150 })),
     dom: {
-      closest: vi.fn(() => null),
+      closest: vi.fn(() => null), addEventListener: vi.fn(), removeEventListener: vi.fn(),
     },
   } as unknown as EditorView;
 }

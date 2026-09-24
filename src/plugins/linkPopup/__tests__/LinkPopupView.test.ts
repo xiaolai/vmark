@@ -128,7 +128,7 @@ function createMockView(editorDom: HTMLElement) {
           from: number,
           to: number,
           f: (node: unknown, pos: number) => void
-        ) => f({ isText: true, nodeSize: to - from, marks: [linkMark()] }, from),
+        ) => f({ isText: true, isInline: true, nodeSize: to - from, marks: [linkMark()] }, from),
       },
       schema: {
         marks: {

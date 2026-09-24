@@ -141,6 +141,12 @@ export abstract class SourcePopupView<TState extends PopupStoreBase> {
     };
   }
 
+  /** Whether show() moves focus into the popup. A popup opened by a click in
+   *  editable text may decline, keeping the caret where it landed (#1448). */
+  protected shouldFocusOnShow(_state: TState): boolean {
+    return true;
+  }
+
   /**
    * Show the popup at the anchor position.
    */
@@ -160,26 +166,7 @@ export abstract class SourcePopupView<TState extends PopupStoreBase> {
       this.justOpened = false;
     });
 
-    // Calculate position using viewport coordinates
-    const bounds = getEditorBounds(this.editorView);
-    const dimensions = this.getPopupDimensions();
-    const { top, left } = calculatePopupPosition({
-      anchor: anchorRect,
-      popup: { width: dimensions.width, height: dimensions.height },
-      bounds,
-      gap: dimensions.gap ?? 6,
-      preferAbove: dimensions.preferAbove ?? true,
-    });
-
-    // Convert to host-relative coordinates if mounted inside editor container
-    if (this.host !== document.body) {
-      const hostPos = toHostCoordsForDom(this.host, { top, left });
-      this.container.style.top = `${hostPos.top}px`;
-      this.container.style.left = `${hostPos.left}px`;
-    } else {
-      this.container.style.top = `${top}px`;
-      this.container.style.left = `${left}px`;
-    }
+    this.updatePosition(anchorRect);
 
     // Attach event listeners
     document.addEventListener("mousedown", this.boundHandleClickOutside);
@@ -195,20 +182,17 @@ export abstract class SourcePopupView<TState extends PopupStoreBase> {
 
     // Call subclass hook first to set up state
     this.onShow(state);
+    if (!this.shouldFocusOnShow(state)) return;
 
-    // Then focus the first focusable element in the popup
-    // Use setTimeout to escape CodeMirror's click event handling completely
+    // Focus the first focusable element — deferred to escape CodeMirror's click
+    // handling, so re-checked when it runs: the popup may have closed, or been
+    // reopened by a click that must keep the caret in the editor (#1448).
     setTimeout(() => {
-      // Blur CodeMirror's contenteditable
+      if (!this.isVisible() || !this.shouldFocusOnShow(this.store.getState())) return;
       this.editorView.contentDOM.blur();
-
-      const firstFocusable = this.container.querySelector<HTMLElement>(
-        'input:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      );
-
-      if (firstFocusable) {
-        firstFocusable.focus();
-      }
+      this.container
+        .querySelector<HTMLElement>('input:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])')
+        ?.focus();
     }, 10);
   }
 

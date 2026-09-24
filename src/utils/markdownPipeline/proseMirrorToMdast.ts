@@ -144,8 +144,8 @@ class PMToMdastConverter {
    * Text nodes become inline items carrying their marks; groupInlineItems
    * then factors marks shared by consecutive items into single MDAST
    * wrappers, so `**a *b* c**` serializes as one strong node instead of
-   * adjacent strong siblings that do not round-trip (#1102). Atom nodes
-   * participate unmarked (their marks were never serialized).
+   * adjacent strong siblings that do not round-trip (#1102). Images carry
+   * their marks too (a link around an image); other atoms participate unmarked.
    */
   private convertInlineContent(node: PMNode): PhrasingContent[] {
     const items: InlineItem[] = [];
@@ -160,7 +160,7 @@ class PMToMdastConverter {
       } else if (child.type.name === "hardBreak") {
         pushAtom(inlineConverters.convertHardBreak());
       } else if (child.type.name === "image") {
-        pushAtom(inlineConverters.convertImage(child));
+        items.push(inlineConverters.imageToInlineItem(child));
       } else if (child.type.name === "math_inline") {
         pushAtom(inlineConverters.convertMathInline(child));
       } else if (child.type.name === "footnote_reference") {

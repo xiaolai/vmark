@@ -50,7 +50,8 @@ export function clearFormattingInView(view: EditorView): boolean {
     if (from === to) continue;
     applied = true;
     state.doc.nodesBetween(from, to, (node: PMNode, pos: number) => {
-      if (node.isText && node.marks.length > 0) {
+      // Any inline node — a linked or bold image too (#1448), not only text.
+      if (node.isInline && node.marks.length > 0) {
         node.marks.forEach((mark: PMMark) => {
           tr = tr.removeMark(
             Math.max(from, pos),

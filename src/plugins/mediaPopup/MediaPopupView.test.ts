@@ -166,7 +166,7 @@ function createMockView() {
         nodeAt: vi.fn(() => ({
           type: { name: "image" },
           attrs: { src: "test.png", alt: "alt text", title: "" },
-          nodeSize: 1,
+          nodeSize: 1, marks: [],
         })),
       },
       schema: {
@@ -718,7 +718,7 @@ describe("MediaPopupView — toggle newNodeType not found (lines 313-314)", () =
         nodeAt: vi.fn(() => ({
           type: { name: "image" },
           attrs: { src: "test.png", alt: "alt" },
-          nodeSize: 1,
+          nodeSize: 1, marks: [],
         })),
       },
       schema: {
@@ -945,7 +945,7 @@ describe("MediaPopupView — src/alt/title/poster input change handlers", () => 
         nodeAt: vi.fn(() => ({
           type: { name: "block_video" },
           attrs: { src: "video.mp4" },
-          nodeSize: 1,
+          nodeSize: 1, marks: [],
         })),
       },
     };
@@ -1013,7 +1013,7 @@ describe("MediaPopupView — handleSave edge cases", () => {
         nodeAt: vi.fn(() => ({
           type: { name: "block_video" },
           attrs: { src: "video.mp4" },
-          nodeSize: 1,
+          nodeSize: 1, marks: [],
         })),
       },
     };
@@ -1073,7 +1073,7 @@ describe("MediaPopupView — handleSave edge cases", () => {
         nodeAt: vi.fn(() => ({
           type: { name: "block_video" },
           attrs: { src: "old.mp4", title: "", poster: "" },
-          nodeSize: 1,
+          nodeSize: 1, marks: [],
         })),
       },
     };
@@ -1165,7 +1165,7 @@ describe("MediaPopupView — handleRemove edge cases", () => {
         nodeAt: vi.fn(() => ({
           type: { name: "block_video" },
           attrs: {},
-          nodeSize: 1,
+          nodeSize: 1, marks: [],
         })),
       },
     };
@@ -1254,7 +1254,7 @@ describe("MediaPopupView — toggle block_image to image (branch 30)", () => {
         nodeAt: vi.fn(() => ({
           type: { name: "block_image" },
           attrs: { src: "test.png", alt: "alt" },
-          nodeSize: 1,
+          nodeSize: 1, marks: [],
         })),
       },
     };
