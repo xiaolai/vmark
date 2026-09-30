@@ -186,6 +186,21 @@ Standard shell shortcuts like `Ctrl+R` (reverse history search in zsh/bash) work
 
 When the workspace root changes after the terminal is already running, idle sessions automatically `cd` to the new root. A session busy with a command (say, `vim` or `less`) is not interrupted: it changes directory once the command finishes, which needs [shell integration](#shell-integration) to detect. With the [workspace rail](/guide/workspace-rail) on, sessions that belong to a workspace keep their own directory.
 
+## Audio input on macOS
+
+Recording tools running in the integrated terminal may request microphone
+permission under VMark's name. Allow access when macOS asks. If VMark is listed in
+**System Settings → Privacy & Security → Microphone**, you can manage its access
+there. If no prompt or entry appears, collect the recording tool's output and
+macOS permission logs when reporting the issue. Permission is requested when a
+tool accesses audio input, not simply when you open the terminal.
+
+For virtual audio inputs such as BlackHole, permission alone does not establish
+audio routing. Select the intended input in your recording tool, route audio to it, and verify
+a short recording before a longer session. A growing audio file alone does not
+confirm that sound was captured. VMark does not include a recorder or transcriber;
+those commands are provided by tools you install separately.
+
 ## Not yet implemented
 
 These are tracked but do **not** ship today. They are listed here because

@@ -18,6 +18,8 @@
   entirely and falls back to the .icns.
 -->
 <dict>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Allow command-line tools you run in VMark's integrated terminal to record audio from your microphone or other audio input devices.</string>
 	<key>CFBundleVersion</key>
 	<string></string>
 	<key>CFBundleIconName</key>

@@ -2,6 +2,9 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <!-- Also used by the app bundle: terminal tools need Core Audio input access. -->
+    <key>com.apple.security.device.audio-input</key>
+    <true/>
     <!-- Allow JIT compilation (required for V8/Node.js) -->
     <key>com.apple.security.cs.allow-jit</key>
     <true/>
