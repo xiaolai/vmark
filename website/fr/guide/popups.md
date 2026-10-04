@@ -164,6 +164,7 @@ Modifier le contenu des notes de bas de page en ligne.
 **Déclencheur :**
 
 - **WYSIWYG :** Survoler la référence de note de bas de page `[^1]`
+- **Source :** Survoler ou cliquer sur une référence ou une définition de note de bas de page
 
 **Champs :**
 

@@ -153,6 +153,7 @@ Modifica il contenuto delle note a piè di pagina inline.
 
 **Attivazione:**
 - **WYSIWYG:** Passa il mouse sul riferimento della nota `[^1]`
+- **Sorgente:** Passa il mouse su un riferimento o una definizione di nota, o fai clic
 
 **Campi:**
 - **Contenuto** — Testo della nota su più righe (con ridimensionamento automatico)

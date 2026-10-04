@@ -153,6 +153,7 @@ Edit footnote content inline.
 
 **Trigger:**
 - **WYSIWYG:** Hover over footnote reference `[^1]`
+- **Source:** Hover over or click a footnote reference or definition
 
 **Fields:**
 - **Content** — Multi-line footnote text (auto-resizing)

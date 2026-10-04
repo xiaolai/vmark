@@ -153,6 +153,7 @@ Edite o conteúdo de rodapé inline.
 
 **Ativação:**
 - **WYSIWYG:** Passar o mouse sobre a referência de rodapé `[^1]`
+- **Fonte:** Passar o mouse sobre uma referência ou definição de rodapé, ou clicar nela
 
 **Campos:**
 - **Conteúdo** — Texto de rodapé em múltiplas linhas (redimensionamento automático)

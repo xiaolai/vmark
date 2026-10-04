@@ -153,6 +153,7 @@ Edita el contenido de las notas al pie en línea.
 
 **Activación:**
 - **WYSIWYG:** Pasa el ratón sobre la referencia de nota al pie `[^1]`
+- **Fuente:** Pasa el ratón sobre una referencia o definición de nota al pie, o haz clic en ella
 
 **Campos:**
 - **Contenido** — Texto de nota al pie de múltiples líneas (se redimensiona automáticamente)

@@ -153,6 +153,7 @@ Fußnoteninhalt inline bearbeiten.
 
 **Auslöser:**
 - **WYSIWYG:** Über Fußnotenreferenz `[^1]` hovern
+- **Quelle:** Über eine Fußnotenreferenz oder -definition hovern oder darauf klicken
 
 **Felder:**
 - **Inhalt** — Mehrzeiliger Fußnotentext (automatische Größenanpassung)
