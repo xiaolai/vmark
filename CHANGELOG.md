@@ -11,6 +11,26 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 ## [Unreleased]
 
+## [0.9.94] - 2026-10-07
+
+### Changed
+
+- Updated the app framework, Tauri, to 2.12. The protection that keeps a
+  trusted HTML preview from calling into VMark was checked again on the new
+  version.
+
+### Fixed
+
+- Mermaid diagrams in documents no longer go blank when you stop editing
+  them on older macOS versions. A style meant for standalone `.mmd` files was
+  leaking into documents and shrinking diagrams to nothing
+  ([#1215](https://github.com/xiaolai/vmark/issues/1215)).
+
+### Security
+
+- The framework update drops the unmaintained `unic-*` Rust crates, clearing
+  five advisories (RUSTSEC-2025-0075, -0080, -0081, -0098 and -0100).
+
 ## [0.9.93] - 2026-10-06
 
 ### Changed
@@ -173,7 +193,8 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 - Raised the `markdown-it` version floor past GHSA-253c-mchw-3w2r.
 
-[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.93...HEAD
+[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.94...HEAD
+[0.9.94]: https://github.com/xiaolai/vmark/releases/tag/v0.9.94
 [0.9.93]: https://github.com/xiaolai/vmark/releases/tag/v0.9.93
 [0.9.92]: https://github.com/xiaolai/vmark/releases/tag/v0.9.92
 [0.9.91]: https://github.com/xiaolai/vmark/releases/tag/v0.9.91
