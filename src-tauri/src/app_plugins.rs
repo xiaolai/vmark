@@ -115,8 +115,10 @@ pub(crate) fn register(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<ta
 /// not.
 ///
 /// Debug builds only, and a no-op in release: the plugin is a driver surface,
-/// not a product feature.
-#[cfg(debug_assertions)]
+/// not a product feature. Also a no-op on Windows, where the plugin is not a
+/// dependency (its WebView2 code does not compile against tauri 2.12's
+/// webview2-com; the reason is beside its entry in `Cargo.toml`).
+#[cfg(all(debug_assertions, not(target_os = "windows")))]
 pub(crate) fn attach_automation_bridge(
     builder: tauri::Builder<tauri::Wry>,
 ) -> tauri::Builder<tauri::Wry> {
@@ -160,7 +162,7 @@ pub(crate) fn attach_automation_bridge(
     builder
 }
 
-#[cfg(not(debug_assertions))]
+#[cfg(any(not(debug_assertions), target_os = "windows"))]
 pub(crate) fn attach_automation_bridge(
     builder: tauri::Builder<tauri::Wry>,
 ) -> tauri::Builder<tauri::Wry> {

@@ -48,7 +48,6 @@ tauri-plugin-opener = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-clipboard-manager = "2"
-tauri-plugin-mcp-bridge = "0.13"
 tauri-plugin-shell = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
@@ -213,9 +212,9 @@ keyring = { version = "3", features = ["windows-native"] }
 # makes ICoreWebView2* a distinct Rust type, so `cast()` stops compiling
 # against the controller Tauri hands us. Verified with
 # `cargo tree --target x86_64-pc-windows-msvc`; re-check on any wry bump.
-webview2-com = "=0.38.2"
-windows-core = "=0.61.2"
-windows = { version = "=0.61.3", features = ["Win32_Foundation"] }
+webview2-com = "=0.39.1"
+windows-core = "=0.62.2"
+windows = { version = "=0.62.2", features = ["Win32_Foundation"] }
 # #1419: the close-to-tray icon. Windows-only, because the feature is never
 # effective anywhere else — macOS and Linux builds carry no tray code at all.
 # Cargo unions this with the `[dependencies]` tauri features for this target.
@@ -224,6 +223,21 @@ windows = { version = "=0.61.3", features = ["Win32_Foundation"] }
 # filters `tray-icon` out of its manifest-vs-config check (tauri-build 2.6,
 # src/manifest.rs), which is what permits a programmatic, target-scoped tray.
 tauri = { version = "2", features = ["tray-icon"] }
+
+# The debug-only Tauri MCP automation bridge (`app_plugins.rs`), on every
+# target except Windows. 0.13.0 — the latest release — builds its WebView2
+# screenshot against webview2-com 0.38 / windows 0.61, while tauri 2.12 (wry
+# 0.57) hands it a controller typed by webview2-com 0.39 / windows 0.62. The
+# two `ICoreWebView2*`/`IStream` types are then distinct, and the crate fails
+# to compile on Windows (E0277/E0308 in its `screenshot/windows.rs`). The
+# plugin is a dev driver surface, never registered in release builds, so
+# Windows dev builds go without it rather than holding Tauri back. Move this
+# back to `[dependencies]` (and drop the cfg in `app_plugins.rs` and the
+# `platforms` list in `capabilities/automation-bridge.json`) once a release
+# depends on webview2-com 0.39: `cargo tree -i webview2-com --target
+# x86_64-pc-windows-msvc` must then show ONE version.
+[target.'cfg(not(target_os = "windows"))'.dependencies]
+tauri-plugin-mcp-bridge = "0.13"
 
 # RW-16 (L8): Linux Secret Service backend (best-effort platform).
 [target.'cfg(target_os = "linux")'.dependencies]

@@ -22,7 +22,6 @@
     "clipboard-manager:allow-write-text",
     "clipboard-manager:allow-read-image",
     "store:default",
-    "mcp-bridge:default",
     "shell:allow-spawn",
     "shell:allow-kill",
     "updater:default",
