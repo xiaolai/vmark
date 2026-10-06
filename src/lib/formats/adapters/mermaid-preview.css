@@ -1,11 +1,11 @@
-/* Standalone .mmd Mermaid preview container (mermaid.tsx). Note: the
- * existing .code-block-preview.mermaid-preview rules in
- * src/plugins/mermaid/mermaid.css are dual-class and don't reach the
- * bare .mermaid-preview used here. The .mermaid-preview .node descendant
- * rules in mermaid-fallback.css still apply because they only need
- * .mermaid-preview as ancestor. */
+/* Standalone .mmd Mermaid preview container (mermaid.tsx).
+ * Markdown diagrams share .mermaid-preview for theme styling, but must not
+ * inherit the standalone pane's height or its SVG width/max-height: those
+ * collapse percentage-width diagrams to zero in WebKit outside edit mode.
+ * Keep these layout rules off .code-block-preview in either CSS load order.
+ * :where keeps specificity unchanged so empty/invalid modifiers still win. */
 
-.mermaid-preview {
+.mermaid-preview:not(:where(.code-block-preview)) {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -16,7 +16,7 @@
   contain: paint;
 }
 
-.mermaid-preview > svg {
+.mermaid-preview:not(:where(.code-block-preview)) > svg {
   max-width: 100%;
   max-height: 100%;
   height: auto;
