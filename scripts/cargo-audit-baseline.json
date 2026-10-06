@@ -20,31 +20,6 @@
       "crate": "glib",
       "kind": "unsound",
       "reason": "vmark > tauri > gtk 0.18 > glib 0.18.5, Linux only (absent from the macOS and Windows graphs). Fixed in glib 0.20, which the GTK3 bindings Tauri pins (gtk, gdk, webkit2gtk, soup3 at 0.18) cannot use, so no update is reachable. The unsound code is the Iterator impls of glib::VariantStrIter; nothing in this repo or in any other crate of the dependency graph names VariantStrIter."
-    },
-    "RUSTSEC-2025-0075": {
-      "crate": "unic-char-range",
-      "kind": "unmaintained",
-      "reason": "vmark > tauri > tauri-utils > urlpattern 0.3.0 > unic-ucd-ident > unic-char-property > unic-char-range. Same chain and same argument as RUSTSEC-2025-0100."
-    },
-    "RUSTSEC-2025-0080": {
-      "crate": "unic-common",
-      "kind": "unmaintained",
-      "reason": "vmark > tauri > tauri-utils > urlpattern 0.3.0 > unic-ucd-ident > unic-ucd-version > unic-common. Same chain and same argument as RUSTSEC-2025-0100."
-    },
-    "RUSTSEC-2025-0081": {
-      "crate": "unic-char-property",
-      "kind": "unmaintained",
-      "reason": "vmark > tauri > tauri-utils > urlpattern 0.3.0 > unic-ucd-ident > unic-char-property. Same chain and same argument as RUSTSEC-2025-0100."
-    },
-    "RUSTSEC-2025-0098": {
-      "crate": "unic-ucd-version",
-      "kind": "unmaintained",
-      "reason": "vmark > tauri > tauri-utils > urlpattern 0.3.0 > unic-ucd-ident > unic-ucd-version. Same chain and same argument as RUSTSEC-2025-0100."
-    },
-    "RUSTSEC-2025-0100": {
-      "crate": "unic-ucd-ident",
-      "kind": "unmaintained",
-      "reason": "vmark > tauri > tauri-utils 2.9 > urlpattern 0.3.0 > unic-ucd-ident. tauri-utils requires urlpattern 0.3 and 0.3.0 is its only release, so no update is reachable until Tauri moves to a newer urlpattern. The crate is a static Unicode identifier table with no known vulnerability; urlpattern calls it only from its pattern tokenizer, and the patterns it tokenizes are the ones in this repo's own capability files, not input from outside."
     }
   }
 }

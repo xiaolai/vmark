@@ -12,8 +12,12 @@
 //! registered at all and stderr says why. That is the loud failure the scan
 //! was hiding; a bridge on any other port is never started.
 //!
+//! Not compiled on Windows, where the bridge plugin is not a dependency at
+//! all (see the `tauri-plugin-mcp-bridge` entry in `Cargo.toml`).
+//!
 //! @coordinates-with lib.rs — the only caller
 //! @module automation_port
+#![cfg(not(target_os = "windows"))]
 
 /// The port `tauri_driver_session` connects to. Debug builds only.
 pub(crate) const AUTOMATION_BRIDGE_PORT: u16 = 9323;

@@ -76,7 +76,7 @@ Everything below was verified true at `2675ad132`, and every entry citing a file
 - (area 14) `grant_asset_access` grants asset:// read of any file whose name and canonical target carry a media extension, anywhere on disk, to any webview JS caller; the fs scope is not extended, but which media file is not bounded (the module header states this) — `src-tauri/src/asset_access.rs`.
 - (area 14) `open_file_in_new_window`, `open_workspace_in_new_window` and `open_workspace_with_files_in_new_window` grant (`grant_fs_read`) any absolute path from webview JS that canonicalizes to a regular file with a registered extension (md, txt, json, yaml, toml, html, svg, …), anywhere on disk, with the same write/remove reach — `src-tauri/src/window_manager/commands.rs`, `src-tauri/src/window_manager/path_validation.rs`.
 - (area 15) `store:default` is granted to the document and Settings windows (`src-tauri/capabilities/default.json`, `src-tauri/capabilities/settings.json`); `tauri-plugin-store` resolves a store path against app data with `PathBuf` join semantics, so webview JS can load and save a store at any absolute path, writing a JSON object to any file the user can write.
-- (area 15) `src-tauri/capabilities/default.json` grants `mcp-bridge:default` in release builds too, where the debug automation plugin is not registered (`src-tauri/src/app_plugins.rs`).
+- (area 15) `src-tauri/capabilities/automation-bridge.json` grants `mcp-bridge:default` (macOS and Linux) in release builds too, where the debug automation plugin is not registered (`src-tauri/src/app_plugins.rs`).
 
 ### Code nothing reaches (18)
 
@@ -3470,7 +3470,7 @@ Three processes meet here. The Rust bridge (`src-tauri/src/mcp_bridge/`, driven 
 - gate: requires a debug build (`pnpm tauri:dev`) and a display
 - surfaces: CLI `pnpm e2e:journeys`
 - code: `e2e/run-journeys.mjs`, `e2e/journeys/*.mjs`, `e2e/lib/*.mjs`, `src-tauri/src/automation_port.rs`, `src-tauri/src/app_plugins.rs`
-- rust: `tauri-plugin-mcp-bridge`, debug builds only, pinned to `AUTOMATION_BRIDGE_PORT` 9323; if 9323 is busy at startup the bridge is not started (stderr line) rather than sliding to another port
+- rust: `tauri-plugin-mcp-bridge`, debug builds only and not on Windows (0.13.0 does not compile against tauri 2.12's webview2-com; `src-tauri/Cargo.toml`), pinned to `AUTOMATION_BRIDGE_PORT` 9323; if 9323 is busy at startup the bridge is not started (stderr line) rather than sliding to another port
 - docs: `e2e/README.md`
 - tests: harness self-tests under `vitest.gates.config.ts` — `e2e/lib/readiness.test.mjs`, `e2e/lib/staleBinary.test.mjs`, `e2e/lib/rail.test.mjs`, `e2e/lib/workspace.test.mjs`, `e2e/jsonRpcStdio.test.mjs`, `e2e/portFileAgreement.test.mjs`, `e2e/vmarkMcpResult.test.mjs`, `e2e/waitReady.test.mjs`, `e2e/waitReadyArgs.test.mjs`, `e2e/sessionLock.test.mjs`
 - notes: README's journey count (38) now matches. README still lists two known app issues (cross-tab content bleed before the debounce flush; dev-only HMR `Command already registered` crash) — unverified whether either is still reproducible.
