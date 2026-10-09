@@ -237,7 +237,37 @@ pub(crate) fn create_and_reveal_main<R: Runtime>(app: &tauri::AppHandle<R>) {
         Ok(Ensured::Pending) => {
             log::info!("[SingleInstance] another path is creating the main window");
         }
-        Err(error) => log::error!("[SingleInstance] failed to create main window: {error}"),
+        Err(error) => {
+            log::error!("[SingleInstance] failed to create main window: {error}");
+            exit_if_windowless(app);
+        }
+    }
+}
+
+/// Whether a process that just failed to build a window should end itself.
+///
+/// A VMark with no webview window at all, off macOS, can show nothing and be
+/// reached by nothing — yet it still owns the single-instance mutex and the
+/// WebView2 user-data directory, so every later launch forwards into it (or
+/// collides with its WebView2 browser process, `0x800700AA`) and the user sees
+/// a launch that "does nothing" (#1527). Hidden windows count as windows: a
+/// tray-parked VMark is working as designed. macOS keeps a windowless app
+/// alive on purpose, for the Dock icon.
+pub(crate) fn should_exit_after_failed_window(live_windows: usize, keep_alive: bool) -> bool {
+    live_windows == 0 && !keep_alive
+}
+
+/// Exit instead of lingering when window creation failed and nothing is left
+/// on screen. `app.exit` raises `ExitRequested`, which `app_setup` answers
+/// with `AllowExit` (no document windows, not macOS) and the child-process
+/// cleanup, so the mutex and the WebView2 profile are released.
+fn exit_if_windowless<R: Runtime>(app: &tauri::AppHandle<R>) {
+    if should_exit_after_failed_window(
+        app.webview_windows().len(),
+        quit::keep_alive_without_document_windows(),
+    ) {
+        log::error!("[SingleInstance] no window could be created and none exists — exiting");
+        app.exit(1);
     }
 }
 
