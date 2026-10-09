@@ -9,7 +9,7 @@ overrides:
   linkify-it: '>=5.0.2 <6'
   ws: '>=8.21.0 <9'
   fast-uri: '>=3.1.4 <5'
-  '@modelcontextprotocol/sdk': '>=1.27.1 <2'
+  '@modelcontextprotocol/sdk': '>=1.31.0 <2'
   hono: '>=4.13.5 <5'
   '@hono/node-server': '>=1.19.10 <3'
   express-rate-limit: '>=8.2.2 <9'
@@ -548,8 +548,8 @@ importers:
   server/mcp:
     dependencies:
       '@modelcontextprotocol/sdk':
-        specifier: '>=1.27.1 <2'
-        version: 1.30.1(zod@4.6.5)
+        specifier: '>=1.31.0 <2'
+        version: 1.31.0(zod@4.6.5)
       ws:
         specifier: '>=8.21.0 <9'
         version: 8.21.3
@@ -2355,8 +2355,8 @@ packages:
       hono:
         optional: true
 
-  '@modelcontextprotocol/sdk@1.30.1':
-    resolution: {integrity: sha512-H2HxLvC3HDNybePJaLdSrU1hhUK5iQw+WvV1b01myFyI7sdVGe1u/IPTE5D9fGCiJDVtgMV/lmFkQXLmQyIFYA==}
+  '@modelcontextprotocol/sdk@1.31.0':
+    resolution: {integrity: sha512-UvTMgnNlnIBO/22ob2RcVGDlcvOslQs8T59+FTGdA0L27a39fdGF/EDETNtDVK4DZGpwomlsYpRdA8UXcVL/pw==}
     engines: {node: '>=18'}
     peerDependencies:
       '@cfworker/json-schema': ^4.1.1
@@ -11289,7 +11289,7 @@ snapshots:
 
   '@hypothesi/tauri-mcp-server@0.13.0':
     dependencies:
-      '@modelcontextprotocol/sdk': 1.30.1(zod@3.25.76)
+      '@modelcontextprotocol/sdk': 1.31.0(zod@3.25.76)
       aria-api: 0.8.0
       execa: 9.6.0
       html2canvas-pro: 1.6.6
@@ -11645,7 +11645,7 @@ snapshots:
     optionalDependencies:
       hono: 4.13.9
 
-  '@modelcontextprotocol/sdk@1.30.1(zod@3.25.76)':
+  '@modelcontextprotocol/sdk@1.31.0(zod@3.25.76)':
     dependencies:
       '@hono/node-server': 2.1.1(hono@4.13.9)
       ajv: 8.20.0
@@ -11667,7 +11667,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@modelcontextprotocol/sdk@1.30.1(zod@4.6.5)':
+  '@modelcontextprotocol/sdk@1.31.0(zod@4.6.5)':
     dependencies:
       '@hono/node-server': 2.1.1(hono@4.13.9)
       ajv: 8.20.0
@@ -13924,9 +13924,9 @@ snapshots:
       obug: 2.1.4
       std-env: 4.1.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.11(@types/node@22.20.4)(@vitest/browser-playwright@4.1.11)(@vitest/coverage-v8@4.1.11)(jsdom@30.1.1)(vite@8.3.1(@types/node@22.20.4)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.98.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+      vitest: 4.1.11(@types/node@22.20.4)(@vitest/browser-playwright@4.1.11)(@vitest/coverage-v8@4.1.11)(jsdom@30.1.1)(vite@8.3.1(@types/node@22.20.4)(esbuild@0.27.7)(jiti@2.7.0)(sass@1.98.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
     optionalDependencies:
-      '@vitest/browser': 4.1.11(vite@8.3.1(@types/node@22.20.4)(esbuild@0.28.2)(jiti@2.7.0)(sass@1.98.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))(vitest@4.1.11)
+      '@vitest/browser': 4.1.11(vite@8.3.1(@types/node@22.20.4)(esbuild@0.27.7)(jiti@2.7.0)(sass@1.98.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))(vitest@4.1.11)
 
   '@vitest/expect@4.1.11':
     dependencies:
