@@ -16,6 +16,9 @@ const FEEDBACK_DURATION_MS = 2000;
  * Listens for `app:quit-first-press` on the current window and manages
  * a transient boolean for showing "Press Cmd+Q again to quit".
  *
+ * StatusBar stays mounted while the hint shows, even when hidden (#1528): the
+ * first press only arms the confirm-quit gate, so without the hint quit looks dead.
+ *
  * Uses window-scoped listening (consistent with useWindowClose).
  */
 export function useQuitFeedback(): boolean {
