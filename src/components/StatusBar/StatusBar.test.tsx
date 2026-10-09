@@ -64,8 +64,9 @@ vi.mock("./useStatusBarTabDrag", () => ({
   }),
 }));
 
+const quitHint = vi.hoisted(() => ({ visible: false }));
 vi.mock("./useQuitFeedback", () => ({
-  useQuitFeedback: () => false,
+  useQuitFeedback: () => quitHint.visible,
 }));
 
 vi.mock("@/components/Tabs/Tab", () => ({
@@ -176,6 +177,22 @@ describe("StatusBar — browser workspace (WI-S1.3)", () => {
     useTabStore.getState().setActiveTab("main", id);
     render(<StatusBar />);
     expect(screen.getByRole("tab", { name: "Browser" })).toBeInTheDocument();
+  });
+
+  // #1528: the first Cmd+Q only arms the confirm-quit gate; the hint is the
+  // user's sole sign that anything happened. A hidden bar swallowed it, so
+  // quit looked dead.
+  it("shows the press-again-to-quit hint even when the status bar is hidden (#1528)", () => {
+    useUIStore.setState({ sidebarVisible: true, statusBarVisible: false });
+    const id = useTabStore.getState().createTab("main", null);
+    useTabStore.getState().setActiveTab("main", id);
+    quitHint.visible = true;
+    try {
+      render(<StatusBar />);
+      expect(document.querySelector(".status-quit-message")).not.toBeNull();
+    } finally {
+      quitHint.visible = false;
+    }
   });
 
   it("still hides the bar for a document tab when the status bar is hidden (F7)", () => {

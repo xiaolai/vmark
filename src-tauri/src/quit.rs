@@ -34,13 +34,16 @@ use std::sync::{
     LazyLock, Mutex,
 };
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Manager};
 
 use crate::mcp_bridge;
 
 #[path = "quit_broadcast.rs"]
 mod broadcast;
 use broadcast::{abort_quit_on_emit_failure, claim_quit_attempt, QuitAttempt, QuitMode};
+
+#[path = "quit_feedback.rs"]
+mod feedback;
 
 #[path = "quit_exit_request.rs"]
 mod exit_request;
@@ -156,16 +159,7 @@ pub fn request_quit(app: &AppHandle) {
     match check_confirm_quit_gate(Instant::now()) {
         QuitGateResult::Proceed => start_quit(app),
         QuitGateResult::WaitForSecondPress => {
-            // Emit feedback to the focused window (if any)
-            if let Some(window) = app
-                .webview_windows()
-                .values()
-                .find(|w| w.is_focused().unwrap_or(false))
-            {
-                if let Err(e) = window.emit("app:quit-first-press", ()) {
-                    log::error!("[quit] Failed to emit quit-first-press: {}", e);
-                }
-            }
+            feedback::emit_first_press_feedback(app);
         }
     }
 }
