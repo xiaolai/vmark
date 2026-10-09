@@ -8,8 +8,6 @@
   height: 100%;
   width: 100%;
   display: flex;
-  align-items: center;
-  justify-content: center;
   overflow: auto;
   background: var(--bg-color);
   color: var(--text-color);
@@ -24,6 +22,11 @@
   gap: var(--space-6);
   width: 100%;
   max-width: 648px; /* was 36em @ 18px */
+  /* Auto margins centre the block when there is spare room and collapse to
+     zero when it overflows. `align-items/justify-content: center` on the
+     scroller would instead split the overflow across both ends, leaving the
+     title and actions clipped above the scroll origin. */
+  margin: auto;
   padding: var(--space-6);
 }
 
