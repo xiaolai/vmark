@@ -150,6 +150,8 @@ AI Genies require a configured AI provider to function.
 
 Double-clicking a file, or launching VMark again from a launcher, hands the file to the VMark that is already running and brings a window forward instead of starting a second copy. A second process would share the first one's app data, session and window storage, and the two would overwrite each other's state — the data loss behind #1330. macOS has always behaved this way through the operating system. A development (`tauri dev`) build uses its own identifier and so counts as a different app.
 
+On Windows, if the VMark that is already running has stopped responding and can no longer receive the hand-off, a new launch does not start a second copy beside it. It shows a message instead: open Task Manager, end every `VMark` process, then start VMark again (#1527).
+
 On Linux this relies on the D-Bus session bus. In a session with no usable `DBUS_SESSION_BUS_ADDRESS`, VMark still starts but without this guard — launching it again starts a second copy, with the risk described above — and the log records that the guard is off. Launch it from a desktop session, or from a shell where that variable is set.
 
 ### Blank Window on Linux

@@ -150,6 +150,8 @@ I Geni IA richiedono un fornitore di IA configurato per funzionare.
 
 Fare doppio clic su un file, o avviare di nuovo VMark da un launcher, passa il file al VMark già in esecuzione e porta in primo piano una finestra invece di avviare una seconda copia. Un secondo processo condividerebbe i dati applicativi, la sessione e l'archivio delle finestre del primo, e i due si sovrascriverebbero a vicenda lo stato — la perdita di dati alla base di #1330. macOS si è sempre comportato così tramite il sistema operativo. Una build di sviluppo (`tauri dev`) usa un proprio identificatore e quindi conta come un'app diversa.
 
+Su Windows, se il VMark già in esecuzione ha smesso di rispondere e non può più ricevere il passaggio, un nuovo avvio non apre una seconda copia accanto a esso. Mostra invece un messaggio: apri Gestione attività, termina tutti i processi `VMark`, quindi avvia di nuovo VMark (#1527).
+
 Su Linux questo si basa sul bus di sessione D-Bus. In una sessione senza un `DBUS_SESSION_BUS_ADDRESS` utilizzabile, VMark si avvia comunque ma senza questa protezione — avviarlo di nuovo apre una seconda copia, con il rischio descritto sopra — e il log registra che la protezione è disattivata. Avvialo da una sessione desktop, oppure da una shell in cui quella variabile è impostata.
 
 ### Finestra vuota su Linux

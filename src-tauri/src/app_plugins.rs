@@ -46,6 +46,13 @@ pub(crate) fn register(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<ta
         #[cfg(not(target_os = "linux"))]
         let guard = true;
         if guard {
+            // Just ahead of the plugin: it lets a launch fall through to a
+            // second VMark when the lock holder has no window to forward to
+            // (#1527, `single_instance_holder.rs`).
+            #[cfg(target_os = "windows")]
+            {
+                builder = builder.plugin(crate::single_instance_holder::plugin());
+            }
             builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
                 crate::single_instance::handle_second_launch(app, argv);
             }));

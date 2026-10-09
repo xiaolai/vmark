@@ -438,6 +438,11 @@ window:
 tray:
   show: "顯示 VMark"
 
+# #1527 — Windows: a VMark holds the single-instance lock but cannot be reached.
+singleInstance:
+  unreachable.title: "VMark 已在執行"
+  unreachable.body: "另一個 VMark 處理程序仍在執行，但已沒有回應，因此無法在它旁邊安全地啟動新的 VMark。\n\n請開啟工作管理員，結束所有「VMark」處理程序，然後重新啟動 VMark。"
+
 cli:
   dialogTitle: "Shell 指令"
   installed: "'vmark' 指令已安裝至 %{path}"

@@ -5385,14 +5385,14 @@ The Rust composition root is `src-tauri/src/lib.rs` (`run`, `manage_state`), wit
 - id: single-instance
 - feature: Platform integrations (macOS/Windows/Linux)
 - summary: On Windows and Linux a second launch forwards its file arguments to the VMark already running and surfaces a window, instead of starting a second process that would share and corrupt the first one's session.
-- capabilities: plugin registered first; `argv[0]` dropped before the extension gate; forwarding runs off the callback thread so a slow stat cannot freeze the running app; a bare launch still surfaces a window (reveal an existing one or create `main`); keyed on the bundle identifier, so a `tauri dev` build is a separate instance; Linux registers the guard only when `DBUS_SESSION_BUS_ADDRESS` is a `unix:path=` or `unix:abstract=` address the plugin's bus library can parse, and logs a warning when it skips the guard
+- capabilities: plugin registered first; `argv[0]` dropped before the extension gate; forwarding runs off the callback thread so a slow stat cannot freeze the running app; a bare launch still surfaces a window (reveal an existing one or create `main`); keyed on the bundle identifier, so a `tauri dev` build is a separate instance; Linux registers the guard only when `DBUS_SESSION_BUS_ADDRESS` is a `unix:path=` or `unix:abstract=` address the plugin's bus library can parse, and logs a warning when it skips the guard; on Windows a launch that finds the lock held but no message window to forward to (the plugin would fall through to a second VMark, #1527) shows a localized message box and exits instead
 - status: shipped-on
 - gate: `#[cfg(not(target_os = "macos"))]` in `app_plugins.rs` plus a target-scoped Cargo dependency; Linux additionally gated by `session_bus::should_register_single_instance`
 - surfaces: Explorer / desktop launcher double-click, second CLI invocation
-- code: `src-tauri/src/single_instance.rs`, `src-tauri/src/session_bus.rs`, `src-tauri/src/app_plugins.rs`
-- rust: `single_instance::{handle_second_launch, second_launch_with, openable_files_from_argv, surface_a_window, session_bus_present, warn_if_unguarded}`, `session_bus::should_register_single_instance`
+- code: `src-tauri/src/single_instance.rs`, `src-tauri/src/single_instance_holder.rs`, `src-tauri/src/session_bus.rs`, `src-tauri/src/app_plugins.rs`
+- rust: `single_instance::{handle_second_launch, second_launch_with, openable_files_from_argv, surface_a_window, session_bus_present, warn_if_unguarded}`, `single_instance_holder::{classify, bundle_for_os_locale, plugin}`, `session_bus::should_register_single_instance`
 - docs: `website/guide/troubleshooting.md` §"One VMark at a Time on Windows and Linux"; `website/guide/workspace-management.md` §"Opening a file from outside the current workspace"
-- tests: `src-tauri/src/single_instance.test.rs` (12 tests, mock app), `src-tauri/src/session_bus.test.rs` (12 tests); both modules compile on macOS so the tests run on the dev platform
+- tests: `src-tauri/src/single_instance.test.rs` (12 tests, mock app), `src-tauri/src/session_bus.test.rs` (12 tests), `src-tauri/src/single_instance_holder.test.rs` (8 tests); all three modules compile on macOS so the tests run on the dev platform
 - notes: macOS does not need it (one process per bundle id, opens arrive as `RunEvent::Opened`). On Linux with no usable session bus the app starts unguarded and a second launch opens a second VMark; troubleshooting.md says so.
 
 ### Minimize to tray on close (Windows)

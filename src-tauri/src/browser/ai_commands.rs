@@ -95,7 +95,7 @@ pub async fn browser_ai_policy(
     // gets; and a failed reset is a failed activation — nothing changes and the
     // caller learns about it instead of hearing "done".
     if changed && (!enabled || session == AiSessionMode::Sandbox) {
-        if let Err(error) = surface::clear_ai_sandbox_store(&app) {
+        if let Err(error) = sandbox_reset_outcome(surface::clear_ai_sandbox_store(&app)) {
             return Err(surface_failure(&error));
         }
     }
@@ -109,6 +109,19 @@ pub async fn browser_ai_policy(
     policy.session = session;
     policy.allow_loopback = allow_loopback;
     Ok(())
+}
+
+/// A build with no native surface has no sandbox store, so its reset is
+/// vacuously complete. Failing it there kept the policy from ever landing, and
+/// the frontend pusher retried it for the life of the app (#1527). Every entry
+/// point that would CREATE a view still refuses on such a platform.
+fn sandbox_reset_outcome(
+    reset: Result<(), crate::browser::native_failure::NativeSurfaceError>,
+) -> Result<(), crate::browser::native_failure::NativeSurfaceError> {
+    match reset {
+        Err(crate::browser::native_failure::NativeSurfaceError::UnsupportedPlatform(_)) => Ok(()),
+        other => other,
+    }
 }
 
 /// Create an AI-owned tab and start its first navigation. Steps, in order:

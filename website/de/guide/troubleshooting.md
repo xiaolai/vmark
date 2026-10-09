@@ -150,6 +150,8 @@ KI-Genies benötigen einen konfigurierten KI-Anbieter, um zu funktionieren.
 
 Ein Doppelklick auf eine Datei oder ein erneuter Start von VMark über einen Starter übergibt die Datei an das bereits laufende VMark und holt ein Fenster nach vorne, statt eine zweite Kopie zu starten. Ein zweiter Prozess würde die App-Daten, die Sitzung und den Fensterspeicher des ersten teilen, und die beiden würden gegenseitig ihren Zustand überschreiben — der Datenverlust hinter #1330. macOS verhält sich über das Betriebssystem schon immer so. Ein Entwicklungs-Build (`tauri dev`) verwendet einen eigenen Bezeichner und zählt daher als eigene App.
 
+Wenn unter Windows das bereits laufende VMark nicht mehr reagiert und die Übergabe nicht mehr annehmen kann, startet ein erneuter Aufruf keine zweite Kopie daneben. Stattdessen erscheint eine Meldung: Öffnen Sie den Task-Manager, beenden Sie alle `VMark`-Prozesse und starten Sie VMark erneut (#1527).
+
 Unter Linux beruht das auf dem D-Bus-Sitzungsbus. In einer Sitzung ohne verwendbare `DBUS_SESSION_BUS_ADDRESS` startet VMark zwar trotzdem, aber ohne diesen Schutz — ein erneuter Start öffnet dann eine zweite Kopie, mit dem oben beschriebenen Risiko —, und das Protokoll vermerkt, dass der Schutz aus ist. Starte VMark aus einer Desktop-Sitzung oder aus einer Shell, in der diese Variable gesetzt ist.
 
 ### Leeres Fenster unter Linux
