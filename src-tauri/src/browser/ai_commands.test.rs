@@ -51,3 +51,25 @@ fn state_shape_keeps_provenance_and_ticket() {
     assert_eq!(value["automationMode"], "ai-sandbox");
     assert_eq!(value["navigationId"], "nav-2");
 }
+
+// #1527 — off macOS there is no native surface, so there is no sandbox store to
+// reset. Treating the stub's refusal as a failed reset kept the policy from ever
+// landing, and the frontend pusher retried it every 8 s for the life of the app.
+#[test]
+fn a_platform_without_a_surface_has_no_sandbox_store_to_reset() {
+    use crate::browser::native_failure::NativeSurfaceError;
+    assert!(sandbox_reset_outcome(Ok(())).is_ok());
+    assert!(
+        sandbox_reset_outcome(Err(NativeSurfaceError::UnsupportedPlatform(
+            "no surface".into()
+        )))
+        .is_ok()
+    );
+}
+
+#[test]
+fn a_real_sandbox_reset_failure_still_refuses_the_policy() {
+    use crate::browser::native_failure::NativeSurfaceError;
+    let failed = sandbox_reset_outcome(Err(NativeSurfaceError::WindowGone("main".into())));
+    assert!(matches!(failed, Err(NativeSurfaceError::WindowGone(_))));
+}
