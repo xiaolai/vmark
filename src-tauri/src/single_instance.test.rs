@@ -6,7 +6,7 @@
 //! with a file forwards exactly that file and opens nothing, a bare launch
 //! reveals a hidden window or builds one when none is left.
 
-use super::openable_files_from_argv;
+use super::{openable_files_from_argv, should_exit_after_failed_window};
 
 /// Real files on disk — `filter_supported_args` calls `is_file()`, so a
 /// fabricated path would be rejected for the wrong reason and the test would
@@ -246,4 +246,24 @@ mod on_a_mock_app {
         assert!(app.get_webview_window("main").is_some());
         drop(winner);
     }
+}
+
+#[test]
+fn a_windowless_process_that_cannot_build_a_window_exits_off_macos() {
+    // The zombie of #1527: no window, the single-instance mutex still held, so
+    // every later launch forwards to a process that can show nothing.
+    assert!(should_exit_after_failed_window(0, false));
+}
+
+#[test]
+fn a_failed_build_never_ends_a_process_that_still_has_a_window() {
+    // A tray-parked (hidden) window still counts: the user's documents live
+    // there, and the failure is only the extra window a launch asked for.
+    assert!(!should_exit_after_failed_window(1, false));
+    assert!(!should_exit_after_failed_window(3, false));
+}
+
+#[test]
+fn macos_keeps_a_windowless_process_alive_for_the_dock_icon() {
+    assert!(!should_exit_after_failed_window(0, true));
 }

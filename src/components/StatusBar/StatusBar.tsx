@@ -186,7 +186,7 @@ export function StatusBar() {
 
   // A browser tab keeps the workspace bar even when hidden (F7): it remains
   // the user's route back to the Browser workspace and its page tabs.
-  if (!statusBarVisible && !aiHasActiveStatus && !activeBrowserTabId) return null;
+  if (!statusBarVisible && !aiHasActiveStatus && !activeBrowserTabId && !quitMessage) return null;
 
   return (
     <>
