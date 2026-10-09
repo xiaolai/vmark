@@ -11,6 +11,19 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 ## [Unreleased]
 
+## [0.9.96] - 2026-10-09
+
+### Fixed
+
+- On Windows, launching VMark while an earlier VMark is stuck in the
+  background no longer starts a broken second copy that shows an empty
+  window. VMark now explains that the earlier process is not responding and
+  asks you to end it in Task Manager before starting again
+  ([#1527](https://github.com/xiaolai/vmark/issues/1527)).
+- On Windows and Linux, VMark no longer retries a browser setting every few
+  seconds in the background, which filled the log with
+  "embedded browser surface is macOS-only" warnings.
+
 ## [0.9.95] - 2026-10-09
 
 ### Fixed
@@ -218,6 +231,7 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 - Raised the `markdown-it` version floor past GHSA-253c-mchw-3w2r.
 
 [Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.95...HEAD
+[0.9.96]: https://github.com/xiaolai/vmark/releases/tag/v0.9.96
 [0.9.95]: https://github.com/xiaolai/vmark/releases/tag/v0.9.95
 [0.9.94]: https://github.com/xiaolai/vmark/releases/tag/v0.9.94
 [0.9.93]: https://github.com/xiaolai/vmark/releases/tag/v0.9.93
