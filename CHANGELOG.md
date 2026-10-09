@@ -11,6 +11,30 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 ## [Unreleased]
 
+## [0.9.95] - 2026-10-09
+
+### Fixed
+
+- The first press of Cmd+Q is now clearly acknowledged. VMark asks for a
+  second press to quit, but the "press again" hint could go unseen when no
+  window had focus (for example after choosing Quit from the menu) or when
+  the status bar was hidden, so quitting looked broken
+  ([#1528](https://github.com/xiaolai/vmark/issues/1528)).
+- The welcome screen no longer cuts off its title and buttons when a long
+  list of recent files and workspaces is taller than the window; you can
+  scroll back to the top.
+- On Windows and Linux, if opening a second VMark window fails during a
+  relaunch and no window is left, VMark now exits instead of staying alive as
+  an invisible process that blocks every later launch. This is a partial fix
+  for [#1527](https://github.com/xiaolai/vmark/issues/1527); the underlying
+  cause of the reported crash is still being investigated.
+
+### Security
+
+- Updated the MCP SDK used by the AI tool server to 1.31.0, which fixes a
+  high-severity flaw (GHSA-6qxp-vccf-f47h) where its OAuth client could send
+  saved credentials to a server it should not trust.
+
 ## [0.9.94] - 2026-10-07
 
 ### Changed
@@ -193,7 +217,8 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 - Raised the `markdown-it` version floor past GHSA-253c-mchw-3w2r.
 
-[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.94...HEAD
+[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.95...HEAD
+[0.9.95]: https://github.com/xiaolai/vmark/releases/tag/v0.9.95
 [0.9.94]: https://github.com/xiaolai/vmark/releases/tag/v0.9.94
 [0.9.93]: https://github.com/xiaolai/vmark/releases/tag/v0.9.93
 [0.9.92]: https://github.com/xiaolai/vmark/releases/tag/v0.9.92
