@@ -150,6 +150,8 @@ Les Génies IA nécessitent un fournisseur d'IA configuré pour fonctionner.
 
 Double-cliquer sur un fichier, ou relancer VMark depuis un lanceur, transmet le fichier au VMark déjà en cours d'exécution et met une fenêtre au premier plan au lieu de démarrer une seconde copie. Un second processus partagerait les données d'application, la session et le stockage des fenêtres du premier, et les deux écraseraient mutuellement leur état — la perte de données à l'origine de #1330. macOS s'est toujours comporté ainsi, par l'intermédiaire du système d'exploitation. Un build de développement (`tauri dev`) utilise son propre identifiant et compte donc comme une application différente.
 
+Sous Windows, si le VMark déjà en cours d’exécution ne répond plus et ne peut plus recevoir le transfert, un nouveau lancement ne démarre pas de seconde copie à côté. Un message s’affiche à la place : ouvrez le Gestionnaire des tâches, arrêtez tous les processus `VMark`, puis relancez VMark (#1527).
+
 Sous Linux, ce mécanisme repose sur le bus de session D-Bus. Dans une session sans `DBUS_SESSION_BUS_ADDRESS` utilisable, VMark démarre quand même, mais sans cette protection — le relancer démarre une seconde copie, avec le risque décrit ci-dessus — et le journal indique que la protection est désactivée. Lancez-le depuis une session de bureau, ou depuis un shell où cette variable est définie.
 
 ### Fenêtre vide sous Linux

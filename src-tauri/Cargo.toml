@@ -214,7 +214,14 @@ keyring = { version = "3", features = ["windows-native"] }
 # `cargo tree --target x86_64-pc-windows-msvc`; re-check on any wry bump.
 webview2-com = "=0.39.1"
 windows-core = "=0.62.2"
-windows = { version = "=0.62.2", features = ["Win32_Foundation"] }
+# #1527: Globalization, Threading and WindowsAndMessaging back the
+# single-instance holder probe (`single_instance_holder.rs`).
+windows = { version = "=0.62.2", features = [
+    "Win32_Foundation",
+    "Win32_Globalization",
+    "Win32_System_Threading",
+    "Win32_UI_WindowsAndMessaging",
+] }
 # #1419: the close-to-tray icon. Windows-only, because the feature is never
 # effective anywhere else — macOS and Linux builds carry no tray code at all.
 # Cargo unions this with the `[dependencies]` tauri features for this target.

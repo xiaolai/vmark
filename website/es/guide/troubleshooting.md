@@ -150,6 +150,8 @@ Los Genios de IA requieren un proveedor de IA configurado para funcionar.
 
 Hacer doble clic en un archivo, o volver a abrir VMark desde un lanzador, entrega el archivo al VMark que ya está en ejecución y trae una ventana al frente en lugar de iniciar una segunda copia. Un segundo proceso compartiría los datos de la aplicación, la sesión y el almacenamiento de ventanas del primero, y ambos sobrescribirían el estado del otro — la pérdida de datos detrás de #1330. macOS siempre se ha comportado así a través del sistema operativo. Una compilación de desarrollo (`tauri dev`) usa su propio identificador y por eso cuenta como una aplicación distinta.
 
+En Windows, si el VMark que ya está en ejecución ha dejado de responder y ya no puede recibir el traspaso, un nuevo inicio no abre una segunda copia a su lado. En su lugar muestra un mensaje: abra el Administrador de tareas, finalice todos los procesos `VMark` y vuelva a iniciar VMark (#1527).
+
 En Linux esto depende del bus de sesión de D-Bus. En una sesión sin un `DBUS_SESSION_BUS_ADDRESS` utilizable, VMark se inicia igualmente pero sin esta protección — volver a abrirlo inicia una segunda copia, con el riesgo descrito arriba — y el registro indica que la protección está desactivada. Ábrelo desde una sesión de escritorio, o desde un shell donde esa variable esté definida.
 
 ### Ventana en blanco en Linux

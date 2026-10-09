@@ -438,6 +438,11 @@ window:
 tray:
   show: "Afficher VMark"
 
+# #1527 — Windows: a VMark holds the single-instance lock but cannot be reached.
+singleInstance:
+  unreachable.title: "VMark est déjà en cours d’exécution"
+  unreachable.body: "Un autre processus VMark est toujours en cours d’exécution mais ne répond plus : un nouveau VMark ne peut pas démarrer sans risque à côté de lui.\n\nOuvrez le Gestionnaire des tâches, arrêtez tous les processus « VMark », puis relancez VMark."
+
 cli:
   dialogTitle: "Commande shell"
   installed: "Commande 'vmark' installée dans %{path}"

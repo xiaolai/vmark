@@ -55,6 +55,7 @@ mod session_bus;
 mod shell_env;
 mod shell_integration;
 mod single_instance;
+mod single_instance_holder;
 mod supported_files;
 mod system_fonts;
 mod tab_transfer;

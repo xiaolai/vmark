@@ -438,6 +438,11 @@ window:
 tray:
   show: "VMark 표시"
 
+# #1527 — Windows: a VMark holds the single-instance lock but cannot be reached.
+singleInstance:
+  unreachable.title: "VMark가 이미 실행 중입니다"
+  unreachable.body: "다른 VMark 프로세스가 아직 실행 중이지만 더 이상 응답하지 않아 새 VMark를 안전하게 시작할 수 없습니다.\n\n작업 관리자를 열어 모든 “VMark” 프로세스를 종료한 다음 VMark를 다시 시작하세요."
+
 cli:
   dialogTitle: "셸 명령"
   installed: "'vmark' 명령을 %{path}에 설치했습니다"

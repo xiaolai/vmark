@@ -1276,7 +1276,9 @@
         "src/utils/platform.test.ts",
         "src-tauri/src/close_to_tray",
         "src/hooks/useCloseToTraySync.ts",
-        "src-tauri/src/session_bus.rs"
+        "src-tauri/src/session_bus.rs",
+        "src-tauri/src/single_instance_holder.rs",
+        "src-tauri/src/single_instance_holder.test.rs"
       ],
       "flag": null,
       "flagDefault": null,
