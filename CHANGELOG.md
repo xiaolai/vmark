@@ -11,6 +11,16 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 ## [Unreleased]
 
+## [0.9.97] - 2026-10-10
+
+### Fixed
+
+- In rich-text mode, a few unlisted shortcuts inherited from the editor
+  library (Cmd+Option+0 to 6, Cmd+Shift+7 and Cmd+Shift+8; Ctrl on Windows and
+  Linux) no longer reformat text behind VMark's back. Pressed inside a code
+  block they could turn the whole block into a heading or a list and lose its
+  fence. VMark's own heading and list shortcuts are unchanged.
+
 ## [0.9.96] - 2026-10-09
 
 ### Fixed
@@ -231,6 +241,7 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 - Raised the `markdown-it` version floor past GHSA-253c-mchw-3w2r.
 
 [Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.95...HEAD
+[0.9.97]: https://github.com/xiaolai/vmark/releases/tag/v0.9.97
 [0.9.96]: https://github.com/xiaolai/vmark/releases/tag/v0.9.96
 [0.9.95]: https://github.com/xiaolai/vmark/releases/tag/v0.9.95
 [0.9.94]: https://github.com/xiaolai/vmark/releases/tag/v0.9.94
