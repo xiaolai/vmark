@@ -213,7 +213,7 @@ keyring = { version = "3", features = ["windows-native"] }
 # against the controller Tauri hands us. Verified with
 # `cargo tree --target x86_64-pc-windows-msvc`; re-check on any wry bump.
 webview2-com = "=0.39.1"
-windows-core = "=0.62.2"
+windows-core = "=0.100.0"
 # #1527: Globalization, Threading and WindowsAndMessaging back the
 # single-instance holder probe (`single_instance_holder.rs`).
 windows = { version = "=0.62.2", features = [
