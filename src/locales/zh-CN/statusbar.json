@@ -71,6 +71,7 @@
   "terminal.search.regex": "使用正则表达式",
   "terminal.search.close": "关闭 (Escape)",
   "terminal.ariaLabel": "终端",
+  "terminal.floatingPrompt.jumpToPrompt": "跳到输入行",
   "terminal.newSession": "新建终端",
   "terminal.maxSessions": "最多 5 个会话",
   "terminal.closeSession": "关闭",

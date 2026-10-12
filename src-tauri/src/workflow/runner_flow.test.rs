@@ -188,7 +188,7 @@ async fn run_with(yaml: &str, setup: Setup) -> Finished {
         }
     });
 
-    let workflow: RawWorkflow = serde_yaml_ng::from_str(yaml).expect("the fixture parses");
+    let workflow: RawWorkflow = crate::yaml::from_str(yaml).expect("the fixture parses");
     let result = run_workflow_sequential(
         app.handle(),
         workflow,
@@ -666,7 +666,7 @@ async fn bridges_left_behind(yaml: &str) -> usize {
     let app = mock_app();
     let workspace = tempfile::tempdir().expect("workspace");
     let flag = Arc::new(AtomicBool::new(false));
-    let workflow: RawWorkflow = serde_yaml_ng::from_str(yaml).expect("the fixture parses");
+    let workflow: RawWorkflow = crate::yaml::from_str(yaml).expect("the fixture parses");
     let _ = run_workflow_sequential(
         app.handle(),
         workflow,

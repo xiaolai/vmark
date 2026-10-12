@@ -44,7 +44,9 @@ while IFS= read -r -d '' file; do
   CONTENT=$(git show ":$file" 2>/dev/null) || continue
 
   # Check if file has a Purpose: header
-  if ! printf '%s\n' "$CONTENT" | grep -q "Purpose:"; then
+  # Here-string, not a pipe: under pipefail a `printf | grep -q` fails when
+  # grep exits on its first match and printf dies of SIGPIPE.
+  if ! grep -q "Purpose:" <<<"$CONTENT"; then
     continue
   fi
 

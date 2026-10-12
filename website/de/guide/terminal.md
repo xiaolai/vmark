@@ -72,6 +72,10 @@ Die Prompt-Navigation (`Mod + ↑` / `Mod + ↓`) erfordert Shell-Integration �
 `Mod + C` ohne Textauswahl sendet SIGINT an den laufenden Prozess — dasselbe wie Strg+C in einem regulären Terminal.
 :::
 
+## Verlauf lesen und dabei tippen
+
+Scrolle nach oben, um frühere Ausgaben zu lesen, und tippe einfach weiter: Die Ansicht bleibt, wo sie ist, und am unteren Rand des Terminals erscheint eine **schwebende Eingabezeile** mit einer Live-Kopie der Zeilen, in die du tippst — der Shell-Prompt oder das Eingabefeld eines TUI wie Claude Code. Tasten gehen weiterhin an die Shell, daher funktionieren Tab-Vervollständigung, Verlauf und Eingabemethoden wie gewohnt. Ein Klick auf den Pfeil am rechten Ende springt zurück zum Prompt; sobald der Prompt wieder sichtbar ist, verschwindet sie von selbst. Auch Enter oder Strg+C springen zurück, damit du siehst, was der Befehl — oder die an ein TUI gesendete Eingabe — als Nächstes tut; jede andere Taste, auch Umschalt+Enter, lässt die Ansicht stehen. Vollbildprogramme (vim, less) haben keinen Verlauf, dort erscheint sie nie.
+
 ## Suche
 
 `Mod + F` drücken, um die Suchleiste zu öffnen. Tippen, um inkrementell im Terminal-Puffer zu suchen.

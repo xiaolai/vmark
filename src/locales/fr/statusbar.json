@@ -71,6 +71,7 @@
   "terminal.search.regex": "Utiliser une expression régulière",
   "terminal.search.close": "Fermer (Échap)",
   "terminal.ariaLabel": "Terminal",
+  "terminal.floatingPrompt.jumpToPrompt": "Aller à l’invite",
   "terminal.newSession": "Nouveau terminal",
   "terminal.maxSessions": "5 sessions maximum",
   "terminal.closeSession": "Fermer",

@@ -22,9 +22,14 @@ vi.mock("@xterm/xterm", () => ({
   Terminal: class {
     element = document.createElement("div");
     textarea: HTMLTextAreaElement | undefined = undefined;
-    parser = { registerOscHandler: vi.fn(), registerEscHandler: vi.fn() };
+    parser = { registerOscHandler: vi.fn(), registerEscHandler: vi.fn(() => ({ dispose: vi.fn() })), registerCsiHandler: vi.fn(() => ({ dispose: vi.fn() })) };
+    // Floating-prompt subscriptions (setupFloatingPrompt).
+    onScroll = vi.fn(() => ({ dispose: vi.fn() }));
+    onWriteParsed = vi.fn(() => ({ dispose: vi.fn() }));
+    onCursorMove = vi.fn(() => ({ dispose: vi.fn() }));
+    onResize = vi.fn(() => ({ dispose: vi.fn() }));
     unicode = { activeVersion: "6" };
-    buffer = { active: { viewportY: 0, length: 0, getLine: () => undefined } };
+    buffer = { active: { viewportY: 0, length: 0, getLine: () => undefined }, onBufferChange: vi.fn(() => ({ dispose: vi.fn() })) };
     modes = { bracketedPasteMode: false };
     options = {};
     cols = 80;

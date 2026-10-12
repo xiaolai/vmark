@@ -71,6 +71,7 @@
   "terminal.search.regex": "使用正規表示式",
   "terminal.search.close": "關閉（Escape）",
   "terminal.ariaLabel": "終端機",
+  "terminal.floatingPrompt.jumpToPrompt": "跳到輸入行",
   "terminal.newSession": "新增終端機",
   "terminal.maxSessions": "最多 5 個工作階段",
   "terminal.closeSession": "關閉",

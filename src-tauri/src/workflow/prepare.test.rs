@@ -6,7 +6,7 @@ use crate::command_error::ErrorCode;
 use crate::workflow::types::RawWorkflow;
 
 fn workflow(yaml: &str) -> RawWorkflow {
-    serde_yaml_ng::from_str(yaml).expect("test workflow parses")
+    crate::yaml::from_str(yaml).expect("test workflow parses")
 }
 
 #[test]
@@ -184,7 +184,7 @@ fn a_short_invalid_id_is_still_named_in_full() {
 fn a_target_written_by_two_steps_is_snapshotted_once() {
     let ws = tempfile::tempdir().expect("workspace");
     let yaml = "name: twice\nsteps:\n  - uses: action/save-file\n    with:\n      path: out.md\n      input: a\n  - uses: action/save-file\n    with:\n      path: out.md\n      input: b\n  - uses: action/save-file\n    with:\n      path: other.md\n      input: c\n";
-    let workflow: RawWorkflow = serde_yaml_ng::from_str(yaml).expect("parses");
+    let workflow: RawWorkflow = crate::yaml::from_str(yaml).expect("parses");
     let targets = snapshot_targets(&workflow, ws.path());
     assert_eq!(targets.len(), 2, "{targets:?}");
     assert_eq!(targets[0], ws.path().join("out.md"), "order is preserved");

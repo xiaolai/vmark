@@ -86,13 +86,20 @@ vi.mock("@xterm/xterm", () => ({
     refresh = vi.fn();
     attachCustomKeyEventHandler = vi.fn();
     registerLinkProvider = vi.fn();
-    parser = { registerOscHandler: vi.fn(), registerEscHandler: vi.fn() };
+    parser = { registerOscHandler: vi.fn(), registerEscHandler: vi.fn(() => ({ dispose: vi.fn() })), registerCsiHandler: vi.fn(() => ({ dispose: vi.fn() })) };
+    // Floating-prompt subscriptions (setupFloatingPrompt).
+    onScroll = vi.fn(() => ({ dispose: vi.fn() }));
+    onWriteParsed = vi.fn(() => ({ dispose: vi.fn() }));
+    onData = vi.fn(() => ({ dispose: vi.fn() }));
+    onCursorMove = vi.fn(() => ({ dispose: vi.fn() }));
+    onResize = vi.fn(() => ({ dispose: vi.fn() }));
+    scrollToBottom = vi.fn();
     registerMarker = vi.fn(() => ({ line: 0, onDispose: vi.fn(), dispose: vi.fn() }));
     cols = 80;
     rows = 24;
     options = {};
     unicode = { activeVersion: "6" };
-    buffer = { active: { getLine: vi.fn() } };
+    buffer = { active: { getLine: vi.fn() }, onBufferChange: vi.fn(() => ({ dispose: vi.fn() })) };
   },
 }));
 

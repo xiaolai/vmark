@@ -72,6 +72,10 @@ La navegación entre prompts (`Mod + ↑` / `Mod + ↓`) requiere la integració
 `Mod + C` sin una selección de texto envía SIGINT al proceso en ejecución — igual que presionar Ctrl+C en un terminal normal.
 :::
 
+## Leer el historial mientras escribes
+
+Desplázate hacia arriba para leer la salida anterior y sigue escribiendo: la vista se queda donde estás y en la parte inferior del terminal aparece un **prompt flotante** con una copia en vivo de las filas en las que escribes — el prompt del shell o el cuadro de entrada de una TUI como Claude Code. Las teclas siguen llegando al shell, así que el autocompletado con Tab, el historial y los métodos de entrada funcionan como siempre. Haz clic en la flecha de su extremo derecho para volver al prompt; desaparece sola cuando el prompt vuelve a estar a la vista. Pulsar Enter o Ctrl+C también vuelve abajo, para que veas qué hace el comando — o el prompt que enviaste a una TUI — a continuación; cualquier otra tecla, incluida Mayús+Enter, deja la vista donde está. Los programas a pantalla completa (vim, less) no tienen historial, así que nunca aparece allí.
+
 ## Búsqueda
 
 Presiona `Mod + F` para abrir la barra de búsqueda. Escribe para buscar de forma incremental en el buffer del terminal.

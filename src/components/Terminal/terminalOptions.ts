@@ -110,5 +110,9 @@ export function buildTerminalOptions(
     // audit). NaN is checked FIRST — it passes straight through Math.min/max,
     // and xterm throws on a NaN scrollback, taking terminal creation with it.
     scrollback: clampScrollback(settings.scrollback),
+    // Typing while scrolled back must not yank the viewport to the bottom —
+    // the floating prompt (setupFloatingPrompt.ts) shows the input instead,
+    // and its button jumps back down.
+    scrollOnUserInput: false,
   };
 }

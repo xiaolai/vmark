@@ -1479,6 +1479,7 @@
       "src/utils/devDebugHandle.ts",
       "src-tauri/src/automation_port.rs",
       "src-tauri/src/peer_text.rs",
+      "src-tauri/src/yaml.rs",
       "src-tauri/src/lock_policy.rs",
       "src/utils/debounce.ts",
       "src/utils/deepMerge.ts",

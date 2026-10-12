@@ -80,7 +80,7 @@ struct RawRuns {
 
 /// Parse action.yml text into the editor-facing metadata shape.
 pub fn parse_action_yml(yaml: &str) -> Result<ActionMetadata, String> {
-    let raw: RawActionYml = serde_yaml_ng::from_str(yaml).map_err(|e| e.to_string())?;
+    let raw: RawActionYml = crate::yaml::from_str(yaml).map_err(|e| e.to_string())?;
     Ok(ActionMetadata {
         name: raw.name,
         description: raw.description,

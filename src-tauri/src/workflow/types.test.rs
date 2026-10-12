@@ -5,8 +5,8 @@
 
 use super::*;
 
-fn parse(yaml: &str) -> Result<RawWorkflow, serde_yaml_ng::Error> {
-    serde_yaml_ng::from_str(yaml)
+fn parse(yaml: &str) -> Result<RawWorkflow, crate::yaml::Error> {
+    crate::yaml::from_str(yaml)
 }
 
 /// `description` and `limits.max_cost` are documented keys the engine does not

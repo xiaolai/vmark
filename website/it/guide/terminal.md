@@ -72,6 +72,10 @@ La navigazione tra i prompt (`Mod + ↑` / `Mod + ↓`) richiede l'integrazione 
 `Mod + C` senza una selezione di testo invia SIGINT al processo in esecuzione — uguale a premere Ctrl+C in un terminale normale.
 :::
 
+## Leggere la cronologia mentre scrivi
+
+Scorri verso l’alto per leggere l’output precedente e continua a scrivere: la vista resta dove sei e in fondo al terminale compare un **prompt flottante** con una copia in tempo reale delle righe in cui stai scrivendo — il prompt della shell o la casella di input di una TUI come Claude Code. I tasti arrivano sempre alla shell, quindi completamento con Tab, cronologia e metodi di input funzionano come al solito. Fai clic sulla freccia all’estremità destra per tornare al prompt; scompare da solo quando il prompt torna visibile. Anche Invio o Ctrl+C riportano in fondo, così vedi cosa fa il comando — o il prompt inviato a una TUI — subito dopo; qualsiasi altro tasto, Maiusc+Invio compreso, lascia la vista dov’è. I programmi a schermo intero (vim, less) non hanno cronologia, quindi lì non compare mai.
+
 ## Ricerca
 
 Premi `Mod + F` per aprire la barra di ricerca. Digita per cercare in modo incrementale nel buffer del terminale.

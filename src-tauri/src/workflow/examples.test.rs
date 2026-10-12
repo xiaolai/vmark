@@ -125,7 +125,7 @@ async fn the_bundled_sample_runs_end_to_end_and_saves_the_translation() {
     });
 
     let mut workflow: RawWorkflow =
-        serde_yaml_ng::from_str(SAMPLE_WORKFLOW).expect("the bundled sample parses");
+        crate::yaml::from_str(SAMPLE_WORKFLOW).expect("the bundled sample parses");
     // The OpenAI-compatible provider has no default model; a real run takes
     // it from the step, the genie or the workflow defaults. The sample sets
     // none, so it is supplied the way a user's `defaults.model` would be.
@@ -199,7 +199,7 @@ async fn a_provider_failure_fails_the_genie_step_and_the_run_and_saves_nothing()
     });
     let genies = genies_dir();
     let workspace = tempfile::tempdir().expect("workspace");
-    let mut workflow: RawWorkflow = serde_yaml_ng::from_str(SAMPLE_WORKFLOW).expect("parses");
+    let mut workflow: RawWorkflow = crate::yaml::from_str(SAMPLE_WORKFLOW).expect("parses");
     workflow.defaults.model = Some("fake-model".to_string());
 
     let result = run_workflow_sequential(

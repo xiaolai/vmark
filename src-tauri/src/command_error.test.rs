@@ -363,7 +363,7 @@ fn every_command_error_i18n_key_exists_in_every_locale() {
 
     for locale in locales {
         let text = std::fs::read_to_string(&locale).expect("read locale");
-        let doc: serde_yaml_ng::Value = serde_yaml_ng::from_str(&text).expect("parse locale");
+        let doc: crate::yaml::Value = crate::yaml::from_str(&text).expect("parse locale");
         for key in &keys {
             let (ns, rest) = key.split_once('.').expect("keys are namespaced");
             let resolved = doc.get(ns).and_then(|section| section.get(rest));

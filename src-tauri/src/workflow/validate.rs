@@ -65,7 +65,7 @@ pub(super) fn validate_document(
             )
         })?;
 
-    let workflow: RawWorkflow = serde_yaml_ng::from_str(yaml).map_err(|e| {
+    let workflow: RawWorkflow = crate::yaml::from_str(yaml).map_err(|e| {
         localized_error!(
             ErrorCode::InvalidInput,
             "errors.workflow.parseFailed",

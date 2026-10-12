@@ -69,6 +69,7 @@ mod webview_edit;
 mod window_manager;
 pub mod workflow;
 mod workspace;
+mod yaml;
 
 #[cfg(target_os = "macos")]
 mod app_nap;

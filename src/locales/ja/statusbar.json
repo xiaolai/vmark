@@ -71,6 +71,7 @@
   "terminal.search.regex": "正規表現を使用",
   "terminal.search.close": "閉じる (Escape)",
   "terminal.ariaLabel": "ターミナル",
+  "terminal.floatingPrompt.jumpToPrompt": "プロンプトへ移動",
   "terminal.newSession": "新しいターミナル",
   "terminal.maxSessions": "最大5セッション",
   "terminal.closeSession": "閉じる",

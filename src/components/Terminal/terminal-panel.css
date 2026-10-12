@@ -182,3 +182,79 @@
   pointer-events: none;
   text-align: center;
 }
+
+/* Floating prompt — a live mirror of the input rows shown while the viewport
+   is scrolled back (setupFloatingPrompt.ts). Cell colours, font and the
+   surface colour are set inline from the live xterm theme so the mirror
+   matches the cells it copies; the chrome below uses tokens. */
+.terminal-floating-prompt {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2) var(--space-1) 0;
+  border-top: var(--border-thin) solid var(--border-color);
+  box-shadow: var(--shadow-md);
+  z-index: var(--z-panel-overlay);
+  cursor: default;
+}
+
+/* `display: flex` above would otherwise override the hidden attribute. */
+.terminal-floating-prompt[hidden] {
+  display: none;
+}
+
+.terminal-floating-prompt-rows {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.terminal-floating-prompt-row {
+  white-space: pre;
+  overflow: hidden;
+  text-overflow: clip;
+}
+
+/* The mirrored cursor: an outlined cell, so the glyph under it stays legible. */
+.terminal-floating-prompt-cursor {
+  outline: var(--border-thin) solid currentColor;
+  outline-offset: calc(-1 * var(--border-thin));
+}
+
+.terminal-floating-prompt-jump {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: var(--space-1);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.terminal-floating-prompt-jump:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-color);
+}
+
+.terminal-floating-prompt-jump:focus-visible {
+  outline: none;
+  position: relative;
+}
+
+.terminal-floating-prompt-jump:focus-visible::after {
+  content: "";
+  position: absolute;
+  bottom: 2px;
+  left: 4px;
+  right: 4px;
+  height: 2px;
+  background: var(--accent-primary);
+  border-radius: 1px;
+}

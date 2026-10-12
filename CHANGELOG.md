@@ -11,6 +11,27 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 ## [Unreleased]
 
+## [0.9.98] - 2026-10-12
+
+### Added
+
+- Terminal: scroll up to read earlier output and keep typing. While the
+  prompt is out of view, a floating copy of the rows you are typing into —
+  the shell prompt, or the input box of a tool such as Claude Code — appears
+  at the bottom of the terminal, and typing no longer snaps the view back
+  down. Keys still go to the shell, so tab completion, history and input
+  methods work as before. Pressing Enter or Ctrl+C, or clicking the arrow on
+  the floating row, jumps back to the prompt. Thanks to @ijerrywong for the
+  idea and the implementation (#1545).
+
+### Security
+
+- Genie, workflow and GitHub Action YAML files are now read by a parser
+  written in safe Rust. The previous one was built on an unmaintained
+  machine translation of C code (RUSTSEC-2024-0449). Files that parsed before
+  parse the same way: only `true` and `false` count as booleans, and a
+  duplicate key is still an error.
+
 ## [0.9.97] - 2026-10-10
 
 ### Fixed
@@ -240,7 +261,8 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 - Raised the `markdown-it` version floor past GHSA-253c-mchw-3w2r.
 
-[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.95...HEAD
+[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.98...HEAD
+[0.9.98]: https://github.com/xiaolai/vmark/releases/tag/v0.9.98
 [0.9.97]: https://github.com/xiaolai/vmark/releases/tag/v0.9.97
 [0.9.96]: https://github.com/xiaolai/vmark/releases/tag/v0.9.96
 [0.9.95]: https://github.com/xiaolai/vmark/releases/tag/v0.9.95

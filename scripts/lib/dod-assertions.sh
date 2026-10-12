@@ -60,7 +60,9 @@ assert_grep_in_section() {
   if [[ ! -f "$file" ]]; then fail "$label (file missing: $file)"; return; fi
   body="$(awk -v h="$heading" '/^#+[[:space:]]/ { if (inside) exit; if ($0 ~ h) { inside = 1; next } } inside { print }' "$file")"
   if [[ -z "$body" ]]; then fail "$label (no section matching /$heading/ in $file)"; return; fi
-  if printf '%s\n' "$body" | grep -qE -- "$want"; then ok "$label"
+  # Here-string, not a pipe: under pipefail a `printf | grep -q` fails when
+  # grep exits on its first match and printf dies of SIGPIPE.
+  if grep -qE -- "$want" <<<"$body"; then ok "$label"
   else fail "$label (no /$want/ INSIDE the /$heading/ section of $file — it may be elsewhere on the page)"; fi
 }
 

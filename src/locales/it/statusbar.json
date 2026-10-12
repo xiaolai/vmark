@@ -71,6 +71,7 @@
   "terminal.search.regex": "Usa espressione regolare",
   "terminal.search.close": "Chiudi (Esc)",
   "terminal.ariaLabel": "Terminale",
+  "terminal.floatingPrompt.jumpToPrompt": "Vai al prompt",
   "terminal.newSession": "Nuovo terminale",
   "terminal.maxSessions": "Massimo 5 sessioni",
   "terminal.closeSession": "Chiudi",

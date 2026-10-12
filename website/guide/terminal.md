@@ -72,6 +72,10 @@ Prompt navigation (`Mod + ↑` / `Mod + ↓`) requires shell integration — see
 `Mod + C` without a text selection sends SIGINT to the running process — the same as pressing Ctrl+C in a regular terminal.
 :::
 
+## Reading scrollback while typing
+
+Scroll up to read earlier output and keep typing: the viewport stays where you are, and a **floating prompt** appears at the bottom of the terminal with a live copy of the rows you are typing into — the shell prompt, or the input box of a TUI such as Claude Code. Keys still go to the shell, so tab completion, history and input methods work as usual. Click the arrow at its right end to jump back to the prompt; it disappears on its own once the prompt is back in view. Pressing Enter or Ctrl+C also jumps back, so you see what the command — or the prompt you sent to a TUI — does next; every other key, including Shift+Enter, leaves the viewport alone. Full-screen programs (vim, less) have no scrollback, so it never appears there.
+
 ## Search
 
 Press `Mod + F` to open the search bar. Type to search incrementally through the terminal buffer.

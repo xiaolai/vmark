@@ -11,7 +11,14 @@ import { renderHook, act } from "@testing-library/react";
 const xterm = vi.hoisted(() => ({ opens: 0, disposes: 0 }));
 vi.mock("@xterm/xterm", () => ({
   Terminal: class {
-    parser = { registerOscHandler: vi.fn(), registerEscHandler: vi.fn() };
+    parser = { registerOscHandler: vi.fn(), registerEscHandler: vi.fn(() => ({ dispose: vi.fn() })), registerCsiHandler: vi.fn(() => ({ dispose: vi.fn() })) };
+    // Floating-prompt subscriptions (setupFloatingPrompt).
+    onScroll = vi.fn(() => ({ dispose: vi.fn() }));
+    onWriteParsed = vi.fn(() => ({ dispose: vi.fn() }));
+    onData = vi.fn(() => ({ dispose: vi.fn() }));
+    onCursorMove = vi.fn(() => ({ dispose: vi.fn() }));
+    onResize = vi.fn(() => ({ dispose: vi.fn() }));
+    scrollToBottom = vi.fn();
     unicode = { activeVersion: "6" };
     loadAddon = vi.fn();
     open = vi.fn(() => {

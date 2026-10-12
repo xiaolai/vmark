@@ -55,7 +55,7 @@ fn declared_id(step: &crate::workflow::types::RawStep) -> &str {
 
 #[test]
 fn sample_workflow_parses() {
-    let workflow: RawWorkflow = serde_yaml_ng::from_str(SAMPLE_WORKFLOW)
+    let workflow: RawWorkflow = crate::yaml::from_str(SAMPLE_WORKFLOW)
         .expect("bundled sample workflow must parse as RawWorkflow");
 
     assert_eq!(workflow.name, "Triage and Translate");
@@ -67,7 +67,7 @@ fn sample_workflow_parses() {
 
 #[test]
 fn sample_workflow_structure_is_valid() {
-    let workflow: RawWorkflow = serde_yaml_ng::from_str(SAMPLE_WORKFLOW).unwrap();
+    let workflow: RawWorkflow = crate::yaml::from_str(SAMPLE_WORKFLOW).unwrap();
 
     // Every step names itself, so `declared_id` needs no fallback and the
     // sample stays readable as documentation.
@@ -90,7 +90,7 @@ fn the_production_sort_the_sample_is_judged_by_refuses_a_broken_graph() {
     // Without this, `sample_workflow_structure_is_valid` would pass just as
     // well against a sort that returned `Ok` unconditionally — and the sample
     // would be "valid" by a rule that judges nothing.
-    let workflow: RawWorkflow = serde_yaml_ng::from_str(SAMPLE_WORKFLOW).unwrap();
+    let workflow: RawWorkflow = crate::yaml::from_str(SAMPLE_WORKFLOW).unwrap();
 
     let mut unknown_dep = workflow.steps.clone();
     unknown_dep[1].needs = NeedsDef::Single("no-such-step".into());
@@ -105,7 +105,7 @@ fn the_production_sort_the_sample_is_judged_by_refuses_a_broken_graph() {
 
 #[test]
 fn sample_workflow_genie_refs_resolve_against_bundled_catalog() {
-    let workflow: RawWorkflow = serde_yaml_ng::from_str(SAMPLE_WORKFLOW).unwrap();
+    let workflow: RawWorkflow = crate::yaml::from_str(SAMPLE_WORKFLOW).unwrap();
     let bundled: HashSet<&str> = default_genie_names().into_iter().collect();
 
     let mut genie_steps = 0;
@@ -139,7 +139,7 @@ const EMBEDDED_GENIES: [(&str, &str, &str); 2] = [
 
 #[test]
 fn the_embedded_genie_assets_are_exactly_the_ones_the_sample_uses() {
-    let workflow: RawWorkflow = serde_yaml_ng::from_str(SAMPLE_WORKFLOW).unwrap();
+    let workflow: RawWorkflow = crate::yaml::from_str(SAMPLE_WORKFLOW).unwrap();
     let referenced: HashSet<&str> = workflow
         .steps
         .iter()
@@ -178,7 +178,7 @@ fn sample_action_steps_supply_every_parameter_the_executor_requires() {
     // Regression: the shipped sample passed `content:` to action/save-file, whose
     // executor demands `input`, so the sample's last step failed at run time
     // while every structural test here stayed green. Structure is not a run.
-    let workflow: RawWorkflow = serde_yaml_ng::from_str(SAMPLE_WORKFLOW).unwrap();
+    let workflow: RawWorkflow = crate::yaml::from_str(SAMPLE_WORKFLOW).unwrap();
     let mut checked = 0;
     for step in &workflow.steps {
         let Some(action) = step.uses.strip_prefix("action/") else {

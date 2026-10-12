@@ -133,17 +133,16 @@ pub(super) fn read_genie_in(genies_dir: &Path, path: &str) -> Result<GenieConten
 /// the canonical display name; the body is the full YAML so the runner can
 /// submit it.
 fn parse_workflow_genie(content: &str, path: &str) -> Result<GenieContent, String> {
-    let value: serde_yaml_ng::Value = serde_yaml_ng::from_str(content)
+    let value: crate::yaml::Value = crate::yaml::from_str(content)
         .map_err(|e| format!("Failed to parse YAML genie {}: {}", path, e))?;
     // Structure, not just syntax. A scalar or a sequence is valid YAML
     // and is not a workflow: `RawWorkflow` requires a `steps` list, so such a
     // file could only ever appear in the picker and then fail the moment it
     // was run. Refused here, where the reason can be stated, rather than
     // offered as a row that cannot work.
-    let map = value.as_mapping().filter(|m| {
-        m.get(serde_yaml_ng::Value::String("steps".into()))
-            .is_some_and(serde_yaml_ng::Value::is_sequence)
-    });
+    let map = value
+        .as_object()
+        .filter(|m| m.get("steps").is_some_and(crate::yaml::Value::is_array));
     if map.is_none() {
         return Err(format!(
             "YAML genie {path} is not a workflow: expected a top-level mapping with a `steps:` list"
@@ -171,8 +170,8 @@ fn parse_workflow_genie(content: &str, path: &str) -> Result<GenieContent, Strin
 
 /// A top-level YAML string, trimmed; `None` when absent, not a string, or
 /// blank — so a caller's `or_else` fallback fires for all three alike.
-fn yaml_str<'m>(map: Option<&'m serde_yaml_ng::Mapping>, key: &str) -> Option<&'m str> {
-    map?.get(serde_yaml_ng::Value::String(key.to_string()))?
+fn yaml_str<'m>(map: Option<&'m crate::yaml::Mapping>, key: &str) -> Option<&'m str> {
+    map?.get(key)?
         .as_str()
         .map(str::trim)
         .filter(|s| !s.is_empty())

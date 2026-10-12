@@ -39,6 +39,7 @@
  *       * setupOsc7            — OSC 7 cwd tracking (exposes getCwd)
  *       * setupCopyOnSelect    — debounced clipboard write on selection
  *       * setupOsc52           — OSC 52 clipboard, WRITE-ONLY (reads denied)
+ *       * setupFloatingPrompt  — input-row mirror while reading scrollback
  *
  * @coordinates-with useTerminalSessions.ts — caller that manages instance lifecycle
  * @coordinates-with theme/buildXtermTheme.ts — per-theme ANSI palettes for xterm.js (ThemeTokens.terminal)
@@ -60,6 +61,7 @@ import { setupWebLinks } from "./setupWebLinks";
 import { setupFileLinks } from "./setupFileLinks";
 import { setupCopyOnSelect } from "./setupCopyOnSelect";
 import { setupOsc52 } from "./setupOsc52";
+import { setupFloatingPrompt } from "./setupFloatingPrompt";
 import {
   setupOsc7,
   setupOsc133,
@@ -252,6 +254,10 @@ export function createTerminalInstance(
     // read is denied even when this setting is on.
     const cleanupOsc52 = setupOsc52(term, settings.osc52Clipboard);
     resources.acquire(() => cleanupOsc52());
+
+    // Live mirror of the input rows while the viewport is scrolled back.
+    const cleanupFloatingPrompt = setupFloatingPrompt({ term, container });
+    resources.acquire(() => cleanupFloatingPrompt());
 
     // Normal teardown IS the rollback stack, so the success and failure paths
     // can never drift apart (they used to be two hand-maintained lists).

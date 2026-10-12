@@ -23,6 +23,12 @@ describe("drawBoldTextInBrightColors threading (WI-UI1.4/D10)", () => {
   });
 });
 
+describe("scrollOnUserInput", () => {
+  it("is off, so typing while reading scrollback keeps the viewport (floating prompt)", () => {
+    expect(buildTerminalOptions({ ...base, themeId: "paper" }, "mono").scrollOnUserInput).toBe(false);
+  });
+});
+
 describe("clamps (pre-existing rules, pinned here since the file gained a test)", () => {
   it("scrollback: finite, truncated, bounded", () => {
     expect(clampScrollback(Number.NaN)).toBe(5000);

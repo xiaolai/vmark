@@ -1,6 +1,6 @@
 [package]
 name = "vmark"
-version = "0.9.97"
+version = "0.9.98"
 description = "The plain-text workspace where humans and AI collaborate"
 authors = ["Xiaolai"]
 license = "ISC"
@@ -130,7 +130,6 @@ rust-i18n = "4"
 # sync-secret-service); the base dep carries no platform backend so it stays
 # buildable everywhere and the `mock` store is available for tests.
 keyring = { version = "3", default-features = false }
-serde_yaml_ng = "0.10"
 # Coherence layer (ADR-C5, reviewed in dev-docs/grills/coherence/
 # dependency-review.md): bundled SQLite pins 3.5x everywhere (macOS system
 # sqlite is an Apple build, Windows has none — S2 spike decision); NFC
@@ -138,6 +137,10 @@ serde_yaml_ng = "0.10"
 rusqlite = { version = "0.40", features = ["bundled"] }
 unicode-normalization = "0.1"
 lopdf = { version = "0.45.0", default-features = false }
+# YAML in safe Rust (src/yaml.rs); replaced serde_yaml_ng, whose
+# unsafe-libyaml is unmaintained (RUSTSEC-2024-0449). Parse-only, so the
+# serializer feature and its dependencies stay out.
+serde-saphyr = { version = "1.3", default-features = false, features = ["deserialize"] }
 
 # Windows and Linux start a FRESH process for every file-association
 # double-click; macOS does not (one process per bundle identifier, later opens

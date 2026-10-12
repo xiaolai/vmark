@@ -71,6 +71,7 @@
   "terminal.search.regex": "정규식 사용",
   "terminal.search.close": "닫기 (Escape)",
   "terminal.ariaLabel": "터미널",
+  "terminal.floatingPrompt.jumpToPrompt": "프롬프트로 이동",
   "terminal.newSession": "새 터미널",
   "terminal.maxSessions": "최대 5개 세션",
   "terminal.closeSession": "닫기",

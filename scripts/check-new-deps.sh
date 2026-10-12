@@ -175,7 +175,9 @@ while IFS=$'\t' read -r kind pkg spec; do
   # Fail CLOSED: any error — 404, invalid name, network failure — flags
   # the package. A gate that can't see the registry must not pass.
   META=$(npm view "$pkg" --json 2>&1) || {
-    if echo "$META" | grep -q "E404"; then
+    # Here-string, not a pipe: under pipefail an `echo | grep -q` fails when
+    # grep exits on its first match and echo dies of SIGPIPE.
+    if grep -q "E404" <<<"$META"; then
       echo "  ✗ $pkg — NOT FOUND on npm (likely hallucinated)"
     else
       echo "  ✗ $pkg — npm metadata lookup failed (failing closed): $(echo "$META" | head -1)"

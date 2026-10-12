@@ -36,7 +36,10 @@ cd "$(dirname "$0")/.."
 
 TARGET="x86_64-pc-windows-gnu"
 
-if ! rustup target list --installed 2>/dev/null | grep -qx "$TARGET"; then
+# Captured first: `rustup | grep -q` under pipefail fails whenever grep exits
+# on its first match and rustup dies of SIGPIPE.
+INSTALLED_TARGETS="$(rustup target list --installed 2>/dev/null)" || INSTALLED_TARGETS=""
+if ! grep -qx "$TARGET" <<<"$INSTALLED_TARGETS"; then
   cat >&2 <<MSG
 ⚠ check-cross-target: rust target $TARGET not installed — SKIPPING.
   Cross-platform Rust breakage will only surface in CI. To enable:
