@@ -23,7 +23,7 @@
  * lockstep with the app is the five-file `sed` in the bump procedure
  * (`.claude/rules/40-version-bump.md`). Edit it only through that procedure.
  */
-const VERSION = '0.9.98';
+const VERSION = '0.9.99';
 
 /**
  * WHY `process.exitCode` AND NOT `process.exit()` ON THESE PATHS.

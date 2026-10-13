@@ -11,6 +11,22 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 ## [Unreleased]
 
+## [0.9.99] - 2026-10-13
+
+### Changed
+
+- Updated Tauri to 2.12.2, the editor engine (Tiptap 3.31.4 and its
+  ProseMirror packages), Mermaid 12.1, KaTeX 0.19 and the diagram renderer
+  (Graphviz 16.1), along with other routine dependency updates. The trusted
+  HTML preview's isolation was re-checked against the new Tauri release: a
+  previewed document still cannot reach VMark.
+
+### Security
+
+- Updated `quinn-proto` past five newly published advisories
+  (RUSTSEC-2026-0338 to 0342). It was listed among VMark's dependencies but
+  not built into the app, so no released version was exposed.
+
 ## [0.9.98] - 2026-10-12
 
 ### Added
@@ -261,7 +277,8 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 - Raised the `markdown-it` version floor past GHSA-253c-mchw-3w2r.
 
-[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.98...HEAD
+[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.99...HEAD
+[0.9.99]: https://github.com/xiaolai/vmark/releases/tag/v0.9.99
 [0.9.98]: https://github.com/xiaolai/vmark/releases/tag/v0.9.98
 [0.9.97]: https://github.com/xiaolai/vmark/releases/tag/v0.9.97
 [0.9.96]: https://github.com/xiaolai/vmark/releases/tag/v0.9.96
