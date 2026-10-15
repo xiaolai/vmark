@@ -89,6 +89,18 @@ name: Mutation Testing
 # invoked any other way. The checkout is disposable, so mutating it in place
 # costs nothing.
 #
+# THE TIMEOUT CAME BACK, FROM THE TEST SIDE (#1557). Scheduled runs 37271748859
+# (2026-10-05) and 38211831956 (2026-10-12) concluded `cancelled`: ts-mutants
+# hit its 300-minute bound at 2,595 of 2,664 mutants. Nothing in the mutate
+# scope had changed; the TEST set had. `related: true` ran every test that
+# transitively imports a scoped module — 609 files, 15,777 tests, including
+# the new app-level tier-0 suites — and each STATIC mutant (Stryker's planner:
+# 10% of mutants, 82-93% of the time) reruns all of them. The dry run alone
+# went from 9m43s to 16m. The bound was not raised: `testFiles` in
+# stryker.config.json now limits the run to each module's own unit tests (61
+# files, under 2,000 tests), which removes the growth term instead of outrunning it. The report
+# job below also used to skip a timed-out job; it no longer does.
+#
 # See dev-docs/testing-hardening.md.
 
 # liveness-gate: true
@@ -211,13 +223,23 @@ jobs:
           if-no-files-found: ignore
 
   # The ONLY job with `issues: write`, and the only one that talks to the issue
-  # tracker at all. `if: failure()` on a job with `needs` means "run when any
-  # job it depends on failed" — the same trigger the per-job steps had, so a
-  # cancelled run still reports nothing.
+  # tracker at all.
+  #
+  # IT FIRES ON A TIMEOUT TOO (#1557). It used to be `if: failure()`, and a job
+  # killed by its own `timeout-minutes` concludes `cancelled`, not `failure`, so
+  # `failure()` is false and this job was SKIPPED. The 2026-10-05 and 2026-10-12
+  # runs both died that way at ts-mutants' 300-minute bound and reported
+  # nothing; gate-liveness noticed on day 17. `!cancelled()` keeps a REAL
+  # cancellation quiet: it is true for a run cancelled by hand or by the
+  # concurrency group, and false when only a job's own timeout fired — both
+  # measured on a probe workflow (job timeout: needs result `cancelled`,
+  # `failure()` false, `cancelled()` false). scripts/check-rolling-issue-
+  # timeouts.test.mjs runs this script with every result set to `cancelled`
+  # and fails unless it opens the issue.
   report:
     name: Report failures in the tracking issue
     needs: [mutants, ts-mutants]
-    if: failure()
+    if: ${{ !cancelled() && (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -235,15 +257,26 @@ jobs:
           TS_MUTANTS_RESULT: ${{ needs['ts-mutants'].result }}
         run: |
           set -euo pipefail
+          # A `cancelled` result here is a job that hit its own timeout-minutes
+          # (a cancelled RUN never reaches this step — see the `if:` above).
+          describe() {
+            case "$1" in
+              failure) echo "failed" ;;
+              cancelled) echo "timed out (killed by its own timeout-minutes; GitHub reports that as cancelled)" ;;
+              *) echo "" ;;
+            esac
+          }
           FAILED=""
-          if [ "$MUTANTS_RESULT" = "failure" ]; then
-            FAILED="${FAILED}- \`mutants\` (Rust, cargo-mutants)"$'\n'
+          WHY=$(describe "$MUTANTS_RESULT")
+          if [ -n "$WHY" ]; then
+            FAILED="${FAILED}- \`mutants\` (Rust, cargo-mutants): ${WHY}"$'\n'
           fi
-          if [ "$TS_MUTANTS_RESULT" = "failure" ]; then
-            FAILED="${FAILED}- \`ts-mutants\` (TypeScript, Stryker)"$'\n'
+          WHY=$(describe "$TS_MUTANTS_RESULT")
+          if [ -n "$WHY" ]; then
+            FAILED="${FAILED}- \`ts-mutants\` (TypeScript, Stryker): ${WHY}"$'\n'
           fi
           if [ -z "$FAILED" ]; then
-            echo "No job reported failure (results: $MUTANTS_RESULT / $TS_MUTANTS_RESULT) — nothing to report."
+            echo "No job failed or timed out (results: $MUTANTS_RESULT / $TS_MUTANTS_RESULT) — nothing to report."
             exit 0
           fi
 
