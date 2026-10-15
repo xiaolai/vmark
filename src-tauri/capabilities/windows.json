@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "windows-drives",
-  "description": "[capability-version: 0.8.2] Windows drive letter filesystem permissions. Separated from default.json because backslash-glob patterns (C:\\**) cause 'invalid glob pattern' errors on Unix where backslash is not a path separator.",
+  "description": "[capability-version: 0.9.99] Windows drive letter filesystem permissions. Separated from default.json because backslash-glob patterns (C:\\**) cause 'invalid glob pattern' errors on Unix where backslash is not a path separator.",
   "windows": ["main", "doc-*"],
   "platforms": ["windows"],
   "permissions": [
@@ -88,6 +88,15 @@
     },
     {
       "identifier": "fs:allow-stat",
+      "allow": [
+        { "path": "C:\\**" },
+        { "path": "D:\\**" },
+        { "path": "E:\\**" },
+        { "path": "F:\\**" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-lstat",
       "allow": [
         { "path": "C:\\**" },
         { "path": "D:\\**" },

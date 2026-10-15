@@ -247,8 +247,8 @@ export async function resolveResources(
           missing.push(info);
           continue;
         }
-      } catch {
-        // lstat failure — treat as inaccessible
+      } catch (e) {
+        exportWarn(`Could not inspect ${src} for export, treating it as inaccessible:`, e);
         info.found = false;
         info.exportSrc = MISSING_IMAGE_PLACEHOLDER;
         modifiedHtml = modifiedHtml.split(src).join(MISSING_IMAGE_PLACEHOLDER);

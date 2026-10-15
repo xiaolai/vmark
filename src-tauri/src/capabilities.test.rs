@@ -115,10 +115,13 @@ const STATIC_ROOTS: [&str; 4] = ["$HOME/**", "/Volumes/**", "/mnt/**", "/media/*
 /// The drive letters `windows.json` adds on Windows. G: and later, and network
 /// shares, are reached only through a runtime grant (`fs_scope.rs`).
 const WINDOWS_DRIVES: [&str; 4] = ["C:\\**", "D:\\**", "E:\\**", "F:\\**"];
-/// Every fs command a document window may call.
-const DOCUMENT_FS_PERMISSIONS: [&str; 11] = [
+/// Every fs command a document window may call — exactly the commands the
+/// frontend imports from `@tauri-apps/plugin-fs`, which
+/// `scripts/check-fs-capability-grants.test.mjs` derives from `src/` (#1555).
+const DOCUMENT_FS_PERMISSIONS: [&str; 12] = [
     "fs:allow-copy-file",
     "fs:allow-exists",
+    "fs:allow-lstat",
     "fs:allow-mkdir",
     "fs:allow-read-dir",
     "fs:allow-read-file",
