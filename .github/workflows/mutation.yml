@@ -101,6 +101,14 @@ name: Mutation Testing
 # files, under 2,000 tests), which removes the growth term instead of outrunning it. The report
 # job below also used to skip a timed-out job; it no longer does.
 #
+# `mutants` had the same term one step behind: every mutant ran `cargo test`
+# over the whole crate (3,754 lib tests, 45s), and the job took 3h58m of its
+# 240 minutes on 2026-10-12. The first dispatch with the Stryker fix
+# (38737930016) proved it: ts-mutants green in 1h57m, `mutants` killed at
+# 240 minutes — and the report job filed #1563 for it. src-tauri/.cargo/
+# mutants.toml now runs each mutant with `--lib` and a libtest filter for the
+# scoped subsystems (552 tests, 1.9s locally).
+#
 # See dev-docs/testing-hardening.md.
 
 # liveness-gate: true
