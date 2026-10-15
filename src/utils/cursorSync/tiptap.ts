@@ -12,6 +12,9 @@
  *   - Prefers block anchors for tables/code blocks over text-based heuristics
  *   - Container nodes (alertBlock, detailsBlock) resolve to their first textblock child
  *   - setMeta("addToHistory", false) prevents cursor jumps from polluting undo stack
+ *   - A restore scrolls the caret into view unless told not to: a return to
+ *     the same surface after a tab switch places it only, because the reading
+ *     position is restored separately (#1556)
  *
  * @coordinates-with cursorSync/codemirror.ts — the source mode counterpart
  * @coordinates-with cursorSync/tiptapAnchors.ts — block anchor extraction/restoration

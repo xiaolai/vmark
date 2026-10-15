@@ -3,7 +3,8 @@
  *
  * Purpose: free everything keyed by a tab id — document, revision, unified
  *   history, lint, AI suggestions, forced-source flag, pending navigations,
- *   scroll offsets, save-target claim — when the tab leaves the tab store.
+ *   scroll offsets and the surface last shown, save-target claim — when the
+ *   tab leaves the tab store.
  *
  * Key decisions:
  *   - Cleanup is a CONSEQUENCE of removal, not a step each removal site

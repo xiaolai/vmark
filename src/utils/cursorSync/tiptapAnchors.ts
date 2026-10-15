@@ -10,6 +10,7 @@
  *     unit source mode's table.ts uses, so a mode switch keeps the column
  *   - Code block anchor counts newlines before cursor to derive line/column
  *   - All restoration functions use addToHistory:false to avoid undo pollution
+ *   - They scroll the caret into view unless the caller says not to (#1556)
  *
  * @coordinates-with cursorSync/table.ts — the source mode table anchor equivalent
  * @module utils/cursorSync/tiptapAnchors

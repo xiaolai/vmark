@@ -11,6 +11,9 @@
  *   - Uses sourceLine (1-indexed) as primary anchor, matching remark parser output
  *   - Block anchors (code blocks, tables) carry sub-block coordinates for precision
  *   - Falls back to context matching -> word matching -> percentage for column
+ *   - A restore scrolls the caret into view unless told not to: a return to
+ *     the same surface after a tab switch places it only, because the reading
+ *     position is restored separately (#1556)
  *
  * @coordinates-with cursorSync/tiptap.ts — the WYSIWYG counterpart of these functions
  * @coordinates-with cursorSync/markdown.ts — provides markdown syntax stripping
