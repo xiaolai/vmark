@@ -6,6 +6,7 @@ import { render, waitFor } from "@testing-library/react";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { useDocumentStore } from "@/stores/documentStore";
+import { SURFACE_IMPORT_WAIT } from "@/test/waitBudget";
 import { useWorkflowStore } from "@/stores/workflowStore";
 import {
   __resetRegistry,
@@ -245,14 +246,15 @@ jobs:
       // vitest's on-demand transform of the whole ghaWorkflow import graph,
       // which can exceed waitFor's 1s default on a cold or contended worker
       // (observed flaking 1-in-5 in isolation). The assertion still requires
-      // the element; it just stops racing the transformer.
+      // the element; it just stops racing the transformer. The budget is the
+      // shared heavy-import one, not a number invented here (see waitBudget).
       await waitFor(
         () => {
           expect(
             container.querySelector(".gha-workflow-workbench__canvas"),
           ).not.toBeNull();
         },
-        { timeout: 15_000 },
+        SURFACE_IMPORT_WAIT,
       );
     });
   });
