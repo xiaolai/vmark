@@ -59,9 +59,11 @@ basculer le mode Source ou la vue divisée, ou voir le fichier rechargé depuis 
 ramènent tous là où vous lisiez — et non en haut.
 
 Chaque surface mémorise sa propre position : le texte enrichi et la source conservent donc des
-positions distinctes dans le même fichier. Si vous avez placé un curseur dans le document, le curseur
-l'emporte toujours : en revenant, vous arrivez au point d'insertion, ce qui permet aussi de garder le
-même paragraphe à l'écran lorsque vous passez du texte enrichi à la source.
+positions distinctes dans le même fichier. Revenir à la même surface — en changeant d'onglet ou
+lorsque le fichier est rechargé — vous ramène là où vous aviez fait défiler la vue, même si le
+curseur se trouve ailleurs ; le curseur reste là où vous l'avez laissé. Passer du texte enrichi à
+la source suit en revanche le curseur, s'il y en a un, car c'est lui qui garde le même paragraphe
+à l'écran d'une surface à l'autre.
 
 Les positions sont propres à chaque document et à chaque session — fermer un onglet l'oublie.
 

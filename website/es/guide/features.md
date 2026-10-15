@@ -59,9 +59,10 @@ alternar el modo Fuente o la Vista Dividida, o que el archivo se vuelva a cargar
 devuelven a donde estabas leyendo — no al principio.
 
 Cada superficie recuerda su propia posición, así que Texto Enriquecido y Fuente guardan lugares
-separados en el mismo archivo. Si has puesto un cursor en el documento, el cursor
-sigue mandando: al volver llegas al cursor, que es también lo que mantiene
-el mismo párrafo a la vista cuando cambias entre Texto Enriquecido y Fuente.
+separados en el mismo archivo. Volver a la misma superficie — al cambiar de pestaña o al recargarse
+el archivo — te devuelve a donde habías desplazado la vista, aunque el cursor esté en otro sitio;
+el cursor se queda donde lo dejaste. Al cambiar entre Texto Enriquecido y Fuente, en cambio, la
+vista sigue al cursor, si lo hay, porque es lo que mantiene el mismo párrafo a la vista en ambos.
 
 Las posiciones son por documento y por sesión — cerrar una pestaña la olvida.
 

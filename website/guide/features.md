@@ -59,9 +59,11 @@ toggling Source mode or Split View, or having the file reloaded from disk all
 return you to where you were reading — not to the top.
 
 Each surface remembers its own position, so Rich Text and Source keep separate
-places in the same file. If you have put a cursor in the document, the cursor
-still wins: coming back lands you at the caret, which is also what keeps the
-same paragraph in view when you switch between Rich Text and Source.
+places in the same file. Coming back to the same surface — switching tabs, or
+the file reloading — returns you to where you had scrolled, even if your cursor
+is somewhere else; the cursor stays where you left it. Switching between Rich
+Text and Source follows the cursor instead, when there is one, because that is
+what keeps the same paragraph in view across the two.
 
 Positions are per document and per session — closing a tab forgets it.
 

@@ -35,6 +35,7 @@ import {
   getEditorScrollOffset,
   setEditorScrollOffset,
 } from "@/services/editor/scrollPosition";
+import { chooseEditorRestore } from "@/services/editor/restoreChoice";
 import {
   bumpLintDocEpoch,
   markLintRunStart,
@@ -77,6 +78,16 @@ describe("cleanupTabState", () => {
     expect(getEditorScrollOffset("tab-123", "source")).toBeUndefined();
     // A closing tab must not take another tab's position with it.
     expect(getEditorScrollOffset("tab-456", "wysiwyg")).toBe(400);
+  });
+
+  it("forgets which surface showed the tabId, so a reused id starts fresh (#1556)", () => {
+    chooseEditorRestore("tab-123", "wysiwyg", true);
+    cleanupTabState("tab-123");
+    setEditorScrollOffset("tab-123", "wysiwyg", 400);
+
+    // A first show again: the cursor, not an offset left by the closed tab.
+    expect(chooseEditorRestore("tab-123", "wysiwyg", true)).toBe("cursor");
+    cleanupTabState("tab-123");
   });
 
   it("forgets the lint doc-epoch counters for the tabId", () => {

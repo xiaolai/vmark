@@ -15,6 +15,8 @@ import {
   clearPendingContentSearchNav,
 } from "@/services/navigation/contentSearchNavigation";
 import { useUIStore } from "@/stores/uiStore";
+import { chooseEditorRestore, forgetShownEditorSurface } from "@/services/editor/restoreChoice";
+import { clearEditorScrollOffsets, setEditorScrollOffset } from "@/services/editor/scrollPosition";
 
 function makeView(paragraphs: string[]) {
   const schema = getSchema([StarterKit]);
@@ -109,5 +111,19 @@ describe("consumeWysiwygPendingNav", () => {
     expect(useUIStore.getState().search.query).toBe("beta");
 
     useUIStore.getState().searchClose();
+  });
+
+  it("records the jump as showing WYSIWYG, so the next return restores by scroll (#1556)", () => {
+    forgetShownEditorSurface("tab-1");
+    clearEditorScrollOffsets("tab-1");
+    chooseEditorRestore("tab-1", "source", false); // last shown in Source
+    setPendingContentSearchNav("tab-1", 2, "");
+
+    expect(consumeWysiwygPendingNav(makeView(["alpha", "beta"]) as never, "tab-1")).toBe(true);
+    setEditorScrollOffset("tab-1", "wysiwyg", 3000); // the reader scrolled on from the jump
+
+    expect(chooseEditorRestore("tab-1", "wysiwyg", true)).toBe("scroll");
+    forgetShownEditorSurface("tab-1");
+    clearEditorScrollOffsets("tab-1");
   });
 });

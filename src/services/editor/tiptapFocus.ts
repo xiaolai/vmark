@@ -14,10 +14,15 @@
  *     owns the async-content problem that the old unconditional `scrollTop = 0`
  *     sidestepped; a tab with nothing remembered still lands at the top. The
  *     remembered block, when there is one, is what gets restored (#1473).
+ *   - A cursor no longer wins by merely existing (#1556): `restoreChoice.ts`
+ *     picks. On a return to WYSIWYG the caret is put back WITHOUT scrolling and
+ *     the reading position is restored; on a switch from Source the cursor
+ *     restore (with its scroll) carries the mapping, as before.
  *
  * @coordinates-with cursorSync/tiptap.ts — saves cursor position before mode switch
  * @coordinates-with Editor.tsx — calls focus functions after mode toggle
  * @coordinates-with scrollPosition.ts — the remembered reading position
+ * @coordinates-with restoreChoice.ts — cursor or reading position
  * @module services/editor/tiptapFocus
  */
 
@@ -32,6 +37,7 @@ import {
   getEditorScrollOffset,
   restoreEditorScroll,
 } from "./scrollPosition";
+import { chooseEditorRestore } from "./restoreChoice";
 
 const MAX_FOCUS_ATTEMPTS = 12;
 
@@ -52,7 +58,7 @@ export const PROGRAMMATIC_SELECTION_META = "vmark:programmaticSelection";
 export function scheduleTiptapFocusAndRestore(
   editor: TiptapEditor,
   getCursorInfo: () => CursorInfo | null,
-  restoreCursor: (view: EditorView, cursorInfo: CursorInfo) => void,
+  restoreCursor: (view: EditorView, cursorInfo: CursorInfo, scrollIntoView: boolean) => void,
   tabId?: string,
 ): void {
   let attempts = 0;
@@ -71,26 +77,22 @@ export function scheduleTiptapFocusAndRestore(
     // Check cursor info BEFORE focus to distinguish fresh load vs mode switch
     const info = getCursorInfo();
 
+    try {
+      view.focus();
+    } catch {
+      return;
+    }
+
+    const by = chooseEditorRestore(tabId, "wysiwyg", info !== null);
+
     if (info) {
-      // Mode switch: focus and restore cursor (which includes scrollIntoView)
-      try {
-        view.focus();
-      } catch {
-        return;
-      }
-      restoreCursor(view, info);
+      // The caret goes back either way; it scrolls into view only when it, and
+      // not the remembered offset, is what puts the reader back (#1556).
+      restoreCursor(view, info, by === "cursor");
+      if (by === "cursor") return;
     } else {
-      // No cursor: the reader has only been reading, so hand the viewport back
-      // to wherever they left it — the top, for a document opened for the very
-      // first time.
-
-      try {
-        view.focus();
-      } catch {
-        return;
-      }
-
-      // Set selection to start of document (ProseMirror may have placed it elsewhere)
+      // No cursor: the reader has only been reading. Set selection to start of
+      // document (ProseMirror may have placed it elsewhere).
       try {
         const tr = view.state.tr
           .setSelection(Selection.atStart(view.state.doc))
@@ -100,15 +102,17 @@ export function scheduleTiptapFocusAndRestore(
       } catch {
         // Ignore selection errors
       }
-
-      // The block the reader left at the top, when one was recorded (#1473).
-      const at = getEditorScrollAnchor(tabId, "wysiwyg");
-      restoreEditorScroll(
-        findScrollContainer(view.dom as HTMLElement),
-        getEditorScrollOffset(tabId, "wysiwyg") ?? 0,
-        at ? { blocks: view.dom, at } : null,
-      );
     }
+
+    // Hand the viewport back to wherever the reader left it — the top, for a
+    // document opened for the very first time. The block the reader left at
+    // the top is what gets restored, when one was recorded (#1473).
+    const at = getEditorScrollAnchor(tabId, "wysiwyg");
+    restoreEditorScroll(
+      findScrollContainer(view.dom as HTMLElement),
+      getEditorScrollOffset(tabId, "wysiwyg") ?? 0,
+      at ? { blocks: view.dom, at } : null,
+    );
   };
 
   requestAnimationFrame(tryFocus);

@@ -112,7 +112,8 @@ function cellTextPosition(cell: PMNode, contentStart: number, offset: number): n
 export function restoreCursorInTable(
   view: EditorView,
   sourceLine: number,
-  anchor: { row: number; col: number; offsetInCell: number }
+  anchor: { row: number; col: number; offsetInCell: number },
+  scrollIntoView = true,
 ): boolean {
   const { state } = view;
   // Held on an object, not in a bare `let`: TypeScript narrows a `let`
@@ -165,7 +166,7 @@ export function restoreCursorInTable(
             const tr = state.tr
               .setSelection(TextSelection.near(state.doc.resolve(finalPos)))
               .setMeta("addToHistory", false); // Cursor restoration shouldn't add to history
-            view.dispatch(tr.scrollIntoView());
+            view.dispatch(scrollIntoView ? tr.scrollIntoView() : tr);
             return true;
           } catch {
             return false;
@@ -188,7 +189,8 @@ export function restoreCursorInTable(
 export function restoreCursorInCodeBlock(
   view: EditorView,
   sourceLine: number,
-  anchor: { lineInBlock: number; columnInLine: number }
+  anchor: { lineInBlock: number; columnInLine: number },
+  scrollIntoView = true,
 ): boolean {
   const { state } = view;
   // Held on an object, not in a bare `let`: TypeScript narrows a `let`
@@ -240,7 +242,7 @@ export function restoreCursorInCodeBlock(
     const tr = state.tr
       .setSelection(TextSelection.near(state.doc.resolve(finalPos)))
       .setMeta("addToHistory", false); // Cursor restoration shouldn't add to history
-    view.dispatch(tr.scrollIntoView());
+    view.dispatch(scrollIntoView ? tr.scrollIntoView() : tr);
     return true;
   } catch {
     return false;

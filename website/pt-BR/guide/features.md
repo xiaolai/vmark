@@ -59,9 +59,11 @@ voltar, alternar o modo Fonte ou a Visualização Dividida, ou ter o arquivo rec
 do disco — tudo isso devolve você ao ponto onde estava lendo, e não ao topo.
 
 Cada superfície lembra sua própria posição, então o Texto Rico e a Fonte mantêm lugares
-separados no mesmo arquivo. Se você colocou um cursor no documento, o cursor ainda
-prevalece: ao voltar, você chega ao cursor, que é também o que mantém o mesmo
-parágrafo à vista quando você alterna entre Texto Rico e Fonte.
+separados no mesmo arquivo. Voltar à mesma superfície — ao trocar de aba ou quando o arquivo é
+recarregado — leva você de volta ao ponto até onde tinha rolado, mesmo que o cursor esteja em
+outro lugar; o cursor fica onde você o deixou. Ao alternar entre Texto Rico e Fonte, por outro
+lado, a visualização segue o cursor, se houver um, porque é ele que mantém o mesmo parágrafo à
+vista nas duas.
 
 As posições são por documento e por sessão — fechar uma aba as esquece.
 

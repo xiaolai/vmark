@@ -9,9 +9,11 @@
  * hidden→visible paths.
  *
  * Returns whether it consumed anything, because a consumed jump OWNS the
- * viewport and the caller must then skip its own restore (#1249).
+ * viewport and the caller must then skip its own restore (#1249). A jump is
+ * recorded as showing Source, as a restore would be (`noteEditorJump`, #1556).
  *
- * @coordinates-with SourceEditor.tsx — calls this after focus/cursor restore
+ * @coordinates-with sourceFocusRestore.ts — calls this after focus, before any restore
+ * @coordinates-with services/editor/restoreChoice.ts — records the surface a jump showed
  * @coordinates-with services/lint/lintNavigation.ts — pending lint-scroll source
  * @coordinates-with services/navigation/contentSearchNavigation.ts — pending search-nav source
  * @module components/Editor/sourcePendingNav
@@ -19,6 +21,7 @@
 
 import { EditorView } from "@codemirror/view";
 import { consumePendingLintScroll } from "@/services/lint/lintNavigation";
+import { noteEditorJump } from "@/services/editor/restoreChoice";
 import {
   consumePendingContentSearchNav,
   openFindBarWithQuery,
@@ -73,5 +76,6 @@ export function consumeSourcePendingNav(
     }
   }
 
+  if (consumed) noteEditorJump(tabId, "source");
   return consumed;
 }

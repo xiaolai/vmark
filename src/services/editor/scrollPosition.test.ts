@@ -120,6 +120,17 @@ describe("editor scroll offset memory", () => {
     expect(getEditorScrollOffset("tab-1", "source")).toBeUndefined();
   });
 
+  it("drops only the named surface when given one, keeping the other (#1556)", () => {
+    setEditorScrollOffset("tab-1", "wysiwyg", 420);
+    setEditorScrollOffset("tab-1", "source", 77);
+
+    clearEditorScrollOffsets("tab-1", "source");
+    clearEditorScrollOffsets("tab-never-seen", "source"); // nothing to drop: no throw
+
+    expect(getEditorScrollOffset("tab-1", "source")).toBeUndefined();
+    expect(getEditorScrollOffset("tab-1", "wysiwyg")).toBe(420);
+  });
+
   it("ignores writes with no tab, a negative offset, or a non-finite offset", () => {
     setEditorScrollOffset(undefined, "wysiwyg", 100);
     setEditorScrollOffset(null, "wysiwyg", 100);
@@ -479,6 +490,10 @@ describe("block anchors (WYSIWYG content that changes height on remount)", () =>
 
       expect(getEditorScrollOffset("tab-1", "wysiwyg")).toBe(5020);
       expect(getEditorScrollAnchor("tab-1", "wysiwyg")).toEqual({ index: 50, offset: -20 });
+      clearEditorScrollOffsets("tab-1", "source"); // another surface's: the anchor stays
+      expect(getEditorScrollAnchor("tab-1", "wysiwyg")).toEqual({ index: 50, offset: -20 });
+      clearEditorScrollOffsets("tab-1", "wysiwyg"); // its own surface's: the anchor goes too
+      expect(getEditorScrollAnchor("tab-1", "wysiwyg")).toBeUndefined();
       clearEditorScrollOffsets("tab-1");
       expect(getEditorScrollAnchor("tab-1", "wysiwyg")).toBeUndefined();
       stop();

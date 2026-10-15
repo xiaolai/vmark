@@ -59,9 +59,10 @@ attivare la modalità Sorgente o la Vista divisa, o far ricaricare il file dal d
 riportano tutti dove stavi leggendo — non all'inizio.
 
 Ogni superficie ricorda la propria posizione, quindi Rich Text e Sorgente mantengono punti
-separati nello stesso file. Se hai posizionato un cursore nel documento, il cursore
-ha comunque la precedenza: tornando atterri sul cursore, ed è anche questo che mantiene
-in vista lo stesso paragrafo quando passi da Rich Text a Sorgente e viceversa.
+separati nello stesso file. Tornare alla stessa superficie — cambiando scheda o quando il file
+viene ricaricato — ti riporta dove avevi fatto scorrere la vista, anche se il cursore è altrove;
+il cursore resta dove l'hai lasciato. Passando da Rich Text a Sorgente e viceversa, invece, la
+vista segue il cursore, se c'è, perché è questo che mantiene in vista lo stesso paragrafo in entrambe.
 
 Le posizioni sono per documento e per sessione — chiudere una scheda le dimentica.
 

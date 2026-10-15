@@ -12,6 +12,8 @@ import {
   clearPendingContentSearchNav,
 } from "@/services/navigation/contentSearchNavigation";
 import { useUIStore } from "@/stores/uiStore";
+import { chooseEditorRestore, forgetShownEditorSurface } from "@/services/editor/restoreChoice";
+import { clearEditorScrollOffsets, setEditorScrollOffset } from "@/services/editor/scrollPosition";
 
 const lintMock = vi.hoisted(() => ({
   consumePendingLintScroll: vi.fn<(tabId: string) => number | undefined>(() => undefined),
@@ -97,5 +99,27 @@ describe("consumeSourcePendingNav", () => {
     expect(useUIStore.getState().search.query).toBe("beta");
 
     useUIStore.getState().searchClose();
+  });
+
+  it("records a consumed jump as showing Source, and nothing when none was pending (#1556)", () => {
+    forgetShownEditorSurface("tab-1");
+    clearEditorScrollOffsets("tab-1");
+    chooseEditorRestore("tab-1", "wysiwyg", false); // last shown in WYSIWYG
+    const view = makeView("one\ntwo");
+
+    expect(consumeSourcePendingNav(view, "tab-1")).toBe(false);
+    setEditorScrollOffset("tab-1", "source", 3000);
+    // Nothing consumed: still a surface change, so the cursor wins.
+    expect(chooseEditorRestore("tab-1", "source", true)).toBe("cursor");
+
+    chooseEditorRestore("tab-1", "wysiwyg", false);
+    setPendingContentSearchNav("tab-1", 2, "");
+    expect(consumeSourcePendingNav(view, "tab-1")).toBe(true);
+    setEditorScrollOffset("tab-1", "source", 3000); // the reader scrolled on from the jump
+
+    expect(chooseEditorRestore("tab-1", "source", true)).toBe("scroll");
+    forgetShownEditorSurface("tab-1");
+    clearEditorScrollOffsets("tab-1");
+    view.destroy();
   });
 });

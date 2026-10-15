@@ -16,8 +16,11 @@
  *   - Leaves the pending entry in place when the view isn't ready, so a later
  *     consumer (deferred init, visibility transition, Source mode) still
  *     sees it.
+ *   - A consumed jump is recorded as showing WYSIWYG, as the skipped restore
+ *     would have been (`noteEditorJump`, #1556).
  *
  * @coordinates-with TiptapEditor.tsx — deferred init + visibility transition
+ * @coordinates-with services/editor/restoreChoice.ts — records the surface a jump showed
  * @coordinates-with services/navigation/contentSearchNavigation.ts — pending search-nav source
  * @module components/Editor/wysiwygPendingNav
  */
@@ -28,6 +31,7 @@ import {
   consumePendingContentSearchNav,
   openFindBarWithQuery,
 } from "@/services/navigation/contentSearchNavigation";
+import { noteEditorJump } from "@/services/editor/restoreChoice";
 import { contentSearchLog } from "@/utils/debug";
 
 /** Delay before pre-filling the FindBar, letting the scroll settle first. */
@@ -67,6 +71,7 @@ export function consumeWysiwygPendingNav(
     );
   }
   view.focus();
+  noteEditorJump(tabId, "wysiwyg");
 
   // Pre-fill the FindBar after a brief delay to let the scroll settle — only
   // when there's a query (a file-link line jump just scrolls).

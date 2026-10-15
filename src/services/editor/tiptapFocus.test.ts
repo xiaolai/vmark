@@ -640,9 +640,9 @@ describe("scheduleTiptapFocusAndRestore", () => {
     expect(scrollTop).toBe(0);
   });
 
-  it("leaves the viewport to the cursor restore when a cursor exists (#1249)", () => {
-    // A remembered offset must NOT override cursor restoration: the cursor also
-    // carries the WYSIWYG↔Source position mapping.
+  it("leaves the viewport to the cursor restore on a tab's first show (#1249)", () => {
+    // Nothing on screen yet to return to, so the cursor (which also carries the
+    // WYSIWYG↔Source mapping) wins. Returns: tiptapFocus.tabSwitch.test.ts.
     clearEditorScrollOffsets("tab-clicked");
     setEditorScrollOffset("tab-clicked", "wysiwyg", 900);
 
@@ -673,7 +673,7 @@ describe("scheduleTiptapFocusAndRestore", () => {
     globalThis.requestAnimationFrame = originalRaf;
     clearEditorScrollOffsets("tab-clicked");
 
-    expect(restoreCursor).toHaveBeenCalledTimes(1);
+    expect(restoreCursor).toHaveBeenCalledWith(view, { contentLineIndex: 3 }, true);
     expect(scrollTop).toBe(0);
   });
 

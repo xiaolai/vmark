@@ -19,6 +19,7 @@ import {
   setPendingContentSearchNav,
 } from "@/services/navigation/contentSearchNavigation";
 import { clearPendingLintScroll } from "@/services/lint/lintNavigation";
+import { chooseEditorRestore, forgetShownEditorSurface } from "@/services/editor/restoreChoice";
 import { focusAndRestoreSource } from "./sourceFocusRestore";
 
 function makeView() {
@@ -47,6 +48,7 @@ const cursor = { contentLineIndex: 4 } as unknown as CursorInfo;
 beforeEach(() => {
   vi.clearAllMocks();
   clearEditorScrollOffsets("tab-1");
+  forgetShownEditorSurface("tab-1");
   clearPendingContentSearchNav("tab-1");
   clearPendingLintScroll("tab-1");
   // A synchronous frame scheduler keeps the bounded restore loop in this tick.
@@ -57,14 +59,50 @@ beforeEach(() => {
 });
 
 describe("focusAndRestoreSource", () => {
-  it("restores the cursor when one exists, leaving the scroll to it", () => {
+  it("restores the cursor on a first show, leaving the scroll to it", () => {
     setEditorScrollOffset("tab-1", "source", 400);
     const { view, focus, read } = makeView();
 
     focusAndRestoreSource(view, "tab-1", cursor);
 
     expect(focus).toHaveBeenCalledTimes(1);
-    expect(mockRestoreCursor).toHaveBeenCalledWith(view, cursor);
+    expect(mockRestoreCursor).toHaveBeenCalledWith(view, cursor, true);
+    expect(read()).toBe(0);
+  });
+
+  it("returns a reader to where they scrolled, not to the caret, after a tab switch (#1556)", () => {
+    // The reported bug: the caret placed once won every later restore, so each
+    // document snapped back to the same fixed place however far it was read.
+    focusAndRestoreSource(makeView().view, "tab-1", cursor);
+    setEditorScrollOffset("tab-1", "source", 4200);
+    mockRestoreCursor.mockClear();
+    const { view, read } = makeView();
+
+    focusAndRestoreSource(view, "tab-1", cursor);
+
+    // The caret is put back where it was, without scrolling to it.
+    expect(mockRestoreCursor).toHaveBeenCalledWith(view, cursor, false);
+    expect(read()).toBe(4200);
+  });
+
+  it("follows the reader across repeated round trips (#1556)", () => {
+    focusAndRestoreSource(makeView().view, "tab-1", cursor);
+    for (const offset of [1200, 3600, 800]) {
+      setEditorScrollOffset("tab-1", "source", offset);
+      const { view, read } = makeView();
+      focusAndRestoreSource(view, "tab-1", cursor);
+      expect(read()).toBe(offset);
+    }
+  });
+
+  it("hands a mode switch to the cursor, which carries the position mapping", () => {
+    setEditorScrollOffset("tab-1", "source", 400);
+    chooseEditorRestore("tab-1", "wysiwyg", true); // the tab was last on the WYSIWYG surface
+    const { view, read } = makeView();
+
+    focusAndRestoreSource(view, "tab-1", cursor);
+
+    expect(mockRestoreCursor).toHaveBeenCalledWith(view, cursor, true);
     expect(read()).toBe(0);
   });
 
@@ -116,6 +154,6 @@ describe("focusAndRestoreSource", () => {
     const second = makeView();
     focusAndRestoreSource(second.view, "tab-1", cursor);
     expect(second.dispatch).not.toHaveBeenCalled();
-    expect(mockRestoreCursor).toHaveBeenCalledWith(second.view, cursor);
+    expect(mockRestoreCursor).toHaveBeenCalledWith(second.view, cursor, true);
   });
 });

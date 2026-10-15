@@ -7,9 +7,9 @@
  *
  * Why this exists (#1249): the editor restored the CURSOR and nothing else, so
  * a reader who never clicked had nothing to restore to — every incidental tab
- * switch cost them their place. The cursor path is untouched: when a cursor
- * exists it still wins, because it also carries the WYSIWYG↔Source position
- * mapping. This fills the gap underneath it.
+ * switch cost them their place. Which of the two wins when both exist is
+ * `restoreChoice.ts`'s call (#1556): these pixels on a return to the same
+ * surface, the cursor (which carries the WYSIWYG↔Source mapping) on a change.
  *
  * Key decisions:
  *   - Offsets are keyed (tabId, surface). WYSIWYG pixels mean nothing in
@@ -53,6 +53,7 @@
  *     and a block that no longer exists.
  *
  * @coordinates-with scrollAnchor.ts — the content anchor
+ * @coordinates-with restoreChoice.ts — offset or cursor, and when an offset is stale
  * @coordinates-with tiptapFocus.ts — WYSIWYG restore on fresh load
  * @coordinates-with components/Editor/sourceFocusRestore.ts — Source restore
  * @coordinates-with components/Editor/useWysiwygScrollMemory.ts — WYSIWYG tracking
@@ -136,8 +137,13 @@ export function getEditorScrollAnchor(
   return anchorsByTab[tabId]?.[surface];
 }
 
-/** Forget every surface's offset for a tab (called on tab close/detach). */
-export function clearEditorScrollOffsets(tabId: string): void {
+/** Forget one surface's offset for a tab, or every surface's (on tab close/detach). */
+export function clearEditorScrollOffsets(tabId: string, surface?: EditorSurface): void {
+  if (surface) {
+    delete offsetsByTab[tabId]?.[surface];
+    delete anchorsByTab[tabId]?.[surface];
+    return;
+  }
   delete offsetsByTab[tabId];
   delete anchorsByTab[tabId];
 }

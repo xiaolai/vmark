@@ -8,8 +8,10 @@
  * no-cursor branch, and that branch scrolled to the top.
  *
  * Key decisions:
- *   - A cursor still wins. It carries the WYSIWYG↔Source position mapping, so
- *     overriding it with a raw pixel offset would break mode-switch sync.
+ *   - Cursor or reading position is `restoreChoice.ts`'s call (#1556). On a
+ *     return to Source the caret goes back WITHOUT scrolling and the remembered
+ *     offset is restored; on a switch from WYSIWYG the cursor wins, because it
+ *     carries the position mapping and the pixels would break mode-switch sync.
  *   - With no cursor the reader has only been READING, and the remembered
  *     scroll offset is the only record of where (#1249). Nothing remembered
  *     means a first open, which lands at the top.
@@ -25,6 +27,7 @@
  *
  * @coordinates-with SourceEditor.tsx — mount + hidden→visible paths
  * @coordinates-with services/editor/scrollPosition.ts — the offset store
+ * @coordinates-with services/editor/restoreChoice.ts — cursor or reading position
  * @coordinates-with utils/cursorSync/codemirror.ts — cursor restoration
  * @module components/Editor/sourceFocusRestore
  */
@@ -36,6 +39,7 @@ import {
   getEditorScrollOffset,
   restoreEditorScroll,
 } from "@/services/editor/scrollPosition";
+import { chooseEditorRestore } from "@/services/editor/restoreChoice";
 import { consumeSourcePendingNav } from "./sourcePendingNav";
 
 /** Focus `view` and put it back where this tab left off. */
@@ -46,9 +50,10 @@ export function focusAndRestoreSource(
 ): void {
   view.focus();
   if (consumeSourcePendingNav(view, tabId)) return;
+  const by = chooseEditorRestore(tabId, "source", cursorInfo !== null);
   if (cursorInfo) {
-    restoreCursorInCodeMirror(view, cursorInfo);
-  } else {
-    restoreEditorScroll(view.scrollDOM, getEditorScrollOffset(tabId, "source") ?? 0);
+    restoreCursorInCodeMirror(view, cursorInfo, by === "cursor");
+    if (by === "cursor") return;
   }
+  restoreEditorScroll(view.scrollDOM, getEditorScrollOffset(tabId, "source") ?? 0);
 }

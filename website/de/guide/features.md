@@ -58,9 +58,11 @@ anderen Tab und zurück, das Umschalten des Quellmodus oder der Splitansicht ode
 der Datei vom Datenträger bringen Sie dorthin zurück, wo Sie gelesen haben — nicht an den Anfang.
 
 Jede Oberfläche merkt sich ihre eigene Position, sodass Rich Text und Quelle in derselben
-Datei getrennte Stellen behalten. Haben Sie einen Cursor in das Dokument gesetzt, hat der
-Cursor weiterhin Vorrang: Bei der Rückkehr landen Sie an der Einfügemarke, was auch dafür
-sorgt, dass beim Wechsel zwischen Rich Text und Quelle derselbe Absatz sichtbar bleibt.
+Datei getrennte Stellen behalten. Kehren Sie zur selben Oberfläche zurück — per Tab-Wechsel
+oder weil die Datei neu geladen wird —, landen Sie dort, wohin Sie gescrollt hatten, auch wenn
+der Cursor woanders steht; der Cursor bleibt, wo Sie ihn gelassen haben. Beim Wechsel zwischen
+Rich Text und Quelle folgt die Ansicht dagegen dem Cursor, sofern es einen gibt, denn er sorgt
+dafür, dass derselbe Absatz in beiden sichtbar bleibt.
 
 Positionen gelten pro Dokument und pro Sitzung — das Schließen eines Tabs vergisst sie.
 

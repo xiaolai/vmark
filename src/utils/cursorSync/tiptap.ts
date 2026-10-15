@@ -106,19 +106,25 @@ export function getCursorInfoFromTiptap(view: EditorView): CursorInfo {
  * Restore cursor position in Tiptap from cursor info.
  * Finds the node with matching sourceLine attribute.
  * Uses block anchors for precise positioning in tables and code blocks.
+ * `scrollIntoView = false` places the caret without moving the viewport, for a
+ * restore whose reading position is put back separately (#1556).
  */
-export function restoreCursorInTiptap(view: EditorView, cursorInfo: CursorInfo): void {
+export function restoreCursorInTiptap(
+  view: EditorView,
+  cursorInfo: CursorInfo,
+  scrollIntoView = true,
+): void {
   const { state } = view;
   const { sourceLine, blockAnchor } = cursorInfo;
 
   // Try block-specific restoration first for tables and code blocks
   if (blockAnchor) {
     if (blockAnchor.kind === "table") {
-      if (restoreCursorInTable(view, sourceLine, blockAnchor)) {
+      if (restoreCursorInTable(view, sourceLine, blockAnchor, scrollIntoView)) {
         return;
       }
     } else if (blockAnchor.kind === "code") {
-      if (restoreCursorInCodeBlock(view, sourceLine, blockAnchor)) {
+      if (restoreCursorInCodeBlock(view, sourceLine, blockAnchor, scrollIntoView)) {
         return;
       }
     }
@@ -182,7 +188,7 @@ export function restoreCursorInTiptap(view: EditorView, cursorInfo: CursorInfo):
       const tr = state.tr
         .setSelection(Selection.atStart(state.doc))
         .setMeta("addToHistory", false); // Cursor restoration shouldn't add to history
-      view.dispatch(tr.scrollIntoView());
+      view.dispatch(scrollIntoView ? tr.scrollIntoView() : tr);
     } catch {
       // Ignore
     }
@@ -208,11 +214,11 @@ export function restoreCursorInTiptap(view: EditorView, cursorInfo: CursorInfo):
     const tr = state.tr
       .setSelection(TextSelection.near(state.doc.resolve(clampedPos)))
       .setMeta("addToHistory", false); // Cursor restoration shouldn't add to history
-    view.dispatch(tr.scrollIntoView());
+    view.dispatch(scrollIntoView ? tr.scrollIntoView() : tr);
   } catch {
     const tr = state.tr
       .setSelection(Selection.atStart(state.doc))
       .setMeta("addToHistory", false);
-    view.dispatch(tr.scrollIntoView());
+    view.dispatch(scrollIntoView ? tr.scrollIntoView() : tr);
   }
 }
