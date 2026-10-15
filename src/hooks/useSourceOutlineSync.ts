@@ -11,6 +11,8 @@
  *
  * Key decisions:
  *   - 250ms debounce on keyup/mouseup instead of rAF — matches useOutlineSync.ts pattern
+ *   - In a two-document split only the focused pane listens: the outline lists
+ *     the focused document, so the caller passes `hidden` for a background pane (#1554)
  *
  * @coordinates-with useOutlineSync.ts — same event, handles WYSIWYG mode
  * @coordinates-with uiStore.ts — writes activeHeadingLine for outline highlight
