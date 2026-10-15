@@ -14,6 +14,9 @@
  *     owns the async-content problem that the old unconditional `scrollTop = 0`
  *     sidestepped; a tab with nothing remembered still lands at the top. The
  *     remembered block, when there is one, is what gets restored (#1473).
+ *   - `canTakeFocus`, read when the frame fires, lets an unfocused split pane
+ *     restore without focusing (#1554): the split tracks DOM focus as the
+ *     focused pane, so a background pane focusing itself moved the pane focus.
  *
  * @coordinates-with cursorSync/tiptap.ts — saves cursor position before mode switch
  * @coordinates-with Editor.tsx — calls focus functions after mode toggle
@@ -54,6 +57,7 @@ export function scheduleTiptapFocusAndRestore(
   getCursorInfo: () => CursorInfo | null,
   restoreCursor: (view: EditorView, cursorInfo: CursorInfo) => void,
   tabId?: string,
+  canTakeFocus: () => boolean = () => true,
 ): void {
   let attempts = 0;
 
@@ -70,11 +74,12 @@ export function scheduleTiptapFocusAndRestore(
 
     // Check cursor info BEFORE focus to distinguish fresh load vs mode switch
     const info = getCursorInfo();
+    const takeFocus = canTakeFocus();
 
     if (info) {
       // Mode switch: focus and restore cursor (which includes scrollIntoView)
       try {
-        view.focus();
+        if (takeFocus) view.focus();
       } catch {
         return;
       }
@@ -85,7 +90,7 @@ export function scheduleTiptapFocusAndRestore(
       // first time.
 
       try {
-        view.focus();
+        if (takeFocus) view.focus();
       } catch {
         return;
       }

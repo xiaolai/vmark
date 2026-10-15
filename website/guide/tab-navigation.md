@@ -429,6 +429,8 @@ Notes on how it behaves:
   to an unrelated tab. Your remaining document stays put.
 - **Sync Pane Scroll** ties the two panes' scrolling together proportionally.
   It is off by default and is per-split.
+- **Both panes share one view mode.** Source mode (`F6`) switches both panes
+  at once, and moving between the panes keeps the mode you are in.
 - Splitting needs two documents open. Browser tabs are not documents, so the
   split does not apply to them.
 

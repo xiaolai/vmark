@@ -29,9 +29,9 @@
  * @coordinates-with components/Editor/SplitPaneEditor/SourcePane.tsx — `bindSplitSourceView`
  * @module hooks/useSourcePaneFocus
  */
-import { useEffect, useRef, type MutableRefObject } from "react";
+import { useEffect, type MutableRefObject } from "react";
 import type { EditorView } from "@codemirror/view";
-import { useIsFocusedPane } from "@/hooks/useIsFocusedPane";
+import { useFocusedPaneState } from "@/hooks/useIsFocusedPane";
 import { useEditorStore } from "@/stores/editorStore";
 import { useTabStore } from "@/stores/tabStore";
 import { computeSourceCursorContext } from "@/plugins/sourceContextDetection/cursorContext";
@@ -49,10 +49,7 @@ export function useSourcePaneFocus(
   hidden: boolean,
   options: SourcePaneFocusOptions = {},
 ): MutableRefObject<boolean> {
-  const isFocusedPane = useIsFocusedPane(windowLabel);
-  const ref = useRef(true);
-  /* eslint-disable-next-line react-hooks/refs -- render-synced so editor callbacks read the current focused-pane flag before effects flush */
-  ref.current = isFocusedPane;
+  const { isFocusedPane, isFocusedPaneRef } = useFocusedPaneState(windowLabel);
   const { tabId: ownTabId, cursorContext = true } = options;
 
   useEffect(() => {
@@ -69,7 +66,7 @@ export function useSourcePaneFocus(
     activateSourceView(view, tabId, cursorContext);
   }, [isFocusedPane, hidden, windowLabel, viewRef, ownTabId, cursorContext]);
 
-  return ref;
+  return isFocusedPaneRef;
 }
 
 /** Publish `view` as the active source view — with its markdown cursor

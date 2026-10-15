@@ -715,7 +715,7 @@ describe("TiptapEditorInner — onSelectionUpdate tracking", () => {
 
     render(<TiptapEditorInner hidden={true} />);
     // useOutlineSync should be called, and getEditorView returns null
-    expect(mocks.useOutlineSync).toHaveBeenCalledWith(expect.any(Function));
+    expect(mocks.useOutlineSync).toHaveBeenCalledWith(expect.any(Function), true); // single pane is always the focused one
   });
 });
 

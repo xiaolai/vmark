@@ -52,6 +52,7 @@ import { useEditorStore } from "@/stores/editorStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useWindowLabel } from "@/contexts/WindowContext";
 import { useFocusedPaneTiptapRegistration } from "@/hooks/useFocusedPaneTiptapRegistration";
+import { useFocusedPaneState } from "@/hooks/useIsFocusedPane";
 import { extractTiptapContext } from "@/plugins/formatToolbar/tiptapContext";
 import { useImageDragDrop } from "@/hooks/useImageDragDrop";
 import { reportUnparseableDocument } from "@/services/editor/unparseableDocument";
@@ -91,6 +92,7 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
   const cjkLetterSpacing = useSettingsStore((state) => state.appearance.cjkLetterSpacing);
   const showInvisibles = useSettingsStore((state) => state.markdown.showInvisibles);
   const windowLabel = useWindowLabel();
+  const { isFocusedPane, isFocusedPaneRef } = useFocusedPaneState(windowLabel); // only the focused split pane takes focus (#1554)
 
   const pendingCursorRaf = useRef<number | null>(null);
   const pendingCursorInfo = useRef<CursorInfo | null>(null);
@@ -232,14 +234,11 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
 
         const view = getTiptapEditorView(editor);
 
-        // Focus/cursor restore after content is set (skipped for hidden/preview
-        // so the preview can't steal focus from the editable source pane). A
-        // pending content-search jump takes priority: the RAF-deferred focus
-        // restore would clobber its selection, and without this consumption
-        // the initial navigation was dropped entirely — the visibility effect
-        // runs before this deferred init and never re-fires.
+        // Focus/cursor restore once content is set — skipped for hidden/preview, restore-only
+        // in an unfocused split pane (#1554). A pending content-search jump wins: the deferred
+        // restore would clobber its selection, and the visibility effect never re-fires for it.
         if (!hiddenRef.current && !previewRef.current && !consumeWysiwygPendingNav(view, activeTabId)) {
-          scheduleTiptapFocusAndRestore(editor, () => cursorInfoRef.current, restoreCursorInTiptap, activeTabId);
+          scheduleTiptapFocusAndRestore(editor, () => cursorInfoRef.current, restoreCursorInTiptap, activeTabId, () => isFocusedPaneRef.current);
         }
 
         if (view && !previewRef.current) {
@@ -311,7 +310,7 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
     [editor, hidden, preview]
   );
   const handleImageContextMenuAction = useImageContextMenu(getEditorView);
-  useOutlineSync(getEditorView);
+  useOutlineSync(getEditorView, isFocusedPane);
 
   // Handle image drag-drop from Finder/Explorer
   useImageDragDrop({
@@ -374,6 +373,7 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
     editorInitialized,
     preserveLineBreaksRef,
     cursorInfoRef,
+    isFocusedPaneRef,
   });
 
   // The container's changing classes are written directly, never through className,

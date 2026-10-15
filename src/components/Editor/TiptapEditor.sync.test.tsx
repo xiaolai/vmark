@@ -598,7 +598,7 @@ describe("TiptapEditorInner — getEditorView returns non-null when visible", ()
     render(<TiptapEditorInner hidden={false} />);
 
     // useOutlineSync is called with a getEditorView function
-    expect(mocks.useOutlineSync).toHaveBeenCalledWith(expect.any(Function));
+    expect(mocks.useOutlineSync).toHaveBeenCalledWith(expect.any(Function), true); // single pane is always the focused one
 
     // Extract the getEditorView function and call it
     const getEditorView = mocks.useOutlineSync.mock.calls[0][0] as () => unknown;

@@ -27,6 +27,7 @@ function mount(content: string, { preview }: { preview: boolean }) {
     editorInitialized: ref(true),
     preserveLineBreaksRef: ref(false),
     cursorInfoRef: ref(null),
+    isFocusedPaneRef: ref(true),
   };
   const hook = renderHook(
     (next: string) =>

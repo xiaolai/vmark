@@ -29,9 +29,9 @@ import { EditorView, keymap } from "@codemirror/view";
 import { useUIStore } from "@/stores/uiStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useShortcutsStore } from "@/stores/settingsStore";
-import { useTabStore } from "@/stores/tabStore";
 import { useWindowLabel } from "@/contexts/WindowContext";
 import { useSourcePaneFocus } from "@/hooks/useSourcePaneFocus";
+import { useIsFocusedPane } from "@/hooks/useIsFocusedPane";
 import {
   useActiveTabId, useDocumentContent,
   useDocumentCursorInfo,
@@ -69,12 +69,11 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
   const hiddenRef = useRef(hidden);
   const cursorTrackerRef = useRef<SourceCursorTracker | null>(null);
 
-  useSourceOutlineSync(viewRef, hidden);
-
   // Use document store for content (per-window state)
   const content = useDocumentContent();
   const cursorInfo = useDocumentCursorInfo();
-  const { setContent, setCursorInfo, setSelectedText } = useDocumentActions(useActiveTabId() ?? undefined);
+  const tabId = useActiveTabId() ?? undefined; // THIS pane's tab — the window's active tab is the other pane's in a split (#1554)
+  const { setContent, setCursorInfo, setSelectedText } = useDocumentActions(tabId);
 
   // Refs to capture callbacks for use in CodeMirror listener
   const setContentRef = useRef(setContent);
@@ -100,6 +99,8 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
   // Window label for tab ID resolution (stable per window)
   const windowLabel = useWindowLabel();
   const isFocusedPaneRef = useSourcePaneFocus(viewRef, windowLabel, hidden); // #1081
+  const isFocusedPane = useIsFocusedPane(windowLabel);
+  useSourceOutlineSync(viewRef, hidden || !isFocusedPane); // outline clicks address the focused pane only (#1554)
 
   // Handle image drag-drop from Finder/Explorer
   useImageDragDrop({
@@ -162,10 +163,8 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
     const initialShowInvisibles = useSettingsStore.getState().markdown.showInvisibles;
     const initialAutoPair = useSettingsStore.getState().markdown.autoPairEnabled ?? true;
     const initialLintEnabled = useSettingsStore.getState().markdown.lintEnabled ?? true;
-    // Capture tabId at mount time — SourceEditor remounts per tab so this is stable
-    const { activeTabId: currentTabId } = useTabStore.getState();
-    /* v8 ignore next -- @preserve reason: runtime window label lookup; windowLabel always resolves in tests */
-    const mountTabId = currentTabId[windowLabel] ?? undefined;
+    // This pane's tab at mount time — SourceEditor remounts per tab so this is stable
+    const mountTabId = tabId;
     // Capture file path for language mode detection (YAML vs markdown)
     /* v8 ignore next 2 -- @preserve reason: documentStore access at mount time; filePath is always available */
     const mountFilePath = mountTabId
@@ -224,7 +223,7 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
       focusTimeoutId = setTimeout(() => {
         /* v8 ignore next -- @preserve defensive guard: view is cleared by cleanup before timeout fires */
         if (!viewRef.current) return; // Defensive — cleanup clears this timeout
-        focusAndRestoreSource(view, mountTabId, initialCursorInfo);
+        focusAndRestoreSource(view, mountTabId, initialCursorInfo, isFocusedPaneRef.current); // only the focused pane takes focus (#1554)
       }, 50);
     }
 
@@ -263,14 +262,12 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
     }
 
     // Register as active source view (focused pane only, #1081).
-    const { activeTabId: tabIds } = useTabStore.getState();
-    const visibleTabId = tabIds[windowLabel] ?? undefined;
-    if (isFocusedPaneRef.current) useEditorStore.getState().setActiveSourceView(view, visibleTabId);
+    if (isFocusedPaneRef.current) useEditorStore.getState().setActiveSourceView(view, tabId);
 
     // Focus and restore cursor/scroll
     setTimeout(() => {
       if (!viewRef.current || hiddenRef.current) return;
-      focusAndRestoreSource(view, visibleTabId, cursorInfoRef.current);
+      focusAndRestoreSource(view, tabId, cursorInfoRef.current, isFocusedPaneRef.current);
     }, 50);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- reacts to the visibility transition only; it reads the current render's values when it runs
   }, [hidden]);

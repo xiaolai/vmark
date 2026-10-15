@@ -42,6 +42,8 @@ interface TiptapContentSyncParams {
   editorInitialized: MutableRefObject<boolean>;
   preserveLineBreaksRef: MutableRefObject<boolean>;
   cursorInfoRef: MutableRefObject<CursorInfo | null>;
+  /** Live focused-pane flag: an unfocused split pane restores without focusing (#1554). */
+  isFocusedPaneRef: MutableRefObject<boolean>;
 }
 
 /** Sync external content into the editor and handle hidden → visible transitions. */
@@ -57,6 +59,7 @@ export function useTiptapContentSync({
   editorInitialized,
   preserveLineBreaksRef,
   cursorInfoRef,
+  isFocusedPaneRef,
 }: TiptapContentSyncParams): void {
   // Sync external content changes TO the editor.
   // Only runs for SUBSEQUENT content changes after onCreate has initialized the editor.
@@ -132,6 +135,7 @@ export function useTiptapContentSync({
         () => cursorInfoRef.current,
         restoreCursorInTiptap,
         activeTabId,
+        () => isFocusedPaneRef.current,
       );
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- reacts to the hidden-to-visible transition only; everything else is a ref or read when it runs

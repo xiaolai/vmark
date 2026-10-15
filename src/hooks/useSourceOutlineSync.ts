@@ -87,6 +87,10 @@ export function findHeadingIndexAtLine(doc: Text, cursorLine: number): number {
  * Hook to sync outline sidebar with source editor:
  * 1. Listen for scroll-to-heading events and scroll CodeMirror
  * 2. Track cursor position and update active heading index
+ *
+ * `hidden` switches both off: pass true for a hidden editor AND for an
+ * unfocused split pane (#1554) — the outline lists the focused document, so a
+ * background pane answering its clicks scrolled and focused the wrong one.
  */
 export function useSourceOutlineSync(
   viewRef: CMViewRef,
