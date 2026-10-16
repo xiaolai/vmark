@@ -100,10 +100,15 @@ jobs:
   #
   # Without this the soak was red for four consecutive runs with nothing
   # surfacing it anywhere a maintainer would look.
+  #
+  # It fires on a TIMEOUT too: a suite killed by its own timeout-minutes
+  # concludes `cancelled`, which a bare `if: failure()` skipped (#1557, where
+  # mutation.yml lost two weekly verdicts that way). `!cancelled()` keeps a run
+  # cancelled by hand quiet. Pinned by scripts/check-rolling-issue-timeouts.test.mjs.
   report:
     name: Report failures in the tracking issue
     needs: [soak]
-    if: failure()
+    if: ${{ !cancelled() && (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -118,13 +123,17 @@ jobs:
           SOAK_RESULT: ${{ needs.soak.result }}
         run: |
           set -euo pipefail
-          if [ "$SOAK_RESULT" != "failure" ]; then
-            echo "soak reported '$SOAK_RESULT' — nothing to report."
-            exit 0
-          fi
+          case "$SOAK_RESULT" in
+            failure) WHAT="At least one soak suite failed" ;;
+            cancelled) WHAT="At least one soak suite timed out (killed by its own timeout-minutes; GitHub reports that as cancelled) and produced no verdict" ;;
+            *)
+              echo "soak reported '$SOAK_RESULT' — nothing to report."
+              exit 0
+              ;;
+          esac
 
           TITLE="Soak workflow failed"
-          BODY="Failed on $(date -u +%Y-%m-%d): $RUN_URL (commit ${GITHUB_SHA})"$'\n\n'"At least one soak suite failed; open the run to see which. Each suite runs independently, so the others' results are real."
+          BODY="Failed on $(date -u +%Y-%m-%d): $RUN_URL (commit ${GITHUB_SHA})"$'\n\n'"${WHAT}; open the run to see which. Each suite runs independently, so the others' results are real."
           NUMBER=$(gh issue list --state open --search "\"$TITLE\" in:title" \
             --json number,title --jq ".[] | select(.title == \"$TITLE\") | .number" | head -n1)
           if [ -n "$NUMBER" ]; then

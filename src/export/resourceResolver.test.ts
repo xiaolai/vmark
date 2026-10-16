@@ -14,6 +14,7 @@ const mockExists = vi.fn();
 const mockMkdir = vi.fn();
 const mockStat = vi.fn();
 const mockLstat = vi.fn();
+const mockExportWarn = vi.fn();
 
 vi.mock("@tauri-apps/plugin-fs", () => ({
   readFile: (...args: unknown[]) => mockReadFile(...args),
@@ -59,9 +60,7 @@ vi.mock("@tauri-apps/api/path", () => ({
   }),
 }));
 
-vi.mock("@/utils/debug", () => ({
-  exportWarn: vi.fn(),
-}));
+vi.mock("@/utils/debug", () => ({ exportWarn: (...args: unknown[]) => mockExportWarn(...args) }));
 
 import {
   isRemoteUrl,
@@ -753,7 +752,7 @@ describe("resolveResources", () => {
     expect(mockCopyFile).not.toHaveBeenCalled();
   });
 
-  it("treats lstat failure as inaccessible", async () => {
+  it("treats lstat failure as inaccessible and logs its cause (#1555)", async () => {
     const html = '<img src="broken.png">';
     mockExists.mockResolvedValue(true);
     mockLstat.mockRejectedValue(new Error("Permission denied"));
@@ -765,6 +764,7 @@ describe("resolveResources", () => {
 
     expect(report.missing).toHaveLength(1);
     expect(report.resolved).toHaveLength(0);
+    expect(mockExportWarn).toHaveBeenCalledWith(expect.stringContaining("broken.png"), expect.objectContaining({ message: "Permission denied" }));
   });
 
   it("handles stat failure silently in folder mode", async () => {

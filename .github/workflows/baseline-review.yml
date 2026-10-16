@@ -123,8 +123,12 @@ jobs:
   report:
     needs: measure
     # Either signal opens the issue — a silent watcher is as much a finding
-    # as stalled debt.
-    if: needs.measure.outputs.hasDebt == 'true' || needs.measure.outputs.watcherStale == 'true'
+    # as stalled debt. So does a `measure` that failed or hit its own
+    # timeout-minutes (GitHub reports that as `cancelled`): it produced no
+    # outputs, and gating on outputs alone made that silent — the shape #1557
+    # found in mutation.yml. `!cancelled()` keeps a run cancelled by hand quiet.
+    # Pinned by scripts/check-rolling-issue-timeouts.test.mjs.
+    if: ${{ !cancelled() && (needs.measure.result != 'success' || needs.measure.outputs.hasDebt == 'true' || needs.measure.outputs.watcherStale == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -143,12 +147,17 @@ jobs:
             ${{ needs.measure.outputs.watcherDetail }}
             ```
             </details>
+          MEASURE_RESULT: ${{ needs.measure.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           REPO: ${{ github.repository }}
         shell: bash
         # ONE rolling issue, found by label. Creating a fresh issue each week
         # would turn a standing reminder into a backlog of duplicates, which is
         # the failure mode the cost-report workflow already documented.
         run: |
+          if [ "$MEASURE_RESULT" != "success" ]; then
+            BODY="The \`measure\` job concluded \`${MEASURE_RESULT}\` (\`cancelled\` means it hit its own timeout-minutes), so neither the debt report nor the gate-liveness watcher ran this week: ${RUN_URL}"
+          fi
           # The label must EXIST before it is used: `gh issue create --label`
           # fails outright on an unknown label, and it did — this workflow's
           # first real run died with "could not add label: 'baseline-review' not
