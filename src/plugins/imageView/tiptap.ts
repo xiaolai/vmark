@@ -22,8 +22,8 @@ export const imageViewExtension = Image.extend({
   },
 
   addNodeView() {
-    return ({ node, getPos, editor }) => {
-      return new ImageNodeView(node, getPos, editor);
+    return ({ node, getPos, editor, view }) => {
+      return new ImageNodeView(node, getPos, editor, view.dom);
     };
   },
 }).configure({ inline: true });

@@ -3,6 +3,9 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { installFakeIntersectionObserver, onlyObserver } from "@/test/fakeIntersectionObserver";
+import { installFakeAnimationFrames } from "@/test/fakeAnimationFrames";
+import { resetNearViewportForTest } from "@/plugins/shared/nearViewport";
 
 // Mock dependencies before imports
 vi.mock("@tauri-apps/api/core", () => ({
@@ -102,6 +105,7 @@ describe("imageViewExtension", () => {
       node: mockNode as never,
       getPos: mockGetPos as never,
       editor: mockEditor as never,
+      view: { dom: document.createElement("div") } as never,
       HTMLAttributes: {},
       decorations: [] as never,
       innerDecorations: {} as never,
@@ -153,6 +157,37 @@ describe("ImageNodeView", () => {
     expect(nodeView.dom.decoding).toBe("async");
   });
 
+  it("fetches only once the image nears the editor's viewport (#1565)", async () => {
+    resetNearViewportForTest();
+    const frames = installFakeAnimationFrames();
+    installFakeIntersectionObserver();
+    try {
+      const root = document.createElement("div");
+      root.className = "editor-content";
+      const pm = document.createElement("div");
+      pm.className = "ProseMirror";
+      const paragraph = document.createElement("p");
+      pm.appendChild(paragraph);
+      root.appendChild(pm);
+      document.body.appendChild(root);
+      const node = {
+        attrs: { src: "https://example.com/image.png", alt: "", title: "" },
+        type: { name: "image" },
+      } as never;
+      nodeView = new ImageNodeView(node, () => 0, mockEditor, pm);
+      paragraph.appendChild(nodeView.dom);
+      await Promise.resolve(); // the view registers before ProseMirror inserts it
+      expect(nodeView.dom.getAttribute("src")).toBeNull();
+
+      onlyObserver().trigger();
+      frames.runFrame();
+      expect(nodeView.dom.src).toBe("https://example.com/image.png");
+      root.remove();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("sets external URL src directly", () => {
     const node = {
       attrs: { src: "https://example.com/image.png", alt: "", title: "" },
@@ -161,6 +196,26 @@ describe("ImageNodeView", () => {
     nodeView = new ImageNodeView(node, () => 0, mockEditor);
 
     expect(nodeView.dom.src).toBe("https://example.com/image.png");
+  });
+
+  it.each([
+    ["an external URL", "https://example.com/newer.png", "https://example.com/newer.png"],
+    ["an empty source", "", ""],
+  ])("a pending local resolution never overrides a newer %s", async (_label, newer, expected) => {
+    const local = { attrs: { src: "images/old.png", alt: "", title: "" }, type: { name: "image" } } as never;
+    nodeView = new ImageNodeView(local, () => 0, mockEditor);
+    nodeView.update({ attrs: { src: newer, alt: "", title: "" }, type: { name: "image" } } as never);
+    // Let the old path resolution finish.
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+    expect(nodeView.dom.getAttribute("src") ?? "").toBe(expected);
+  });
+
+  it("a late error from the replaced image never marks the new one failed", () => {
+    const external = { attrs: { src: "https://example.com/old.png", alt: "", title: "" }, type: { name: "image" } } as never;
+    nodeView = new ImageNodeView(external, () => 0, mockEditor);
+    nodeView.update({ attrs: { src: "images/new.png", alt: "", title: "" }, type: { name: "image" } } as never);
+    nodeView.dom.dispatchEvent(new Event("error"));
+    expect(nodeView.dom.classList.contains("image-error")).toBe(false);
   });
 
   it("handles empty src", () => {

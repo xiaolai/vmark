@@ -18,12 +18,17 @@
  *     (#1433) — see plugins/shared/mediaSecurity.ts
  *   - `decoding = "async"`: a full-page scan scrolled into view is decoded off
  *     the main thread instead of stalling the frame that shows it
+ *   - The resolved `src` is assigned only as the image nears the viewport
+ *     (`loadImageNearViewport`): an image-heavy document fetched and decoded
+ *     every image at open (#1565)
  *
  * Known limitations:
- *   - No lazy loading — all visible block images resolve immediately
+ *   - The `src` is still RESOLVED at construction (two path IPCs per relative
+ *     image); only the fetch and decode wait for the viewport
  *
  * @coordinates-with tiptap.ts — registers this NodeView for the block_image node type
  * @coordinates-with services/media/resolveMediaSrc.ts — shared media path resolution
+ * @coordinates-with plugins/shared/loadImageNearViewport.ts — when the fetch starts
  * @coordinates-with stores/mediaPopupStore.ts — media popup state for click editing
  * @module plugins/blockImage/BlockImageNodeView
  */
@@ -33,6 +38,7 @@ import type { Editor } from "@tiptap/core";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import type { NodeView } from "@tiptap/pm/view";
 import { isExternalUrl } from "@/plugins/shared/mediaSecurity";
+import { loadImageNearViewport } from "@/plugins/shared/loadImageNearViewport";
 import { resolveMediaSrc } from "@/services/media/resolveMediaSrc";
 import {
   attachMediaLoadHandlers,
@@ -57,6 +63,9 @@ export class BlockImageNodeView implements NodeView {
   private editor: Editor;
   /** Whose document this node belongs to — see the extension option. */
   private ownerTabId: string | undefined;
+  /** The editor view's DOM; its scroll container decides when images load. */
+  private editorDom: Element | null;
+  private cancelLoad: (() => void) | null = null;
   private resolveRequestId = 0;
   private destroyed = false;
   private cleanupHandlers: (() => void) | null = null;
@@ -66,10 +75,12 @@ export class BlockImageNodeView implements NodeView {
     getPos: () => number | undefined,
     editor: Editor,
     ownerTabId?: string,
+    editorDom: Element | null = null,
   ) {
     this.getPos = getPos;
     this.editor = editor;
     this.ownerTabId = ownerTabId;
+    this.editorDom = editorDom;
     this.originalSrc = String(node.attrs.src ?? "");
 
     this.dom = document.createElement("figure");
@@ -134,6 +145,11 @@ export class BlockImageNodeView implements NodeView {
   private updateSrc(src: string): void {
     // Bump request ID on every call to cancel any pending async resolution
     const requestId = ++this.resolveRequestId;
+    this.cancelLoad?.();
+    this.cancelLoad = null;
+    // The replaced image's late load/error must not judge the new source.
+    this.cleanupHandlers?.();
+    this.cleanupHandlers = null;
 
     // Reset states
     this.img.style.opacity = "1";
@@ -153,15 +169,17 @@ export class BlockImageNodeView implements NodeView {
 
     if (isExternalUrl(src)) {
       this.dom.classList.add(IMAGE_LOAD_CONFIG.loadingClass);
-      this.setupLoadHandlers();
-      this.img.src = src;
-      // Fast-path: image may already be cached
-      if (this.img.complete && this.img.naturalWidth > 0) {
-        this.cleanupHandlers?.();
-        this.cleanupHandlers = null;
-        clearMediaLoadState(this.dom, IMAGE_LOAD_CONFIG);
-        this.img.style.opacity = "1";
-      }
+      this.loadWhenNear(() => {
+        this.setupLoadHandlers();
+        this.img.src = src;
+        // Fast-path: image may already be cached
+        if (this.img.complete && this.img.naturalWidth > 0) {
+          this.cleanupHandlers?.();
+          this.cleanupHandlers = null;
+          clearMediaLoadState(this.dom, IMAGE_LOAD_CONFIG);
+          this.img.style.opacity = "1";
+        }
+      });
       return;
     }
 
@@ -175,13 +193,20 @@ export class BlockImageNodeView implements NodeView {
           this.handleError("Failed to resolve path");
           return;
         }
-        this.setupLoadHandlers();
-        this.img.src = resolvedSrc;
+        this.loadWhenNear(() => {
+          this.setupLoadHandlers();
+          this.img.src = resolvedSrc;
+        });
       })
       .catch((err) => {
         if (this.destroyed || requestId !== this.resolveRequestId) return;
         this.handleError(err instanceof Error ? err.message : "Failed to resolve path");
       });
+  }
+
+  /** Run `assign` (which sets the `src`) once the image nears the viewport. */
+  private loadWhenNear(assign: () => void): void {
+    this.cancelLoad = loadImageNearViewport(this.img, this.editorDom, assign);
   }
 
   private setupLoadHandlers(): void {
@@ -224,6 +249,7 @@ export class BlockImageNodeView implements NodeView {
 
   destroy(): void {
     this.destroyed = true;
+    this.cancelLoad?.();
     this.cleanupHandlers?.();
     this.img.removeEventListener("contextmenu", this.handleContextMenu);
     this.dom.removeEventListener("dblclick", this.handleClick);

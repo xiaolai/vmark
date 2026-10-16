@@ -366,6 +366,8 @@
         "src/plugins/videoEmbed",
         "src/plugins/mediaPopup",
         "src/plugins/imagePreview",
+        "src/plugins/shared/loadImageNearViewport.ts",
+        "src/plugins/shared/loadImageNearViewport.test.ts",
         "src-tauri/src/asset_access.rs",
         "src/services/media",
         "src/plugins/imagePasteToast",

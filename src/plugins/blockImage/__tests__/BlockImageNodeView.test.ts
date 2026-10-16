@@ -13,9 +13,12 @@
  * - Context menu handling
  */
 
-import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, afterEach, describe, expect, it, vi, type Mock } from "vitest";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import { bindHostPopups } from "@/plugins/shared/hostPopups";
+import { installFakeIntersectionObserver, onlyObserver } from "@/test/fakeIntersectionObserver";
+import { installFakeAnimationFrames } from "@/test/fakeAnimationFrames";
+import { resetNearViewportForTest } from "@/plugins/shared/nearViewport";
 
 // Mock dependencies before imports
 const mockResolveMediaSrc = vi.fn();
@@ -25,7 +28,9 @@ const mockIsExternalUrl = vi.fn();
 const mockOpenPopup = vi.fn();
 const mockOpenMenu = vi.fn();
 const mockSelectMediaNode = vi.fn();
-const mockAttachMediaLoadHandlers = vi.fn(() => vi.fn());
+const mockAttachMediaLoadHandlers = vi.fn(
+  (_img: unknown, _dom: unknown, _config: unknown, _onLoad: () => void, _onError: () => void): (() => void) => vi.fn(),
+);
 const mockShowMediaError = vi.fn();
 const mockClearMediaLoadState = vi.fn();
 
@@ -40,7 +45,8 @@ vi.mock("@/plugins/shared/mediaSecurity", () => ({
 
 
 vi.mock("@/plugins/shared/mediaNodeViewHelpers", () => ({
-  attachMediaLoadHandlers: (...args: unknown[]) => mockAttachMediaLoadHandlers(...args),
+  attachMediaLoadHandlers: (...args: Parameters<typeof mockAttachMediaLoadHandlers>) =>
+    mockAttachMediaLoadHandlers(...args),
   showMediaError: (...args: unknown[]) => mockShowMediaError(...args),
   clearMediaLoadState: (...args: unknown[]) => mockClearMediaLoadState(...args),
   selectMediaNode: (...args: unknown[]) => mockSelectMediaNode(...args),
@@ -82,7 +88,7 @@ bindHostPopups({ openMediaPopup: mockOpenPopup, openImageMenu: mockOpenMenu });
 describe("BlockImageNodeView", () => {
   let nodeView: BlockImageNodeView;
   let mockEditor: ReturnType<typeof createMockEditor>;
-  let getPos: ReturnType<typeof vi.fn>;
+  let getPos: Mock<() => number | undefined>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -123,6 +129,32 @@ describe("BlockImageNodeView", () => {
     it("decodes the image off the main thread", () => {
       createNodeView();
       expect(nodeView.dom.querySelector("img")!.decoding).toBe("async");
+    });
+
+    it("fetches only once the image nears the editor's viewport (#1565)", async () => {
+      resetNearViewportForTest();
+      const frames = installFakeAnimationFrames();
+      installFakeIntersectionObserver();
+      try {
+        const root = document.createElement("div");
+        root.className = "editor-content";
+        const pm = document.createElement("div");
+        pm.className = "ProseMirror";
+        root.appendChild(pm);
+        document.body.appendChild(root);
+        nodeView = new BlockImageNodeView(createMockNode(), getPos, mockEditor, undefined, pm);
+        pm.appendChild(nodeView.dom);
+        await vi.waitFor(() => expect(mockResolveMediaSrc).toHaveBeenCalled());
+        await Promise.resolve();
+        const img = nodeView.dom.querySelector("img")!;
+        expect(img.getAttribute("src")).toBe("");
+
+        onlyObserver().trigger();
+        frames.runFrame();
+        expect(img.getAttribute("src")).toBe("resolved://test.png");
+      } finally {
+        vi.unstubAllGlobals();
+      }
     });
 
     it("contains an img element", () => {
@@ -240,6 +272,17 @@ describe("BlockImageNodeView", () => {
   });
 
   describe("update()", () => {
+    it("drops the replaced image's load handlers before the new source loads", () => {
+      mockIsExternalUrl.mockReturnValue(true);
+      const cleanup = vi.fn();
+      mockAttachMediaLoadHandlers.mockReturnValueOnce(cleanup);
+      createNodeView({ src: "https://example.com/old.png" });
+
+      mockIsExternalUrl.mockReturnValue(false);
+      nodeView.update(createMockNode({ src: "images/new.png" }));
+      expect(cleanup).toHaveBeenCalledTimes(1);
+    });
+
     it("returns true for block_image node type", () => {
       createNodeView();
       const newNode = createMockNode({ alt: "Updated" });

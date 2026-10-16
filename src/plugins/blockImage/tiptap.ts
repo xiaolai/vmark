@@ -103,9 +103,9 @@ export const blockImageExtension = Node.create<BlockImageExtensionOptions>({
   },
 
   addNodeView() {
-    return ({ node, getPos, editor }) => {
+    return ({ node, getPos, editor, view }) => {
       const safeGetPos = typeof getPos === "function" ? getPos : () => undefined;
-      return new BlockImageNodeView(node, safeGetPos, editor, this.options.ownerTabId);
+      return new BlockImageNodeView(node, safeGetPos, editor, this.options.ownerTabId, view.dom);
     };
   },
 

@@ -429,7 +429,7 @@ describe("blockImageExtension", () => {
     function build(ownerTabId: string | undefined, getPos: unknown, attrs: Record<string, string>) {
       const factory = blockImageExtension.config.addNodeView!.call({ options: { ownerTabId } } as never)!;
       const node = schema.node("block_image", attrs);
-      const view = factory({ node, getPos, editor } as never) as unknown as BlockImageNodeView;
+      const view = factory({ node, getPos, editor, view: { dom: document.createElement("div") } } as never) as unknown as BlockImageNodeView;
       views.push(view);
       return view;
     }
