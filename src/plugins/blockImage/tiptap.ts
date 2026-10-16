@@ -11,6 +11,8 @@
  *     `src` resolves against ITS directory rather than the focused tab's.
  *     Full reasoning on the option itself and in
  *     `services/assembly/blockMediaExtensions.ts`.
+ *   - The node view is handed the editor view's DOM: its scroll container
+ *     decides when the image is fetched (only near the viewport, #1565)
  *   - `atom: true` makes the image a single selectable unit (no cursor inside)
  *   - Arrow key handlers allow navigation into/out of block images from adjacent blocks
  *   - Enter on a selected block image creates a paragraph below for continued typing
