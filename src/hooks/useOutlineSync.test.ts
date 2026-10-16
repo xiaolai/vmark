@@ -696,3 +696,38 @@ describe("useOutlineSync — cursor tracking", () => {
     expect(useUIStore.getState().activeHeadingLine).toBe(1);
   });
 });
+
+describe("useOutlineSync — unfocused split pane (#1554)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockDom = null;
+  });
+
+  it("neither listens for outline clicks nor tracks the cursor while disabled", () => {
+    mockDom = document.createElement("div");
+    const add = vi.spyOn(mockDom, "addEventListener");
+    const view = createMockView([0, 50]);
+    const getView = () => view as unknown as ReturnType<() => import("@tiptap/pm/view").EditorView>;
+    useUIStore.getState().setActiveHeadingLine(7);
+
+    renderHook(() => useOutlineSync(getView, false));
+
+    expect(mocks.listen).not.toHaveBeenCalled();
+    expect(add).not.toHaveBeenCalled();
+    expect(useUIStore.getState().activeHeadingLine).toBe(7);
+  });
+
+  it("attaches once its pane gains focus", () => {
+    mockDom = document.createElement("div");
+    const view = createMockView([0, 50]);
+    const getView = () => view as unknown as ReturnType<() => import("@tiptap/pm/view").EditorView>;
+    const { rerender } = renderHook(({ on }) => useOutlineSync(getView, on), {
+      initialProps: { on: false },
+    });
+    expect(mocks.listen).not.toHaveBeenCalled();
+
+    rerender({ on: true });
+    expect(mocks.listen).toHaveBeenCalledWith("outline:scroll-to-heading", expect.any(Function));
+  });
+});
+

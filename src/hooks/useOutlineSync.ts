@@ -14,6 +14,9 @@
  *     settledScroll: on large documents content-visibility moves it while a
  *     smooth scroll is in flight, which left the first click short (#1458)
  *   - Also handles sync from outline panel toggle via uiStore
+ *   - `enabled` false (an unfocused split pane) detaches both halves: the
+ *     outline lists the FOCUSED document, so a background pane answering its
+ *     clicks selected, focused and scrolled the wrong document (#1554)
  *   - Cursor tracking uses a 250ms debounce (not rAF) to coalesce bursts
  *   - Heading positions are cached in a WeakMap keyed by ProseMirror doc —
  *     transactions create new doc refs, so the cache self-invalidates. Cursor
@@ -98,13 +101,14 @@ function findHeadingIndexAtPosition(doc: Node, cursorPos: number): number {
  * 1. Listen for scroll-to-heading events and scroll editor
  * 2. Track cursor position and update active heading index
  */
-export function useOutlineSync(getEditorView: EditorViewGetter) {
+export function useOutlineSync(getEditorView: EditorViewGetter, enabled = true) {
   const unlistenRef = useRef<UnlistenFn | null>(null);
   const domRef = useRef<HTMLElement | null>(null);
   const handlersRef = useRef<{ keyup: () => void; mouseup: () => void } | null>(null);
 
   // Listen for outline:scroll-to-heading events
   useEffect(() => {
+    if (!enabled) return;
     let cancelled = false;
 
     const setup = async () => {
@@ -168,10 +172,11 @@ export function useOutlineSync(getEditorView: EditorViewGetter) {
       safeUnlisten(unlistenRef.current);
       unlistenRef.current = null;
     };
-  }, [getEditorView]);
+  }, [getEditorView, enabled]);
 
   // Track cursor position and update active heading index
   useEffect(() => {
+    if (!enabled) return;
     let cancelled = false;
     let debounceTimerId: ReturnType<typeof setTimeout> | null = null;
     let pollTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -232,5 +237,5 @@ export function useOutlineSync(getEditorView: EditorViewGetter) {
       domRef.current = null;
       handlersRef.current = null;
     };
-  }, [getEditorView]);
+  }, [getEditorView, enabled]);
 }

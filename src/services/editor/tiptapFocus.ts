@@ -18,6 +18,9 @@
  *     picks. On a return to WYSIWYG the caret is put back WITHOUT scrolling and
  *     the reading position is restored; on a switch from Source the cursor
  *     restore (with its scroll) carries the mapping, as before.
+ *   - `canTakeFocus`, read when the frame fires, lets an unfocused split pane
+ *     restore without focusing (#1554): the split tracks DOM focus as the
+ *     focused pane, so a background pane focusing itself moved the pane focus.
  *
  * @coordinates-with cursorSync/tiptap.ts — saves cursor position before mode switch
  * @coordinates-with Editor.tsx — calls focus functions after mode toggle
@@ -60,6 +63,7 @@ export function scheduleTiptapFocusAndRestore(
   getCursorInfo: () => CursorInfo | null,
   restoreCursor: (view: EditorView, cursorInfo: CursorInfo, scrollIntoView: boolean) => void,
   tabId?: string,
+  canTakeFocus: () => boolean = () => true,
 ): void {
   let attempts = 0;
 
@@ -76,9 +80,10 @@ export function scheduleTiptapFocusAndRestore(
 
     // Check cursor info BEFORE focus to distinguish fresh load vs mode switch
     const info = getCursorInfo();
+    const takeFocus = canTakeFocus();
 
     try {
-      view.focus();
+      if (takeFocus) view.focus();
     } catch {
       return;
     }

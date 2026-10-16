@@ -47,6 +47,13 @@
     "!**/__tests__/**"
   ],
   "_scopeNotes_comment": "extensions/claim.ts (90.8%) and extensions/resolve.ts (83.4%; 94% on logic once the error-message StringLiteral survivors are set aside) are the extension-registry core (ADR-015). resolve.ts's residual survivors are deliberate: ~2 dozen mutate exact error-message text (pinning those is brittle — the tests assert the error CODE + refused ordering instead), 2 are equivalent mutants on `byId.get(id)` undefined-guards (every ready/sorted id came from `order`, so the else-branch is unreachable), and the rest are cycle-detection DFS internals already covered behaviorally by the 6 `cycles` tests. Do NOT chase the 85% overall bar by asserting exact error strings.",
+  "_testFiles_comment": "#1557: only each module's OWN unit tests run against its mutants. Without this list, `related: true` resolved the mutate globs to every test that transitively imports them — 609 files and 15,777 tests on 2026-10-12, most of them app-level integration suites (src/test/tier0, hooks, editor) that load the scoped modules incidentally. That only cost wall time for one class, but the class was the whole bill: a STATIC mutant (module-level code, ~10% of mutants) cannot use perTest coverage, so Stryker reloads the module and runs ALL of those tests for each one; Stryker's own planner estimated static mutants at 82-93% of the run. As integration suites grew, the weekly ts-mutants job went from ~4h to past its 300-minute timeout (runs 37271748859 and 38211831956, 2,595 of 2,664 mutants at the kill) and produced no verdict. With this list a static mutant runs only these files. The trade is deliberate: a mutant that only a distant integration test caught now counts as survived, because the question this job answers is whether the module's dedicated tests pin its behaviour (Stryker documents `testFiles` for exactly that). Measured against run 36385496338, at most 82 of 2,682 mutants were caught only outside this list. A new mutate glob needs its tests listed here; scripts/check-mutation-scope.test.mjs fails if any mutated directory has no test here or any pattern matches nothing.",
+  "testFiles": [
+    "src/lib/cjkFormatter/**/*.test.ts",
+    "src/lib/lintEngine/**/*.test.ts",
+    "src/lib/extensions/{claim,resolve}*.test.ts",
+    "src/components/Terminal/{resolveCommit,terminalReadlineKeys,imeCharClass,imeAsciiHandoff,terminalKeyHandler}*.test.ts"
+  ],
   "coverageAnalysis": "perTest",
   "reporters": ["clear-text", "progress", "html", "json"],
   "htmlReporter": {

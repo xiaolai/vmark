@@ -11,7 +11,8 @@ vi.mock("@/contexts/WindowContext", () => ({
 }));
 
 import { useTabStore } from "@/stores/tabStore";
-import { useDocumentStore } from "@/stores/documentStore";
+import { useDocumentStore, useLargeFileSessionStore } from "@/stores/documentStore";
+import { usePaneStore } from "@/stores/paneStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useTabModeSync } from "./useTabModeSync";
 
@@ -85,5 +86,91 @@ describe("useTabModeSync", () => {
     unmount();
     activate("src");
     expect(useUIStore.getState().sourceMode).toBe(false);
+  });
+});
+
+// #1554 — in a two-document split both panes render in the ONE window-scoped
+// mode (split plan ADR-4), so moving focus between the panes is not a tab
+// switch. Mirroring the newly focused document's own mode there flipped both
+// panes, remounted both editors, and each remount's auto-focus moved the pane
+// focus again — an endless Source/WYSIWYG ping-pong after F6.
+describe("useTabModeSync inside a two-document split (#1554)", () => {
+  let a: string;
+  let b: string;
+
+  beforeEach(() => {
+    usePaneStore.setState({ byWindow: {} });
+    useTabStore.getState().removeWindow("main");
+    a = useTabStore.getState().createTab("main", "/a.md");
+    b = useTabStore.getState().createTab("main", "/b.md");
+    useDocumentStore.getState().initDocument(a, "", "/a.md");
+    useDocumentStore.getState().initDocument(b, "", "/b.md");
+    useLargeFileSessionStore.setState({ forcedSourceTabs: {} });
+    useTabStore.getState().setActiveTab("main", a);
+    usePaneStore.getState().openSplit("main", b); // focus lands on b
+  });
+
+  it("moving focus between the panes never flips the window mode", () => {
+    const { unmount } = renderHook(() => useTabModeSync());
+    // What F6 leaves behind: the window in Source, only the focused doc says so.
+    useUIStore.setState({ sourceMode: true } as never);
+    useDocumentStore.getState().setMode(b, "source");
+    let flips = 0;
+    const stop = useUIStore.subscribe((s, prev) => {
+      if (s.sourceMode !== prev.sourceMode) flips += 1;
+    });
+
+    // The cycle's edge: each remounted pane taking focus in turn, repeatedly.
+    for (let i = 0; i < 5; i += 1) {
+      usePaneStore.getState().setFocusedPane("main", "primary");
+      usePaneStore.getState().setFocusedPane("main", "secondary");
+    }
+
+    expect(flips).toBe(0);
+    expect(useUIStore.getState().sourceMode).toBe(true);
+    stop();
+    unmount();
+  });
+
+  it("the document that gains pane focus adopts the mode it is displayed in", () => {
+    const { unmount } = renderHook(() => useTabModeSync());
+    useUIStore.setState({ sourceMode: true } as never);
+    usePaneStore.getState().setFocusedPane("main", "primary");
+    expect(useDocumentStore.getState().getDocument(a)?.mode).toBe("source");
+    unmount();
+  });
+
+  it("a forced-source document keeps its own mode when it gains focus", () => {
+    const { unmount } = renderHook(() => useTabModeSync());
+    useLargeFileSessionStore.getState().markForcedSource(a);
+    useDocumentStore.getState().setMode(a, "source");
+    useUIStore.setState({ sourceMode: false } as never);
+    usePaneStore.getState().setFocusedPane("main", "primary");
+    expect(useDocumentStore.getState().getDocument(a)?.mode).toBe("source");
+    expect(useUIStore.getState().sourceMode).toBe(false);
+    unmount();
+  });
+
+  it("opening an unpaned document in a pane still mirrors its mode", () => {
+    const c = useTabStore.getState().createTab("main", "/c.md");
+    useDocumentStore.getState().initDocument(c, "", "/c.md");
+    useDocumentStore.getState().setMode(c, "source");
+    // createTab activated c; put focus back on b before the hook subscribes.
+    useTabStore.getState().setActiveTab("main", b);
+    useUIStore.setState({ sourceMode: false } as never);
+    const { unmount } = renderHook(() => useTabModeSync());
+    useTabStore.getState().setActiveTab("main", c);
+    expect(usePaneStore.getState().getSplit("main").secondaryTabId).toBe(c);
+    expect(useUIStore.getState().sourceMode).toBe(true);
+    unmount();
+  });
+
+  it("collapsing the split onto the other document mirrors its mode again", () => {
+    useDocumentStore.getState().setMode(a, "source");
+    useUIStore.setState({ sourceMode: false } as never);
+    const { unmount } = renderHook(() => useTabModeSync());
+    usePaneStore.getState().closeSplit("main"); // primary a becomes active
+    expect(useUIStore.getState().sourceMode).toBe(true);
+    unmount();
   });
 });

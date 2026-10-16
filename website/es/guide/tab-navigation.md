@@ -429,6 +429,8 @@ Notas sobre su comportamiento:
   a una pestaña sin relación. El documento que queda se mantiene en su sitio.
 - **Sincronizar desplazamiento** vincula proporcionalmente el desplazamiento de los dos paneles.
   Está desactivado de forma predeterminada y es propio de cada división.
+- **Los dos paneles comparten un mismo modo de vista.** El modo código fuente (`F6`)
+  cambia ambos paneles a la vez, y pasar de un panel a otro mantiene el modo actual.
 - Dividir requiere dos documentos abiertos. Las pestañas del navegador no son documentos, así que la
   división no se aplica a ellas.
 

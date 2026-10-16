@@ -79,7 +79,11 @@ jobs:
 
   report:
     needs: measure
-    if: needs.measure.outputs.stale == 'true'
+    # A `measure` that failed or hit its own timeout-minutes (GitHub reports that
+    # as `cancelled`) produced no output, and gating on the output alone made
+    # that silent — the shape #1557 found in mutation.yml. `!cancelled()` keeps a
+    # run cancelled by hand quiet. Pinned by scripts/check-rolling-issue-timeouts.test.mjs.
+    if: ${{ !cancelled() && (needs.measure.result != 'success' || needs.measure.outputs.stale == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -90,9 +94,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           BODY: ${{ needs.measure.outputs.body }}
+          MEASURE_RESULT: ${{ needs.measure.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           REPO: ${{ github.repository }}
         shell: bash
         run: |
+          if [ "$MEASURE_RESULT" != "success" ]; then
+            BODY="## Gate liveness"$'\n\n'"The \`measure\` job concluded \`${MEASURE_RESULT}\` (\`cancelled\` means it hit its own timeout-minutes), so no gate was checked this week: ${RUN_URL}"
+          fi
           # The label must EXIST before it is used: `gh issue create --label`
           # fails outright on an unknown label, and it did — this workflow's
           # first real run died with "could not add label: 'gate-liveness' not

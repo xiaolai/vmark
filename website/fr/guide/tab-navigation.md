@@ -429,6 +429,8 @@ Remarques sur son comportement :
   onglet sans rapport. Le document restant reste en place.
 - **Synchroniser le défilement** lie proportionnellement le défilement des deux volets.
   Il est désactivé par défaut et propre à chaque division.
+- **Les deux volets partagent un même mode d'affichage.** Le mode source (`F6`)
+  bascule les deux volets à la fois, et passer d'un volet à l'autre conserve le mode en cours.
 - La division nécessite deux documents ouverts. Les onglets du navigateur ne sont pas des documents, la
   division ne s'applique donc pas à eux.
 

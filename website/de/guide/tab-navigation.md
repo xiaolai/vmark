@@ -430,6 +430,8 @@ Hinweise zum Verhalten:
   zu einem unbeteiligten Tab springen zu lassen. Ihr verbleibendes Dokument bleibt, wo es ist.
 - **Bildlauf synchronisieren** koppelt das Scrollen der beiden Bereiche proportional.
   Es ist standardmäßig aus und gilt pro Teilung.
+- **Beide Bereiche teilen sich einen Ansichtsmodus.** Der Quelltextmodus (`F6`)
+  schaltet beide Bereiche zugleich um, und der Wechsel zwischen den Bereichen behält den Modus bei.
 - Zum Teilen müssen zwei Dokumente geöffnet sein. Browser-Tabs sind keine Dokumente, daher
   gilt die Teilung nicht für sie.
 

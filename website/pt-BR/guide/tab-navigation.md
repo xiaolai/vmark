@@ -431,6 +431,8 @@ Como ela se comporta:
   uma aba sem relação. O documento restante continua onde está.
 - **Sincronizar rolagem** une proporcionalmente a rolagem dos dois painéis. Fica
   desativada por padrão e vale por divisão.
+- **Os dois painéis compartilham um único modo de visualização.** O modo código-fonte (`F6`)
+  alterna os dois painéis ao mesmo tempo, e mover-se entre os painéis mantém o modo atual.
 - Dividir requer dois documentos abertos. Abas do navegador não são documentos,
   então a divisão não se aplica a elas.
 

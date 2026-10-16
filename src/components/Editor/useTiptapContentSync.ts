@@ -13,6 +13,8 @@
  *     the source pane, and each sync is a full parse plus a whole-document
  *     replace. It waits for typing to settle on a large document
  *     (previewDebounce.ts); a small one still syncs at once.
+ *   - On show, an unfocused split pane restores its cursor without taking DOM
+ *     focus — focus is what moves the split's focused pane (#1554).
  *
  * @coordinates-with TiptapEditor.tsx — sole consumer; owns the refs
  * @coordinates-with wysiwygPendingNav.ts — pending content-search jump wins over cursor restore
@@ -42,6 +44,8 @@ interface TiptapContentSyncParams {
   editorInitialized: MutableRefObject<boolean>;
   preserveLineBreaksRef: MutableRefObject<boolean>;
   cursorInfoRef: MutableRefObject<CursorInfo | null>;
+  /** Live focused-pane flag: an unfocused split pane restores without focusing (#1554). */
+  isFocusedPaneRef: MutableRefObject<boolean>;
 }
 
 /** Sync external content into the editor and handle hidden → visible transitions. */
@@ -57,6 +61,7 @@ export function useTiptapContentSync({
   editorInitialized,
   preserveLineBreaksRef,
   cursorInfoRef,
+  isFocusedPaneRef,
 }: TiptapContentSyncParams): void {
   // Sync external content changes TO the editor.
   // Only runs for SUBSEQUENT content changes after onCreate has initialized the editor.
@@ -132,6 +137,7 @@ export function useTiptapContentSync({
         () => cursorInfoRef.current,
         restoreCursorInTiptap,
         activeTabId,
+        () => isFocusedPaneRef.current,
       );
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- reacts to the hidden-to-visible transition only; everything else is a ref or read when it runs

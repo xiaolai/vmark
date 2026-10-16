@@ -156,4 +156,19 @@ describe("focusAndRestoreSource", () => {
     expect(second.dispatch).not.toHaveBeenCalled();
     expect(mockRestoreCursor).toHaveBeenCalledWith(second.view, cursor, true);
   });
+  it("restores without taking focus for an unfocused split pane (#1554)", () => {
+    // Focus is what the split tracks as the focused pane, so a background
+    // pane grabbing it on mount moved the pane focus — the loop's edge.
+    setEditorScrollOffset("tab-1", "source", 400);
+    const { view, focus, read } = makeView();
+
+    focusAndRestoreSource(view, "tab-1", null, false);
+    expect(focus).not.toHaveBeenCalled();
+    expect(read()).toBe(400);
+
+    // Second show in the same mode: the caret returns without scrolling (#1556).
+    focusAndRestoreSource(view, "tab-1", cursor, false);
+    expect(focus).not.toHaveBeenCalled();
+    expect(mockRestoreCursor).toHaveBeenCalledWith(view, cursor, false);
+  });
 });

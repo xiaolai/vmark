@@ -429,6 +429,8 @@ Note sul comportamento:
   a una scheda non correlata. Il documento rimasto resta dov'è.
 - **Sincronizza lo scorrimento** collega proporzionalmente lo scorrimento dei due riquadri.
   È disattivato per impostazione predefinita ed è specifico per ogni divisione.
+- **I due riquadri condividono un'unica modalità di visualizzazione.** La modalità sorgente (`F6`)
+  cambia entrambi i riquadri insieme, e spostarsi tra i riquadri mantiene la modalità attuale.
 - La divisione richiede due documenti aperti. Le schede del browser non sono documenti, quindi la
   divisione non si applica a esse.
 

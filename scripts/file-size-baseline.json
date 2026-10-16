@@ -16,7 +16,7 @@
     "src-tauri/src/workflow/condition.rs": 335,
     "src-tauri/src/workflow/genie_step.rs": 686,
     "src-tauri/src/workflow/step_config.rs": 425,
-    "src/components/Editor/SourceEditor.tsx": 315,
+    "src/components/Editor/SourceEditor.tsx": 312,
     "src/components/Editor/TiptapEditor.tsx": 395,
     "src/components/Editor/WorkflowEditor/DiagnosticsBanner.tsx": 314,
     "src/components/Editor/WorkflowEditor/JobForm.tsx": 302,

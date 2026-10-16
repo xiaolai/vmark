@@ -146,12 +146,15 @@ jobs:
   # red drift check is visible only to someone who opens the Actions tab.
   #
   # They are the ONLY jobs with `issues: write`, and they check out nothing and
-  # run no project code. `if: failure()` on a job with `needs` fires exactly
-  # when one of those jobs failed, so a cancelled run reports nothing.
+  # run no project code. `report` fires when either job failed OR hit its own
+  # timeout-minutes, which GitHub reports as `cancelled` and which a bare
+  # `if: failure()` skipped (#1557, where mutation.yml lost two weekly verdicts
+  # that way). `!cancelled()` keeps a run cancelled by hand or by the
+  # concurrency group quiet. Pinned by scripts/check-rolling-issue-timeouts.test.mjs.
   report:
     name: Report failures in the tracking issue
     needs: [rust-drift, rust-audit]
-    if: failure()
+    if: ${{ !cancelled() && (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -165,10 +168,16 @@ jobs:
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          DRIFT_RESULT: ${{ needs.rust-drift.result }}
+          AUDIT_RESULT: ${{ needs.rust-audit.result }}
         run: |
           set -euo pipefail
           TITLE="Rust drift check failed"
           BODY="The weekly Rust drift check failed on $(date -u +%Y-%m-%d): $RUN_URL (commit ${GITHUB_SHA}). The toolchain, the dependency graph or the RustSec database moved under an unchanged tree; the job log says which."
+          # Only a job's own timeout reaches here as `cancelled` (see `if:`).
+          if [ "$DRIFT_RESULT" = "cancelled" ] || [ "$AUDIT_RESULT" = "cancelled" ]; then
+            BODY="${BODY} Job results: rust-drift=${DRIFT_RESULT}, rust-audit=${AUDIT_RESULT} — \`cancelled\` means the job hit its own timeout-minutes and produced no verdict."
+          fi
           NUMBER=$(gh issue list --state open --search "\"$TITLE\" in:title" \
             --json number,title --jq ".[] | select(.title == \"$TITLE\") | .number" | head -n1)
           if [ -n "$NUMBER" ]; then

@@ -24,6 +24,10 @@
  *     container for up to ~1.5s while late content settles — so "override it
  *     afterwards" would now become a tug of war. The WYSIWYG side has always
  *     been ordered this way (`consumeWysiwygPendingNav` gates the call).
+ *   - `takeFocus` false restores WITHOUT focusing. In a two-document split only
+ *     the focused pane may take DOM focus: the split tracks DOM focus as the
+ *     focused pane, so a background pane focusing itself on mount moved the
+ *     pane focus — the edge of the #1554 loop. It still gets its position back.
  *
  * @coordinates-with SourceEditor.tsx — mount + hidden→visible paths
  * @coordinates-with services/editor/scrollPosition.ts — the offset store
@@ -42,13 +46,14 @@ import {
 import { chooseEditorRestore } from "@/services/editor/restoreChoice";
 import { consumeSourcePendingNav } from "./sourcePendingNav";
 
-/** Focus `view` and put it back where this tab left off. */
+/** Focus `view` (unless `takeFocus` is false) and put it back where this tab left off. */
 export function focusAndRestoreSource(
   view: EditorView,
   tabId: string | undefined,
   cursorInfo: CursorInfo | null,
+  takeFocus = true,
 ): void {
-  view.focus();
+  if (takeFocus) view.focus();
   if (consumeSourcePendingNav(view, tabId)) return;
   const by = chooseEditorRestore(tabId, "source", cursorInfo !== null);
   if (cursorInfo) {

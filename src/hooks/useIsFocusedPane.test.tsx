@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { renderHook } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { useIsFocusedPane } from "./useIsFocusedPane";
+import { useFocusedPaneState, useIsFocusedPane } from "./useIsFocusedPane";
 import { usePaneStore } from "@/stores/paneStore";
 import { useTabStore } from "@/stores/tabStore";
 import { PaneProvider } from "@/contexts/PaneContext";
@@ -59,5 +59,23 @@ describe("useIsFocusedPane (#1081 — ADR-3 focus gating)", () => {
     usePaneStore.getState().setFocusedPane(W, "primary");
     rerender();
     expect(result.current).toBe(true);
+  });
+});
+
+describe("useFocusedPaneState (#1554 — the flag for deferred focus)", () => {
+  it("keeps one ref whose current value tracks the focused pane", () => {
+    usePaneStore.getState().openSplit(W, "secondary-tab"); // focus = secondary
+    const { result } = renderHook(() => useFocusedPaneState(W), {
+      wrapper: paneWrapper("primary"),
+    });
+    const ref = result.current.isFocusedPaneRef;
+    expect(result.current.isFocusedPane).toBe(false);
+    expect(ref.current).toBe(false);
+
+    act(() => usePaneStore.getState().setFocusedPane(W, "primary"));
+    // The SAME ref object: a timer captured at mount reads the live value.
+    expect(result.current.isFocusedPaneRef).toBe(ref);
+    expect(ref.current).toBe(true);
+    expect(result.current.isFocusedPane).toBe(true);
   });
 });
