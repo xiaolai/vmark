@@ -144,14 +144,16 @@ describe("BlockImageNodeView", () => {
         document.body.appendChild(root);
         nodeView = new BlockImageNodeView(createMockNode(), getPos, mockEditor, undefined, pm);
         pm.appendChild(nodeView.dom);
-        await vi.waitFor(() => expect(mockResolveMediaSrc).toHaveBeenCalled());
-        await Promise.resolve();
+        for (let i = 0; i < 4; i++) await Promise.resolve();
         const img = nodeView.dom.querySelector("img")!;
         expect(img.getAttribute("src")).toBe("");
+        // Not even the path is resolved yet: two IPCs per image at open.
+        expect(mockResolveMediaSrc).not.toHaveBeenCalled();
 
         onlyObserver().trigger();
         frames.runFrame();
-        expect(img.getAttribute("src")).toBe("resolved://test.png");
+        expect(mockResolveMediaSrc).toHaveBeenCalledTimes(1);
+        await vi.waitFor(() => expect(img.getAttribute("src")).toBe("resolved://test.png"));
       } finally {
         vi.unstubAllGlobals();
       }

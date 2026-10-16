@@ -11,4 +11,4 @@
  * @module plugins/imageView/resolveSrc
  */
 
-export { resolveImageSrc } from "@/plugins/shared/resolveMediaPath";
+export { resolveImageSrc, snapshotActiveFilePath } from "@/plugins/shared/resolveMediaPath";

@@ -128,6 +128,115 @@ describe("loadImageNearViewport", () => {
     expect(root.hasAttribute(PENDING_RENDER_ATTR)).toBe(false);
   });
 
+  it("an async assign (path resolution) keeps the scroller busy until the image it assigns has loaded", async () => {
+    const { root, pm, img } = mountImage();
+    let resolvePath = () => {};
+    const assign = vi.fn(() => new Promise<void>((resolve) => {
+      resolvePath = () => { img.src = "asset://localhost/a.png"; resolve(); };
+    }));
+    loadImageNearViewport(img, pm, assign);
+    expect(assign).not.toHaveBeenCalled();
+    onlyObserver().trigger();
+    frames.runFrame();
+    expect(assign).toHaveBeenCalledTimes(1);
+    await settle();
+    expect(root.hasAttribute(RENDER_BUSY_ATTR)).toBe(true);
+
+    resolvePath();
+    await settle();
+    expect(root.hasAttribute(RENDER_BUSY_ATTR)).toBe(true); // resolved, still loading
+
+    img.dispatchEvent(new Event("load"));
+    await settle();
+    expect(root.hasAttribute(RENDER_BUSY_ATTR)).toBe(false);
+    expect(root.hasAttribute(PENDING_RENDER_ATTR)).toBe(false);
+  });
+
+  it("cancelling while an async assign is resolving releases the scroller at once", async () => {
+    const { root, pm, img } = mountImage();
+    const cancel = loadImageNearViewport(img, pm, () => new Promise<void>(() => {}));
+    onlyObserver().trigger();
+    frames.runFrame();
+    await settle();
+    expect(root.hasAttribute(RENDER_BUSY_ATTR)).toBe(true);
+
+    cancel();
+    await settle();
+    expect(root.hasAttribute(RENDER_BUSY_ATTR)).toBe(false);
+    expect(root.hasAttribute(PENDING_RENDER_ATTR)).toBe(false);
+  });
+
+  it("stops waiting on a path resolution that never answers, so print is never held forever", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const { root, pm, img } = mountImage();
+    loadImageNearViewport(img, pm, () => new Promise<void>(() => {}));
+    onlyObserver().trigger();
+    frames.runFrame();
+
+    vi.advanceTimersByTime(LOAD_SETTLE_TIMEOUT_MS - 1);
+    await settle();
+    expect(root.hasAttribute(RENDER_BUSY_ATTR)).toBe(true);
+    vi.advanceTimersByTime(1);
+    await settle();
+    expect(root.hasAttribute(RENDER_BUSY_ATTR)).toBe(false);
+    expect(root.hasAttribute(PENDING_RENDER_ATTR)).toBe(false);
+  });
+
+  it("the deadline also ends a load wait already started, leaving no listener behind", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const { pm, img } = mountImage();
+    const removed = vi.spyOn(img, "removeEventListener");
+    let resolvePath = () => {};
+    loadImageNearViewport(img, pm, () => new Promise<void>((resolve) => {
+      resolvePath = () => { img.src = "asset://localhost/a.png"; resolve(); };
+    }));
+    onlyObserver().trigger();
+    frames.runFrame();
+    vi.advanceTimersByTime(LOAD_SETTLE_TIMEOUT_MS - 1);
+    resolvePath();
+    await settle();
+    expect(removed).not.toHaveBeenCalledWith("load", expect.anything());
+
+    vi.advanceTimersByTime(1);
+    await settle();
+    expect(removed).toHaveBeenCalledWith("load", expect.anything());
+  });
+
+  it("a resolution answering after the deadline starts no new wait", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const { pm, img } = mountImage();
+    const added = vi.spyOn(img, "addEventListener");
+    let resolvePath = () => {};
+    loadImageNearViewport(img, pm, () => new Promise<void>((resolve) => {
+      resolvePath = () => { img.src = "asset://localhost/a.png"; resolve(); };
+    }));
+    onlyObserver().trigger();
+    frames.runFrame();
+    vi.advanceTimersByTime(LOAD_SETTLE_TIMEOUT_MS);
+    await settle();
+    resolvePath();
+    await settle();
+    expect(added).not.toHaveBeenCalledWith("load", expect.anything());
+  });
+
+  it("an error escaping an async assign ends the wait and is reported, not left as an unhandled rejection", async () => {
+    const { root, pm, img } = mountImage();
+    const reported: Array<() => void> = [];
+    const failure = new Error("resolver blew up");
+    let fail = () => {};
+    loadImageNearViewport(img, pm, () => new Promise<void>((_resolve, reject) => { fail = () => reject(failure); }));
+    onlyObserver().trigger();
+    frames.runFrame();
+    await settle();
+    const microtask = vi.spyOn(globalThis, "queueMicrotask").mockImplementation((cb) => { reported.push(cb); });
+    fail();
+    await settle();
+    microtask.mockRestore();
+    expect(root.hasAttribute(RENDER_BUSY_ATTR)).toBe(false);
+    expect(reported).toHaveLength(1);
+    expect(reported[0]).toThrow(failure);
+  });
+
   it("is forced by a print flush, which waits until the image has loaded", async () => {
     const { pm, img, assign } = mountImage();
     loadImageNearViewport(img, pm, assign);

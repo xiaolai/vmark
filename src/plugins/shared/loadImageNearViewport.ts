@@ -15,6 +15,11 @@
  *     most LOAD_SETTLE_TIMEOUT_MS, so it cannot hold up a scroll or a print,
  *     and cancelling (the image was deleted or its source replaced) stops the
  *     wait at once.
+ *   - `assign` may be async: a local path is RESOLVED near the viewport too,
+ *     because resolving it costs two path IPCs per image at open. The render
+ *     stays busy across the resolution, at most LOAD_SETTLE_TIMEOUT_MS from
+ *     its start, so a resolution that never answers cannot hold up a print;
+ *     a cancel releases it at once rather than when the resolution answers.
  *   - With no scroll container (the off-screen export surface) the `src` is
  *     assigned at once: export waits for every image to complete.
  *
@@ -53,23 +58,56 @@ function imageSettled(img: HTMLImageElement): { promise?: Promise<void>; stop: (
 }
 
 /**
- * Run `assign` — which sets `img.src` — once `img` nears the viewport of the
- * editor whose DOM is `editorDom`, or at once outside a scrolling editor.
+ * Run `assign` — which sets `img.src`, or resolves a path and then sets it —
+ * once `img` nears the viewport of the editor whose DOM is `editorDom`, or at
+ * once outside a scrolling editor.
  *
  * Returns a cancel function; call it when the source changes or the view is
- * destroyed. After `assign` ran it only ends the wait for the image to settle.
+ * destroyed. After `assign` ran it only ends the wait; an async `assign` must
+ * itself drop a result that arrives after the cancel.
  */
 export function loadImageNearViewport(
   img: HTMLImageElement,
   editorDom: Element | null,
-  assign: () => void,
+  assign: () => void | Promise<void>,
 ): () => void {
   let stopWaiting = () => {};
   const cancelRender = whenNearViewport(img, editorScrollRoot(editorDom), () => {
-    assign();
-    const settled = imageSettled(img);
-    stopWaiting = settled.stop;
-    return settled.promise;
+    const assigned = assign();
+    if (!(assigned instanceof Promise)) {
+      const settled = imageSettled(img);
+      stopWaiting = settled.stop;
+      return settled.promise;
+    }
+    return new Promise<void>((resolve) => {
+      let done = false;
+      let stopImage = () => {};
+      // Ends the whole wait — deadline, cancel or settled — once, and with it
+      // any load wait already started.
+      const finish = () => {
+        if (done) return;
+        done = true;
+        clearTimeout(deadline);
+        stopImage();
+        resolve();
+      };
+      const deadline = setTimeout(finish, LOAD_SETTLE_TIMEOUT_MS);
+      stopWaiting = finish;
+      // The callers handle their own errors; one that escapes still ends the
+      // wait, and is reported as `nearViewport` reports a render's error —
+      // thrown from a microtask, not left as an unhandled rejection.
+      assigned
+        .then(() => {
+          if (done) return; // cancelled, or past the deadline
+          const settled = imageSettled(img);
+          stopImage = settled.stop;
+          return settled.promise;
+        })
+        .then(finish, (error: unknown) => {
+          finish();
+          queueMicrotask(() => { throw error; });
+        });
+    });
   });
   return () => {
     cancelRender();

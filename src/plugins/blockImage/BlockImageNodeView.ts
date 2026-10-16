@@ -18,13 +18,9 @@
  *     (#1433) — see plugins/shared/mediaSecurity.ts
  *   - `decoding = "async"`: a full-page scan scrolled into view is decoded off
  *     the main thread instead of stalling the frame that shows it
- *   - The resolved `src` is assigned only as the image nears the viewport
- *     (`loadImageNearViewport`): an image-heavy document fetched and decoded
- *     every image at open (#1565)
- *
- * Known limitations:
- *   - The `src` is still RESOLVED at construction (two path IPCs per relative
- *     image); only the fetch and decode wait for the viewport
+ *   - A local `src` is resolved, and any `src` assigned, only as the image
+ *     nears the viewport (`loadImageNearViewport`): an image-heavy document
+ *     resolved, fetched and decoded every image at open (#1565)
  *
  * @coordinates-with tiptap.ts — registers this NodeView for the block_image node type
  * @coordinates-with services/media/resolveMediaSrc.ts — shared media path resolution
@@ -186,26 +182,26 @@ export class BlockImageNodeView implements NodeView {
     this.img.src = "";
     this.dom.classList.add(IMAGE_LOAD_CONFIG.loadingClass);
 
-    resolveMediaSrc(src, "[BlockImageView]", this.ownerTabId)
-      .then((resolvedSrc) => {
-        if (this.destroyed || requestId !== this.resolveRequestId) return;
-        if (!resolvedSrc) {
-          this.handleError("Failed to resolve path");
-          return;
-        }
-        this.loadWhenNear(() => {
+    this.loadWhenNear(() =>
+      resolveMediaSrc(src, "[BlockImageView]", this.ownerTabId)
+        .then((resolvedSrc) => {
+          if (this.destroyed || requestId !== this.resolveRequestId) return;
+          if (!resolvedSrc) {
+            this.handleError("Failed to resolve path");
+            return;
+          }
           this.setupLoadHandlers();
           this.img.src = resolvedSrc;
-        });
-      })
-      .catch((err) => {
-        if (this.destroyed || requestId !== this.resolveRequestId) return;
-        this.handleError(err instanceof Error ? err.message : "Failed to resolve path");
-      });
+        })
+        .catch((err: unknown) => {
+          if (this.destroyed || requestId !== this.resolveRequestId) return;
+          this.handleError(err instanceof Error ? err.message : "Failed to resolve path");
+        }),
+    );
   }
 
-  /** Run `assign` (which sets the `src`) once the image nears the viewport. */
-  private loadWhenNear(assign: () => void): void {
+  /** Run `assign` (which sets the `src`, resolving it first when local) once the image nears the viewport. */
+  private loadWhenNear(assign: () => void | Promise<void>): void {
     this.cancelLoad = loadImageNearViewport(this.img, this.editorDom, assign);
   }
 

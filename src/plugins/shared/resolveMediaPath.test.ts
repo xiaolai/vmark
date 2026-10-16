@@ -8,8 +8,10 @@ vi.mock("@tauri-apps/api/core", () => ({ convertFileSrc: (path: string) => `asse
 import {
   normalizePathForAsset,
   resolveMediaPath,
+  snapshotActiveFilePath,
   type MediaPathContext,
 } from "./resolveMediaPath";
+import { bindHostDocument, resetHostDocument } from "./hostDocument";
 
 function context(overrides: Partial<MediaPathContext> = {}) {
   return {
@@ -108,5 +110,33 @@ describe("resolveMediaPath — a path that is not a resolvable media file", () =
     expect(await resolveMediaPath(src, ctx)).toBe("");
     expect(ctx.onRefused).toHaveBeenCalledTimes(1);
     expect(ctx.documentPath).not.toHaveBeenCalled();
+  });
+});
+
+describe("snapshotActiveFilePath", () => {
+  it("keeps the path read when taken, though the active document changes after", () => {
+    let active = "/A/doc.md";
+    bindHostDocument({ currentWindowLabel: () => "main", activeFilePath: () => active });
+    try {
+      const documentPath = snapshotActiveFilePath();
+      active = "/B/doc.md";
+      expect(documentPath()).toBe("/A/doc.md");
+    } finally {
+      resetHostDocument();
+    }
+  });
+
+  it("replays a failed read when called, so a deferred resolution reports it as onError", async () => {
+    const failure = new Error("host binding failed");
+    bindHostDocument({ currentWindowLabel: () => "main", activeFilePath: () => { throw failure; } });
+    try {
+      const documentPath = snapshotActiveFilePath();
+      expect(documentPath).toThrow(failure);
+      const ctx = context({ documentPath });
+      expect(await resolveMediaPath("images/a.png", ctx)).toBe("images/a.png");
+      expect(ctx.onError).toHaveBeenCalledWith(failure);
+    } finally {
+      resetHostDocument();
+    }
   });
 });

@@ -6,6 +6,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { installFakeIntersectionObserver, onlyObserver } from "@/test/fakeIntersectionObserver";
 import { installFakeAnimationFrames } from "@/test/fakeAnimationFrames";
 import { resetNearViewportForTest } from "@/plugins/shared/nearViewport";
+import { bindHostDocument, resetHostDocument } from "@/plugins/shared/hostDocument";
 
 // Mock dependencies before imports
 vi.mock("@tauri-apps/api/core", () => ({
@@ -185,6 +186,68 @@ describe("ImageNodeView", () => {
       root.remove();
     } finally {
       vi.unstubAllGlobals();
+    }
+  });
+
+  it("resolves a local path only once the image nears the viewport (#1565)", async () => {
+    const { dirname } = await import("@tauri-apps/api/path");
+    bindHostDocument({ currentWindowLabel: () => "main", activeFilePath: () => "/test/doc.md" });
+    resetNearViewportForTest();
+    const frames = installFakeAnimationFrames();
+    installFakeIntersectionObserver();
+    try {
+      const root = document.createElement("div");
+      root.className = "editor-content";
+      const pm = document.createElement("div");
+      pm.className = "ProseMirror";
+      const paragraph = document.createElement("p");
+      pm.appendChild(paragraph);
+      root.appendChild(pm);
+      document.body.appendChild(root);
+      const node = { attrs: { src: "images/a.png", alt: "", title: "" }, type: { name: "image" } } as never;
+      nodeView = new ImageNodeView(node, () => 0, mockEditor, pm);
+      paragraph.appendChild(nodeView.dom);
+      for (let i = 0; i < 10; i++) await Promise.resolve();
+      expect(dirname).not.toHaveBeenCalled();
+
+      onlyObserver().trigger();
+      frames.runFrame();
+      await vi.waitFor(() => expect(nodeView.dom.getAttribute("src")).toBe("asset:///test/images/a.png"));
+      root.remove();
+    } finally {
+      vi.unstubAllGlobals();
+      resetHostDocument();
+    }
+  });
+
+  it("a deferred path still resolves against the document the image was created in (split view)", async () => {
+    let activePath = "/A/doc.md";
+    bindHostDocument({ currentWindowLabel: () => "main", activeFilePath: () => activePath });
+    resetNearViewportForTest();
+    const frames = installFakeAnimationFrames();
+    installFakeIntersectionObserver();
+    try {
+      const root = document.createElement("div");
+      root.className = "editor-content";
+      const pm = document.createElement("div");
+      pm.className = "ProseMirror";
+      const paragraph = document.createElement("p");
+      pm.appendChild(paragraph);
+      root.appendChild(pm);
+      document.body.appendChild(root);
+      const node = { attrs: { src: "images/a.png", alt: "", title: "" }, type: { name: "image" } } as never;
+      nodeView = new ImageNodeView(node, () => 0, mockEditor, pm);
+      paragraph.appendChild(nodeView.dom);
+      await Promise.resolve();
+      activePath = "/B/doc.md"; // focus moves to the other pane
+
+      onlyObserver().trigger();
+      frames.runFrame();
+      await vi.waitFor(() => expect(nodeView.dom.getAttribute("src")).toBe("asset:///A/images/a.png"));
+      root.remove();
+    } finally {
+      vi.unstubAllGlobals();
+      resetHostDocument();
     }
   });
 

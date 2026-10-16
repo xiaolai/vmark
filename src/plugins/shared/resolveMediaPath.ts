@@ -108,14 +108,32 @@ export async function resolveMediaPath(src: string, context: MediaPathContext): 
 }
 
 /**
- * Resolve an inline image `src` against the document in the current window.
+ * The current window's document path, read NOW and replayed later — a throw
+ * included, so a deferred resolution reports it exactly as an immediate one.
+ * A resolution deferred to the viewport must not follow focus to another pane.
+ */
+export function snapshotActiveFilePath(): () => string | null {
+  try {
+    const path = activeFilePathForCurrentWindow();
+    return () => path;
+  } catch (error) {
+    return () => { throw error; };
+  }
+}
+
+/**
+ * Resolve an inline image `src` against the document in the current window,
+ * or against `documentPath` when the caller took it earlier.
  * Used by both the WYSIWYG image view and the Source-mode image preview; the
  * document path comes from the `hostDocument` seam, so neither plugin names
  * the app's stores.
  */
-export function resolveImageSrc(src: string): Promise<string> {
+export function resolveImageSrc(
+  src: string,
+  documentPath: () => string | null = activeFilePathForCurrentWindow,
+): Promise<string> {
   return resolveMediaPath(src, {
-    documentPath: activeFilePathForCurrentWindow,
+    documentPath,
     unresolvablePath: "passthrough",
     onRefused: (decodedSrc) =>
       imageViewWarn("Rejected media source with an unsupported URI scheme:", decodedSrc),

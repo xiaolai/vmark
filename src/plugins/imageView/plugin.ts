@@ -11,7 +11,8 @@
  *   - Right-click and click ask the HOST to open chrome, through `hostPopups`,
  *     rather than reaching the app's popup stores (ADR-015)
  *   - `decoding = "async"`, as block images: decode off the main thread
- *   - The `src` is assigned only near the viewport, as block images (#1565)
+ *   - The `src` is resolved and assigned only near the viewport, as block
+ *     images (#1565)
  *
  * @coordinates-with imageView/resolveSrc.ts — src → asset URL, and its tests
  * @coordinates-with plugins/shared/hostPopups.ts — the chrome seam
@@ -30,7 +31,7 @@ import { hostPopups } from "@/plugins/shared/hostPopups";
 import { isExternalUrl } from "../shared/mediaSecurity";
 import { loadImageNearViewport } from "../shared/loadImageNearViewport";
 import { imageViewWarn } from "@/utils/debug";
-import { resolveImageSrc } from "./resolveSrc";
+import { resolveImageSrc, snapshotActiveFilePath } from "./resolveSrc";
 
 /**
  * Custom NodeView for image nodes.
@@ -156,30 +157,37 @@ export class ImageNodeView implements NodeView {
     this.dom.src = "";
     this.dom.classList.add("image-loading");
 
-    resolveImageSrc(src).then((resolvedSrc) => {
-      // Ignore stale responses (src changed or view destroyed)
-      if (this.destroyed || requestId !== this.resolveRequestId) {
-        return;
-      }
-      if (!resolvedSrc) {
-        this.showError("Failed to resolve path");
-        return;
-      }
-      this.loadWhenNear(resolvedSrc);
-    }).catch((error: unknown) => {
-      imageViewWarn("resolveImageSrc failed:", error);
-      if (!this.destroyed && requestId === this.resolveRequestId) {
-        this.showError("Failed to resolve path");
-      }
-    });
+    // Whose document this is, read now: by the time the image nears the
+    // viewport, focus may be in the other pane of a split.
+    const documentPath = snapshotActiveFilePath();
+    this.cancelLoad = loadImageNearViewport(this.dom, this.editorDom, () =>
+      resolveImageSrc(src, documentPath).then((resolvedSrc) => {
+        // Ignore stale responses (src changed or view destroyed)
+        if (this.destroyed || requestId !== this.resolveRequestId) {
+          return;
+        }
+        if (!resolvedSrc) {
+          this.showError("Failed to resolve path");
+          return;
+        }
+        this.assignSrc(resolvedSrc);
+      }).catch((error: unknown) => {
+        imageViewWarn("resolveImageSrc failed:", error);
+        if (!this.destroyed && requestId === this.resolveRequestId) {
+          this.showError("Failed to resolve path");
+        }
+      }),
+    );
   }
 
   /** Set `src` once the image nears the viewport (#1565). */
   private loadWhenNear(src: string): void {
-    this.cancelLoad = loadImageNearViewport(this.dom, this.editorDom, () => {
-      this.dom.src = src;
-      this.setupLoadHandlers();
-    });
+    this.cancelLoad = loadImageNearViewport(this.dom, this.editorDom, () => this.assignSrc(src));
+  }
+
+  private assignSrc(src: string): void {
+    this.dom.src = src;
+    this.setupLoadHandlers();
   }
 
   private cleanupLoadHandlers(): void {
