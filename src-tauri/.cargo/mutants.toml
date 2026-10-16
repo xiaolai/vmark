@@ -55,6 +55,28 @@ exclude_re = [
     "#\\[test\\]",
 ]
 
+# Run each mutant against the scoped modules' OWN tests, not the whole crate
+# (#1557). cargo-mutants' default is `cargo test --package=vmark`, i.e. every
+# lib unit test plus every integration-test binary, for every mutant. That
+# suite grows with the crate, not with this scope: the per-mutant test phase
+# went from ~20s (2026-08-31, 139 mutants, 2h) to ~60s (2026-10-12, 146
+# mutants, 3h58m against the job's 240-minute bound). The Stryker job died of
+# the same growth term the same week.
+#
+# - `--lib` (both phases): skip building and running the `tests/*.rs`
+#   binaries, none of which touch workflow/ or genies/.
+# - the filters (test phase only; cargo-mutants appends these after its own
+#   arguments): libtest runs a test whose path contains any of them. Measured
+#   locally: 552 of 3,921 lib tests, 1.9s instead of 44.5s.
+#   `command_error_from` is the one module outside the two subsystems that
+#   names a scoped type (`ExprError`).
+# A mutant that only a test elsewhere in the crate killed now counts as
+# missed. That is deliberate: the question is whether these modules' own tests
+# pin their behaviour. A new examine_glob needs its module listed here;
+# scripts/check-mutation-scope.test.mjs fails otherwise.
+additional_cargo_args = ["--lib"]
+additional_cargo_test_args = ["--", "workflow::", "genies::", "command_error_from"]
+
 # Give each test build+run a generous-but-bounded timeout so a mutation that
 # induces an infinite loop is reported as "timeout" rather than hanging the run.
 timeout_multiplier = 3.0

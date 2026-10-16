@@ -20,6 +20,7 @@ import { describe, expect, it } from "vitest";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ComponentType } from "react";
+import { SURFACE_IMPORT_WAIT } from "@/test/waitBudget";
 import type { PreviewRendererProps } from "../types";
 import { ghaWorkflowRendererOver, yamlFormat } from "./yaml";
 
@@ -99,7 +100,13 @@ describe("GHA workflow schema renderer — chunk failure is local and retryable"
     try {
       const { container } = renderPreview(yamlFormat.schemaRenderers?.["gha-workflow"]);
       // The canvas mounted, and its effects (where the measuring starts) ran.
-      await waitFor(() => expect(container.querySelector(".react-flow__renderer")).not.toBeNull());
+      // The REAL chunk pays Vite's in-test transform of the workflow graph
+      // (2.4-3.6s alone on a loaded machine), so the general 5s budget failed
+      // in a full check:all run; it is a heavy-import wait (see waitBudget).
+      await waitFor(
+        () => expect(container.querySelector(".react-flow__renderer")).not.toBeNull(),
+        SURFACE_IMPORT_WAIT,
+      );
       await act(async () => {
         await new Promise((resolve) => setTimeout(resolve, 0));
       });

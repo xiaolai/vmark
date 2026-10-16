@@ -222,13 +222,15 @@ jobs:
           path: e2e/artifacts/
           if-no-files-found: ignore
 
-  # The ONLY job with `issues: write`. `if: failure()` on a job with `needs`
-  # fires exactly when `journeys` failed — the same trigger the step-level
-  # condition had, so a cancelled run still reports nothing.
+  # The ONLY job with `issues: write`. It fires when `journeys` failed OR hit
+  # its own timeout-minutes, which GitHub reports as `cancelled` and which a
+  # bare `if: failure()` skipped (#1557, where mutation.yml lost two weekly
+  # verdicts that way). `!cancelled()` keeps a run cancelled by hand or by the
+  # concurrency group quiet. Pinned by scripts/check-rolling-issue-timeouts.test.mjs.
   report:
     name: Report failures in the tracking issue
     needs: journeys
-    if: failure()
+    if: ${{ !cancelled() && (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -242,10 +244,15 @@ jobs:
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          JOURNEYS_RESULT: ${{ needs.journeys.result }}
         run: |
           set -euo pipefail
           TITLE="Tier-0 E2E journeys failed"
           BODY="Job \`journeys\` failed on $(date -u +%Y-%m-%d): $RUN_URL (commit ${GITHUB_SHA})"
+          # Only a leg's own timeout reaches here as `cancelled` (see `if:`).
+          if [ "$JOURNEYS_RESULT" = "cancelled" ]; then
+            BODY="Job \`journeys\` timed out (a leg hit its own timeout-minutes; GitHub reports that as cancelled) on $(date -u +%Y-%m-%d): $RUN_URL (commit ${GITHUB_SHA})"
+          fi
           NUMBER=$(gh issue list --state open --search "\"$TITLE\" in:title" \
             --json number,title --jq ".[] | select(.title == \"$TITLE\") | .number" | head -n1)
           if [ -n "$NUMBER" ]; then

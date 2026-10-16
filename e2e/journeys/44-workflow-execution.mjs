@@ -55,7 +55,13 @@
  * is removed through the DEV seam journey 37 uses.
  *
  * WAITS — all `poll()`: the panel mounting (a lazy chunk), Run becoming
- * enabled (the workspace root and the parsed graph), the run having started
+ * enabled (the workspace root and the parsed graph) AND the step graph drawn —
+ * two separate facts. Run is enabled from the PARSED graph, but the canvas
+ * draws its nodes one commit later: WorkflowPreview wraps <ReactFlow> in its
+ * own ReactFlowProvider, so React Flow seeds no initial nodes and its
+ * StoreUpdater pushes them in a passive effect after the first commit. Gating
+ * on Run alone read the graph inside that gap (run 38218593893: "the step
+ * graph shows []" with Run already enabled). Then: the run having started
  * (Cancel shown, or a step already painted — a three-step local run can finish
  * between two polls), every step painted `success` with Run offered again, and
  * the file on disk. Run is re-clicked only while NOTHING has started: the
@@ -286,8 +292,8 @@ export default {
 
                   const ready = await poll(
                     () => panelState(client),
-                    (p) => p.mounted && (p.runEnabled || p.parseError !== null),
-                    "the engine's run panel to mount with Run enabled",
+                    (p) => p.mounted && (p.parseError !== null || (p.runEnabled && Object.keys(p.steps).length > 0)),
+                    "the engine's run panel to mount with Run enabled and its step graph drawn",
                     { timeoutMs: 15000 }
                   );
                   if (ready.parseError !== null) throw new Error(`the panel refused the fixture workflow: ${ready.parseError}`);
