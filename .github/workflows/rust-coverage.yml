@@ -100,12 +100,15 @@ jobs:
             src-tauri/coverage-summary.json
           if-no-files-found: ignore
 
-  # The ONLY jobs with `issues: write`. `if: failure()` on a job with `needs`
-  # fires exactly when `coverage` failed, so a cancelled run reports nothing.
+  # The ONLY jobs with `issues: write`. This fires when `coverage` failed OR
+  # hit its own timeout-minutes, which GitHub reports as `cancelled` and which
+  # a bare `if: failure()` skipped (#1557, where mutation.yml lost two weekly
+  # verdicts that way). `!cancelled()` keeps a run cancelled by hand or by the
+  # concurrency group quiet. Pinned by scripts/check-rolling-issue-timeouts.test.mjs.
   report:
     name: Report failures in the tracking issue
     needs: coverage
-    if: failure()
+    if: ${{ !cancelled() && (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -119,10 +122,16 @@ jobs:
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          COVERAGE_RESULT: ${{ needs.coverage.result }}
         run: |
           set -euo pipefail
           TITLE="Rust coverage check failed"
-          BODY="Job \`coverage\` failed on $(date -u +%Y-%m-%d): $RUN_URL (commit ${GITHUB_SHA}). Either a test failed, line coverage fell below the floor in scripts/rust-coverage-baseline.json, or it rose far enough above it that the floor is stale; the job log says which."
+          if [ "$COVERAGE_RESULT" = "cancelled" ]; then
+            # Only a job's own timeout reaches here as `cancelled` (see `if:`).
+            BODY="Job \`coverage\` timed out (killed by its own timeout-minutes; GitHub reports that as cancelled) on $(date -u +%Y-%m-%d): $RUN_URL (commit ${GITHUB_SHA}). No coverage was measured."
+          else
+            BODY="Job \`coverage\` failed on $(date -u +%Y-%m-%d): $RUN_URL (commit ${GITHUB_SHA}). Either a test failed, line coverage fell below the floor in scripts/rust-coverage-baseline.json, or it rose far enough above it that the floor is stale; the job log says which."
+          fi
           NUMBER=$(gh issue list --state open --search "\"$TITLE\" in:title" \
             --json number,title --jq ".[] | select(.title == \"$TITLE\") | .number" | head -n1)
           if [ -n "$NUMBER" ]; then

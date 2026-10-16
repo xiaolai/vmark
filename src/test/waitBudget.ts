@@ -59,6 +59,12 @@ export const ASYNC_IMPORT_WAIT = { timeout: 5000 } as const;
  * own (`perTestTimeouts.test.ts`), so that timeout is the tier's liveness
  * bound, `LIVENESS_TIMEOUT_MS`; the same file asserts every budget here sits
  * below it.
+ *
+ * The class is "a real heavy lazy chunk that Vite transforms inside the test",
+ * not Tiptap alone: the GHA workflow renderer chunk (React Flow plus the
+ * workflow IR) is the second member. It measured 2.4-3.6s alone on a loaded
+ * machine and failed the 5s general budget in a full `check:all`, while a
+ * sibling test had invented its own 15s for the same wait.
  */
 export const SURFACE_IMPORT_WAIT = { timeout: 45_000 } as const;
 
