@@ -11,6 +11,25 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 ## [Unreleased]
 
+## [0.9.101] - 2026-10-17
+
+### Fixed
+
+- Large, image-heavy documents open much faster, and the window no longer
+  gives up waiting for its menus while one loads (#1565). Images now load
+  only as they scroll near the screen, the window sets up its menus before
+  it builds the document, and long CJK documents no longer spend seconds
+  laying out decorations. On a slow machine, a 484 KB document with 338
+  images opens about a quarter faster and uses less memory.
+- CJK letter spacing is no longer worked out in WYSIWYG mode while the
+  setting is off. Before, every CJK run was processed anyway, which slowed
+  down opening long documents for no visible change.
+- Saving in the instant before a just-opened document has loaded no longer
+  empties it. On a slow machine that instant could last seconds.
+- Fixed several cases where a highlight or other editor marking drew in the
+  wrong place, or vanished, after an edit that wrapped, lifted or moved
+  blocks.
+
 ## [0.9.100] - 2026-10-16
 
 ### Fixed
@@ -301,7 +320,8 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 - Raised the `markdown-it` version floor past GHSA-253c-mchw-3w2r.
 
-[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.100...HEAD
+[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.101...HEAD
+[0.9.101]: https://github.com/xiaolai/vmark/releases/tag/v0.9.101
 [0.9.100]: https://github.com/xiaolai/vmark/releases/tag/v0.9.100
 [0.9.99]: https://github.com/xiaolai/vmark/releases/tag/v0.9.99
 [0.9.98]: https://github.com/xiaolai/vmark/releases/tag/v0.9.98
