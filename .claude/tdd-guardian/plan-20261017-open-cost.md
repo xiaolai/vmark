@@ -174,4 +174,9 @@ macOS (dev app, Apple silicon), a fresh copy of the fixture opened through `open
   - The signal is a small external store (`contexts/windowListening.ts`, read with `useSyncExternalStore`), not a `readinessBarrier`. The consumer is a render decision, and about 23 test files stub the `WindowContext` module, so a context field would have taken their document surface away.
   - WI-OC1.2's cancellation is an `AbortSignal` (`shouldAbort` is gone): with every listener requested at once there is no gap between registrations to poll in.
   - Found while testing through the real provider under StrictMode, and fixed: a settings or pdf-export window never announced itself in dev builds. The simulated unmount cleared its timer, and the provider's once-only init never called `markReady` again.
-
+- 2026-10-17 — OC2 implemented. Departures from v3, each for a checked reason:
+  - The growth test times `forChild` alone, not a decorated jsdom render: a render buries the quadratic term under DOM construction and passes either way, and the per-child step's memory outgrows the cache between sizes (1.42–1.65 measured with it, 1.00–1.16 without).
+  - The growth bound is 1.35, not 1.2: idle readings reach 1.19, and 1.35 is this repo's bound for linear growth tests, whose worst reading under coverage and load was 1.27. The measured exponents are reported against 1.2 above.
+  - `addInner` is patched too (v3: "if the differential test can pin it" — it does).
+  - Found and fixed: the WYSIWYG host never passed the CJK spacing setting to the plugin, so spacing off still decorated every CJK run (regression from `b760fbb25`). The fix shares one predicate with the export path.
+- 2026-10-17 — OC3: bench, guide and its nine translations, ledger, AGENTS.md; acceptance above.
