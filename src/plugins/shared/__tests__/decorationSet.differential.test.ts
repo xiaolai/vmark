@@ -17,15 +17,16 @@
 // `mapChildren`, which kept child sets where no child node is — after a later
 // step replaced a touched child's opening token, after a wrap moved an
 // untouched child, through a mirrored mapping — so for `map`, upstream is not
-// the reference. Each seed maps a whole edit and a typed character.
+// the reference. Each seed maps a whole edit, the edit rebased collab-style
+// over another one (mirrors), and a typed character.
 import { describe, expect, it } from "vitest";
 import type { Node } from "@tiptap/pm/model";
 import { Mapping, Transform } from "@tiptap/pm/transform";
 import { Decoration, DecorationSet, type DecorationSource } from "@tiptap/pm/view";
 import { referenceAdd, referenceCreate, referenceForChild } from "./decorationSetReference";
 import {
-  decorationsOf, documentOf, drawn, editsOf, individuallyMapped, individuallyMappedNodes, nodeLines, schema, seeded, typedIn,
-  unsoundNodeDecorations,
+  decorationsOf, documentOf, drawn, editsOf, individuallyMapped, individuallyMappedNodes, nodeLines, rebasedOf, schema, seeded,
+  typedIn, unsoundNodeDecorations,
 } from "./decorationSetFixtures";
 
 const CASES = 300;
@@ -56,6 +57,15 @@ function expectMappedLike(mapped: DecorationSet, original: readonly Decoration[]
   expect(unsoundNodeDecorations(mapped, original, mapping, doc), `${label} node decorations`).toEqual([]);
   const drawnNodes = (lines: string[]) => lines.filter((line) => line.includes(" node ")).sort();
   expect(drawnNodes(drawn(mapped, doc)), `${label} node decorations drawn`).toEqual(nodeLines(mapped.find()));
+  expectUniqueChildren(mapped, label);
+}
+
+/** No two child entries of a set at one position: `forChild` would draw only the first. */
+function expectUniqueChildren(set: DecorationSet, label: string) {
+  const children = (set as unknown as { children: (number | DecorationSet)[] }).children;
+  const starts = children.filter((_, i) => i % 3 === 0);
+  expect(new Set(starts).size, `${label} child entries ${starts.join(",")}`).toBe(starts.length);
+  for (let i = 2; i < children.length; i += 3) expectUniqueChildren(children[i] as DecorationSet, label);
 }
 
 function membersOf(source: DecorationSource): DecorationSet[] {
@@ -108,6 +118,11 @@ describe("the patched decoration tree agrees with the unpatched algorithm", () =
     const mapped = added.map(tr.mapping, tr.doc);
     expectMappedLike(mapped, added.find(), tr, `map #${seed}`);
     expectSameForChild(mapped, tr.doc, `map+forChild #${seed}`);
+
+    // The edit rebased over another one, collab-style: a mapping with mirrors.
+    const rebased = rebasedOf(tr, editsOf(doc, random));
+    const onLocal = DecorationSet.create(tr.doc, decorationsOf(tr.doc, random, "r"));
+    expectMappedLike(onLocal.map(rebased.mapping, rebased.doc), onLocal.find(), rebased, `rebase #${seed}`);
 
     // Typing moves no node, so no node decoration may be dropped.
     const typed = typedIn(doc, random);
@@ -171,6 +186,19 @@ describe("cases the audit found", () => {
     tr.wrap(doc.resolve(1).blockRange()!, [{ type: schema.nodes.blockquote }]);
     expect(set.map(tr.mapping, tr.doc, { onRemove: (spec) => removed.push(spec) }).find()).toEqual([]);
     expect(removed).toEqual([{ id: "n" }]);
+  });
+
+  it("a rebased step and its mirror leave one entry per child, and keep the widget", () => {
+    // Upstream's per-step walk, run over children the patch had marked for a
+    // remap, gave two entries the same start; `forChild` drew only the first.
+    const base = schema.nodes.doc.create(null, [p("abcdef")]);
+    const local = new Transform(base).insert(2, p("X"));
+    const widget = (pos: number) => Decoration.widget(pos, () => document.createElement("span"), { side: 1, key: `w${pos}` });
+    const set = DecorationSet.create(local.doc, [Decoration.inline(1, 8, { class: "x" }), widget(1), widget(7)]);
+    const rebased = rebasedOf(local, new Transform(base).delete(0, 2));
+    const mapped = set.map(rebased.mapping, rebased.doc);
+    expectMappedLike(mapped, set.find(), rebased, "rebase");
+    expect(drawn(mapped, rebased.doc)).toContain("6-6 widget w7");
   });
 
   it("the node-decoration oracle tells decorations apart, not only ranges", () => {

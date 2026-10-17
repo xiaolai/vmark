@@ -30,7 +30,7 @@
 // The patch merges the children into a new array instead: 1.03–1.08.
 import { describe, expect, it } from "vitest";
 import { Schema, type Node } from "@tiptap/pm/model";
-import { Transform } from "@tiptap/pm/transform";
+import { Mapping, Transform } from "@tiptap/pm/transform";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { growthExponent, measureGrowth } from "@/test/cpuClock";
 
@@ -132,6 +132,29 @@ describe("decoration sets grow about linearly with the document", () => {
       },
       replaced(SMALL),
       replaced(LARGE),
+    );
+    expect(growthExponent(growth, SMALL, LARGE)).toBeLessThan(MAX_EXPONENT);
+  });
+
+  it("DecorationSet.map through a step and its mirrored inverse", () => {
+    // A mirror sends every child to be gathered and rebuilt. Sent instead
+    // through the touched-child remap, each one looked its node up from the
+    // first child: quadratic in the children.
+    const mirrored = (blocks: number) => {
+      const { doc, decorations } = fixture(blocks);
+      const set = DecorationSet.create(doc, decorations);
+      const step = new Transform(doc).insert(0, schema.node("paragraph"));
+      const mapping = new Mapping();
+      mapping.appendMap(step.mapping.maps[0]);
+      mapping.appendMap(step.mapping.maps[0].invert(), 0);
+      return { set, mapping, doc };
+    };
+    const growth = measureGrowth(
+      ({ set, mapping, doc }: ReturnType<typeof mirrored>) => {
+        set.map(mapping, doc);
+      },
+      mirrored(SMALL),
+      mirrored(LARGE),
     );
     expect(growthExponent(growth, SMALL, LARGE)).toBeLessThan(MAX_EXPONENT);
   });

@@ -1,5 +1,5 @@
 diff --git a/dist/index.cjs b/dist/index.cjs
-index d52a5260a7b9924b2865053ea1e8c6484225277b..10fc136245ff59fe4f18297c637eca27d74c65d5 100644
+index d52a5260a7b9924b2865053ea1e8c6484225277b..240b15688ebab37a0ca4abe44f58154e8fdfb87e 100644
 --- a/dist/index.cjs
 +++ b/dist/index.cjs
 @@ -3885,6 +3885,8 @@ var DecorationSet = function () {
@@ -83,20 +83,21 @@ index d52a5260a7b9924b2865053ea1e8c6484225277b..10fc136245ff59fe4f18297c637eca27
        var start = offset + 1,
          end = start + node.content.size;
        for (var _i9 = 0; _i9 < this.local.length; _i9++) {
-@@ -4134,6 +4165,12 @@ var DecorationGroup = function () {
+@@ -4134,6 +4165,13 @@ var DecorationGroup = function () {
  }();
  function mapChildren(oldChildren, newLocal, mapping, node, offset, oldOffset, options) {
    var children = oldChildren.slice();
 +  // VMark patch (#1565): the per-step positions below follow each map's raw
 +  // ranges, which a mirrored mapping (a step and its inverse) does not;
-+  // there, gather and rebuild every child from its mapped decorations.
++  // there, gather and rebuild every child from its mapped decorations
++  // (-2: straight to the rebuild, not through the touched-child remap).
 +  if (hasMirror(mapping)) {
-+    for (var _m = 0; _m < children.length; _m += 3) children[_m + 1] = -1;
++    for (var _m = 0; _m < children.length; _m += 3) children[_m + 1] = -2;
 +  }
    var _loop4 = function _loop4(_baseOffset) {
      var moved = 0;
      mapping.maps[i].forEach(function (oldStart, oldEnd, newStart, newEnd) {
-@@ -4164,6 +4201,15 @@ function mapChildren(oldChildren, newLocal, mapping, node, offset, oldOffset, op
+@@ -4164,6 +4202,15 @@ function mapChildren(oldChildren, newLocal, mapping, node, offset, oldOffset, op
        children[_i11 + 1] = -1;
        continue;
      }
@@ -112,7 +113,7 @@ index d52a5260a7b9924b2865053ea1e8c6484225277b..10fc136245ff59fe4f18297c637eca27
      var from = mapping.map(oldChildren[_i11] + oldOffset),
        fromLocal = from - offset;
      if (fromLocal < 0 || fromLocal >= node.content.size) {
-@@ -4190,22 +4236,47 @@ function mapChildren(oldChildren, newLocal, mapping, node, offset, oldOffset, op
+@@ -4190,22 +4237,47 @@ function mapChildren(oldChildren, newLocal, mapping, node, offset, oldOffset, op
        mustRebuild = true;
      }
    }
@@ -167,7 +168,7 @@ index d52a5260a7b9924b2865053ea1e8c6484225277b..10fc136245ff59fe4f18297c637eca27
  function moveSpans(spans, offset) {
    if (!offset || !spans.length) return spans;
    var result = [];
-@@ -4226,15 +4297,51 @@ function mapAndGatherRemainingDecorations(children, oldChildren, decorations, ma
+@@ -4226,15 +4298,51 @@ function mapAndGatherRemainingDecorations(children, oldChildren, decorations, ma
    for (var i = 0; i < children.length; i += 3) if (children[i + 1] == -1) gather(children[i + 2], oldChildren[i] + oldOffset + 1);
    return decorations;
  }
@@ -227,7 +228,7 @@ index d52a5260a7b9924b2865053ea1e8c6484225277b..10fc136245ff59fe4f18297c637eca27
    }
    return found;
  }
-@@ -4246,8 +4353,10 @@ function withoutNulls(array) {
+@@ -4246,8 +4354,10 @@ function withoutNulls(array) {
  function buildTree(spans, node, offset, options) {
    var children = [],
      hasNulls = false;
@@ -241,7 +242,7 @@ index d52a5260a7b9924b2865053ea1e8c6484225277b..10fc136245ff59fe4f18297c637eca27
        hasNulls = true;
        var subtree = buildTree(found, childNode, offset + localStart + 1, options);
 diff --git a/dist/index.js b/dist/index.js
-index dc0d117b85e1da3eae915b4d8ff8e5e604683861..a035624920dd5544b666d762c63b8f0a6c207a7e 100644
+index dc0d117b85e1da3eae915b4d8ff8e5e604683861..a8c7bbf441628704da0d0d7d1a10451624aace0f 100644
 --- a/dist/index.js
 +++ b/dist/index.js
 @@ -4148,6 +4148,8 @@ class DecorationSet {
@@ -333,21 +334,22 @@ index dc0d117b85e1da3eae915b4d8ff8e5e604683861..a035624920dd5544b666d762c63b8f0a
          let start = offset + 1, end = start + node.content.size;
          for (let i = 0; i < this.local.length; i++) {
              let dec = this.local[i];
-@@ -4443,6 +4473,13 @@ class DecorationGroup {
+@@ -4443,6 +4473,14 @@ class DecorationGroup {
  }
  function mapChildren(oldChildren, newLocal, mapping, node, offset, oldOffset, options) {
      let children = oldChildren.slice();
 +    // VMark patch (#1565): the per-step positions below follow each map's raw
 +    // ranges, which a mirrored mapping (a step and its inverse) does not;
-+    // there, gather and rebuild every child from its mapped decorations.
++    // there, gather and rebuild every child from its mapped decorations
++    // (-2: straight to the rebuild, not through the touched-child remap).
 +    if (hasMirror(mapping)) {
 +        for (let i = 0; i < children.length; i += 3)
-+            children[i + 1] = -1;
++            children[i + 1] = -2;
 +    }
      // Mark the children that are directly touched by changes, and
      // move those that are after the changes.
      for (let i = 0, baseOffset = oldOffset; i < mapping.maps.length; i++) {
-@@ -4476,6 +4513,16 @@ function mapChildren(oldChildren, newLocal, mapping, node, offset, oldOffset, op
+@@ -4476,6 +4514,16 @@ function mapChildren(oldChildren, newLocal, mapping, node, offset, oldOffset, op
                  children[i + 1] = -1;
                  continue;
              }
@@ -364,7 +366,7 @@ index dc0d117b85e1da3eae915b4d8ff8e5e604683861..a035624920dd5544b666d762c63b8f0a
              let from = mapping.map(oldChildren[i] + oldOffset), fromLocal = from - offset;
              if (fromLocal < 0 || fromLocal >= node.content.size) {
                  mustRebuild = true;
-@@ -4502,25 +4549,54 @@ function mapChildren(oldChildren, newLocal, mapping, node, offset, oldOffset, op
+@@ -4502,25 +4550,54 @@ function mapChildren(oldChildren, newLocal, mapping, node, offset, oldOffset, op
                  mustRebuild = true;
              }
          }
@@ -427,7 +429,7 @@ index dc0d117b85e1da3eae915b4d8ff8e5e604683861..a035624920dd5544b666d762c63b8f0a
  function moveSpans(spans, offset) {
      if (!offset || !spans.length)
          return spans;
-@@ -4549,15 +4625,63 @@ function mapAndGatherRemainingDecorations(children, oldChildren, decorations, ma
+@@ -4549,15 +4626,63 @@ function mapAndGatherRemainingDecorations(children, oldChildren, decorations, ma
              gather(children[i + 2], oldChildren[i] + oldOffset + 1);
      return decorations;
  }
@@ -497,7 +499,7 @@ index dc0d117b85e1da3eae915b4d8ff8e5e604683861..a035624920dd5544b666d762c63b8f0a
      }
      return found;
  }
-@@ -4574,8 +4698,10 @@ function withoutNulls(array) {
+@@ -4574,8 +4699,10 @@ function withoutNulls(array) {
  // for recursive calls).
  function buildTree(spans, node, offset, options) {
      let children = [], hasNulls = false;

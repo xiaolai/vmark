@@ -138,6 +138,26 @@ export function editsOf(doc: Node, random: () => number): Transform {
   return tr;
 }
 
+/**
+ * `local` rebased the way prosemirror-collab rebases unconfirmed steps over
+ * `remote`: `local`'s steps inverted, `remote`'s applied, then `local`'s
+ * mapped through what follows them and each paired with its inverse as a
+ * mirror. Starts at `local.doc`; both edit the same document.
+ */
+export function rebasedOf(local: Transform, remote: Transform): Transform {
+  const tr = new Transform(local.doc);
+  // `setMirror` is internal to prosemirror-transform's types; collab calls it.
+  const mirrors = tr.mapping as unknown as { setMirror(n: number, m: number): void };
+  for (let i = local.steps.length - 1; i >= 0; i--) tr.step(local.steps[i].invert(local.docs[i]));
+  for (const step of remote.steps) tr.step(step);
+  for (let i = 0, mapFrom = local.steps.length; i < local.steps.length; i++) {
+    const mapped = local.steps[i].map(tr.mapping.slice(mapFrom));
+    mapFrom--;
+    if (mapped && !tr.maybeStep(mapped).failed) mirrors.setMirror(mapFrom, tr.steps.length - 1);
+  }
+  return tr;
+}
+
 /** One character typed somewhere inside a textblock: an edit that moves no node. */
 export function typedIn(doc: Node, random: () => number): Transform | null {
   const positions: number[] = [];
