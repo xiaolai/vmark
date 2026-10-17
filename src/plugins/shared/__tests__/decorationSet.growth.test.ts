@@ -96,6 +96,25 @@ describe("decoration sets grow about linearly with the document", () => {
     expect(growthExponent(growth, ADD_SMALL, ADD_LARGE)).toBeLessThan(MAX_EXPONENT);
   });
 
+  it("DecorationSet.add in front of existing children", () => {
+    // Every new child lands before all the old ones, the shape where splicing
+    // each one in shifted the most: half the blocks decorated at the end, then
+    // the first half added.
+    const withSuffix = (blocks: number) => {
+      const { doc, decorations } = fixture(blocks);
+      const half = (blocks / 2) * DECORATIONS_PER_BLOCK;
+      return { doc, base: DecorationSet.create(doc, decorations.slice(half)), front: decorations.slice(0, half) };
+    };
+    const growth = measureGrowth(
+      ({ doc, base, front }: ReturnType<typeof withSuffix>) => {
+        base.add(doc, front.slice());
+      },
+      withSuffix(SMALL),
+      withSuffix(LARGE),
+    );
+    expect(growthExponent(growth, SMALL, LARGE)).toBeLessThan(MAX_EXPONENT);
+  });
+
   it("forChild for every block, as the view asks while drawing", () => {
     const built = (blocks: number) => {
       const { doc, decorations } = fixture(blocks);
