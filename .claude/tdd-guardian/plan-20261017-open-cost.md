@@ -162,7 +162,7 @@ macOS (dev app, Apple silicon), a fresh copy of the fixture opened through `open
 
 - Off-main-thread parse started at file open — D2 lists its acceptance criteria.
 - Code-block chrome near the viewport — D5.
-- Upstream: the `buildTree`/`forChild` fix as a ProseMirror PR, drafted in the PR description for the maintainer to send.
+- Upstream (ProseMirror now lives at code.haverbeke.berlin): the `buildTree`/`addInner`/`forChild` speed-up as a patch, and the `mapChildren` bug (a later step that replaces a touched child's opening token leaves its content unshifted) as an issue with its reproduction — both drafted in the PR description for the maintainer to send.
 
 ## Status trail
 
@@ -180,3 +180,4 @@ macOS (dev app, Apple silicon), a fresh copy of the fixture opened through `open
   - `addInner` is patched too (v3: "if the differential test can pin it" — it does).
   - Found and fixed: the WYSIWYG host never passed the CJK spacing setting to the plugin, so spacing off still decorated every CJK run (regression from `b760fbb25`). The fix shares one predicate with the export path.
 - 2026-10-17 — OC3: bench, guide and its nine translations, ledger, AGENTS.md; acceptance above.
+- 2026-10-17 — Codex audit round 1 (8 findings). Fixed: `addInner` still spliced each new child in, quadratic (now merged; growth test reshaped, seen failing); a compound transaction left CJK decorations unshifted inside a blockquote — an upstream `mapChildren` bug, now fixed in the patch with an independent map oracle (each decoration mapped alone), a rendered-DOM differential and a 200-case CJK structural fuzz (7 cases fail on the old patch); a reversed span went to a different child than upstream's; the phase gate now requires every regression test; the bench now has the fixture's 338 images and 0.5 MB, sized in UTF-8; acceptance and this trail recorded. Overruled: "enforce ≤ 1.2" — the bound is 1.35, for the reason in the OC2 entry.
