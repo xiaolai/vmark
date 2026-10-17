@@ -1,5 +1,5 @@
 diff --git a/dist/index.cjs b/dist/index.cjs
-index d52a5260a7b9924b2865053ea1e8c6484225277b..91e786df40f47da8a768f4343f67dc0c9d527008 100644
+index d52a5260a7b9924b2865053ea1e8c6484225277b..53aed022824d64da40661063f4a0a8b6074082f9 100644
 --- a/dist/index.cjs
 +++ b/dist/index.cjs
 @@ -3885,6 +3885,8 @@ var DecorationSet = function () {
@@ -83,7 +83,23 @@ index d52a5260a7b9924b2865053ea1e8c6484225277b..91e786df40f47da8a768f4343f67dc0c
        var start = offset + 1,
          end = start + node.content.size;
        for (var _i9 = 0; _i9 < this.local.length; _i9++) {
-@@ -4226,15 +4257,43 @@ function mapAndGatherRemainingDecorations(children, oldChildren, decorations, ma
+@@ -4164,6 +4195,15 @@ function mapChildren(oldChildren, newLocal, mapping, node, offset, oldOffset, op
+       children[_i11 + 1] = -1;
+       continue;
+     }
++    // VMark patch (#1565): a child whose opening or closing token a
++    // step replaced is not the same node, even if one of its size now
++    // stands there. Upstream learned that only from the first step to
++    // touch the child: a later step that cut its opening went unseen,
++    // and the content after the cut kept its old positions.
++    if (mapping.mapResult(oldChildren[_i11] + oldOffset, 1).deletedAfter || mapping.mapResult(oldChildren[_i11 + 1] + oldOffset, -1).deletedBefore) {
++      mustRebuild = true;
++      continue;
++    }
+     var from = mapping.map(oldChildren[_i11] + oldOffset),
+       fromLocal = from - offset;
+     if (fromLocal < 0 || fromLocal >= node.content.size) {
+@@ -4226,15 +4266,43 @@ function mapAndGatherRemainingDecorations(children, oldChildren, decorations, ma
    for (var i = 0; i < children.length; i += 3) if (children[i + 1] == -1) gather(children[i + 2], oldChildren[i] + oldOffset + 1);
    return decorations;
  }
@@ -136,7 +152,7 @@ index d52a5260a7b9924b2865053ea1e8c6484225277b..91e786df40f47da8a768f4343f67dc0c
    }
    return found;
  }
-@@ -4246,8 +4305,10 @@ function withoutNulls(array) {
+@@ -4246,8 +4314,10 @@ function withoutNulls(array) {
  function buildTree(spans, node, offset, options) {
    var children = [],
      hasNulls = false;
@@ -150,7 +166,7 @@ index d52a5260a7b9924b2865053ea1e8c6484225277b..91e786df40f47da8a768f4343f67dc0c
        hasNulls = true;
        var subtree = buildTree(found, childNode, offset + localStart + 1, options);
 diff --git a/dist/index.js b/dist/index.js
-index dc0d117b85e1da3eae915b4d8ff8e5e604683861..f9fbebf69e703b92bb25d69ffaa140ccb5caa9b6 100644
+index dc0d117b85e1da3eae915b4d8ff8e5e604683861..a76dfd41b7bfee8bb7c5a0ff452f7200e166284a 100644
 --- a/dist/index.js
 +++ b/dist/index.js
 @@ -4148,6 +4148,8 @@ class DecorationSet {
@@ -223,7 +239,7 @@ index dc0d117b85e1da3eae915b4d8ff8e5e604683861..f9fbebf69e703b92bb25d69ffaa140cc
 +        if (!at(i)) {
 +            if (at(i + 3)) {
 +                i += 3;
-+            }
+             }
 +            else {
 +                let lo = 0, hi = n / 3;
 +                while (lo < hi) {
@@ -234,7 +250,7 @@ index dc0d117b85e1da3eae915b4d8ff8e5e604683861..f9fbebf69e703b92bb25d69ffaa140cc
 +                        hi = mid;
 +                }
 +                i = lo * 3;
-             }
++            }
 +        }
 +        this.lastChild = i;
 +        if (i < n && children[i] == offset)
@@ -242,7 +258,24 @@ index dc0d117b85e1da3eae915b4d8ff8e5e604683861..f9fbebf69e703b92bb25d69ffaa140cc
          let start = offset + 1, end = start + node.content.size;
          for (let i = 0; i < this.local.length; i++) {
              let dec = this.local[i];
-@@ -4549,15 +4579,51 @@ function mapAndGatherRemainingDecorations(children, oldChildren, decorations, ma
+@@ -4476,6 +4506,16 @@ function mapChildren(oldChildren, newLocal, mapping, node, offset, oldOffset, op
+                 children[i + 1] = -1;
+                 continue;
+             }
++            // VMark patch (#1565): a child whose opening or closing token a
++            // step replaced is not the same node, even if one of its size now
++            // stands there. Upstream learned that only from the first step to
++            // touch the child: a later step that cut its opening went unseen,
++            // and the content after the cut kept its old positions.
++            if (mapping.mapResult(oldChildren[i] + oldOffset, 1).deletedAfter ||
++                mapping.mapResult(oldChildren[i + 1] + oldOffset, -1).deletedBefore) {
++                mustRebuild = true;
++                continue;
++            }
+             let from = mapping.map(oldChildren[i] + oldOffset), fromLocal = from - offset;
+             if (fromLocal < 0 || fromLocal >= node.content.size) {
+                 mustRebuild = true;
+@@ -4549,15 +4589,51 @@ function mapAndGatherRemainingDecorations(children, oldChildren, decorations, ma
              gather(children[i + 2], oldChildren[i] + oldOffset + 1);
      return decorations;
  }
@@ -300,7 +333,7 @@ index dc0d117b85e1da3eae915b4d8ff8e5e604683861..f9fbebf69e703b92bb25d69ffaa140cc
      }
      return found;
  }
-@@ -4574,8 +4640,10 @@ function withoutNulls(array) {
+@@ -4574,8 +4650,10 @@ function withoutNulls(array) {
  // for recursive calls).
  function buildTree(spans, node, offset, options) {
      let children = [], hasNulls = false;
