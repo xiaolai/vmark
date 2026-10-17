@@ -10,7 +10,7 @@ import { Transform, findWrapping, liftTarget, type Mapping } from "@tiptap/pm/tr
 import { Decoration, type DecorationSet, type DecorationSource } from "@tiptap/pm/view";
 import { referenceCreate } from "./decorationSetReference";
 
-/** Nesting, leaf blocks, and inline leaves; `toDOM` so a view can draw it too. */
+/** Nesting, leaf blocks, inline leaves and an inline node with content; `toDOM` so a view can draw it too. */
 export const schema = new Schema({
   nodes: {
     doc: { content: "block+" },
@@ -20,6 +20,7 @@ export const schema = new Schema({
     text: { group: "inline" },
     image: { group: "inline", inline: true, attrs: { src: {} }, toDOM: (node) => ["img", { src: node.attrs.src as string }] },
     hard_break: { group: "inline", inline: true, toDOM: () => ["br"] },
+    span: { group: "inline", inline: true, content: "text*", toDOM: () => ["span", { class: "inline-span" }, 0] },
   },
 });
 
@@ -43,6 +44,7 @@ export function documentOf(random: () => number): Node {
       const roll = random();
       if (roll < 0.15) content.push(schema.nodes.image.create({ src: "x.png" }));
       else if (roll < 0.25) content.push(schema.nodes.hard_break.create());
+      else if (roll < 0.33) content.push(schema.nodes.span.create(null, schema.text("内".repeat(1 + int(4)))));
       else content.push(schema.text("漢字 kana かな text".slice(0, 1 + int(14))));
     }
     return content;
@@ -248,10 +250,10 @@ function lineOf(decoration: Decoration, base = 0): string {
  * What a view draws from `source` over `node`, as lines: descending the way
  * the view does — `forChild` per child — so a subtree the tree keeps under
  * the wrong parent, which `find()` still lists, is missing here. Inline
- * decorations are read where text is drawn (a textblock); widgets in a
- * textblock anywhere, elsewhere only between children — one kept at a level
- * whose child now contains it is not drawn; node decorations only on a child
- * they exactly cover.
+ * decorations are read where text is drawn (a textblock); widgets anywhere
+ * but strictly inside a child with content — one kept at a level whose child
+ * now contains it is not drawn; node decorations only on a child they exactly
+ * cover.
  */
 export function drawn(source: DecorationSource, node: Node, base = 0, out: string[] = []): string[] {
   const locals: Decoration[] = [];
@@ -260,8 +262,8 @@ export function drawn(source: DecorationSource, node: Node, base = 0, out: strin
   node.forEach((child, offset) => children.push({ child, offset }));
   for (const decoration of locals) {
     if (internals(decoration).widget) {
-      const inside = children.some(({ child, offset }) => decoration.from > offset && decoration.from < offset + child.nodeSize);
-      if (node.inlineContent || !inside) out.push(lineOf(decoration, base));
+      const inside = children.some(({ child, offset }) => !child.isLeaf && decoration.from > offset && decoration.from < offset + child.nodeSize);
+      if (!inside) out.push(lineOf(decoration, base));
     } else if (internals(decoration).inline) {
       if (node.inlineContent) out.push(lineOf(decoration, base));
     } else if (children.some(({ child, offset }) => offset === decoration.from && offset + child.nodeSize === decoration.to)) {

@@ -23,10 +23,10 @@
 // selection, which a dispatched edit can leave on a node and a fresh view
 // never draws, not the decorations.
 import { afterEach, describe, expect, it } from "vitest";
-import type { Node } from "@tiptap/pm/model";
+import { Fragment, Slice, type Node } from "@tiptap/pm/model";
 import { EditorState, Plugin } from "@tiptap/pm/state";
 import { Decoration, DecorationSet, EditorView } from "@tiptap/pm/view";
-import { Transform } from "@tiptap/pm/transform";
+import { ReplaceAroundStep, Transform } from "@tiptap/pm/transform";
 import { referenceAdd, referenceCreate } from "./decorationSetReference";
 import { decorationsOf, documentOf, editsOf, individuallyMapped, isNodeDecoration, schema, seeded, unsoundNodeDecorations } from "./decorationSetFixtures";
 
@@ -103,6 +103,16 @@ describe("the patched decoration tree draws what the unpatched algorithm draws",
     const view = viewOf(doc, set);
     expectRedrawnLikeFresh(view, set, edit, "wrap widget");
     expect(view.dom.querySelector("blockquote > .moved + hr")).not.toBeNull();
+  });
+
+  it("a widget that a step moves inside an inline node is drawn inside it", () => {
+    const doc = schema.nodes.doc.create(null, [schema.nodes.paragraph.create(null, schema.text("abc"))]);
+    const widget = () => Object.assign(document.createElement("span"), { className: "moved" });
+    const set = DecorationSet.create(doc, [Decoration.widget(2, widget, { side: 1, key: "w" })]);
+    const edit = new Transform(doc).step(new ReplaceAroundStep(1, 4, 1, 4, new Slice(Fragment.from(schema.nodes.span.create()), 0, 0), 1, true));
+    const view = viewOf(doc, set);
+    expectRedrawnLikeFresh(view, set, edit, "span widget");
+    expect(view.dom.querySelector(".inline-span .moved")).not.toBeNull();
   });
 });
 

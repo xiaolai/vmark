@@ -1,5 +1,5 @@
 diff --git a/dist/index.cjs b/dist/index.cjs
-index d52a5260a7b9924b2865053ea1e8c6484225277b..d95ac4450b842af8f738012c587de77ca1530d72 100644
+index d52a5260a7b9924b2865053ea1e8c6484225277b..a6b9303efe7da176b6d37178caf19de7f794708e 100644
 --- a/dist/index.cjs
 +++ b/dist/index.cjs
 @@ -3885,6 +3885,8 @@ var DecorationSet = function () {
@@ -141,7 +141,7 @@ index d52a5260a7b9924b2865053ea1e8c6484225277b..d95ac4450b842af8f738012c587de77c
      var from = mapping.map(oldChildren[_i11] + oldOffset),
        fromLocal = from - offset;
      if (fromLocal < 0 || fromLocal >= node.content.size) {
-@@ -4190,21 +4247,87 @@ function mapChildren(oldChildren, newLocal, mapping, node, offset, oldOffset, op
+@@ -4190,21 +4247,88 @@ function mapChildren(oldChildren, newLocal, mapping, node, offset, oldOffset, op
        mustRebuild = true;
      }
    }
@@ -215,9 +215,10 @@ index d52a5260a7b9924b2865053ea1e8c6484225277b..d95ac4450b842af8f738012c587de77c
 +// where it is never drawn. Take such widgets out of `local` (in place) and
 +// return them, for the caller to add to the set, which places each in the
 +// child that now contains it, as buildTree would have. Null when there are
-+// none; one walk over the children otherwise.
++// none; one walk over the children otherwise. Text is a leaf, so in a
++// textblock only inline nodes with content take widgets.
 +function takeMisplacedWidgets(local, node) {
-+  if (node.inlineContent || !node.childCount) return null;
++  if (!node.childCount) return null;
 +  var widgets = null;
 +  for (var i = 0; i < local.length; i++) if (local[i].type instanceof WidgetType) (widgets || (widgets = [])).push(local[i]);
 +  if (!widgets) return null;
@@ -237,7 +238,7 @@ index d52a5260a7b9924b2865053ea1e8c6484225277b..d95ac4450b842af8f738012c587de77c
  }
  function moveSpans(spans, offset) {
    if (!offset || !spans.length) return spans;
-@@ -4226,15 +4349,51 @@ function mapAndGatherRemainingDecorations(children, oldChildren, decorations, ma
+@@ -4226,15 +4350,51 @@ function mapAndGatherRemainingDecorations(children, oldChildren, decorations, ma
    for (var i = 0; i < children.length; i += 3) if (children[i + 1] == -1) gather(children[i + 2], oldChildren[i] + oldOffset + 1);
    return decorations;
  }
@@ -297,7 +298,7 @@ index d52a5260a7b9924b2865053ea1e8c6484225277b..d95ac4450b842af8f738012c587de77c
    }
    return found;
  }
-@@ -4246,8 +4405,10 @@ function withoutNulls(array) {
+@@ -4246,8 +4406,10 @@ function withoutNulls(array) {
  function buildTree(spans, node, offset, options) {
    var children = [],
      hasNulls = false;
@@ -311,7 +312,7 @@ index d52a5260a7b9924b2865053ea1e8c6484225277b..d95ac4450b842af8f738012c587de77c
        hasNulls = true;
        var subtree = buildTree(found, childNode, offset + localStart + 1, options);
 diff --git a/dist/index.js b/dist/index.js
-index dc0d117b85e1da3eae915b4d8ff8e5e604683861..bed8df2ba21766cad48427f842bd493752def9d8 100644
+index dc0d117b85e1da3eae915b4d8ff8e5e604683861..7f1dec62aefe1562ea49a16ca03196cc64fc4b9d 100644
 --- a/dist/index.js
 +++ b/dist/index.js
 @@ -4148,6 +4148,8 @@ class DecorationSet {
@@ -459,7 +460,7 @@ index dc0d117b85e1da3eae915b4d8ff8e5e604683861..bed8df2ba21766cad48427f842bd4937
              let from = mapping.map(oldChildren[i] + oldOffset), fromLocal = from - offset;
              if (fromLocal < 0 || fromLocal >= node.content.size) {
                  mustRebuild = true;
-@@ -4502,24 +4559,100 @@ function mapChildren(oldChildren, newLocal, mapping, node, offset, oldOffset, op
+@@ -4502,24 +4559,101 @@ function mapChildren(oldChildren, newLocal, mapping, node, offset, oldOffset, op
                  mustRebuild = true;
              }
          }
@@ -539,9 +540,10 @@ index dc0d117b85e1da3eae915b4d8ff8e5e604683861..bed8df2ba21766cad48427f842bd4937
 +// where it is never drawn. Take such widgets out of `local` (in place) and
 +// return them, for the caller to add to the set, which places each in the
 +// child that now contains it, as buildTree would have. Null when there are
-+// none; one walk over the children otherwise.
++// none; one walk over the children otherwise. Text is a leaf, so in a
++// textblock only inline nodes with content take widgets.
 +function takeMisplacedWidgets(local, node) {
-+    if (node.inlineContent || !node.childCount)
++    if (!node.childCount)
 +        return null;
 +    let widgets = null;
 +    for (let i = 0; i < local.length; i++)
@@ -569,7 +571,7 @@ index dc0d117b85e1da3eae915b4d8ff8e5e604683861..bed8df2ba21766cad48427f842bd4937
  }
  function moveSpans(spans, offset) {
      if (!offset || !spans.length)
-@@ -4549,15 +4682,63 @@ function mapAndGatherRemainingDecorations(children, oldChildren, decorations, ma
+@@ -4549,15 +4683,63 @@ function mapAndGatherRemainingDecorations(children, oldChildren, decorations, ma
              gather(children[i + 2], oldChildren[i] + oldOffset + 1);
      return decorations;
  }
@@ -639,7 +641,7 @@ index dc0d117b85e1da3eae915b4d8ff8e5e604683861..bed8df2ba21766cad48427f842bd4937
      }
      return found;
  }
-@@ -4574,8 +4755,10 @@ function withoutNulls(array) {
+@@ -4574,8 +4756,10 @@ function withoutNulls(array) {
  // for recursive calls).
  function buildTree(spans, node, offset, options) {
      let children = [], hasNulls = false;

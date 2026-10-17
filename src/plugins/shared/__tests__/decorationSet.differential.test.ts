@@ -22,8 +22,8 @@
 // is not the reference. Each seed maps a whole edit, a slice of it, the edit
 // rebased collab-style over another one (mirrors), and a typed character.
 import { describe, expect, it } from "vitest";
-import type { Node } from "@tiptap/pm/model";
-import { Mapping, Transform } from "@tiptap/pm/transform";
+import { Fragment, Slice, type Node } from "@tiptap/pm/model";
+import { Mapping, ReplaceAroundStep, Transform } from "@tiptap/pm/transform";
 import { Decoration, DecorationSet, type DecorationSource } from "@tiptap/pm/view";
 import { referenceAdd, referenceCreate, referenceForChild } from "./decorationSetReference";
 import {
@@ -233,6 +233,17 @@ describe("cases the audit found", () => {
     const mapped = set.map(tr.mapping, tr.doc);
     expectMappedLike(mapped, set.find(), tr, "wrap widget");
     expect(drawn(mapped, tr.doc)).toEqual(["4-4 widget w"]);
+  });
+
+  it("a widget that a step moves inside an inline node is drawn there", () => {
+    // Wrapping text in an inline node with content: the widget is now inside
+    // the span, whose own set the view asks for, not the paragraph's.
+    const doc = schema.nodes.doc.create(null, [p("abc")]);
+    const set = DecorationSet.create(doc, [Decoration.widget(2, () => document.createElement("span"), { side: 1, key: "w" })]);
+    const tr = new Transform(doc).step(new ReplaceAroundStep(1, 4, 1, 4, new Slice(Fragment.from(schema.nodes.span.create()), 0, 0), 1, true));
+    const mapped = set.map(tr.mapping, tr.doc);
+    expectMappedLike(mapped, set.find(), tr, "span widget");
+    expect(drawn(mapped, tr.doc)).toEqual(["3-3 widget w"]);
   });
 
   it("the node-decoration oracle tells decorations apart, not only ranges", () => {
