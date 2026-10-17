@@ -28,6 +28,9 @@
  *     fails, comes back unchanged: merely unresolved, not hostile.
  *   - Do NOT percent-encode before `convertFileSrc`: it already encodes the
  *     whole path, and encoding here would double-encode (#752).
+ *   - A caller that resolves LATER (an image deferred to the viewport, #1565)
+ *     takes `snapshotActiveFilePath()` first: read at resolution time, the
+ *     active document may be the other pane of a split.
  *
  * @coordinates-with plugins/shared/mediaSecurity.ts — path classification
  * @coordinates-with plugins/shared/hostDocument.ts — the inline resolvers' document path
