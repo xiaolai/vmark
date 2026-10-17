@@ -242,8 +242,10 @@ function lineOf(decoration: Decoration, base = 0): string {
  * What a view draws from `source` over `node`, as lines: descending the way
  * the view does — `forChild` per child — so a subtree the tree keeps under
  * the wrong parent, which `find()` still lists, is missing here. Inline
- * decorations are read where text is drawn (a textblock), widgets where they
- * sit, node decorations only on a child they exactly cover.
+ * decorations are read where text is drawn (a textblock); widgets in a
+ * textblock anywhere, elsewhere only between children — one kept at a level
+ * whose child now contains it is not drawn; node decorations only on a child
+ * they exactly cover.
  */
 export function drawn(source: DecorationSource, node: Node, base = 0, out: string[] = []): string[] {
   const locals: Decoration[] = [];
@@ -251,8 +253,10 @@ export function drawn(source: DecorationSource, node: Node, base = 0, out: strin
   const children: { child: Node; offset: number }[] = [];
   node.forEach((child, offset) => children.push({ child, offset }));
   for (const decoration of locals) {
-    if (internals(decoration).widget) out.push(lineOf(decoration, base));
-    else if (internals(decoration).inline) {
+    if (internals(decoration).widget) {
+      const inside = children.some(({ child, offset }) => decoration.from > offset && decoration.from < offset + child.nodeSize);
+      if (node.inlineContent || !inside) out.push(lineOf(decoration, base));
+    } else if (internals(decoration).inline) {
       if (node.inlineContent) out.push(lineOf(decoration, base));
     } else if (children.some(({ child, offset }) => offset === decoration.from && offset + child.nodeSize === decoration.to)) {
       out.push(lineOf(decoration, base));

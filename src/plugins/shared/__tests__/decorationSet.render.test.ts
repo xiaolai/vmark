@@ -3,11 +3,12 @@
 // this draws them, through a real EditorView, so a difference the structural
 // comparison could miss still shows.
 //
-// Two comparisons per generated case. A set the patch built and extended
-// draws exactly what the reference algorithm's set draws. Then a view that
-// maps the patched set through an edit and redraws incrementally — the order
-// in which the view asks `forChild`, hint and all — ends with the DOM a fresh
-// view draws for the decorations mapped one by one. Node decorations come
+// Two comparisons per generated case, over 1000 cases: a widget a wrap moved
+// inside a child first failed at seeds above 300. A set the patch built and
+// extended draws exactly what the reference algorithm's set draws. Then a
+// view that maps the patched set through an edit and redraws incrementally —
+// the order in which the view asks `forChild`, hint and all — ends with the
+// DOM a fresh view draws for the decorations mapped one by one. Node decorations come
 // from the mapped set itself on both sides: upstream drops one whose node
 // changed parent on some paths and not others. Each one copied is first held
 // to soundness — it covers a node and is, range and identity, what mapping
@@ -29,7 +30,7 @@ import { Transform } from "@tiptap/pm/transform";
 import { referenceAdd, referenceCreate } from "./decorationSetReference";
 import { decorationsOf, documentOf, editsOf, individuallyMapped, isNodeDecoration, schema, seeded, unsoundNodeDecorations } from "./decorationSetFixtures";
 
-const CASES = 150;
+const CASES = 1000;
 
 const views: EditorView[] = [];
 
@@ -91,6 +92,17 @@ describe("the patched decoration tree draws what the unpatched algorithm draws",
     const view = viewOf(doc, set);
     expectRedrawnLikeFresh(view, set, edit, "wrap");
     expect(view.dom.querySelectorAll(".cjk")).toHaveLength(3);
+  });
+
+  it("a widget that a wrap moves inside the new quote is drawn before the rule", () => {
+    const doc = schema.nodes.doc.create(null, [schema.nodes.paragraph.create(null, schema.text("a")), schema.nodes.horizontal_rule.create()]);
+    const widget = () => Object.assign(document.createElement("span"), { className: "moved" });
+    const set = DecorationSet.create(doc, [Decoration.widget(3, widget, { side: 1, key: "w" })]);
+    const edit = new Transform(doc);
+    edit.wrap(doc.resolve(3).blockRange(doc.resolve(4))!, [{ type: schema.nodes.blockquote }]);
+    const view = viewOf(doc, set);
+    expectRedrawnLikeFresh(view, set, edit, "wrap widget");
+    expect(view.dom.querySelector("blockquote > .moved + hr")).not.toBeNull();
   });
 });
 

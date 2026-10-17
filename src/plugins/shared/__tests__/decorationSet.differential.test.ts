@@ -17,9 +17,10 @@
 // `mapChildren`, which kept child sets where no child node is — after a later
 // step replaced a touched child's opening token, after a wrap moved an
 // untouched child, through a mirrored mapping, through a slice of a mapping
-// (whose excluded steps it still applied) — so for `map`, upstream is not the
-// reference. Each seed maps a whole edit, a slice of it, the edit rebased
-// collab-style over another one (mirrors), and a typed character.
+// (whose excluded steps it still applied) — and kept a widget a wrap moved
+// inside a child at the level that no longer draws it. So for `map`, upstream
+// is not the reference. Each seed maps a whole edit, a slice of it, the edit
+// rebased collab-style over another one (mirrors), and a typed character.
 import { describe, expect, it } from "vitest";
 import type { Node } from "@tiptap/pm/model";
 import { Mapping, Transform } from "@tiptap/pm/transform";
@@ -220,6 +221,18 @@ describe("cases the audit found", () => {
     expectMappedLike(later.map(tr.mapping.slice(1), tr.doc), later.find(), { mapping: tr.mapping.slice(1), doc: tr.doc }, "slice(1)");
     const earlier = DecorationSet.create(doc, [Decoration.inline(6, 9, { class: "x" })]);
     expectMappedLike(earlier.map(tr.mapping.slice(0, 1), middle), earlier.find(), { mapping: tr.mapping.slice(0, 1), doc: middle }, "slice(0, 1)");
+  });
+
+  it("a widget that a wrap moves inside the new quote is drawn there", () => {
+    // The widget sat between the paragraph and the rule; the quote's opening
+    // token lands under it, so it now belongs to the quote, not the root.
+    const doc = schema.nodes.doc.create(null, [p("a"), schema.nodes.horizontal_rule.create()]);
+    const set = DecorationSet.create(doc, [Decoration.widget(3, () => document.createElement("span"), { side: 1, key: "w" })]);
+    const tr = new Transform(doc);
+    tr.wrap(doc.resolve(3).blockRange(doc.resolve(4))!, [{ type: schema.nodes.blockquote }]);
+    const mapped = set.map(tr.mapping, tr.doc);
+    expectMappedLike(mapped, set.find(), tr, "wrap widget");
+    expect(drawn(mapped, tr.doc)).toEqual(["4-4 widget w"]);
   });
 
   it("the node-decoration oracle tells decorations apart, not only ranges", () => {

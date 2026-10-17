@@ -16,7 +16,7 @@ function packageRoot(): string {
 }
 
 /** The patched sites: the shared helper, `buildTree`, `addInner`, `forChild` and its hint. */
-const PATCHED_SITES = 12;
+const PATCHED_SITES = 15;
 
 describe("the prosemirror-view patch", () => {
   const root = packageRoot();
