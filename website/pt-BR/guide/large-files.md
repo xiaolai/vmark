@@ -19,7 +19,17 @@ O tamanho é verificado pelo sistema operacional sem ler o arquivo, então a dec
 
 O modo Fonte usa o CodeMirror com virtualização de viewport — apenas a porção visível do documento é renderizada. O modo WYSIWYG usa Tiptap/ProseMirror, que precisa construir um nó DOM para cada bloco do documento. Em um arquivo markdown de 1,4 MB / ~2.250 blocos isso leva cerca de 15 segundos na primeira abertura; o modo Fonte abre o mesmo arquivo em menos de um segundo.
 
-O parsing não é o gargalo — é a construção da view do ProseMirror. Mover o parse para fora da thread principal não melhoraria perceptivelmente a espera.
+A maior parte desse tempo vai para construir e diagramar a view, não para o parsing. Em um documento CJK longo medido em uma máquina lenta, o parsing foi entre um quarto e dois quintos do custo de abertura do editor.
+
+## Enquanto um documento abre
+
+Uma janela responde aos menus, atalhos e ao botão de fechar antes de o VMark construir a view de texto rico do documento, que aparece logo em seguida. Antes, um documento longo era construído primeiro e, em uma máquina lenta, isso podia impedir a janela de ficar pronta: os menus respondiam com atraso e o log registrava *menu commands did not mount within 5000ms*.
+
+O que o WYSIWYG faz ao abrir também fica proporcional ao documento:
+
+- As imagens carregam quando se aproximam da área visível.
+- **Espaçamento entre Letras CJK** (**Configurações → Editor → Tipografia**) não faz nenhum trabalho enquanto está desligado, o padrão, e percorre o documento uma única vez quando está ligado.
+- Decorações como o destaque de código, o espaçamento CJK e as marcações de lint custam aproximadamente de forma linear com o tamanho do documento. Documentos muito longos custavam de forma quadrática.
 
 ## Indicadores na barra de status
 
@@ -52,4 +62,4 @@ A recusa fixa em 50 MB não é ajustável pelo usuário. A webview não consegue
 ## Limitações conhecidas
 
 - Os limiares são tamanhos em bytes, que são uma aproximação para o custo real (contagem de blocos). Um arquivo de 600 KB com milhares de blocos curtos pode ser mais lento que um arquivo de 1,2 MB com parágrafos longos. Os padrões são conservadores.
-- O WYSIWYG ainda constrói todos os blocos do documento ao abrir — só as fórmulas matemáticas em linha são renderizadas depois, quando se aproximam da área visível — então mudar um arquivo grande para WYSIWYG custa todo o tempo de abertura descrito acima.
+- O WYSIWYG ainda constrói todos os blocos do documento ao abrir — só as imagens e as fórmulas matemáticas em linha esperam até se aproximarem da área visível — então mudar um arquivo grande para WYSIWYG custa todo o tempo de abertura descrito acima.

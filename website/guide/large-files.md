@@ -19,7 +19,17 @@ Size is checked via the operating system without reading the file, so the decisi
 
 Source mode uses CodeMirror with viewport virtualization — only the visible portion of the document is rendered. WYSIWYG mode uses Tiptap/ProseMirror, which must build a DOM node for every block in the document. On a 1.4 MB / ~2,250-block markdown file this takes about 15 seconds on first open; Source mode opens the same file in under a second.
 
-Parsing is not the bottleneck — it is ProseMirror's view construction. Moving parse off the main thread would not meaningfully improve the perceived wait.
+Most of that time is building and laying out the view, not parsing. On a long CJK document measured on a slow machine, the parse was between a quarter and two fifths of the editor's open cost.
+
+## While a document opens
+
+A window answers its menus, shortcuts and close button before VMark builds the document's rich-text view, and the document appears just after. A long document used to be built first, and on a slow machine that could keep the window from becoming ready: menus responded late, and the log said *menu commands did not mount within 5000ms*.
+
+What WYSIWYG does at open also stays in proportion to the document:
+
+- Images load as they come near the visible area.
+- **CJK Letter Spacing** (**Settings → Editor → Typography**) does no work while it is off, its default, and scans the document once when it is on.
+- Decorations such as code highlighting, CJK spacing and lint marks cost about linearly in the document's length. Very long documents used to cost quadratically.
 
 ## Status bar cues
 
@@ -52,4 +62,4 @@ The 50 MB hard refusal is not user-adjustable. The webview cannot safely hold ar
 ## Known limitations
 
 - The thresholds are byte sizes, which are a proxy for the real cost (block count). A 600 KB file with thousands of short blocks can be slower than a 1.2 MB file of long paragraphs. The defaults are conservative.
-- WYSIWYG still builds every block of the document when it opens — only inline math formulas render later, as they come near the visible area — so switching a large file to WYSIWYG costs the full open time described above.
+- WYSIWYG still builds every block of the document when it opens — only images and inline math formulas wait until they come near the visible area — so switching a large file to WYSIWYG costs the full open time described above.

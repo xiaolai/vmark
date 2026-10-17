@@ -19,7 +19,17 @@ La taille est vérifiée via le système d'exploitation sans lire le fichier&nbs
 
 Le mode Source utilise CodeMirror avec virtualisation du viewport — seule la portion visible du document est rendue. Le mode WYSIWYG utilise Tiptap/ProseMirror, qui doit construire un nœud DOM pour chaque bloc du document. Sur un fichier markdown de 1,4 Mo / ~2&nbsp;250 blocs, cela prend environ 15 secondes à la première ouverture&nbsp;; le mode Source ouvre le même fichier en moins d'une seconde.
 
-L'analyse n'est pas le goulot d'étranglement — c'est la construction de la vue ProseMirror. Déplacer l'analyse hors du thread principal n'améliorerait pas significativement l'attente perçue.
+L'essentiel de ce temps sert à construire et à mettre en page la vue, pas à l'analyse. Sur un long document CJK mesuré sur une machine lente, l'analyse représentait entre un quart et deux cinquièmes du coût d'ouverture de l'éditeur.
+
+## Pendant l'ouverture d'un document
+
+Une fenêtre répond à ses menus, à ses raccourcis et à son bouton de fermeture avant que VMark ne construise la vue en texte enrichi du document, qui apparaît juste après. Auparavant, un long document était construit en premier, et sur une machine lente cela pouvait empêcher la fenêtre d'être prête&nbsp;: les menus répondaient en retard, et le journal indiquait *menu commands did not mount within 5000ms*.
+
+Ce que fait le WYSIWYG à l'ouverture reste aussi proportionné au document&nbsp;:
+
+- Les images se chargent à l'approche de la zone visible.
+- **Espacement des lettres CJK** (**Paramètres → Éditeur → Typographie**) ne fait aucun travail tant qu'il est désactivé, sa valeur par défaut, et parcourt le document une seule fois lorsqu'il est activé.
+- Les décorations, comme la coloration du code, l'espacement CJK et les marques de lint, coûtent à peu près linéairement selon la longueur du document. Les très longs documents coûtaient auparavant de façon quadratique.
 
 ## Indications dans la barre d'état
 
@@ -52,4 +62,4 @@ Le refus strict à 50 Mo n'est pas modifiable par l'utilisateur. La webview ne p
 ## Limitations connues
 
 - Les seuils sont des tailles en octets, qui sont un proxy pour le coût réel (nombre de blocs). Un fichier de 600 Ko avec des milliers de petits blocs peut être plus lent qu'un fichier de 1,2 Mo composé de longs paragraphes. Les valeurs par défaut sont conservatrices.
-- Le WYSIWYG construit toujours chaque bloc du document à l'ouverture — seules les formules mathématiques en ligne sont rendues plus tard, à l'approche de la zone visible —, donc passer un fichier volumineux en WYSIWYG coûte tout le temps d'ouverture décrit ci-dessus.
+- Le WYSIWYG construit toujours chaque bloc du document à l'ouverture — seules les images et les formules mathématiques en ligne attendent l'approche de la zone visible —, donc passer un fichier volumineux en WYSIWYG coûte tout le temps d'ouverture décrit ci-dessus.

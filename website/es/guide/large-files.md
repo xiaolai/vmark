@@ -19,7 +19,17 @@ El tamaño se comprueba a través del sistema operativo sin leer el archivo, por
 
 El modo Fuente usa CodeMirror con virtualización de viewport — solo se renderiza la parte visible del documento. El modo WYSIWYG usa Tiptap/ProseMirror, que debe construir un nodo DOM por cada bloque del documento. En un archivo markdown de 1,4 MB / ~2.250 bloques esto tarda unos 15 segundos al abrirlo por primera vez; el modo Fuente abre el mismo archivo en menos de un segundo.
 
-El parseo no es el cuello de botella — lo es la construcción de la vista de ProseMirror. Mover el parseo fuera del hilo principal no mejoraría de forma significativa la espera percibida.
+La mayor parte de ese tiempo se va en construir y maquetar la vista, no en el parseo. En un documento CJK largo medido en una máquina lenta, el parseo supuso entre una cuarta parte y dos quintas partes del coste de apertura del editor.
+
+## Mientras se abre un documento
+
+Una ventana responde a sus menús, atajos y botón de cierre antes de que VMark construya la vista de texto enriquecido del documento, que aparece justo después. Antes se construía primero el documento largo, y en una máquina lenta eso podía impedir que la ventana estuviera lista: los menús respondían tarde y el registro decía *menu commands did not mount within 5000ms*.
+
+Lo que hace WYSIWYG al abrir también se mantiene en proporción al documento:
+
+- Las imágenes se cargan cuando se acercan a la zona visible.
+- **Espaciado de Caracteres CJK** (**Configuración → Editor → Tipografía**) no hace ningún trabajo mientras está desactivado, su valor por defecto, y recorre el documento una sola vez cuando está activado.
+- Las decoraciones, como el resaltado de código, el espaciado CJK y las marcas de lint, cuestan aproximadamente de forma lineal con la longitud del documento. Los documentos muy largos solían costar de forma cuadrática.
 
 ## Indicadores de la barra de estado
 
@@ -52,4 +62,4 @@ El rechazo absoluto a 50 MB no es ajustable por el usuario. La webview no puede 
 ## Limitaciones conocidas
 
 - Los umbrales son tamaños en bytes, que son una aproximación al coste real (recuento de bloques). Un archivo de 600 KB con miles de bloques cortos puede ser más lento que uno de 1,2 MB con párrafos largos. Los valores por defecto son conservadores.
-- WYSIWYG sigue construyendo todos los bloques del documento al abrirlo — solo las fórmulas matemáticas en línea se renderizan después, cuando se acercan a la zona visible —, así que cambiar un archivo grande a WYSIWYG cuesta el tiempo de apertura completo descrito arriba.
+- WYSIWYG sigue construyendo todos los bloques del documento al abrirlo — solo las imágenes y las fórmulas matemáticas en línea esperan hasta acercarse a la zona visible —, así que cambiar un archivo grande a WYSIWYG cuesta el tiempo de apertura completo descrito arriba.

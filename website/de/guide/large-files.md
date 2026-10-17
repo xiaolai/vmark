@@ -19,7 +19,17 @@ Die Größe wird über das Betriebssystem geprüft, ohne die Datei zu lesen, sod
 
 Der Quellmodus nutzt CodeMirror mit Viewport-Virtualisierung — nur der sichtbare Teil des Dokuments wird gerendert. Der WYSIWYG-Modus verwendet Tiptap/ProseMirror, das für jeden Block im Dokument einen DOM-Knoten aufbauen muss. Bei einer 1,4 MB großen Markdown-Datei mit etwa 2.250 Blöcken dauert das beim ersten Öffnen rund 15 Sekunden; der Quellmodus öffnet dieselbe Datei in weniger als einer Sekunde.
 
-Das Parsen ist nicht der Flaschenhals — es ist die View-Konstruktion von ProseMirror. Das Parsen aus dem Haupt-Thread auszulagern, würde die wahrgenommene Wartezeit nicht spürbar verbessern.
+Die meiste Zeit kosten Aufbau und Layout der Ansicht, nicht das Parsen. Bei einem langen CJK-Dokument, gemessen auf einem langsamen Rechner, machte das Parsen zwischen einem Viertel und zwei Fünfteln der Öffnungskosten des Editors aus.
+
+## Während ein Dokument geöffnet wird
+
+Ein Fenster reagiert auf Menüs, Tastenkürzel und die Schließen-Schaltfläche, bevor VMark die Rich-Text-Ansicht des Dokuments aufbaut; das Dokument erscheint kurz danach. Früher wurde ein langes Dokument zuerst aufgebaut, und auf einem langsamen Rechner konnte das verhindern, dass das Fenster bereit wurde: Menüs reagierten verzögert, und im Protokoll stand *menu commands did not mount within 5000ms*.
+
+Auch was WYSIWYG beim Öffnen tut, bleibt im Verhältnis zum Dokument:
+
+- Bilder werden geladen, wenn sie in die Nähe des sichtbaren Bereichs kommen.
+- **CJK-Buchstabenabstand** (**Einstellungen → Editor → Typografie**) tut nichts, solange er ausgeschaltet ist (die Voreinstellung), und durchsucht das Dokument nur einmal, wenn er eingeschaltet ist.
+- Dekorationen wie Code-Hervorhebung, CJK-Abstand und Lint-Markierungen kosten ungefähr linear in der Länge des Dokuments. Sehr lange Dokumente kosteten früher quadratisch.
 
 ## Hinweise in der Statusleiste
 
@@ -52,4 +62,4 @@ Die harte 50-MB-Grenze ist nicht vom Benutzer einstellbar. Die Webview kann beli
 ## Bekannte Einschränkungen
 
 - Die Schwellen sind Byte-Größen, also ein Stellvertreter für die tatsächlichen Kosten (Block-Anzahl). Eine 600 KB große Datei mit Tausenden kurzer Blöcke kann langsamer sein als eine 1,2 MB große Datei mit langen Absätzen. Die Standardwerte sind konservativ.
-- WYSIWYG baut beim Öffnen weiterhin jeden Block des Dokuments auf — nur Inline-Formeln werden erst gerendert, wenn sie in die Nähe des sichtbaren Bereichs kommen —, daher kostet der Wechsel einer großen Datei zu WYSIWYG die oben beschriebene volle Öffnungszeit.
+- WYSIWYG baut beim Öffnen weiterhin jeden Block des Dokuments auf — nur Bilder und Inline-Formeln warten, bis sie in die Nähe des sichtbaren Bereichs kommen —, daher kostet der Wechsel einer großen Datei zu WYSIWYG die oben beschriebene volle Öffnungszeit.

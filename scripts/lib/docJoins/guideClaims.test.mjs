@@ -42,6 +42,7 @@ describe("each claim fails when one side drifts", () => {
     ["browser search engine", "omnibox", (s) => s.replace(/SEARCH_URL_BASE\s*=\s*"[^"]+"/, 'SEARCH_URL_BASE = "https://www.google.com/search"'), /names duckduckgo, SEARCH_URL_BASE searches www.google.com/],
     ["MCP client credential key", "tokenField", (s) => s.replace('TOKEN_ENV_KEY: &str = "VMARK_MCP_TOKEN"', 'TOKEN_ENV_KEY: &str = "VMARK_TOKEN"'), /does not name `env.VMARK_TOKEN`/],
     ["IME grace period", "imeGuard", (s) => s.replace("IME_GRACE_PERIOD_MS = 50", "IME_GRACE_PERIOD_MS = 80"), /the guide says 50, the code says 80/],
+    ["menu readiness budget", "windowReady", (s) => s.replace("MENU_COMMANDS_BUDGET_MS = 5_000", "MENU_COMMANDS_BUDGET_MS = 8_000"), /the guide says 5000, the code says 8000/],
     ["nesting limit", "largeFilesGuide", (s) => s.replace("nested more than 1000 levels deep", "nested more than 500 levels deep"), /large-files.md limit: the guide says 500, the code says 1000/],
     ["prompt history size", "promptHistory", (s) => s.replace("const MAX_ENTRIES = 100", "const MAX_ENTRIES = 50"), /the guide says 100, the code says 50/],
     ["terminal hangup grace", "ptyChild", (s) => s.replace("Duration::from_millis(1000)", "Duration::from_millis(2500)"), /the guide says 1000, the code says 2500/],
@@ -68,6 +69,11 @@ describe("a pattern that stops matching is a finding", () => {
   it("a reworded guide sentence", () => {
     const findings = findingsFor(drifted("featuresGuide", (s) => s.replace("for 50 ms after the composition ends", "briefly after composing")), "IME grace period");
     expect(findings).toEqual([expect.stringMatching(/features.md IME sentence not found/)]);
+  });
+
+  it("a reworded log line the guide quotes", () => {
+    const findings = findingsFor(drifted("windowReady", (s) => s.replace("menu commands did not mount within", "menu commands timed out after")), "menu readiness budget");
+    expect(findings).toEqual([expect.stringMatching(/useWindowReady.ts readiness log line not found/)]);
   });
 
   it("a renamed constant", () => {

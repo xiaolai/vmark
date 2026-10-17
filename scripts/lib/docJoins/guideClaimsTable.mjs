@@ -22,6 +22,7 @@ export const CLAIM_PATHS = {
   formatsGuide: "website/guide/formats.md",
   largeFilesGuide: "website/guide/large-files.md",
   nestingDepth: "src/utils/markdownPipeline/nestingDepth.ts",
+  windowReady: "src/contexts/useWindowReady.ts",
   tauriConf: "src-tauri/tauri.conf.json",
   settingsGuide: "website/guide/settings.md",
   programNames: "src-tauri/src/external_editor/program_names.rs",
@@ -147,6 +148,19 @@ export const CLAIMS = [
         ...equal(capture(t.formatsGuide, /nested up to (\d+) levels deep/, "formats.md nesting sentence"), code, "formats.md limit"),
         ...equal(capture(t.largeFilesGuide, /nested more than (\d+) levels deep/, "large-files.md nesting sentence"), code, "large-files.md limit"),
       ];
+    },
+  },
+  {
+    name: "menu readiness budget",
+    files: ["largeFilesGuide", "windowReady"],
+    check: (t) => {
+      // The guide quotes the log line, so the line's wording is a claim too.
+      capture(t.windowReady, /(menu commands did not mount within \$\{MENU_COMMANDS_BUDGET_MS\}ms)/, "useWindowReady.ts readiness log line");
+      return equal(
+        capture(t.largeFilesGuide, /\*menu commands did not mount within (\d+)ms\*/, "large-files.md readiness log line"),
+        Number(capture(t.windowReady, /MENU_COMMANDS_BUDGET_MS = ([\d_]+)/, "MENU_COMMANDS_BUDGET_MS").replace(/_/g, "")),
+        "menu readiness budget (ms)",
+      );
     },
   },
   {
