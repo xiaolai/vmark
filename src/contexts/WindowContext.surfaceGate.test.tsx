@@ -11,18 +11,16 @@ import { StrictMode, useEffect } from "react";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { emit, claimWorkspaceTransfer, handleTabTransfer, prepareStorage } = vi.hoisted(() => ({
+const { emit, claimWorkspaceTransfer, handleTabTransfer } = vi.hoisted(() => ({
   emit: vi.fn((_event: string, _payload?: unknown) => Promise.resolve()),
   claimWorkspaceTransfer: vi.fn(async () => false),
   handleTabTransfer: vi.fn(async () => false),
-  prepareStorage: vi.fn(),
 }));
 let label = "main";
 
 vi.mock("@tauri-apps/api/webviewWindow", () => ({
   getCurrentWebviewWindow: () => ({ label, emit, listen: () => Promise.resolve(() => {}) }),
 }));
-vi.mock("./prepareWindowStorage", () => ({ prepareWindowStorage: prepareStorage }));
 vi.mock("@/services/workspaces/workspaceWindowActions", () => ({
   claimWorkspaceTransferForWindow: claimWorkspaceTransfer,
 }));
@@ -30,10 +28,6 @@ vi.mock("./tabTransferHandlers", () => ({
   handleTabTransfer,
   applyTabTransferData: vi.fn(),
   handleTabRemovalRequest: vi.fn(),
-}));
-vi.mock("./startupFileOpen", () => ({
-  openStartupContent: vi.fn(async () => {}),
-  parseStartupFilesParam: () => [],
 }));
 vi.mock("@/services/workspaces/openWorkspaceWithConfig", () => ({
   openWorkspaceWithConfig: vi.fn(async () => null),
@@ -90,7 +84,6 @@ beforeEach(() => {
   emit.mockClear();
   claimWorkspaceTransfer.mockReset().mockResolvedValue(false);
   handleTabTransfer.mockReset().mockResolvedValue(false);
-  prepareStorage.mockReset();
   resetMenuCommandsForTest();
   resetCloseListenersForTest();
   resetWindowListeningForTest();
@@ -100,7 +93,11 @@ beforeEach(() => {
 
 afterEach(() => {
   document.documentElement.removeAttribute(READY_ATTRIBUTE);
+  vi.restoreAllMocks();
 });
+
+/** Set by a case that makes the window's init fail; asserted to have fired. */
+let initFailed = false;
 
 describe("the document surface waits for the window's announcement", () => {
   it.each([
@@ -118,11 +115,15 @@ describe("the document surface waits for the window's announcement", () => {
       handleTabTransfer.mockResolvedValue(true);
     }],
     ["a window whose init fails", () => {
-      prepareStorage.mockImplementation(() => {
+      // The storage boundary refuses the doc window's stale-workspace cleanup.
+      label = "doc-4";
+      vi.spyOn(Storage.prototype, "removeItem").mockImplementationOnce(() => {
+        initFailed = true;
         throw new Error("storage boom");
       });
     }],
-  ])("%s", async (_name, arrange) => {
+  ])("%s", async (name, arrange) => {
+    initFailed = false;
     arrange();
     renderWindow();
 
@@ -139,6 +140,7 @@ describe("the document surface waits for the window's announcement", () => {
     // Every mount saw the announcement already made.
     expect(surfaceMounts.length).toBeGreaterThan(0);
     expect(surfaceMounts.every((attr) => attr === "true")).toBe(true);
+    expect(initFailed).toBe(name === "a window whose init fails");
   });
 });
 
