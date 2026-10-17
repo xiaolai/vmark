@@ -127,9 +127,16 @@ function membersOf(source: DecorationSource): DecorationSet[] {
   return members ? [...members] : source === DecorationSet.empty ? [] : [source as DecorationSet];
 }
 
-/** `forChild` at every child of `node`, recursively, against the reference. */
+/**
+ * `forChild` at every child of `node`, recursively, against the reference —
+ * in document order, as the view asks, then in reverse, so the patched
+ * lookup's hint (the entry its last call found) is also tested when it is
+ * wrong.
+ */
 function expectSameForChild(set: DecorationSet, node: Node, label: string) {
-  node.forEach((child, offset) => {
+  const children: { child: Node; offset: number }[] = [];
+  node.forEach((child, offset) => children.push({ child, offset }));
+  for (const { child, offset } of [...children, ...children.slice().reverse()]) {
     const actual = membersOf(set.forChild(offset, child));
     const { child: refChild, local: refLocal } = referenceForChild(set, offset, child);
     // Composed as the library composes it: `[local, child]` as a group, or
@@ -141,7 +148,7 @@ function expectSameForChild(set: DecorationSet, node: Node, label: string) {
     expect(actual.length, `${label} @${offset}`).toBe(expected.length);
     actual.forEach((member, i) => expectSameSet(member, expected[i], `${label} @${offset}[${i}]`));
     if (refChild) expectSameForChild(refChild, child, `${label}/${offset}`);
-  });
+  }
 }
 
 describe("the patched decoration tree agrees with the unpatched algorithm", () => {

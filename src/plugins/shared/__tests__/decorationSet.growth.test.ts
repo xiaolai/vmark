@@ -10,9 +10,15 @@
 // Timed at SMALL and LARGE blocks on the test thread's CPU clock
 // (`measureGrowth`); the exponent must stay under MAX_EXPONENT. The patched
 // work is a binary search per decoration (n log n, about 1.1 over this range);
-// the unpatched work read about 2. `forChild` is measured the way rendering
-// calls it, once per child: a whole jsdom render would bury the quadratic
-// term under DOM construction and pass either way.
+// the unpatched work read about 2.
+//
+// Drawing is measured as the one call the patch changed: `forChild`, once per
+// child in document order, as the view asks. A whole jsdom render would bury
+// the quadratic term under DOM construction and pass either way. And the rest
+// of the view's per-child step (reading the child's own decorations) is
+// constant work whose memory outgrows the cache between SMALL and LARGE:
+// measured with it, the exponent read 1.42–1.65 here, against 1.00–1.16 for
+// `forChild` alone and 0.99–1.06 for a plain walk of the same documents.
 import { describe, expect, it } from "vitest";
 import { Schema, type Node } from "@tiptap/pm/model";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";

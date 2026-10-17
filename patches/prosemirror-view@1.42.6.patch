@@ -1,8 +1,17 @@
 diff --git a/dist/index.cjs b/dist/index.cjs
-index d52a5260a7b9924b2865053ea1e8c6484225277b..506a0a0475cae19aaef258c20a22370016149000 100644
+index d52a5260a7b9924b2865053ea1e8c6484225277b..2572c63c4bc369b90bb09bf73037f6484eed20b2 100644
 --- a/dist/index.cjs
 +++ b/dist/index.cjs
-@@ -3936,10 +3936,12 @@ var DecorationSet = function () {
+@@ -3885,6 +3885,8 @@ var DecorationSet = function () {
+     _classCallCheck(this, DecorationSet);
+     this.local = local.length ? local : none;
+     this.children = children.length ? children : none;
++    // VMark patch (#1565): where forChild last found its child — a hint only.
++    this.lastChild = 0;
+   }
+   _createClass(DecorationSet, [{
+     key: "find",
+@@ -3936,10 +3938,12 @@ var DecorationSet = function () {
        var _this11 = this;
        var children,
          childIndex = 0;
@@ -17,27 +26,43 @@ index d52a5260a7b9924b2865053ea1e8c6484225277b..506a0a0475cae19aaef258c20a223700
          if (!children) children = _this11.children.slice();
          while (childIndex < children.length && children[childIndex] < childOffset) childIndex += 3;
          if (children[childIndex] == childOffset) children[childIndex + 2] = children[childIndex + 2].addInner(childNode, found, baseOffset + 1);else children.splice(childIndex, 0, childOffset, childOffset + childNode.nodeSize, buildTree(found, childNode, baseOffset + 1, noSpec));
-@@ -3995,10 +3997,16 @@ var DecorationSet = function () {
+@@ -3995,10 +3999,32 @@ var DecorationSet = function () {
        if (this == empty) return this;
        if (node.isLeaf) return DecorationSet.empty;
        var child, local;
 -      for (var i = 0; i < this.children.length; i += 3) if (this.children[i] >= offset) {
 -        if (this.children[i] == offset) child = this.children[i + 2];
 -        break;
-+      // VMark patch (#1565): binary search for the child at `offset`. The
-+      // view calls this once per child while drawing, and scanning from the
-+      // first child each time made drawing quadratic in the children.
-+      var lo = 0,
-+        hi = this.children.length / 3;
-+      while (lo < hi) {
-+        var mid = lo + hi >> 1;
-+        if (this.children[mid * 3] < offset) lo = mid + 1;else hi = mid;
++      // VMark patch (#1565): find the first child entry at or after
++      // `offset`. The view asks for the children in order while drawing, so
++      // try the entry the last call found and the one after it, and binary
++      // search otherwise. Upstream scanned from the first child on every
++      // call, which made drawing quadratic in the children.
++      var children = this.children,
++        n = children.length,
++        i = this.lastChild;
++      var at = function at(j) {
++        return j <= n && (j == n || children[j] >= offset) && (j == 0 || children[j - 3] < offset);
++      };
++      if (!at(i)) {
++        if (at(i + 3)) {
++          i += 3;
++        } else {
++          var lo = 0,
++            hi = n / 3;
++          while (lo < hi) {
++            var mid = lo + hi >> 1;
++            if (children[mid * 3] < offset) lo = mid + 1;else hi = mid;
++          }
++          i = lo * 3;
++        }
        }
-+      if (this.children[lo * 3] == offset) child = this.children[lo * 3 + 2];
++      this.lastChild = i;
++      if (i < n && children[i] == offset) child = children[i + 2];
        var start = offset + 1,
          end = start + node.content.size;
        for (var _i9 = 0; _i9 < this.local.length; _i9++) {
-@@ -4226,15 +4234,43 @@ function mapAndGatherRemainingDecorations(children, oldChildren, decorations, ma
+@@ -4226,15 +4252,43 @@ function mapAndGatherRemainingDecorations(children, oldChildren, decorations, ma
    for (var i = 0; i < children.length; i += 3) if (children[i + 1] == -1) gather(children[i + 2], oldChildren[i] + oldOffset + 1);
    return decorations;
  }
@@ -90,7 +115,7 @@ index d52a5260a7b9924b2865053ea1e8c6484225277b..506a0a0475cae19aaef258c20a223700
    }
    return found;
  }
-@@ -4246,8 +4282,10 @@ function withoutNulls(array) {
+@@ -4246,8 +4300,10 @@ function withoutNulls(array) {
  function buildTree(spans, node, offset, options) {
    var children = [],
      hasNulls = false;
@@ -104,10 +129,19 @@ index d52a5260a7b9924b2865053ea1e8c6484225277b..506a0a0475cae19aaef258c20a223700
        hasNulls = true;
        var subtree = buildTree(found, childNode, offset + localStart + 1, options);
 diff --git a/dist/index.js b/dist/index.js
-index dc0d117b85e1da3eae915b4d8ff8e5e604683861..0d61abd89c82d167ff9f5f00f863b43795d7ff94 100644
+index dc0d117b85e1da3eae915b4d8ff8e5e604683861..b92e6d162af1dd7d3cfdd401896a9a13c9f31639 100644
 --- a/dist/index.js
 +++ b/dist/index.js
-@@ -4224,9 +4224,11 @@ class DecorationSet {
+@@ -4148,6 +4148,8 @@ class DecorationSet {
+     constructor(local, children) {
+         this.local = local.length ? local : none;
+         this.children = children.length ? children : none;
++        // VMark patch (#1565): where forChild last found its child — a hint only.
++        this.lastChild = 0;
+     }
+     /**
+     Create a set of decorations, using the structure of the given
+@@ -4224,9 +4226,11 @@ class DecorationSet {
      }
      addInner(doc, decorations, offset) {
          let children, childIndex = 0;
@@ -121,7 +155,7 @@ index dc0d117b85e1da3eae915b4d8ff8e5e604683861..0d61abd89c82d167ff9f5f00f863b437
                  return;
              if (!children)
                  children = this.children.slice();
-@@ -4298,12 +4300,19 @@ class DecorationSet {
+@@ -4298,12 +4302,32 @@ class DecorationSet {
          if (node.isLeaf)
              return DecorationSet.empty;
          let child, local;
@@ -130,24 +164,36 @@ index dc0d117b85e1da3eae915b4d8ff8e5e604683861..0d61abd89c82d167ff9f5f00f863b437
 -                if (this.children[i] == offset)
 -                    child = this.children[i + 2];
 -                break;
--            }
-+        // VMark patch (#1565): binary search for the child at `offset`. The
-+        // view calls this once per child while drawing, and scanning from the
-+        // first child each time made drawing quadratic in the children.
-+        let lo = 0, hi = this.children.length / 3;
-+        while (lo < hi) {
-+            let mid = (lo + hi) >> 1;
-+            if (this.children[mid * 3] < offset)
-+                lo = mid + 1;
-+            else
-+                hi = mid;
++        // VMark patch (#1565): find the first child entry at or after
++        // `offset`. The view asks for the children in order while drawing, so
++        // try the entry the last call found and the one after it, and binary
++        // search otherwise. Upstream scanned from the first child on every
++        // call, which made drawing quadratic in the children.
++        let children = this.children, n = children.length, i = this.lastChild;
++        let at = (j) => j <= n && (j == n || children[j] >= offset) && (j == 0 || children[j - 3] < offset);
++        if (!at(i)) {
++            if (at(i + 3)) {
++                i += 3;
+             }
++            else {
++                let lo = 0, hi = n / 3;
++                while (lo < hi) {
++                    let mid = (lo + hi) >> 1;
++                    if (children[mid * 3] < offset)
++                        lo = mid + 1;
++                    else
++                        hi = mid;
++                }
++                i = lo * 3;
++            }
 +        }
-+        if (this.children[lo * 3] == offset)
-+            child = this.children[lo * 3 + 2];
++        this.lastChild = i;
++        if (i < n && children[i] == offset)
++            child = children[i + 2];
          let start = offset + 1, end = start + node.content.size;
          for (let i = 0; i < this.local.length; i++) {
              let dec = this.local[i];
-@@ -4549,15 +4558,51 @@ function mapAndGatherRemainingDecorations(children, oldChildren, decorations, ma
+@@ -4549,15 +4573,51 @@ function mapAndGatherRemainingDecorations(children, oldChildren, decorations, ma
              gather(children[i + 2], oldChildren[i] + oldOffset + 1);
      return decorations;
  }
@@ -164,7 +210,8 @@ index dc0d117b85e1da3eae915b4d8ff8e5e604683861..0d61abd89c82d167ff9f5f00f863b437
 +function takeSpansForChildren(spans, node, offset) {
 +    let count = node.childCount;
 +    if (!count || !spans.length)
-+        return null;
+         return null;
+-    let end = offset + node.nodeSize, found = null;
 +    let starts = new Array(count), ends = new Array(count), pos = offset, container = false;
 +    for (let i = 0; i < count; i++) {
 +        let child = node.child(i);
@@ -175,8 +222,7 @@ index dc0d117b85e1da3eae915b4d8ff8e5e604683861..0d61abd89c82d167ff9f5f00f863b437
 +        ends[i] = pos;
 +    }
 +    if (!container)
-         return null;
--    let end = offset + node.nodeSize, found = null;
++        return null;
 +    let found = null;
      for (let i = 0, span; i < spans.length; i++) {
 -        if ((span = spans[i]) && span.from > offset && span.to < end) {
@@ -205,7 +251,7 @@ index dc0d117b85e1da3eae915b4d8ff8e5e604683861..0d61abd89c82d167ff9f5f00f863b437
      }
      return found;
  }
-@@ -4574,8 +4619,10 @@ function withoutNulls(array) {
+@@ -4574,8 +4634,10 @@ function withoutNulls(array) {
  // for recursive calls).
  function buildTree(spans, node, offset, options) {
      let children = [], hasNulls = false;

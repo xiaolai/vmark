@@ -15,8 +15,8 @@ function packageRoot(): string {
   return path.dirname(path.dirname(fromPm.resolve("prosemirror-view")));
 }
 
-/** The patched sites: the shared helper, `buildTree`, `addInner`, `forChild`. */
-const PATCHED_SITES = 4;
+/** The patched sites: the shared helper, `buildTree`, `addInner`, `forChild` and its hint. */
+const PATCHED_SITES = 5;
 
 describe("the prosemirror-view patch", () => {
   const root = packageRoot();
