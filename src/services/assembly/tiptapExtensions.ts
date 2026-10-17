@@ -23,6 +23,7 @@
  * @coordinates-with markdownPipeline/ — schema nodes must match pipeline converters
  * @coordinates-with editorPlugins.tiptap.ts — additional ProseMirror plugins
  * @coordinates-with hostAdapters.ts — the app-side values plugins are configured with
+ * @coordinates-with cjkLetterSpacingSetting.ts — the CJK spacing predicate, shared with export
  * @module services/assembly/tiptapExtensions
  */
 
