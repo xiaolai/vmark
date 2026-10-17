@@ -40,6 +40,35 @@ const OC1 = [
   ["scripts/check-open-cost-phase.test.mjs", "// test\n"],
 ];
 
+/** OC1's regression tests: a phase is not done while any of them is gone. */
+const OC1_TESTS = [
+  "src/components/Editor/useTiptapFlush.test.ts",
+  "src/services/commands/menuListener.test.ts",
+  "src/contexts/windowListening.test.ts",
+  "src/contexts/WindowContext.surfaceGate.test.tsx",
+  "src/components/Editor/DocumentSplit/DocumentSplitContainer.test.tsx",
+  "src/services/commands/exportCommands.test.ts",
+];
+
+/** Phase OC2's production deliverables, without its tests. */
+const OC2_CODE = [
+  ["src/plugins/codeBlockLineNumbers/tiptap.ts", "addProseMirrorPlugins() {}\n"],
+  ["patches/prosemirror-view@1.42.6.patch", "diff\n"],
+  ["package.json", "{ \"prosemirror-view@1.42.6\": \"patches/x.patch\" }\n"],
+];
+
+const OC2_TESTS = [
+  "src/services/assembly/extensionPluginFamilies.test.ts",
+  "src/plugins/shared/__tests__/decorationSet.differential.test.ts",
+  "src/plugins/shared/__tests__/decorationSet.render.test.ts",
+  "src/plugins/shared/__tests__/decorationSet.growth.test.ts",
+  "src/plugins/shared/__tests__/decorationSet.patchParity.test.ts",
+  "src/services/assembly/cjkLetterSpacingLoad.test.ts",
+  "src/plugins/cjkLetterSpacing/__tests__/incrementalStructure.test.ts",
+];
+
+const withTests = (paths) => paths.map((rel) => [rel, "// test\n"]);
+
 describe("check-open-cost-phase.sh", () => {
   it("exits 64 with usage on no argument, and on an unknown phase", () => {
     const none = run([]);
@@ -57,14 +86,14 @@ describe("check-open-cost-phase.sh", () => {
   });
 
   it("names what a partly delivered phase is missing", () => {
-    const r = run(["OC1", `--root=${tree(OC1.filter(([rel]) => !rel.endsWith("pandocFormats.ts")))}`]);
+    const r = run(["OC1", `--root=${tree([...OC1, ...withTests(OC1_TESTS)].filter(([rel]) => !rel.endsWith("pandocFormats.ts")))}`]);
     expect(r.status).toBe(1);
     expect(r.stdout).toContain("INCOMPLETE");
     expect(r.stdout).toContain("missing: src/export/pandocFormats.ts");
   });
 
   it("fails a phase whose old mechanism is still in place", () => {
-    const files = OC1.map(([rel, body]) =>
+    const files = [...OC1, ...withTests(OC1_TESTS)].map(([rel, body]) =>
       rel.endsWith("menuListener.ts") ? [rel, `${body}if (options.shouldAbort?.()) return;\n`] : [rel, body]);
     const r = run(["OC1", `--root=${tree(files)}`]);
     expect(r.status).toBe(1);
@@ -72,10 +101,21 @@ describe("check-open-cost-phase.sh", () => {
   });
 
   it("calls a delivered phase UNVERIFIED away from the real repo, where linkage cannot run", () => {
-    const r = run(["OC1", `--root=${tree(OC1)}`]);
+    const r = run(["OC1", `--root=${tree([...OC1, ...withTests(OC1_TESTS)])}`]);
     expect(r.status).toBe(1);
     expect(r.stdout).toContain("UNVERIFIED");
     expect(r.stdout).not.toContain("✗");
+  });
+
+  it.each([
+    ["OC1", OC1, OC1_TESTS],
+    ["OC2", OC2_CODE, OC2_TESTS],
+  ])("fails %s while any of its regression tests is missing, naming each", (phase, code, tests) => {
+    const r = run([phase, `--root=${tree(code)}`]);
+    expect(r.status).toBe(1);
+    for (const rel of tests) expect(r.stdout).toContain(`missing: ${rel}`);
+    const complete = run([phase, `--root=${tree([...code, ...withTests(tests)])}`]);
+    expect(complete.stdout).not.toContain("missing:");
   });
 
   it("asserts every work item the plan declares, in the phase that declares it", () => {

@@ -120,6 +120,15 @@ phase_OC1() {
   has_file "src/export/pandocFormats.ts" "the Pandoc format keys are a leaf module (WI-OC1.4)"
   lacks_text "src/services/commands/exportCommands.ts" "PANDOC_FORMAT_KEYS \} = await import" \
              "registering Pandoc commands imports no exporter (WI-OC1.4)"
+  has_file "src/components/Editor/useTiptapFlush.test.ts" "the flush-before-load regression test (WI-OC1.1)"
+  has_file "src/services/commands/menuListener.test.ts" "the concurrent-mount lifetime tests (WI-OC1.2)"
+  has_file "src/contexts/windowListening.test.ts" "the window-listening signal's tests (WI-OC1.3)"
+  has_file "src/contexts/WindowContext.surfaceGate.test.tsx" \
+           "every ready path opens the gate, under StrictMode (WI-OC1.3)"
+  has_file "src/components/Editor/DocumentSplit/DocumentSplitContainer.test.tsx" \
+           "the document surface waits on the gate (WI-OC1.3)"
+  has_file "src/services/commands/exportCommands.test.ts" \
+           "registering Pandoc commands loads no exporter, tested (WI-OC1.4)"
   has_file "scripts/check-open-cost-phase.test.mjs" "this checker has its self-test (WI-OC1.5)"
   linked OC1
 }
@@ -132,8 +141,15 @@ phase_OC2() {
            "no extension yields a plugin family twice (WI-OC2.1)"
   has_file "patches/prosemirror-view@1.42.6.patch" "the decoration-set patch (WI-OC2.2)"
   has_text "package.json" "\"prosemirror-view@1\.42\.6\"" "the patch is applied by pnpm (WI-OC2.2)"
+  local tests="src/plugins/shared/__tests__"
+  has_file "$tests/decorationSet.differential.test.ts" "the patch agrees with upstream's trees (WI-OC2.2)"
+  has_file "$tests/decorationSet.render.test.ts" "the patch draws upstream's DOM (WI-OC2.2)"
+  has_file "$tests/decorationSet.growth.test.ts" "decoration sets grow about linearly (WI-OC2.2)"
+  has_file "$tests/decorationSet.patchParity.test.ts" "both entry points carry the patch (WI-OC2.2)"
   has_file "src/services/assembly/cjkLetterSpacingLoad.test.ts" \
            "the CJK spacing scan runs once per load (WI-OC2.3)"
+  has_file "src/plugins/cjkLetterSpacing/__tests__/incrementalStructure.test.ts" \
+           "incremental CJK spacing matches a fresh scan after any edit (WI-OC2.3)"
   linked OC2
 }
 
