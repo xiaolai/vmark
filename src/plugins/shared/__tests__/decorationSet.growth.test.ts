@@ -37,6 +37,8 @@ import { growthExponent, measureGrowth } from "@/test/cpuClock";
 const SMALL = 400;
 const LARGE = 4000;
 const MAX_EXPONENT = 1.35;
+/** Work that must not grow with the input at all: linear reads about 1. */
+const MAX_CONSTANT_EXPONENT = 0.5;
 const ADD_SMALL = 2000;
 const ADD_LARGE = 20000;
 const DECORATIONS_PER_BLOCK = 6;
@@ -157,6 +159,30 @@ describe("decoration sets grow about linearly with the document", () => {
       mirrored(LARGE),
     );
     expect(growthExponent(growth, SMALL, LARGE)).toBeLessThan(MAX_EXPONENT);
+  });
+
+  it("typing in a textblock does not walk its text to place widgets", () => {
+    // A widget a step moves inside an inline node with content must move into
+    // that node's set, which means finding the child that holds it. A schema
+    // with no such node needs no search: text is a leaf. Searching anyway cost
+    // one step per text node before the widget, on every keystroke — and a
+    // paragraph's text nodes multiply with its marks.
+    const marked = new Schema({ nodes: { doc: { content: "paragraph+" }, paragraph: { content: "text*" }, text: {} }, marks: { em: {} } });
+    const typedInto = (texts: number) => {
+      const runs = Array.from({ length: texts }, (_, i) => marked.text("字", i % 2 ? [marked.mark("em")] : []));
+      const doc = marked.node("doc", null, [marked.node("paragraph", null, runs)]);
+      const set = DecorationSet.create(doc, [Decoration.widget(texts, () => document.createElement("span"), { key: "w" })]);
+      const tr = new Transform(doc).insert(1, marked.text("a"));
+      return { set, tr };
+    };
+    const growth = measureGrowth(
+      ({ set, tr }: ReturnType<typeof typedInto>) => {
+        set.map(tr.mapping, tr.doc);
+      },
+      typedInto(SMALL),
+      typedInto(LARGE),
+    );
+    expect(growthExponent(growth, SMALL, LARGE)).toBeLessThan(MAX_CONSTANT_EXPONENT);
   });
 
   it("forChild for every block, as the view asks while drawing", () => {

@@ -1,5 +1,5 @@
 diff --git a/dist/index.cjs b/dist/index.cjs
-index d52a5260a7b9924b2865053ea1e8c6484225277b..a6b9303efe7da176b6d37178caf19de7f794708e 100644
+index d52a5260a7b9924b2865053ea1e8c6484225277b..fff9a8d33510c014dc75fa681de7769b3abedb34 100644
 --- a/dist/index.cjs
 +++ b/dist/index.cjs
 @@ -3885,6 +3885,8 @@ var DecorationSet = function () {
@@ -141,7 +141,7 @@ index d52a5260a7b9924b2865053ea1e8c6484225277b..a6b9303efe7da176b6d37178caf19de7
      var from = mapping.map(oldChildren[_i11] + oldOffset),
        fromLocal = from - offset;
      if (fromLocal < 0 || fromLocal >= node.content.size) {
-@@ -4190,21 +4247,88 @@ function mapChildren(oldChildren, newLocal, mapping, node, offset, oldOffset, op
+@@ -4190,21 +4247,111 @@ function mapChildren(oldChildren, newLocal, mapping, node, offset, oldOffset, op
        mustRebuild = true;
      }
    }
@@ -209,6 +209,28 @@ index d52a5260a7b9924b2865053ea1e8c6484225277b..a6b9303efe7da176b6d37178caf19de7
 +function mappingEnd(mapping) {
 +  return mapping.to == null ? mapping.maps.length : mapping.to;
 +}
++// VMark patch (#1565): whether `type`'s content can hold an inline node with
++// content of its own — the only place a textblock's widget can be misplaced
++// (text is a leaf). Read once per node type from its content expression, so
++// typing in a schema without such nodes walks no text.
++var inlineContainers = new WeakMap();
++function holdsInlineContainers(type) {
++  var known = inlineContainers.get(type);
++  if (known === undefined) {
++    known = false;
++    var seen = [type.contentMatch];
++    for (var i = 0; i < seen.length && !known; i++) for (var j = 0; j < seen[i].edgeCount; j++) {
++      var edge = seen[i].edge(j);
++      if (edge.type.isInline && !edge.type.isLeaf) {
++        known = true;
++        break;
++      }
++      if (seen.indexOf(edge.next) < 0) seen.push(edge.next);
++    }
++    inlineContainers.set(type, known);
++  }
++  return known;
++}
 +// VMark patch (#1565): a mapped widget can land strictly inside a child of
 +// `node` — a wrap puts a new parent's opening token in front of it — and the
 +// view draws a level's widgets only between its children, so upstream kept it
@@ -216,9 +238,10 @@ index d52a5260a7b9924b2865053ea1e8c6484225277b..a6b9303efe7da176b6d37178caf19de7
 +// return them, for the caller to add to the set, which places each in the
 +// child that now contains it, as buildTree would have. Null when there are
 +// none; one walk over the children otherwise. Text is a leaf, so in a
-+// textblock only inline nodes with content take widgets.
++// textblock only inline nodes with content take widgets, and a textblock
++// that cannot hold one is not walked.
 +function takeMisplacedWidgets(local, node) {
-+  if (!node.childCount) return null;
++  if (!node.childCount || node.inlineContent && !holdsInlineContainers(node.type)) return null;
 +  var widgets = null;
 +  for (var i = 0; i < local.length; i++) if (local[i].type instanceof WidgetType) (widgets || (widgets = [])).push(local[i]);
 +  if (!widgets) return null;
@@ -238,7 +261,7 @@ index d52a5260a7b9924b2865053ea1e8c6484225277b..a6b9303efe7da176b6d37178caf19de7
  }
  function moveSpans(spans, offset) {
    if (!offset || !spans.length) return spans;
-@@ -4226,15 +4350,51 @@ function mapAndGatherRemainingDecorations(children, oldChildren, decorations, ma
+@@ -4226,15 +4373,51 @@ function mapAndGatherRemainingDecorations(children, oldChildren, decorations, ma
    for (var i = 0; i < children.length; i += 3) if (children[i + 1] == -1) gather(children[i + 2], oldChildren[i] + oldOffset + 1);
    return decorations;
  }
@@ -298,7 +321,7 @@ index d52a5260a7b9924b2865053ea1e8c6484225277b..a6b9303efe7da176b6d37178caf19de7
    }
    return found;
  }
-@@ -4246,8 +4406,10 @@ function withoutNulls(array) {
+@@ -4246,8 +4429,10 @@ function withoutNulls(array) {
  function buildTree(spans, node, offset, options) {
    var children = [],
      hasNulls = false;
@@ -312,7 +335,7 @@ index d52a5260a7b9924b2865053ea1e8c6484225277b..a6b9303efe7da176b6d37178caf19de7
        hasNulls = true;
        var subtree = buildTree(found, childNode, offset + localStart + 1, options);
 diff --git a/dist/index.js b/dist/index.js
-index dc0d117b85e1da3eae915b4d8ff8e5e604683861..7f1dec62aefe1562ea49a16ca03196cc64fc4b9d 100644
+index dc0d117b85e1da3eae915b4d8ff8e5e604683861..0c76a213bef90bae77132a9b5aed2f55c461b949 100644
 --- a/dist/index.js
 +++ b/dist/index.js
 @@ -4148,6 +4148,8 @@ class DecorationSet {
@@ -460,7 +483,7 @@ index dc0d117b85e1da3eae915b4d8ff8e5e604683861..7f1dec62aefe1562ea49a16ca03196cc
              let from = mapping.map(oldChildren[i] + oldOffset), fromLocal = from - offset;
              if (fromLocal < 0 || fromLocal >= node.content.size) {
                  mustRebuild = true;
-@@ -4502,24 +4559,101 @@ function mapChildren(oldChildren, newLocal, mapping, node, offset, oldOffset, op
+@@ -4502,24 +4559,126 @@ function mapChildren(oldChildren, newLocal, mapping, node, offset, oldOffset, op
                  mustRebuild = true;
              }
          }
@@ -508,7 +531,8 @@ index dc0d117b85e1da3eae915b4d8ff8e5e604683861..7f1dec62aefe1562ea49a16ca03196cc
 +        for (; j < kept.length; j++)
 +            merged.push(kept[j]);
 +        children = merged;
-+    }
+     }
+-    return new DecorationSet(newLocal.sort(byPos), children);
 +    let set = new DecorationSet(newLocal.sort(byPos), children);
 +    return misplaced ? set.addInner(node, misplaced, 0) : set;
 +}
@@ -522,8 +546,7 @@ index dc0d117b85e1da3eae915b4d8ff8e5e604683861..7f1dec62aefe1562ea49a16ca03196cc
 +        let mirror = mapping.getMirror(i);
 +        if (mirror != null && mirror >= start && mirror < end)
 +            return true;
-     }
--    return new DecorationSet(newLocal.sort(byPos), children);
++    }
 +    return false;
 +}
 +// VMark patch (#1565): the maps a mapping spans; a mapping without the
@@ -534,6 +557,30 @@ index dc0d117b85e1da3eae915b4d8ff8e5e604683861..7f1dec62aefe1562ea49a16ca03196cc
 +function mappingEnd(mapping) {
 +    return mapping.to == null ? mapping.maps.length : mapping.to;
 +}
++// VMark patch (#1565): whether `type`'s content can hold an inline node with
++// content of its own — the only place a textblock's widget can be misplaced
++// (text is a leaf). Read once per node type from its content expression, so
++// typing in a schema without such nodes walks no text.
++const inlineContainers = new WeakMap();
++function holdsInlineContainers(type) {
++    let known = inlineContainers.get(type);
++    if (known === undefined) {
++        known = false;
++        let seen = [type.contentMatch];
++        for (let i = 0; i < seen.length && !known; i++)
++            for (let j = 0; j < seen[i].edgeCount; j++) {
++                let edge = seen[i].edge(j);
++                if (edge.type.isInline && !edge.type.isLeaf) {
++                    known = true;
++                    break;
++                }
++                if (seen.indexOf(edge.next) < 0)
++                    seen.push(edge.next);
++            }
++        inlineContainers.set(type, known);
++    }
++    return known;
++}
 +// VMark patch (#1565): a mapped widget can land strictly inside a child of
 +// `node` — a wrap puts a new parent's opening token in front of it — and the
 +// view draws a level's widgets only between its children, so upstream kept it
@@ -541,9 +588,10 @@ index dc0d117b85e1da3eae915b4d8ff8e5e604683861..7f1dec62aefe1562ea49a16ca03196cc
 +// return them, for the caller to add to the set, which places each in the
 +// child that now contains it, as buildTree would have. Null when there are
 +// none; one walk over the children otherwise. Text is a leaf, so in a
-+// textblock only inline nodes with content take widgets.
++// textblock only inline nodes with content take widgets, and a textblock
++// that cannot hold one is not walked.
 +function takeMisplacedWidgets(local, node) {
-+    if (!node.childCount)
++    if (!node.childCount || node.inlineContent && !holdsInlineContainers(node.type))
 +        return null;
 +    let widgets = null;
 +    for (let i = 0; i < local.length; i++)
@@ -571,7 +619,7 @@ index dc0d117b85e1da3eae915b4d8ff8e5e604683861..7f1dec62aefe1562ea49a16ca03196cc
  }
  function moveSpans(spans, offset) {
      if (!offset || !spans.length)
-@@ -4549,15 +4683,63 @@ function mapAndGatherRemainingDecorations(children, oldChildren, decorations, ma
+@@ -4549,15 +4708,63 @@ function mapAndGatherRemainingDecorations(children, oldChildren, decorations, ma
              gather(children[i + 2], oldChildren[i] + oldOffset + 1);
      return decorations;
  }
@@ -590,7 +638,8 @@ index dc0d117b85e1da3eae915b4d8ff8e5e604683861..7f1dec62aefe1562ea49a16ca03196cc
 +function takeSpansForChildren(spans, node, offset) {
 +    let count = node.childCount;
 +    if (!count || !spans.length)
-+        return null;
+         return null;
+-    let end = offset + node.nodeSize, found = null;
 +    let starts = new Array(count), ends = new Array(count), pos = offset, container = false;
 +    for (let i = 0; i < count; i++) {
 +        let child = node.child(i);
@@ -601,8 +650,7 @@ index dc0d117b85e1da3eae915b4d8ff8e5e604683861..7f1dec62aefe1562ea49a16ca03196cc
 +        ends[i] = pos;
 +    }
 +    if (!container)
-         return null;
--    let end = offset + node.nodeSize, found = null;
++        return null;
 +    let found = null;
      for (let i = 0, span; i < spans.length; i++) {
 -        if ((span = spans[i]) && span.from > offset && span.to < end) {
@@ -641,7 +689,7 @@ index dc0d117b85e1da3eae915b4d8ff8e5e604683861..7f1dec62aefe1562ea49a16ca03196cc
      }
      return found;
  }
-@@ -4574,8 +4756,10 @@ function withoutNulls(array) {
+@@ -4574,8 +4781,10 @@ function withoutNulls(array) {
  // for recursive calls).
  function buildTree(spans, node, offset, options) {
      let children = [], hasNulls = false;
