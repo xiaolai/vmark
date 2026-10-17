@@ -40,7 +40,7 @@ import { codePreviewExtension } from "@/plugins/codePreview/tiptap";
 import { blockImageExtension } from "@/plugins/blockImage/tiptap";
 import { imageViewExtension } from "@/plugins/imageView/tiptap";
 import { CJKLetterSpacing } from "@/plugins/cjkLetterSpacing";
-import { useSettingsStore } from "@/stores/settingsStore";
+import { isCjkLetterSpacingOn } from "@/services/assembly/cjkLetterSpacingSetting";
 import { tocExtension } from "@/plugins/tableOfContents/tiptap";
 
 /**
@@ -131,13 +131,8 @@ export function createExportExtensions(): Extensions {
     imageViewExtension,
     // Code preview (renders Math/Mermaid) - critical for export parity
     codePreviewExtension,
-    // CJK spacing. The predicate is supplied HERE, not read inside the
-    // plugin: `src/export/` may reach the store, a plugin may not.
-    CJKLetterSpacing.configure({
-      isEnabled: () => {
-        const setting = useSettingsStore.getState().appearance.cjkLetterSpacing;
-        return setting !== "0" && setting !== undefined;
-      },
-    }),
+    // CJK spacing. The predicate is supplied by the host, not read inside the
+    // plugin: a host may reach the store, a plugin may not.
+    CJKLetterSpacing.configure({ isEnabled: isCjkLetterSpacingOn }),
   ];
 }

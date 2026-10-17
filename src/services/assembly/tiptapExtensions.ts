@@ -109,6 +109,7 @@ import {
 } from "@/plugins/markdownArtifacts";
 import { wikiLinkPopupExtension } from "@/plugins/wikiLinkPopup";
 import { CJKLetterSpacing } from "@/plugins/cjkLetterSpacing";
+import { isCjkLetterSpacingOn } from "./cjkLetterSpacingSetting";
 import { sourcePeekInlineExtension } from "@/plugins/sourcePeekInline";
 import { smartSelectAllExtension } from "@/plugins/smartSelectAll/tiptap";
 import { inlineCodeBoundaryExtension } from "@/plugins/inlineCodeBoundary/tiptap";
@@ -239,7 +240,7 @@ export function buildExtensionList(config: TiptapExtensionConfig = {}): Extensio
     }),
     multiCursorExtension,
     aiSuggestionExtension.configure({ store: pluginStores.aiSuggestion }),
-    CJKLetterSpacing,
+    CJKLetterSpacing.configure({ isEnabled: isCjkLetterSpacingOn }),
     sourcePeekInlineExtension,
     smartSelectAllExtension,
     inlineCodeBoundaryExtension,
