@@ -49,7 +49,12 @@ tauri-plugin-fs = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-clipboard-manager = "2"
 tauri-plugin-shell = "2"
-tauri-plugin-updater = "2"
+# Default features minus `zip`, which only unpacks Tauri v1 compressed update
+# bundles (`.msi.zip`, `.exe.zip`, `.AppImage.tar.gz`). `createUpdaterArtifacts`
+# is `true`, so every published update is a bare installer or AppImage, and the
+# feature's only effect was linking `zip` 4.x, whose `extract()` carries
+# RUSTSEC-2026-0367/0368/0369 with no fix the plugin can reach.
+tauri-plugin-updater = { version = "2", default-features = false, features = ["rustls-tls", "system-proxy"] }
 tauri-plugin-process = "2"
 tauri-plugin-notification = "2"
 tauri-plugin-log = "2"

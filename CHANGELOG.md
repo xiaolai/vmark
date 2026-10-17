@@ -30,6 +30,12 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
   wrong place, or vanished, after an edit that wrapped, lifted or moved
   blocks.
 
+### Security
+
+- The updater no longer includes the `zip` library, which three newly
+  published advisories cover (RUSTSEC-2026-0367 to 0369). It was only there
+  to unpack an old update format that VMark does not publish.
+
 ## [0.9.100] - 2026-10-16
 
 ### Fixed
