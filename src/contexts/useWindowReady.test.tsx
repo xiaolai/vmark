@@ -6,7 +6,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, render, act } from "@testing-library/react";
-import { StrictMode, useEffect } from "react";
+import { StrictMode, useEffect, useRef } from "react";
 
 const mockWindowContextError = vi.fn();
 vi.mock("@/utils/debug", () => ({ windowContextError: (...a: unknown[]) => mockWindowContextError(...a) }));
@@ -310,5 +310,50 @@ describe("StrictMode double-mount (tier-0 CI run 33367721596)", () => {
 
     expect(readyAttr()).toBeNull();
     expect(emit).not.toHaveBeenCalled();
+  });
+});
+
+// The provider's init is once-only (its own StrictMode guard), so markReady
+// runs ONCE, in the first lifecycle. The harness above calls it again from the
+// replayed effect and so never saw this: the simulated unmount cleared a
+// non-document window's announcement timer, and nothing ever started it again.
+describe("StrictMode replay with a once-only markReady, as the provider calls it", () => {
+  function OnceHarness({ label, emit }: { label: string; emit: (e: string, p?: unknown) => unknown }) {
+    const { isReady, markReady } = useWindowReady();
+    const started = useRef(false);
+    useEffect(() => {
+      if (started.current) return;
+      started.current = true;
+      markReady({ label, emit });
+    }, [markReady, label, emit]);
+    return isReady ? <div data-testid="shell" /> : null;
+  }
+
+  it("still announces a settings window whose timer the simulated unmount cleared", async () => {
+    const emit = vi.fn().mockResolvedValue(undefined);
+    render(
+      <StrictMode>
+        <OnceHarness label="settings" emit={emit} />
+      </StrictMode>,
+    );
+
+    await settle(200);
+
+    expect(readyAttr()).toBe("true");
+    expect(emit).toHaveBeenCalledExactlyOnceWith("ready", "settings");
+  });
+
+  it("still announces a document window, once", async () => {
+    const emit = vi.fn().mockResolvedValue(undefined);
+    render(
+      <StrictMode>
+        <OnceHarness label="main" emit={emit} />
+      </StrictMode>,
+    );
+
+    await mountMenuListener();
+
+    expect(readyAttr()).toBe("true");
+    expect(emit).toHaveBeenCalledExactlyOnceWith("ready", "main");
   });
 });

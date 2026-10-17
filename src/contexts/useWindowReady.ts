@@ -87,6 +87,9 @@ interface ReadyTarget {
 export function useWindowReady(): { isReady: boolean; markReady: (w: ReadyTarget) => void } {
   const [isReady, setIsReady] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The window a no-barrier announcement is scheduled for, kept so a StrictMode
+  // replay can schedule it again after the simulated unmount cleared the timer.
+  const timerTargetRef = useRef<ReadyTarget | null>(null);
   // Latches the announcement so five call sites cannot start five of them, and
   // records unmount so a barrier that resolves afterwards writes nothing.
   const announcingRef = useRef(false);
@@ -131,6 +134,7 @@ export function useWindowReady(): { isReady: boolean; markReady: (w: ReadyTarget
     announcingRef.current = true;
 
     if (!isDocumentWindowLabel(w.label)) {
+      timerTargetRef.current = w;
       timerRef.current = setTimeout(() => announce(w), NO_BARRIER_DELAY_MS);
       return;
     }
@@ -168,13 +172,26 @@ export function useWindowReady(): { isReady: boolean; markReady: (w: ReadyTarget
     // published — so the second lifecycle's markReady can restart a chain the
     // simulated unmount swallowed, while a COMPLETED announcement stays
     // latched (announcedRef) and can never emit twice.
+    //
+    // A cleared no-barrier timer is scheduled again here, not by a second
+    // markReady: the provider's init is once-only, so in a settings or
+    // pdf-export window the replay never calls markReady, and the window
+    // never announced itself in dev builds.
     unmountedRef.current = false;
-    if (!announcedRef.current) announcingRef.current = false;
+    if (!announcedRef.current) {
+      announcingRef.current = false;
+      const target = timerTargetRef.current;
+      if (target && timerRef.current === null) {
+        announcingRef.current = true;
+        timerRef.current = setTimeout(() => announce(target), NO_BARRIER_DELAY_MS);
+      }
+    }
     return () => {
       unmountedRef.current = true;
       if (timerRef.current !== null) clearTimeout(timerRef.current);
+      timerRef.current = null;
     };
-  }, []);
+  }, [announce]);
 
   return { isReady, markReady };
 }
