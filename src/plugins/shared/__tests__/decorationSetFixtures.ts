@@ -6,8 +6,8 @@
  * Seeded, so a failure names a reproducible case.
  */
 import { Schema, type Node } from "@tiptap/pm/model";
-import { Transform, type Mapping } from "@tiptap/pm/transform";
-import { Decoration, type DecorationSet } from "@tiptap/pm/view";
+import { Transform, findWrapping, liftTarget, type Mapping } from "@tiptap/pm/transform";
+import { Decoration, type DecorationSet, type DecorationSource } from "@tiptap/pm/view";
 import { referenceCreate } from "./decorationSetReference";
 
 /** Nesting, leaf blocks, and inline leaves; `toDOM` so a view can draw it too. */
@@ -106,7 +106,8 @@ export function decorationsOf(doc: Node, random: () => number, tag: string): Dec
 
 /**
  * One to five steps: insertions of paragraphs and quotes, deletions that cut
- * across block boundaries, and text replacing a range — the compound,
+ * across block boundaries, text replacing a range, and blocks wrapped in a
+ * quote or lifted out of one (`ReplaceAroundStep`) — the compound,
  * structure-changing transactions a mapped tree gets wrong first. A step the
  * schema refuses is skipped.
  */
@@ -118,10 +119,18 @@ export function editsOf(doc: Node, random: () => number): Transform {
     const to = Math.min(size, from + Math.floor(random() * 20));
     const roll = random();
     try {
-      if (roll < 0.3) tr.insert(from, schema.nodes.paragraph.create(null, schema.text("新")));
-      else if (roll < 0.4) tr.insert(from, schema.nodes.blockquote.create(null, schema.nodes.paragraph.create(null, schema.text("引"))));
-      else if (roll < 0.6) tr.replaceWith(from, to, schema.text("汉"));
-      else tr.delete(from, to);
+      if (roll < 0.22) tr.insert(from, schema.nodes.paragraph.create(null, schema.text("新")));
+      else if (roll < 0.3) tr.insert(from, schema.nodes.blockquote.create(null, schema.nodes.paragraph.create(null, schema.text("引"))));
+      else if (roll < 0.45) tr.replaceWith(from, to, schema.text("汉"));
+      else if (roll < 0.6) {
+        const range = tr.doc.resolve(from).blockRange(tr.doc.resolve(to));
+        const wrapping = range && findWrapping(range, schema.nodes.blockquote);
+        if (range && wrapping) tr.wrap(range, wrapping);
+      } else if (roll < 0.72) {
+        const range = tr.doc.resolve(from).blockRange(tr.doc.resolve(to));
+        const target = range && liftTarget(range);
+        if (range && target != null) tr.lift(range, target);
+      } else tr.delete(from, to);
     } catch {
       // A step the content expression forbids at this position.
     }
@@ -129,18 +138,85 @@ export function editsOf(doc: Node, random: () => number): Transform {
   return tr;
 }
 
-/** A decoration's own `map`, which the library keeps off its public types. */
-type Mappable = { map(mapping: Mapping, offset: number, oldOffset: number): Decoration | null };
+/** A decoration's own `map` and kind, which the library keeps off its public types. */
+type Internals = { map(mapping: Mapping, offset: number, oldOffset: number): Decoration | null; inline: boolean; widget: boolean };
+const internals = (decoration: Decoration) => decoration as unknown as Internals;
+
+/** A node decoration: neither inline nor a widget. */
+export const isNodeDecoration = (decoration: Decoration) => !internals(decoration).inline && !internals(decoration).widget;
 
 /**
- * What mapping a set must give: each decoration mapped on its own, the way
- * the library maps a decoration it has to gather, then the tree rebuilt.
- * Independent of the tree's structure, so a tree that loses track of where
- * a child's content went cannot agree with it.
+ * What mapping a set must give its inline decorations and widgets: each one
+ * mapped on its own, the way the library maps a decoration it has to gather,
+ * then the tree rebuilt. Independent of the tree's structure, so a tree that
+ * loses track of where a child's content went cannot agree with it.
+ *
+ * Node decorations are left out: upstream drops one whose node now sits under
+ * a different parent (`mapInner` checks it against its own level) but keeps
+ * one it gathered and rebuilt, so whether it survives depends on the path the
+ * mapping took. They are held to soundness instead (`unsoundNodeDecorations`).
  */
 export function individuallyMapped(decorations: readonly Decoration[], mapping: Mapping, doc: Node): DecorationSet {
   const mapped = decorations
-    .map((decoration) => (decoration as unknown as Mappable).map(mapping, 0, 0))
+    .filter((decoration) => !isNodeDecoration(decoration))
+    .map((decoration) => internals(decoration).map(mapping, 0, 0))
     .filter((decoration): decoration is Decoration => decoration !== null);
   return referenceCreate(doc, mapped);
+}
+
+/**
+ * Node decorations of a mapped set that do not belong there: one that covers
+ * no node exactly, or that mapping its original on its own does not give.
+ * Empty for a sound set.
+ */
+export function unsoundNodeDecorations(mapped: DecorationSet, original: readonly Decoration[], mapping: Mapping, doc: Node): string[] {
+  const allowed = new Set(
+    original
+      .filter(isNodeDecoration)
+      .map((decoration) => internals(decoration).map(mapping, 0, 0))
+      .filter((decoration): decoration is Decoration => decoration !== null)
+      .map((decoration) => `${decoration.from}-${decoration.to}`),
+  );
+  return mapped
+    .find()
+    .filter(isNodeDecoration)
+    .filter(({ from, to }) => {
+      const node = doc.nodeAt(from);
+      return !node || node.isText || from + node.nodeSize !== to || !allowed.has(`${from}-${to}`);
+    })
+    .map(({ from, to }) => `${from}-${to}`);
+}
+
+/** A decoration as a comparable line: where, what kind, which one. */
+export function lineOf(decoration: Decoration, base = 0): string {
+  const { inline, widget } = internals(decoration);
+  const kind = widget ? "widget" : inline ? "inline" : "node";
+  const label = (decoration.spec as { key?: string }).key ?? JSON.stringify((decoration as unknown as { type: { attrs?: object } }).type.attrs);
+  return `${base + decoration.from}-${base + decoration.to} ${kind} ${label}`;
+}
+
+/**
+ * What a view draws from `source` over `node`, as lines: descending the way
+ * the view does — `forChild` per child — so a subtree the tree keeps under
+ * the wrong parent, which `find()` still lists, is missing here. Inline
+ * decorations are read where text is drawn (a textblock), widgets where they
+ * sit, node decorations only on a child they exactly cover.
+ */
+export function drawn(source: DecorationSource, node: Node, base = 0, out: string[] = []): string[] {
+  const locals: Decoration[] = [];
+  source.forEachSet((set) => locals.push(...(set as unknown as { local: readonly Decoration[] }).local));
+  const children: { child: Node; offset: number }[] = [];
+  node.forEach((child, offset) => children.push({ child, offset }));
+  for (const decoration of locals) {
+    if (internals(decoration).widget) out.push(lineOf(decoration, base));
+    else if (internals(decoration).inline) {
+      if (node.inlineContent) out.push(lineOf(decoration, base));
+    } else if (children.some(({ child, offset }) => offset === decoration.from && offset + child.nodeSize === decoration.to)) {
+      out.push(lineOf(decoration, base));
+    }
+  }
+  for (const { child, offset } of children) {
+    if (!child.isLeaf) drawn(source.forChild(offset, child), child, base + offset + 1, out);
+  }
+  return out;
 }

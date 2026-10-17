@@ -19,10 +19,10 @@
 // unshifted — so for `map`, upstream is not the reference.
 import { describe, expect, it } from "vitest";
 import type { Node } from "@tiptap/pm/model";
-import { Transform } from "@tiptap/pm/transform";
+import { Mapping, Transform } from "@tiptap/pm/transform";
 import { Decoration, DecorationSet, type DecorationSource } from "@tiptap/pm/view";
 import { referenceAdd, referenceCreate, referenceForChild } from "./decorationSetReference";
-import { decorationsOf, documentOf, editsOf, individuallyMapped, schema, seeded } from "./decorationSetFixtures";
+import { decorationsOf, documentOf, drawn, editsOf, individuallyMapped, isNodeDecoration, lineOf, schema, seeded, unsoundNodeDecorations } from "./decorationSetFixtures";
 
 const CASES = 300;
 
@@ -31,16 +31,20 @@ function expectSameSet(actual: DecorationSet, expected: DecorationSet, label: st
   expect((actual as unknown as { eq(o: DecorationSet): boolean }).eq(expected), label).toBe(true);
 }
 
-/** A decoration as a comparable line: where, what kind, which one. */
-function lineOf(d: Decoration): string {
-  const { widget, inline } = d as unknown as { widget: boolean; inline: boolean };
-  const kind = widget ? "widget" : inline ? "inline" : "node";
-  const label = (d.spec as { key?: string }).key ?? JSON.stringify((d as unknown as { type: { attrs?: object } }).type.attrs);
-  return `${d.from}-${d.to} ${kind} ${label}`;
-}
-
-function expectSameDecorations(actual: DecorationSet, expected: DecorationSet, label: string) {
-  expect(actual.find().map(lineOf).sort(), label).toEqual(expected.find().map(lineOf).sort());
+/**
+ * A mapped set against the oracle. Inline decorations and widgets: what a
+ * view would DRAW from it equals what it draws from the decorations mapped one
+ * by one (`individuallyMapped`). Node decorations: each one it keeps covers a
+ * node exactly and is what mapping its original alone gives, and it draws
+ * every one `find()` reports — no subtree kept under the wrong parent.
+ */
+function expectMappedLike(mapped: DecorationSet, original: readonly Decoration[], tr: Transform, label: string) {
+  const positional = (lines: string[]) => lines.filter((line) => !line.includes(" node ")).sort();
+  const oracle = individuallyMapped(original, tr.mapping, tr.doc);
+  expect(positional(drawn(mapped, tr.doc)), `${label} drawn`).toEqual(positional(drawn(oracle, tr.doc)));
+  expect(unsoundNodeDecorations(mapped, original, tr.mapping, tr.doc), `${label} node decorations`).toEqual([]);
+  const nodeLines = (lines: string[]) => lines.filter((line) => line.includes(" node ")).sort();
+  expect(nodeLines(drawn(mapped, tr.doc)), `${label} node decorations drawn`).toEqual(nodeLines(mapped.find().filter(isNodeDecoration).map((d) => lineOf(d))));
 }
 
 function membersOf(source: DecorationSource): DecorationSet[] {
@@ -91,7 +95,7 @@ describe("the patched decoration tree agrees with the unpatched algorithm", () =
     // search in `forChild` holds only while child ranges stay sorted.
     const tr = editsOf(doc, random);
     const mapped = added.map(tr.mapping, tr.doc);
-    expectSameDecorations(mapped, individuallyMapped(added.find(), tr.mapping, tr.doc), `map #${seed}`);
+    expectMappedLike(mapped, added.find(), tr, `map #${seed}`);
     expectSameForChild(mapped, tr.doc, `map+forChild #${seed}`);
   });
 });
@@ -114,6 +118,39 @@ describe("cases the audit found", () => {
     const doc = schema.nodes.doc.create(null, [quote(p("汉字かなA"), p("ABC")), quote(p("A 中文 B"), p("汉字かなA")), p("中文")]);
     const set = DecorationSet.create(doc, [Decoration.inline(24, 28, { class: "cjk" }), Decoration.inline(2, 6, { class: "cjk" })]);
     const tr = new Transform(doc).replaceWith(31, 35, schema.text("汉")).delete(14, 20);
-    expectSameDecorations(set.map(tr.mapping, tr.doc), individuallyMapped(set.find(), tr.mapping, tr.doc), "compound edit");
+    expectMappedLike(set.map(tr.mapping, tr.doc), set.find(), tr, "compound edit");
+  });
+
+  it("wrapping blocks in a quote moves an untouched child's decorations with it", () => {
+    // The wrap inserts the quote's tokens around three paragraphs. The middle
+    // one is never touched, so upstream shifts its entry and keeps it at the
+    // root, where no node starts — the view never draws it.
+    const doc = schema.nodes.doc.create(null, [p("汉字"), p("かな"), p("中文")]);
+    const set = DecorationSet.create(doc, [1, 5, 9].map((from) => Decoration.inline(from, from + 2, { class: "cjk" })));
+    const tr = new Transform(doc);
+    const range = doc.resolve(1).blockRange(doc.resolve(11))!;
+    tr.wrap(range, [{ type: schema.nodes.blockquote }]);
+    expectMappedLike(set.map(tr.mapping, tr.doc), set.find(), tr, "wrap");
+  });
+
+  it("a mapping and its inverse, mirrored, give the set back", () => {
+    const doc = schema.nodes.doc.create(null, [quote(p("abc"), p("def"))]);
+    const set = DecorationSet.create(doc, [Decoration.inline(7, 10, { class: "x" })]);
+    const tr = new Transform(doc).split(2);
+    tr.lift(tr.doc.resolve(1).blockRange(tr.doc.resolve(2))!, 0);
+    const mapping = new Mapping();
+    mapping.appendMapping(tr.mapping);
+    for (let i = tr.mapping.maps.length - 1; i >= 0; i--) mapping.appendMap(tr.mapping.maps[i].invert(), i);
+    expect(drawn(set.map(mapping, doc), doc)).toEqual(drawn(set, doc));
+  });
+
+  it("a node decoration whose node moves under a new parent is dropped, as upstream does", () => {
+    const doc = schema.nodes.doc.create(null, [p("abc")]);
+    const removed: unknown[] = [];
+    const set = DecorationSet.create(doc, [Decoration.node(0, 5, { class: "n" }, { id: "n" })]);
+    const tr = new Transform(doc);
+    tr.wrap(doc.resolve(1).blockRange()!, [{ type: schema.nodes.blockquote }]);
+    expect(set.map(tr.mapping, tr.doc, { onRemove: (spec) => removed.push(spec) }).find()).toEqual([]);
+    expect(removed).toEqual([{ id: "n" }]);
   });
 });

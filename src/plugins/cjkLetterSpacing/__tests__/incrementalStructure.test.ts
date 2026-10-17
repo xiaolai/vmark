@@ -14,7 +14,8 @@ import { describe, it, expect } from "vitest";
 import { Schema, type Node as PMNode } from "@tiptap/pm/model";
 import { EditorState, type Transaction } from "@tiptap/pm/state";
 import type { Plugin } from "@tiptap/pm/state";
-import type { DecorationSet } from "@tiptap/pm/view";
+import { findWrapping, liftTarget } from "@tiptap/pm/transform";
+import type { Decoration, DecorationSet, DecorationSource } from "@tiptap/pm/view";
 import { CJKLetterSpacing } from "../plugin";
 
 const schema = new Schema({
@@ -61,6 +62,28 @@ function decorated(state: EditorState, plugin: Plugin): Array<[number, number]> 
     .sort((a, b) => a[0] - b[0] || a[1] - b[1]);
 }
 
+/**
+ * The runs a view would DRAW: descending with `forChild` per child, as the view
+ * does, and reading each textblock's inline decorations. Unlike `find()`, this
+ * misses a subtree the set keeps under the wrong parent.
+ */
+function drawnRuns(state: EditorState, plugin: Plugin): Array<[number, number]> {
+  const runs: Array<[number, number]> = [];
+  const walk = (source: DecorationSource, node: PMNode, base: number) => {
+    if (node.inlineContent) {
+      source.forEachSet((set) => {
+        for (const d of (set as unknown as { local: readonly Decoration[] }).local) runs.push([base + d.from, base + d.to]);
+      });
+      return;
+    }
+    node.forEach((child, offset) => {
+      if (!child.isLeaf) walk(source.forChild(offset, child), child, base + offset + 1);
+    });
+  };
+  walk((plugin.getState(state) as { decorations: DecorationSet }).decorations, state.doc, 0);
+  return runs.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+}
+
 describe("incremental CJK decorations after structural edits", () => {
   it("a delete that cuts into a blockquote, after a replace at the end", () => {
     const plugin = createPlugin();
@@ -73,6 +96,7 @@ describe("incremental CJK decorations after structural edits", () => {
     state = state.apply(state.tr.insertText("汉", 31, 35).delete(14, 20));
 
     expect(decorated(state, plugin)).toEqual(runsOf(state.doc));
+    expect(drawnRuns(state, plugin)).toEqual(runsOf(state.doc));
   });
 
   /** mulberry32, so a failing case names its seed. */
@@ -97,7 +121,7 @@ describe("incremental CJK decorations after structural edits", () => {
     return schema.node("doc", null, blocks(0));
   }
 
-  /** One to four steps that insert, replace, delete across blocks, split and join. */
+  /** One to four steps that insert, replace, delete across blocks, split, join, wrap and lift. */
   function randomEdit(state: EditorState, random: () => number): Transaction {
     const tr = state.tr;
     const int = (n: number) => Math.floor(random() * n);
@@ -107,11 +131,18 @@ describe("incremental CJK decorations after structural edits", () => {
       const to = Math.min(size, from + int(12));
       const roll = random();
       try {
-        if (roll < 0.25) tr.insertText(["汉", "a", "かな", " "][int(4)], from, random() < 0.5 ? from : to);
-        else if (roll < 0.5) tr.delete(from, to);
-        else if (roll < 0.65) tr.split(from);
-        else if (roll < 0.8) tr.join(from);
-        else tr.insert(from, random() < 0.5 ? p("新しい") : quote(p("引用")));
+        const range = tr.doc.resolve(from).blockRange(tr.doc.resolve(to));
+        if (roll < 0.2) tr.insertText(["汉", "a", "かな", " "][int(4)], from, random() < 0.5 ? from : to);
+        else if (roll < 0.4) tr.delete(from, to);
+        else if (roll < 0.52) tr.split(from);
+        else if (roll < 0.64) tr.join(from);
+        else if (roll < 0.76) {
+          const wrapping = range && findWrapping(range, schema.nodes.blockquote);
+          if (range && wrapping) tr.wrap(range, wrapping);
+        } else if (roll < 0.88) {
+          const target = range && liftTarget(range);
+          if (range && target != null) tr.lift(range, target);
+        } else tr.insert(from, random() < 0.5 ? p("新しい") : quote(p("引用")));
       } catch {
         // A step this position does not allow.
       }
@@ -126,6 +157,7 @@ describe("incremental CJK decorations after structural edits", () => {
     for (let round = 0; round < 6; round++) {
       state = state.apply(randomEdit(state, random));
       expect(decorated(state, plugin), `case ${seed}, transaction ${round}`).toEqual(runsOf(state.doc));
+      expect(drawnRuns(state, plugin), `case ${seed}, transaction ${round}, drawn`).toEqual(runsOf(state.doc));
     }
   });
 });

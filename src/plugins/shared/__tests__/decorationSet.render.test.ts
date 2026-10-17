@@ -7,7 +7,10 @@
 // draws exactly what the reference algorithm's set draws. Then a view that
 // maps the patched set through an edit and redraws incrementally — the order
 // in which the view asks `forChild`, hint and all — ends with the DOM a fresh
-// view draws for the decorations mapped one by one.
+// view draws for the decorations mapped one by one. Node decorations come
+// from the mapped set itself on both sides: upstream drops one whose node
+// changed parent on some paths and not others, and the differential test holds
+// them to soundness instead (`unsoundNodeDecorations`).
 //
 // Drawings are compared with each `class` attribute's tokens sorted: where
 // inline decorations overlap, the view joins their classes in the order the
@@ -19,9 +22,10 @@
 import { afterEach, describe, expect, it } from "vitest";
 import type { Node } from "@tiptap/pm/model";
 import { EditorState, Plugin } from "@tiptap/pm/state";
-import { DecorationSet, EditorView } from "@tiptap/pm/view";
+import { Decoration, DecorationSet, EditorView } from "@tiptap/pm/view";
+import { Transform } from "@tiptap/pm/transform";
 import { referenceAdd, referenceCreate } from "./decorationSetReference";
-import { decorationsOf, documentOf, editsOf, individuallyMapped, seeded } from "./decorationSetFixtures";
+import { decorationsOf, documentOf, editsOf, individuallyMapped, isNodeDecoration, schema, seeded } from "./decorationSetFixtures";
 
 const CASES = 150;
 
@@ -42,8 +46,12 @@ function viewOf(doc: Node, decorations: DecorationSet): EditorView {
     editable: () => false,
   });
   views.push(view);
+  plugins.set(view, plugin);
   return view;
 }
+
+/** Each view's decoration plugin, to read the mapped set back. */
+const plugins = new WeakMap<EditorView, Plugin<DecorationSet>>();
 
 /** The view's drawing, class tokens sorted and the selected-node marks dropped. */
 function drawing(view: EditorView): string {
@@ -69,11 +77,28 @@ describe("the patched decoration tree draws what the unpatched algorithm draws",
     const drawn = viewOf(doc, patched);
     expect(drawing(drawn), `create+add #${seed}`).toBe(drawing(viewOf(doc, reference)));
 
-    const edit = editsOf(doc, random);
-    const tr = drawn.state.tr;
-    for (const step of edit.steps) tr.step(step);
-    drawn.dispatch(tr);
-    const fresh = viewOf(tr.doc, individuallyMapped(patched.find(), tr.mapping, tr.doc));
-    expect(drawing(drawn), `map #${seed}`).toBe(drawing(fresh));
+    expectRedrawnLikeFresh(drawn, patched, editsOf(doc, random), `map #${seed}`);
+  });
+
+  it("wrapping three decorated paragraphs in a quote keeps all three drawn", () => {
+    const p = (text: string) => schema.nodes.paragraph.create(null, schema.text(text));
+    const doc = schema.nodes.doc.create(null, [p("汉字"), p("かな"), p("中文")]);
+    const set = DecorationSet.create(doc, [1, 5, 9].map((from) => Decoration.inline(from, from + 2, { class: "cjk" })));
+    const edit = new Transform(doc);
+    edit.wrap(doc.resolve(1).blockRange(doc.resolve(11))!, [{ type: schema.nodes.blockquote }]);
+    const view = viewOf(doc, set);
+    expectRedrawnLikeFresh(view, set, edit, "wrap");
+    expect(view.dom.querySelectorAll(".cjk")).toHaveLength(3);
   });
 });
+
+/** Apply `edit` to `view`, then compare its drawing with a fresh view of the independently mapped set. */
+function expectRedrawnLikeFresh(view: EditorView, before: DecorationSet, edit: Transform, label: string) {
+  const tr = view.state.tr;
+  for (const step of edit.steps) tr.step(step);
+  view.dispatch(tr);
+  const mapped = plugins.get(view)!.getState(view.state)!;
+  const kept = mapped.find().filter(isNodeDecoration);
+  const oracle = individuallyMapped(before.find(), tr.mapping, tr.doc).add(tr.doc, kept);
+  expect(drawing(view), label).toBe(drawing(viewOf(tr.doc, oracle)));
+}
