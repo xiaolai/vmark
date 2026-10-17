@@ -71,6 +71,7 @@ Each script's header explains its rules and exemption markers.
 - `lint:file-headers`, `lint:provenance-ids` — every production `.ts`/`.tsx` under `src/` opens with its `/** … @module */` header; production comments carry no calendar date, no `dev-docs/` document path, and only WI/audit ids a tracked file resolves. See `.claude/rules/22-comment-maintenance.md`.
 - `lint:rust-deps` (`cargo machete`) runs in CI, not `check:all`.
 - Markdown parser hostile-input cost is linear: fast paths in `parser/fastPaths/`, `pnpm` patches in `patches/` (a Dependabot bump of micromark or mdast-util-to-markdown fails install until the patch is re-made — that is intended), and `pathologicalScaling.test.ts`.
+- Decoration-set cost is linear through `patches/prosemirror-view@1.42.6.patch` (#1565). A `prosemirror-view` bump fails install until the patch is re-made; `src/plugins/shared/__tests__/decorationSet.*` hold it to the unpatched algorithm and pin the version.
 
 ## i18n
 
