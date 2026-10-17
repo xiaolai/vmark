@@ -81,9 +81,13 @@ export function decorationsOf(doc: Node, random: () => number, tag: string): Dec
   for (let k = int(60); k > 0; k--) {
     const roll = random();
     const attrs = { class: `${tag}${k}` };
-    if (roll < 0.45) {
+    if (roll < 0.42) {
       const from = int(size + 1);
       out.push(Decoration.inline(from, Math.min(size, from + int(12)), attrs));
+    } else if (roll < 0.45) {
+      // A reversed span — invalid, but the tree must place it as upstream does.
+      const to = int(size + 1);
+      out.push(Decoration.inline(Math.min(size, to + 1 + int(12)), to, attrs));
     } else if (roll < 0.7 && nodes.length) {
       const { pos, node } = nodes[int(nodes.length)];
       // Now and then a wrong end, which `valid` must drop the same way.

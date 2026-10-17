@@ -100,6 +100,13 @@ describe("cases the audit found", () => {
   const p = (text: string) => schema.nodes.paragraph.create(null, text ? schema.text(text) : null);
   const quote = (...blocks: Node[]) => schema.nodes.blockquote.create(null, blocks);
 
+  it("a reversed span goes to the child upstream gives it", () => {
+    const doc = schema.nodes.doc.create(null, [p("abcdef"), p("ghijkl"), p("mnopqr")]);
+    const base = DecorationSet.create(doc, [Decoration.inline(1, 2, { class: "a" })]);
+    const more = () => [Decoration.inline(12, 2, { class: "b" })];
+    expectSameSet(base.add(doc, more()), referenceAdd(base, doc, more()), "reversed span");
+  });
+
   it("a later step that replaces a touched child's opening token", () => {
     // Step 1 replaces the last paragraph, touching the second quote at its
     // end; step 2 deletes from that quote's start into its first paragraph,
