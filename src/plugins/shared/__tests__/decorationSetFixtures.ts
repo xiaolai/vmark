@@ -166,29 +166,42 @@ export function individuallyMapped(decorations: readonly Decoration[], mapping: 
 
 /**
  * Node decorations of a mapped set that do not belong there: one that covers
- * no node exactly, or that mapping its original on its own does not give.
- * Empty for a sound set.
+ * no node exactly, or that is not — range AND identity — what mapping one of
+ * the originals on its own gives, each original used once. Empty for a sound
+ * set; a sound set may still have dropped some (`nodeLines` checks those).
  */
-export function unsoundNodeDecorations(mapped: DecorationSet, original: readonly Decoration[], mapping: Mapping, doc: Node): string[] {
-  const allowed = new Set(
-    original
-      .filter(isNodeDecoration)
-      .map((decoration) => internals(decoration).map(mapping, 0, 0))
-      .filter((decoration): decoration is Decoration => decoration !== null)
-      .map((decoration) => `${decoration.from}-${decoration.to}`),
-  );
-  return mapped
-    .find()
+export function unsoundNodeDecorations(mapped: DecorationSource, original: readonly Decoration[], mapping: Mapping, doc: Node): string[] {
+  const allowed = new Map<string, number>();
+  for (const line of nodeLines(individuallyMappedNodes(original, mapping))) allowed.set(line, (allowed.get(line) ?? 0) + 1);
+  const found: Decoration[] = [];
+  mapped.forEachSet((set) => found.push(...set.find()));
+  return found
     .filter(isNodeDecoration)
-    .filter(({ from, to }) => {
-      const node = doc.nodeAt(from);
-      return !node || node.isText || from + node.nodeSize !== to || !allowed.has(`${from}-${to}`);
+    .filter((decoration) => {
+      const node = doc.nodeAt(decoration.from);
+      const line = lineOf(decoration);
+      const left = allowed.get(line) ?? 0;
+      if (left) allowed.set(line, left - 1);
+      return !node || node.isText || decoration.from + node.nodeSize !== decoration.to || !left;
     })
-    .map(({ from, to }) => `${from}-${to}`);
+    .map((decoration) => lineOf(decoration));
+}
+
+/** The node decorations among `decorations`, each mapped on its own. */
+export function individuallyMappedNodes(decorations: readonly Decoration[], mapping: Mapping): Decoration[] {
+  return decorations
+    .filter(isNodeDecoration)
+    .map((decoration) => internals(decoration).map(mapping, 0, 0))
+    .filter((decoration): decoration is Decoration => decoration !== null);
+}
+
+/** The node decorations among `decorations` as sorted lines. */
+export function nodeLines(decorations: readonly Decoration[]): string[] {
+  return decorations.filter(isNodeDecoration).map((decoration) => lineOf(decoration)).sort();
 }
 
 /** A decoration as a comparable line: where, what kind, which one. */
-export function lineOf(decoration: Decoration, base = 0): string {
+function lineOf(decoration: Decoration, base = 0): string {
   const { inline, widget } = internals(decoration);
   const kind = widget ? "widget" : inline ? "inline" : "node";
   const label = (decoration.spec as { key?: string }).key ?? JSON.stringify((decoration as unknown as { type: { attrs?: object } }).type.attrs);

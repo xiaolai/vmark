@@ -14,15 +14,18 @@
 //
 // Mapping is held to a different oracle: each decoration mapped on its own and
 // the tree rebuilt (`individuallyMapped`). The patch also fixes upstream's
-// `mapChildren`, which in a multi-step mapping could keep a child whose opening
-// token a later step had replaced, and leave the decorations after the cut
-// unshifted — so for `map`, upstream is not the reference.
+// `mapChildren`, which kept child sets where no child node is — after a later
+// step replaced a touched child's opening token, after a wrap moved an
+// untouched child, through a mirrored mapping — so for `map`, upstream is not
+// the reference. Each seed maps a whole edit.
 import { describe, expect, it } from "vitest";
 import type { Node } from "@tiptap/pm/model";
 import { Mapping, Transform } from "@tiptap/pm/transform";
 import { Decoration, DecorationSet, type DecorationSource } from "@tiptap/pm/view";
 import { referenceAdd, referenceCreate, referenceForChild } from "./decorationSetReference";
-import { decorationsOf, documentOf, drawn, editsOf, individuallyMapped, isNodeDecoration, lineOf, schema, seeded, unsoundNodeDecorations } from "./decorationSetFixtures";
+import {
+  decorationsOf, documentOf, drawn, editsOf, individuallyMapped, nodeLines, schema, seeded, unsoundNodeDecorations,
+} from "./decorationSetFixtures";
 
 const CASES = 300;
 
@@ -31,20 +34,27 @@ function expectSameSet(actual: DecorationSet, expected: DecorationSet, label: st
   expect((actual as unknown as { eq(o: DecorationSet): boolean }).eq(expected), label).toBe(true);
 }
 
+/** A mapping and the document it maps onto: a whole transform, or a slice of one. */
+interface Mapped {
+  mapping: Mapping;
+  doc: Node;
+}
+
 /**
  * A mapped set against the oracle. Inline decorations and widgets: what a
  * view would DRAW from it equals what it draws from the decorations mapped one
  * by one (`individuallyMapped`). Node decorations: each one it keeps covers a
- * node exactly and is what mapping its original alone gives, and it draws
- * every one `find()` reports — no subtree kept under the wrong parent.
+ * node exactly and is what mapping its original alone gives — range and
+ * identity — and it draws every one `find()` reports — no subtree kept under
+ * the wrong parent.
  */
-function expectMappedLike(mapped: DecorationSet, original: readonly Decoration[], tr: Transform, label: string) {
+function expectMappedLike(mapped: DecorationSet, original: readonly Decoration[], { mapping, doc }: Mapped, label: string) {
   const positional = (lines: string[]) => lines.filter((line) => !line.includes(" node ")).sort();
-  const oracle = individuallyMapped(original, tr.mapping, tr.doc);
-  expect(positional(drawn(mapped, tr.doc)), `${label} drawn`).toEqual(positional(drawn(oracle, tr.doc)));
-  expect(unsoundNodeDecorations(mapped, original, tr.mapping, tr.doc), `${label} node decorations`).toEqual([]);
-  const nodeLines = (lines: string[]) => lines.filter((line) => line.includes(" node ")).sort();
-  expect(nodeLines(drawn(mapped, tr.doc)), `${label} node decorations drawn`).toEqual(nodeLines(mapped.find().filter(isNodeDecoration).map((d) => lineOf(d))));
+  const oracle = individuallyMapped(original, mapping, doc);
+  expect(positional(drawn(mapped, doc)), `${label} drawn`).toEqual(positional(drawn(oracle, doc)));
+  expect(unsoundNodeDecorations(mapped, original, mapping, doc), `${label} node decorations`).toEqual([]);
+  const drawnNodes = (lines: string[]) => lines.filter((line) => line.includes(" node ")).sort();
+  expect(drawnNodes(drawn(mapped, doc)), `${label} node decorations drawn`).toEqual(nodeLines(mapped.find()));
 }
 
 function membersOf(source: DecorationSource): DecorationSet[] {
@@ -152,5 +162,13 @@ describe("cases the audit found", () => {
     tr.wrap(doc.resolve(1).blockRange()!, [{ type: schema.nodes.blockquote }]);
     expect(set.map(tr.mapping, tr.doc, { onRemove: (spec) => removed.push(spec) }).find()).toEqual([]);
     expect(removed).toEqual([{ id: "n" }]);
+  });
+
+  it("the node-decoration oracle tells decorations apart, not only ranges", () => {
+    const doc = schema.nodes.doc.create(null, [p("a"), p("b")]);
+    const original = [Decoration.node(0, 3, { class: "first" }), Decoration.node(3, 6, { class: "second" })];
+    const swapped = DecorationSet.create(doc, [Decoration.node(0, 3, { class: "second" }), Decoration.node(3, 6, { class: "first" })]);
+    expect(unsoundNodeDecorations(swapped, original, new Mapping(), doc)).toHaveLength(2);
+    expect(unsoundNodeDecorations(DecorationSet.create(doc, original), original, new Mapping(), doc)).toEqual([]);
   });
 });

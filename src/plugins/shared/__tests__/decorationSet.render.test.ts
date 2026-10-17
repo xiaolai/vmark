@@ -9,8 +9,10 @@
 // in which the view asks `forChild`, hint and all — ends with the DOM a fresh
 // view draws for the decorations mapped one by one. Node decorations come
 // from the mapped set itself on both sides: upstream drops one whose node
-// changed parent on some paths and not others, and the differential test holds
-// them to soundness instead (`unsoundNodeDecorations`).
+// changed parent on some paths and not others. Each one copied is first held
+// to soundness — it covers a node and is, range and identity, what mapping
+// one original alone gives (`unsoundNodeDecorations`) — so the copy cannot
+// carry a wrong one into the oracle.
 //
 // Drawings are compared with each `class` attribute's tokens sorted: where
 // inline decorations overlap, the view joins their classes in the order the
@@ -25,7 +27,7 @@ import { EditorState, Plugin } from "@tiptap/pm/state";
 import { Decoration, DecorationSet, EditorView } from "@tiptap/pm/view";
 import { Transform } from "@tiptap/pm/transform";
 import { referenceAdd, referenceCreate } from "./decorationSetReference";
-import { decorationsOf, documentOf, editsOf, individuallyMapped, isNodeDecoration, schema, seeded } from "./decorationSetFixtures";
+import { decorationsOf, documentOf, editsOf, individuallyMapped, isNodeDecoration, schema, seeded, unsoundNodeDecorations } from "./decorationSetFixtures";
 
 const CASES = 150;
 
@@ -99,6 +101,7 @@ function expectRedrawnLikeFresh(view: EditorView, before: DecorationSet, edit: T
   view.dispatch(tr);
   const mapped = plugins.get(view)!.getState(view.state)!;
   const kept = mapped.find().filter(isNodeDecoration);
+  expect(unsoundNodeDecorations(mapped, before.find(), tr.mapping, tr.doc), `${label} node decorations`).toEqual([]);
   const oracle = individuallyMapped(before.find(), tr.mapping, tr.doc).add(tr.doc, kept);
   expect(drawing(view), label).toBe(drawing(viewOf(tr.doc, oracle)));
 }
