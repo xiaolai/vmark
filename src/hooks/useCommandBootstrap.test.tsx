@@ -270,6 +270,19 @@ describe("useCommandBootstrap", () => {
     expect(signalMenuReady).toHaveBeenCalledExactlyOnceWith(true);
   });
 
+  // WI-OC1.2 — the mount requests every listener at once, so there is no
+  // "between registrations" left to poll; the cleanup reaches into an
+  // in-flight mount through its signal instead.
+  it("hands the mount a signal that the cleanup aborts", () => {
+    mountMenuCommandsMock.mockReturnValueOnce(new Promise(() => {}));
+    const { unmount } = renderHook(() => useCommandBootstrap());
+    const { signal } = mountMenuCommandsMock.mock.calls[0][1] as { signal: AbortSignal };
+    expect(signal.aborted).toBe(false);
+
+    unmount();
+    expect(signal.aborted).toBe(true);
+  });
+
   it("invokes the unlistener when unmount races mountMenuCommands resolution (audit Round A H4)", async () => {
     const off = vi.fn();
     // Capture the resolver so we can defer resolution past unmount.
@@ -287,8 +300,8 @@ describe("useCommandBootstrap", () => {
     await Promise.resolve();
     unmount();
 
-    // Now resolve the deferred promise. Inside the IIFE: `cancelled` is
-    // true → `off()` is called to avoid a listener leak.
+    // Now resolve the deferred promise. Inside the IIFE the pass is aborted
+    // → `off()` is called to avoid a listener leak.
     expect(resolveOff).not.toBeNull();
     resolveOff!({ off, failed: [] });
     // Flush the awaited continuation and the synchronous off() call.

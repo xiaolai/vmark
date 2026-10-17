@@ -29,8 +29,10 @@ vi.mock("@tauri-apps/api/webviewWindow", () => ({
 
 
 const safeUnlistenAllMock = vi.fn();
+const safeUnlistenMock = vi.fn();
 vi.mock("@/utils/safeUnlisten", () => ({
   safeUnlistenAll: (fns: unknown[]) => safeUnlistenAllMock(fns),
+  safeUnlisten: (fn: unknown) => safeUnlistenMock(fn),
 }));
 
 const menuErrorMock = vi.fn();
@@ -39,7 +41,7 @@ vi.mock("@/utils/debug", () => ({
 }));
 
 // Import after mocks register so hoisting wires correctly.
-import { decodeMenuPayload, mountMenuCommands } from "./menuListener";
+import { decodeMenuPayload, mountMenuCommands, type MenuCommandBinding } from "./menuListener";
 import { _resetCommandBus, registerCommand } from "./CommandBus";
 import { getEditorActionOwner } from "@/services/editor/editorActionOwner";
 
@@ -76,6 +78,7 @@ beforeEach(() => {
   listenSpy.mockReset();
   unlistenSpies.length = 0;
   safeUnlistenAllMock.mockReset();
+  safeUnlistenMock.mockReset();
   menuErrorMock.mockReset();
   _resetCommandBus();
   runs.clear();
@@ -363,32 +366,117 @@ describe("unregistered command targets (audit #916)", () => {
   });
 });
 
-describe("abortable mount (audit #711)", () => {
-  it("stops registering and unlistens what it installed once shouldAbort turns true", async () => {
-    let mounted = 0;
-    listenSpy.mockImplementation(async () => {
-      mounted += 1;
-      const off = vi.fn();
-      unlistenSpies.push(off);
-      return off;
-    });
+/** Hold every listen() open until the test lands it, in any order. */
+function deferListens() {
+  const pending: { event: string; off: ReturnType<typeof vi.fn>; land: () => void; refuse: (e: Error) => void }[] = [];
+  listenSpy.mockImplementation((event) => new Promise((resolve, reject) => {
+    const off = vi.fn();
+    pending.push({ event, off, land: () => resolve(off), refuse: reject });
+  }));
+  return pending;
+}
 
-    const { off } = await mountMenuCommands(
-      [
-        { menuEvent: "a", commandId: "cmd.a" },
-        { menuEvent: "b", commandId: "cmd.b" },
-        { menuEvent: "c", commandId: "cmd.c" },
-      ],
-      { shouldAbort: () => mounted >= 2 },
-    );
+/** Let every settled listen() continuation run. */
+async function settle() {
+  for (let i = 0; i < 6; i++) await Promise.resolve();
+}
 
-    // A cancelled pass must not keep its listeners live for the rest of the
-    // mount: overlapping the replay pass double-dispatches every menu event.
-    expect(mounted).toBe(2);
-    expect(safeUnlistenAllMock).toHaveBeenCalledTimes(1);
-    // …and the caller's own `off()` stays safe to call: teardown is idempotent.
+// WI-OC1.2 — the mount used to await each listen() in turn: ~155 IPC round
+// trips in series, which on a loaded machine outlasted the window's 5 s
+// readiness budget before the document was even involved. It now requests
+// every listener at once. That replaced the audit #711 abort test, which
+// polled `shouldAbort` BETWEEN sequential registrations: with nothing in
+// between any more, cancellation is an AbortSignal that tears the pass down
+// the moment it fires.
+describe("concurrent mount (WI-OC1.2)", () => {
+  const ABC = [
+    { menuEvent: "a", commandId: "cmd.a" },
+    { menuEvent: "b", commandId: "cmd.b" },
+    { menuEvent: "c", commandId: "cmd.c" },
+  ];
+
+  it("requests every listener before any registration lands", async () => {
+    const pending = deferListens();
+    const mounting = mountMenuCommands(ABC);
+
+    expect(listenSpy.mock.calls.map(([event]) => event)).toEqual(["menu:a", "menu:b", "menu:c"]);
+
+    for (const p of pending) p.land();
+    await expect(mounting).resolves.toMatchObject({ failed: [] });
+  });
+
+  it("reports failures in binding order, however the registrations settle", async () => {
+    const pending = deferListens();
+    const mounting = mountMenuCommands(ABC);
+    pending[2].refuse(new Error("refused c"));
+    pending[1].land();
+    pending[0].refuse(new Error("refused a"));
+
+    const { failed } = await mounting;
+    expect(failed).toEqual(["menu:a", "menu:c"]);
+  });
+
+  it("an abort removes every landed listener at once, and each late one as it lands", async () => {
+    const pending = deferListens();
+    const controller = new AbortController();
+    const mounting = mountMenuCommands(ABC, { signal: controller.signal });
+    pending[0].land();
+    pending[1].land();
+    await settle();
+
+    controller.abort();
+    expect(safeUnlistenAllMock).toHaveBeenCalledExactlyOnceWith([pending[0].off, pending[1].off]);
+
+    pending[2].land();
+    const { off } = await mounting;
+    expect(safeUnlistenMock).toHaveBeenCalledExactlyOnceWith(pending[2].off);
+
+    // The caller's own `off()` stays safe to call: teardown is idempotent.
     off();
     expect(safeUnlistenAllMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("a torn-down pass dispatches nothing, even for an event already on its way", async () => {
+    const controller = new AbortController();
+    await mountMenuCommands([{ menuEvent: "a", commandId: "cmd.a" }], { signal: controller.signal });
+    const callback = listenSpy.mock.calls[0]?.[1];
+
+    controller.abort();
+    callback?.({ payload: "main" });
+    await settle();
+
+    expect(anyCommandRan()).toBe(false);
+  });
+
+  it("registers nothing for a pass aborted before it starts", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const { failed } = await mountMenuCommands(ABC, { signal: controller.signal });
+
+    expect(listenSpy).not.toHaveBeenCalled();
+    expect(failed).toEqual([]);
+  });
+
+  it("a replaced pass torn down late does not cancel its replacement's retries", async () => {
+    vi.useFakeTimers();
+    try {
+      const bold: MenuCommandBinding[] = [{ kind: "editorAction", menuEvent: "menu:bold", mapping: { actionId: "bold" } }];
+      const first = await mountMenuCommands(bold);
+      const second = await mountMenuCommands(bold);
+      const owner = getEditorActionOwner("main");
+      const retry = vi.fn();
+      owner.scheduleRetry(retry);
+
+      first.off();
+      vi.runOnlyPendingTimers();
+      expect(retry).toHaveBeenCalledTimes(1);
+      expect(owner.isDisposed()).toBe(false);
+
+      second.off();
+      expect(owner.isDisposed()).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

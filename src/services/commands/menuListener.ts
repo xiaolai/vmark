@@ -9,12 +9,24 @@
  * `menuId → commandId` map. Reentry guards, window-payload checks, and
  * window-scoped context move into the command run() bodies.
  *
+ * Key decisions:
+ *   - Every listener is requested at once. Each `listen()` is an IPC round
+ *     trip, and the window's readiness waits on the whole mount: ~155 of them
+ *     in series outlasted the 5 s budget on a loaded machine.
+ *   - So cancellation is an AbortSignal, not a check between registrations:
+ *     it removes what has landed at once, and each later registration as it
+ *     lands. A listener also checks its pass is live when it DISPATCHES —
+ *     an event can arrive while its unlisten is still in flight.
+ *   - Only a window's latest mount disposes that window's editor-action
+ *     owner, so a replaced pass torn down late cannot cancel the retries its
+ *     replacement queued.
+ *
  * @module services/commands/menuListener
  */
 
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import type { UnlistenFn } from "@tauri-apps/api/event";
-import { safeUnlistenAll } from "@/utils/safeUnlisten";
+import { safeUnlisten, safeUnlistenAll } from "@/utils/safeUnlisten";
 import { executeCommand, hasCommand } from "./CommandBus";
 import { menuError } from "@/utils/debug";
 import { shouldBlockMenuAction } from "@/utils/focusGuard";
@@ -82,14 +94,19 @@ export interface MenuMountResult {
 /** Options for {@link mountMenuCommands}. */
 export interface MountMenuCommandsOptions {
   /**
-   * Polled between listener registrations. `true` abandons the mount and
-   * unlistens everything it installed: a StrictMode-cancelled or
-   * unmounted pass otherwise keeps ITS listeners live for the whole remaining
-   * mount, overlapping the live pass and double-dispatching every menu event
-   * bound in that window.
+   * Aborting tears the mount down: every listener that has landed is removed
+   * at once, each one still in flight is removed as it lands, and none of them
+   * dispatches again. A StrictMode-cancelled or unmounted pass otherwise keeps
+   * ITS listeners live beside the replay pass, double-dispatching every menu
+   * event bound in that window.
    */
-  shouldAbort?: () => boolean;
+  signal?: AbortSignal;
 }
+
+/** The latest editor-action mount per window — the one that may dispose its owner. */
+const latestEditorActionMount = new Map<string, symbol>();
+
+type MenuPayload = string | [unknown, string];
 
 /** Normalize a menu event id to its `menu:`-prefixed form. */
 function normalizeMenuEvent(menuEvent: string): string {
@@ -166,32 +183,39 @@ export async function mountMenuCommands(
     seen.add(event);
   }
 
+  const { signal } = options;
+  if (signal?.aborted) return { off: () => {}, failed: [] };
+
   const currentWindow = getCurrentWebviewWindow();
   const windowLabel = currentWindow.label;
   const unlisteners: UnlistenFn[] = [];
-  const failed: string[] = [];
   const hasEditorActions = bindings.some((b) => b.kind === "editorAction");
+  const mount = Symbol(windowLabel);
+  if (hasEditorActions) latestEditorActionMount.set(windowLabel, mount);
 
   let tornDown = false;
+  const isLive = () => !tornDown;
   const teardown = () => {
     // Idempotent: an aborted mount tears itself down and still hands the caller
     // an `off` it is entitled to call.
     if (tornDown) return;
     tornDown = true;
+    signal?.removeEventListener("abort", teardown);
     safeUnlistenAll(unlisteners);
     // Cancel any queued editor-action retry timers for this window (the executor
-    // owns per-window retry state; the dispatcher owns its lifecycle).
-    if (hasEditorActions) disposeEditorActionOwner(windowLabel);
-  };
-
-  for (const binding of bindings) {
-    // Abandon a mount whose caller has already gone. Checked
-    // BEFORE each registration, so a cancelled pass stops adding listeners
-    // rather than finishing the whole set and removing them afterwards.
-    if (options.shouldAbort?.()) {
-      teardown();
-      return { off: teardown, failed };
+    // owns per-window retry state; the dispatcher owns its lifecycle) — unless a
+    // newer mount for this window already owns them.
+    if (hasEditorActions && latestEditorActionMount.get(windowLabel) === mount) {
+      latestEditorActionMount.delete(windowLabel);
+      disposeEditorActionOwner(windowLabel);
     }
+  };
+  signal?.addEventListener("abort", teardown, { once: true });
+
+  // One task per binding, all started now; each settles to the event it could
+  // not mount, or null. Read back in binding order, so `failed` does not depend
+  // on which registration the runtime answers first.
+  const outcomes = await Promise.all(bindings.map(async (binding): Promise<string | null> => {
     const event = normalizeMenuEvent(binding.menuEvent);
     // A binding whose command does not exist is a DEAD menu item:
     // `executeCommand` returns the same `false` for "no such command" as for
@@ -201,50 +225,63 @@ export async function mountMenuCommands(
     // nothing else — and recorded in `failed` so readiness reports the truth.
     if (binding.kind !== "editorAction" && !hasCommand(binding.commandId)) {
       menuError(`No command registered for ${event} (→ ${binding.commandId}); not mounting it.`);
-      failed.push(event);
-      continue;
+      return event;
     }
     try {
-      // Tauri's EventCallback returns void, so the listener must too. The body
-      // below already catches its own failures — this adapter fixes the
-      // CONTRACT, and is a second net if that catch is ever narrowed.
-      const off = await currentWindow.listen<string | [unknown, string]>(event, voidAsync(async (e: { payload: string | [unknown, string] }) => {
-        const decoded = decodeMenuPayload(e.payload, windowLabel);
-        if (decoded.kind === "other-window") return;
-        if (decoded.kind === "unknown") {
-          menuError(
-            `Refusing to dispatch ${bindingTarget(binding)}: unexpected payload shape`,
-            e.payload,
-          );
-          return;
-        }
-        if (binding.kind === "editorAction") {
-          // Editor menu path: the menu-only focus gate (rejects focus inside the
-          // palette/find-bar/dialogs) stays HERE, not in the executor — moving it
-          // down would make the palette block its own commands (ADR-017).
-          // Then runEditorAction applies the executor gate — deliberately NOT the
-          // palette `actionAvailability` when().
-          if (shouldBlockMenuAction()) return;
-          dispatchMenuAction(binding.mapping, windowLabel);
-          return;
-        }
-        try {
-          await executeCommand(binding.commandId, decoded.args, { windowLabel });
-        } catch (err) {
-          menuError(`Command ${binding.commandId} threw:`, err);
-        }
-      }, (err) => menuError(`Menu listener for ${event} failed:`, err)));
-      unlisteners.push(off);
+      const off = await currentWindow.listen<MenuPayload>(event, menuEventHandler(binding, event, windowLabel, isLive));
+      // Landed after the teardown, which could not see it: remove it here.
+      if (tornDown) safeUnlisten(off);
+      else unlisteners.push(off);
+      return null;
     } catch (err) {
       // Skip this one, keep the rest. The caller is told which
       // events are dead through `failed`, so a partial menu can never be
       // reported as a whole one.
       menuError(`Failed to mount listener for ${event}:`, err);
-      failed.push(event);
+      return event;
     }
-  }
+  }));
 
-  return { off: teardown, failed };
+  return { off: teardown, failed: outcomes.filter((event): event is string => event !== null) };
+}
+
+/** The listener for one binding. It dispatches only while its mount is live. */
+function menuEventHandler(
+  binding: MenuCommandBinding,
+  event: string,
+  windowLabel: string,
+  isLive: () => boolean,
+): (e: { payload: MenuPayload }) => void {
+  // Tauri's EventCallback returns void, so the listener must too. The body
+  // below already catches its own failures — this adapter fixes the
+  // CONTRACT, and is a second net if that catch is ever narrowed.
+  return voidAsync(async (e: { payload: MenuPayload }) => {
+    if (!isLive()) return;
+    const decoded = decodeMenuPayload(e.payload, windowLabel);
+    if (decoded.kind === "other-window") return;
+    if (decoded.kind === "unknown") {
+      menuError(
+        `Refusing to dispatch ${bindingTarget(binding)}: unexpected payload shape`,
+        e.payload,
+      );
+      return;
+    }
+    if (binding.kind === "editorAction") {
+      // Editor menu path: the menu-only focus gate (rejects focus inside the
+      // palette/find-bar/dialogs) stays HERE, not in the executor — moving it
+      // down would make the palette block its own commands (ADR-017).
+      // Then runEditorAction applies the executor gate — deliberately NOT the
+      // palette `actionAvailability` when().
+      if (shouldBlockMenuAction()) return;
+      dispatchMenuAction(binding.mapping, windowLabel);
+      return;
+    }
+    try {
+      await executeCommand(binding.commandId, decoded.args, { windowLabel });
+    } catch (err) {
+      menuError(`Command ${binding.commandId} threw:`, err);
+    }
+  }, (err) => menuError(`Menu listener for ${event} failed:`, err));
 }
 
 /** Human-readable dispatch target for error/dedup messages. */
