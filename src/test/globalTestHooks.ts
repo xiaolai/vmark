@@ -14,6 +14,7 @@
 import { vi, beforeEach, afterEach } from "vitest";
 import { signalMenuCommandsMounted } from "@/services/commands/menuCommandsReady";
 import { signalCloseListenersMounted } from "@/services/windowClose/closeListenersReady";
+import { resetWindowListeningForTest } from "@/contexts/windowListening";
 
 // The window-ready handshake waits for the menu listener to mount before it
 // tells Rust (and the DOM) that the window is listening — see
@@ -39,6 +40,10 @@ beforeEach(() => {
   // render log a failed menu mount.
   signalMenuCommandsMounted(true);
   signalCloseListenersMounted(true);
+  // A document window ARMS the document surface's gate and its announcement
+  // opens it (`windowListening`). Module state outlives a test, so a test whose
+  // window never announced would leave the next one's surfaces held back.
+  resetWindowListeningForTest();
 });
 
 // Real timers are the DEFAULT after every test, not a courtesy each file pays

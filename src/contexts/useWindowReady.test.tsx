@@ -12,6 +12,7 @@ const mockWindowContextError = vi.fn();
 vi.mock("@/utils/debug", () => ({ windowContextError: (...a: unknown[]) => mockWindowContextError(...a) }));
 
 import { READY_ATTRIBUTE, useWindowReady } from "./useWindowReady";
+import { isWindowListening, resetWindowListeningForTest } from "./windowListening";
 import {
   signalMenuCommandsMounted,
   resetMenuCommandsForTest,
@@ -21,6 +22,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   mockWindowContextError.mockReset();
   resetMenuCommandsForTest();
+  resetWindowListeningForTest();
   document.documentElement.removeAttribute(READY_ATTRIBUTE);
 });
 afterEach(() => {
@@ -313,6 +315,43 @@ describe("StrictMode double-mount (tier-0 CI run 33367721596)", () => {
   });
 });
 
+// WI-OC1.3 — the document surface mounts only once the window announces
+// itself. Building a large document's view is seconds of main-thread work on a
+// slow machine; started before the announcement, it starved the very listeners
+// the announcement waits on (#1565).
+describe("the window-listening signal the document surface waits on", () => {
+  it("is held from a document window's markReady until it announces", async () => {
+    const emit = vi.fn().mockResolvedValue(undefined);
+    const { result } = renderHook(() => useWindowReady());
+
+    act(() => result.current.markReady({ label: "main", emit }));
+    expect(isWindowListening()).toBe(false);
+
+    await mountMenuListener();
+    expect(readyAttr()).toBe("true");
+    expect(isWindowListening()).toBe(true);
+  });
+
+  it("opens after a budget that expires too — the announcement still goes out", async () => {
+    const emit = vi.fn().mockResolvedValue(undefined);
+    const { result } = renderHook(() => useWindowReady());
+
+    act(() => result.current.markReady({ label: "main", emit }));
+    await settle(5_000);
+
+    expect(emit).toHaveBeenCalledWith("ready", "main");
+    expect(isWindowListening()).toBe(true);
+  });
+
+  it("is never held for a window with no document surface", () => {
+    const emit = vi.fn().mockResolvedValue(undefined);
+    const { result } = renderHook(() => useWindowReady());
+
+    act(() => result.current.markReady({ label: "settings", emit }));
+    expect(isWindowListening()).toBe(true);
+  });
+});
+
 // The provider's init is once-only (its own StrictMode guard), so markReady
 // runs ONCE, in the first lifecycle. The harness above calls it again from the
 // replayed effect and so never saw this: the simulated unmount cleared a
@@ -355,5 +394,6 @@ describe("StrictMode replay with a once-only markReady, as the provider calls it
 
     expect(readyAttr()).toBe("true");
     expect(emit).toHaveBeenCalledExactlyOnceWith("ready", "main");
+    expect(isWindowListening()).toBe(true);
   });
 });

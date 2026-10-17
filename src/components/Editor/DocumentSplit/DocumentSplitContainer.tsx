@@ -9,14 +9,22 @@
  * Focus tracking: clicking/tabbing into a pane sets it as the focused pane (the
  * one the toolbar/find/menus act on) via onFocusCapture.
  *
+ * Nothing mounts until the window has announced that it is listening
+ * (`windowListening`): building a large document's view is seconds of
+ * main-thread work on a slow machine, and started earlier it starved the
+ * listeners the announcement waits on (#1565). The gate sits above every
+ * hook, so the panes mount fresh when it opens and scroll sync binds to them.
+ *
  * @coordinates-with stores/paneStore.ts — split layout + focus + fraction
  * @coordinates-with contexts/PaneContext.tsx — provides each pane's tabId
  * @coordinates-with components/Editor/Editor.tsx — the per-pane surface
+ * @coordinates-with contexts/windowListening.ts — the gate the surface waits on
  * @module components/Editor/DocumentSplit/DocumentSplitContainer
  */
 import { useRef, type CSSProperties } from "react";
 import { useWindowLabel } from "@/contexts/WindowContext";
 import { PaneProvider } from "@/contexts/PaneContext";
+import { useWindowListening } from "@/contexts/windowListening";
 import { usePaneStore } from "@/stores/paneStore";
 import { useUIStore } from "@/stores/uiStore";
 import { Editor } from "../Editor";
@@ -25,6 +33,10 @@ import { useSyncPaneScroll } from "./useSyncPaneScroll";
 import "./document-split.css";
 
 export function DocumentSplitContainer() {
+  return useWindowListening() ? <DocumentSplitPanes /> : null;
+}
+
+function DocumentSplitPanes() {
   const windowLabel = useWindowLabel();
   const split = usePaneStore((state) => state.byWindow[windowLabel]);
 
