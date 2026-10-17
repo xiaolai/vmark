@@ -109,6 +109,46 @@ Honest expectation, stated up front (Codex round 2 #7): OC2 removes redundant an
 
 macOS: the dev app opens the fixture with code highlighting, CJK spacing and images intact; Save pressed during the open leaves the file unchanged.
 
+### Acceptance results
+
+Build `19cdc8d7f` on WebKitGTK 2.52.6, protocol as above, 3 runs per row. Stalls are the sum of frame gaps over 50 ms in the first 22 s; document cost is stalls minus the tiny control on the same build (3.14–3.22 s).
+
+Throttled (25% of one core):
+
+| Document | Menu timeouts | Stalls | Document cost | Longest frame | Before (PR #1566) |
+|---|---|---|---|---|---|
+| Tiny (control) | 0/3 | 3.14–3.22 s | — | 0.3–0.5 s | ~3.2 s, no timeout |
+| Full fixture | **0/3** | 8.67–8.97 s | **5.5–5.8 s** | 2.3–2.4 s | 10.4–11.4 s (7.2–8.2 s), timeout in 3/3 runs, longest 3.9–4.0 s |
+| Text only | **0/3** | 5.86–6.14 s | **2.7–3.0 s** | 1.3 s | 7.3–7.7 s (~4.3 s), timeout in 2/2 runs, longest 2.5–2.6 s |
+| Source mode (fixture ×3, 1.5 MB, opens in Source) | **0/3** | 5.64–5.69 s | 2.5 s | 0.5–0.6 s | not measured |
+
+Unthrottled — no regression:
+
+| Document | Stalls | Longest frame | Web process RSS | Images with `src` | Before (PR #1566) |
+|---|---|---|---|---|---|
+| Tiny | 52–104 ms | 52–59 ms | 297–302 MiB | — | — |
+| Full fixture | 859–909 ms | 370–374 ms | 442–449 MiB | 6 of 338, all loaded | 1,057–1,501 ms, 495–620 ms, 516–521 MiB, 6 of 338 |
+| Text only | 321–431 ms | 162–169 ms | 387–390 MiB | — | not measured |
+
+Each OC2 mechanism's share, by reverting it alone (build `aa344caa3`, same load path; throttled stalls, full / text only, against 8.66–9.14 s / 5.94–6.13 s with everything on):
+
+| Reverted | Full | Text only | Share |
+|---|---|---|---|
+| CJK spacing (host gate + textblock ranges, WI-OC2.3) | 10.2–11.2 s | 7.3–7.8 s | ~1.7 s / ~1.5 s |
+| Lowlight duplicates (WI-OC2.1) | 9.2–9.5 s | 6.0–6.1 s | ~0.4 s / none (no code) |
+| `prosemirror-view` patch (WI-OC2.2) | 8.7–9.3 s | 5.9–6.1 s | within noise |
+
+The patch shows nothing at the default setting because spacing off leaves almost no decorations at load; with spacing on, a load decorates 12,168 CJK runs and the patch turns their quadratic build and draw linear. CPU-clock growth exponents, idle (unpatched ~2; target ≤ 1.2): `create` 1.09–1.19, `add` 1.01–1.08 (2,000–20,000 blocks), `forChild` 1.01–1.07. CI holds them under 1.35, this repo's bound for linear growth tests. Every attribution variant also had 0/3 timeouts: OC1's window gate alone removes the reported symptom.
+
+What remains, throttled (PERF timeline of the final build): text only — startup until 3.9 s, then ONE 1.30 s task (parse 0.90 s: `remarkParse` 796 ms, mdast→ProseMirror 86 ms; the load dispatch ~0.4 s, was ~1.8 s), then a 0.71 s first layout. Full fixture — a 2.31 s task (parse 1.30 s, then the dispatch and the 154 code-block and 338 image node views ~1.0 s) and a 2.09 s layout. The parse and the first layout are the follow-ups' (D2's Worker parse started at open) and WYSIWYG's floor.
+
+macOS (dev app, Apple silicon), a fresh copy of the fixture opened through `open-file`:
+
+- Save pressed 33 ms into the open, before the editor existed: the file is byte-identical (SHA-256 and size unchanged; Save rewrote the store's text, the original).
+- 1,171 blocks; 154 code blocks with 1,078 highlight spans.
+- CJK spacing on: 12,168 runs decorated at 0.05 em, none in code; off: none.
+- Images load as they near the viewport once the window is visible (3 loaded). While the window is hidden WebKit runs no animation frames, so the render queue waits — as on PR #1566.
+
 ## Risks and how each is checked
 
 | Risk | Check |
