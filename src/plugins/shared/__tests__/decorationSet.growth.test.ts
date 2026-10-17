@@ -10,7 +10,10 @@
 // Timed at SMALL and LARGE blocks on the test thread's CPU clock
 // (`measureGrowth`); the exponent must stay under MAX_EXPONENT. The patched
 // work is a binary search per decoration (n log n, about 1.1 over this range);
-// the unpatched work read about 2.
+// the unpatched work read about 2. The bound is the 1.35 this repo's other
+// linear-growth tests use, whose worst reading under coverage and load was
+// 1.27 (`src/test/cpuClock.ts`). Idle readings here are 1.01–1.19, so the
+// plan's 1.2 would fail on noise rather than on a quadratic term.
 //
 // Drawing is measured as the one call the patch changed: `forChild`, once per
 // child in document order, as the view asks. A whole jsdom render would bury
@@ -32,7 +35,7 @@ import { growthExponent, measureGrowth } from "@/test/cpuClock";
 
 const SMALL = 400;
 const LARGE = 4000;
-const MAX_EXPONENT = 1.4;
+const MAX_EXPONENT = 1.35;
 const ADD_SMALL = 2000;
 const ADD_LARGE = 20000;
 const DECORATIONS_PER_BLOCK = 6;
