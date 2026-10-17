@@ -140,8 +140,12 @@ phase_OC2() {
 phase_OC3() {
   echo "Phase OC3 — Guards, documentation, acceptance"
   has_file "src/bench/openCost.bench.ts" "the open-cost bench (WI-OC3.1)"
-  has_text "website/guide/large-files.md" "listening" \
-           "the large-files guide says when the document appears (WI-OC3.2)"
+  has_text "website/guide/large-files.md" "^## While a document opens" \
+           "the large-files guide says the window answers before the document appears (WI-OC3.2)"
+  has_text "website/guide/large-files.md" "used to cost quadratically" \
+           "the large-files guide states the decoration fix (WI-OC3.2)"
+  has_text "website/guide/large-files.md" "between a quarter and two fifths" \
+           "the large-files guide states the measured parse share (WI-OC3.2)"
   has_text "$PLAN" "^### Acceptance results" "acceptance results are recorded (WI-OC3.3)"
   linked OC3
 }
