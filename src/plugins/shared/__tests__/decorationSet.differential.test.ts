@@ -17,14 +17,15 @@
 // `mapChildren`, which kept child sets where no child node is — after a later
 // step replaced a touched child's opening token, after a wrap moved an
 // untouched child, through a mirrored mapping — so for `map`, upstream is not
-// the reference. Each seed maps a whole edit.
+// the reference. Each seed maps a whole edit and a typed character.
 import { describe, expect, it } from "vitest";
 import type { Node } from "@tiptap/pm/model";
 import { Mapping, Transform } from "@tiptap/pm/transform";
 import { Decoration, DecorationSet, type DecorationSource } from "@tiptap/pm/view";
 import { referenceAdd, referenceCreate, referenceForChild } from "./decorationSetReference";
 import {
-  decorationsOf, documentOf, drawn, editsOf, individuallyMapped, nodeLines, schema, seeded, unsoundNodeDecorations,
+  decorationsOf, documentOf, drawn, editsOf, individuallyMapped, individuallyMappedNodes, nodeLines, schema, seeded, typedIn,
+  unsoundNodeDecorations,
 } from "./decorationSetFixtures";
 
 const CASES = 300;
@@ -107,6 +108,14 @@ describe("the patched decoration tree agrees with the unpatched algorithm", () =
     const mapped = added.map(tr.mapping, tr.doc);
     expectMappedLike(mapped, added.find(), tr, `map #${seed}`);
     expectSameForChild(mapped, tr.doc, `map+forChild #${seed}`);
+
+    // Typing moves no node, so no node decoration may be dropped.
+    const typed = typedIn(doc, random);
+    if (typed) {
+      const kept = added.map(typed.mapping, typed.doc);
+      expect(nodeLines(kept.find()), `typed #${seed}`).toEqual(nodeLines(individuallyMappedNodes(added.find(), typed.mapping)));
+      expectMappedLike(kept, added.find(), typed, `typed #${seed}`);
+    }
   });
 });
 

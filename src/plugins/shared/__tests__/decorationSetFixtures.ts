@@ -138,6 +138,16 @@ export function editsOf(doc: Node, random: () => number): Transform {
   return tr;
 }
 
+/** One character typed somewhere inside a textblock: an edit that moves no node. */
+export function typedIn(doc: Node, random: () => number): Transform | null {
+  const positions: number[] = [];
+  doc.descendants((node, pos) => {
+    if (node.isTextblock) for (let i = 0; i <= node.content.size; i++) positions.push(pos + 1 + i);
+  });
+  if (!positions.length) return null;
+  return new Transform(doc).insert(positions[Math.floor(random() * positions.length)], schema.text("字"));
+}
+
 /** A decoration's own `map` and kind, which the library keeps off its public types. */
 type Internals = { map(mapping: Mapping, offset: number, oldOffset: number): Decoration | null; inline: boolean; widget: boolean };
 const internals = (decoration: Decoration) => decoration as unknown as Internals;
