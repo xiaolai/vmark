@@ -132,7 +132,7 @@ phase_OC2() {
            "no extension yields a plugin family twice (WI-OC2.1)"
   has_file "patches/prosemirror-view@1.42.6.patch" "the decoration-set patch (WI-OC2.2)"
   has_text "package.json" "\"prosemirror-view@1\.42\.6\"" "the patch is applied by pnpm (WI-OC2.2)"
-  has_file "src/plugins/cjkLetterSpacing/__tests__/loadScan.test.ts" \
+  has_file "src/services/assembly/cjkLetterSpacingLoad.test.ts" \
            "the CJK spacing scan runs once per load (WI-OC2.3)"
   linked OC2
 }
