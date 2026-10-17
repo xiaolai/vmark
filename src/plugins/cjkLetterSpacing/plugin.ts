@@ -10,6 +10,13 @@
  *     decoration creation occurs — completely zero-cost
  *   - Performance: on doc change, uses incremental updates (scan only changed ranges
  *     via transaction step maps) instead of full-document rescan
+ *   - A changed range widens to the TEXTBLOCKS at its ends, never further: a CJK
+ *     run lies inside one text node, and a text node inside one textblock. The
+ *     range used to widen to the parent of its start, which for a change between
+ *     blocks is the whole document — Tiptap's trailing-node insertion after a
+ *     final code block rescanned every load a second time (#1565).
+ *   - A step that replaces the whole document (a load) rebuilds with one scan
+ *     instead of mapping, finding, removing and re-adding everything.
  *   - Tracks enabled state in plugin state to detect setting toggles and rebuild decorations
  *   - Covers CJK Unified Ideographs, Extension A, Compatibility, Hiragana, Katakana,
  *     Hangul Syllables, and Bopomofo ranges
@@ -112,18 +119,17 @@ function scanRangeForCJK(
   return decorations;
 }
 
-/**
- * Apply incremental decoration updates for a transaction.
- * Maps old decorations through the change, removes stale ones in changed
- * ranges, then re-scans only those ranges.
- */
-function applyIncrementalUpdate(
-  tr: Transaction,
-  oldDecorations: DecorationSet,
-  className: string,
-): DecorationSet {
-  let decorations = oldDecorations.map(tr.mapping, tr.doc);
+/** `[from, to]` widened to the textblocks it starts and ends in, if any. */
+function textblockRange(doc: PMNode, from: number, to: number): [number, number] {
+  const $from = doc.resolve(from);
+  const $to = doc.resolve(to);
+  return [$from.parent.isTextblock ? $from.start() : from, $to.parent.isTextblock ? $to.end() : to];
+}
 
+/** Every range a transaction changed, in the final document, widened to textblocks. */
+function changedRanges(tr: Transaction): Array<[number, number]> {
+  const size = tr.doc.content.size;
+  const ranges: Array<[number, number]> = [];
   tr.steps.forEach((_step, i) => {
     const map = tr.mapping.maps[i];
     map.forEach((_oldStart: number, _oldEnd: number, newStart: number, newEnd: number) => {
@@ -134,27 +140,42 @@ function applyIncrementalUpdate(
       // and resolve() throws mid-typing. The old Math.min on newEnd alone
       // was a symptom-patch of this on one operand.
       const rest = tr.mapping.slice(i + 1);
-      const start = Math.min(rest.map(newStart, -1), tr.doc.content.size);
-      const end = Math.min(rest.map(newEnd, 1), tr.doc.content.size);
-      // Expand range to full node boundaries for correctness
-      const $from = tr.doc.resolve(Math.min(start, end));
-      const $to = tr.doc.resolve(end);
-      const rangeFrom = $from.start($from.depth);
-      const rangeTo = $to.end($to.depth);
-
-      // Remove old decorations in the changed range
-      const stale = decorations.find(rangeFrom, rangeTo);
-      if (stale.length > 0) {
-        decorations = decorations.remove(stale);
-      }
-
-      // Re-scan the changed range
-      const newDecos = scanRangeForCJK(tr.doc, rangeFrom, rangeTo, className);
-      if (newDecos.length > 0) {
-        decorations = decorations.add(tr.doc, newDecos);
-      }
+      const start = Math.min(rest.map(newStart, -1), size);
+      const end = Math.min(rest.map(newEnd, 1), size);
+      ranges.push(textblockRange(tr.doc, Math.min(start, end), end));
     });
   });
+  return ranges;
+}
+
+/**
+ * Apply incremental decoration updates for a transaction.
+ * Maps old decorations through the change, removes stale ones in changed
+ * ranges, then re-scans only those ranges.
+ */
+function applyIncrementalUpdate(
+  tr: Transaction,
+  oldDecorations: DecorationSet,
+  className: string,
+): DecorationSet {
+  const ranges = changedRanges(tr);
+  const size = tr.doc.content.size;
+  if (ranges.some(([from, to]) => from <= 0 && to >= size)) return createCJKDecorations(tr.doc, className);
+
+  let decorations = oldDecorations.map(tr.mapping, tr.doc);
+  for (const [rangeFrom, rangeTo] of ranges) {
+    // Remove old decorations in the changed range
+    const stale = decorations.find(rangeFrom, rangeTo);
+    if (stale.length > 0) {
+      decorations = decorations.remove(stale);
+    }
+
+    // Re-scan the changed range
+    const newDecos = scanRangeForCJK(tr.doc, rangeFrom, rangeTo, className);
+    if (newDecos.length > 0) {
+      decorations = decorations.add(tr.doc, newDecos);
+    }
+  }
 
   return decorations;
 }

@@ -1,7 +1,12 @@
-// CJK letter spacing does no work in the editor while the setting is off
-// (#1565). The WYSIWYG host never passed the setting to the plugin, so it
-// decorated every CJK run even with spacing off — the default — where the
-// decorations change nothing on screen.
+// WI-OC2.3 — CJK letter spacing does its whole-document work at most once per
+// load, and none while the setting is off (#1565).
+//
+// Two defects, both measured on the reporter's fixture. The WYSIWYG host never
+// passed the setting to the plugin, so it decorated every CJK run even with
+// spacing off — the default — where the decorations change nothing on screen.
+// And the plugin widened each changed range to the parent of its start, which
+// for a change between blocks is the whole document: Tiptap's trailing-node
+// insertion after a final code block rescanned the document a second time.
 //
 // Driven through the production extension list and the real load write, on a
 // document that ends in a code block.
@@ -86,6 +91,19 @@ describe("CJK letter spacing at load", () => {
     expect(decoratedRuns(host)).toEqual([]);
   });
 
+  it("scans a loaded document once, though it ends in a code block", () => {
+    setSpacing("0.05");
+    const host = mount();
+    const doc = fixtureDoc(host);
+    setContentWithoutHistory(host, doc);
+
+    // The trailing paragraph Tiptap appends after the code block is there…
+    expect(host.state.doc.lastChild?.type.name).toBe("paragraph");
+    // …and cost no second scan.
+    expect(spacingCalls()).toBe(runsOf(doc).length);
+    expect(decoratedRuns(host)).toEqual(runsOf(host.state.doc));
+  });
+
   it("follows the setting: on rebuilds, off clears", () => {
     setSpacing("0");
     const host = mount();
@@ -100,4 +118,17 @@ describe("CJK letter spacing at load", () => {
     expect(decoratedRuns(host)).toEqual([]);
   });
 
+  it("keeps matching a full scan through edits inside, between and after blocks", () => {
+    setSpacing("0.05");
+    const host = mount();
+    setContentWithoutHistory(host, fixtureDoc(host));
+    const second = host.state.doc.child(0).nodeSize + 1;
+
+    host.commands.insertContentAt(second + 2, "汉字");
+    host.commands.insertContentAt(host.state.doc.child(0).nodeSize, { type: "paragraph", content: [{ type: "text", text: "新段落" }] });
+    host.commands.insertContentAt(host.state.doc.content.size, { type: "paragraph", content: [{ type: "text", text: "末尾の文" }] });
+    host.view.dispatch(host.state.tr.delete(second, second + 8));
+
+    expect(decoratedRuns(host)).toEqual(runsOf(host.state.doc));
+  });
 });
