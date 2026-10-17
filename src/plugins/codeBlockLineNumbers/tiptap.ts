@@ -21,6 +21,12 @@
  *   - `meta` holds the fence info after the language (```` ```js {1,3} ````) so
  *     a document round-trips it. It is markdown-only: never rendered to HTML,
  *     and never read from pasted HTML.
+ *   - `addProseMirrorPlugins` is overridden with a pass-through. Every
+ *     `.extend()` level without its own copy inherits CodeBlockLowlight's,
+ *     whose `this.parent` call then runs it once per level: this extension
+ *     and the three wrappers `sourceLineNodes.ts` adds made five lowlight
+ *     highlighters, each decorating every code block on every load (#1565).
+ *     Levels above now inherit this pass-through, which adds nothing.
  *
  * Known limitations:
  *   - Line numbers are recounted on every DOM mutation (no incremental update)
@@ -52,5 +58,8 @@ export const CodeBlockWithLineNumbers = CodeBlockLowlight.extend({
   addNodeView() {
     return ({ node, editor, getPos }) =>
       new CodeBlockNodeView(node, editor, getPos as () => number | undefined);
+  },
+  addProseMirrorPlugins() {
+    return this.parent?.() ?? [];
   },
 }).configure({ lowlight, defaultLanguage: "plaintext" });
