@@ -9,8 +9,9 @@
  *   1. Sync registrations run first (`registerAllCommands`; idempotent — each
  *      register* is a no-op on the second call).
  *   2. The window-lifetime services start (`startRuntimeServices`, one disposer).
- *   3. Async Pandoc-format expansion runs next; the format list is
- *      not known until pandocExport.ts dynamically loads.
+ *   3. The Pandoc-format expansion runs next, synchronously: the format list
+ *      is a leaf module, so nothing — not the exporter chunk — is awaited
+ *      before the menu listeners are requested.
  *   4. The combined binding list is mounted via mountMenuCommands, whose
  *      COMPLETENESS is then signalled to `menuCommandsReady` — the barrier the
  *      window-ready handshake waits on — only from a setup that is still live:
@@ -133,7 +134,8 @@ const EDITOR_ACTION_BINDINGS: MenuCommandBinding[] = Object.entries(MENU_TO_ACTI
 );
 
 /**
- * Every menu binding known before the Pandoc formats load.
+ * Every menu binding except the per-format Pandoc ones, which
+ * `registerPandocFormatCommands` returns.
  *
  * Exported so a test can assert the property `mountMenuCommands`' preflight now
  * DEPENDS on: each command binding must name a command
@@ -223,7 +225,7 @@ export function useCommandBootstrap(): void {
       let expanded = true;
 
       try {
-        const formats = await registerPandocFormatCommands();
+        const formats = registerPandocFormatCommands();
         for (const fmt of formats) {
           bindings.push({
             menuEvent: `menu:export-pandoc-${fmt}`,

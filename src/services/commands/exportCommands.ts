@@ -2,11 +2,12 @@
  * Export commands — ADR-012 migration of useExportMenuEvents.
  *
  * FIVE eager commands (`export.html`, `.pdf`, `.pdfNative`, `.copyHtml` and the
- * Pandoc install hint), plus ONE lazy command per Pandoc format registered by
- * `registerPandocFormatCommands` — six formats today, but the count comes from
- * `PANDOC_FORMAT_KEYS` inside a dynamically-loaded module, so it is not a number
- * this header can state (it once claimed "6 export commands" and there
- * were five eager ones).
+ * Pandoc install hint), plus ONE command per Pandoc format registered by
+ * `registerPandocFormatCommands` at menu mount — the count comes from
+ * `PANDOC_FORMAT_KEYS` (`export/pandocFormats.ts`), so it is not a number this
+ * header states (it once claimed "6 export commands" and there were five
+ * eager ones). The Pandoc exporter itself is loaded only when one runs: the
+ * menu mount that registers these commands is on the window's readiness path.
  *
  * ONE envelope for every document export. `runDocExport` owns the
  * whole of it — the re-entry guard, the WYSIWYG flush, the active-document
@@ -26,6 +27,7 @@ import { getExportFolderName } from "@/utils/exportNaming";
 import { flushActiveWysiwygNow } from "@/utils/wysiwygFlush";
 import { withReentryGuard } from "@/utils/reentryGuard";
 import { getActiveDocument } from "@/services/navigation/activeDocument";
+import { PANDOC_FORMAT_KEYS } from "@/export/pandocFormats";
 
 type Args = unknown;
 type Ctx = { windowLabel?: string };
@@ -223,9 +225,10 @@ function pandocFormatCommand(fmt: string): CommandDefinition {
 }
 
 /**
- * Register one CommandBus entry per Pandoc format (`export.pandoc-html`,
- * etc.). Called lazily by the menu mount because PANDOC_FORMAT_KEYS lives
- * inside the lazy-loaded export module.
+ * Register one CommandBus entry per Pandoc format (`export.pandoc-docx`,
+ * etc.) and return the formats. Called by the menu mount, which binds one
+ * menu item per format. Synchronous: the format list is a leaf module, and
+ * the exporter loads only when a command runs.
  *
  * ONE owner batch. The previous `if (hasCommand(id)) continue`
  * could not tell this module's own re-registration — which a menu remount
@@ -235,8 +238,7 @@ function pandocFormatCommand(fmt: string): CommandDefinition {
  * collision loudly, which is the distinction the old comment claimed to make
  * and did not.
  */
-export async function registerPandocFormatCommands(): Promise<readonly string[]> {
-  const { PANDOC_FORMAT_KEYS } = await import("@/export/pandocExport");
+export function registerPandocFormatCommands(): readonly string[] {
   registerCommands(PANDOC_COMMANDS_OWNER, PANDOC_FORMAT_KEYS.map(pandocFormatCommand));
   return PANDOC_FORMAT_KEYS;
 }

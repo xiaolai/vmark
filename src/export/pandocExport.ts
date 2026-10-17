@@ -8,6 +8,7 @@
  *
  * @coordinates-with services/commands/exportCommands.ts — the export.pandoc* commands call this on menu:export-pandoc-{fmt}
  * @coordinates-with pandoc/commands.rs — Rust backend for Pandoc execution
+ * @coordinates-with export/pandocFormats.ts — the format keys, readable without this module
  * @module export/pandocExport
  */
 
@@ -17,6 +18,7 @@ import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
 import { joinPath } from "@/utils/pathUtils";
 import { exportError } from "@/utils/debug";
+import type { PandocFormatKey } from "./pandocFormats";
 
 /** Pandoc detection result from Rust backend. */
 interface PandocInfo {
@@ -26,10 +28,6 @@ interface PandocInfo {
 }
 
 /** Maps format key to display name and file extension. */
-export const PANDOC_FORMAT_KEYS = ["docx", "epub", "latex", "odt", "rtf", "txt"] as const;
-/** Union type of supported Pandoc export format keys. */
-type PandocFormatKey = (typeof PANDOC_FORMAT_KEYS)[number];
-
 const FORMAT_META: Record<PandocFormatKey, { name: string; ext: string }> = {
   docx:  { name: "Word Document", ext: "docx" },
   epub:  { name: "EPUB", ext: "epub" },

@@ -33,7 +33,6 @@ vi.mock("@tauri-apps/plugin-opener", () => ({
   openUrl: (...a: unknown[]) => mockOpenUrl(...a),
 }));
 vi.mock("@/export/pandocExport", () => ({
-  PANDOC_FORMAT_KEYS: ["docx", "epub"] as const,
   exportViaPandoc: (...a: unknown[]) => mockExportViaPandoc(...a),
 }));
 vi.mock("@/services/ime/imeToast", () => ({
@@ -52,6 +51,7 @@ import {
   registerPandocFormatCommands,
 } from "./exportCommands";
 import i18n from "@/i18n";
+import { PANDOC_FORMAT_KEYS } from "@/export/pandocFormats";
 
 beforeEach(() => {
   _resetCommandBus();
@@ -133,25 +133,26 @@ describe("export.copyHtml run path", () => {
   });
 });
 
-describe("registerPandocFormatCommands (lazy per-format registration)", () => {
-  it("registers one command per Pandoc format and returns the keys", async () => {
-    const keys = await registerPandocFormatCommands();
+describe("registerPandocFormatCommands (per-format registration)", () => {
+  it("registers one command per Pandoc format and returns the keys", () => {
+    const keys = registerPandocFormatCommands();
 
-    expect(keys).toEqual(["docx", "epub"]);
-    expect(getCommand("export.pandoc-docx")).toBeDefined();
-    expect(getCommand("export.pandoc-epub")).toBeDefined();
+    expect(keys).toEqual(PANDOC_FORMAT_KEYS);
+    for (const fmt of PANDOC_FORMAT_KEYS) {
+      expect(getCommand(`export.pandoc-${fmt}`)).toBeDefined();
+    }
   });
 
-  it("is idempotent — re-registration (menu remount) does not throw or duplicate", async () => {
-    await registerPandocFormatCommands();
+  it("is idempotent — re-registration (menu remount) does not throw or duplicate", () => {
+    registerPandocFormatCommands();
     const before = listCommands().length;
 
-    await expect(registerPandocFormatCommands()).resolves.toEqual(["docx", "epub"]);
+    expect(registerPandocFormatCommands()).toEqual(PANDOC_FORMAT_KEYS);
     expect(listCommands().length).toBe(before);
   });
 
   it("executes a format command with the resolved export args", async () => {
-    await registerPandocFormatCommands();
+    registerPandocFormatCommands();
 
     await executeCommand("export.pandoc-docx", undefined, { windowLabel: "main" });
 
@@ -165,7 +166,7 @@ describe("registerPandocFormatCommands (lazy per-format registration)", () => {
   });
 
   it("toasts a localized error when the Pandoc export fails", async () => {
-    await registerPandocFormatCommands();
+    registerPandocFormatCommands();
     mockExportViaPandoc.mockRejectedValue(new Error("pandoc missing"));
 
     await expect(
@@ -301,10 +302,37 @@ describe("the default name of an untitled document with no heading", () => {
     vi.spyOn(i18n, "t").mockImplementation(((key: string) =>
       key === "common:untitled" ? "Sans titre" : key) as typeof i18n.t);
     mockGetActiveDocument.mockReturnValue({ content: "no heading here", filePath: null });
-    if (id.startsWith("export.pandoc")) await registerPandocFormatCommands();
+    if (id.startsWith("export.pandoc")) registerPandocFormatCommands();
 
     await executeCommand(id, undefined, { windowLabel: "main" });
 
     expect(exporter()).toHaveBeenCalledWith(expect.objectContaining({ defaultName: "Sans titre" }));
+  });
+});
+
+// WI-OC1.4 — the menu mount registers these commands before it binds a single
+// listener, and the window's readiness waits on that mount. Reading the format
+// list used to import the whole exporter chunk, so a slow chunk could spend the
+// readiness budget with no document involved.
+describe("registering the Pandoc commands does not load the exporter", () => {
+  it("registers every format at once, without importing it, and loads it when one runs", async () => {
+    // A fresh module graph whose exporter counts its own evaluation.
+    let exporterLoads = 0;
+    vi.resetModules();
+    vi.doMock("@/export/pandocExport", () => {
+      exporterLoads += 1;
+      return { exportViaPandoc: (...a: unknown[]) => mockExportViaPandoc(...a) };
+    });
+    const bus = await import("./CommandBus");
+    const { registerPandocFormatCommands: register } = await import("./exportCommands");
+
+    const keys = register();
+    expect(keys).toEqual(PANDOC_FORMAT_KEYS);
+    expect(bus.getCommand("export.pandoc-docx")).toBeDefined();
+    expect(exporterLoads).toBe(0);
+
+    await bus.executeCommand("export.pandoc-docx", undefined, { windowLabel: "main" });
+    expect(exporterLoads).toBe(1);
+    expect(mockExportViaPandoc).toHaveBeenCalledWith(expect.objectContaining({ format: "docx" }));
   });
 });

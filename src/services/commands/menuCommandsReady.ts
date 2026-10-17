@@ -5,10 +5,10 @@
  *   moment it becomes true, instead of guessing how long it takes.
  *
  * Why it exists: the handshake used to wait a fixed 100 ms. What it was
- *   waiting for is `useCommandBootstrap`, which `await`s a dynamic import
- *   (`registerPandocFormatCommands`) and only then mounts the single Tauri
- *   menu listener. A dynamic chunk fetch has no upper bound, so no constant
- *   could cover it — and when the constant expired first, Rust was told the
+ *   waiting for is `useCommandBootstrap`'s menu mount: Tauri `listen()`
+ *   calls, each an IPC round trip, behind what was then a dynamic import.
+ *   Neither has an upper bound on a loaded machine, so no constant could
+ *   cover them — and when the constant expired first, Rust was told the
  *   window was ready and the next `menu:open` went to a listener that did not
  *   exist. The delay made that rare on a warm machine and did nothing at all
  *   on a cold or loaded one.

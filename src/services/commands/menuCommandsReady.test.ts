@@ -3,10 +3,10 @@
  * The barrier that replaced a 100 ms guess.
  *
  * `useWindowReady` used to wait a fixed 100 ms before telling Rust the window
- * was listening. The thing it was waiting for is `useCommandBootstrap`, which
- * `await`s a DYNAMIC IMPORT (`registerPandocFormatCommands`) before it mounts
- * a single menu listener — an unbounded wait that no constant can cover. Under
- * a cold chunk fetch or a loaded machine the delay expires first, Rust is told
+ * was listening. The thing it was waiting for is `useCommandBootstrap`'s menu
+ * mount — IPC round trips, behind what was then a dynamic import — an
+ * unbounded wait that no constant can cover. Under a cold chunk fetch or a
+ * loaded machine the delay expires first, Rust is told
  * the window is ready, and the next `menu:open` lands on a listener that does
  * not exist yet.
  *

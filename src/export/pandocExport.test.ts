@@ -27,7 +27,8 @@ vi.mock("@/utils/pathUtils", () => ({
   joinPath: (...parts: string[]) => parts.join("/"),
 }));
 
-import { exportViaPandoc, PANDOC_FORMAT_KEYS } from "./pandocExport";
+import { exportViaPandoc } from "./pandocExport";
+import { PANDOC_FORMAT_KEYS } from "./pandocFormats";
 
 describe("PANDOC_FORMAT_KEYS", () => {
   it("contains all expected formats", () => {

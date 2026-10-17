@@ -7,8 +7,8 @@
  *    setup must NOT bubble to React or leave an unhandled promise. Without
  *    the guard, every menu item, accelerator, and palette entry stops
  *    routing with no user-visible error.
- *  - registerPandocFormatCommands rejection is swallowed independently
- *    (pre-existing guard).
+ *  - registerPandocFormatCommands throwing is caught independently and
+ *    reported as an incomplete menu.
  *  - Unmount before mountMenuCommands resolves invokes the returned
  *    unlistener so listeners do not leak.
  *  - Normal mount calls mountMenuCommands with the bundled bindings and
@@ -87,7 +87,7 @@ beforeEach(() => {
   signalMenuReady.mockReset();
 
   // Default happy-path behaviors — individual tests override as needed.
-  registerPandocMock.mockResolvedValue([]);
+  registerPandocMock.mockReturnValue([]);
   mountMenuCommandsMock.mockResolvedValue({ off: () => {}, failed: [] });
 });
 
@@ -134,6 +134,19 @@ describe("useCommandBootstrap", () => {
     expect(mountMenuCommandsMock).not.toHaveBeenCalled();
   });
 
+  // WI-OC1.4 — the window's readiness waits on this mount. It used to await the
+  // Pandoc registration, which imported the exporter chunk to read the format
+  // list, so a slow chunk delayed every menu listener.
+  it("mounts the menu, Pandoc formats included, without waiting on anything first", () => {
+    registerPandocMock.mockReturnValue(["docx"]);
+    renderHook(() => useCommandBootstrap());
+
+    expect(mountMenuCommandsMock).toHaveBeenCalledTimes(1);
+    expect(mountMenuCommandsMock.mock.calls[0][0]).toEqual(expect.arrayContaining([
+      { menuEvent: "menu:export-pandoc-docx", commandId: "export.pandoc-docx" },
+    ]));
+  });
+
   it("calls mountMenuCommands with the bundled bindings", async () => {
     renderHook(() => useCommandBootstrap());
     await Promise.resolve();
@@ -148,8 +161,10 @@ describe("useCommandBootstrap", () => {
     ]));
   });
 
-  it("swallows a registerPandocFormatCommands rejection (existing guard)", async () => {
-    registerPandocMock.mockRejectedValueOnce(new Error("pandoc boom"));
+  it("catches a registerPandocFormatCommands throw (existing guard)", async () => {
+    registerPandocMock.mockImplementationOnce(() => {
+      throw new Error("pandoc boom");
+    });
     renderHook(() => useCommandBootstrap());
     await Promise.resolve();
     await Promise.resolve();
