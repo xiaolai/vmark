@@ -19,6 +19,12 @@
 // constant work whose memory outgrows the cache between SMALL and LARGE:
 // measured with it, the exponent read 1.42–1.65 here, against 1.00–1.16 for
 // `forChild` alone and 0.99–1.06 for a plain walk of the same documents.
+//
+// `add` is timed over a larger range. Inserting a new child into the children
+// array with `splice` shifts every entry after it, a memmove whose quadratic
+// term is too small to read over 400–4000 blocks (1.11–1.27) but plain over
+// 2000–20000 (1.48–1.56) and 4000–40000 (1.66), where `create` read 0.92–0.99.
+// The patch merges the children into a new array instead: 1.03–1.08.
 import { describe, expect, it } from "vitest";
 import { Schema, type Node } from "@tiptap/pm/model";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
@@ -27,6 +33,8 @@ import { growthExponent, measureGrowth } from "@/test/cpuClock";
 const SMALL = 400;
 const LARGE = 4000;
 const MAX_EXPONENT = 1.4;
+const ADD_SMALL = 2000;
+const ADD_LARGE = 20000;
 const DECORATIONS_PER_BLOCK = 6;
 
 const schema = new Schema({
@@ -79,10 +87,10 @@ describe("decoration sets grow about linearly with the document", () => {
       ({ doc, base, decorations }: ReturnType<typeof withBase>) => {
         base.add(doc, decorations.slice());
       },
-      withBase(SMALL),
-      withBase(LARGE),
+      withBase(ADD_SMALL),
+      withBase(ADD_LARGE),
     );
-    expect(growthExponent(growth, SMALL, LARGE)).toBeLessThan(MAX_EXPONENT);
+    expect(growthExponent(growth, ADD_SMALL, ADD_LARGE)).toBeLessThan(MAX_EXPONENT);
   });
 
   it("forChild for every block, as the view asks while drawing", () => {
