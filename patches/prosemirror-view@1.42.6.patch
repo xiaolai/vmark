@@ -1,5 +1,5 @@
 diff --git a/dist/index.cjs b/dist/index.cjs
-index d52a5260a7b9924b2865053ea1e8c6484225277b..8deb05b55cd5b1752a6cefc4c93620ae6f268e3d 100644
+index d52a5260a7b9924b2865053ea1e8c6484225277b..506a0a0475cae19aaef258c20a22370016149000 100644
 --- a/dist/index.cjs
 +++ b/dist/index.cjs
 @@ -3936,10 +3936,12 @@ var DecorationSet = function () {
@@ -37,7 +37,7 @@ index d52a5260a7b9924b2865053ea1e8c6484225277b..8deb05b55cd5b1752a6cefc4c93620ae
        var start = offset + 1,
          end = start + node.content.size;
        for (var _i9 = 0; _i9 < this.local.length; _i9++) {
-@@ -4226,15 +4234,38 @@ function mapAndGatherRemainingDecorations(children, oldChildren, decorations, ma
+@@ -4226,15 +4234,43 @@ function mapAndGatherRemainingDecorations(children, oldChildren, decorations, ma
    for (var i = 0; i < children.length; i += 3) if (children[i + 1] == -1) gather(children[i + 2], oldChildren[i] + oldOffset + 1);
    return decorations;
  }
@@ -56,18 +56,23 @@ index d52a5260a7b9924b2865053ea1e8c6484225277b..8deb05b55cd5b1752a6cefc4c93620ae
 +// scanning every span each time: quadratic for a node with many decorated
 +// children. Same result: a span goes to the one non-leaf child with
 +// start < from and to < end, buckets keep input order, and taken spans are
-+// nulled out of `spans`.
++// nulled out of `spans`. A node whose children are all leaves (a textblock
++// of text) takes nothing, as upstream's per-child leaf check concluded.
 +function takeSpansForChildren(spans, node, offset) {
 +  var count = node.childCount;
 +  if (!count || !spans.length) return null;
 +  var starts = new Array(count),
 +    ends = new Array(count),
-+    pos = offset;
++    pos = offset,
++    container = false;
 +  for (var i = 0; i < count; i++) {
++    var child = node.child(i);
++    if (!child.isLeaf) container = true;
 +    starts[i] = pos;
-+    pos += node.child(i).nodeSize;
++    pos += child.nodeSize;
 +    ends[i] = pos;
 +  }
++  if (!container) return null;
 +  var found = null;
 +  for (var _i = 0, span; _i < spans.length; _i++) {
 +    if (!(span = spans[_i])) continue;
@@ -85,7 +90,7 @@ index d52a5260a7b9924b2865053ea1e8c6484225277b..8deb05b55cd5b1752a6cefc4c93620ae
    }
    return found;
  }
-@@ -4246,8 +4277,10 @@ function withoutNulls(array) {
+@@ -4246,8 +4282,10 @@ function withoutNulls(array) {
  function buildTree(spans, node, offset, options) {
    var children = [],
      hasNulls = false;
@@ -99,7 +104,7 @@ index d52a5260a7b9924b2865053ea1e8c6484225277b..8deb05b55cd5b1752a6cefc4c93620ae
        hasNulls = true;
        var subtree = buildTree(found, childNode, offset + localStart + 1, options);
 diff --git a/dist/index.js b/dist/index.js
-index dc0d117b85e1da3eae915b4d8ff8e5e604683861..ebdf7c052f6f544b2d440f0e298150a5897b07bd 100644
+index dc0d117b85e1da3eae915b4d8ff8e5e604683861..0d61abd89c82d167ff9f5f00f863b43795d7ff94 100644
 --- a/dist/index.js
 +++ b/dist/index.js
 @@ -4224,9 +4224,11 @@ class DecorationSet {
@@ -142,7 +147,7 @@ index dc0d117b85e1da3eae915b4d8ff8e5e604683861..ebdf7c052f6f544b2d440f0e298150a5
          let start = offset + 1, end = start + node.content.size;
          for (let i = 0; i < this.local.length; i++) {
              let dec = this.local[i];
-@@ -4549,15 +4558,45 @@ function mapAndGatherRemainingDecorations(children, oldChildren, decorations, ma
+@@ -4549,15 +4558,51 @@ function mapAndGatherRemainingDecorations(children, oldChildren, decorations, ma
              gather(children[i + 2], oldChildren[i] + oldOffset + 1);
      return decorations;
  }
@@ -154,18 +159,24 @@ index dc0d117b85e1da3eae915b4d8ff8e5e604683861..ebdf7c052f6f544b2d440f0e298150a5
 +// scanning every span each time: quadratic for a node with many decorated
 +// children. Same result: a span goes to the one non-leaf child with
 +// start < from and to < end, buckets keep input order, and taken spans are
-+// nulled out of `spans`.
++// nulled out of `spans`. A node whose children are all leaves (a textblock
++// of text) takes nothing, as upstream's per-child leaf check concluded.
 +function takeSpansForChildren(spans, node, offset) {
 +    let count = node.childCount;
 +    if (!count || !spans.length)
-         return null;
--    let end = offset + node.nodeSize, found = null;
-+    let starts = new Array(count), ends = new Array(count), pos = offset;
++        return null;
++    let starts = new Array(count), ends = new Array(count), pos = offset, container = false;
 +    for (let i = 0; i < count; i++) {
++        let child = node.child(i);
++        if (!child.isLeaf)
++            container = true;
 +        starts[i] = pos;
-+        pos += node.child(i).nodeSize;
++        pos += child.nodeSize;
 +        ends[i] = pos;
 +    }
++    if (!container)
+         return null;
+-    let end = offset + node.nodeSize, found = null;
 +    let found = null;
      for (let i = 0, span; i < spans.length; i++) {
 -        if ((span = spans[i]) && span.from > offset && span.to < end) {
@@ -194,7 +205,7 @@ index dc0d117b85e1da3eae915b4d8ff8e5e604683861..ebdf7c052f6f544b2d440f0e298150a5
      }
      return found;
  }
-@@ -4574,8 +4613,10 @@ function withoutNulls(array) {
+@@ -4574,8 +4619,10 @@ function withoutNulls(array) {
  // for recursive calls).
  function buildTree(spans, node, offset, options) {
      let children = [], hasNulls = false;
