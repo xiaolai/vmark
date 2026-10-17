@@ -31,7 +31,7 @@
  * Known limitations:
  *   - Line numbers are recounted on every DOM mutation (no incremental update)
  *
- * @coordinates-with stores/settingsStore.ts — reads view.lineNumbers setting
+ * @coordinates-with components/Editor/TiptapEditor.tsx — shows the gutter with the `show-line-numbers` class, from markdown.codeBlockLineNumbers
  * @coordinates-with plugins/codeBlockLineNumbers/languages — language registry + lowlight setup
  * @coordinates-with plugins/codeBlockLineNumbers/dropdown — dropdown controller
  * @module plugins/codeBlockLineNumbers/tiptap

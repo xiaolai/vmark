@@ -175,11 +175,10 @@ Everything below was verified true at `2675ad132`, and every entry citing a file
 - (area 14) The IME chord guard has no automated real-IME case: `e2e/run-ime.mjs` documents that System Events injection produces no modifier keydown, so the real-IME half is a manual checklist step in `src/test/editorComposition.webkit.test.ts`.
 - (area 15) No tests for `src-tauri/src/app_nap.rs`, `apply_linux_webkit_workarounds` (`src-tauri/src/main.rs`), the logging commands, or `handle_run_event`'s window-destroyed cleanup as a whole (`src-tauri/src/app_setup.rs`).
 
-### Stale comments and headers (59)
+### Stale comments and headers (57)
 
 - (area 1) `src/plugins/shared/mediaSecurity.ts` header argues that refusing `..` bought no containment because "the asset protocol scope is `**`"; `src-tauri/tauri.conf.json` now scopes it to the fs static roots plus runtime grants.
 - (area 1) `src-tauri/src/trusted_html/mod.rs` says a grant ends "in exactly two ways" (revoke or process exit) and that a destroyed webview leaves its grants resident until quit; `src-tauri/src/window_manager/window_events.rs` calls `TrustedHtmlState::revoke_window` on window destroy. `state.rs` and `commands.rs` both carry `@coordinates-with ../app_setup.rs` for that call, but `app_setup.rs` does not make it (the header-refs gate passes because the file exists).
-- (area 1) `src/plugins/codeBlockLineNumbers/tiptap.ts` header: `@coordinates-with stores/settingsStore.ts — reads view.lineNumbers setting`. The module imports no store; the gutter is shown by the `show-line-numbers` class that `src/components/Editor/TiptapEditor.tsx` sets from `markdown.codeBlockLineNumbers`.
 - (area 1) `src/plugins/tableUI/tiptap.ts` header: "Enter in table adds row below". The keymap binds `Mod-Enter` (row below) and `Mod-Shift-Enter` (row above); plain Enter is not bound.
 - (area 2) `src/components/FindBar/FindBar.tsx` header: "appears at the top of the editor area" — it is in the bottom lane (`src/components/BottomBar/BottomBar.tsx`), as `website/guide/features.md` §"Search & Replace" now says.
 - (area 2) `src/plugins/wikiLinkPopup/tiptap.ts` header promises click-to-edit and "Cmd+Click opens the target file/heading"; the plugin binds only `mouseover`/`mouseout`, and no WYSIWYG click or `Mod+Click` handler for wiki links exists (`src/plugins/linkPopup/tiptap.ts` does not handle them). The popup's Open button is the only open path. `website/guide/popups.md` §"Wiki Link Popup" correctly says hover.
@@ -227,7 +226,6 @@ Everything below was verified true at `2675ad132`, and every entry citing a file
 - (area 14) `src/lib/lintEngine/yaml.ts` `@coordinates-with` names the `runYamlLint` action as its consumer; production reaches it through `src/lib/formats/adapters/yaml.tsx` → `runLintForFormat`.
 - (area 14) `src/utils/debug.ts` says the log plugin is "registered first in lib.rs"; it is registered in `src-tauri/src/app_plugins.rs`, after the single-instance plugin.
 - (area 14) `src/contexts/WindowContext.tsx` `@coordinates-with lib.rs (Rust) — listens for "ready"`; the listener is in `src-tauri/src/app_setup.rs`.
-- (area 14) `src/plugins/cjkLetterSpacing/plugin.ts` header: `@coordinates-with stores/settingsStore.ts — reads appearance.cjkLetterSpacing`, directly above the statement that enablement is injected and the plugin reaches no store.
 - (area 14) `src/lib/cjkFormatter/quoteToggle.ts` imports `QuoteStyle` from `@/stores/settingsStore` (and cites `settingsStore.ts` in `@coordinates-with`) although the type moved to `src/lib/cjkFormatter/types.ts` precisely to stop `lib/` depending on the store.
 - (area 14) `maybeStripMacQuarantine` docstring says "direct `.md` children"; it is every registered extension — `src/services/macos/macQuarantineNotice.ts`.
 - (area 14) `secret_token.rs` header says "Two secrets are minted from here" (trusted-HTML grants are a third consumer) and "32 bytes of CSPRNG entropy" (two v4 UUIDs carry 244 random bits) — `src-tauri/src/secret_token.rs`.
@@ -507,7 +505,7 @@ Every WYSIWYG block plugin below is registered in `src/services/assembly/tiptapE
 - rust: none directly (Run routes through the terminal, Area 7)
 - docs: `website/guide/settings.md` §"Layout"
 - tests: `src/plugins/codeBlockLineNumbers/{tiptap,hljsSyntax}.test.ts`, `src/plugins/codeBlockLineNumbers/__tests__/{CodeBlockNodeView,codeBlockRunButton,copyButton,languageApply,languages.registry,nodeViewActions}.test.ts`
-- notes: spine-owned by Area 2's view toggles. The gutter setting is independent of the `lineNumbers` shortcut (Alt-Mod-l), which toggles the Source/Split gutter (#1082). Header: line numbers are recounted on every DOM mutation. `tiptap.ts` header still says it "reads view.lineNumbers setting" from `stores/settingsStore.ts`; it imports no store.
+- notes: spine-owned by Area 2's view toggles. The gutter setting is independent of the `lineNumbers` shortcut (Alt-Mod-l), which toggles the Source/Split gutter (#1082). Header: line numbers are recounted on every DOM mutation.
 
 ### Smart code paste
 - id: smart-code-paste
@@ -4925,7 +4923,7 @@ Lint runs only on demand through the `lint.check` command (`src/services/lint/ru
 - rust: none
 - docs: `website/guide/cjk-formatting.md` §"CJK Letter Spacing" (all 7 levels); `website/guide/settings.md` (Typography table)
 - tests: `src/plugins/cjkLetterSpacing/__tests__/cjkLetterSpacing.test.ts`, `src/plugins/cjkLetterSpacing/__tests__/plugin.test.ts`
-- notes: the PDF dialog starts at `0.05em` regardless of the editor setting (it seeds fonts from settings but not letter spacing), so a user with spacing off gets spaced CJK in a PDF unless they change it. `plugin.ts` header still says `@coordinates-with stores/settingsStore.ts — reads appearance.cjkLetterSpacing` two lines above stating the plugin reaches no store.
+- notes: the PDF dialog starts at `0.05em` regardless of the editor setting (it seeds fonts from settings but not letter spacing), so a user with spacing off gets spaced CJK in a PDF unless they change it.
 
 ### CJK text cleanup actions
 - id: cjk-cleanup-actions

@@ -21,7 +21,7 @@
  *   - Covers CJK Unified Ideographs, Extension A, Compatibility, Hiragana, Katakana,
  *     Hangul Syllables, and Bopomofo ranges
  *
- * @coordinates-with stores/settingsStore.ts — reads appearance.cjkLetterSpacing setting
+ * @coordinates-with services/assembly/cjkLetterSpacingSetting.ts — the host's `isEnabled`, read from appearance.cjkLetterSpacing
  * Enablement is INJECTED via the `isEnabled` option — the plugin reaches no
  * store, so it can ship standalone (ADR-015).
  *
