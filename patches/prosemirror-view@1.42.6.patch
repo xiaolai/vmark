@@ -1,0 +1,209 @@
+diff --git a/dist/index.cjs b/dist/index.cjs
+index d52a5260a7b9924b2865053ea1e8c6484225277b..8deb05b55cd5b1752a6cefc4c93620ae6f268e3d 100644
+--- a/dist/index.cjs
++++ b/dist/index.cjs
+@@ -3936,10 +3936,12 @@ var DecorationSet = function () {
+       var _this11 = this;
+       var children,
+         childIndex = 0;
+-      doc.forEach(function (childNode, childOffset) {
++      // VMark patch (#1565): one pass over the decorations, not one per child.
++      var taken = takeSpansForChildren(decorations, doc, offset);
++      if (taken) doc.forEach(function (childNode, childOffset, index) {
+         var baseOffset = childOffset + offset,
+           found;
+-        if (!(found = takeSpansForNode(decorations, childNode, baseOffset))) return;
++        if (!(found = taken[index])) return;
+         if (!children) children = _this11.children.slice();
+         while (childIndex < children.length && children[childIndex] < childOffset) childIndex += 3;
+         if (children[childIndex] == childOffset) children[childIndex + 2] = children[childIndex + 2].addInner(childNode, found, baseOffset + 1);else children.splice(childIndex, 0, childOffset, childOffset + childNode.nodeSize, buildTree(found, childNode, baseOffset + 1, noSpec));
+@@ -3995,10 +3997,16 @@ var DecorationSet = function () {
+       if (this == empty) return this;
+       if (node.isLeaf) return DecorationSet.empty;
+       var child, local;
+-      for (var i = 0; i < this.children.length; i += 3) if (this.children[i] >= offset) {
+-        if (this.children[i] == offset) child = this.children[i + 2];
+-        break;
++      // VMark patch (#1565): binary search for the child at `offset`. The
++      // view calls this once per child while drawing, and scanning from the
++      // first child each time made drawing quadratic in the children.
++      var lo = 0,
++        hi = this.children.length / 3;
++      while (lo < hi) {
++        var mid = lo + hi >> 1;
++        if (this.children[mid * 3] < offset) lo = mid + 1;else hi = mid;
+       }
++      if (this.children[lo * 3] == offset) child = this.children[lo * 3 + 2];
+       var start = offset + 1,
+         end = start + node.content.size;
+       for (var _i9 = 0; _i9 < this.local.length; _i9++) {
+@@ -4226,15 +4234,38 @@ function mapAndGatherRemainingDecorations(children, oldChildren, decorations, ma
+   for (var i = 0; i < children.length; i += 3) if (children[i + 1] == -1) gather(children[i + 2], oldChildren[i] + oldOffset + 1);
+   return decorations;
+ }
+-function takeSpansForNode(spans, node, offset) {
+-  if (node.isLeaf) return null;
+-  var end = offset + node.nodeSize,
+-    found = null;
+-  for (var i = 0, span; i < spans.length; i++) {
+-    if ((span = spans[i]) && span.from > offset && span.to < end) {
+-      (found || (found = [])).push(span);
+-      spans[i] = null;
+-    }
++// VMark patch (#1565): give every span to the child node that strictly
++// contains it in one pass, finding that child by binary search over the
++// children's start positions. Upstream calls takeSpansForNode once per child,
++// scanning every span each time: quadratic for a node with many decorated
++// children. Same result: a span goes to the one non-leaf child with
++// start < from and to < end, buckets keep input order, and taken spans are
++// nulled out of `spans`.
++function takeSpansForChildren(spans, node, offset) {
++  var count = node.childCount;
++  if (!count || !spans.length) return null;
++  var starts = new Array(count),
++    ends = new Array(count),
++    pos = offset;
++  for (var i = 0; i < count; i++) {
++    starts[i] = pos;
++    pos += node.child(i).nodeSize;
++    ends[i] = pos;
++  }
++  var found = null;
++  for (var _i = 0, span; _i < spans.length; _i++) {
++    if (!(span = spans[_i])) continue;
++    var lo = 0,
++      hi = count;
++    while (lo < hi) {
++      var mid = lo + hi >> 1;
++      if (starts[mid] < span.from) lo = mid + 1;else hi = mid;
++    }
++    var k = lo - 1;
++    if (k < 0 || span.to >= ends[k] || node.child(k).isLeaf) continue;
++    if (!found) found = new Array(count);
++    if (found[k]) found[k].push(span);else found[k] = [span];
++    spans[_i] = null;
+   }
+   return found;
+ }
+@@ -4246,8 +4277,10 @@ function withoutNulls(array) {
+ function buildTree(spans, node, offset, options) {
+   var children = [],
+     hasNulls = false;
+-  node.forEach(function (childNode, localStart) {
+-    var found = takeSpansForNode(spans, childNode, localStart + offset);
++  // VMark patch (#1565): one pass over the spans, not one per child.
++  var taken = takeSpansForChildren(spans, node, offset);
++  if (taken) node.forEach(function (childNode, localStart, index) {
++    var found = taken[index];
+     if (found) {
+       hasNulls = true;
+       var subtree = buildTree(found, childNode, offset + localStart + 1, options);
+diff --git a/dist/index.js b/dist/index.js
+index dc0d117b85e1da3eae915b4d8ff8e5e604683861..ebdf7c052f6f544b2d440f0e298150a5897b07bd 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -4224,9 +4224,11 @@ class DecorationSet {
+     }
+     addInner(doc, decorations, offset) {
+         let children, childIndex = 0;
+-        doc.forEach((childNode, childOffset) => {
++        // VMark patch (#1565): one pass over the decorations, not one per child.
++        let taken = takeSpansForChildren(decorations, doc, offset);
++        if (taken) doc.forEach((childNode, childOffset, index) => {
+             let baseOffset = childOffset + offset, found;
+-            if (!(found = takeSpansForNode(decorations, childNode, baseOffset)))
++            if (!(found = taken[index]))
+                 return;
+             if (!children)
+                 children = this.children.slice();
+@@ -4298,12 +4300,19 @@ class DecorationSet {
+         if (node.isLeaf)
+             return DecorationSet.empty;
+         let child, local;
+-        for (let i = 0; i < this.children.length; i += 3)
+-            if (this.children[i] >= offset) {
+-                if (this.children[i] == offset)
+-                    child = this.children[i + 2];
+-                break;
+-            }
++        // VMark patch (#1565): binary search for the child at `offset`. The
++        // view calls this once per child while drawing, and scanning from the
++        // first child each time made drawing quadratic in the children.
++        let lo = 0, hi = this.children.length / 3;
++        while (lo < hi) {
++            let mid = (lo + hi) >> 1;
++            if (this.children[mid * 3] < offset)
++                lo = mid + 1;
++            else
++                hi = mid;
++        }
++        if (this.children[lo * 3] == offset)
++            child = this.children[lo * 3 + 2];
+         let start = offset + 1, end = start + node.content.size;
+         for (let i = 0; i < this.local.length; i++) {
+             let dec = this.local[i];
+@@ -4549,15 +4558,45 @@ function mapAndGatherRemainingDecorations(children, oldChildren, decorations, ma
+             gather(children[i + 2], oldChildren[i] + oldOffset + 1);
+     return decorations;
+ }
+-function takeSpansForNode(spans, node, offset) {
+-    if (node.isLeaf)
++// VMark patch (#1565): give every span to the child node that strictly
++// contains it in one pass, finding that child by binary search over the
++// children's start positions. Upstream calls takeSpansForNode once per child,
++// scanning every span each time: quadratic for a node with many decorated
++// children. Same result: a span goes to the one non-leaf child with
++// start < from and to < end, buckets keep input order, and taken spans are
++// nulled out of `spans`.
++function takeSpansForChildren(spans, node, offset) {
++    let count = node.childCount;
++    if (!count || !spans.length)
+         return null;
+-    let end = offset + node.nodeSize, found = null;
++    let starts = new Array(count), ends = new Array(count), pos = offset;
++    for (let i = 0; i < count; i++) {
++        starts[i] = pos;
++        pos += node.child(i).nodeSize;
++        ends[i] = pos;
++    }
++    let found = null;
+     for (let i = 0, span; i < spans.length; i++) {
+-        if ((span = spans[i]) && span.from > offset && span.to < end) {
+-            (found || (found = [])).push(span);
+-            spans[i] = null;
++        if (!(span = spans[i]))
++            continue;
++        let lo = 0, hi = count;
++        while (lo < hi) {
++            let mid = (lo + hi) >> 1;
++            if (starts[mid] < span.from)
++                lo = mid + 1;
++            else
++                hi = mid;
+         }
++        let k = lo - 1;
++        if (k < 0 || span.to >= ends[k] || node.child(k).isLeaf)
++            continue;
++        if (!found)
++            found = new Array(count);
++        if (found[k])
++            found[k].push(span);
++        else
++            found[k] = [span];
++        spans[i] = null;
+     }
+     return found;
+ }
+@@ -4574,8 +4613,10 @@ function withoutNulls(array) {
+ // for recursive calls).
+ function buildTree(spans, node, offset, options) {
+     let children = [], hasNulls = false;
+-    node.forEach((childNode, localStart) => {
+-        let found = takeSpansForNode(spans, childNode, localStart + offset);
++    // VMark patch (#1565): one pass over the spans, not one per child.
++    let taken = takeSpansForChildren(spans, node, offset);
++    if (taken) node.forEach((childNode, localStart, index) => {
++        let found = taken[index];
+         if (found) {
+             hasNulls = true;
+             let subtree = buildTree(found, childNode, offset + localStart + 1, options);

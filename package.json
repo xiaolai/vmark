@@ -241,7 +241,8 @@
       "@xterm/addon-webgl@0.19.0": "patches/@xterm__addon-webgl@0.19.0.patch",
       "micromark-extension-gfm-autolink-literal@2.1.0": "patches/micromark-extension-gfm-autolink-literal@2.1.0.patch",
       "mdast-util-from-markdown@2.0.3": "patches/mdast-util-from-markdown@2.0.3.patch",
-      "mdast-util-find-and-replace@3.0.2": "patches/mdast-util-find-and-replace@3.0.2.patch"
+      "mdast-util-find-and-replace@3.0.2": "patches/mdast-util-find-and-replace@3.0.2.patch",
+      "prosemirror-view@1.42.6": "patches/prosemirror-view@1.42.6.patch"
     }
   },
   "devDependencies": {
