@@ -30,6 +30,7 @@
 // The patch merges the children into a new array instead: 1.03–1.08.
 import { describe, expect, it } from "vitest";
 import { Schema, type Node } from "@tiptap/pm/model";
+import { Transform } from "@tiptap/pm/transform";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { growthExponent, measureGrowth } from "@/test/cpuClock";
 
@@ -111,6 +112,26 @@ describe("decoration sets grow about linearly with the document", () => {
       },
       withSuffix(SMALL),
       withSuffix(LARGE),
+    );
+    expect(growthExponent(growth, SMALL, LARGE)).toBeLessThan(MAX_EXPONENT);
+  });
+
+  it("DecorationSet.map through a replacement of every block", () => {
+    // Every child is touched, so all of them are gathered and rebuilt; taking
+    // the old entries out and putting the rebuilt ones in by splice was
+    // quadratic in the children.
+    const replaced = (blocks: number) => {
+      const { doc, decorations } = fixture(blocks);
+      const set = DecorationSet.create(doc, decorations);
+      const tr = new Transform(doc).replaceWith(0, doc.content.size, fixture(blocks).doc.content);
+      return { set, tr };
+    };
+    const growth = measureGrowth(
+      ({ set, tr }: ReturnType<typeof replaced>) => {
+        set.map(tr.mapping, tr.doc);
+      },
+      replaced(SMALL),
+      replaced(LARGE),
     );
     expect(growthExponent(growth, SMALL, LARGE)).toBeLessThan(MAX_EXPONENT);
   });
