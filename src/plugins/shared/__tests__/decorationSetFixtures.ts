@@ -168,9 +168,15 @@ export function typedIn(doc: Node, random: () => number): Transform | null {
   return new Transform(doc).insert(positions[Math.floor(random() * positions.length)], schema.text("字"));
 }
 
-/** A decoration's own `map` and kind, which the library keeps off its public types. */
-type Internals = { map(mapping: Mapping, offset: number, oldOffset: number): Decoration | null; inline: boolean; widget: boolean };
+/** A decoration's own `map`, `eq` and kind, which the library keeps off its public types. */
+type Internals = {
+  map(mapping: Mapping, offset: number, oldOffset: number): Decoration | null;
+  eq(other: Decoration, offset?: number): boolean;
+  inline: boolean;
+  widget: boolean;
+};
 const internals = (decoration: Decoration) => decoration as unknown as Internals;
+const equal = (a: Decoration, b: Decoration) => internals(a).eq(b);
 
 /** A node decoration: neither inline nor a widget. */
 export const isNodeDecoration = (decoration: Decoration) => !internals(decoration).inline && !internals(decoration).widget;
@@ -201,18 +207,18 @@ export function individuallyMapped(decorations: readonly Decoration[], mapping: 
  * set; a sound set may still have dropped some (`nodeLines` checks those).
  */
 export function unsoundNodeDecorations(mapped: DecorationSource, original: readonly Decoration[], mapping: Mapping, doc: Node): string[] {
-  const allowed = new Map<string, number>();
-  for (const line of nodeLines(individuallyMappedNodes(original, mapping))) allowed.set(line, (allowed.get(line) ?? 0) + 1);
+  // Matched by the library's own `eq` — range, attributes and spec — each
+  // original used once.
+  const allowed: (Decoration | null)[] = individuallyMappedNodes(original, mapping);
   const found: Decoration[] = [];
   mapped.forEachSet((set) => found.push(...set.find()));
   return found
     .filter(isNodeDecoration)
     .filter((decoration) => {
       const node = doc.nodeAt(decoration.from);
-      const line = lineOf(decoration);
-      const left = allowed.get(line) ?? 0;
-      if (left) allowed.set(line, left - 1);
-      return !node || node.isText || decoration.from + node.nodeSize !== decoration.to || !left;
+      const match = allowed.findIndex((candidate) => candidate !== null && equal(candidate, decoration));
+      if (match >= 0) allowed[match] = null;
+      return !node || node.isText || decoration.from + node.nodeSize !== decoration.to || match < 0;
     })
     .map((decoration) => lineOf(decoration));
 }

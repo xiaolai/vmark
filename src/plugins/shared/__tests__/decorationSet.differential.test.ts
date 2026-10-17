@@ -241,5 +241,9 @@ describe("cases the audit found", () => {
     const swapped = DecorationSet.create(doc, [Decoration.node(0, 3, { class: "second" }), Decoration.node(3, 6, { class: "first" })]);
     expect(unsoundNodeDecorations(swapped, original, new Mapping(), doc)).toHaveLength(2);
     expect(unsoundNodeDecorations(DecorationSet.create(doc, original), original, new Mapping(), doc)).toEqual([]);
+    // One key, different attributes and spec: not the same decoration.
+    const keyed = [Decoration.node(0, 3, { class: "right" }, { key: "same", payload: "right" })];
+    const wrong = DecorationSet.create(doc, [Decoration.node(0, 3, { class: "wrong" }, { key: "same", payload: "wrong" })]);
+    expect(unsoundNodeDecorations(wrong, keyed, new Mapping(), doc)).toHaveLength(1);
   });
 });
