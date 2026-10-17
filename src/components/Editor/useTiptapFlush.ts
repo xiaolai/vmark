@@ -18,6 +18,9 @@
  *     timeout for large docs — see getAdaptiveDebounceDelay.
  *   - A tab whose document the editor could not parse gets no write
  *     at all: the editor holds empty or stale content, not the document.
+ *   - So does an editor whose initial load has not run yet (Save or an MCP
+ *     flush in the first frames): it holds the empty placeholder, and
+ *     writing that would replace the document with nothing.
  *   - Every flush reports whether a USER edit is behind it (userEditPending,
  *     set by scheduleFlush). Auto-save and Save All flush before reading
  *     isDirty, so a flush that claimed to be an edit would dirty a document
@@ -27,6 +30,7 @@
  * @coordinates-with components/Editor/TiptapEditor.tsx — sole consumer
  * @coordinates-with hooks/useTiptapUnmountFlush.ts — consumes the pending-timer refs
  * @coordinates-with utils/wysiwygEditPending.ts — publishes userEditPending to auto-save
+ * @coordinates-with components/Editor/contentApplied.ts — a flush before the initial load writes nothing
  * @module components/Editor/useTiptapFlush
  */
 import { useCallback, useEffect, useRef } from "react";
@@ -40,6 +44,7 @@ import { useDocumentStore, useLargeFileSessionStore } from "@/stores/documentSto
 import { useSettingsStore } from "@/stores/settingsStore";
 import { setWysiwygEditPending } from "@/utils/wysiwygEditPending";
 import { getAdaptiveDebounceDelay } from "./tiptapEditorHelpers";
+import { hasContentApplied } from "./contentApplied";
 
 interface TiptapFlushOptions {
   /** Tab this editor is pinned to (#1081) — store writes target this tab. */
@@ -103,6 +108,15 @@ export function useTiptapFlush(options: TiptapFlushOptions): TiptapFlushHandle {
       if (pendingRaf.current) {
         cancelAnimationFrame(pendingRaf.current);
         pendingRaf.current = null;
+      }
+
+      // Nothing has been loaded into this editor yet — it holds the empty
+      // placeholder it mounted with, and Save, Save All or the MCP bridge can
+      // reach it before the deferred initial load runs. Writing it would
+      // replace the tab's text with "".
+      if (!hasContentApplied(editor)) {
+        setUserEditPending(false);
+        return;
       }
 
       const tabId = activeTabId ?? useTabStore.getState().activeTabId[windowLabel];

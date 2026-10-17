@@ -52,7 +52,7 @@ function createMockEditor(opts?: { selectedText?: string; from?: number; to?: nu
   const text = opts?.selectedText ?? "";
   const from = opts?.from ?? 0;
   const to = opts?.to ?? 0;
-  return {
+  const editor = {
     commands: { setContent: vi.fn() },
     schema: {},
     state: {
@@ -67,6 +67,10 @@ function createMockEditor(opts?: { selectedText?: string; from?: number; to?: nu
     setEditable: vi.fn(),
     on: vi.fn(),
   };
+  // Stands in for an editor whose initial load has run: the flush only
+  // serializes an editor that holds its document (WI-OC1.1).
+  markContentApplied(editor as unknown as TiptapEditor);
+  return editor;
 }
 
 // ── Module mocks ─────────────────────────────────────────────────────
@@ -219,6 +223,8 @@ vi.mock("@/services/editor/unparseableDocument", () => ({
 }));
 
 import { TiptapEditorInner } from "./TiptapEditor";
+import { markContentApplied } from "./contentApplied";
+import type { Editor as TiptapEditor } from "@tiptap/core";
 
 // ── Tests ────────────────────────────────────────────────────────────
 

@@ -38,12 +38,16 @@ vi.mock("@/stores/documentStore", async () => ({
 import { useTiptapFlush } from "./useTiptapFlush";
 import { useLargeFileSessionStore } from "@/stores/documentStore";
 import { hasPendingWysiwygEdit } from "@/utils/wysiwygEditPending";
+import { markContentApplied } from "./contentApplied";
 
 /** Minimal editor stand-in — the flush only reads schema/state.doc. */
 const editor = {
   schema: {},
   state: { doc: { content: { size: 10 } } },
 } as unknown as TiptapEditor;
+// Every test below is about an editor that holds its document; the one that
+// does not is built separately.
+markContentApplied(editor);
 
 /** `tab: null` passes NO activeTabId. A defaulted parameter cannot express that:
  *  an explicit `undefined` argument takes the default, so the tab-store fallback
@@ -177,6 +181,35 @@ describe("flushToStore user-edit reporting", () => {
 // change). Any write from it would overwrite the real text: the pending edit's
 // debounce, Save's flush, and the unmount flush that runs as the tab switches to
 // Source mode. Reproduced by the audit as the store ending up "stale edit".
+// WI-OC1.1 — Save and Save All flush through the registered flusher, which can
+// run between the editor's mount and its deferred initial load. The editor
+// then holds an empty placeholder; serializing it replaced the tab's text with
+// "" in the store, and the load's drift check then emptied the editor too.
+describe("flushToStore before the editor holds its document", () => {
+  it("writes nothing", () => {
+    const placeholder = {
+      schema: {},
+      state: { doc: { content: { size: 2 } } },
+    } as unknown as TiptapEditor;
+    const setContent = vi.fn();
+    const { result } = setup(setContent);
+    result.current.flushToStore(placeholder);
+    expect(setContent).not.toHaveBeenCalled();
+  });
+
+  it("writes once the editor holds it", () => {
+    const loaded = {
+      schema: {},
+      state: { doc: { content: { size: 2 } } },
+    } as unknown as TiptapEditor;
+    const setContent = vi.fn();
+    const { result } = setup(setContent);
+    markContentApplied(loaded);
+    result.current.flushToStore(loaded);
+    expect(setContent).toHaveBeenCalledWith("SERIALIZED", { fromUserEdit: false });
+  });
+});
+
 describe("flushToStore after the tab's document was refused", () => {
   it("writes nothing — not a scheduled edit, not a save or unmount flush", () => {
     const setContent = vi.fn();

@@ -19,12 +19,16 @@
  *     would leave the editor showing a document the store no longer holds,
  *     with nothing left to sync them. A load applied at once is not asked.
  *   - The transaction carries `preventUpdate`: a load, not a user edit.
+ *   - The write marks the editor as holding its document (`contentApplied`)
+ *     when it dispatches, not when it is asked for: until then a flush would
+ *     serialize the empty placeholder over the document's text.
  *
  * @coordinates-with services/ime/compositionWriteGate.ts — the wait
  * @coordinates-with services/editor/unparseableDocument.ts — a refused sync lands in Source mode
  * @coordinates-with TiptapEditor.tsx — the initial load
  * @coordinates-with useTiptapContentSync.ts — the store→editor sync
  * @coordinates-with useTiptapFlush.ts — the flush that can supersede a waiting load
+ * @coordinates-with contentApplied.ts — records that a load has been written
  * @module components/Editor/tiptapContentLoad
  */
 import type { MutableRefObject } from "react";
@@ -34,6 +38,7 @@ import { parseMarkdown } from "@/utils/markdownPipeline";
 import { getTiptapEditorView } from "@/services/editor/tiptapView";
 import { reportUnparseableDocument } from "@/services/editor/unparseableDocument";
 import { type GatedWrite, writeWhenCompositionSettles } from "@/services/ime/compositionWriteGate";
+import { markContentApplied } from "./contentApplied";
 
 /**
  * Set editor content without adding to undo history.
@@ -52,6 +57,7 @@ export function setContentWithoutHistory(
   if (!view) {
     // Fallback to standard setContent if view not available
     editor.commands.setContent(doc, { emitUpdate: false });
+    markContentApplied(editor);
     return "applied";
   }
 
@@ -64,6 +70,7 @@ export function setContentWithoutHistory(
       .setMeta("addToHistory", false)
       .setMeta("preventUpdate", true); // Don't emit update event
     view.dispatch(tr);
+    markContentApplied(editor);
   });
   waited = outcome === "deferred";
   return outcome;

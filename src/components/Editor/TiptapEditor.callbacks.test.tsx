@@ -48,11 +48,11 @@ const mocks = vi.hoisted(() => ({
   EditorContent: vi.fn(() => null),
 }));
 
-function createMockEditor(opts?: { selectedText?: string; from?: number; to?: number }) {
+function createMockEditor(opts?: { selectedText?: string; from?: number; to?: number; loaded?: boolean }) {
   const text = opts?.selectedText ?? "";
   const from = opts?.from ?? 0;
   const to = opts?.to ?? 0;
-  return {
+  const editor = {
     commands: { setContent: vi.fn() },
     schema: {},
     state: {
@@ -67,6 +67,10 @@ function createMockEditor(opts?: { selectedText?: string; from?: number; to?: nu
     setEditable: vi.fn(),
     on: vi.fn(),
   };
+  // Stands in for an editor whose initial load has run: the flush only
+  // serializes an editor that holds its document (WI-OC1.1).
+  if (opts?.loaded !== false) markContentApplied(editor as unknown as TiptapEditor);
+  return editor;
 }
 
 // ── Module mocks ─────────────────────────────────────────────────────
@@ -219,6 +223,8 @@ vi.mock("@/services/editor/unparseableDocument", () => ({
 }));
 
 import { TiptapEditorInner } from "./TiptapEditor";
+import { markContentApplied } from "./contentApplied";
+import type { Editor as TiptapEditor } from "@tiptap/core";
 
 // ── Tests ────────────────────────────────────────────────────────────
 
@@ -500,6 +506,38 @@ describe("syncMarkdownToEditor — via onCreate", () => {
 });
 
 // ── flushToStore coverage ───────────────────────────────────────────
+
+// WI-OC1.1 — Save and Save All reach the editor through its registered
+// flusher, which exists from mount; the initial load runs a task later. A save
+// in between serialized the empty placeholder over the tab's text.
+describe("the registered flusher around the deferred initial load", () => {
+  it("writes nothing before the load runs, and writes after it", () => {
+    const editor = createMockEditor({ loaded: false });
+    mocks.useEditor.mockReturnValue(editor);
+    mocks.getTiptapEditorView.mockReturnValue(null);
+    mocks.parseMarkdown.mockReturnValue({ type: "doc", content: [] });
+    vi.useFakeTimers();
+    try {
+      render(<TiptapEditorInner hidden={false} />);
+      const config = mocks.useEditor.mock.calls[mocks.useEditor.mock.calls.length - 1][0];
+      config.onCreate({ editor });
+      const registered = mocks.registerActiveWysiwygFlusher.mock.calls
+        .map(([flusher]) => flusher)
+        .filter((flusher): flusher is () => void => typeof flusher === "function");
+      const flush = registered[registered.length - 1];
+      mocks.setContent.mockClear();
+
+      flush();
+      expect(mocks.setContent).not.toHaveBeenCalled();
+
+      vi.runOnlyPendingTimers();
+      flush();
+      expect(mocks.setContent).toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
 
 describe("flushToStore — via onUpdate RAF callback", () => {
   it("serializes markdown and calls setContent via flush", () => {

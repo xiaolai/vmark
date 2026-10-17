@@ -22,6 +22,7 @@ const reportUnparseableDocument = vi.hoisted(() => vi.fn());
 vi.mock("@/services/editor/unparseableDocument", () => ({ reportUnparseableDocument }));
 
 import { setContentWithoutHistory, syncMarkdownToEditor } from "./tiptapContentLoad";
+import { hasContentApplied } from "./contentApplied";
 import { MAX_NESTING_DEPTH, nestingRefusal } from "@/utils/markdownPipeline/nestingDepth";
 
 let editor: Editor;
@@ -111,6 +112,40 @@ describe("setContentWithoutHistory", () => {
     expect(setContentWithoutHistory(editor, docOf("new document\n"), stillWanted)).toBe("applied");
     expect(stillWanted).not.toHaveBeenCalled();
     expect(editor.getText()).toBe("new document");
+  });
+});
+
+// WI-OC1.1 — an editor counts as holding its document only once a load has
+// actually been written into it: a flush before then would serialize the empty
+// placeholder over the document's text.
+describe("an editor holds its content only once a load has run", () => {
+  it("not before any load", () => {
+    expect(hasContentApplied(editor)).toBe(false);
+  });
+
+  it("at once, for a load applied at once", () => {
+    setContentWithoutHistory(editor, docOf("new document\n"));
+    expect(hasContentApplied(editor)).toBe(true);
+  });
+
+  it("only when a load waiting behind a composition runs", () => {
+    composing.mockReturnValue(true);
+    setContentWithoutHistory(editor, docOf("new document\n"));
+    expect(hasContentApplied(editor)).toBe(false);
+
+    endComposition();
+    vi.advanceTimersByTime(IME_GRACE_PERIOD_MS);
+    expect(hasContentApplied(editor)).toBe(true);
+  });
+
+  it("never, for a waiting load that was dropped", () => {
+    composing.mockReturnValue(true);
+    let wanted = true;
+    setContentWithoutHistory(editor, docOf("new document\n"), () => wanted);
+    wanted = false;
+    endComposition();
+    vi.advanceTimersByTime(IME_GRACE_PERIOD_MS);
+    expect(hasContentApplied(editor)).toBe(false);
   });
 });
 
