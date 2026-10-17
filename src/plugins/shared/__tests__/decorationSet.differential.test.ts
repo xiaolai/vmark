@@ -16,9 +16,10 @@
 // the tree rebuilt (`individuallyMapped`). The patch also fixes upstream's
 // `mapChildren`, which kept child sets where no child node is — after a later
 // step replaced a touched child's opening token, after a wrap moved an
-// untouched child, through a mirrored mapping — so for `map`, upstream is not
-// the reference. Each seed maps a whole edit, the edit rebased collab-style
-// over another one (mirrors), and a typed character.
+// untouched child, through a mirrored mapping, through a slice of a mapping
+// (whose excluded steps it still applied) — so for `map`, upstream is not the
+// reference. Each seed maps a whole edit, a slice of it, the edit rebased
+// collab-style over another one (mirrors), and a typed character.
 import { describe, expect, it } from "vitest";
 import type { Node } from "@tiptap/pm/model";
 import { Mapping, Transform } from "@tiptap/pm/transform";
@@ -119,6 +120,15 @@ describe("the patched decoration tree agrees with the unpatched algorithm", () =
     expectMappedLike(mapped, added.find(), tr, `map #${seed}`);
     expectSameForChild(mapped, tr.doc, `map+forChild #${seed}`);
 
+    // A set made partway through the edit, mapped by the rest of it — or by a
+    // middle stretch of it — as a slice of the transform's mapping.
+    const from = Math.floor(random() * (tr.steps.length + 1));
+    const to = from + Math.floor(random() * (tr.steps.length - from + 1));
+    const docAt = (i: number) => (i < tr.steps.length ? tr.docs[i] : tr.doc);
+    const partway = DecorationSet.create(docAt(from), decorationsOf(docAt(from), random, "s"));
+    const slice = { mapping: tr.mapping.slice(from, to), doc: docAt(to) };
+    expectMappedLike(partway.map(slice.mapping, slice.doc), partway.find(), slice, `slice ${from}-${to} #${seed}`);
+
     // The edit rebased over another one, collab-style: a mapping with mirrors.
     const rebased = rebasedOf(tr, editsOf(doc, random));
     const onLocal = DecorationSet.create(tr.doc, decorationsOf(tr.doc, random, "r"));
@@ -199,6 +209,17 @@ describe("cases the audit found", () => {
     const mapped = set.map(rebased.mapping, rebased.doc);
     expectMappedLike(mapped, set.find(), rebased, "rebase");
     expect(drawn(mapped, rebased.doc)).toContain("6-6 widget w7");
+  });
+
+  it("a slice of a mapping maps by its own steps only", () => {
+    const doc = schema.nodes.doc.create(null, [p("abc"), p("def"), p("ghi")]);
+    const tr = new Transform(doc).insert(0, p("new"));
+    const middle = tr.doc;
+    tr.insert(1, schema.text("X"));
+    const later = DecorationSet.create(middle, [Decoration.inline(6, 9, { class: "x" })]);
+    expectMappedLike(later.map(tr.mapping.slice(1), tr.doc), later.find(), { mapping: tr.mapping.slice(1), doc: tr.doc }, "slice(1)");
+    const earlier = DecorationSet.create(doc, [Decoration.inline(6, 9, { class: "x" })]);
+    expectMappedLike(earlier.map(tr.mapping.slice(0, 1), middle), earlier.find(), { mapping: tr.mapping.slice(0, 1), doc: middle }, "slice(0, 1)");
   });
 
   it("the node-decoration oracle tells decorations apart, not only ranges", () => {

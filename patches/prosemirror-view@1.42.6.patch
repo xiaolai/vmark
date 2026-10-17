@@ -1,5 +1,5 @@
 diff --git a/dist/index.cjs b/dist/index.cjs
-index d52a5260a7b9924b2865053ea1e8c6484225277b..240b15688ebab37a0ca4abe44f58154e8fdfb87e 100644
+index d52a5260a7b9924b2865053ea1e8c6484225277b..b6b0d8357e007285b2a7c80e57f2756d9af7d5f9 100644
 --- a/dist/index.cjs
 +++ b/dist/index.cjs
 @@ -3885,6 +3885,8 @@ var DecorationSet = function () {
@@ -97,7 +97,19 @@ index d52a5260a7b9924b2865053ea1e8c6484225277b..240b15688ebab37a0ca4abe44f58154e
    var _loop4 = function _loop4(_baseOffset) {
      var moved = 0;
      mapping.maps[i].forEach(function (oldStart, oldEnd, newStart, newEnd) {
-@@ -4164,6 +4202,15 @@ function mapChildren(oldChildren, newLocal, mapping, node, offset, oldOffset, op
+@@ -4154,7 +4192,10 @@ function mapChildren(oldChildren, newLocal, mapping, node, offset, oldOffset, op
+     _baseOffset = mapping.maps[i].map(_baseOffset, -1);
+     baseOffset = _baseOffset;
+   };
+-  for (var i = 0, baseOffset = oldOffset; i < mapping.maps.length; i++) {
++  // VMark patch (#1565): only the maps the mapping spans — a slice
++  // (`mapping.slice(from, to)`) shares the whole array. Upstream walked
++  // them all, and shifted children by steps the slice excludes.
++  for (var i = mappingStart(mapping), _end = mappingEnd(mapping), baseOffset = oldOffset; i < _end; i++) {
+     _loop4(baseOffset);
+   }
+   var mustRebuild = false;
+@@ -4164,6 +4205,15 @@ function mapChildren(oldChildren, newLocal, mapping, node, offset, oldOffset, op
        children[_i11 + 1] = -1;
        continue;
      }
@@ -113,7 +125,7 @@ index d52a5260a7b9924b2865053ea1e8c6484225277b..240b15688ebab37a0ca4abe44f58154e
      var from = mapping.map(oldChildren[_i11] + oldOffset),
        fromLocal = from - offset;
      if (fromLocal < 0 || fromLocal >= node.content.size) {
-@@ -4190,22 +4237,47 @@ function mapChildren(oldChildren, newLocal, mapping, node, offset, oldOffset, op
+@@ -4190,22 +4240,61 @@ function mapChildren(oldChildren, newLocal, mapping, node, offset, oldOffset, op
        mustRebuild = true;
      }
    }
@@ -159,16 +171,30 @@ index d52a5260a7b9924b2865053ea1e8c6484225277b..240b15688ebab37a0ca4abe44f58154e
    }
    return new DecorationSet(newLocal.sort(byPos), children);
  }
-+// VMark patch (#1565): whether any map in `mapping` has a mirror.
++// VMark patch (#1565): whether any map in the mapping's span has a mirror
++// inside that span — the only mirrors `Mapping.map` follows.
 +function hasMirror(mapping) {
 +  if (typeof mapping.getMirror != "function") return false;
-+  for (var i = 0; i < mapping.maps.length; i++) if (mapping.getMirror(i) != null) return true;
++  var start = mappingStart(mapping),
++    end = mappingEnd(mapping);
++  for (var i = start; i < end; i++) {
++    var mirror = mapping.getMirror(i);
++    if (mirror != null && mirror >= start && mirror < end) return true;
++  }
 +  return false;
++}
++// VMark patch (#1565): the maps a mapping spans; a mapping without the
++// bounds (from before `Mapping.slice` kept them) spans all of its maps.
++function mappingStart(mapping) {
++  return mapping.from == null ? 0 : mapping.from;
++}
++function mappingEnd(mapping) {
++  return mapping.to == null ? mapping.maps.length : mapping.to;
 +}
  function moveSpans(spans, offset) {
    if (!offset || !spans.length) return spans;
    var result = [];
-@@ -4226,15 +4298,51 @@ function mapAndGatherRemainingDecorations(children, oldChildren, decorations, ma
+@@ -4226,15 +4315,51 @@ function mapAndGatherRemainingDecorations(children, oldChildren, decorations, ma
    for (var i = 0; i < children.length; i += 3) if (children[i + 1] == -1) gather(children[i + 2], oldChildren[i] + oldOffset + 1);
    return decorations;
  }
@@ -228,7 +254,7 @@ index d52a5260a7b9924b2865053ea1e8c6484225277b..240b15688ebab37a0ca4abe44f58154e
    }
    return found;
  }
-@@ -4246,8 +4354,10 @@ function withoutNulls(array) {
+@@ -4246,8 +4371,10 @@ function withoutNulls(array) {
  function buildTree(spans, node, offset, options) {
    var children = [],
      hasNulls = false;
@@ -242,7 +268,7 @@ index d52a5260a7b9924b2865053ea1e8c6484225277b..240b15688ebab37a0ca4abe44f58154e
        hasNulls = true;
        var subtree = buildTree(found, childNode, offset + localStart + 1, options);
 diff --git a/dist/index.js b/dist/index.js
-index dc0d117b85e1da3eae915b4d8ff8e5e604683861..a8c7bbf441628704da0d0d7d1a10451624aace0f 100644
+index dc0d117b85e1da3eae915b4d8ff8e5e604683861..5f8ea917689b07d08231b6e0954121cf9de54c72 100644
 --- a/dist/index.js
 +++ b/dist/index.js
 @@ -4148,6 +4148,8 @@ class DecorationSet {
@@ -334,7 +360,7 @@ index dc0d117b85e1da3eae915b4d8ff8e5e604683861..a8c7bbf441628704da0d0d7d1a104516
          let start = offset + 1, end = start + node.content.size;
          for (let i = 0; i < this.local.length; i++) {
              let dec = this.local[i];
-@@ -4443,6 +4473,14 @@ class DecorationGroup {
+@@ -4443,9 +4473,20 @@ class DecorationGroup {
  }
  function mapChildren(oldChildren, newLocal, mapping, node, offset, oldOffset, options) {
      let children = oldChildren.slice();
@@ -348,8 +374,15 @@ index dc0d117b85e1da3eae915b4d8ff8e5e604683861..a8c7bbf441628704da0d0d7d1a104516
 +    }
      // Mark the children that are directly touched by changes, and
      // move those that are after the changes.
-     for (let i = 0, baseOffset = oldOffset; i < mapping.maps.length; i++) {
-@@ -4476,6 +4514,16 @@ function mapChildren(oldChildren, newLocal, mapping, node, offset, oldOffset, op
+-    for (let i = 0, baseOffset = oldOffset; i < mapping.maps.length; i++) {
++    // VMark patch (#1565): only the maps the mapping spans — a slice
++    // (`mapping.slice(from, to)`) shares the whole array. Upstream walked
++    // them all, and shifted children by steps the slice excludes.
++    for (let i = mappingStart(mapping), end = mappingEnd(mapping), baseOffset = oldOffset; i < end; i++) {
+         let moved = 0;
+         mapping.maps[i].forEach((oldStart, oldEnd, newStart, newEnd) => {
+             let dSize = (newEnd - newStart) - (oldEnd - oldStart);
+@@ -4476,6 +4517,16 @@ function mapChildren(oldChildren, newLocal, mapping, node, offset, oldOffset, op
                  children[i + 1] = -1;
                  continue;
              }
@@ -366,7 +399,7 @@ index dc0d117b85e1da3eae915b4d8ff8e5e604683861..a8c7bbf441628704da0d0d7d1a104516
              let from = mapping.map(oldChildren[i] + oldOffset), fromLocal = from - offset;
              if (fromLocal < 0 || fromLocal >= node.content.size) {
                  mustRebuild = true;
-@@ -4502,25 +4550,54 @@ function mapChildren(oldChildren, newLocal, mapping, node, offset, oldOffset, op
+@@ -4502,25 +4553,66 @@ function mapChildren(oldChildren, newLocal, mapping, node, offset, oldOffset, op
                  mustRebuild = true;
              }
          }
@@ -417,19 +450,31 @@ index dc0d117b85e1da3eae915b4d8ff8e5e604683861..a8c7bbf441628704da0d0d7d1a104516
      }
      return new DecorationSet(newLocal.sort(byPos), children);
  }
-+// VMark patch (#1565): whether any map in `mapping` has a mirror.
++// VMark patch (#1565): whether any map in the mapping's span has a mirror
++// inside that span — the only mirrors `Mapping.map` follows.
 +function hasMirror(mapping) {
 +    if (typeof mapping.getMirror != "function")
 +        return false;
-+    for (let i = 0; i < mapping.maps.length; i++)
-+        if (mapping.getMirror(i) != null)
++    let start = mappingStart(mapping), end = mappingEnd(mapping);
++    for (let i = start; i < end; i++) {
++        let mirror = mapping.getMirror(i);
++        if (mirror != null && mirror >= start && mirror < end)
 +            return true;
++    }
 +    return false;
++}
++// VMark patch (#1565): the maps a mapping spans; a mapping without the
++// bounds (from before `Mapping.slice` kept them) spans all of its maps.
++function mappingStart(mapping) {
++    return mapping.from == null ? 0 : mapping.from;
++}
++function mappingEnd(mapping) {
++    return mapping.to == null ? mapping.maps.length : mapping.to;
 +}
  function moveSpans(spans, offset) {
      if (!offset || !spans.length)
          return spans;
-@@ -4549,15 +4626,63 @@ function mapAndGatherRemainingDecorations(children, oldChildren, decorations, ma
+@@ -4549,15 +4641,63 @@ function mapAndGatherRemainingDecorations(children, oldChildren, decorations, ma
              gather(children[i + 2], oldChildren[i] + oldOffset + 1);
      return decorations;
  }
@@ -475,7 +520,7 @@ index dc0d117b85e1da3eae915b4d8ff8e5e604683861..a8c7bbf441628704da0d0d7d1a104516
 +                    break;
 +            if (k == count)
 +                continue;
-         }
++        }
 +        else {
 +            let lo = 0, hi = count;
 +            while (lo < hi) {
@@ -488,7 +533,7 @@ index dc0d117b85e1da3eae915b4d8ff8e5e604683861..a8c7bbf441628704da0d0d7d1a104516
 +            k = lo - 1;
 +            if (k < 0 || span.to >= ends[k] || node.child(k).isLeaf)
 +                continue;
-+        }
+         }
 +        if (!found)
 +            found = new Array(count);
 +        if (found[k])
@@ -499,7 +544,7 @@ index dc0d117b85e1da3eae915b4d8ff8e5e604683861..a8c7bbf441628704da0d0d7d1a104516
      }
      return found;
  }
-@@ -4574,8 +4699,10 @@ function withoutNulls(array) {
+@@ -4574,8 +4714,10 @@ function withoutNulls(array) {
  // for recursive calls).
  function buildTree(spans, node, offset, options) {
      let children = [], hasNulls = false;
