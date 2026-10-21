@@ -10,6 +10,9 @@
 import { describe, it, expect } from "vitest";
 import { Schema } from "@tiptap/pm/model";
 import { EditorState } from "@tiptap/pm/state";
+import { getSchema } from "@tiptap/core";
+import StarterKit from "@tiptap/starter-kit";
+import { parseMarkdown } from "@/utils/markdownPipeline/adapter";
 import { findMatchesInDoc } from "./findMatches";
 
 const schema = new Schema({
@@ -143,6 +146,67 @@ describe("findMatchesInDoc", () => {
     it("finds matches inside code blocks", () => {
       const d = doc(schema.node("codeBlock", null, [schema.text("const foo = 1;")]));
       expect(findMatchesInDoc(d, "foo", false, false, false)).toEqual([{ from: 7, to: 10 }]);
+    });
+  });
+
+  describe("soft line breaks (#1590)", () => {
+    // A soft break is stored as "\n" inside the paragraph's text and renders
+    // as a space, so a space in the query must match it.
+    const softBreakDoc = () => doc(p(schema.text("A chat\nassistant answers questions.")));
+
+    it("matches a literal query across a soft break with exact positions", () => {
+      expect(findMatchesInDoc(softBreakDoc(), "a chat assis", false, false, false)).toEqual([
+        { from: 1, to: 13 },
+      ]);
+    });
+
+    it("matches across a soft break with wholeWord and with a regex space", () => {
+      expect(findMatchesInDoc(softBreakDoc(), "chat assistant", false, true, false)).toEqual([
+        { from: 3, to: 17 },
+      ]);
+      expect(findMatchesInDoc(softBreakDoc(), "chat \\w+", false, false, true)).toEqual([
+        { from: 3, to: 17 },
+      ]);
+    });
+
+    it("matches across a soft break that sits inside marked text", () => {
+      const d = doc(p(schema.text("A "), schema.text("chat\nassistant", [bold])));
+      expect(findMatchesInDoc(d, "a chat assistant", false, false, false)).toEqual([
+        { from: 1, to: 17 },
+      ]);
+    });
+
+    it("replacing a match across a soft break consumes the break", () => {
+      const d = softBreakDoc();
+      const [match] = findMatchesInDoc(d, "chat assistant", false, false, false);
+      const state = EditorState.create({ doc: d });
+      const tr = state.tr.replaceWith(match.from, match.to, schema.text("bot"));
+      expect(tr.doc.textContent).toBe("A bot answers questions.");
+    });
+
+    it("does not let a space match a real line break in a code block", () => {
+      const d = doc(schema.node("codeBlock", null, [schema.text("const a\nconst b")]));
+      expect(findMatchesInDoc(d, "a const", false, false, false)).toEqual([]);
+      expect(findMatchesInDoc(d, "a\\nconst", false, false, true)).toEqual([
+        { from: 7, to: 14 },
+      ]);
+    });
+
+    it("matches across a soft break in a document parsed from markdown", () => {
+      const parsed = parseMarkdown(
+        getSchema([StarterKit]),
+        "A chat\nassistant answers questions.\n\n```\nconst a\nconst b\n```\n"
+      );
+      expect(parsed.firstChild?.textContent).toBe("A chat\nassistant answers questions.");
+      expect(findMatchesInDoc(parsed, "a chat assis", false, false, false)).toEqual([
+        { from: 1, to: 13 },
+      ]);
+      expect(findMatchesInDoc(parsed, "a const", false, false, false)).toEqual([]);
+    });
+
+    it("still does not match across a hard break (atom placeholder)", () => {
+      const d = doc(p(schema.text("A chat"), schema.node("atom"), schema.text("assistant")));
+      expect(findMatchesInDoc(d, "chat assistant", false, false, false)).toEqual([]);
     });
   });
 
