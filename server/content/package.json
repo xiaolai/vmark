@@ -47,10 +47,10 @@
     "@types/jsdom": "^30.0.0",
     "@types/katex": "^0.16.8",
     "@types/node": "^22.20.5",
-    "@vitest/coverage-v8": "^4.1.11",
+    "@vitest/coverage-v8": "^4.1.12",
     "tsup": "^8.5.1",
     "typescript": "~6.0.3",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.12"
   },
   "engines": {
     "node": ">=20.12"
