@@ -1,8 +1,9 @@
 /*
  * Editor context menu — extends the shared .context-menu surface
  * (imported from FileExplorer/ContextMenu.css by the component, same as
- * the image and terminal menus). Only submenu geometry and the checkmark
- * slot live here.
+ * the image and terminal menus). Surface chrome, fixed positioning and
+ * the stacking layer come from .vm-menu (overlay-shared.css). Only
+ * submenu geometry and the checkmark slot live here.
  */
 
 /* Submenu anchor: the parent item is the positioning context. */

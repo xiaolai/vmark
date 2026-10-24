@@ -4,7 +4,8 @@
  * the UI-consistency plan, with ONE identity baseline.
  *
  *   C3   chrome font-size is a --font-size-* token (editor em ratios exempt)
- *   C4   overlay/popup shells compose a canonical panel class
+ *   C4   overlay/popup shells compose a canonical panel class (CSS and the
+ *        pointer-anchored menus' JSX)
  *   C5   var(--font-sans) only under document selectors; chrome uses --font-ui
  *   C7   lucide sizes ∈ {12,14,16,18}; icon w-* ∈ {3,3.5,4,4.5}; no CSS
  *        svg-width override where a size= prop exists
@@ -42,7 +43,7 @@ import {
   checkFloatingOverContent,
   focusPaintedClasses,
 } from "./lib/uiConsistencyCss.mjs";
-import { checkIconSizes, collectFocusables } from "./lib/uiConsistencyTsx.mjs";
+import { checkIconSizes, collectFocusables, checkMenuShell } from "./lib/uiConsistencyTsx.mjs";
 import { isMainModule } from "./lib/isMainModule.mjs";
 
 const BASELINE_PATH = "scripts/ui-consistency-baseline.json";
@@ -97,6 +98,7 @@ export function runChecks({ cssFiles, tsxFiles, indexCssText, read = (p) => read
 
   for (const file of tsxFiles) {
     const source = read(file);
+    findings.push(...checkMenuShell(source, file));
     const { findings: iconFindings, usesLucideSize } = checkIconSizes(source, file);
     findings.push(...iconFindings);
     if (usesLucideSize) {

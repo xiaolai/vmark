@@ -78,6 +78,15 @@ describe("EditorContextMenu — rendering", () => {
     expect(screen.getByRole("menuitem", { name: /Insert Link/ })).toBeInTheDocument();
   });
 
+  it("composes the canonical .vm-menu shell", () => {
+    // .vm-menu carries `position: fixed`. Without it the menu is a static flex
+    // item of .app-shell: it lands at the window's top-left, shifts every
+    // other child sideways, and the pointer coordinates are ignored.
+    render(<EditorContextMenu />);
+    openMenu();
+    expect(screen.getByRole("menu", { name: "Editor actions" })).toHaveClass("vm-menu");
+  });
+
   it("disables Cut/Copy on empty selection and checks active marks", () => {
     render(<EditorContextMenu />);
     openMenu({ selectionEmpty: true, activeActions: ["bold"] });

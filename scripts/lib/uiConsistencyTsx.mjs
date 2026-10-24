@@ -151,6 +151,68 @@ export function checkIconSizes(source, file) {
 
 const FOCUSABLE_TAGS = new Set(["button", "select", "textarea", "input"]);
 
+/** Whether an attribute initializer is an object literal with `name` as a
+ *  property. Used for inline style objects (`{ left: …, top: … }`). */
+function hasStyleProperty(initializer, name) {
+  if (!initializer) return false;
+  let expr = initializer;
+  if (ts.isJsxExpression(expr)) expr = expr.expression;
+  if (!expr || !ts.isObjectLiteralExpression(expr)) return false;
+  return expr.properties.some((p) => {
+    if (!ts.isPropertyAssignment(p)) return false;
+    const n = p.name;
+    return (ts.isIdentifier(n) || ts.isStringLiteral(n)) && n.text === name;
+  });
+}
+
+/**
+ * C4 (JSX half) — a pointer-anchored menu that uses the shared
+ * `.context-menu` vocabulary must also compose `.vm-menu`.
+ *
+ * The CSS half proves the canonical shell exists; this half proves the menus
+ * that opt into its ITEM classes opt into its SURFACE too. `role="menu"` plus
+ * an inline `left` means the panel is anchored at pointer coordinates, which
+ * only work under `.vm-menu`'s `position: fixed`. Without it the panel is a
+ * static flex item of `.app-shell`: it lands at the window's top-left, shifts
+ * every sibling by its width, and the coordinates are silently ignored.
+ *
+ * A standalone menu with its own class (the toolbar dropdown) is not in this
+ * family — its own rule owns placement and chrome.
+ */
+export function checkMenuShell(source, file) {
+  const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const strConsts = moduleConstStrings(sf);
+  const findings = [];
+
+  const visit = (node) => {
+    if (ts.isJsxSelfClosingElement(node) || ts.isJsxElement(node)) {
+      const tagNode = ts.isJsxSelfClosingElement(node) ? node.tagName : node.openingElement.tagName;
+      const role = attrOf(node, "role");
+      const roleValue =
+        role?.initializer && ts.isStringLiteral(role.initializer) ? role.initializer.text : null;
+      const anchored = hasStyleProperty(attrOf(node, "style")?.initializer, "left");
+      if (roleValue === "menu" && anchored) {
+        const fragments = [];
+        const cnAttr = attrOf(node, "className");
+        if (cnAttr?.initializer) stringFragments(cnAttr.initializer, strConsts, fragments);
+        const classes = fragments.join(" ").split(/\s+/).filter(Boolean);
+        const shared = classes.includes("context-menu");
+        if (shared && !classes.includes("vm-menu") && !uiOkAbove(sf, node, "overlay")) {
+          const tag = ts.isIdentifier(tagNode) ? tagNode.text : "element";
+          findings.push({
+            check: "C4",
+            id: `${file}:<${tag} role="menu">`,
+            message: `${file}: <${tag} role="menu"> uses the shared .context-menu classes but does not compose .vm-menu — without its position: fixed the menu is a static flex item of .app-shell (top-left placement, layout shift, left/top ignored). Add the class or ui-ok(overlay): <reason>.`,
+          });
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return findings;
+}
+
 /**
  * C10 — focusable JSX elements and the classes they carry, for the CLI to
  * join against the CSS focus-paint map. An element is returned as COVERED

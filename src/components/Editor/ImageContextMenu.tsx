@@ -113,7 +113,7 @@ export function ImageContextMenu({ onAction }: ImageContextMenuProps) {
   return (
     <div
       ref={menuRef}
-      className="context-menu"
+      className="vm-menu context-menu"
       style={{ left: position.x, top: position.y }}
       role="menu"
       aria-label={t("imageMenu.ariaLabel")}
