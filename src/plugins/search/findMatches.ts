@@ -15,6 +15,10 @@
  *     offsets map 1:1 onto document positions; matches overlapping a
  *     placeholder are dropped (atoms have no real text, and fabricating text
  *     would corrupt replace positions).
+ *   - A soft line break is stored as "\n" inside a textblock's text and renders
+ *     as a space, so outside code blocks it is matched as a space (same
+ *     length, offsets unchanged). In code blocks "\n" is a real line break and
+ *     stays a newline.
  *   - Cross-block matches remain unsupported (parity with Source mode, where
  *     a plain-text query does not match across newlines).
  *   - Matches are sorted by position so navigation order is document order
@@ -37,6 +41,8 @@ export interface Match {
  * a regex match that overlaps it is discarded.
  */
 const NON_TEXT_PLACEHOLDER = "\uFFFC";
+
+const SOFT_BREAK = /\n/g;
 
 function escapeRegExp(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -98,6 +104,9 @@ export function findMatchesInDoc(
           ? child.text
           : NON_TEXT_PLACEHOLDER.repeat(child.nodeSize);
     });
+    // @edge-case Soft breaks read as spaces in prose (#1590); one char for
+    // one char, so offsets still map onto document positions.
+    if (!node.type.spec.code) text = text.replace(SOFT_BREAK, " ");
 
     const base = pos + 1;
     regex.lastIndex = 0;
