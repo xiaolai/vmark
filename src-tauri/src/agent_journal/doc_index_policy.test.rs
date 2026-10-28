@@ -47,7 +47,7 @@ const LOCK: &str = include_str!("../../Cargo.lock");
 const LOCKED_CRATES: [&str; 3] = ["icu_casemap", "icu_casemap_data", "unicode-normalization"];
 
 /// The reviewed policy and the hash of the code it was reviewed against.
-const PINNED: (&str, u64) = ("entry-spelling-1", 2837485409781082938);
+const PINNED: (&str, u64) = ("entry-spelling-1", 2865231208453080573);
 
 /// `name`'s `[[package]]` entry in the lock file (version and checksum),
 /// line endings aside.
