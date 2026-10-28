@@ -357,7 +357,7 @@ errors:
   hotExit.captureTimeout: "擷取逾時：沒有視窗回應"
 
   # === Content search ===
-  search.queryTooShort: "搜尋關鍵字至少需要 3 個字元"
+  search.queryTooShort: "搜尋關鍵字至少需要 %{min} 個字元"
 
   # === CLI install ===
   cli.noFile: "安裝似乎成功，但檔案未能建立。"

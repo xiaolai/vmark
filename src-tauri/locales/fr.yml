@@ -357,7 +357,7 @@ errors:
   hotExit.captureTimeout: "Délai de capture dépassé : aucune fenêtre n'a répondu"
 
   # === Content search ===
-  search.queryTooShort: "La requête doit comporter au moins 3 caractères"
+  search.queryTooShort: "La requête doit comporter au moins %{min} caractères"
 
   # === CLI install ===
   cli.noFile: "L'installation semble avoir réussi mais le fichier n'a pas été créé."

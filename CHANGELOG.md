@@ -11,6 +11,20 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 ## [Unreleased]
 
+## [0.9.105] - 2026-10-28
+
+### Fixed
+
+- **Right-click menus open at the pointer again.** Since 0.9.55 the editor's
+  right-click menu and the image menu opened in the window's top-left corner,
+  pushed the rest of the window sideways while open, and could leave the
+  selection highlight behind after they closed. Both now open where you click,
+  over the page, and close cleanly.
+- **Find in Files accepts two-character searches** (#1598). The minimum was
+  three characters, which blocked common two-character Chinese, Japanese and
+  Korean words such as 选址 or 招聘. Two characters is now enough, counted the
+  same way for every script, and the "type at least" hint is translated.
+
 ## [0.9.104] - 2026-10-28
 
 ### Added
@@ -421,7 +435,8 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 - Raised the `markdown-it` version floor past GHSA-253c-mchw-3w2r.
 
-[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.104...HEAD
+[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.105...HEAD
+[0.9.105]: https://github.com/xiaolai/vmark/releases/tag/v0.9.105
 [0.9.104]: https://github.com/xiaolai/vmark/releases/tag/v0.9.104
 [0.9.103]: https://github.com/xiaolai/vmark/releases/tag/v0.9.103
 [0.9.102]: https://github.com/xiaolai/vmark/releases/tag/v0.9.102

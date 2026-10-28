@@ -160,6 +160,7 @@
   "findbar.find.placeholder": "Rechercher...",
   "findbar.find.label": "Rechercher du texte dans le document",
   "contentSearch.label": "Rechercher dans l'espace de travail",
+  "contentSearch.minChars": "Saisissez au moins {{count}} caractères",
   "findbar.prev": "Précédent (Maj+Entrée)",
   "findbar.next": "Suivant (Entrée)",
   "findbar.replace.placeholder": "Remplacer...",

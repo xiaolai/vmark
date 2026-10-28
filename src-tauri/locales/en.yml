@@ -358,7 +358,7 @@ errors:
   hotExit.captureTimeout: "Capture timeout: no windows responded"
 
   # === Content search ===
-  search.queryTooShort: "Query must be at least 3 characters"
+  search.queryTooShort: "Query must be at least %{min} characters"
 
   # === CLI install ===
   cli.noFile: "Installation appeared to succeed but the file was not created."

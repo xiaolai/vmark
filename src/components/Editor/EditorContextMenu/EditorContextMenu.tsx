@@ -226,7 +226,7 @@ export function EditorContextMenu() {
   return (
     <div
       ref={menuRef}
-      className="context-menu editor-context-menu"
+      className="vm-menu context-menu editor-context-menu"
       style={{ left: position.x, top: position.y }}
       role="menu"
       aria-label={t("contextMenu.ariaLabel")}

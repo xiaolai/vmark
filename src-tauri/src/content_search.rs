@@ -172,6 +172,22 @@ fn search_sync_with_deadline(
     })
 }
 
+/// The shortest query, in characters, either command searches: two, so a
+/// two-character CJK word searches (#1598); the caps and deadline bound the
+/// cost of a short one. Mirrors `utils/contentSearchQuery.ts`.
+pub(crate) const MIN_QUERY_CHARS: usize = 2;
+
+/// Refuses an empty or too-short query. Counted in characters of the trimmed
+/// query, never UTF-8 bytes (one CJK character is three).
+fn check_query_length(query: &str) -> Result<(), String> {
+    if query.trim().chars().count() < MIN_QUERY_CHARS {
+        return Err(
+            rust_i18n::t!("errors.search.queryTooShort", min = MIN_QUERY_CHARS).to_string(),
+        );
+    }
+    Ok(())
+}
+
 /// Tauri command: search workspace file contents AND report whether every
 /// eligible file was actually scanned. The orphan-image verifier depends on
 /// the flag — zero hits from a partial scan must not clear a file for
@@ -188,9 +204,7 @@ pub async fn search_workspace_content_checked(
     extensions: Vec<String>,
     exclude_folders: Vec<String>,
 ) -> Result<SearchOutcome, String> {
-    if query.trim().len() < 3 {
-        return Err(rust_i18n::t!("errors.search.queryTooShort").to_string());
-    }
+    check_query_length(&query)?;
 
     tokio::task::spawn_blocking(move || {
         search_sync_with_deadline(
@@ -225,10 +239,7 @@ pub async fn search_workspace_content(
     extensions: Vec<String>,
     exclude_folders: Vec<String>,
 ) -> Result<Vec<FileSearchResult>, String> {
-    // Reject empty/very short queries (matches frontend MIN_QUERY_LENGTH = 3)
-    if query.trim().len() < 3 {
-        return Err(rust_i18n::t!("errors.search.queryTooShort").to_string());
-    }
+    check_query_length(&query)?;
 
     tokio::task::spawn_blocking(move || {
         search_sync(

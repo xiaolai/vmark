@@ -357,7 +357,7 @@ errors:
   hotExit.captureTimeout: "캡처 시간 초과: 응답한 창이 없습니다"
 
   # === Content search ===
-  search.queryTooShort: "검색어는 3자 이상이어야 합니다"
+  search.queryTooShort: "검색어는 %{min}자 이상이어야 합니다"
 
   # === CLI install ===
   cli.noFile: "설치가 성공한 것처럼 보이지만 파일이 생성되지 않았습니다."

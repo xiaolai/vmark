@@ -357,7 +357,7 @@ errors:
   hotExit.captureTimeout: "捕获超时：没有窗口响应"
 
   # === Content search ===
-  search.queryTooShort: "搜索关键字至少需要 3 个字符"
+  search.queryTooShort: "搜索关键字至少需要 %{min} 个字符"
 
   # === CLI install ===
   cli.noFile: "安装似乎成功，但文件未能创建。"

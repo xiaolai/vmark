@@ -357,7 +357,7 @@ errors:
   hotExit.captureTimeout: "Timeout cattura: nessuna finestra ha risposto"
 
   # === Content search ===
-  search.queryTooShort: "La query deve contenere almeno 3 caratteri"
+  search.queryTooShort: "La query deve contenere almeno %{min} caratteri"
 
   # === CLI install ===
   cli.noFile: "L'installazione sembra riuscita ma il file non è stato creato."

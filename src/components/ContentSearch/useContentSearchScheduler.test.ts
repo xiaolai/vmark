@@ -1,11 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook } from "@testing-library/react";
 import { useUIStore } from "@/stores/uiStore";
-import {
-  useContentSearchScheduler,
-  DEBOUNCE_MS,
-  MIN_QUERY_LENGTH,
-} from "./useContentSearchScheduler";
+import { useContentSearchScheduler, DEBOUNCE_MS } from "./useContentSearchScheduler";
 
 type Args = Parameters<typeof useContentSearchScheduler>[0];
 
@@ -59,9 +55,15 @@ describe("useContentSearchScheduler", () => {
     expect(runSpy).not.toHaveBeenCalled();
   });
 
+  it("runs a two-character CJK query (#1598)", () => {
+    renderHook(() => useContentSearchScheduler(baseArgs({ query: "选址" })));
+    vi.advanceTimersByTime(DEBOUNCE_MS);
+    expect(runSpy).toHaveBeenCalledOnce();
+    expect(clearSpy).not.toHaveBeenCalled();
+  });
+
   it("clears results instead of running when the query is too short", () => {
-    const shortQuery = "a".repeat(MIN_QUERY_LENGTH - 1);
-    renderHook(() => useContentSearchScheduler(baseArgs({ query: shortQuery })));
+    renderHook(() => useContentSearchScheduler(baseArgs({ query: "选" })));
 
     expect(clearSpy).toHaveBeenCalledOnce();
     vi.advanceTimersByTime(DEBOUNCE_MS);

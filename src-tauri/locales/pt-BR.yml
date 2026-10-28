@@ -357,7 +357,7 @@ errors:
   hotExit.captureTimeout: "Tempo de captura esgotado: nenhuma janela respondeu"
 
   # === Content search ===
-  search.queryTooShort: "A consulta precisa ter pelo menos 3 caracteres"
+  search.queryTooShort: "A consulta precisa ter pelo menos %{min} caracteres"
 
   # === CLI install ===
   cli.noFile: "A instalação parece ter tido sucesso, mas o arquivo não foi criado."

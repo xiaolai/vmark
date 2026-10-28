@@ -357,7 +357,7 @@ errors:
   hotExit.captureTimeout: "Erfassung abgelaufen: Keine Fenster haben geantwortet"
 
   # === Content search ===
-  search.queryTooShort: "Suchbegriff muss mindestens 3 Zeichen lang sein"
+  search.queryTooShort: "Suchbegriff muss mindestens %{min} Zeichen lang sein"
 
   # === CLI install ===
   cli.noFile: "Installation schien erfolgreich zu sein, aber die Datei wurde nicht erstellt."

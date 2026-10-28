@@ -34,6 +34,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listFormats } from "@/lib/formats/registry";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
+import { isSearchableQuery } from "@/utils/contentSearchQuery";
 import { orphanCleanupError } from "@/utils/debug";
 import type { OrphanedImage } from "@/services/media/orphanAssetCleanup";
 
@@ -42,9 +43,6 @@ interface SearchOutcome {
   results: { path: string }[];
   complete: boolean;
 }
-
-/** The Rust command rejects queries under 3 characters. */
-const MIN_QUERY_LENGTH = 3;
 
 /**
  * The extension list is REQUIRED alongside markdownOnly: the Rust side gates
@@ -80,7 +78,8 @@ export async function withoutWorkspaceReferenced(
 
   const cleared: OrphanedImage[] = [];
   for (const candidate of candidates) {
-    if (candidate.filename.trim().length < MIN_QUERY_LENGTH) {
+    // The search command refuses a query this short.
+    if (!isSearchableQuery(candidate.filename)) {
       continue; // unverifiable — keep the file (fail closed)
     }
     try {

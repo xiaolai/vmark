@@ -167,7 +167,8 @@
         "src-tauri/src/content_search_match.rs",
         "src-tauri/src/content_search_walk.rs",
         "src-tauri/src/content_search_file.rs",
-        "src-tauri/src/content_search.test.rs"
+        "src-tauri/src/content_search.test.rs",
+        "src/utils/contentSearchQuery.ts"
       ],
       "flag": null,
       "flagDefault": null,

@@ -357,7 +357,7 @@ errors:
   hotExit.captureTimeout: "キャプチャがタイムアウトしました: ウィンドウからの応答がありません"
 
   # === Content search ===
-  search.queryTooShort: "検索クエリは 3 文字以上である必要があります"
+  search.queryTooShort: "検索クエリは %{min} 文字以上である必要があります"
 
   # === CLI install ===
   cli.noFile: "インストールは成功したように見えますが、ファイルが作成されませんでした。"

@@ -39,11 +39,13 @@ import {
   useSpotlightFocusManagement,
 } from "@/components/spotlight/spotlightDialog";
 import { contentSearchLog, contentSearchWarn } from "@/utils/debug";
-import { buildFlatIndex } from "./contentSearchUtils";
 import {
-  useContentSearchScheduler,
-  MIN_QUERY_LENGTH,
-} from "./useContentSearchScheduler";
+  MIN_CONTENT_SEARCH_CHARS,
+  contentSearchQueryLength,
+  isSearchableQuery,
+} from "@/utils/contentSearchQuery";
+import { buildFlatIndex } from "./contentSearchUtils";
+import { useContentSearchScheduler } from "./useContentSearchScheduler";
 import { ContentSearchToggles } from "./ContentSearchToggles";
 import { ContentSearchResults } from "./ContentSearchResults";
 import "./content-search.css";
@@ -185,8 +187,8 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
     statusError = true;
   } else if (isSearching) {
     statusText = t("contentSearch.searching", "Searching...");
-  } else if (query.trim().length > 0 && query.trim().length < MIN_QUERY_LENGTH) {
-    statusText = t("contentSearch.minChars", "Type at least 3 characters");
+  } else if (contentSearchQueryLength(query) > 0 && !isSearchableQuery(query)) {
+    statusText = t("contentSearch.minChars", { count: MIN_CONTENT_SEARCH_CHARS });
   } else if (results.length > 0) {
     statusText = t("contentSearch.resultCount", "{{matches}} matches in {{files}} files", {
       matches: totalMatches,
@@ -245,7 +247,7 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
         >
           {results.length === 0 &&
             !isSearching &&
-            query.trim().length >= MIN_QUERY_LENGTH &&
+            isSearchableQuery(query) &&
             !error && (
               <div className="content-search-empty">
                 {t("contentSearch.noResults", "No results found")}
