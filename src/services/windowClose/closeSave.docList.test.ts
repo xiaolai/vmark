@@ -6,7 +6,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/services/persistence/saveToPath", () => ({
-  saveToPath: vi.fn(async () => true),
+  saveToPathForClose: vi.fn(async () => true),
 }));
 
 import { message } from "@tauri-apps/plugin-dialog";

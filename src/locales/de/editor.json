@@ -160,6 +160,7 @@
   "findbar.find.placeholder": "Suchen...",
   "findbar.find.label": "Text im Dokument suchen",
   "contentSearch.label": "Im Arbeitsbereich suchen",
+  "contentSearch.minChars": "Mindestens {{count}} Zeichen eingeben",
   "findbar.prev": "Vorherige (Shift+Enter)",
   "findbar.next": "Nächste (Enter)",
   "findbar.replace.placeholder": "Ersetzen...",

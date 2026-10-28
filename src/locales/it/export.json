@@ -49,5 +49,18 @@
   "pdf.pageNumbers.format.verbose": "Pagina 7 di 12",
   "pdf.warning.outline-failed": "la struttura nella barra laterale",
   "pdf.warning.page-numbers-failed": "i numeri di pagina",
-  "pdf.pageNumbers.verboseTemplate": "Pagina {n} di {total}"
+  "pdf.pageNumbers.verboseTemplate": "Pagina {n} di {total}",
+  "gitJournal.pickTitle": "Scegli la cartella del repository Git",
+  "gitJournal.done_one": "{{count}} commit esportato in {{branch}}",
+  "gitJournal.done_other": "{{count}} commit esportati in {{branch}}",
+  "gitJournal.upToDate": "{{branch}} è già aggiornato",
+  "gitJournal.error.GIT_MISSING": "Git non trovato. Installa Git e riprova.",
+  "gitJournal.error.NO_HISTORY": "Questo documento non ha ancora una cronologia delle modifiche da esportare.",
+  "gitJournal.error.NOT_A_REPOSITORY": "La cartella scelta non si trova in un repository Git.",
+  "gitJournal.error.INVALID_REQUEST": "La richiesta di esportazione non era valida.",
+  "gitJournal.error.EXPORT_CONFLICT": "Il branch di esportazione è cambiato dall’ultima esportazione. Spostalo o eliminalo, poi esporta di nuovo.",
+  "gitJournal.error.UNRELATED_BRANCH": "Esiste già un branch con questo nome e non è l’esportazione VMark di questo documento.",
+  "gitJournal.error.BRANCH_CHECKED_OUT": "Il branch di esportazione è attivo in un worktree. Passa prima quel worktree a un altro branch.",
+  "gitJournal.error.GIT_FAILED": "Git ha segnalato un errore durante l’esportazione. Consulta il log per i dettagli.",
+  "gitJournal.error.JOURNAL_ERROR": "Impossibile leggere la cronologia delle modifiche per l’esportazione."
 }

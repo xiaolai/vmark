@@ -50,7 +50,7 @@ export function useTiptapUnmountFlush({
       // Flush directly via this instance's editor: the global flushActiveWysiwygNow()
       // registry was racy — React cleans effects up in reverse registration order, so
       // the flusher deregistration ran first and the flush no-op'd, losing data (#755).
-      if ((pendingRaf.current || pendingDebounceTimeout.current) && editorRef.current && flushToStoreRef.current) {
+      if ((pendingRaf.current !== null || pendingDebounceTimeout.current !== null) && editorRef.current && flushToStoreRef.current) {
         try {
           // Latest-ref read is the point (#755) — see hook doc comment.
           // eslint-disable-next-line react-hooks/exhaustive-deps -- reading the latest ref at unmount is the point: the flush must use the live editor and flusher
@@ -61,19 +61,19 @@ export function useTiptapUnmountFlush({
           tiptapError(" Unmount flush failed; edits in the debounce window may be lost:", error);
         }
       }
-      if (pendingRaf.current) {
+      if (pendingRaf.current !== null) {
         cancelAnimationFrame(pendingRaf.current);
         pendingRaf.current = null;
       }
-      if (pendingDebounceTimeout.current) {
+      if (pendingDebounceTimeout.current !== null) {
         clearTimeout(pendingDebounceTimeout.current);
         pendingDebounceTimeout.current = null;
       }
-      if (pendingCursorRaf.current) {
+      if (pendingCursorRaf.current !== null) {
         cancelAnimationFrame(pendingCursorRaf.current);
         pendingCursorRaf.current = null;
       }
-      if (internalChangeRaf.current) {
+      if (internalChangeRaf.current !== null) {
         cancelAnimationFrame(internalChangeRaf.current);
         internalChangeRaf.current = null;
       }

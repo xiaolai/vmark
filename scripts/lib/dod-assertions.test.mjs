@@ -231,6 +231,50 @@ describe("assert_test_file — a test mounted from the directory-module file", (
   });
 });
 
+// WI-AL2.0g — a Rust test that a child directory's module mounts as
+// `#[path = "../x.test.rs"]` is compiled; `src-tauri/src/agent_journal/admission/mod.rs`
+// mounts the admission, request and page tests beside its directory that way.
+describe("assert_test_file — a test mounted from a child directory's module", () => {
+  function crate(modRs) {
+    const root = mkdtempSync(path.join(tmpdir(), "dod-assertions-child-mount-"));
+    made.push(root);
+    mkdirSync(path.join(root, "admission"));
+    writeFileSync(path.join(root, "mod.rs"), "mod admission;\n");
+    writeFileSync(path.join(root, "admission/mod.rs"), modRs);
+    writeFileSync(path.join(root, "page_lifecycle.test.rs"), "#[test]\nfn runs() {}\n");
+    return root;
+  }
+
+  it("passes when <child>/mod.rs actively mounts ../x.test.rs", () => {
+    const r = runBody("assert_test_file page_lifecycle.test.rs 'mounted test'", {
+      cwd: crate('#[cfg(test)]\n#[path = "../page_lifecycle.test.rs"]\nmod page_lifecycle_tests;\n'),
+    });
+    expect(r.out).toContain("✓ mounted test (included from mod.rs)");
+    expect(r.out).toContain("COUNTS pass=1 fail=0");
+  });
+
+  it("names the child module as the owner, so the cargo filter is that module's path", () => {
+    const r = runBody('rust_mount_owner page_lifecycle.test.rs; echo "owner=$_DOD_MOUNT"', {
+      cwd: crate('#[cfg(test)]\n#[path = "../page_lifecycle.test.rs"]\nmod page_lifecycle_tests;\n'),
+    });
+    expect(r.out).toContain("owner=./admission/mod.rs");
+  });
+
+  it("still fails when that mount is commented out", () => {
+    const r = runBody("assert_test_file page_lifecycle.test.rs 'mounted test'", {
+      cwd: crate('// #[path = "../page_lifecycle.test.rs"]\n// mod page_lifecycle_tests;\n'),
+    });
+    expect(r.out).toContain("COUNTS pass=0 fail=1");
+  });
+
+  it("fails when the child mounts a different file of the same name one level further up", () => {
+    const r = runBody("assert_test_file page_lifecycle.test.rs 'mounted test'", {
+      cwd: crate('#[cfg(test)]\n#[path = "../../page_lifecycle.test.rs"]\nmod page_lifecycle_tests;\n'),
+    });
+    expect(r.out).toContain("COUNTS pass=0 fail=1");
+  });
+});
+
 // ---------------------------------------------------------------- the --serve transport (audit 2026-09-28)
 // `dod_syntax` answers from one long-lived server per shell. Every case below
 // is a way the transport could hand back a WRONG answer while looking fine —

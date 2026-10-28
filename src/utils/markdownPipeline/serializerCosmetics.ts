@@ -62,8 +62,8 @@ export const BLOCK_START_GUARD: ReadonlySet<string> = new Set(
   [...BLOCK_START_CHARS].filter((c) => UNESCAPABLE_CHARS.has(c)),
 );
 
-/** One pending cosmetic replacement on the serialized string. */
-interface CosmeticEdit {
+/** One cosmetic replacement on the serialized string: `[start, end)` becomes `replacement`. */
+export interface CosmeticEdit {
   start: number;
   end: number;
   replacement: string;
@@ -184,13 +184,6 @@ function normalizedParse(markdown: string): string | null {
 }
 
 /**
- * Apply the cosmetic pass (entity restoration + escape stripping) only if the
- * result re-parses to the exact same mdast as the conservative output. Falls
- * back to entity-edits-only, then to the conservative string. This makes
- * "the cosmetic pass never changes meaning" a structural invariant instead of
- * a per-character guess.
- */
-/**
  * Size above which the cosmetic pass is skipped and the CONSERVATIVE output
  * is kept.
  *
@@ -218,23 +211,34 @@ function normalizedParse(markdown: string): string | null {
  */
 export const COSMETIC_VERIFY_LIMIT = 300_000;
 
-export function applyCosmeticPass(markdown: string): string {
-  if (markdown.length > COSMETIC_VERIFY_LIMIT) return markdown;
+/**
+ * Apply the cosmetic pass (entity restoration + escape stripping) only if the
+ * result re-parses to the exact same mdast as the conservative output. Falls
+ * back to entity-edits-only, then to the conservative string. This makes
+ * "the cosmetic pass never changes meaning" a structural invariant instead of
+ * a per-character guess.
+ *
+ * Returns the output plus the ascending, non-overlapping edits that turn
+ * `markdown` into it (none when it changed nothing).
+ */
+export function applyCosmeticPassWithEdits(markdown: string): { text: string; edits: readonly CosmeticEdit[] } {
+  const unchanged = { text: markdown, edits: [] };
+  if (markdown.length > COSMETIC_VERIFY_LIMIT) return unchanged;
   const ranges = buildCodeRanges(markdown);
   const entityEdits = collectEntityEdits(markdown, ranges);
   const escapeEdits = collectEscapeEdits(markdown, ranges);
-  if (!entityEdits.length && !escapeEdits.length) return markdown;
+  if (!entityEdits.length && !escapeEdits.length) return unchanged;
 
   const reference = normalizedParse(markdown);
-  if (reference === null) return markdown;
+  if (reference === null) return unchanged;
 
   const allEdits = [...entityEdits, ...escapeEdits].sort((a, b) => a.start - b.start);
   const full = applyEdits(markdown, allEdits);
-  if (normalizedParse(full) === reference) return full;
+  if (normalizedParse(full) === reference) return { text: full, edits: allEdits };
 
   if (escapeEdits.length && entityEdits.length) {
     const entityOnly = applyEdits(markdown, entityEdits);
-    if (normalizedParse(entityOnly) === reference) return entityOnly;
+    if (normalizedParse(entityOnly) === reference) return { text: entityOnly, edits: entityEdits };
   }
-  return markdown;
+  return unchanged;
 }

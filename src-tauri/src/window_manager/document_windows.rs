@@ -248,6 +248,13 @@ pub(crate) fn ensure_main_window<R: Runtime>(
         if built.is_err() {
             // Nothing is booting after all; do not leave opens waiting for it.
             store.lock().owner = QueueOwner::Settled;
+        } else {
+            // An old main's release tombstoned the label in the journal.
+            // Reopened after the build, on this main-thread task, so a
+            // release that ran before or during the build is undone before
+            // the new page can capture; one that runs later sees this window
+            // and reopens it itself (`service::release_window_label`).
+            crate::agent_journal::service::reopen_window_label(app, label);
         }
         built
     })

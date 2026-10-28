@@ -21,11 +21,15 @@
  *   - `canTakeFocus`, read when the frame fires, lets an unfocused split pane
  *     restore without focusing (#1554): the split tracks DOM focus as the
  *     focused pane, so a background pane focusing itself moved the pane focus.
+ *   - The editor is marked restore-pending from schedule until the attempt
+ *     runs, gives up or throws, so the bridge does not read the caret the
+ *     restore is about to move as the reader's selection.
  *
  * @coordinates-with cursorSync/tiptap.ts — saves cursor position before mode switch
  * @coordinates-with Editor.tsx — calls focus functions after mode toggle
  * @coordinates-with scrollPosition.ts — the remembered reading position
  * @coordinates-with restoreChoice.ts — cursor or reading position
+ * @coordinates-with caretRestorePending.ts — the pending mark
  * @module services/editor/tiptapFocus
  */
 
@@ -41,6 +45,7 @@ import {
   restoreEditorScroll,
 } from "./scrollPosition";
 import { chooseEditorRestore } from "./restoreChoice";
+import { beginCaretRestore } from "./caretRestorePending";
 
 const MAX_FOCUS_ATTEMPTS = 12;
 
@@ -66,16 +71,30 @@ export function scheduleTiptapFocusAndRestore(
   canTakeFocus: () => boolean = () => true,
 ): void {
   let attempts = 0;
+  // Until the restore runs or is dropped, the editor's selection is not the
+  // reader's; every exit below settles it except a retry, which hands it on.
+  const settle = beginCaretRestore(editor);
 
   const tryFocus = () => {
-    if (editor.isDestroyed) return;
+    let retrying = false;
+    try {
+      retrying = focusAndRestore();
+    } finally {
+      if (!retrying) settle();
+    }
+  };
+
+  /** One attempt; `true` when it scheduled another frame. */
+  const focusAndRestore = (): boolean => {
+    if (editor.isDestroyed) return false;
     const view = getTiptapEditorView(editor);
     if (!view || !view.dom || !view.dom.isConnected) {
       attempts += 1;
       if (attempts < MAX_FOCUS_ATTEMPTS) {
         requestAnimationFrame(tryFocus);
+        return true;
       }
-      return;
+      return false;
     }
 
     // Check cursor info BEFORE focus to distinguish fresh load vs mode switch
@@ -85,7 +104,7 @@ export function scheduleTiptapFocusAndRestore(
     try {
       if (takeFocus) view.focus();
     } catch {
-      return;
+      return false;
     }
 
     const by = chooseEditorRestore(tabId, "wysiwyg", info !== null);
@@ -94,7 +113,7 @@ export function scheduleTiptapFocusAndRestore(
       // The caret goes back either way; it scrolls into view only when it, and
       // not the remembered offset, is what puts the reader back (#1556).
       restoreCursor(view, info, by === "cursor");
-      if (by === "cursor") return;
+      if (by === "cursor") return false;
     } else {
       // No cursor: the reader has only been reading. Set selection to start of
       // document (ProseMirror may have placed it elsewhere).
@@ -118,6 +137,7 @@ export function scheduleTiptapFocusAndRestore(
       getEditorScrollOffset(tabId, "wysiwyg") ?? 0,
       at ? { blocks: view.dom, at } : null,
     );
+    return false;
   };
 
   requestAnimationFrame(tryFocus);

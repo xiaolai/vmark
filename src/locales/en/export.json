@@ -49,5 +49,18 @@
   "pdf.pageNumbers.format.verbose": "Page 7 of 12",
   "pdf.warning.outline-failed": "the sidebar outline",
   "pdf.warning.page-numbers-failed": "page numbers",
-  "pdf.pageNumbers.verboseTemplate": "Page {n} of {total}"
+  "pdf.pageNumbers.verboseTemplate": "Page {n} of {total}",
+  "gitJournal.pickTitle": "Choose the Git repository folder",
+  "gitJournal.done_one": "Exported {{count}} commit to {{branch}}",
+  "gitJournal.done_other": "Exported {{count}} commits to {{branch}}",
+  "gitJournal.upToDate": "{{branch}} is already up to date",
+  "gitJournal.error.GIT_MISSING": "Git was not found. Install Git and try again.",
+  "gitJournal.error.NO_HISTORY": "This document has no edit history to export yet.",
+  "gitJournal.error.NOT_A_REPOSITORY": "The chosen folder is not inside a Git repository.",
+  "gitJournal.error.INVALID_REQUEST": "The export request was not valid.",
+  "gitJournal.error.EXPORT_CONFLICT": "The export branch has changed since the last export. Move or delete it, then export again.",
+  "gitJournal.error.UNRELATED_BRANCH": "A branch with this name already exists and is not VMark's export of this document.",
+  "gitJournal.error.BRANCH_CHECKED_OUT": "The export branch is checked out in a worktree. Switch that worktree to another branch first.",
+  "gitJournal.error.GIT_FAILED": "Git reported an error during the export. See the log for details.",
+  "gitJournal.error.JOURNAL_ERROR": "The edit history could not be read for the export."
 }

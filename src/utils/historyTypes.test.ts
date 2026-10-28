@@ -122,8 +122,104 @@ describe("parseHistoryIndex", () => {
   });
 
   it("accepts object with extra properties", () => {
-    const raw = { pathHash: "abc", snapshots: [], extra: "ignored" };
-    expect(parseHistoryIndex(raw)).not.toBeNull();
+    expect(parseHistoryIndex({ ...validIndex(), extra: "ignored" })).not.toBeNull();
+  });
+});
+
+// ---- parseHistoryIndex: every field ----
+
+function validIndex(over: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    pathHash: "0123456789abcdef",
+    documentPath: "/notes/草稿.md",
+    documentName: "草稿.md",
+    status: "active",
+    deletedAt: null,
+    snapshots: [],
+    settings: { maxSnapshots: 50, maxAgeDays: 7, mergeWindowSeconds: 30, maxFileSizeKB: 512 },
+    ...over,
+  };
+}
+
+function snap(over: Record<string, unknown> = {}): Record<string, unknown> {
+  return { id: "1700000000000-a1b2c3", timestamp: 1_700_000_000_000, type: "auto", size: 5, preview: "hello", ...over };
+}
+
+describe("parseHistoryIndex — index fields", () => {
+  it("accepts a full index with every kind of snapshot", () => {
+    const raw = validIndex({
+      snapshots: [snap(), snap({ id: "1700000000001-z9", type: "manual" }), snap({ id: "1700000000002-r", type: "revert" }), snap({ id: "1700000000003-m", type: "mcp", journalRevision: "r-42" }), snap({ id: "1700000000004-m", type: "mcp" })],
+    });
+    expect(parseHistoryIndex(raw)?.snapshots).toHaveLength(5);
+  });
+
+  it("accepts an index written before the merge window and size limit existed, reading them as off", () => {
+    const parsed = parseHistoryIndex(validIndex({ settings: { maxSnapshots: 50, maxAgeDays: 7 } }));
+    expect(parsed?.settings).toEqual({ maxSnapshots: 50, maxAgeDays: 7, mergeWindowSeconds: 0, maxFileSizeKB: 0 });
+  });
+
+  it("accepts a deleted index with its deletion time", () => {
+    expect(parseHistoryIndex(validIndex({ status: "deleted", deletedAt: 1_700_000_000_000 }))).not.toBeNull();
+  });
+
+  it.each([
+    ["documentPath missing", { documentPath: undefined }],
+    ["documentPath not a string", { documentPath: 7 }],
+    ["documentName not a string", { documentName: null }],
+    ["an unknown status", { status: "archived" }],
+    ["deletedAt not a number or null", { deletedAt: "yesterday" }],
+    ["deletedAt not finite", { deletedAt: Number.NaN }],
+    ["settings missing", { settings: undefined }],
+    ["settings not an object", { settings: "default" }],
+    ["maxSnapshots not a number", { settings: { maxSnapshots: "50", maxAgeDays: 7 } }],
+    ["maxAgeDays not finite", { settings: { maxSnapshots: 50, maxAgeDays: Number.POSITIVE_INFINITY } }],
+    ["mergeWindowSeconds not a number", { settings: { maxSnapshots: 50, maxAgeDays: 7, mergeWindowSeconds: "30" } }],
+  ])("refuses an index with %s", (_name, over) => {
+    expect(parseHistoryIndex(validIndex(over))).toBeNull();
+  });
+});
+
+describe("parseHistoryIndex — snapshots", () => {
+  const ids = (raw: unknown) => parseHistoryIndex(raw)?.snapshots.map((s) => s.id);
+
+  it("keeps the id formats VMark has written: a bare timestamp, and timestamp-suffix", () => {
+    expect(ids(validIndex({ snapshots: [snap({ id: "1700000000000" }), snap()] }))).toEqual(["1700000000000", "1700000000000-a1b2c3"]);
+  });
+
+  it.each([
+    ["a parent-directory id", "../../etc/passwd"],
+    ["an absolute path id", "/tmp/x"],
+    ["a nested path id", "1700000000000/../x"],
+    ["a Windows path id", "..\\x"],
+    ["an empty id", ""],
+    ["an id with a NUL", "1700000000000\u0000"],
+    ["an id with an extension", "1700000000000.md"],
+    ["a non-ASCII id", "１７００"],
+    ["an uppercase id", "SNAP"],
+    ["an id starting with a dash", "-1700000000000"],
+    ["an id longer than 64 characters", "1".repeat(65)],
+  ])("drops a snapshot with %s, keeping the rest of the history", (_name, id) => {
+    expect(ids(validIndex({ snapshots: [snap({ id }), snap({ id: "1700000000002-ok" })] }))).toEqual(["1700000000002-ok"]);
+  });
+
+  it.each([
+    ["an unknown type", { type: "ai" }],
+    ["no type", { type: undefined }],
+    ["a non-numeric timestamp", { timestamp: "now" }],
+    ["a non-finite timestamp", { timestamp: Number.NaN }],
+    ["a negative size", { size: -1 }],
+    ["a non-numeric size", { size: "5" }],
+    ["a non-string preview", { preview: null }],
+    ["a non-string id", { id: 1700000000000 }],
+    ["a journal link on an autosave", { type: "auto", journalRevision: "r-1" }],
+    ["a journal link on a manual save", { type: "manual", journalRevision: "r-1" }],
+    ["a journal link that is not a string", { type: "mcp", journalRevision: 42 }],
+  ])("drops a snapshot with %s", (_name, over) => {
+    expect(ids(validIndex({ snapshots: [snap(over), snap({ id: "1700000000002-ok" })] }))).toEqual(["1700000000002-ok"]);
+  });
+
+  it("drops a snapshot entry that is not an object", () => {
+    expect(ids(validIndex({ snapshots: [null, "x", 3, snap()] }))).toEqual(["1700000000000-a1b2c3"]);
   });
 });
 

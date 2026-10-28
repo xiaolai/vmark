@@ -198,8 +198,20 @@ class StatefulFsFake {
     const custom = this.commands.get(cmd);
     if (custom) return Promise.resolve(custom(args));
     switch (cmd) {
-      case "atomic_write_file":
-        return this.performWrite(String(args.path), String(args.content), "atomic_write_file");
+      case "atomic_write_file": {
+        const path = String(args.path);
+        // `noReplace` mirrors the Rust writer's exclusive publication: a file
+        // already there at the write's turn is kept and the write is refused
+        // with the same typed conflict.
+        if (args.noReplace === true && this.disk.has(path)) {
+          return Promise.reject({
+            code: "conflict",
+            message: `A file already exists at ${path}, so it was not replaced`,
+            detail: { kind: "target-exists", path },
+          });
+        }
+        return this.performWrite(path, String(args.content), "atomic_write_file");
+      }
       case "get_file_size_bytes": {
         const size = this.disk.byteSize(String(args.path));
         // The real command's typed rejection (`files/ops.rs` via `from_io`).

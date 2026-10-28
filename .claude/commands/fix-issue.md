@@ -87,31 +87,25 @@ git diff main --name-only
 git diff main
 ```
 
-#### 4b. Initial audit via Codex MCP
+#### 4b. Initial audit via Codex CLI
 
-Use `ToolSearch` with query `+codex` to discover Codex tools.
+Run Codex non-interactively, read-only, with the prompt on stdin. Do not pass a model — inherit it from `~/.codex/config.toml` so upgrades propagate; always set reasoning effort explicitly.
 
-**Model & reasoning**: Do NOT specify a `model` parameter — inherit from global `config.toml` so upgrades propagate automatically. Always set reasoning effort explicitly.
-
-**Availability test** — before the real audit, send a short ping:
+```bash
+mkdir -p /tmp/fix-issue-{N}
+# Write the audit prompt below to /tmp/fix-issue-{N}/audit-1.prompt with a file-write tool, then:
+codex exec -s read-only -c model_reasoning_effort=high \
+  -o /tmp/fix-issue-{N}/audit-1.out - < /tmp/fix-issue-{N}/audit-1.prompt
 ```
-mcp__codex__codex with:
-  prompt: "Respond with 'ok' if you can read this."
-  config: { "model_reasoning_effort": "high" }
-```
-If Codex does not respond or errors out, skip to **4f. Fallback** immediately. Do not retry.
 
-If Codex responds:
+If `codex` is not on PATH or the command exits non-zero, skip to **4f. Fallback**. Do not retry.
 
 **Audit prompt:**
 ```
-mcp__codex__codex with:
-  config: { "model_reasoning_effort": "high" }
-  sandbox: read-only
-  prompt: |
-    Audit these files changed for GitHub issue #{N}: {title}
+Audit these files changed for GitHub issue #{N}: {title}
 Files: {changed file list}
 Diff summary: {git diff main --stat}
+Run `git diff main` yourself to read the full change.
 Focus:
 1. Correctness & logic — does the fix actually solve the root cause? No patching around symptoms.
 2. Edge cases — boundary conditions, null/empty, Unicode/CJK, concurrent access
@@ -121,22 +115,23 @@ Focus:
 6. Shortcuts & patches — workarounds, TODO markers, band-aids, flags to bypass broken logic
 7. VMark compliance — Zustand selectors (no destructuring), CSS tokens (no hardcoded colors), file size <300 lines
 8. Cross-platform paths — if changes touch path parsing, file operations, or Command::new(), flag any hardcoded `/` separators, missing Windows `\` handling, or platform-specific assumptions. Paths must work on macOS, Windows, and Linux. See AGENTS.md cross-platform policy.
-    Report as: file:line | severity (Critical/High/Medium/Low) | issue | fix
+Report as: file:line | severity (Critical/High/Medium/Low) | issue | fix
 ```
 
 #### 4c. Parse & fix
 
 Fix **every** finding — Critical, High, Medium, and Low. No exceptions, no "note in PR" deferrals. The audit is not clean until the finding count is zero.
 
-#### 4d. Verify via Codex reply
+#### 4d. Verify with a fresh Codex call
 
-Use `mcp__codex__codex-reply` on the same thread (reasoning effort carries from initial call):
+Run the same `codex exec` command with a new prompt file (`audit-{k}.prompt`, output `audit-{k}.out`). A fresh call keeps the verifier independent of its earlier reading and needs no session id:
 
 ```
-I fixed these issues: {list of fixes with file:line}
-Verify ALL fixes are correct. Check for new issues introduced by the fixes.
+These findings were reported for GitHub issue #{N}, and these fixes were applied: {list of findings and fixes with file:line}
+Verify every fix is correct, and check for new issues the fixes introduced.
 The audit passes ONLY when zero findings remain — any severity.
-Updated diff: {git diff main --stat}
+Updated diff: {git diff main --stat}. Run `git diff main` for the full change.
+Report as: file:line | severity | issue | fix, or exactly "NO FINDINGS".
 ```
 
 #### 4e. Loop or exit
@@ -145,17 +140,9 @@ Updated diff: {git diff main --stat}
 - **Any findings remain** and iteration < 3: fix everything and verify again (goto 4c).
 - 3 iterations reached with findings still open: STOP. Report all remaining issues to the user. Do NOT create a PR — the code is not ready.
 
-#### 4f. Fallback — manual mini-audit
+#### 4f. Fallback — manual audit
 
-If Codex MCP is unavailable, perform a manual 6-dimension audit per `/codex-audit-mini`:
-1. Logic & Correctness
-2. Duplication
-3. Dead Code
-4. Refactoring Debt
-5. Shortcuts & Patches
-6. Code Comments
-
-Read each changed file, analyze, fix Critical/High issues.
+If Codex is unavailable, say so in the PR body, then audit each changed file yourself on the eight dimensions of the 4b prompt and fix every finding, as in 4c. A self-review is weaker evidence than a second model; the PR must not claim a Codex audit ran.
 
 ### Phase 5: Gate
 
@@ -274,7 +261,7 @@ git worktree remove ../vmark-worktree-{N}
 | Issue not found / closed | Warn, ask user |
 | Dirty working tree | Error, STOP |
 | No labels (ambiguous type) | Ask user to classify |
-| Codex MCP unavailable | Fall back to manual mini-audit |
+| Codex CLI unavailable or fails | Fall back to the manual audit (4f) |
 | Gate fails 3x | Report errors, keep branch, STOP |
 | Feature too large (10+ files) | Redirect to `/feature-workflow` |
 | Branch already exists | Ask user: reuse or rename |

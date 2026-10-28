@@ -22,7 +22,8 @@ $ARGUMENTS
 3. **Rewrite if necessary** — Bad code deserves replacement, not patching
 4. **Test-first** — Write a failing test that captures the bug, then fix, then verify green (see `.claude/rules/10-tdd.md`)
 5. **Zero regressions** — Run `pnpm check:all` before declaring done
-6. **Clean as you go** — If you touch it, leave it better than you found it
+6. **Fix the class, not the instance** — At the second failure of the same shape, find the mechanism, grep the whole surface for it, and fix every occurrence in one pass
+7. **Stay in scope** — Every changed line traces to the bug; note unrelated problems instead of fixing them in the same change (AGENTS.md: no drive-by refactors)
 
 ### Anti-patterns to Avoid
 

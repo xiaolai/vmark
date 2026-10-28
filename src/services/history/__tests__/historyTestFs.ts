@@ -29,7 +29,7 @@ function asPluginReadsIt(text: string): string {
 const dirs = new Set<string>();
 
 interface PlannedFailure {
-  op: "writeTextFile" | "readTextFile" | "remove";
+  op: "writeTextFile" | "readTextFile" | "remove" | "rename";
   pathSuffix: string;
   error: Error;
 }
@@ -157,6 +157,17 @@ export const pluginFsMock = {
     if (hasChildren && !options?.recursive) throw new Error(`Directory not empty: ${path}`);
     for (const p of [...files.keys()]) if (p.startsWith(prefix)) files.delete(p);
     for (const d of [...dirs]) if (d === path || d.startsWith(prefix)) dirs.delete(d);
+  },
+  /** Replaces `to` in one step, as `rename(2)` does: no reader sees it torn. */
+  async rename(from: string, to: string): Promise<void> {
+    await yieldTurns();
+    const failure = takeFailure("rename", to);
+    if (failure) throw failure;
+    const content = files.get(from);
+    if (content === undefined) throw notFound(from);
+    if (!dirs.has(parentOf(to))) throw notFound(parentOf(to));
+    files.delete(from);
+    files.set(to, content);
   },
   async readDir(path: string): Promise<Array<{ name: string; isDirectory: boolean; isFile: boolean }>> {
     await yieldTurns();

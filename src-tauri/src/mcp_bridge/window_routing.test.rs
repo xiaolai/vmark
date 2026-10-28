@@ -8,7 +8,75 @@ fn win(label: &str, workspace: Option<&str>, focused: bool) -> WindowCandidate {
         workspace: workspace.map(str::to_string),
         focused,
         is_document: label == "main" || label.starts_with("doc-"),
+        tabs: Vec::new(),
     }
+}
+
+fn holding(mut window: WindowCandidate, tabs: &[&str]) -> WindowCandidate {
+    window.tabs = tabs.iter().map(|t| t.to_string()).collect();
+    window
+}
+
+/// A request naming a tab goes to the window holding it — ahead of focus and
+/// of a `filePath` (a Save As's destination may lie in another window's
+/// workspace while its tab lives here).
+#[test]
+fn an_explicit_tab_routes_to_the_window_that_holds_it() {
+    let cands = vec![
+        holding(win("main", None, true), &["t-main"]),
+        holding(win("doc-0", Some("/repo"), false), &["t-0"]),
+        holding(win("doc-1", None, false), &["t-1"]),
+    ];
+    let route = |args: serde_json::Value| {
+        pick_target_window_for(&args, &cands).unwrap_or_else(|e| panic!("{args}: {e}"))
+    };
+    assert_eq!(route(serde_json::json!({ "tabId": "t-1" })), "doc-1");
+    assert_eq!(
+        route(serde_json::json!({ "tabId": "t-1", "filePath": "/repo/x.md" })),
+        "doc-1"
+    );
+    // An unknown or empty tab id falls through to the usual precedence; the
+    // frontend guard answers it.
+    assert_eq!(route(serde_json::json!({ "tabId": "nobody" })), "main");
+    assert_eq!(
+        route(serde_json::json!({ "tabId": "", "filePath": "/repo/x.md" })),
+        "doc-0"
+    );
+    // A tab held by a non-document window is not a target.
+    let utility = vec![
+        holding(win("settings", None, false), &["t-s"]),
+        win("main", None, true),
+    ];
+    assert_eq!(
+        pick_target_window_for(&serde_json::json!({ "tabId": "t-s" }), &utility).unwrap(),
+        "main"
+    );
+}
+
+/// Two document windows claiming one tab (a tab moving between windows,
+/// published by its new window before its old one republished) is refused,
+/// never routed to whichever window is listed first.
+#[test]
+fn a_tab_claimed_by_two_windows_is_refused() {
+    let cands = vec![
+        holding(win("doc-0", None, false), &["t-moving"]),
+        holding(win("doc-1", None, true), &["t-moving", "t-1"]),
+    ];
+    let err = pick_target_window_for(&serde_json::json!({ "tabId": "t-moving" }), &cands)
+        .expect_err("an ambiguous tab owner must be refused");
+    assert!(
+        err.contains("t-moving") && err.contains("2 windows"),
+        "{err}"
+    );
+    // A non-document window listing the same id is no rival.
+    let one = vec![
+        holding(win("settings", None, false), &["t-1"]),
+        holding(win("doc-1", None, true), &["t-1"]),
+    ];
+    assert_eq!(
+        pick_target_window_for(&serde_json::json!({ "tabId": "t-1" }), &one).unwrap(),
+        "doc-1"
+    );
 }
 
 #[test]

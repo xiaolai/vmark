@@ -3,7 +3,6 @@ import { describe, it, expect, vi } from "vitest";
 import { Schema } from "@tiptap/pm/model";
 import { EditorState } from "@tiptap/pm/state";
 import {
-  getReferenceLabels,
   getDefinitionInfo,
   createRenumberTransaction,
   collectFootnoteNodes,
@@ -48,15 +47,15 @@ function createState(refs: string[], defs: string[]) {
   return EditorState.create({ doc: schema.node("doc", null, children) });
 }
 
-describe("getReferenceLabels", () => {
+describe("collectFootnoteNodes refLabels", () => {
   it("collects all reference labels", () => {
     const state = createState(["1", "2", "3"], []);
-    expect(getReferenceLabels(state.doc)).toEqual(new Set(["1", "2", "3"]));
+    expect(collectFootnoteNodes(state.doc).refLabels).toEqual(new Set(["1", "2", "3"]));
   });
 
   it("returns empty set for no refs", () => {
     const state = createState([], []);
-    expect(getReferenceLabels(state.doc)).toEqual(new Set());
+    expect(collectFootnoteNodes(state.doc).refLabels).toEqual(new Set());
   });
 });
 

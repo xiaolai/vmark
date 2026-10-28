@@ -44,6 +44,7 @@ export const zhTW = {
           "ai-providers": "AI 服務商",
           "mcp-setup": "MCP 設定",
           "mcp-tools": "MCP 工具參考",
+          "edit-history-git": "將編輯歷史匯出到 Git",
           "lint": "Markdown 檢查",
           "link-check": "連結檢查",
           "settings": "設定",

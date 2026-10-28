@@ -75,6 +75,9 @@ pub(crate) fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::
         writer,
         sweep_in_flight: std::sync::atomic::AtomicBool::new(false),
     });
+    // The agent edit journal opens (and migrates the legacy checkpoint log)
+    // off this thread; the first window never waits for its recovery.
+    crate::agent_journal::service::spawn_startup(app.handle());
     let menu = menu::localized::create_localized_menu(app.handle(), None)?;
     app.set_menu(menu)?;
 
@@ -201,14 +204,16 @@ pub(crate) fn handle_run_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
             window_status::prune(app, &label);
             // Drop the window's filesystem watcher. The frontend's own
             // `stop_watching` invoke runs in the dying webview and can race
-            // its teardown; window labels are never reused, so without this
-            // each closed window would leak a recursive watcher (idempotent).
+            // its teardown, so without this each closed window would leak a
+            // recursive watcher (idempotent).
             if let Err(e) = crate::watcher::stop_watching(label.clone()) {
                 log::warn!("[Tauri] Failed to stop watcher for {:?}: {}", label, e);
             }
             // Same race for the window's terminals: its `pty_close` calls die
             // with the webview, so an idle shell would outlive the window.
             crate::pty::close_window_sessions(app, &label);
+            // And its agent-journal base roots (a stale pin would outlive it).
+            crate::agent_journal::service::release_window_label(app, &label);
             // And its MCP workspace registration, cleared by the same webview.
             let app = app.clone();
             tauri::async_runtime::spawn(async move {

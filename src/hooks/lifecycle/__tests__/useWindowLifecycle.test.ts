@@ -1,6 +1,6 @@
 // useWindowLifecycle — pins the window-chrome + resilience composite:
 // every window-level hook mounts once, in the documented order
-// (close → title → file watcher → resilience → MCP bridge).
+// (close → title → file watcher → resilience → MCP bridge → MCP read cleanup).
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
@@ -22,6 +22,9 @@ vi.mock("@/hooks/resilience", () => ({
 vi.mock("@/hooks/useMcpBridge", () => ({
   useMcpBridge: () => calls.push("mcpBridge"),
 }));
+vi.mock("@/hooks/useMcpConnectionReads", () => ({
+  useMcpConnectionReads: () => calls.push("mcpConnectionReads"),
+}));
 
 import { useWindowLifecycle } from "../useWindowLifecycle";
 
@@ -38,6 +41,7 @@ describe("useWindowLifecycle", () => {
       "windowFileWatcher",
       "documentResilience",
       "mcpBridge",
+      "mcpConnectionReads",
     ]);
   });
 

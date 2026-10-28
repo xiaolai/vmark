@@ -89,7 +89,7 @@ pub(super) fn headings(text: &str) -> Vec<Heading> {
 }
 
 /// The leading run of `\`` or `~` if it is at least 3 long.
-pub(super) fn fence_run(trimmed: &str) -> Option<(char, usize)> {
+pub(crate) fn fence_run(trimmed: &str) -> Option<(char, usize)> {
     for ch in ['`', '~'] {
         let n = trimmed.chars().take_while(|c| *c == ch).count();
         if n >= 3 {

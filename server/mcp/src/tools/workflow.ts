@@ -13,9 +13,13 @@
 
 import { z } from 'zod';
 import { VMarkMcpServer } from '../server.js';
+import { JOURNAL_REFUSALS } from './journalRefusals.js';
+import { bridgeErrorResult } from './staleError.js';
 import {
+  addressesSchema,
   optionalIdSchema,
   optionalRevisionSchema,
+  readOptionalAddresses,
   readOptionalId,
   readOptionalRevision,
 } from './toolArgs.js';
@@ -49,6 +53,9 @@ export function registerWorkflowTool(server: VMarkMcpServer): void {
         '  • {kind: "needs.add", jobId, ref}\n' +
         '  • {kind: "needs.remove", jobId, ref}\n' +
         '  • {kind: "trigger.setFilters", event, filter, value: string[]}\n' +
+        '  A batch that changes the text is recorded in VMark\'s agent edit journal first, like document.write: success carries {revision, applied: true, durable}. A batch that changes nothing is not recorded. A stale `expected_revision` returns a STALE error carrying `current_revision` in its `structuredContent` — re-read with `document.read` and retry. ' +
+        JOURNAL_REFUSALS +
+        '\n' +
         '- validate: Run actionlint and return diagnostics. Args: {tabId?}. Returns {ok, diagnostics: [{line, col, message, severity}], binaryAvailable}.',
       inputSchema: {
         action: z.enum(WORKFLOW_ACTIONS).describe('The action to perform'),
@@ -64,6 +71,7 @@ export function registerWorkflowTool(server: VMarkMcpServer): void {
         expected_revision: optionalRevisionSchema(
           'Optimistic-concurrency token from the most recent read (apply_patch only).',
         ),
+        addresses: addressesSchema(),
       },
     },
     async (args) => {
@@ -82,23 +90,35 @@ export function registerWorkflowTool(server: VMarkMcpServer): void {
         const revision = readOptionalRevision(args.expected_revision);
         if (!revision.ok) return VMarkMcpServer.errorResult(revision.error);
         const expected_revision = revision.value;
-        const data = await server.sendBridgeRequest({
-          type: 'vmark.workflow.apply_patch',
-          tabId,
-          patches: args.patches,
-          expected_revision,
-        });
-        return VMarkMcpServer.successJsonResult(data);
+        const addressed = readOptionalAddresses(args.addresses);
+        if (!addressed.ok) return VMarkMcpServer.errorResult(addressed.error);
+        try {
+          const data = await server.sendBridgeRequest({
+            type: 'vmark.workflow.apply_patch',
+            tabId,
+            patches: args.patches,
+            expected_revision,
+            ...(addressed.value ? { addresses: addressed.value } : {}),
+          });
+          return VMarkMcpServer.successJsonResult(data);
+        } catch (error) {
+          // A STALE refusal keeps its `current_revision` machine-readable.
+          return bridgeErrorResult(error, 'document.read');
+        }
       }
       if (action === 'validate') {
-        const data = await server.sendBridgeRequest({
-          type: 'vmark.workflow.validate',
-          tabId,
-        });
-        return VMarkMcpServer.successJsonResult(data);
+        try {
+          const data = await server.sendBridgeRequest({
+            type: 'vmark.workflow.validate',
+            tabId,
+          });
+          return VMarkMcpServer.successJsonResult(data);
+        } catch (error) {
+          return bridgeErrorResult(error, 'document.read');
+        }
       }
       return VMarkMcpServer.errorResult(
-        `Invalid action: ${String(action)}. Expected: apply_patch or validate`,
+        `Invalid action: ${String(action)}. Expected one of: ${WORKFLOW_ACTIONS.join(', ')}`,
       );
     },
   );

@@ -1,13 +1,36 @@
 ---
 name: tiptap-dev
-description: Expert guidance for building rich text editors with Tiptap - a headless, framework-agnostic editor built on ProseMirror. Use when creating custom nodes, marks, or extensions for Tiptap, implementing input rules or paste rules, working with the Tiptap commands API, building React integrations with useEditor, extending existing extensions, or creating custom node views.
+description: Tiptap and ProseMirror work in VMark's WYSIWYG editor - custom nodes, marks and extensions, input and paste rules, the commands API, node views, selection handling and node traversal, and when to drop to raw ProseMirror. Use when changing editor commands, plugins or extensions.
 ---
 
-# Tiptap Development Expert
+# Tiptap Development (VMark)
 
-Expert guidance for building rich text editors with Tiptap - a headless, framework-agnostic editor built on ProseMirror.
+VMark's WYSIWYG editor is Tiptap on ProseMirror. This skill covers both the
+general Tiptap API and where VMark uses Tiptap versus raw ProseMirror.
 
-**See also:** `tiptap-editor` skill — VMark-specific Tiptap API patterns (commands, node traversal, selection handling). Use `tiptap-dev` for general Tiptap/ProseMirror development, and `tiptap-editor` for VMark-specific editor integration.
+## Tiptap API or ProseMirror?
+
+**Prefer the Tiptap API for:** format commands (bold, italic, underline…), block
+type changes, list operations, table operations through the table extension,
+content insertion and replacement, and state queries (`isActive`,
+`getAttributes`). Use `editor.commands.x()` for one operation and
+`editor.chain().focus().x().run()` when focus is needed or operations chain.
+
+**Use ProseMirror directly for:**
+- The markdown conversion layer (`src/utils/markdownPipeline/` —
+  `mdastToProseMirror.ts` and the `mdast*Converters.ts` family)
+- Multi-cursor selection subclassing (`src/plugins/shared/MultiSelection.ts`)
+- Custom node views, low-level transactions, schema-level operations
+
+**Respect block boundaries.** Never flatten with `doc.textContent` when a
+position or block matters; resolve the position and use the `$pos` helpers
+(`$pos.parent`, `$pos.before(depth)`, `$pos.after(depth)`).
+`references/vmark-patterns.md` has the `$pos` reference.
+
+VMark examples to copy from: `src/plugins/toolbarActions/wysiwygAdapter*.ts`
+(block, list, code-block and CJK operations), `src/plugins/editorPlugins.tiptap.ts`
+(state checks), `src/components/Editor/TiptapEditor.tsx` (content setup).
+Plugins must not import app stores (`lint:store-coupling`; rule 00).
 
 ## When to Use This Skill
 
@@ -29,6 +52,7 @@ Expert guidance for building rich text editors with Tiptap - a headless, framewo
 | `references/react-integration.md` | React-specific hooks and components |
 | `references/schema.md` | Schema properties, content patterns |
 | `references/examples.md` | Complete working examples |
+| `references/vmark-patterns.md` | Commands, state queries, `$pos` traversal and transactions, as VMark uses them |
 
 ## Quick Reference
 

@@ -7,7 +7,7 @@
  *
  * Behavior preserved from the inline effect:
  *   - Debounced by DEBOUNCE_MS on query/option/root changes.
- *   - Queries shorter than MIN_QUERY_LENGTH clear results instead of running.
+ *   - Queries too short to search (`isSearchableQuery`) clear results instead of running.
  *   - Exclusions are read at execution time (via a ref) so a late exclusion
  *     change doesn't run a search with stale folders, and the search doesn't
  *     re-fire merely because the (unstable) exclusion array identity changed.
@@ -18,11 +18,10 @@
  */
 import { useEffect, useRef } from "react";
 import { useUIStore } from "@/stores/uiStore";
+import { isSearchableQuery } from "@/utils/contentSearchQuery";
 
 /** Debounce window for streaming search-as-you-type. */
 export const DEBOUNCE_MS = 300;
-/** Minimum query length before a search is dispatched. */
-export const MIN_QUERY_LENGTH = 3;
 
 interface SchedulerArgs {
   isOpen: boolean;
@@ -64,7 +63,7 @@ export function useContentSearchScheduler({
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
-    if (query.trim().length < MIN_QUERY_LENGTH) {
+    if (!isSearchableQuery(query)) {
       useUIStore.getState().contentSearchClearResults();
       return;
     }

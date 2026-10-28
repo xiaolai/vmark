@@ -32,3 +32,69 @@ fn auth_result_frames_carry_the_expected_verdict() {
         serde_json::json!("Authentication failed")
     );
 }
+
+// -- announcing the verdict ---------------------------------------------------
+
+/// A sink whose every write fails, as a peer gone between auth and verdict.
+fn broken_sink() -> std::pin::Pin<Box<impl Sink<Message, Error = std::io::Error>>> {
+    Box::pin(futures_util::sink::unfold((), |(), _: Message| async {
+        Err::<(), _>(std::io::Error::other("peer gone"))
+    }))
+}
+
+fn sent(frames: &[Message]) -> Vec<serde_json::Value> {
+    frames
+        .iter()
+        .map(|m| serde_json::from_str(m.to_text().expect("text")).expect("json"))
+        .collect()
+}
+
+#[tokio::test]
+async fn an_acceptance_that_never_reached_the_peer_registers_no_client() {
+    let mut sink = broken_sink();
+    let principal = announce_verdict(
+        &mut sink,
+        AuthOutcome::Accepted(BridgePrincipal::Provider("claude".into())),
+        3,
+    )
+    .await;
+    assert_eq!(
+        principal, None,
+        "a failed accept write must not admit the peer"
+    );
+}
+
+#[tokio::test]
+async fn a_delivered_acceptance_yields_the_principal() {
+    let mut frames: Vec<Message> = Vec::new();
+    let principal = announce_verdict(
+        &mut frames,
+        AuthOutcome::Accepted(BridgePrincipal::Provider("审阅".into())),
+        4,
+    )
+    .await;
+    assert_eq!(principal, Some(BridgePrincipal::Provider("审阅".into())));
+    assert_eq!(
+        sent(&frames)[0]["payload"],
+        serde_json::json!({ "success": true })
+    );
+}
+
+#[tokio::test]
+async fn a_rejection_or_abort_never_yields_a_principal() {
+    let mut frames: Vec<Message> = Vec::new();
+    assert_eq!(
+        announce_verdict(&mut frames, AuthOutcome::Rejected, 5).await,
+        None
+    );
+    assert_eq!(
+        sent(&frames)[0]["payload"]["success"],
+        serde_json::json!(false)
+    );
+    let mut none: Vec<Message> = Vec::new();
+    assert_eq!(
+        announce_verdict(&mut none, AuthOutcome::Aborted, 6).await,
+        None
+    );
+    assert!(none.is_empty(), "an aborted peer is told nothing");
+}

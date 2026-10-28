@@ -88,7 +88,6 @@ Slash-Befehle geben der KI spezialisierte Fähigkeiten:
 | `/codex-commit` | Intelligente Commit-Nachrichten aus Änderungsanalyse |
 | `/audit-fix` | Audit, alle Befunde beheben, verifizieren — wiederholen bis sauber |
 | `/feature-workflow` | End-to-End gesteuerter Workflow mit spezialisierten Agenten |
-| `/release-gate` | Vollständige Qualitätssicherung durchführen und Bericht erstellen |
 | `/merge-prs` | Offene PRs sequenziell prüfen und zusammenführen |
 | `/bump` | Versionserhöhung in allen 5 Dateien, committen, taggen, pushen |
 

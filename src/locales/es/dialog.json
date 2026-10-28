@@ -58,6 +58,7 @@
   "openFilter.markdown": "Markdown",
   "chooseFolderForDocs": "Elegir carpeta para {{count}} documentos nuevos",
   "toast.mcpApprovalRequired": "Se bloqueó una solicitud de IA para guardar en una nueva ubicación: {{filename}}. Activa \"Aprobar ediciones automáticamente\" en Configuración → Integraciones para permitirlo.",
+  "toast.mcpOverwriteRefused": "Se bloqueó una solicitud de IA para sobrescribir un archivo existente: {{filename}}. Las solicitudes de IA nunca reemplazan archivos existentes; pide otro nombre, o cambia el nombre del archivo o elimínalo antes.",
   "toast.saveDialogFailed": "Error en el cuadro de diálogo de guardado: {{error}}",
   "toast.failedToMoveToNewWindow": "Error al mover el archivo a una nueva ventana",
   "toast.failedToSaveDocuments": "Error al guardar documentos",

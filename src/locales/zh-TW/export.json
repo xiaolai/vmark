@@ -49,5 +49,18 @@
   "pdf.pageNumbers.format.verbose": "第 7 頁，共 12 頁",
   "pdf.warning.outline-failed": "側邊欄目錄",
   "pdf.warning.page-numbers-failed": "頁碼",
-  "pdf.pageNumbers.verboseTemplate": "第 {n} 頁，共 {total} 頁"
+  "pdf.pageNumbers.verboseTemplate": "第 {n} 頁，共 {total} 頁",
+  "gitJournal.pickTitle": "選擇 Git 儲存庫資料夾",
+  "gitJournal.done_one": "已將 {{count}} 個提交匯出到 {{branch}}",
+  "gitJournal.done_other": "已將 {{count}} 個提交匯出到 {{branch}}",
+  "gitJournal.upToDate": "{{branch}} 已是最新",
+  "gitJournal.error.GIT_MISSING": "找不到 Git。請安裝 Git 後再試一次。",
+  "gitJournal.error.NO_HISTORY": "此文件還沒有可匯出的編輯歷史。",
+  "gitJournal.error.NOT_A_REPOSITORY": "所選資料夾不在 Git 儲存庫中。",
+  "gitJournal.error.INVALID_REQUEST": "匯出要求無效。",
+  "gitJournal.error.EXPORT_CONFLICT": "自上次匯出以來，匯出分支已被變更。請移動或刪除該分支，然後重新匯出。",
+  "gitJournal.error.UNRELATED_BRANCH": "已存在同名分支，且它不是 VMark 對此文件的匯出。",
+  "gitJournal.error.BRANCH_CHECKED_OUT": "匯出分支已在某個工作樹中簽出。請先將該工作樹切換到其他分支。",
+  "gitJournal.error.GIT_FAILED": "匯出時 Git 回報了錯誤。詳情請查看記錄。",
+  "gitJournal.error.JOURNAL_ERROR": "無法讀取用於匯出的編輯歷史。"
 }

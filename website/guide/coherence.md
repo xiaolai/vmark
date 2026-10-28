@@ -33,8 +33,9 @@ Nothing is ever auto-updated; you stay the editor-in-chief.
   `exact`.
 - When an AI writes a document while reading others, those reads become
   **dependency edges**, pinned to the revision that was read. In-app
-  instrumented paths record `exact` inputs; MCP writes honestly record an
-  `inferred` session-observed read set.
+  instrumented paths record `exact` inputs; an MCP write honestly records an
+  `inferred` read set — only what that same client read over its own
+  connection — and names the client that wrote it.
 - When an upstream document advances past a pinned revision, the edge
   becomes **stale**. If two revisions evolved in parallel (e.g. on git
   branches), the edge is **diverged** — surfaced, never guessed at.

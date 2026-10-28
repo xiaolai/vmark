@@ -2,8 +2,8 @@
  * runtimeWiring — the window-lifetime services the document window starts once
  * (round 3): grant/policy mirrors into the Rust driver, the browser tab event and
  * lifecycle consumers, recorder wiring, coherence scanning, workspace sync, the
- * native menu mirror and the per-tab state cleanup. Each `start*` returns a
- * disposer; this composes them into ONE.
+ * native menu mirror, the per-tab provenance sessions, the journal-recording
+ * lifetimes and the per-tab state cleanup. Each `start*` returns a disposer; this composes them into ONE.
  *
  * Why here and not in the hook: the hook is the React adapter (ADR-013); which
  * services a window runs is a wiring fact that unit tests can exercise without
@@ -19,10 +19,13 @@ import { startBrowserTabLifecycle } from "@/services/browser/browserTabLifecycle
 import { startRecorderWiring } from "@/services/browser/recorderWiring";
 import { startCoherenceScanOnChange } from "@/services/coherence/scanOnChange";
 import { startWindowWorkspaceSync } from "@/services/mcpBridge/windowWorkspaceSync";
+import { startWindowTabsSync } from "@/services/mcpBridge/windowTabsSync";
 import { startBrowserAiPolicySync } from "@/services/browser/browserAiPolicySync";
 import { startWorkflowEnginePolicySync } from "@/services/workflow/workflowEnginePolicySync";
 import { startConditionalMenuItemSync } from "@/services/menu/conditionalMenuItemSync";
 import { startTabStateCleanup } from "@/services/windowClose/tabCleanup";
+import { startProvenanceSessions } from "@/services/agentJournal/provenanceSessions";
+import { startRecordingLifetimes } from "@/services/agentJournal/recordingReport";
 import { appError } from "@/utils/debug";
 
 /** Every service a document window runs for its lifetime, in start order. */
@@ -44,6 +47,9 @@ const RUNTIME_SERVICES: ReadonlyArray<() => () => void> = [
   startRecorderWiring,
   startCoherenceScanOnChange,
   startWindowWorkspaceSync,
+  // A request naming a tab routes to the window holding it: each window's
+  // webview holds only its own tabs.
+  startWindowTabsSync,
   startBrowserAiPolicySync,
   // The Rust workflow runner starts fail-closed; without this push it refuses
   // every command even for a user who has the engine switched on.
@@ -52,6 +58,12 @@ const RUNTIME_SERVICES: ReadonlyArray<() => () => void> = [
   // "Toggle Knowledge Base" (#1425) — in step with the setting that decides it.
   // Each ships off, and a permanently-dead menu row is worse than no row.
   startConditionalMenuItemSync,
+  // One provenance session per open tab: what its editors certify between
+  // journal records. Without it every save is a snapshotOnly barrier.
+  startProvenanceSessions,
+  // A "history not recorded" entry lives as long as its document: retired when
+  // no tab holds its key and no save to it is outstanding (close, Save As).
+  startRecordingLifetimes,
   // A tab that leaves the tab store takes its document and every other piece of
   // per-tab state with it. This is what makes that a consequence of removal
   // rather than a step each close, detach or rollback site has to remember.

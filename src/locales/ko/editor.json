@@ -160,6 +160,7 @@
   "findbar.find.placeholder": "찾기...",
   "findbar.find.label": "문서에서 텍스트 검색",
   "contentSearch.label": "워크스페이스에서 검색",
+  "contentSearch.minChars": "{{count}}자 이상 입력하세요",
   "findbar.prev": "이전 (Shift+Enter)",
   "findbar.next": "다음 (Enter)",
   "findbar.replace.placeholder": "바꾸기...",

@@ -19,54 +19,54 @@ Reference for CSS custom properties. Always use tokens over hardcoded values.
 - Dynamic per-user overrides (font size, line-height, editor width) are still computed in `src/hooks/useTheme.ts`; static fallbacks remain in `src/styles/index.css`.
 
 Adding/retinting a theme is a single-file edit in `src/theme/themes/` (plus
-appending the ID to `themes/index.ts` and the `ThemeId` union). The table
-below mirrors the runtime CSS-var names that consumers see; the
-authoritative values for those names live in the typed catalog.
+appending the ID to `themes/index.ts` and the `ThemeId` union). The tables
+below name each runtime CSS var and its role. They carry no values: values
+drift, and the typed catalog and `src/styles/index.css` are authoritative.
+`pnpm lint:design-tokens` keeps every row and every declaration in parity.
 
 ## Core Color Tokens
 
-| Token | Purpose | Light Default |
-|-------|---------|---------------|
-| `--bg-color` | Main background | `#eeeded` |
-| `--bg-primary` | Alias for `--bg-color` | - |
-| `--bg-secondary` | Secondary surfaces | `#e5e4e4` |
-| `--bg-tertiary` | Hover backgrounds | `#f0f0f0` |
-| `--hover-bg` | Explicit hover state (retuned 4%→6%, audit 20260901 WI-UA5 — 4% was below perception on grey card surfaces) | `rgba(0,0,0,0.06)` |
-| `--hover-bg-strong` | Stronger hover | `rgba(0,0,0,0.08)` |
-| `--hover-bg-dark` | Dark mode hover | `rgba(255,255,255,0.08)` |
-| `--subtle-bg` | Very subtle background (retuned with WI-UA5) | `rgba(0,0,0,0.03)` |
-| `--subtle-bg-hover` | Subtle background hover | `rgba(0,0,0,0.04)` |
-| `--surface-raised` | Elevated control face — the `.vm-btn` BASE since WI-UB1 (debuted as the welcome variant, WI-UA13); white on light themes, lifted `#383d46` under `.dark-theme` | `#ffffff` |
-| `--cursor-interactive` | D7 cursor, platform-scoped (WI-UA15): `default` on macOS, `pointer` under `.platform-windows`/`.platform-linux` (root class set by `main.tsx` from `platformRootClass()`) | `default` |
-| `--text-color` | Primary text | `#1a1a1a` |
-| `--text-primary` | Alias for `--text-color` | - |
-| `--text-secondary` | Secondary text | `#666666` |
-| `--text-tertiary` | Disabled/muted text | `#999999` |
-| `--primary-color` | Links, primary actions — static ALIAS of `--accent-primary` (WI-UA7); the runtime emits both from one catalog value | `var(--accent-primary)` |
-| `--border-color` | Borders, dividers | `#d5d4d4` |
-| `--control-border` | Control boundary (≥ 3:1 on primary+secondary, D8) — never a divider | `#7e7d7d` |
-| `--selection-color` | Text selection | `rgba(0,102,204,0.2)` |
-| `--quote-text` | Blockquote body ink (readable prose — R5/WI-UI1.3) | `var(--text-secondary)` |
-| `--contrast-text` | Text on colored backgrounds | `white` |
+| Token | Purpose |
+|---|---|
+| `--bg-color` | Main background |
+| `--bg-primary` | Alias for `--bg-color` |
+| `--bg-secondary` | Secondary surfaces |
+| `--bg-tertiary` | Hover backgrounds |
+| `--hover-bg` | Explicit hover state (6%: 4% was below perception on grey card surfaces) |
+| `--hover-bg-strong` | Stronger hover |
+| `--hover-bg-dark` | Dark mode hover |
+| `--subtle-bg` | Very subtle background |
+| `--subtle-bg-hover` | Subtle background hover |
+| `--surface-raised` | Elevated control face — the `.vm-btn` base; white on light themes, lifted under `.dark-theme` |
+| `--cursor-interactive` | D7 cursor, platform-scoped: `default` on macOS, `pointer` under `.platform-windows`/`.platform-linux` (root class set by `main.tsx` from `platformRootClass()`) |
+| `--text-color` | Primary text |
+| `--text-primary` | Alias for `--text-color` |
+| `--text-secondary` | Secondary text |
+| `--text-tertiary` | Disabled/muted text |
+| `--primary-color` | Links, primary actions — static ALIAS of `--accent-primary`; the runtime emits both from one catalog value |
+| `--border-color` | Borders, dividers |
+| `--control-border` | Control boundary (≥ 3:1 on primary+secondary, D8) — never a divider |
+| `--selection-color` | Text selection |
+| `--quote-text` | Blockquote body ink (readable prose — R5) |
+| `--contrast-text` | Text on colored backgrounds |
 
 ## Accent Tokens (Selection/Active States)
 
-| Token | Purpose | Light Default |
-|-------|---------|---------------|
-| `--accent-primary` | Active icon/text color | `#0066cc` |
-| `--accent-bg` | Active/selected background | `rgba(0,102,204,0.1)` |
+| Token | Purpose |
+|---|---|
+| `--accent-primary` | Active icon and indicator color (not text on `--accent-bg`; see R6) |
+| `--accent-bg` | Active/selected background |
 
 **Rule (R6 — selection keeps its ink)**: Use `--accent-bg` for all selected/active
 backgrounds, with `--text-color` for the row's TEXT and `--accent-primary` for
 icons and indicators only. Accent-coloured text on the accent tint measures
 3.84:1 on paper — below AA — which is why the older "accent-primary for text"
-wording was retired. The current-tab idiom is the NEGATIVE treatment since
-2026-09-02 (WI-UC1): ink and page swap tokens (`--text-color` fill,
+wording was retired. The current-tab idiom is the NEGATIVE treatment: ink and page swap tokens (`--text-color` fill,
 `--bg-color` text), AA by construction on every theme — a named exception
 carrying `ui-ok(state): current-tab`. Inside the ink face, page ink carries
 the signals (dirty dot, focus bar, close affordance).
 
-**Font roles (R3, WI-UI2.1)**: `--font-sans` is the READING font — the user's
+**Font roles (R3)**: `--font-sans` is the READING font — the user's
 choice, written from settings by `useTheme.ts`, consumed only under document
 selectors. Chrome uses `--font-ui` (static system stack) so the UI never
 restyles when the reading font changes. `--font-ui` is declared in `:root` and
@@ -74,70 +74,68 @@ the C5 check of `lint:ui-consistency` enforces the split at a zero baseline —
 a chrome `--font-sans` site fails the gate.
 
 **Tertiary is decorative (R5/D3)**: `--text-tertiary` never colours readable
-text or an enabled control — it is the disabled/decorative tier (its rule-31
-row has always said "Disabled/muted text"). Readable secondary content uses
+text or an enabled control — it is the disabled/decorative tier. Readable secondary content uses
 `--text-secondary`.
 
-**Arriving control tokens**: `--control-border` (D8) landed with WI-UI1.2 —
-use it for any boundary that makes a control findable; `--border-color` stays a
-divider. `--target-min` (24px hit-target floor, D2) landed with WI-UI2.3 —
-no interactive element takes a smaller hit box; paint-small controls centre a
+**Control tokens**: use `--control-border` (D8) for any boundary that makes a
+control findable; `--border-color` stays a divider. `--target-min` (24px
+hit-target floor, D2): no interactive element takes a smaller hit box; paint-small controls centre a
 `--target-min` square over themselves with a `::before` expander (see
 `icon-button-shared.css`).
 
 ## Semantic Tokens
 
-| Token | Purpose | Light Default |
-|-------|---------|---------------|
-| `--error-color` | Error states | `#cf222e` |
-| `--error-color-hover` | Error hover state | `#b91c1c` |
-| `--error-bg` | Error background | `#ffebe9` |
-| `--warning-color` | Warning states | `#9a6700` |
-| `--warning-bg` | Warning background | `rgba(245,158,11,0.1)` |
-| `--warning-border` | Warning borders | `rgba(245,158,11,0.3)` |
-| `--success-color` | Success states | `#16a34a` |
-| `--success-color-hover` | Success hover state | `#15803d` |
-| `--success-color-dark` | Success states (dark mode) | `#4ade80` |
+| Token | Purpose |
+|---|---|
+| `--error-color` | Error states |
+| `--error-color-hover` | Error hover state |
+| `--error-bg` | Error background |
+| `--warning-color` | Warning states |
+| `--warning-bg` | Warning background |
+| `--warning-border` | Warning borders |
+| `--success-color` | Success states |
+| `--success-color-hover` | Success hover state |
+| `--success-color-dark` | Success states (dark mode) |
 
 ## Alert Block Colors
 
-| Token | Purpose | Default |
-|-------|---------|---------|
-| `--alert-note` | Note blocks | `#0969da` |
-| `--alert-tip` | Tip blocks | `#1a7f37` |
-| `--alert-important` | Important blocks | `#8250df` |
-| `--alert-warning` | Warning blocks | `#9a6700` |
-| `--alert-caution` | Caution blocks | `var(--error-color)` |
+| Token | Purpose |
+|---|---|
+| `--alert-note` | Note blocks |
+| `--alert-tip` | Tip blocks |
+| `--alert-important` | Important blocks |
+| `--alert-warning` | Warning blocks |
+| `--alert-caution` | Caution blocks |
 
 ### Dark Mode Alert Tokens
 
-| Token | Value | Use For |
-|-------|-------|---------|
-| `--alert-note-dark` | `#58a6ff` | Note blocks in dark mode |
-| `--alert-tip-dark` | `#3fb950` | Tip blocks in dark mode |
-| `--alert-important-dark` | `#a371f7` | Important blocks in dark mode |
-| `--alert-warning-dark` | `#d29922` | Warning blocks in dark mode |
-| `--alert-caution-dark` | `#f85149` | Caution blocks in dark mode |
+| Token | Use For |
+|---|---|
+| `--alert-note-dark` | Note blocks in dark mode |
+| `--alert-tip-dark` | Tip blocks in dark mode |
+| `--alert-important-dark` | Important blocks in dark mode |
+| `--alert-warning-dark` | Warning blocks in dark mode |
+| `--alert-caution-dark` | Caution blocks in dark mode |
 
 ## Media Type Colors
 
-| Token | Purpose | Default |
-|-------|---------|---------|
-| `--media-video` | Video media tags | `#0d9488` |
-| `--media-audio` | Audio media tags | `#6366f1` |
-| `--media-youtube` | YouTube media tags | `#dc2626` |
-| `--media-vimeo` | Vimeo media tags | `#00adef` |
-| `--media-bilibili` | Bilibili media tags | `#fb7299` |
+| Token | Purpose |
+|---|---|
+| `--media-video` | Video media tags |
+| `--media-audio` | Audio media tags |
+| `--media-youtube` | YouTube media tags |
+| `--media-vimeo` | Vimeo media tags |
+| `--media-bilibili` | Bilibili media tags |
 
 ### Dark Mode Media Tokens
 
-| Token | Value | Use For |
-|-------|-------|---------|
-| `--media-video-dark` | `#2dd4bf` | Video in dark mode |
-| `--media-audio-dark` | `#818cf8` | Audio in dark mode |
-| `--media-youtube-dark` | `#f87171` | YouTube in dark mode |
-| `--media-vimeo-dark` | `#4ac3f0` | Vimeo in dark mode |
-| `--media-bilibili-dark` | `#fc9cb5` | Bilibili in dark mode |
+| Token | Use For |
+|---|---|
+| `--media-video-dark` | Video in dark mode |
+| `--media-audio-dark` | Audio in dark mode |
+| `--media-youtube-dark` | YouTube in dark mode |
+| `--media-vimeo-dark` | Vimeo in dark mode |
+| `--media-bilibili-dark` | Bilibili in dark mode |
 
 ## Syntax Tokens
 
@@ -147,69 +145,69 @@ no interactive element takes a smaller hit box; paint-small controls centre a
 
 ## Highlight Tokens
 
-| Token | Purpose | Default |
-|-------|---------|---------|
-| `--highlight-bg` | Highlight mark background | `#fff3a3` |
-| `--highlight-text` | Highlight text color | `inherit` |
+| Token | Purpose |
+|---|---|
+| `--highlight-bg` | Highlight mark background |
+| `--highlight-text` | Highlight text color |
 
 ## Multi-cursor Tokens
 
-| Token | Purpose | Light Default | Dark Override |
-|-------|---------|---------------|---------------|
-| `--multi-cursor-color` | Secondary cursor caret color | `hsl(217 91% 60%)` | `hsl(217 91% 70%)` |
-| `--multi-cursor-selection-bg` | Secondary cursor selection background | `hsla(217, 91%, 60%, 0.3)` | `hsla(217, 91%, 70%, 0.25)` |
+| Token | Purpose |
+|---|---|
+| `--multi-cursor-color` | Secondary cursor caret color |
+| `--multi-cursor-selection-bg` | Secondary cursor selection background |
 
 ## Search & Divergence Tokens
 
-| Token | Purpose | Light Default | Dark Override |
-|-------|---------|---------------|---------------|
-| `--search-match-color` | Find-bar match highlight | `rgba(255, 180, 0, 0.8)` | `rgba(255, 200, 0, 0.7)` |
-| `--search-match-active-color` | Active find-bar match | `rgba(255, 200, 0, 0.7)` | `rgba(255, 200, 0, 0.5)` |
-| `--divergent-border-dark` | Split-view divergence border (dark themes) | — | `rgba(0, 136, 255, 0.25)` |
+| Token | Purpose |
+|---|---|
+| `--search-match-color` | Find-bar match highlight |
+| `--search-match-active-color` | Active find-bar match |
+| `--divergent-border-dark` | Split-view divergence border (dark themes) |
 
 ## Spacing Tokens
 
-| Token | Value | Use For |
-|-------|-------|---------|
-| `--spacing-1` | `4px` | Small gaps, tight padding |
-| `--spacing-2` | `8px` | Standard gaps |
-| `--spacing-3` | `12px` | Larger spacing |
+| Token | Use For |
+|---|---|
+| `--spacing-1` | Small gaps, tight padding |
+| `--spacing-2` | Standard gaps |
+| `--spacing-3` | Larger spacing |
 
 **Use `--spacing-*` for `padding`, `margin`, and `gap` only.** A border-radius is a `--radius-*` token, never `--spacing-1`. The numeric value coincidence does not imply semantic equivalence — see "Tokenize value vs. tokenize intent" below.
 
 ## Icon Size Tokens
 
-| Token | Value | Use For |
-|-------|-------|---------|
-| `--icon-size-sm` | `24px` | Bar buttons (`.vm-icon-btn--sm`); also the D2 hit-target floor |
-| `--icon-size-md` | `26px` | Popup action buttons |
-| `--icon-size-lg` | `28px` | Toolbar buttons |
-| `--target-min` | `24px` | Minimum clickable square (D2); `::before` expanders consume it |
+| Token | Use For |
+|---|---|
+| `--icon-size-sm` | Bar buttons (`.vm-icon-btn--sm`); also the D2 hit-target floor |
+| `--icon-size-md` | Popup action buttons |
+| `--icon-size-lg` | Toolbar buttons |
+| `--target-min` | Minimum clickable square (D2); `::before` expanders consume it |
 
 ## List Tokens
 
-| Token | Value | Use For |
-|-------|-------|---------|
-| `--list-indent` | `1em` | Global list indent base |
+| Token | Use For |
+|---|---|
+| `--list-indent` | Global list indent base |
 
 ## Editor Content Tokens
 
-| Token | Value | Use For |
-|-------|-------|---------|
-| `--editor-content-padding` | `fontSize * 2` (px) | Horizontal padding for editor content (constrains selection highlight). Computed dynamically in `useTheme.ts` to ensure consistency across WYSIWYG and Source modes. |
+| Token | Use For |
+|---|---|
+| `--editor-content-padding` | Horizontal padding for editor content (constrains selection highlight). Computed dynamically in `useTheme.ts` to ensure consistency across WYSIWYG and Source modes. |
 
 ## Size Tokens
 
 ### Border Radius
 
-| Token | Value | Use For |
-|-------|-------|---------|
-| `--radius-sm` | `3px` | Controls: buttons, icon squares, selects, field inputs, chips — and rows INSIDE floating surfaces (near-concentric) |
-| `--radius-md` | `5px` | Content blocks (code, alerts, details…) and page/panel rows |
-| `--radius-lg` | `8px` | Floating surfaces: popups, dialogs, menus, dropdowns |
-| `--radius-pill` | `100px` | Pill shapes, tags, `.vm-btn--pill` capsule buttons |
+| Token | Use For |
+|---|---|
+| `--radius-sm` | Controls: buttons, icon squares, selects, field inputs, chips — and rows INSIDE floating surfaces (near-concentric) |
+| `--radius-md` | Content blocks (code, alerts, details…) and page/panel rows |
+| `--radius-lg` | Floating surfaces: popups, dialogs, menus, dropdowns |
+| `--radius-pill` | Pill shapes, tags, `.vm-btn--pill` capsule buttons |
 
-**The φ curvature ladder (2026-09-02)**: window `21` → shell card `13` →
+**The φ curvature ladder**: window `21` → shell card `13` →
 `--radius-lg 8` → `--radius-md 5` → `--radius-sm 3` — each step ≈ ×0.62
 (Fibonacci: 3, 5, 8, 13, 21). Pick radius by TIER, never by taste; pills and
 circles stay off-ladder. Bare Tailwind `rounded` (a 0.25rem literal) is
@@ -232,30 +230,30 @@ resolve through these tokens.
 
 ### Shadows
 
-| Token | Value | Use For |
-|-------|-------|---------|
-| `--shadow-sm` | `0 1px 3px rgba(0,0,0,0.1)` | Hover tooltips, subtle elevation |
-| `--shadow-md` | `0 2px 8px rgba(0,0,0,0.12)` | Inline popups |
-| `--popup-shadow` | `0 4px 12px rgba(0,0,0,0.15)` | Standard popups, dialogs |
-| `--popup-shadow-dark` | `0 4px 12px rgba(0,0,0,0.4)` | Dark mode popups |
-| `--shadow-popup` | theme-adaptive (written by `applyTheme()`; static fallback aliases `--popup-shadow`) | Tailwind `shadow-popup` utility and typed-pathway consumers — adapts in dark themes without a `.dark-theme` rule |
+| Token | Use For |
+|---|---|
+| `--shadow-sm` | Hover tooltips, subtle elevation |
+| `--shadow-md` | Inline popups |
+| `--popup-shadow` | Standard popups, dialogs |
+| `--popup-shadow-dark` | Dark mode popups |
+| `--shadow-popup` | Tailwind `shadow-popup` utility and typed-pathway consumers — adapts in dark themes without a `.dark-theme` rule |
 
 ### Popup Tokens
 
-| Token | Value | Use For |
-|-------|-------|---------|
-| `--popup-padding` | `6px` | Standard popup padding |
-| `--radius-lg` | `8px` | Popup border radius |
+| Token | Use For |
+|---|---|
+| `--popup-padding` | Standard popup padding |
+| `--radius-lg` | Popup border radius |
 
 ### Button/Icon Sizes
 
 Use the icon size tokens for button dimensions:
 
-| Token | Value | Use For |
-|-------|-------|---------|
-| `--icon-size-sm` | `24px` | Bar buttons, compact areas (`.vm-icon-btn--sm`) |
-| `--icon-size-md` | `26px` | Popup action buttons |
-| `--icon-size-lg` | `28px` | Toolbar buttons |
+| Token | Use For |
+|---|---|
+| `--icon-size-sm` | Bar buttons, compact areas (`.vm-icon-btn--sm`) |
+| `--icon-size-md` | Popup action buttons |
+| `--icon-size-lg` | Toolbar buttons |
 
 Icon SVG sizes (conventions, not tokens):
 
@@ -266,18 +264,18 @@ Icon SVG sizes (conventions, not tokens):
 
 ## Typography Tokens
 
-| Token | Purpose | Static Default |
-|-------|---------|----------------|
-| `--font-ui` | CHROME text — the system face, never touched by settings (R3) | `system-ui, -apple-system, …` |
-| `--font-sans` | READING text — the user's chosen document face; document selectors only | System fonts (runtime-written) |
-| `--font-mono` | Code, URLs, paths — the user's mono face | `ui-monospace, monospace` (runtime-written) |
-| `--editor-font-size` | Editor text size | `18px` |
-| `--editor-font-size-mono` | Monospace text (85%) | `15.3px` |
-| `--editor-line-height` | Line height ratio | `1.8` (runtime default; the `:root` static is 1.6 for print/SSR — see Note) |
-| `--editor-line-height-px` | Absolute line height | `32.4px` (18px × 1.8; static 28.8px) |
-| `--editor-block-spacing` | Spacing between blocks | `1em` |
-| `--cjk-letter-spacing` | CJK character spacing | `0.05em` |
-| `--editor-width` | Max editor content width | `50em` |
+| Token | Purpose |
+|---|---|
+| `--font-ui` | CHROME text — the system face, never touched by settings (R3) |
+| `--font-sans` | READING text — the user's chosen document face; document selectors only |
+| `--font-mono` | Code, URLs, paths — the user's mono face |
+| `--editor-font-size` | Editor text size |
+| `--editor-font-size-mono` | Monospace text (85%) |
+| `--editor-line-height` | Line height ratio |
+| `--editor-line-height-px` | Absolute line height |
+| `--editor-block-spacing` | Spacing between blocks |
+| `--cjk-letter-spacing` | CJK character spacing |
+| `--editor-width` | Max editor content width |
 
 **Monospace stacks for character grids** (terminal, code blocks, Source mode): use `verifiedMonoStack()` from `src/services/fonts/`, never `resolveMonoFontStack()`. WebKitGTK under CJK locales does not skip absent families (#1334); the module header has the measurements.
 
@@ -285,38 +283,38 @@ Icon SVG sizes (conventions, not tokens):
 
 ## Code/Syntax Tokens
 
-| Token | Purpose | Light Default |
-|-------|---------|---------------|
-| `--code-bg-color` | Code block background | `#e5e4e4` |
-| `--code-text-color` | Code text | `#1a1a1a` |
-| `--code-border-color` | Code block border | `#d5d4d4` |
-| `--code-line-height` | Code block line height | `1.45` |
-| `--code-padding` | Code block horizontal padding | `18px` (dynamically set by `useTheme.ts` to base fontSize) |
-| `--md-char-color` | Markdown syntax chars | `#777777` |
-| `--meta-content-color` | Metadata content | `#777777` |
+| Token | Purpose |
+|---|---|
+| `--code-bg-color` | Code block background |
+| `--code-text-color` | Code text |
+| `--code-border-color` | Code block border |
+| `--code-line-height` | Code block line height |
+| `--code-padding` | Code block horizontal padding |
+| `--md-char-color` | Markdown syntax chars |
+| `--meta-content-color` | Metadata content |
 
 ## Text Emphasis Tokens
 
-| Token | Purpose | Default |
-|-------|---------|---------|
-| `--strong-color` | Bold text color | `rgb(63,86,99)` |
-| `--emphasis-color` | Italic text color | `rgb(91,4,17)` |
+| Token | Purpose |
+|---|---|
+| `--strong-color` | Bold text color |
+| `--emphasis-color` | Italic text color |
 
 ## Layout Tokens
 
-| Token | Purpose | Default |
-|-------|---------|---------|
-| `--sidebar-bg` | Sidebar background | `#e5e4e4` |
-| `--workspace-rail-width` | Workspace rail column width | `30px` |
-| `--bar-height` | Status bar / universal toolbar height | `40px` |
-| `--shell-card-inset` | Gutter around the leading rail+sidebar card | `8px` |
-| `--shell-card-radius` | Leading card radius, concentric with the 21px window corner | `13px` |
-| `--shell-top-inset` | Top inset a full-height column leaves clear | `0px` |
-| `--traffic-lights-zone` | Horizontal space the title bar keeps clear of the window controls | `0px` |
-| `--traffic-lights-centre` | The window controls' optical line, which the title bar centres content on | `0px` |
-| `--outline-width` | Outline panel width | `200px` |
-| `--settings-nav-width` | Settings nav column width (read by Settings.tsx AND SettingsNav) | `13rem` |
-| `--table-border-color` | Table borders | `#d5d4d4` |
+| Token | Purpose |
+|---|---|
+| `--sidebar-bg` | Sidebar background |
+| `--workspace-rail-width` | Workspace rail column width |
+| `--bar-height` | Status bar / universal toolbar height |
+| `--shell-card-inset` | Gutter around the leading rail+sidebar card |
+| `--shell-card-radius` | Leading card radius, concentric with the 21px window corner |
+| `--shell-top-inset` | Top inset a full-height column leaves clear |
+| `--traffic-lights-zone` | Horizontal space the title bar keeps clear of the window controls |
+| `--traffic-lights-centre` | The window controls' optical line, which the title bar centres content on |
+| `--outline-width` | Outline panel width |
+| `--settings-nav-width` | Settings nav column width (read by Settings.tsx AND SettingsNav) |
+| `--table-border-color` | Table borders |
 
 **Shell chrome vars are written by `shellChromeVars()`** (`src/shell/shellChrome.ts`), not CSS. The `:root` values are fallbacks; change the TS constant. Consume `--shell-top-inset` (0 off macOS), never a literal. Traffic-light geometry derives from `TRAFFIC_LIGHT_POSITION` in `src/shell/trafficLights.ts`, declared in three places (`tauri.conf.json`, `window_manager/mod.rs`, `trafficLights.ts`) that `trafficLights.test.ts` keeps in sync; it needs the `macos-private-api` cargo feature.
 
@@ -324,30 +322,30 @@ Icon SVG sizes (conventions, not tokens):
 
 The browser frame is a true neutral — white in light themes, dark in dark ones — never theme-tinted.
 
-| Token | Light | Dark (`.dark-theme`) |
-|---|---|---|
-| `--browser-bg-color` | `#ffffff` | `#23262b` |
-| `--browser-bg-secondary` | `#f7f7f7` | `#2a2e34` |
-| `--browser-bg-tertiary` | `#f1f3f4` | `#32363d` |
-| `--browser-text-color` | `#202124` | `#d6d9de` |
-| `--browser-text-secondary` | `#5f6368` | `#9aa0a6` |
-| `--browser-text-tertiary` | `#80868b` | `#6b7078` |
-| `--browser-border-color` | `#dadce0` | `#3a3f46` |
-| `--browser-hover-bg` | `rgba(60,64,67,.08)` | `rgba(255,255,255,.08)` |
-| `--browser-hover-bg-strong` | `rgba(60,64,67,.12)` | `rgba(255,255,255,.12)` |
-| `--browser-accent-bg` | `#e8f0fe` | `rgba(88,166,255,.12)` |
-| `--browser-accent-primary` | `#1a73e8` | `#58a6ff` |
+| Token | Purpose |
+|---|---|
+| `--browser-bg-color` | Browser-frame counterpart of `--bg-color` |
+| `--browser-bg-secondary` | Browser-frame counterpart of `--bg-secondary` |
+| `--browser-bg-tertiary` | Browser-frame counterpart of `--bg-tertiary` |
+| `--browser-text-color` | Browser-frame counterpart of `--text-color` |
+| `--browser-text-secondary` | Browser-frame counterpart of `--text-secondary` |
+| `--browser-text-tertiary` | Browser-frame counterpart of `--text-tertiary` |
+| `--browser-border-color` | Browser-frame counterpart of `--border-color` |
+| `--browser-hover-bg` | Browser-frame counterpart of `--hover-bg` |
+| `--browser-hover-bg-strong` | Browser-frame counterpart of `--hover-bg-strong` |
+| `--browser-accent-bg` | Browser-frame counterpart of `--accent-bg` |
+| `--browser-accent-primary` | Browser-frame counterpart of `--accent-primary` |
 
 Do not consume `--browser-*` directly: `shell/app-shell.css` shadows the global names onto them under `.browser-workspace-active`. The terminal (xterm canvas) follows via `theme/terminalThemeForBrowser.ts`; its test pins the neutral backgrounds equal to `white`/`night`.
 
 ## Focus Mode Tokens
 
-| Token | Purpose | Default |
-|-------|---------|---------|
-| `--blur-text-color` | Blurred text color | `#c8c8c8` |
-| `--blur-image-opacity` | Blurred image opacity | `0.5` |
-| `--focus-dim-opacity` | Focus Mode dim level (useTheme.ts overrides) | `1` |
-| `--source-mode-bg` | Source mode background | `rgba(0,0,0,0.02)` |
+| Token | Purpose |
+|---|---|
+| `--blur-text-color` | Blurred text color |
+| `--blur-image-opacity` | Blurred image opacity |
+| `--focus-dim-opacity` | Focus Mode dim level (useTheme.ts overrides) |
+| `--source-mode-bg` | Source mode background |
 
 ## Rules
 
@@ -356,7 +354,7 @@ Do not consume `--browser-*` directly: `shell/app-shell.css` shadows the global 
 3. **Prefer semantic tokens** - use `--error-color` not `#cf222e`
 4. **Use radius tokens** - prefer `--radius-sm/md/lg` over hardcoded px
 5. **Use shadow tokens** - prefer `--shadow-sm/md`, `--popup-shadow` over hardcoded
-6. **Update this doc** - when adding new tokens to index.css
+6. **Update this doc** - add a row when adding a token to index.css (`pnpm lint:design-tokens` checks both directions)
 7. **Frame ownership for nested containers** - When a wrapper exists (e.g., `.code-block-wrapper`), it owns background, border, and radius. Child elements (e.g., `pre`) should be transparent/flat.
 8. **Scoped vars must be defined** - Don't use CSS vars that are only defined on sibling/unrelated selectors (e.g., using `--list-indent` inside blockquote when it's only defined on `ul/ol`).
 9. **Scrollbars use tokens** - Scrollbar colors should use `--border-color` and `--md-char-color`, not hardcoded rgba.
@@ -376,10 +374,10 @@ VMark's token system has **two layers**, both defined in `src/styles/index.css`:
 |---|---|---|
 | Spacing (px) | `--space-px`, `--space-half` (2), `--space-1` (4), `--space-1-5` (6), `--space-2` (8), `--space-2-5` (10), `--space-3` (12), `--space-3-5` (14), `--space-4` (16), `--space-5` (20), `--space-6` (24), `--space-7` (28), `--space-8` (32), `--space-10` (40), `--space-15` (60) | A semantic spacing token (`--spacing-1/2/3`, `--popup-padding`) doesn't match the value |
 | Border widths | `--border-hairline` (0.5px), `--border-thin` (1px), `--border-medium` (2px), `--border-thick` (4px) | Setting `border-width`, `border-{top,right,bottom,left}-width` |
-| UI font sizes | `--font-size-xs` (11), `--font-size-sm` (12), `--font-size-base` (13), `--font-size-md` (14), `--font-size-lg` (16), `--font-size-xl` (22 — identity/display text, WI-UA13) | UI labels and metadata. **Not** for editor body text — that uses runtime `--editor-font-size*`. 10px (`--font-size-2xs`) was RETIRED outright by the 20260901 re-audit (WI-UB2) — the token, its `text-2xs` Tailwind bridge and all consumers are gone; UI text floors at `xs`. |
+| UI font sizes | `--font-size-xs` (11), `--font-size-sm` (12), `--font-size-base` (13), `--font-size-md` (14), `--font-size-lg` (16), `--font-size-xl` (22 — identity/display text) | UI labels and metadata. **Not** for editor body text — that uses runtime `--editor-font-size*`. There is no 10px size: UI text floors at `xs`. |
 | Component dimensions | `--size-icon-xs` (14), `--size-icon-medium` (18), `--size-btn-xs` (20) | Width/height of small icons not covered by `--icon-size-*`. `--size-btn-sm` is gone — a 24px square is `.vm-icon-btn--sm`. |
 | Line heights | `--line-height-tight` (1.25), `--line-height-snug` (1.35), `--line-height-base` (1.4), `--line-height-normal` (1.5), `--line-height-relaxed` (1.6) | `line-height` on UI text |
-| Letter spacing | `--letter-spacing-tight` (0.3px), `--letter-spacing-loose` (0.5px), `--letter-spacing-caps` (0.5px) | `caps` is THE tracking for every `text-transform: uppercase` micro-label (WI-UA6, pinned by `uiAuditFixes.test.ts`); tight/loose serve non-caps uses |
+| Letter spacing | `--letter-spacing-tight` (0.3px), `--letter-spacing-loose` (0.5px), `--letter-spacing-caps` (0.5px) | `caps` is THE tracking for every `text-transform: uppercase` micro-label (pinned by `uiAuditFixes.test.ts`); tight/loose serve non-caps uses |
 | Opacity | `--opacity-disabled` (0.4), `--opacity-muted` (0.5), `--opacity-subtle` (0.6), `--opacity-half-faded` (0.7), `--opacity-mostly-opaque` (0.85) | Visual de-emphasis. **Not** for `0` or `1` — those stay literal. |
 | Durations | `--duration-fast` (0.1s), `--duration-base` (0.15s), `--duration-medium` (0.2s), `--duration-slower` (0.6s), `--duration-1s`, `--duration-1-5s`, `--duration-5s` | `transition`, `animation` durations |
 | Z-index | `--z-resize-handle` (10), `--z-panel-overlay` (12), `--z-bar` (100), `--z-toolbar` (102), `--z-toolbar-dropdown` (103), `--z-context-menu` (1000), `--z-mcp-overlay` (1200), `--z-popup` (9999), `--z-table-context` (10000) | Stacking context. Mirrors hierarchy in `32-component-patterns.md`. |

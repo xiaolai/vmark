@@ -11,17 +11,20 @@
 //! - MCP sidecar uses platform-specific path to find the app data directory
 
 mod accept_loop;
+mod attribution;
 mod bind;
-pub(crate) mod checkpoint_store;
 mod coherence_answers;
+mod coherence_dispatch;
 pub mod commands;
 mod connection;
+mod connection_closed;
 pub(crate) mod control;
 mod delivery;
 mod frames;
 mod handshake;
 mod identify;
 mod lifecycle;
+mod live_emit;
 pub(crate) mod managed;
 mod message_loop;
 pub(crate) mod path_guard;
@@ -47,6 +50,6 @@ mod window_routing;
 pub use commands::{client_count, connected_clients};
 pub use lifecycle::{BridgeLifecycle, BridgePhase, StartClaim};
 pub use managed::McpBridgeState;
-pub use server::stop_bridge;
+pub use server::{stop_bridge, stop_bridge_with, InFlightWrites};
 pub use start::start_bridge;
 pub use types::ConnectedClientInfo;

@@ -124,11 +124,13 @@ describe("external text enters only through listed modules", () => {
     "components/StatusBar/tabTransferActions.ts",
     "components/StatusBar/StatusBar.tsx",
     "services/workspaces/workspaceWindowActions.ts",
-    // MCP bridge — workspace opens a file (disk-open), document.write applies
-    // an AI payload (mcp-write: an EDIT that keeps the file's convention).
+    // MCP bridge — workspace opens a file (disk-open), document.write and
+    // document.transform apply an AI payload (mcp-write: an EDIT that keeps
+    // the file's convention). The write's ingress MOVED from `document.ts` into
+    // `writeContent.ts`, shared by both mutators — the same reviewed door.
     "services/mcpBridge/v2/workspace.ts",
     "services/mcpBridge/v2/workspaceOpen.ts",
-    "services/mcpBridge/v2/document.ts",
+    "services/mcpBridge/v2/writeContent.ts",
     // Terminal file links, new-tab commands.
     "components/Terminal/setupFileLinks.ts",
     "services/commands/tabCommands.ts",

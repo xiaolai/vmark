@@ -229,6 +229,8 @@ vmark-mcp-server --version
 vmark-mcp-server --port 9223   # legacy / manual
 ```
 
+Any other argument — a misspelled flag, `--port=9223`, or a stray word — is refused: the binary prints a usage error and exits with code 64 instead of falling back to auto-discovery.
+
 ## How It Works
 
 ```text
@@ -243,7 +245,7 @@ AI Assistant <--stdio--> MCP Server <--WebSocket--> VMark Editor
 
 ## Available Capabilities
 
-When connected, your AI assistant has nine tools:
+When connected, your AI assistant has ten tools:
 
 | Tool | What it covers |
 |------|----------------|
@@ -251,6 +253,7 @@ When connected, your AI assistant has nine tools:
 | `workspace` | New, open, save, save-as, close, switch tabs, focus a window, open a workspace |
 | `document` | Read and write the whole document as Markdown; CJK formatting transforms |
 | `selection` | Read and replace the selected text |
+| `comments` | List review comments on the document, reply to them and mark them addressed (an assistant cannot resolve them) |
 | `workflow` | CST-safe patches and validation for GitHub Actions YAML |
 | `browser` / `browser_read` | Embedded-browser automation on macOS — the mutating and read-only halves |
 | `coherence` / `coherence_resolve` | Read the coherence layer; resolve stale edges under a delegation you granted |
@@ -325,9 +328,25 @@ There is no preview step for `document.write`, `selection.set` or `workflow.appl
 
 ## Edit Checkpoints
 
-Every AI document mutation — `document.write`, `document.transform`, `selection.set` and `workflow.apply_patch` — first snapshots the content it is about to replace. The **history** button in the status bar opens a popover listing, for the focused tab, when each AI write happened and which tool made it, with a one-click **Restore to before this write** on every row and a **Clear history for this tab** action. Restoring puts the earlier content back and bumps the document's revision, so an AI client still holding the old revision gets `STALE` on its next write instead of overwriting your restore.
+Every AI document mutation — `document.write`, `document.transform`, `selection.set` and `workflow.apply_patch` — is recorded in VMark's edit history before it changes anything. The **history** button in the status bar opens a panel for the focused document. Its badge counts the document's AI revisions, and the button turns to a warning colour when changes are not being recorded. The panel updates live, in every window, as revisions are recorded.
 
-Checkpoints are kept per file — 50 per file and 5 MiB in total — and persisted to `mcp-checkpoints.jsonl` in VMark's app data directory, so they survive a restart. The file holds the full previous text of every recorded edit and is created owner-only (`0600` on macOS and Linux). The popover footer shows how much space the file occupies on disk and clears the whole store — every file and every window — in one action. Untitled documents are checkpointed per tab.
+The panel lists the document's revisions, newest first. Each row shows when it happened, what kind of change it was, the tool, and who made it: the provider of the AI client (for example `claude` or `codex`), its connection and its session label. A client with no token is shown as an **Unidentified client**, an unknown token as an **Unrecognized credential**, and a token shared by several clients as a **Credential shared by several providers** — never as a provider, whatever name the client gives itself. **Restore this version** puts that revision's text back; **Restore to before this change** puts back the text before it. Restoring bumps the document's revision, so an AI client still holding the old revision gets `STALE` on its next write instead of overwriting your restore. A restore is itself recorded: the text it replaces is kept first, and a document edited while the restore was in flight is left alone. When VMark cannot confirm that a restore's record reached the disk, it warns you beside the result.
+
+Above the revisions, **Review AI Changes** lists the AI changes you have not reviewed yet, grouped by client and session; revisions whose changes are all reviewed are summarized as a count. Each change offers **Keep** or **Revert** (and **Undo keep** or **Undo revert** afterwards). A revert that would overwrite text you have edited since is not applied: the change is marked as conflicting, and once you have resolved it by hand, **Mark handled** records that. A change whose location can no longer be certified says why and offers no automatic revert. **Clear reviewed** settles every reviewed change for good, after a confirmation, since it cannot be undone. A document holds at most 500 unreviewed AI changes: at that limit a banner says so, and AI edits to it are refused with `REVIEW_BACKLOG_FULL` until you review and clear. A save that started from a different version than the one before it — the document was edited in two windows — is marked as such, with both restores to undo the merge. **Show both changes** opens two diffs of that save: *Against the version this save started from*, and *Against the version before it*, against the version before it in the history.
+
+After them, **Comments** holds the document's comment threads. **Comment on selection** quotes the text selected in the editor (with only a cursor, the paragraph it is in) and adds your comment; unsaved text is recorded first, so a comment never points at an older version. Each thread shows its state — open, addressed, resolved or reopened — who wrote it, the quoted text and the replies. Comments are shown as plain text: HTML in a comment is displayed, never run. When the quoted text now appears several times, the thread says how many; when it is gone, the thread says so. You can **Reply** in any state, **Mark addressed** an open or reopened thread, **Resolve** it, and **Reopen** or **Delete** a resolved one; deleting asks first and cannot be undone. While a comment or reply is being sent it cannot be edited or cancelled, even if you close the panel and open it again; a refused one is kept so you can change it and send it again. Only you can resolve, reopen or delete a thread. A thread reopened after its original revision was cleared from the history reads *Creation revision no longer retained* and is matched against the current text.
+
+The top of the panel says when changes are not being recorded: the history could not start or is read-only, it is behind (records queued and not yet on disk), this document's last save was refused or the history did not answer in time, AI edits were refused in a window with too many open pages, or some AI changes can no longer be reverted automatically. It also counts AI edits recorded as whole-document changes because their changed range could not be confirmed. A change that can no longer be reverted automatically reads **Blocked: reason (origin)** under the last revision where its location was certified, which is highlighted; when there is none, the panel says the location is unavailable. Writes that were applied but never recorded are listed under **Unrecorded writes**, each with a restore and a discard.
+
+To tell several sessions of one client apart, set `VMARK_SESSION_LABEL` in the client's MCP configuration, beside `VMARK_MCP_TOKEN`:
+
+```json
+"env": { "VMARK_MCP_TOKEN": "…", "VMARK_SESSION_LABEL": "docs refactor" }
+```
+
+The label is at most 128 UTF-8 bytes, with no control characters; a label that breaks the rule is dropped with a warning and the client connects without it. It is chosen by the client's configuration, so it is shown for display only and decides nothing.
+
+The history is kept in the `agent-journal` folder in VMark's app data directory, so it survives a restart. The folder holds the full previous text of every recorded edit and is owner-only (`0700` on macOS and Linux). Checkpoints from an earlier version of VMark (a `mcp-checkpoints.jsonl`, imported at the first start and then renamed aside) are listed under **Earlier checkpoints**, one list for every document and window. Restoring one opens its file; an untitled one, or a file that can no longer be opened, is restored into a new document. The section shows how much checkpoint text is kept and clears it all — every file and every window — in one action, deleting the texts from disk.
 
 ## Security Notes
 

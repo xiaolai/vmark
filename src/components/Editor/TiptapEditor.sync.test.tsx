@@ -223,7 +223,7 @@ vi.mock("@/services/editor/unparseableDocument", () => ({
 }));
 
 import { TiptapEditorInner } from "./TiptapEditor";
-import { markContentApplied } from "./contentApplied";
+import { markContentApplied } from "@/services/editor/contentApplied";
 import type { Editor as TiptapEditor } from "@tiptap/core";
 
 // ── Tests ────────────────────────────────────────────────────────────

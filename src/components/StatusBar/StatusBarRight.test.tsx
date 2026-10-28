@@ -50,6 +50,7 @@ vi.mock("@/stores/settingsStore", () => ({
 
 
 import { formatClientName, formatMcpTooltip, StatusBarRight } from "./StatusBarRight";
+import { useMcpBridgeListenerStore } from "@/stores/mcpBridgeListenerStore";
 
 /** Render inside a document window — the real counts and lint badge read it. */
 function render(ui: ReactElement) {
@@ -480,5 +481,21 @@ describe("StatusBarRight", () => {
     );
     const btn = container.querySelector(".status-mode");
     expect(btn?.getAttribute("title")).toContain("WYSIWYG Mode");
+  });
+});
+
+describe("StatusBarRight — MCP request listener warning", () => {
+  beforeEach(() => useMcpBridgeListenerStore.setState({ status: "registering" }));
+
+  it("warns that this window cannot answer AI requests once the listener failed", () => {
+    useMcpBridgeListenerStore.setState({ status: "failed" });
+    render(<StatusBarRight {...baseProps} />);
+    expect(screen.getByText("MCP unavailable in this window")).toBeInTheDocument();
+  });
+
+  it.each(["registering", "listening"] as const)("stays silent while the listener is %s", (status) => {
+    useMcpBridgeListenerStore.setState({ status });
+    render(<StatusBarRight {...baseProps} />);
+    expect(screen.queryByText("MCP unavailable in this window")).toBeNull();
   });
 });

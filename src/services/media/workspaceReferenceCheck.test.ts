@@ -68,8 +68,14 @@ describe("withoutWorkspaceReferenced", () => {
   });
 
   it("keeps a filename too short to search (fail closed)", async () => {
-    expect(await withoutWorkspaceReferenced([img("ab")])).toEqual([]);
+    expect(await withoutWorkspaceReferenced([img("a")])).toEqual([]);
     expect(invoke).not.toHaveBeenCalled();
+  });
+
+  it("searches a two-character filename, the search command's minimum", async () => {
+    vi.mocked(invoke).mockResolvedValue(clean());
+    expect(await withoutWorkspaceReferenced([img("图1")])).toEqual([img("图1")]);
+    expect(invoke).toHaveBeenCalledOnce();
   });
 
   it("is a pass-through outside workspace mode", async () => {

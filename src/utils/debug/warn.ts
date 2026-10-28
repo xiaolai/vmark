@@ -201,3 +201,8 @@ export const formatsWarn = createWarnLogger("[Formats]");
  *  itself failed, and the symptom — an empty suggestion list — looks exactly
  *  the same either way. */
 export const fontsWarn = createWarnLogger("[Fonts]");
+
+/** Warn logger for the agent edit journal. A save the journal could not
+ *  record still succeeds on disk, so the log line is the only trace of the
+ *  history gap until the "history not recorded" status shows it. */
+export const journalWarn = createWarnLogger("[AgentJournal]");

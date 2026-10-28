@@ -10,9 +10,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { Editor } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
-import type { Transaction } from "@tiptap/pm/state";
+import { Plugin, type Transaction } from "@tiptap/pm/state";
 import { useEditorStore } from "@/stores/editorStore";
 import { registerWysiwygFlusher } from "@/utils/wysiwygFlush";
+import { markContentApplied } from "@/services/editor/contentApplied";
 import {
   flushLiveEditors,
   liveCompositionRefusal,
@@ -36,6 +37,8 @@ beforeEach(() => {
   transactions = [];
   flushes = [];
   editor = new Editor({ extensions: [StarterKit], content: "<p>old document</p>" });
+  // A mounted editor whose initial load has run.
+  markContentApplied(editor);
   editor.on("transaction", ({ transaction }) => {
     transactions.push(transaction);
   });
@@ -50,6 +53,36 @@ afterEach(() => {
 });
 
 describe("loadIntoLiveWysiwyg", () => {
+  it("throws when the flush after the load fails: the editor holds the new document and the store does not", () => {
+    goLive("tab-live");
+    registerWysiwygFlusher("tab-live", () => {
+      throw new Error("serializer crashed");
+    });
+
+    expect(() => loadIntoLiveWysiwyg("tab-live", "new document\n")).toThrow("serializer crashed");
+    expect(editor.getText()).toBe("new document");
+  });
+
+  it("throws when the live tab has no flusher to bring the store to the editor's text", () => {
+    goLive("tab-live");
+    registerWysiwygFlusher("tab-live", null);
+
+    expect(() => loadIntoLiveWysiwyg("tab-live", "new document\n")).toThrow(/no WYSIWYG flusher/);
+    expect(editor.getText()).toBe("new document");
+  });
+
+  it("flushes only the live tab's editor, not every mounted one", () => {
+    goLive("tab-live");
+    const other = vi.fn();
+    registerWysiwygFlusher("tab-other", other);
+    try {
+      loadIntoLiveWysiwyg("tab-live", "new document\n");
+      expect(other).not.toHaveBeenCalled();
+    } finally {
+      registerWysiwygFlusher("tab-other", null);
+    }
+  });
+
   it("loads the content as an undoable LOAD and then flushes the editor", () => {
     goLive("tab-live");
 
@@ -102,6 +135,29 @@ describe("loadIntoLiveWysiwyg", () => {
     // The editor still holds the OLD document; a flush now would write it
     // over the content the handler has just put in the store.
     expect(flushes).toEqual([]);
+  });
+});
+
+describe("loadIntoLiveWysiwyg when dispatch throws after the editor took the document", () => {
+  it("still flushes the document the editor now holds and reports it loaded", () => {
+    goLive("tab-live");
+    // A plugin view that fails while the view updates — after the new state is in place.
+    editor.registerPlugin(
+      new Plugin({
+        view: () => ({
+          update: () => {
+            throw new Error("plugin view update failed");
+          },
+        }),
+      }),
+    );
+
+    expect(loadIntoLiveWysiwyg("tab-live", "new document\n")).toBe(true);
+
+    expect(editor.getText()).toBe("new document");
+    // The store must take the editor's text, or the handler would commit and
+    // report text the editor does not hold.
+    expect(flushes).toEqual(["new document"]);
   });
 });
 

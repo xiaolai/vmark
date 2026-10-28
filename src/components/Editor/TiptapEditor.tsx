@@ -191,22 +191,21 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
       // Capture content at mount time — the closure value is stable for this editor instance.
       const contentSnapshot = content;
 
-      // Capture the in-flight load id (if any) so a stale completion from a
-      // previous tab cannot clear a newer load indicator.
-      const loadIdAtMount = useFileLoadStore.getState().active
-        ? useFileLoadStore.getState().loadId
-        : null;
+      // Clear the "Opening large file…" indicator once this editor is interactive — or
+      // gone. Scoped to the load id captured now, so a stale completion cannot wipe a newer one.
+      const loadIdAtMount = useFileLoadStore.getState().active ? useFileLoadStore.getState().loadId : null;
+      const endMountLoad = () => { if (loadIdAtMount !== null) useFileLoadStore.getState().endLoad(loadIdAtMount); };
 
       // Defer the heavy markdown→PM parse so the editor shell renders before the parse
       // blocks the main thread. For large documents this keeps the UI responsive.
       setTimeout(() => {
-        if (editor.isDestroyed) return;
+        if (editor.isDestroyed) return endMountLoad(); // @edge-case unmounted before the parse ran
         try {
           const doc = parseMarkdown(editor.schema, contentSnapshot, {
             preserveLineBreaks: preserveLineBreaksRef.current,
           });
           // Use helper to avoid polluting undo history with initial content load
-          setContentWithoutHistory(editor, doc, () => lastExternalContent.current === contentSnapshot);
+          setContentWithoutHistory(editor, doc, () => lastExternalContent.current === contentSnapshot, contentSnapshot, lastExternalContent.current);
           lastExternalContent.current = contentSnapshot;
           editorInitialized.current = true;
 
@@ -223,13 +222,7 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
           else if (contentRef.current !== contentSnapshot) syncMarkdownToEditor(editor, contentRef.current, lastExternalContent, preserveLineBreaksRef.current, activeTabId); // report the LATEST content
           else reportUnparseableDocument(activeTabId, error);
         } finally {
-          // Clear the "Opening large file…" StatusBar indicator once this
-          // editor has a doc and is interactive. Scope the clear to the
-          // loadId we captured at mount so a stale completion from a prior
-          // tab cannot wipe a newer indicator.
-          if (loadIdAtMount !== null) {
-            useFileLoadStore.getState().endLoad(loadIdAtMount);
-          }
+          endMountLoad();
         }
 
         const view = getTiptapEditorView(editor);

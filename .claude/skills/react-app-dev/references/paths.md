@@ -4,6 +4,7 @@
 - `src/components/`
 - `src/hooks/`
 - `src/stores/`
+- `src/services/` (domain services; ADR-013 three-tier layout)
 - `src/plugins/`
 - `src/pages/`
 - `src/utils/`

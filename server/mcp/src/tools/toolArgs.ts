@@ -126,3 +126,22 @@ export function readRequiredPath(value: unknown, field: string): ArgCheck<string
   }
   return { ok: true, value };
 }
+
+/** Zod for `addresses`: the comment ids a journaled write says it addresses. */
+export function addressesSchema() {
+  return z
+    .array(z.string().trim().min(1))
+    .optional()
+    .describe(
+      'Comment ids (from comments.list) this write addresses. VMark checks them before recording the write: each must be an open, addressed or reopened comment of this document, at most 64, no repeats — otherwise the write is refused INVALID_ADDRESSES and nothing changes. Recorded on the revision only: it moves no comment; call comments.mark_addressed for that.',
+    );
+}
+
+/** Optional `addresses`: absent, or an array of non-blank comment ids. */
+export function readOptionalAddresses(value: unknown): ArgCheck<string[] | undefined> {
+  if (value === undefined) return { ok: true, value: undefined };
+  if (!Array.isArray(value) || !value.every((v) => typeof v === 'string' && v.trim().length > 0)) {
+    return { ok: false, error: 'addresses must be an array of comment ids when provided' };
+  }
+  return { ok: true, value: value.map((v: string) => v.trim()) };
+}

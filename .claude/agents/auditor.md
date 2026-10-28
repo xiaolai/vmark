@@ -2,7 +2,6 @@
 name: auditor
 description: Audits logic, duplication, and dead-code risks; enforces rule compliance.
 tools: Read, Grep
-skills: tiptap-dev, tauri-app-dev
 ---
 
 You review diffs for:

@@ -95,3 +95,37 @@ pub async fn mcp_bridge_set_window_workspace<R: tauri::Runtime>(
     }
     Ok(())
 }
+
+/// The most tabs one window may publish; a longer list is refused, not stored.
+pub const MAX_WINDOW_TABS: usize = 10_000;
+/// The longest tab id accepted (ids are `tab-<uuid>`).
+const MAX_TAB_ID_BYTES: usize = 128;
+
+/// Publish the calling window's tab ids so a request naming a tab routes to
+/// the window that holds it (each webview holds only its own tabs). The window
+/// is the caller, never a label: one window could otherwise claim another's
+/// tabs and receive the requests meant for them. Replaces the window's list;
+/// an empty one clears it.
+#[tauri::command]
+pub async fn mcp_bridge_set_window_tabs<R: tauri::Runtime>(
+    window: tauri::Window<R>,
+    bridge: State<'_, McpBridgeState>,
+    tab_ids: Vec<String>,
+) -> Result<(), CommandError> {
+    if tab_ids.len() > MAX_WINDOW_TABS {
+        return Err(CommandError::invalid_input(format!(
+            "a window may publish at most {MAX_WINDOW_TABS} tabs, got {}",
+            tab_ids.len()
+        )));
+    }
+    if tab_ids
+        .iter()
+        .any(|id| id.is_empty() || id.len() > MAX_TAB_ID_BYTES)
+    {
+        return Err(CommandError::invalid_input(format!(
+            "a tab id must be 1 to {MAX_TAB_ID_BYTES} bytes"
+        )));
+    }
+    bridge.set_window_tabs(window.label(), tab_ids).await;
+    Ok(())
+}

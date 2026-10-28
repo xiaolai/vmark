@@ -66,6 +66,28 @@ describe("C4 — overlay shells", () => {
     const r = run({ "a.css": `.bar { position: fixed; z-index: 100; box-shadow: var(--popup-shadow); }` });
     expect(ids(r, "C4")).toEqual([]);
   });
+
+  it("flags a pointer-anchored menu using .context-menu without .vm-menu", () => {
+    const r = run({
+      "a.tsx": `export const C = () => <div role="menu" className="context-menu" style={{ left: 1, top: 2 }} />;`,
+    });
+    expect(ids(r, "C4")).toEqual(['a.tsx:<div role="menu">']);
+  });
+
+  it("accepts .vm-menu, a standalone menu class, and a stated ui-ok(overlay) reason", () => {
+    const ok = run({
+      "a.tsx": `export const C = () => (<>
+        <div role="menu" className="vm-menu context-menu" style={{ left: 1, top: 2 }} />
+        <div role="menu" className="universal-toolbar-dropdown" style={{ left: 1, top: 2 }} />
+        <div role="menu" className="context-menu" />
+      </>);`,
+    });
+    expect(ids(ok, "C4")).toEqual([]);
+    const marked = run({
+      "a.tsx": `export const C = () => (<div /* ui-ok(overlay): in-editor flyout */ role="menu" className="context-menu flyout" style={{ left: 1 }} />);`,
+    });
+    expect(ids(marked, "C4")).toEqual([]);
+  });
 });
 
 describe("C5 — font roles", () => {

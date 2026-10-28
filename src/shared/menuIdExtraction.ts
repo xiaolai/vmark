@@ -133,6 +133,8 @@ export const EXCLUDED_MENU_IDS: ReadonlySet<string> = new Set([
   "clear-recent",
   "clear-recent-workspaces",
   "clear-workspace-history",
+  // Routed through the CommandBus (menu:export-journal-git -> history.exportToGit).
+  "export-journal-git",
   "cleanup-images",
   // Export/print (export pipeline listeners)
   "copy-html",

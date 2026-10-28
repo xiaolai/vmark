@@ -1,10 +1,12 @@
 //! Workspace-aware window routing (F5; design-3.md D4.1). Pure
-//! decision: given the request's scoping path and a snapshot of every
-//! window's open workspace, pick the target window with fail-loud
-//! precedence — canonical workspace containment (deepest wins; a tie
-//! between two windows is an ambiguity error), then focused/main for
-//! workspace-less requests. Workspace scope overrides focus; a workspace
-//! request never silently lands on an unrelated window.
+//! decision: given the request's payload and a snapshot of every window's
+//! open workspace and tabs, pick the target window with fail-loud
+//! precedence — the window holding an explicit `tabId` (each window's
+//! webview holds only its own tabs, so any other window would answer
+//! INVALID_TAB or act on the wrong one), then canonical workspace containment
+//! (deepest wins; a tie between two windows is an ambiguity error), then
+//! focused/main. Workspace scope overrides focus; a workspace request never
+//! silently lands on an unrelated window.
 //!
 //! There is deliberately NO explicit-window pin here. One existed:
 //! `resolve_target_window` read `args.windowId` and this module honored it
@@ -26,6 +28,42 @@ pub struct WindowCandidate {
     pub focused: bool,
     /// `main` or `doc-*` — the document windows requests may target.
     pub is_document: bool,
+    /// The tab ids this window published (`mcp_bridge_set_window_tabs`).
+    pub tabs: Vec<String>,
+}
+
+/// The target for a request's payload: the document window holding its
+/// explicit `tabId`, else `pick_target_window` on its scoping path. Tab ids
+/// are UUIDs, so one window holds one once every window has republished; two
+/// claiming it (a tab moving between windows, seen before its old window
+/// republished) is refused rather than routed to the first listed. A tab no
+/// window holds (or an empty id) falls through, and the frontend guard
+/// answers it.
+pub fn pick_target_window_for(
+    args: &serde_json::Value,
+    candidates: &[WindowCandidate],
+) -> Result<String, String> {
+    let tab = args
+        .get("tabId")
+        .and_then(|v| v.as_str())
+        .filter(|t| !t.is_empty());
+    if let Some(tab) = tab {
+        let owners: Vec<&WindowCandidate> = candidates
+            .iter()
+            .filter(|c| c.is_document && c.tabs.iter().any(|t| t == tab))
+            .collect();
+        match owners.as_slice() {
+            [] => {}
+            [only] => return Ok(only.label.clone()),
+            _ => {
+                return Err(format!(
+                    "tab '{tab}' is claimed by {} windows — ambiguous while it moves between windows; retry",
+                    owners.len()
+                ))
+            }
+        }
+    }
+    pick_target_window(scoping_path(args).as_deref(), candidates)
 }
 
 /// The request's workspace-scoping path (`workspace_root`, else the

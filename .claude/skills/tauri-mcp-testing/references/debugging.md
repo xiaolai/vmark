@@ -10,27 +10,27 @@ When E2E tests fail or behave unexpectedly, use these debugging tools and techni
 
 ```typescript
 // Get last 50 console messages
-tauri_read_logs({ source: 'console', lines: 50 })
+read_logs({ source: 'console', lines: 50 })
 ```
 
 ### Filter by Pattern
 
 ```typescript
 // Find errors only
-tauri_read_logs({ source: 'console', filter: 'error', lines: 100 })
+read_logs({ source: 'console', filter: 'error', lines: 100 })
 
 // Find specific component logs
-tauri_read_logs({ source: 'console', filter: 'Editor', lines: 50 })
+read_logs({ source: 'console', filter: 'Editor', lines: 50 })
 
 // Find warnings
-tauri_read_logs({ source: 'console', filter: 'warn', lines: 50 })
+read_logs({ source: 'console', filter: 'warn', lines: 50 })
 ```
 
 ### Time-Based Filtering
 
 ```typescript
 // Logs since test started
-tauri_read_logs({
+read_logs({
   source: 'console',
   since: '2024-01-01T10:00:00Z',
   lines: 100
@@ -63,27 +63,27 @@ tauri_read_logs({
 
 ```typescript
 // macOS/Windows/Linux system logs
-tauri_read_logs({ source: 'system', lines: 100 })
+read_logs({ source: 'system', lines: 100 })
 
 // Filter Rust backend logs
-tauri_read_logs({ source: 'system', filter: 'tauri', lines: 50 })
+read_logs({ source: 'system', filter: 'tauri', lines: 50 })
 ```
 
 ### Android Logcat
 
 ```typescript
 // Android device/emulator logs
-tauri_read_logs({ source: 'android', lines: 100 })
+read_logs({ source: 'android', lines: 100 })
 
 // Filter by app
-tauri_read_logs({ source: 'android', filter: 'com.vmark', lines: 100 })
+read_logs({ source: 'android', filter: 'com.vmark', lines: 100 })
 ```
 
 ### iOS Simulator Logs
 
 ```typescript
 // iOS simulator logs
-tauri_read_logs({ source: 'ios', lines: 100 })
+read_logs({ source: 'ios', lines: 100 })
 ```
 
 ## Screenshots
@@ -92,26 +92,26 @@ tauri_read_logs({ source: 'ios', lines: 100 })
 
 ```typescript
 // When test fails, capture what's visible
-tauri_webview_screenshot()
+webview_screenshot()
 ```
 
 ### Save for Comparison
 
 ```typescript
 // Save with descriptive names
-tauri_webview_screenshot({ filePath: 'dev-docs/archive/test-screenshots/debug-before-click.png' })
+webview_screenshot({ filePath: 'dev-docs/archive/test-screenshots/debug-before-click.png' })
 
 // ... action fails ...
 
-tauri_webview_screenshot({ filePath: 'dev-docs/archive/test-screenshots/debug-after-failure.png' })
+webview_screenshot({ filePath: 'dev-docs/archive/test-screenshots/debug-after-failure.png' })
 ```
 
 ### Element Screenshots
 
 ```typescript
 // Screenshot specific element
-const elem = tauri_webview_find_element({ selector: '.problematic-element' })
-tauri_webview_screenshot({ uid: elem.elements[0].uid })
+const elem = webview_find_element({ selector: '.problematic-element' })
+webview_screenshot({ uid: elem.elements[0].uid })
 ```
 
 ## DOM Inspection
@@ -120,23 +120,20 @@ tauri_webview_screenshot({ uid: elem.elements[0].uid })
 
 ```typescript
 // Get full element info
-tauri_webview_find_element({ selector: '.my-element' })
+webview_find_element({ selector: '.my-element' })
 ```
 
 ### Check Element Visibility
 
 ```typescript
 // Get visibility-related styles
-tauri_webview_get_styles({
-  selector: '.hidden-element',
-  properties: ['display', 'visibility', 'opacity', 'z-index']
-})
+webview_execute_js({ script: `(() => { const s = getComputedStyle(document.querySelector('.hidden-element')); return Object.fromEntries(["display", "visibility", "opacity", "z-index"].map(p => [p, s.getPropertyValue(p)])); })()` })
 ```
 
 ### Check Element Position
 
 ```typescript
-tauri_webview_execute_js({
+webview_execute_js({
   script: `(() => {
     const el = document.querySelector('.my-element');
     const rect = el.getBoundingClientRect();
@@ -154,7 +151,7 @@ tauri_webview_execute_js({
 ### List All Elements
 
 ```typescript
-tauri_webview_execute_js({
+webview_execute_js({
   script: `(() => {
     const elements = document.querySelectorAll('.toolbar button');
     return Array.from(elements).map(el => ({
@@ -171,11 +168,11 @@ tauri_webview_execute_js({
 ### Monitor All Traffic
 
 ```typescript
-tauri_ipc_monitor({ action: 'start' })
+ipc_monitor({ action: 'start' })
 
 // ... perform suspicious action ...
 
-const traffic = tauri_ipc_get_captured()
+const traffic = ipc_get_captured()
 console.log('Commands:', traffic.commands)
 console.log('Events:', traffic.events)
 ```
@@ -183,7 +180,7 @@ console.log('Events:', traffic.events)
 ### Check Command Errors
 
 ```typescript
-const captured = tauri_ipc_get_captured()
+const captured = ipc_get_captured()
 const failed = captured.commands.filter(c => !c.response.success)
 console.log('Failed commands:', failed)
 ```
@@ -192,7 +189,7 @@ console.log('Failed commands:', failed)
 
 ```typescript
 // Test command directly without UI
-const result = tauri_ipc_execute_command({
+const result = ipc_execute_command({
   command: 'save_file',
   args: { path: '/tmp/test.md', content: 'test' }
 })
@@ -208,14 +205,14 @@ if (!result.success) {
 
 ```typescript
 // Get current window state
-tauri_manage_window({ action: 'info', windowId: 'main' })
+manage_window({ action: 'info', windowId: 'main' })
 ```
 
 ### List All Windows
 
 ```typescript
 // See all open windows
-tauri_manage_window({ action: 'list' })
+manage_window({ action: 'list' })
 ```
 
 ### Window Response
@@ -241,7 +238,7 @@ tauri_manage_window({ action: 'list' })
 ### Query App State
 
 ```typescript
-const state = tauri_ipc_get_backend_state()
+const state = ipc_get_backend_state()
 console.log('App version:', state.appVersion)
 console.log('Environment:', state.environment)
 ```
@@ -250,7 +247,7 @@ console.log('Environment:', state.environment)
 
 ```typescript
 // If app exposes debug command
-tauri_ipc_execute_command({
+ipc_execute_command({
   command: 'debug_get_state',
   args: {}
 })
@@ -268,16 +265,16 @@ Error: Element not found: .my-button
 **Debug Steps:**
 ```typescript
 // 1. Take screenshot to see current state
-tauri_webview_screenshot()
+webview_screenshot()
 
 // 2. Check if element exists with different selector
-tauri_webview_find_element({ selector: 'button' })
+webview_find_element({ selector: 'button' })
 
 // 3. Check if element is dynamically loaded
-tauri_webview_wait_for({ type: 'selector', value: '.my-button', timeout: 10000 })
+webview_wait_for({ type: 'selector', value: '.my-button', timeout: 10000 })
 
 // 4. Check console for render errors
-tauri_read_logs({ source: 'console', filter: 'error' })
+read_logs({ source: 'console', filter: 'error' })
 ```
 
 ### Click Not Working
@@ -287,13 +284,10 @@ tauri_read_logs({ source: 'console', filter: 'error' })
 **Debug Steps:**
 ```typescript
 // 1. Check if element is obscured
-tauri_webview_get_styles({
-  selector: '.my-button',
-  properties: ['z-index', 'position', 'pointer-events']
-})
+webview_execute_js({ script: `(() => { const s = getComputedStyle(document.querySelector('.my-button')); return Object.fromEntries(["z-index", "position", "pointer-events"].map(p => [p, s.getPropertyValue(p)])); })()` })
 
 // 2. Check for overlays
-tauri_webview_execute_js({
+webview_execute_js({
   script: `(() => {
     const el = document.querySelector('.my-button');
     const rect = el.getBoundingClientRect();
@@ -306,7 +300,7 @@ tauri_webview_execute_js({
 })
 
 // 3. Check if disabled
-tauri_webview_execute_js({
+webview_execute_js({
   script: '(() => document.querySelector(".my-button").disabled)()'
 })
 ```
@@ -318,19 +312,19 @@ tauri_webview_execute_js({
 **Debug Steps:**
 ```typescript
 // 1. Add explicit waits
-tauri_webview_wait_for({ type: 'selector', value: '.loaded', timeout: 10000 })
+webview_wait_for({ type: 'selector', value: '.loaded', timeout: 10000 })
 
 // 2. Check for async operations
-tauri_ipc_monitor({ action: 'start' })
+ipc_monitor({ action: 'start' })
 // ... action ...
-const captured = tauri_ipc_get_captured()
+const captured = ipc_get_captured()
 console.log('IPC timing:', captured.commands.map(c => ({
   command: c.command,
   duration: c.duration
 })))
 
 // 3. Wait for IPC to complete
-tauri_webview_wait_for({ type: 'ipc-event', value: 'operation-complete' })
+webview_wait_for({ type: 'ipc-event', value: 'operation-complete' })
 ```
 
 ### IPC Errors
@@ -340,15 +334,15 @@ tauri_webview_wait_for({ type: 'ipc-event', value: 'operation-complete' })
 **Debug Steps:**
 ```typescript
 // 1. Check error message
-const result = tauri_ipc_execute_command({ command: 'my_command', args: {} })
+const result = ipc_execute_command({ command: 'my_command', args: {} })
 console.log('Error:', result.error)
 
 // 2. Check if command is registered
-tauri_ipc_get_backend_state()
+ipc_get_backend_state()
 
 // 3. Check argument format
 // Remember: Rust snake_case -> JS camelCase
-tauri_ipc_execute_command({
+ipc_execute_command({
   command: 'save_document',
   args: {
     filePath: 'test.md',  // Not file_path
@@ -357,7 +351,7 @@ tauri_ipc_execute_command({
 })
 
 // 4. Check Rust logs
-tauri_read_logs({ source: 'system', filter: 'error' })
+read_logs({ source: 'system', filter: 'error' })
 ```
 
 ## Debug Checklist

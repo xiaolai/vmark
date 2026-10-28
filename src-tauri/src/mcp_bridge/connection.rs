@@ -8,7 +8,8 @@
 //!
 //! The pre-auth rules themselves live in `handshake.rs`.
 
-use super::frames::{auth_result_frame, send_frame, welcome_frame, WsSink};
+use super::connection_closed::announce_connection_closed;
+use super::frames::{announce_verdict, send_frame, welcome_frame, WsSink};
 use super::handshake::{
     await_auth, check_upgrade_request, AuthOutcome, ConnectionSlot, AUTH_DEADLINE,
     MAX_CONCURRENT_CONNECTIONS,
@@ -133,29 +134,8 @@ async fn handle_connection<R: tauri::Runtime>(
     .await
     .unwrap_or(AuthOutcome::Aborted);
 
-    let principal = match outcome {
-        AuthOutcome::Accepted(principal) => {
-            send_frame(&mut ws_sender, &auth_result_frame(true)).await;
-            log::debug!(
-                "[MCP Bridge] Client {client_id} authenticated as {}",
-                principal.label()
-            );
-            principal
-        }
-        AuthOutcome::Rejected => {
-            // `send` flushes, so the rejection is on the wire before the
-            // close — no sleep-and-hope needed now that the auth phase
-            // writes to the socket directly.
-            send_frame(&mut ws_sender, &auth_result_frame(false)).await;
-            let _ = ws_sender.close().await;
-            log::warn!("[MCP Bridge] Peer {client_id} rejected: auth failed");
-            return;
-        }
-        AuthOutcome::Aborted => {
-            let _ = ws_sender.close().await;
-            log::warn!("[MCP Bridge] Peer {client_id} auth timeout or transport error");
-            return;
-        }
+    let Some(principal) = announce_verdict(&mut ws_sender, outcome, client_id).await else {
+        return;
     };
 
     serve_authenticated(
@@ -192,6 +172,7 @@ async fn serve_authenticated<R: tauri::Runtime, S>(
         shutdown: Some(shutdown_tx),
         identity: None,
         principal,
+        connection_id: super::attribution::mint_connection_id(),
     };
     if !bridge(app)
         .try_register_client(client_id, connection, admitted_generation)
@@ -230,7 +211,7 @@ async fn serve_authenticated<R: tauri::Runtime, S>(
 /// survived holding a live `tx`, and the detached writer task stayed parked
 /// on `rx.recv()` for the rest of the process's life. Cleanup cannot be a
 /// `Drop` impl — removing the entry needs the async state lock.
-async fn unregister_after<R: tauri::Runtime, F: Future<Output = ()>>(
+pub(super) async fn unregister_after<R: tauri::Runtime, F: Future<Output = ()>>(
     client_id: u64,
     app: &AppHandle<R>,
     send_task: tauri::async_runtime::JoinHandle<()>,
@@ -245,28 +226,29 @@ async fn unregister_after<R: tauri::Runtime, F: Future<Output = ()>>(
 
     // Cleanup. F6 (D4.2): disconnect removes ONLY the client record
     // — never tabs, never a window's workspace (disconnect_preserves_* test).
-    let had_identity = {
+    let removed = {
         let mut guard = bridge(app).lock().await;
-        match guard.clients.remove(&client_id) {
-            Some(client) => {
-                let name = client
-                    .identity
-                    .as_ref()
-                    .map(|i| i.display_name())
-                    .unwrap_or_else(|| format!("Client {client_id}"));
-                log::debug!(
-                    "[MCP Bridge] {name} disconnected. Remaining clients: {}",
-                    guard.clients.len()
-                );
-                client.identity.is_some()
-            }
-            None => false,
-        }
+        guard.clients.remove(&client_id).map(|client| {
+            let name = client
+                .identity
+                .as_ref()
+                .map(|i| i.display_name())
+                .unwrap_or_else(|| format!("Client {client_id}"));
+            log::debug!(
+                "[MCP Bridge] {name} disconnected. Remaining clients: {}",
+                guard.clients.len()
+            );
+            (client.connection_id, client.identity.is_some())
+        })
     };
 
-    // Notify frontend when an identified client disconnects
-    if had_identity {
-        let _ = app.emit("mcp-bridge:clients-changed", ());
+    // A record a bridge stop already drained was announced there.
+    if let Some((connection_id, had_identity)) = removed {
+        announce_connection_closed(app, connection_id);
+        // Notify frontend when an identified client disconnects
+        if had_identity {
+            let _ = app.emit("mcp-bridge:clients-changed", ());
+        }
     }
 
     send_task.abort();

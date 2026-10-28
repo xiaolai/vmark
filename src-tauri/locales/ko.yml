@@ -41,6 +41,7 @@ menu:
   file.docHistory: "문서 기록"
   file.docHistory.clearWorkspace: "워크스페이스 기록 지우기..."
   file.docHistory.clearAll: "모든 기록 지우기..."
+  file.docHistory.exportToGit: "편집 기록을 Git으로 내보내기..."
   file.print: "인쇄..."
 
   # 파일 메뉴 — Windows/Linux 추가 항목
@@ -311,6 +312,9 @@ errors:
   save.parentMissing: "이 파일이 있던 폴더가 더 이상 존재하지 않습니다: %{dir}"
   save.noParentDirectory: "파일 경로에 상위 폴더가 없습니다"
   save.symlinkLoop: "이 파일의 별칭이 순환하고 있어 실제 파일을 찾을 수 없습니다"
+  save.targetExists: "%{path}에 이미 파일이 있어 대체하지 않았습니다"
+  save.superseded: "이 저장보다 나중에 한 저장이 이미 %{path}에 반영되어 이전 저장은 기록하지 않았습니다"
+  save.noReplaceUnsupported: "이 디스크는 기존 파일을 대체하지 않고는 저장할 수 없어 %{path}을(를) 저장하지 않았습니다"
   save.writeFailed: "파일을 저장하지 못했습니다: %{detail}"
   window.pdfExportMenu: "PDF 내보내기 창에 빈 메뉴 막대를 설정하지 못했습니다: %{detail}"
   window.pdfExportCreate: "PDF 내보내기 창을 열지 못했습니다: %{detail}"
@@ -353,7 +357,7 @@ errors:
   hotExit.captureTimeout: "캡처 시간 초과: 응답한 창이 없습니다"
 
   # === Content search ===
-  search.queryTooShort: "검색어는 3자 이상이어야 합니다"
+  search.queryTooShort: "검색어는 %{min}자 이상이어야 합니다"
 
   # === CLI install ===
   cli.noFile: "설치가 성공한 것처럼 보이지만 파일이 생성되지 않았습니다."

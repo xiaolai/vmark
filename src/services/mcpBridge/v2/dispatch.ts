@@ -1,7 +1,8 @@
 /**
  * Purpose: Route the pruned MCP surface — `vmark.session.*`,
  *   `vmark.workspace.*`, `vmark.document.*`, `vmark.workflow.*`,
- *   `vmark.selection.*` and the `vmark.browser.*` tools — to their handlers. Returns `true` iff the
+ *   `vmark.selection.*`, `vmark.comments.*` and the `vmark.browser.*` tools
+ *   — to their handlers. Returns `true` iff the
  *   request type matched. Also exports SUPPORTED_TOOL_PREFIXES as the
  *   single source of truth for the routed surface — anything that
  *   enumerates supported tools (diagnostic errors, capability docs)
@@ -19,16 +20,23 @@
  *   - Lookups are own-property only: the type string comes from an untrusted
  *     client, and a plain-object index on `"constructor"` would have returned
  *     `Object` and called it.
+ *   - Every eager handler is called `(id, args, context)`: the request's
+ *     immutable `McpWriteContext`, built once by the router. The document
+ *     mutators declare it as a REQUIRED parameter, so a mutator wired without
+ *     knowing who is writing is a compile error. Browser handlers change no
+ *     document and are called `(id, args)`.
  *   - `ROUTED_OPERATIONS` / `BROWSER_ROUTED_OPERATIONS` are exported for the
  *     completeness proofs (`dispatch.test.ts`, `operationManifestParity.test.ts`),
  *     which read the tables instead of scraping case labels.
  *
  * @coordinates-with services/mcpBridge/handleRequest.ts — top-level router; consumes SUPPORTED_TOOL_PREFIXES
  * @coordinates-with services/mcpBridge/v2/__tests__/operationManifest.ts — the manifest the tables must match
+ * @coordinates-with services/mcpBridge/writeContext.ts — McpWriteContext, threaded to the handlers
  * @module services/mcpBridge/v2/dispatch
  */
 
 import type { McpRequestEvent } from "@/services/mcpBridge/types";
+import type { McpWriteContext } from "@/services/mcpBridge/writeContext";
 import { handleSessionGetState } from "./session";
 import {
   handleDocumentRead,
@@ -71,10 +79,11 @@ export const SUPPORTED_TOOL_PREFIXES = [
   "vmark.document.*",
   "vmark.workflow.*",
   "vmark.selection.*",
+  "vmark.comments.*",
   "vmark.browser.*",
 ] as const;
 
-type Handler = (id: string, args: Record<string, unknown>) => Promise<void>;
+type Handler = (id: string, args: Record<string, unknown>, context: McpWriteContext) => Promise<void>;
 
 /** Every operation handled by an eagerly loaded module. */
 const EAGER_ROUTES = {
@@ -99,6 +108,12 @@ const EAGER_ROUTES = {
 
   "vmark.selection.get": handleSelectionGet,
   "vmark.selection.set": handleSelectionSet,
+
+  // Loaded on first use, like the browser cluster below: the agent comment
+  // client and its reply decoders stay out of the eagerly preloaded App chunk.
+  "vmark.comments.list": async (id, args) => (await import("./comments")).handleCommentsList(id, args),
+  "vmark.comments.reply": async (id, args) => (await import("./comments")).handleCommentsReply(id, args),
+  "vmark.comments.mark_addressed": async (id, args) => (await import("./comments")).handleCommentsMarkAddressed(id, args),
 } as const satisfies Record<string, Handler>;
 
 /**
@@ -148,11 +163,15 @@ function ownRoute<T extends object>(table: T, type: string): T[keyof T] | undefi
   return Object.hasOwn(table, type) ? table[type as keyof T] : undefined;
 }
 
-export async function dispatchV2(event: McpRequestEvent): Promise<boolean> {
+/**
+ * Route one request. `context` is the request's write context, passed
+ * unchanged to the eager handler; returns `true` iff the type is routed.
+ */
+export async function dispatchV2(event: McpRequestEvent, context: McpWriteContext): Promise<boolean> {
   const { id, type, args } = event;
-  const eager = ownRoute(EAGER_ROUTES, type);
+  const eager: Handler | undefined = ownRoute(EAGER_ROUTES, type);
   if (eager) {
-    await eager(id, args);
+    await eager(id, args, context);
     return true;
   }
   const lazy = ownRoute(BROWSER_ROUTES, type);

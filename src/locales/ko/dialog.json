@@ -58,6 +58,7 @@
   "openFilter.markdown": "Markdown",
   "chooseFolderForDocs": "새 문서 {{count}}개의 폴더 선택",
   "toast.mcpApprovalRequired": "AI가 새 위치에 저장하려는 요청을 차단했습니다: {{filename}}. 허용하려면 설정 → 통합에서 \"편집 자동 승인\"을 켜세요.",
+  "toast.mcpOverwriteRefused": "AI가 기존 파일을 덮어쓰려는 요청을 차단했습니다: {{filename}}. AI 요청은 기존 파일을 절대 대체하지 않습니다. 다른 이름을 요청하거나, 먼저 해당 파일의 이름을 바꾸거나 삭제하세요.",
   "toast.saveDialogFailed": "저장 대화 상자 실패: {{error}}",
   "toast.failedToMoveToNewWindow": "파일을 새 창으로 이동하지 못했습니다",
   "toast.failedToSaveDocuments": "문서를 저장하지 못했습니다",

@@ -430,99 +430,91 @@ flowchart TB
 
 플러그인은 이야기의 절반이에요. 나머지 절반은 플러그인과 함께 축적된 지식 인프라예요.
 
-### 13 개 규칙 (1,950 줄의 조직 지식)
+### 14 개 규칙 (조직 지식)
 
 ```mermaid
 flowchart LR
     subgraph Engineering["Engineering (00-10)"]
-        R00["00 Principles\n11 lines"]
-        R10["10 TDD\n196 lines"]
+        R00["00 Principles"]
+        R10["10 TDD"]
     end
-    subgraph Docs["Documentation (20-22)"]
-        R20["20 Logging\n4 lines"]
-        R21["21 Website Docs\n65 lines"]
-        R22["22 Comments\n36 lines"]
+    subgraph Docs["Documentation (21-22)"]
+        R21["21 Website Docs"]
+        R22["22 Comments"]
     end
-    subgraph UI["UI Consistency (30-34)"]
-        R30["30 UI Core\n25 lines"]
-        R31["31 Design Tokens\n261 lines"]
-        R32["32 Components\n436 lines"]
-        R33["33 Focus A11y\n164 lines"]
-        R34["34 Dark Theme\n196 lines"]
+    subgraph UI["UI Consistency (30-35)"]
+        R30["30 UI Core"]
+        R31["31 Design Tokens"]
+        R32["32 Components"]
+        R33["33 Focus A11y"]
+        R34["34 Dark Theme"]
+        R35["35 Copy"]
     end
     subgraph Ops["Operations (40-41)"]
-        R40["40 Version Bump\n79 lines"]
-        R41["41 Shortcuts\n122 lines"]
+        R40["40 Version Bump"]
+        R41["41 Shortcuts"]
     end
-    subgraph Patterns["Patterns (50)"]
-        R50["50 Conventions\n211 lines"]
+    subgraph Patterns["Patterns (50-60)"]
+        R50["50 Conventions"]
+        R60["60 AI Governance"]
     end
 ```
 
-VMark 의 `.claude/rules/` 디렉토리에는 13 개 규칙 파일이 있어요——모호한 가이드라인이 아닌 구체적이고 강제 가능한 규약이에요:
+VMark 의 `.claude/rules/` 디렉토리에는 14 개 규칙 파일이 있어요——모호한 가이드라인이 아닌 구체적이고 강제 가능한 규약이에요:
 
-| 규칙 파일 | 줄 수 | 코드화하는 것 |
-|-----------|-------|----------------|
-| `00-engineering-principles.md` | 11 | 핵심 규약 (Zustand 디스트럭처링 금지, 300 줄 제한) |
-| `10-tdd.md` | 196 | 5 개 테스트 패턴 템플릿, 안티패턴 카탈로그, 커버리지 게이트 |
-| `20-logging-and-docs.md` | 4 | 주제별 단일 진실 소스 |
-| `21-website-docs.md` | 65 | 코드-문서 매핑 테이블 (어떤 코드 변경이 어떤 문서 업데이트를 필요로 하는가) |
-| `22-comment-maintenance.md` | 36 | 주석 업데이트 시기/미시기, 부식 방지 |
-| `30-ui-consistency.md` | 25 | 핵심 UI 원칙, 하위 규칙 상호 참조 |
-| `31-design-tokens.md` | 261 | 완전한 CSS 토큰 레퍼런스——모든 색상, 간격, 반경, 그림자 |
-| `32-component-patterns.md` | 436 | 팝업, 툴바, 컨텍스트 메뉴, 테이블, 스크롤바 패턴 코드 포함 |
-| `33-focus-indicators.md` | 164 | 컴포넌트 유형별 6 개 포커스 패턴 (WCAG 준수) |
-| `34-dark-theme.md` | 196 | 테마 감지, 오버라이드 패턴, 마이그레이션 체크리스트 |
-| `40-version-bump.md` | 79 | 5 개 파일 버전 동기화 절차 및 검증 스크립트 |
-| `41-keyboard-shortcuts.md` | 122 | 3 파일 동기화 (Rust/Frontend/Docs), 충돌 검사, 규약 |
-| `50-codebase-conventions.md` | 211 | 개발 과정에서 발견된 10 개 미문서화 패턴 |
+| 규칙 파일 | 코드화하는 것 |
+|-----------|----------------|
+| `00-engineering-principles.md` | 핵심 규약 (Zustand 디스트럭처링 금지, 300 줄 제한) |
+| `10-tdd.md` | 테스트 패턴 템플릿, 안티패턴 카탈로그, 커버리지 게이트 |
+| `21-website-docs.md` | 코드-문서 매핑 테이블 (어떤 코드 변경이 어떤 문서 업데이트를 필요로 하는가) |
+| `22-comment-maintenance.md` | 파일 헤더 규약, 주석 업데이트 시기, 주석이 인용할 수 있는 것 |
+| `30-ui-consistency.md` | 핵심 UI 원칙, 하위 규칙 상호 참조 |
+| `31-design-tokens.md` | CSS 토큰 레퍼런스——모든 색상, 간격, 반경, 그림자 토큰과 그 목적 |
+| `32-component-patterns.md` | 팝업, 툴바, 컨텍스트 메뉴, 테이블, 스크롤바 패턴 코드 포함 |
+| `33-focus-indicators.md` | 컴포넌트 유형별 포커스 패턴 (WCAG 준수) |
+| `34-dark-theme.md` | 테마 감지, 오버라이드 패턴, 마이그레이션 체크리스트 |
+| `35-copy-conventions.md` | UI 문구: 표현, 문장 부호, 사용자에게 보이는 텍스트에 절대 나타나지 않는 것 |
+| `40-version-bump.md` | 5 개 파일 버전 동기화 절차 및 검증 스크립트 |
+| `41-keyboard-shortcuts.md` | 3 파일 동기화 (Rust/Frontend/Docs), 충돌 검사, 규약 |
+| `50-codebase-conventions.md` | 개발 과정에서 발견된 Store, Hook, 플러그인, MCP 브리지, Rust 명령 패턴 |
+| `60-ai-governance.md` | 계획, 작업 항목 ID, 모델 간 교차 리뷰, 보호 경로 |
 
-이 규칙들은 모든 세션 시작 시 Claude Code 에 의해 읽혀요. 2,180 번째 커밋이 100 번째와 동일한 규약을 따르는 이유예요.
+Claude Code 는 세션이 규칙이 다루는 파일을 건드릴 때 그 규칙을 불러오고, 경로 범위가 없는 규칙은 모든 세션에서 불러와요. 2,180 번째 커밋이 100 번째와 동일한 규약을 따르는 이유예요.
 
 규칙 `50-codebase-conventions.md` 는 특히 주목할 만해요——*아무도 설계하지 않은* 패턴을 문서화해요. 개발 과정에서 유기적으로 등장한 후 코드화되었어요: 스토어 명명 규약, 훅 정리 패턴, 플러그인 구조, MCP 브릿지 핸들러 시그니처, CSS 조직, 에러 처리 관용구.
 
-### 19 개 프로젝트 스킬 (도메인 전문성)
+### 10 개 프로젝트 스킬 (도메인 전문성)
 
 ```mermaid
 flowchart TB
     subgraph Platform["Platform Skills"]
         S1["rust-tauri-backend"]
-        S2["tauri-v2-integration"]
-        S3["tauri-app-dev"]
-        S4["tauri-mcp-testing"]
-        S5["tauri-mcp-test-runner"]
+        S2["tauri-mcp-testing"]
     end
     subgraph Editor["Editor Skills"]
-        S6["react-app-dev"]
-        S7["tiptap-dev"]
-        S8["tiptap-editor"]
+        S3["react-app-dev"]
+        S4["tiptap-dev"]
     end
     subgraph Quality["Quality Skills"]
-        S9["release-gate"]
-        S10["css-design-tdd"]
-        S11["shortcut-audit"]
-        S12["workflow-audit"]
-        S13["plan-audit"]
-        S14["plan-verify"]
+        S5["css-design-tdd"]
+        S6["workflow-audit"]
+        S7["plan-audit"]
     end
     subgraph Other["Other Skills"]
-        S15["translate-docs\n9 locales"]
-        S16["mcp-dev"]
-        S17["mcp-server-manager"]
-        S18["planning"]
-        S19["ai-coding-agents"]
+        S8["translate-docs\n9 locales"]
+        S9["mcp-dev"]
+        S10["planning"]
     end
 ```
 
 | 카테고리 | 스킬 | 가능하게 하는 것 |
 |----------|--------|-----------------|
-| **Tauri/Rust** | `rust-tauri-backend`, `tauri-v2-integration`, `tauri-app-dev`, `tauri-mcp-testing`, `tauri-mcp-test-runner` | Tauri v2 규약에 따른 플랫폼별 Rust 개발 |
-| **React/Editor** | `react-app-dev`, `tiptap-dev`, `tiptap-editor` | Tiptap/ProseMirror 에디터 패턴, Zustand 셀렉터 규칙 |
-| **품질** | `release-gate`, `css-design-tdd`, `shortcut-audit`, `workflow-audit`, `plan-audit`, `plan-verify` | 모든 수준에서 자동화된 품질 검증 |
+| **Tauri/Rust** | `rust-tauri-backend`, `tauri-mcp-testing` | Tauri v2 규약에 따른 Rust 백엔드 및 IPC 작업, 실행 중인 앱의 E2E 테스트 |
+| **React/Editor** | `react-app-dev`, `tiptap-dev` | Tiptap/ProseMirror 에디터 패턴, Zustand 셀렉터 규칙 |
+| **품질** | `css-design-tdd`, `workflow-audit`, `plan-audit` | 모든 수준에서 자동화된 품질 검증 |
 | **문서** | `translate-docs` | 서브에이전트 기반 감사를 통한 9 개 로케일 번역 |
-| **MCP** | `mcp-dev`, `mcp-server-manager` | MCP 서버 개발 및 구성 |
+| **MCP** | `mcp-dev` | MCP 도구 개발 및 서버 등록 |
 | **기획** | `planning` | 결정 문서화를 포함한 구현 계획 생성 |
-| **AI 도구** | `ai-coding-agents` | 다중 에이전트 오케스트레이션 (Codex CLI, Claude Code, Gemini CLI) |
 
 ### 7 개 슬래시 명령 (워크플로 자동화)
 
@@ -554,7 +546,7 @@ flowchart TB
 
 규칙 + 스킬 + 플러그인 + 명령이 복합 시스템을 형성해요. `/fix-issue` 를 실행하면, Rust 변경에는 `rust-tauri-backend` 스킬을 사용하고, 테스트 요구 사항에는 `10-tdd.md` 규칙을 따르고, 감사에는 `cc-suite` 을 호출하고, CSS 준수에는 `31-design-tokens.md` 를 확인하고, 단축키 동기화에는 `41-keyboard-shortcuts.md` 를 검증해요.
 
-어떤 단일 요소도 혁명적이지 않아요. 13 개 규칙 x 19 개 스킬 x 7 개 플러그인 x 7 개 명령이 서로를 강화하는 복합 효과——이것이 시스템을 작동하게 해요. 각 요소는 갭이 발견되었을 때 추가되고, 실제 개발에서 테스트되고, 사용을 통해 정제되었어요.
+어떤 단일 요소도 혁명적이지 않아요. 14 개 규칙 x 10 개 스킬 x 7 개 플러그인 x 7 개 명령이 서로를 강화하는 복합 효과——이것이 시스템을 작동하게 해요. 각 요소는 갭이 발견되었을 때 추가되고, 실제 개발에서 테스트되고, 사용을 통해 정제되었어요.
 
 ## 플러그인 빌더를 위한 조언
 

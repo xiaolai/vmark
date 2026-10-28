@@ -1,0 +1,124 @@
+{
+  "spec": "Journaled text is well-formed Unicode. A controlled input that is not is refused with INVALID_TEXT before anything changes (no prepare, no reservation, no content change). An observational capture of it leaves the buffer as it is and reports journaled: \"no\". Text is never replaced with U+FFFD; U+FFFD itself is ordinary text. textHash as in hunkIds.json.",
+  "cases": [
+    {
+      "name": "lone-high-surrogate",
+      "utf16": [
+        97,
+        55296,
+        98
+      ],
+      "wellFormed": false,
+      "utf8Hex": null,
+      "textHash": null,
+      "controlled": "INVALID_TEXT",
+      "observationalJournaled": "no"
+    },
+    {
+      "name": "lone-high-surrogate-at-end",
+      "utf16": [
+        97,
+        55357
+      ],
+      "wellFormed": false,
+      "utf8Hex": null,
+      "textHash": null,
+      "controlled": "INVALID_TEXT",
+      "observationalJournaled": "no"
+    },
+    {
+      "name": "lone-low-surrogate",
+      "utf16": [
+        97,
+        56320
+      ],
+      "wellFormed": false,
+      "utf8Hex": null,
+      "textHash": null,
+      "controlled": "INVALID_TEXT",
+      "observationalJournaled": "no"
+    },
+    {
+      "name": "lone-low-surrogate-at-start",
+      "utf16": [
+        56320,
+        97
+      ],
+      "wellFormed": false,
+      "utf8Hex": null,
+      "textHash": null,
+      "controlled": "INVALID_TEXT",
+      "observationalJournaled": "no"
+    },
+    {
+      "name": "reversed-pair",
+      "utf16": [
+        56320,
+        55296
+      ],
+      "wellFormed": false,
+      "utf8Hex": null,
+      "textHash": null,
+      "controlled": "INVALID_TEXT",
+      "observationalJournaled": "no"
+    },
+    {
+      "name": "u+fffd-itself",
+      "utf16": [
+        65533
+      ],
+      "wellFormed": true,
+      "utf8Hex": "efbfbd",
+      "textHash": "83d544ccc223c057d2bf80d3f2a32982c32c3c0db8e2674820da5064783fb097",
+      "controlled": "accepted",
+      "observationalJournaled": "yes"
+    },
+    {
+      "name": "valid-pair-emoji",
+      "utf16": [
+        55357,
+        56832
+      ],
+      "wellFormed": true,
+      "utf8Hex": "f09f9880",
+      "textHash": "f0443a342c5ef54783a111b51ba56c938e474c32324d90c3a60c9c8e3a37e2d9",
+      "controlled": "accepted",
+      "observationalJournaled": "yes"
+    },
+    {
+      "name": "valid-pair-skin-tone-modifier",
+      "utf16": [
+        55357,
+        56395,
+        55356,
+        57341
+      ],
+      "wellFormed": true,
+      "utf8Hex": "f09f918bf09f8fbd",
+      "textHash": "ee0eb19bd3f008964af1c446f2de13bfe7c7f61f1336cf860ca6f5e8446137b7",
+      "controlled": "accepted",
+      "observationalJournaled": "yes"
+    },
+    {
+      "name": "cjk",
+      "utf16": [
+        20320,
+        22909
+      ],
+      "wellFormed": true,
+      "utf8Hex": "e4bda0e5a5bd",
+      "textHash": "670d9743542cae3ea7ebe36af56bd53648b0a1126162e78d81a32934a711302e",
+      "controlled": "accepted",
+      "observationalJournaled": "yes"
+    },
+    {
+      "name": "empty",
+      "utf16": [],
+      "wellFormed": true,
+      "utf8Hex": "",
+      "textHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "controlled": "accepted",
+      "observationalJournaled": "yes"
+    }
+  ]
+}

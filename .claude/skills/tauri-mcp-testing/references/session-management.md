@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `tauri_driver_session` tool manages connections to running Tauri applications. A session must be active before using any other `tauri_webview_*` or `tauri_ipc_*` tools.
+The `driver_session` tool manages connections to running Tauri applications. A session must be active before using any other `webview_*` or `ipc_*` tools.
 
 ## Connection Architecture
 
@@ -24,21 +24,21 @@ server.
 
 ```typescript
 // Connect to VMark on its pinned automation port
-tauri_driver_session({ action: 'start', port: 9323 })
+driver_session({ action: 'start', port: 9323 })
 ```
 
 ### Custom Port
 
 ```typescript
 // Connect to app on different port
-tauri_driver_session({ action: 'start', port: 9324 })
+driver_session({ action: 'start', port: 9324 })
 ```
 
 ### Remote Connection (Mobile Testing)
 
 ```typescript
 // Connect to app running on another machine
-tauri_driver_session({
+driver_session({
   action: 'start',
   host: '<device-ip>',
   port: 9323
@@ -57,10 +57,10 @@ You can connect to multiple Tauri apps simultaneously:
 
 ```typescript
 // Connect to first app
-tauri_driver_session({ action: 'start', port: 9323 })
+driver_session({ action: 'start', port: 9323 })
 
 // Connect to second app
-tauri_driver_session({ action: 'start', port: 9324 })
+driver_session({ action: 'start', port: 9324 })
 ```
 
 ### Default App Behavior
@@ -71,16 +71,16 @@ tauri_driver_session({ action: 'start', port: 9324 })
 
 ```typescript
 // Target specific app by port
-tauri_webview_screenshot({ appIdentifier: 9323 })
+webview_screenshot({ appIdentifier: 9323 })
 
 // Target by bundle ID
-tauri_webview_screenshot({ appIdentifier: 'com.vmark.app' })
+webview_screenshot({ appIdentifier: 'app.vmark.dev' })
 ```
 
 ## Checking Session Status
 
 ```typescript
-tauri_driver_session({ action: 'status' })
+driver_session({ action: 'status' })
 ```
 
 ### Single App Response
@@ -88,7 +88,7 @@ tauri_driver_session({ action: 'status' })
 ```json
 {
   "connected": true,
-  "identifier": "com.vmark.app",
+  "identifier": "app.vmark.dev",
   "port": 9323
 }
 ```
@@ -99,7 +99,7 @@ tauri_driver_session({ action: 'status' })
 {
   "connected": true,
   "apps": [
-    { "identifier": "com.vmark.app", "port": 9323, "isDefault": false },
+    { "identifier": "app.vmark.dev", "port": 9323, "isDefault": false },
     { "identifier": "com.other.app", "port": 9324, "isDefault": true }
   ]
 }
@@ -110,17 +110,17 @@ tauri_driver_session({ action: 'status' })
 ### Stop All Sessions
 
 ```typescript
-tauri_driver_session({ action: 'stop' })
+driver_session({ action: 'stop' })
 ```
 
 ### Stop Specific App
 
 ```typescript
 // Stop by port
-tauri_driver_session({ action: 'stop', appIdentifier: 9323 })
+driver_session({ action: 'stop', appIdentifier: 9323 })
 
 // Stop by bundle ID
-tauri_driver_session({ action: 'stop', appIdentifier: 'com.vmark.app' })
+driver_session({ action: 'stop', appIdentifier: 'app.vmark.dev' })
 ```
 
 ## Connection Lifecycle
@@ -129,7 +129,7 @@ tauri_driver_session({ action: 'stop', appIdentifier: 'com.vmark.app' })
 1. START      → WebSocket connection established
 2. HANDSHAKE  → Protocol version negotiated
 3. READY      → Session active, tools available
-4. COMMANDS   → Execute tauri_webview_*, tauri_ipc_* tools
+4. COMMANDS   → Execute webview_*, ipc_* tools
 5. STOP       → Clean disconnect
 ```
 
@@ -152,7 +152,7 @@ Error: Connection refused on port 9323
 Error: MCP Bridge not responding
 ```
 
-**Solution:** Run `tauri_get_setup_instructions` and follow the installation guide.
+**Solution:** Run `get_setup_instructions` and follow the installation guide.
 
 ### Timeout
 
@@ -169,12 +169,12 @@ Error: Connection timeout after 5000ms
 
 1. **Always check status first** before running tests
    ```typescript
-   tauri_driver_session({ action: 'status' })
+   driver_session({ action: 'status' })
    ```
 
 2. **Clean up after tests** to free resources
    ```typescript
-   tauri_driver_session({ action: 'stop' })
+   driver_session({ action: 'stop' })
    ```
 
 3. **Use specific ports** when testing multiple apps to avoid confusion
@@ -182,9 +182,9 @@ Error: Connection timeout after 5000ms
 4. **Handle reconnection** if app restarts during testing
    ```typescript
    // Check and reconnect if needed
-   const status = tauri_driver_session({ action: 'status' })
+   const status = driver_session({ action: 'status' })
    if (!status.connected) {
-     tauri_driver_session({ action: 'start', port: 9323 })
+     driver_session({ action: 'start', port: 9323 })
    }
    ```
 
@@ -194,9 +194,9 @@ By default, tools target the `"main"` window. Use `windowId` to target others:
 
 ```typescript
 // List available windows
-tauri_manage_window({ action: 'list' })
+manage_window({ action: 'list' })
 
 // Target specific window
-tauri_webview_screenshot({ windowId: 'settings' })
-tauri_webview_interact({ action: 'click', selector: '.btn', windowId: 'modal' })
+webview_screenshot({ windowId: 'settings' })
+webview_interact({ action: 'click', selector: '.btn', windowId: 'modal' })
 ```

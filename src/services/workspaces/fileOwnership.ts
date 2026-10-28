@@ -34,6 +34,12 @@ export interface FileOwnershipOptions {
 
 export interface WritableFileOwnershipOptions extends FileOwnershipOptions {
   force?: boolean;
+  /**
+   * The writer is not the document `tabId` holds now (a save queued before
+   * its tab closed and was reopened under the same id): that tab's unsaved
+   * changes are a conflict like any other's.
+   */
+  foreignTab?: boolean;
 }
 
 export interface FileOwnershipClaim {
@@ -121,7 +127,7 @@ export function resolveWritableFileOwnership(
 
   const conflicts = collectFileOwnershipClaims(filePath, {
     ...options,
-    currentTabId: tabId,
+    currentTabId: options.foreignTab ? null : tabId,
   }).filter((claim) => claim.isDirty && !claim.readOnly);
 
   if (conflicts.length === 0) {

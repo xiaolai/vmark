@@ -1,6 +1,6 @@
 [package]
 name = "vmark"
-version = "0.9.103"
+version = "0.9.105"
 description = "The plain-text workspace where humans and AI collaborate"
 authors = ["Xiaolai"]
 license = "ISC"
@@ -86,7 +86,7 @@ thiserror = "2"
 serde_json = { version = "1", features = ["preserve_order"] }
 # v7 feature added for the coherence layer (time-ordered ledger/object IDs,
 # spec §2) — same pinned crate, no new package (ADR-C5).
-uuid = { version = "1", features = ["v4", "v7"] }
+uuid = { version = "1", features = ["v4", "v7", "serde"] }
 regex = "1"
 # Recoverable deletion for orphan-image cleanup (WI-12). Cleanup DELETES user
 # files on inference; the trash gives every wrong call an undo. `trash` is the
@@ -133,6 +133,12 @@ tauri-plugin-window-state = "2"
 tauri-plugin-store = "2"
 tempfile = "3"
 sha2 = "0.10"
+# The agent edit journal hashes every frame and blob it writes, on the capture
+# path, where the storage spike measured 0.11 (hardware SHA-256) well ahead of
+# 0.10.
+# Already in the lock through lopdf, so this adds no package; the rest of the
+# crate stays on 0.10 until its own callers are moved in one change.
+sha2_v011 = { package = "sha2", version = "0.11" }
 base64 = "0.23"
 gethostname = "1.1"
 rust-i18n = "4"
@@ -147,6 +153,11 @@ keyring = { version = "3", default-features = false }
 # canonicalization per spec §3.1 needs the real Unicode tables.
 rusqlite = { version = "0.40", features = ["bundled"] }
 unicode-normalization = "0.1"
+# Unicode default case folding for the save path's per-file write-lock key
+# (files/write/lock_key.rs), which folds broadly; the agent journal's
+# document keys never fold. Same ICU4X 2.2 family already in the
+# tree (icu_normalizer, icu_properties), so it adds no second data copy.
+icu_casemap = "~2.2"
 lopdf = { version = "0.45.0", default-features = false }
 # YAML in safe Rust (src/yaml.rs); replaced serde_yaml_ng, whose
 # unsafe-libyaml is unmaintained (RUSTSEC-2024-0449). Parse-only, so the
@@ -229,10 +240,13 @@ keyring = { version = "3", features = ["windows-native"] }
 webview2-com = "=0.39.1"
 windows-core = "=0.62.2"
 # #1527: Globalization, Threading and WindowsAndMessaging back the
-# single-instance holder probe (`single_instance_holder.rs`).
+# single-instance holder probe (`single_instance_holder.rs`). Storage_FileSystem
+# reads a document's file index for the agent journal's identity
+# (`agent_journal/doc_key.rs`).
 windows = { version = "=0.62.2", features = [
     "Win32_Foundation",
     "Win32_Globalization",
+    "Win32_Storage_FileSystem",
     "Win32_System_Threading",
     "Win32_UI_WindowsAndMessaging",
 ] }

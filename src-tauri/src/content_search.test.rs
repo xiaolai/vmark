@@ -251,7 +251,7 @@ fn test_match_ranges() {
 fn test_empty_query_rejected() {
     let result = build_regex("", false, false, false);
     // Empty regex is technically valid (matches everything), but the command
-    // rejects queries < 2 chars. Test the build_regex directly.
+    // rejects it (`check_query_length`). Test the build_regex directly.
     assert!(result.is_ok()); // regex itself is valid
 }
 
@@ -386,9 +386,27 @@ fn test_large_file_skipped() {
     assert!(results[0].relative_path.contains("small"));
 }
 
+/// #1598: two characters, counted as characters, not UTF-8 bytes — a
+/// two-character CJK word searches, and one CJK character (three bytes) does not.
+#[test]
+fn the_minimum_query_is_two_characters() {
+    assert_eq!(MIN_QUERY_CHARS, 2);
+    for ok in ["选址", "ab", " 招聘 ", "😀😀"] {
+        assert!(check_query_length(ok).is_ok(), "{ok:?}");
+    }
+    for short in ["", "   ", "a", "选", " 钱 ", "😀"] {
+        assert!(check_query_length(short).is_err(), "{short:?}");
+    }
+    let message = check_query_length("a").unwrap_err();
+    assert!(
+        message.contains('2') && !message.contains("%{"),
+        "{message}"
+    );
+}
+
 #[test]
 fn test_min_query_length_enforced() {
-    // The async command rejects < 3 chars, test the sync function still works
+    // The async commands reject short queries; the sync function still works
     let dir = TempDir::new().unwrap();
     fs::write(dir.path().join("ab.md"), "ab\n").unwrap();
 

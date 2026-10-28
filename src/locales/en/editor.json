@@ -160,6 +160,7 @@
   "findbar.find.placeholder": "Find…",
   "findbar.find.label": "Search text in document",
   "contentSearch.label": "Search across workspace files",
+  "contentSearch.minChars": "Type at least {{count}} characters",
   "findbar.prev": "Previous (Shift+Enter)",
   "findbar.next": "Next (Enter)",
   "findbar.replace.placeholder": "Replace…",

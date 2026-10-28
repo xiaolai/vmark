@@ -202,5 +202,6 @@
   "edit.cut": "Cut",
   "edit.copy": "Copy",
   "edit.paste": "Paste",
-  "edit.selectAll": "Select All"
+  "edit.selectAll": "Select All",
+  "history.exportToGit": "Export Edit History to Git…"
 }

@@ -1,0 +1,137 @@
+/* ┌─────────────────────────────────────────────────────────────┐ */
+/* │ Comments panel — the document's comment threads, inside the │ */
+/* │ MCP history popover. Section chrome and notes reuse         │ */
+/* │ mcp-history.css; buttons are the shared .vm-btn and inputs  │ */
+/* │ the shared .vm-input, which carry their own focus.          │ */
+/* └─────────────────────────────────────────────────────────────┘ */
+
+.comments-panel__add {
+  padding: var(--space-1) var(--space-2);
+}
+
+.comments-panel__list {
+  list-style: none;
+  margin: 0;
+  padding: 0 var(--space-1);
+}
+
+.comments-panel__input {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  font-size: var(--font-size-sm);
+}
+
+.comments-panel__deleted {
+  margin: 0 var(--space-2) var(--space-1);
+  font-size: var(--font-size-xs);
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+.comments-thread {
+  padding: var(--space-1-5) var(--space-1);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-snug);
+  color: var(--text-color);
+}
+
+.comments-thread + .comments-thread,
+.comments-panel__list > li + li {
+  border-top: var(--border-thin) solid var(--border-color);
+}
+
+.comments-thread__header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.comments-thread__state {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-caps);
+}
+
+.comments-thread[data-state="resolved"] .comments-thread__state {
+  color: var(--success-color);
+}
+
+/* Addressed (the agent says it is done) and reopened wait on the person. */
+.comments-thread[data-state="addressed"] .comments-thread__state,
+.comments-thread[data-state="reopened"] .comments-thread__state {
+  color: var(--warning-color);
+}
+
+.comments-thread__who {
+  display: inline-flex;
+  gap: var(--space-1);
+}
+
+.comments-thread__author {
+  color: var(--text-secondary);
+}
+
+.comments-thread__quote {
+  margin: var(--space-1) 0;
+  padding-left: var(--space-2);
+  border-left: var(--border-medium) solid var(--border-color);
+  color: var(--quote-text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  /* Three lines, the cut shown by an ellipsis; the full quote is the title. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}
+
+.comments-thread__note {
+  margin: 0;
+  padding: 0;
+}
+
+/* An anchor that is lost or unclear: the status notice's warning line. */
+.comments-thread__note--attention {
+  margin: var(--space-1) 0;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--warning-bg);
+  box-shadow: inset var(--border-medium) 0 0 var(--warning-color);
+  color: var(--text-color);
+}
+
+.comments-thread__body {
+  margin: var(--space-1) 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.comments-thread__replies {
+  list-style: none;
+  margin: 0;
+  padding-left: var(--space-3);
+}
+
+.comments-thread__reply {
+  font-size: var(--font-size-xs);
+}
+
+.comments-thread__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+
+.comments-thread__compose {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}

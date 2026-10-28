@@ -37,6 +37,7 @@ describe('unknown-field posture — per class, explicitly', () => {
       selection: 'reject',
       browser: 'reject',
       coherence: 'reject',
+      comments: 'reject',
     });
   });
 

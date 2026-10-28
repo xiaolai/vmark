@@ -202,5 +202,6 @@
   "edit.cut": "剪切",
   "edit.copy": "复制",
   "edit.paste": "粘贴",
-  "edit.selectAll": "全选"
+  "edit.selectAll": "全选",
+  "history.exportToGit": "将编辑历史导出到 Git…"
 }

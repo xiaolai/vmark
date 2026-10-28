@@ -109,6 +109,7 @@ async fn register_test_client_as(
             shutdown: None,
             identity: None,
             principal,
+            connection_id: uuid::Uuid::new_v4(),
         },
     );
     rx
@@ -492,6 +493,7 @@ async fn stop_bridge_signals_the_loop_drains_every_client_and_answers_every_pend
             shutdown: Some(client_shutdown_tx),
             identity: None,
             principal: BridgePrincipal::Anonymous,
+            connection_id: uuid::Uuid::new_v4(),
         },
     );
 
@@ -538,4 +540,31 @@ async fn stop_bridge_on_an_idle_bridge_is_harmless() {
     stop_bridge(app.handle()).await;
     stop_bridge(app.handle()).await;
     assert!(bridge(app.handle()).lock().await.clients.is_empty());
+}
+
+/// A stop that could not wait out the writes already emitted — a window that
+/// never answered within the bound, or the app exit — cannot tell a write
+/// that applied from one that did not, so its answer says the outcome is
+/// unknown instead of inviting a retry.
+#[cfg(not(target_os = "windows"))]
+#[tokio::test(start_paused = true)]
+async fn a_stop_that_could_not_wait_for_writes_answers_their_outcome_unknown() {
+    use crate::mcp_bridge::{stop_bridge_with, InFlightWrites};
+    for writes in [InFlightWrites::Await, InFlightWrites::Abandon] {
+        let app = mock_app();
+        let bridge = bridge(app.handle());
+        let hung = bridge.write_lock().await;
+        let (response_tx, response_rx) = oneshot::channel::<McpResponse>();
+        try_register_pending(&mut *bridge.lock().await, "bridge-8".into(), response_tx)
+            .expect("register");
+
+        stop_bridge_with(app.handle(), writes).await;
+
+        let answer = response_rx.await.expect("answered, not dropped");
+        assert!(!answer.success);
+        let error = answer.error.expect("an error");
+        assert!(error.starts_with("Bridge stopped"), "{writes:?}: {error}");
+        assert!(error.contains("outcome is unknown"), "{writes:?}: {error}");
+        drop(hung);
+    }
 }

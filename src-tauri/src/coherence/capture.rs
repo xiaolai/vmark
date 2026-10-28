@@ -135,10 +135,23 @@ pub(super) fn capture_locked(
     let masked = mask_and_hash_canonical(&content);
     let content_hash = masked.hash.clone();
     let parents = kernel.index().heads(&identity.id)?;
+    // Resolved BEFORE the no-op test, so the test sees the inputs that are
+    // recorded: an input that was only the capture itself (an alias of the
+    // write target) or a repeat leaves none behind. With no request inputs
+    // this resolves nothing and has no side effect.
+    let resolved = resolve_inputs(
+        kernel,
+        &req.inputs,
+        policy.may_stamp(),
+        req.confidence,
+        identity.id,
+    )?;
     // No-op: identical content at a single current head AND no inputs —
     // autosave replays. A capture WITH inputs is a distinct provenance
-    // event even when the content converges: its edges matter.
-    if let ([only], true) = (parents.as_slice(), req.inputs.is_empty()) {
+    // event even when the content converges: its edges matter. So is one
+    // whose input could only have been stamped: its input set is incomplete.
+    let no_edges = resolved.inputs.is_empty() && !resolved.declined;
+    if let ([only], true) = (parents.as_slice(), no_edges) {
         if kernel.index().content_hash_of(&identity.id, only)? == Some(content_hash.clone()) {
             // A real disk write of the head content ends any live-buffer lag,
             // no-op or not: left in place, a later external revert to the
@@ -155,13 +168,10 @@ pub(super) fn capture_locked(
         }
     }
 
-    let (inputs, confidence) =
-        resolve_inputs(kernel, &req.inputs, policy.may_stamp(), req.confidence)?;
-
     let revision = RevisionId::compute(&content_hash, &parents);
     kernel.snapshots().put_masked(&masked)?;
     let t = Transformation {
-        inputs,
+        inputs: resolved.inputs,
         outputs: vec![OutputRef {
             object: identity.id,
             revision: revision.clone(),
@@ -170,7 +180,7 @@ pub(super) fn capture_locked(
         }],
         agent: req.agent,
         intent: req.intent,
-        confidence,
+        confidence: resolved.confidence,
     };
     let mut env = Envelope::create(
         "transformation",

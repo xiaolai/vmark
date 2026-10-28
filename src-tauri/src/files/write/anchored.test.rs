@@ -26,6 +26,8 @@ fn stage_name(stage: &Stage) -> &'static str {
         Stage::WriteTemp(_) => "write-temp",
         Stage::SyncTemp(_) => "sync-temp",
         Stage::Persist(_) => "persist",
+        Stage::TargetExists => "target-exists",
+        Stage::NoReplaceUnsupported => "no-replace-unsupported",
     }
 }
 

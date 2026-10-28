@@ -219,11 +219,6 @@
       "target": "src/stores/aiStore"
     },
     {
-      "file": "src/components/McpHistory/__tests__/McpHistoryButton.test.tsx",
-      "api": "vi.mock",
-      "target": "src/stores/mcpCheckpointPersistence"
-    },
-    {
       "file": "src/components/QuickOpen/QuickOpen.test.tsx",
       "api": "vi.mock",
       "target": "src/stores/geniePickerStore"
@@ -612,11 +607,6 @@
       "file": "src/hooks/useKeybindingRouter.test.ts",
       "api": "vi.mock",
       "target": "src/stores/uiStore"
-    },
-    {
-      "file": "src/hooks/useMcpBridge.test.ts",
-      "api": "vi.mock",
-      "target": "src/stores/mcpCheckpointPersistence"
     },
     {
       "file": "src/hooks/usePromptHistory.comprehensive.test.ts",
@@ -1017,21 +1007,6 @@
       "file": "src/services/mcpBridge/v2/__tests__/document.test.ts",
       "api": "vi.mock",
       "target": "src/stores/editorStore"
-    },
-    {
-      "file": "src/services/mcpBridge/v2/__tests__/document.test.ts",
-      "api": "vi.mock",
-      "target": "src/stores/mcpCheckpointPersistence"
-    },
-    {
-      "file": "src/services/mcpBridge/v2/__tests__/selection.test.ts",
-      "api": "vi.mock",
-      "target": "src/stores/mcpCheckpointPersistence"
-    },
-    {
-      "file": "src/services/mcpBridge/v2/__tests__/workflow.test.ts",
-      "api": "vi.mock",
-      "target": "src/stores/mcpCheckpointPersistence"
     },
     {
       "file": "src/services/media/imageResize.test.ts",

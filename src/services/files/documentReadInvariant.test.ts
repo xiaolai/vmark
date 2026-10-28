@@ -42,7 +42,6 @@ const TEXT_DECODING = new Set(["*", "readTextFile", "readTextFileLines"]);
  * is parsed for metadata and never opened, compared with disk, or written back.
  */
 const NON_DOCUMENT_READERS: Record<string, string> = {
-  "stores/mcpCheckpointPersistence.ts": "MCP checkpoint JSON that VMark writes under app data",
   "services/history/historyStorage.ts": "history index JSON and snapshots that VMark writes",
   "services/history/historyRecovery.ts": "history index JSON that VMark writes",
   "services/persistence/crashRecovery.ts": "crash-recovery snapshot JSON that VMark writes",

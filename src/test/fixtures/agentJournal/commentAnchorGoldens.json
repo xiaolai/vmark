@@ -1,0 +1,2791 @@
+{
+  "contextUnits": 32,
+  "maxQuoteUtf8Bytes": 4096,
+  "fixtures": [
+    {
+      "id": "plain-mid-paragraph",
+      "category": "plain",
+      "markdown": "Alpha beta gamma delta.\n",
+      "selection": {
+        "start": 6,
+        "end": 16,
+        "precision": "exact"
+      },
+      "expect": {
+        "outcome": "exact",
+        "start": 6,
+        "end": 16,
+        "quote": "beta gamma",
+        "prefix": "Alpha ",
+        "suffix": " delta.\n",
+        "headingPath": [],
+        "quoteUtf8Bytes": 10,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "marks-across-nested",
+      "category": "marks",
+      "markdown": "plain **bold *nested* bold** and `code` tail\n",
+      "selection": {
+        "start": 2,
+        "end": 37,
+        "precision": "exact"
+      },
+      "expect": {
+        "outcome": "exact",
+        "start": 2,
+        "end": 37,
+        "quote": "ain **bold *nested* bold** and `cod",
+        "prefix": "pl",
+        "suffix": "e` tail\n",
+        "headingPath": [],
+        "quoteUtf8Bytes": 35,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "marks-partial-into-bold",
+      "category": "marks",
+      "markdown": "lead **bold text** after\n",
+      "selection": {
+        "start": 8,
+        "end": 24,
+        "precision": "exact"
+      },
+      "expect": {
+        "outcome": "exact",
+        "start": 8,
+        "end": 24,
+        "quote": "old text** after",
+        "prefix": "lead **b",
+        "suffix": "\n",
+        "headingPath": [],
+        "quoteUtf8Bytes": 16,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "marks-whole-bold-run",
+      "category": "marks",
+      "markdown": "lead **bold text** after\n",
+      "selection": {
+        "start": 5,
+        "end": 18,
+        "precision": "exact"
+      },
+      "expect": {
+        "outcome": "exact",
+        "start": 5,
+        "end": 18,
+        "quote": "**bold text**",
+        "prefix": "lead ",
+        "suffix": " after\n",
+        "headingPath": [],
+        "quoteUtf8Bytes": 13,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "marks-link-partial",
+      "category": "marks",
+      "markdown": "see [the docs page](https://example.com/x) now\n",
+      "selection": {
+        "start": 9,
+        "end": 46,
+        "precision": "exact"
+      },
+      "expect": {
+        "outcome": "exact",
+        "start": 9,
+        "end": 46,
+        "quote": "docs page](https://example.com/x) now",
+        "prefix": "see [the ",
+        "suffix": "\n",
+        "headingPath": [],
+        "quoteUtf8Bytes": 37,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "marks-strike-sub",
+      "category": "marks",
+      "markdown": "a ~~struck~~ b H~2~O c\n",
+      "selection": {
+        "start": 6,
+        "end": 22,
+        "precision": "exact"
+      },
+      "expect": {
+        "outcome": "exact",
+        "start": 6,
+        "end": 22,
+        "quote": "ruck~~ b H~2~O c",
+        "prefix": "a ~~st",
+        "suffix": "\n",
+        "headingPath": [],
+        "quoteUtf8Bytes": 16,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "normalize-underscore-emphasis",
+      "category": "normalize",
+      "markdown": "Some *em text* and **strong text** here.\n",
+      "selection": {
+        "start": 5,
+        "end": 27,
+        "precision": "exact"
+      },
+      "expect": {
+        "outcome": "exact",
+        "start": 5,
+        "end": 27,
+        "quote": "*em text* and **strong",
+        "prefix": "Some ",
+        "suffix": " text** here.\n",
+        "headingPath": [],
+        "quoteUtf8Bytes": 22,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "normalize-plus-bullets",
+      "category": "normalize",
+      "markdown": "- first\n- second\n- third\n",
+      "selection": {
+        "start": 3,
+        "end": 22,
+        "precision": "exact"
+      },
+      "expect": {
+        "outcome": "exact",
+        "start": 3,
+        "end": 22,
+        "quote": "irst\n- second\n- thi",
+        "prefix": "- f",
+        "suffix": "rd\n",
+        "headingPath": [],
+        "quoteUtf8Bytes": 19,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "nested-list-3-levels",
+      "category": "lists",
+      "markdown": "- top a\n  - mid b\n    - deep c\n    - deep d\n  - mid e\n- top f\n",
+      "selection": {
+        "start": 12,
+        "end": 43,
+        "precision": "exact"
+      },
+      "expect": {
+        "outcome": "exact",
+        "start": 12,
+        "end": 43,
+        "quote": "mid b\n    - deep c\n    - deep d",
+        "prefix": "- top a\n  - ",
+        "suffix": "\n  - mid e\n- top f\n",
+        "headingPath": [],
+        "quoteUtf8Bytes": 31,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "nested-list-cross-out",
+      "category": "lists",
+      "markdown": "- top a\n  - mid b\n    - deep c\n- top f\n",
+      "selection": {
+        "start": 25,
+        "end": 38,
+        "precision": "exact"
+      },
+      "expect": {
+        "outcome": "exact",
+        "start": 25,
+        "end": 38,
+        "quote": "eep c\n- top f",
+        "prefix": "- top a\n  - mid b\n    - d",
+        "suffix": "\n",
+        "headingPath": [],
+        "quoteUtf8Bytes": 13,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "ordered-in-bullet",
+      "category": "lists",
+      "markdown": "- outer\n  1. one\n  2. two\n- after\n",
+      "selection": {
+        "start": 13,
+        "end": 25,
+        "precision": "exact"
+      },
+      "expect": {
+        "outcome": "exact",
+        "start": 13,
+        "end": 25,
+        "quote": "one\n  2. two",
+        "prefix": "- outer\n  1. ",
+        "suffix": "\n- after\n",
+        "headingPath": [],
+        "quoteUtf8Bytes": 12,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "task-list",
+      "category": "lists",
+      "markdown": "- [ ] todo item\n- [x] done item\n",
+      "selection": {
+        "start": 11,
+        "end": 26,
+        "precision": "exact"
+      },
+      "expect": {
+        "outcome": "exact",
+        "start": 11,
+        "end": 26,
+        "quote": "item\n- [x] done",
+        "prefix": "- [ ] todo ",
+        "suffix": " item\n",
+        "headingPath": [],
+        "quoteUtf8Bytes": 15,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "escape-mid",
+      "category": "escapes",
+      "markdown": "a*b_c [x] d\n",
+      "selection": {
+        "start": 2,
+        "end": 11,
+        "precision": "exact"
+      },
+      "expect": {
+        "outcome": "exact",
+        "start": 2,
+        "end": 11,
+        "quote": "b_c [x] d",
+        "prefix": "a*",
+        "suffix": "\n",
+        "headingPath": [],
+        "quoteUtf8Bytes": 9,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "escape-ordered-marker-at-start",
+      "category": "escapes",
+      "markdown": "1\\. not a list item\n",
+      "selection": {
+        "start": 3,
+        "end": 14,
+        "precision": "approximate"
+      },
+      "expect": {
+        "outcome": "widened",
+        "start": 0,
+        "end": 19,
+        "quote": "1\\. not a list item",
+        "prefix": "",
+        "suffix": "\n",
+        "headingPath": [],
+        "quoteUtf8Bytes": 19,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "escape-heading-marker-at-start",
+      "category": "escapes",
+      "markdown": "\\# not a heading\n",
+      "selection": {
+        "start": 1,
+        "end": 16,
+        "precision": "approximate"
+      },
+      "expect": {
+        "outcome": "widened",
+        "start": 0,
+        "end": 16,
+        "quote": "\\# not a heading",
+        "prefix": "",
+        "suffix": "\n",
+        "headingPath": [],
+        "quoteUtf8Bytes": 16,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "escape-bullet-marker-at-start",
+      "category": "escapes",
+      "markdown": "\\- not a bullet\n",
+      "selection": {
+        "start": 1,
+        "end": 15,
+        "precision": "approximate"
+      },
+      "expect": {
+        "outcome": "widened",
+        "start": 0,
+        "end": 15,
+        "quote": "\\- not a bullet",
+        "prefix": "",
+        "suffix": "\n",
+        "headingPath": [],
+        "quoteUtf8Bytes": 15,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "dup-quote-second",
+      "category": "duplicates",
+      "markdown": "The cat sat.\n\nAnother line: the cat ran.\n\nLast: the cat slept.\n",
+      "selection": {
+        "start": 48,
+        "end": 55,
+        "precision": "exact"
+      },
+      "expect": {
+        "outcome": "exact",
+        "start": 48,
+        "end": 55,
+        "quote": "the cat",
+        "prefix": "other line: the cat ran.\n\nLast: ",
+        "suffix": " slept.\n",
+        "headingPath": [],
+        "quoteUtf8Bytes": 7,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "dup-identical-context",
+      "category": "duplicates",
+      "markdown": "Same sentence repeated for emphasis here.\n\nSame sentence repeated for emphasis here.\n\nSame sentence repeated for emphasis here.\n\nSame sentence repeated for emphasis here.\n",
+      "selection": {
+        "start": 57,
+        "end": 65,
+        "precision": "exact"
+      },
+      "expect": {
+        "outcome": "exact",
+        "start": 57,
+        "end": 65,
+        "quote": "repeated",
+        "prefix": "r emphasis here.\n\nSame sentence ",
+        "suffix": " for emphasis here.\n\nSame senten",
+        "headingPath": [],
+        "quoteUtf8Bytes": 8,
+        "admission": "accepted",
+        "selfAmbiguous": true
+      }
+    },
+    {
+      "id": "cross-heading",
+      "category": "headings",
+      "markdown": "# Intro\n\nFirst para text.\n\n## Details\n\nSecond para text.\n",
+      "selection": {
+        "start": 15,
+        "end": 45,
+        "precision": "exact"
+      },
+      "expect": {
+        "outcome": "exact",
+        "start": 15,
+        "end": 45,
+        "quote": "para text.\n\n## Details\n\nSecond",
+        "prefix": "# Intro\n\nFirst ",
+        "suffix": " para text.\n",
+        "headingPath": [
+          "Intro"
+        ],
+        "quoteUtf8Bytes": 30,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "heading-partial",
+      "category": "headings",
+      "markdown": "# Intro\n\n## Deep *styled* heading\n\nbody\n",
+      "selection": {
+        "start": 17,
+        "end": 39,
+        "precision": "exact"
+      },
+      "expect": {
+        "outcome": "exact",
+        "start": 17,
+        "end": 39,
+        "quote": "*styled* heading\n\nbody",
+        "prefix": "# Intro\n\n## Deep ",
+        "suffix": "\n",
+        "headingPath": [
+          "Intro",
+          "Deep *styled* heading"
+        ],
+        "quoteUtf8Bytes": 22,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "setext-heading-hardbreak",
+      "category": "headings",
+      "markdown": "Title line one  \nline two\n========\n\nbody under setext\n",
+      "selection": {
+        "start": 36,
+        "end": 53,
+        "precision": "exact"
+      },
+      "expect": {
+        "outcome": "exact",
+        "start": 36,
+        "end": 53,
+        "quote": "body under setext",
+        "prefix": "e line one  \nline two\n========\n\n",
+        "suffix": "\n",
+        "headingPath": [
+          "Title line one  \nline two"
+        ],
+        "quoteUtf8Bytes": 17,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "emoji-across",
+      "category": "unicode",
+      "markdown": "Hello 👋🏽 world 👨‍👩‍👧 end\n",
+      "selection": {
+        "start": 6,
+        "end": 25,
+        "precision": "exact"
+      },
+      "expect": {
+        "outcome": "exact",
+        "start": 6,
+        "end": 25,
+        "quote": "👋🏽 world 👨‍👩‍👧",
+        "prefix": "Hello ",
+        "suffix": " end\n",
+        "headingPath": [],
+        "quoteUtf8Bytes": 33,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "emoji-mid-zwj",
+      "category": "unicode",
+      "markdown": "Family 👨‍👩‍👧 here\n",
+      "selection": {
+        "start": 10,
+        "end": 20,
+        "precision": "exact"
+      },
+      "expect": {
+        "outcome": "exact",
+        "start": 10,
+        "end": 20,
+        "quote": "👩‍👧 here",
+        "prefix": "Family 👨‍",
+        "suffix": "\n",
+        "headingPath": [],
+        "quoteUtf8Bytes": 16,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "emoji-mid-surrogate",
+      "category": "unicode",
+      "markdown": "x 😀😀 y\n",
+      "selection": {
+        "start": 3,
+        "end": 8,
+        "precision": "exact"
+      },
+      "expect": {
+        "outcome": "exact",
+        "start": 2,
+        "end": 8,
+        "quote": "😀😀 y",
+        "prefix": "x ",
+        "suffix": "\n",
+        "headingPath": [],
+        "quoteUtf8Bytes": 10,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "cjk-into-bold",
+      "category": "unicode",
+      "markdown": "中文测试**粗体文字**结尾。\n",
+      "selection": {
+        "start": 2,
+        "end": 8,
+        "precision": "exact"
+      },
+      "expect": {
+        "outcome": "exact",
+        "start": 2,
+        "end": 8,
+        "quote": "测试**粗体",
+        "prefix": "中文",
+        "suffix": "文字**结尾。\n",
+        "headingPath": [],
+        "quoteUtf8Bytes": 14,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "cjk-punct-emphasis",
+      "category": "unicode",
+      "markdown": "这是**“引号”**的例子。\n",
+      "selection": {
+        "start": 1,
+        "end": 7,
+        "precision": "exact"
+      },
+      "expect": {
+        "outcome": "exact",
+        "start": 1,
+        "end": 7,
+        "quote": "是**“引号",
+        "prefix": "这",
+        "suffix": "”**的例子。\n",
+        "headingPath": [],
+        "quoteUtf8Bytes": 14,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "rtl-mixed",
+      "category": "unicode",
+      "markdown": "Arabic: مرحبا بالعالم and Hebrew: ‏שלום עולם done\n",
+      "selection": {
+        "start": 14,
+        "end": 39,
+        "precision": "exact"
+      },
+      "expect": {
+        "outcome": "exact",
+        "start": 14,
+        "end": 39,
+        "quote": "بالعالم and Hebrew: ‏שלום",
+        "prefix": "Arabic: مرحبا ",
+        "suffix": " עולם done\n",
+        "headingPath": [],
+        "quoteUtf8Bytes": 38,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "context-surrogate-boundary",
+      "category": "unicode",
+      "markdown": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀XY target YZ😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀\n",
+      "selection": {
+        "start": 43,
+        "end": 49,
+        "precision": "exact"
+      },
+      "expect": {
+        "outcome": "exact",
+        "start": 43,
+        "end": 49,
+        "quote": "target",
+        "prefix": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀XY ",
+        "suffix": " YZ😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+        "headingPath": [],
+        "quoteUtf8Bytes": 6,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "doc-start-short-prefix",
+      "category": "context",
+      "markdown": "Start here and continue.\n",
+      "selection": {
+        "start": 0,
+        "end": 10,
+        "precision": "exact"
+      },
+      "expect": {
+        "outcome": "exact",
+        "start": 0,
+        "end": 10,
+        "quote": "Start here",
+        "prefix": "",
+        "suffix": " and continue.\n",
+        "headingPath": [],
+        "quoteUtf8Bytes": 10,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "code-block-partial",
+      "category": "code",
+      "markdown": "```js\nconst a = 1;\nconst b = 2;\n```\n",
+      "selection": {
+        "start": 12,
+        "end": 26,
+        "precision": "exact"
+      },
+      "expect": {
+        "outcome": "exact",
+        "start": 12,
+        "end": 26,
+        "quote": "a = 1;\nconst b",
+        "prefix": "```js\nconst ",
+        "suffix": " = 2;\n```\n",
+        "headingPath": [],
+        "quoteUtf8Bytes": 14,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "inline-code-backticks",
+      "category": "code",
+      "markdown": "use ``a`b`` here\n",
+      "selection": {
+        "start": 7,
+        "end": 16,
+        "precision": "exact"
+      },
+      "expect": {
+        "outcome": "exact",
+        "start": 7,
+        "end": 16,
+        "quote": "`b`` here",
+        "prefix": "use ``a",
+        "suffix": "\n",
+        "headingPath": [],
+        "quoteUtf8Bytes": 9,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "hard-break-across",
+      "category": "breaks",
+      "markdown": "line one  \nline two\n",
+      "selection": {
+        "start": 5,
+        "end": 19,
+        "precision": "exact"
+      },
+      "expect": {
+        "outcome": "exact",
+        "start": 5,
+        "end": 19,
+        "quote": "one  \nline two",
+        "prefix": "line ",
+        "suffix": "\n",
+        "headingPath": [],
+        "quoteUtf8Bytes": 14,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "bold-trailing-space-edge",
+      "category": "whitespace",
+      "markdown": "x **bold** y\n",
+      "selection": {
+        "start": 0,
+        "end": 2,
+        "precision": "exact"
+      },
+      "expect": {
+        "outcome": "exact",
+        "start": 0,
+        "end": 2,
+        "quote": "x ",
+        "prefix": "",
+        "suffix": "**bold** y\n",
+        "headingPath": [],
+        "quoteUtf8Bytes": 2,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "blockquote-two-paras",
+      "category": "containers",
+      "markdown": "> quoted one\n>\n> quoted two\n",
+      "selection": {
+        "start": 9,
+        "end": 27,
+        "precision": "exact"
+      },
+      "expect": {
+        "outcome": "exact",
+        "start": 9,
+        "end": 27,
+        "quote": "one\n>\n> quoted two",
+        "prefix": "> quoted ",
+        "suffix": "\n",
+        "headingPath": [],
+        "quoteUtf8Bytes": 18,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "table-cell",
+      "category": "tables",
+      "markdown": "| a         | bb |\n| --------- | -- |\n| cell text | x  |\n",
+      "selection": {
+        "start": 40,
+        "end": 44,
+        "precision": "exact"
+      },
+      "expect": {
+        "outcome": "exact",
+        "start": 40,
+        "end": 44,
+        "quote": "cell",
+        "prefix": "    | bb |\n| --------- | -- |\n| ",
+        "suffix": " text | x  |\n",
+        "headingPath": [],
+        "quoteUtf8Bytes": 4,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "table-cell-cjk-marks",
+      "category": "tables",
+      "markdown": "| h         | k |\n| --------- | - |\n| 中文**粗体**字 | x |\n",
+      "selection": {
+        "start": 39,
+        "end": 46,
+        "precision": "exact"
+      },
+      "expect": {
+        "outcome": "exact",
+        "start": 39,
+        "end": 46,
+        "quote": "文**粗体**",
+        "prefix": "     | k |\n| --------- | - |\n| 中",
+        "suffix": "字 | x |\n",
+        "headingPath": [],
+        "quoteUtf8Bytes": 13,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "table-cell-escaped-pipe",
+      "category": "tables",
+      "markdown": "| h      | k |\n| ------ | - |\n| a \\| b | x |\n",
+      "selection": {
+        "start": 32,
+        "end": 38,
+        "precision": "approximate"
+      },
+      "expect": {
+        "outcome": "widened",
+        "start": 0,
+        "end": 44,
+        "quote": "| h      | k |\n| ------ | - |\n| a \\| b | x |",
+        "prefix": "",
+        "suffix": "\n",
+        "headingPath": [],
+        "quoteUtf8Bytes": 44,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "table-across-cells",
+      "category": "tables",
+      "markdown": "| h    | k     |\n| ---- | ----- |\n| left | right |\n",
+      "selection": {
+        "start": 36,
+        "end": 48,
+        "precision": "approximate"
+      },
+      "expect": {
+        "outcome": "widened",
+        "start": 0,
+        "end": 50,
+        "quote": "| h    | k     |\n| ---- | ----- |\n| left | right |",
+        "prefix": "",
+        "suffix": "\n",
+        "headingPath": [],
+        "quoteUtf8Bytes": 50,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "inline-math-adjacent",
+      "category": "atoms",
+      "markdown": "before $x^2$ after\n",
+      "selection": {
+        "start": 0,
+        "end": 18,
+        "precision": "exact"
+      },
+      "expect": {
+        "outcome": "exact",
+        "start": 0,
+        "end": 18,
+        "quote": "before $x^2$ after",
+        "prefix": "",
+        "suffix": "\n",
+        "headingPath": [],
+        "quoteUtf8Bytes": 18,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "heading-trailing-hash",
+      "category": "escapes",
+      "markdown": "# Learn C\\#\n\nbody\n",
+      "selection": {
+        "start": 2,
+        "end": 11,
+        "precision": "approximate"
+      },
+      "expect": {
+        "outcome": "widened",
+        "start": 0,
+        "end": 11,
+        "quote": "# Learn C\\#",
+        "prefix": "",
+        "suffix": "\n\nbody\n",
+        "headingPath": [
+          "Learn C\\#"
+        ],
+        "quoteUtf8Bytes": 11,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "triple-click-paragraph",
+      "category": "plain",
+      "markdown": "First para.\n\nWhole second paragraph here.\n\nThird.\n",
+      "selection": {
+        "start": 13,
+        "end": 41,
+        "precision": "exact"
+      },
+      "expect": {
+        "outcome": "exact",
+        "start": 13,
+        "end": 41,
+        "quote": "Whole second paragraph here.",
+        "prefix": "First para.\n\n",
+        "suffix": "\n\nThird.\n",
+        "headingPath": [],
+        "quoteUtf8Bytes": 28,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "collapsed",
+      "category": "degenerate",
+      "markdown": "Alpha beta.\n",
+      "selection": {
+        "start": 6,
+        "end": 6,
+        "precision": "exact"
+      },
+      "expect": {
+        "outcome": "widened",
+        "start": 0,
+        "end": 11,
+        "quote": "Alpha beta.",
+        "prefix": "",
+        "suffix": "\n",
+        "headingPath": [],
+        "quoteUtf8Bytes": 11,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "node-selection-hr",
+      "category": "degenerate",
+      "markdown": "above\n\n---\n\nbelow\n",
+      "selection": {
+        "start": 7,
+        "end": 10,
+        "precision": "approximate"
+      },
+      "expect": {
+        "outcome": "widened",
+        "start": 7,
+        "end": 10,
+        "quote": "---",
+        "prefix": "above\n\n",
+        "suffix": "\n\nbelow\n",
+        "headingPath": [],
+        "quoteUtf8Bytes": 3,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "select-all",
+      "category": "degenerate",
+      "markdown": "# Title\n\nbody text\n",
+      "selection": {
+        "start": 2,
+        "end": 18,
+        "precision": "exact"
+      },
+      "expect": {
+        "outcome": "exact",
+        "start": 2,
+        "end": 18,
+        "quote": "Title\n\nbody text",
+        "prefix": "# ",
+        "suffix": "\n",
+        "headingPath": [
+          "Title"
+        ],
+        "quoteUtf8Bytes": 16,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "widen-big-list-over-4kib",
+      "category": "bounds",
+      "markdown": "\\- not a bullet\n\n- item number 0 with some padding text\n- item number 1 with some padding text\n- item number 2 with some padding text\n- item number 3 with some padding text\n- item number 4 with some padding text\n- item number 5 with some padding text\n- item number 6 with some padding text\n- item number 7 with some padding text\n- item number 8 with some padding text\n- item number 9 with some padding text\n- item number 10 with some padding text\n- item number 11 with some padding text\n- item number 12 with some padding text\n- item number 13 with some padding text\n- item number 14 with some padding text\n- item number 15 with some padding text\n- item number 16 with some padding text\n- item number 17 with some padding text\n- item number 18 with some padding text\n- item number 19 with some padding text\n- item number 20 with some padding text\n- item number 21 with some padding text\n- item number 22 with some padding text\n- item number 23 with some padding text\n- item number 24 with some padding text\n- item number 25 with some padding text\n- item number 26 with some padding text\n- item number 27 with some padding text\n- item number 28 with some padding text\n- item number 29 with some padding text\n- item number 30 with some padding text\n- item number 31 with some padding text\n- item number 32 with some padding text\n- item number 33 with some padding text\n- item number 34 with some padding text\n- item number 35 with some padding text\n- item number 36 with some padding text\n- item number 37 with some padding text\n- item number 38 with some padding text\n- item number 39 with some padding text\n- item number 40 with some padding text\n- item number 41 with some padding text\n- item number 42 with some padding text\n- item number 43 with some padding text\n- item number 44 with some padding text\n- item number 45 with some padding text\n- item number 46 with some padding text\n- item number 47 with some padding text\n- item number 48 with some padding text\n- item number 49 with some padding text\n- item number 50 with some padding text\n- item number 51 with some padding text\n- item number 52 with some padding text\n- item number 53 with some padding text\n- item number 54 with some padding text\n- item number 55 with some padding text\n- item number 56 with some padding text\n- item number 57 with some padding text\n- item number 58 with some padding text\n- item number 59 with some padding text\n- item number 60 with some padding text\n- item number 61 with some padding text\n- item number 62 with some padding text\n- item number 63 with some padding text\n- item number 64 with some padding text\n- item number 65 with some padding text\n- item number 66 with some padding text\n- item number 67 with some padding text\n- item number 68 with some padding text\n- item number 69 with some padding text\n- item number 70 with some padding text\n- item number 71 with some padding text\n- item number 72 with some padding text\n- item number 73 with some padding text\n- item number 74 with some padding text\n- item number 75 with some padding text\n- item number 76 with some padding text\n- item number 77 with some padding text\n- item number 78 with some padding text\n- item number 79 with some padding text\n- item number 80 with some padding text\n- item number 81 with some padding text\n- item number 82 with some padding text\n- item number 83 with some padding text\n- item number 84 with some padding text\n- item number 85 with some padding text\n- item number 86 with some padding text\n- item number 87 with some padding text\n- item number 88 with some padding text\n- item number 89 with some padding text\n- item number 90 with some padding text\n- item number 91 with some padding text\n- item number 92 with some padding text\n- item number 93 with some padding text\n- item number 94 with some padding text\n- item number 95 with some padding text\n- item number 96 with some padding text\n- item number 97 with some padding text\n- item number 98 with some padding text\n- item number 99 with some padding text\n- item number 100 with some padding text\n- item number 101 with some padding text\n- item number 102 with some padding text\n- item number 103 with some padding text\n- item number 104 with some padding text\n- item number 105 with some padding text\n- item number 106 with some padding text\n- item number 107 with some padding text\n- item number 108 with some padding text\n- item number 109 with some padding text\n- item number 110 with some padding text\n- item number 111 with some padding text\n- item number 112 with some padding text\n- item number 113 with some padding text\n- item number 114 with some padding text\n- item number 115 with some padding text\n- item number 116 with some padding text\n- item number 117 with some padding text\n- item number 118 with some padding text\n- item number 119 with some padding text\n",
+      "selection": {
+        "start": 1,
+        "end": 4803,
+        "precision": "approximate"
+      },
+      "expect": {
+        "outcome": "widened",
+        "start": 0,
+        "end": 4826,
+        "quote": "\\- not a bullet\n\n- item number 0 with some padding text\n- item number 1 with some padding text\n- item number 2 with some padding text\n- item number 3 with some padding text\n- item number 4 with some padding text\n- item number 5 with some padding text\n- item number 6 with some padding text\n- item number 7 with some padding text\n- item number 8 with some padding text\n- item number 9 with some padding text\n- item number 10 with some padding text\n- item number 11 with some padding text\n- item number 12 with some padding text\n- item number 13 with some padding text\n- item number 14 with some padding text\n- item number 15 with some padding text\n- item number 16 with some padding text\n- item number 17 with some padding text\n- item number 18 with some padding text\n- item number 19 with some padding text\n- item number 20 with some padding text\n- item number 21 with some padding text\n- item number 22 with some padding text\n- item number 23 with some padding text\n- item number 24 with some padding text\n- item number 25 with some padding text\n- item number 26 with some padding text\n- item number 27 with some padding text\n- item number 28 with some padding text\n- item number 29 with some padding text\n- item number 30 with some padding text\n- item number 31 with some padding text\n- item number 32 with some padding text\n- item number 33 with some padding text\n- item number 34 with some padding text\n- item number 35 with some padding text\n- item number 36 with some padding text\n- item number 37 with some padding text\n- item number 38 with some padding text\n- item number 39 with some padding text\n- item number 40 with some padding text\n- item number 41 with some padding text\n- item number 42 with some padding text\n- item number 43 with some padding text\n- item number 44 with some padding text\n- item number 45 with some padding text\n- item number 46 with some padding text\n- item number 47 with some padding text\n- item number 48 with some padding text\n- item number 49 with some padding text\n- item number 50 with some padding text\n- item number 51 with some padding text\n- item number 52 with some padding text\n- item number 53 with some padding text\n- item number 54 with some padding text\n- item number 55 with some padding text\n- item number 56 with some padding text\n- item number 57 with some padding text\n- item number 58 with some padding text\n- item number 59 with some padding text\n- item number 60 with some padding text\n- item number 61 with some padding text\n- item number 62 with some padding text\n- item number 63 with some padding text\n- item number 64 with some padding text\n- item number 65 with some padding text\n- item number 66 with some padding text\n- item number 67 with some padding text\n- item number 68 with some padding text\n- item number 69 with some padding text\n- item number 70 with some padding text\n- item number 71 with some padding text\n- item number 72 with some padding text\n- item number 73 with some padding text\n- item number 74 with some padding text\n- item number 75 with some padding text\n- item number 76 with some padding text\n- item number 77 with some padding text\n- item number 78 with some padding text\n- item number 79 with some padding text\n- item number 80 with some padding text\n- item number 81 with some padding text\n- item number 82 with some padding text\n- item number 83 with some padding text\n- item number 84 with some padding text\n- item number 85 with some padding text\n- item number 86 with some padding text\n- item number 87 with some padding text\n- item number 88 with some padding text\n- item number 89 with some padding text\n- item number 90 with some padding text\n- item number 91 with some padding text\n- item number 92 with some padding text\n- item number 93 with some padding text\n- item number 94 with some padding text\n- item number 95 with some padding text\n- item number 96 with some padding text\n- item number 97 with some padding text\n- item number 98 with some padding text\n- item number 99 with some padding text\n- item number 100 with some padding text\n- item number 101 with some padding text\n- item number 102 with some padding text\n- item number 103 with some padding text\n- item number 104 with some padding text\n- item number 105 with some padding text\n- item number 106 with some padding text\n- item number 107 with some padding text\n- item number 108 with some padding text\n- item number 109 with some padding text\n- item number 110 with some padding text\n- item number 111 with some padding text\n- item number 112 with some padding text\n- item number 113 with some padding text\n- item number 114 with some padding text\n- item number 115 with some padding text\n- item number 116 with some padding text\n- item number 117 with some padding text\n- item number 118 with some padding text\n- item number 119 with some padding text",
+        "prefix": "",
+        "suffix": "\n",
+        "headingPath": [],
+        "quoteUtf8Bytes": 4826,
+        "admission": "refused",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "quote-4096-utf8-bytes",
+      "category": "bounds",
+      "markdown": "lead\n\n中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中aaaa\n\ntail\n",
+      "selection": {
+        "start": 6,
+        "end": 1374,
+        "precision": "exact"
+      },
+      "expect": {
+        "outcome": "exact",
+        "start": 6,
+        "end": 1374,
+        "quote": "中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中aaaa",
+        "prefix": "lead\n\n",
+        "suffix": "\n\ntail\n",
+        "headingPath": [],
+        "quoteUtf8Bytes": 4096,
+        "admission": "accepted",
+        "selfAmbiguous": false
+      }
+    },
+    {
+      "id": "quote-4097-utf8-bytes",
+      "category": "bounds",
+      "markdown": "lead\n\n中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中aa\n\ntail\n",
+      "selection": {
+        "start": 6,
+        "end": 1373,
+        "precision": "exact"
+      },
+      "expect": {
+        "outcome": "exact",
+        "start": 6,
+        "end": 1373,
+        "quote": "中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中aa",
+        "prefix": "lead\n\n",
+        "suffix": "\n\ntail\n",
+        "headingPath": [],
+        "quoteUtf8Bytes": 4097,
+        "admission": "refused",
+        "selfAmbiguous": false
+      }
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "dup-added-elsewhere-context-intact",
+      "markdown": "# A\n\nfoo target bar\n",
+      "selection": {
+        "start": 9,
+        "end": 15
+      },
+      "headingPath": [
+        "A"
+      ],
+      "edited": "# A\n\nfoo target bar\n\nanother target elsewhere\n",
+      "expect": {
+        "status": "resolved",
+        "tier": 1
+      },
+      "hintIsCandidate": false
+    },
+    {
+      "id": "heading-renamed-context-intact",
+      "markdown": "# Old heading name that is long enough\n\nSome intro words before the quoted phrase and after it.\n",
+      "selection": {
+        "start": 68,
+        "end": 81
+      },
+      "headingPath": [
+        "Old heading name that is long enough"
+      ],
+      "edited": "# New title that is long enough\n\nSome intro words before the quoted phrase and after it.\n",
+      "expect": {
+        "status": "resolved",
+        "tier": 1
+      },
+      "hintIsCandidate": false
+    },
+    {
+      "id": "context-edited-unique-in-heading-path",
+      "markdown": "# Alpha\n\nIn alpha the target word sits.\n\n# Beta\n\nIn beta the target word sits too.\n",
+      "selection": {
+        "start": 22,
+        "end": 28
+      },
+      "headingPath": [
+        "Alpha"
+      ],
+      "edited": "# Alpha\n\nRewritten: target, now differently placed.\n\n# Beta\n\nIn beta the target word sits too.\n",
+      "expect": {
+        "status": "resolved",
+        "tier": 2
+      },
+      "hintIsCandidate": false
+    },
+    {
+      "id": "context-edited-dup-in-same-section",
+      "markdown": "# Alpha\n\nIn alpha the target word sits.\n\n# Beta\n\nIn beta the target word sits too.\n",
+      "selection": {
+        "start": 22,
+        "end": 28
+      },
+      "headingPath": [
+        "Alpha"
+      ],
+      "edited": "# Alpha\n\nOne target. Two target.\n\n# Beta\n\nIn beta the target word sits too.\n",
+      "expect": {
+        "status": "ambiguous",
+        "tier": 2
+      },
+      "hintIsCandidate": false
+    },
+    {
+      "id": "heading-renamed-and-context-edited-unique",
+      "markdown": "# Alpha\n\nIn alpha the unique-quote sits.\n\n# Beta\n\nnothing here\n",
+      "selection": {
+        "start": 22,
+        "end": 34
+      },
+      "headingPath": [
+        "Alpha"
+      ],
+      "edited": "# Renamed\n\nMoved: unique-quote!\n\n# Beta\n\nnothing here\n",
+      "expect": {
+        "status": "resolved",
+        "tier": 3
+      },
+      "hintIsCandidate": false
+    },
+    {
+      "id": "heading-renamed-context-edited-dup-anywhere",
+      "markdown": "# Alpha\n\nIn alpha the target word sits.\n\n# Beta\n\nIn beta the target word sits too.\n",
+      "selection": {
+        "start": 22,
+        "end": 28
+      },
+      "headingPath": [
+        "Alpha"
+      ],
+      "edited": "# Renamed\n\nChanged target.\n\n# Beta\n\nIn beta the target word sits too.\n",
+      "expect": {
+        "status": "ambiguous",
+        "tier": 3
+      },
+      "hintIsCandidate": false
+    },
+    {
+      "id": "quote-deleted",
+      "markdown": "# Alpha\n\nIn alpha the target word sits.\n\n# Beta\n\nIn beta the target word sits too.\n",
+      "selection": {
+        "start": 61,
+        "end": 81
+      },
+      "headingPath": [
+        "Beta"
+      ],
+      "edited": "# Alpha\n\nIn alpha the target word sits.\n\n# Beta\n\nGone.\n",
+      "expect": {
+        "status": "orphaned",
+        "tier": null
+      },
+      "hintIsCandidate": false
+    },
+    {
+      "id": "cjk-emoji-context-shift",
+      "markdown": "# 标题\n\n前文😀很长很长的句子包含目标文字和后文👋🏽。\n",
+      "selection": {
+        "start": 19,
+        "end": 23
+      },
+      "headingPath": [
+        "标题"
+      ],
+      "edited": "# 标题\n\n前文😀新增很长很长的句子包含目标文字和后文👋🏽。\n",
+      "expect": {
+        "status": "resolved",
+        "tier": 2
+      },
+      "hintIsCandidate": false
+    },
+    {
+      "id": "setext-heading-path",
+      "markdown": "Title one  \ntwo\n===\n\nbody target text\n\n# Other\n\nbody target text\n",
+      "selection": {
+        "start": 26,
+        "end": 32
+      },
+      "headingPath": [
+        "Title one  \ntwo"
+      ],
+      "edited": "Title one  \ntwo\n===\n\nchanged: target\n\n# Other\n\nbody target text\n",
+      "expect": {
+        "status": "resolved",
+        "tier": 2
+      },
+      "hintIsCandidate": false
+    },
+    {
+      "id": "identical-block-inserted-at-old-offset",
+      "markdown": "Same sentence repeated for emphasis here.\n\nSame sentence repeated for emphasis here.\n\nSame sentence repeated for emphasis here.\n\nSame sentence repeated for emphasis here.\n",
+      "selection": {
+        "start": 57,
+        "end": 65
+      },
+      "headingPath": [],
+      "edited": "Same sentence repeated for emphasis here.\n\nSame sentence repeated for emphasis here.\n\nSame sentence repeated for emphasis here.\n\nSame sentence repeated for emphasis here.\n\nSame sentence repeated for emphasis here.\n",
+      "expect": {
+        "status": "ambiguous",
+        "tier": 1
+      },
+      "hintIsCandidate": true
+    },
+    {
+      "id": "setext-h1-outside-fence",
+      "markdown": "# Alpha\n\nIn alpha the target word sits.\n\n# Beta\n\nIn beta the target word sits too.\n",
+      "selection": {
+        "start": 22,
+        "end": 28
+      },
+      "headingPath": [
+        "Alpha"
+      ],
+      "edited": "Alpha\n=====\n\nRewritten: target, now differently placed.\n\n# Beta\n\nIn beta the target word sits too.\n",
+      "expect": {
+        "status": "resolved",
+        "tier": 2
+      },
+      "hintIsCandidate": false
+    },
+    {
+      "id": "setext-h2-outside-fence-moves-the-quote-into-a-subsection",
+      "markdown": "# Alpha\n\nIn alpha the target word sits.\n\n# Beta\n\nIn beta the target word sits too.\n",
+      "selection": {
+        "start": 22,
+        "end": 28
+      },
+      "headingPath": [
+        "Alpha"
+      ],
+      "edited": "# Alpha\n\nSub\n---\n\nRewritten: target, now differently placed.\n\n# Beta\n\nIn beta the target word sits too.\n",
+      "expect": {
+        "status": "ambiguous",
+        "tier": 3
+      },
+      "hintIsCandidate": false
+    },
+    {
+      "id": "setext-underline-inside-fence-is-not-a-heading",
+      "markdown": "# Alpha\n\nIn alpha the target word sits.\n\n# Beta\n\nIn beta the target word sits too.\n",
+      "selection": {
+        "start": 22,
+        "end": 28
+      },
+      "headingPath": [
+        "Alpha"
+      ],
+      "edited": "# Alpha\n\n```\nFake\n===\n```\n\n~~~~\nAlso fake\n---\n~~~~\n\nRewritten: target, now differently placed.\n\n# Beta\n\nIn beta the target word sits too.\n",
+      "expect": {
+        "status": "resolved",
+        "tier": 2
+      },
+      "hintIsCandidate": false
+    },
+    {
+      "id": "thematic-break-after-blank-line-is-not-a-heading",
+      "markdown": "# Alpha\n\nIn alpha the target word sits.\n\n# Beta\n\nIn beta the target word sits too.\n",
+      "selection": {
+        "start": 22,
+        "end": 28
+      },
+      "headingPath": [
+        "Alpha"
+      ],
+      "edited": "# Alpha\n\nNote line\n\n---\n\n- item\n---\n\nRewritten: target, now differently placed.\n\n# Beta\n\nIn beta the target word sits too.\n",
+      "expect": {
+        "status": "resolved",
+        "tier": 2
+      },
+      "hintIsCandidate": false
+    }
+  ],
+  "headingCases": [
+    {
+      "id": "atx-hash-glued-to-text",
+      "markdown": "# C#\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 0,
+          "text": "C#"
+        }
+      ]
+    },
+    {
+      "id": "atx-closing-hash-after-space",
+      "markdown": "# C #\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 0,
+          "text": "C"
+        }
+      ]
+    },
+    {
+      "id": "atx-escaped-closing-hash",
+      "markdown": "# C \\#\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 0,
+          "text": "C \\#"
+        }
+      ]
+    },
+    {
+      "id": "atx-escaped-hash-run",
+      "markdown": "# x \\##\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 0,
+          "text": "x \\##"
+        }
+      ]
+    },
+    {
+      "id": "atx-hash-inside-word",
+      "markdown": "# a#\n\n# a #b\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 0,
+          "text": "a#"
+        },
+        {
+          "depth": 1,
+          "offset": 6,
+          "text": "a #b"
+        }
+      ]
+    },
+    {
+      "id": "atx-closing-sequence-only",
+      "markdown": "# #\n\n#\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 0,
+          "text": ""
+        },
+        {
+          "depth": 1,
+          "offset": 5,
+          "text": ""
+        }
+      ]
+    },
+    {
+      "id": "atx-closing-run-with-tabs",
+      "markdown": "# A\t#\t\n\n## B #\t##\n\n### C\t###\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 0,
+          "text": "A"
+        },
+        {
+          "depth": 2,
+          "offset": 8,
+          "text": "B #"
+        },
+        {
+          "depth": 3,
+          "offset": 19,
+          "text": "C"
+        }
+      ]
+    },
+    {
+      "id": "atx-code-span-with-hash",
+      "markdown": "# `a #` b\n\n# `x` #\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 0,
+          "text": "`a #` b"
+        },
+        {
+          "depth": 1,
+          "offset": 11,
+          "text": "`x`"
+        }
+      ]
+    },
+    {
+      "id": "atx-seven-hashes-is-text",
+      "markdown": "####### seven\n",
+      "headings": []
+    },
+    {
+      "id": "atx-needs-space-or-tab",
+      "markdown": "#5 not\n#\tyes\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 7,
+          "text": "yes"
+        }
+      ]
+    },
+    {
+      "id": "atx-escaped-opener-is-text",
+      "markdown": "\\# not\n",
+      "headings": []
+    },
+    {
+      "id": "atx-indent-three-vs-four",
+      "markdown": "   # three\n    # four\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 0,
+          "text": "three"
+        }
+      ]
+    },
+    {
+      "id": "atx-tab-indent-is-code",
+      "markdown": "\t# code\n",
+      "headings": []
+    },
+    {
+      "id": "repeated-identical-headings",
+      "markdown": "# Notes\n\ntext one\n\n# Notes\n\ntext two\n\n## Notes\n\nthree\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 0,
+          "text": "Notes"
+        },
+        {
+          "depth": 1,
+          "offset": 19,
+          "text": "Notes"
+        },
+        {
+          "depth": 2,
+          "offset": 38,
+          "text": "Notes"
+        }
+      ]
+    },
+    {
+      "id": "cjk-emoji-rtl-headings",
+      "markdown": "# 标题一\n\n## 😀 Emoji 🎉\n\n### עברית\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 0,
+          "text": "标题一"
+        },
+        {
+          "depth": 2,
+          "offset": 7,
+          "text": "😀 Emoji 🎉"
+        },
+        {
+          "depth": 3,
+          "offset": 23,
+          "text": "עברית"
+        }
+      ]
+    },
+    {
+      "id": "crlf-line-endings",
+      "markdown": "# A\r\n\r\nB\r\n===\r\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 0,
+          "text": "A"
+        },
+        {
+          "depth": 1,
+          "offset": 7,
+          "text": "B"
+        }
+      ]
+    },
+    {
+      "id": "backtick-fence-hides-heading",
+      "markdown": "```\n# not\n```\n\n# yes\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 15,
+          "text": "yes"
+        }
+      ]
+    },
+    {
+      "id": "tilde-fence-needs-long-enough-closer",
+      "markdown": "~~~~\n# not\n~~~\n# still not\n~~~~\n# yes\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 32,
+          "text": "yes"
+        }
+      ]
+    },
+    {
+      "id": "fence-closer-with-text-does-not-close",
+      "markdown": "```\n``` x\n# not\n```\n# yes\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 20,
+          "text": "yes"
+        }
+      ]
+    },
+    {
+      "id": "unclosed-fence-runs-to-end",
+      "markdown": "```\n# not\n",
+      "headings": []
+    },
+    {
+      "id": "backtick-info-with-backtick-is-not-a-fence",
+      "markdown": "``` a`b\n# yes\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 8,
+          "text": "yes"
+        }
+      ]
+    },
+    {
+      "id": "indented-code-hides-heading",
+      "markdown": "    # not\n\n# yes\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 11,
+          "text": "yes"
+        }
+      ]
+    },
+    {
+      "id": "blockquote-hides-heading",
+      "markdown": "> # not\n\n# yes\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 9,
+          "text": "yes"
+        }
+      ]
+    },
+    {
+      "id": "list-item-hides-heading",
+      "markdown": "- # not\n\n  # also not\n\n# yes\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 23,
+          "text": "yes"
+        }
+      ]
+    },
+    {
+      "id": "fence-in-list-item",
+      "markdown": "- ```\n  # not\n  ```\n# yes\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 20,
+          "text": "yes"
+        }
+      ]
+    },
+    {
+      "id": "list-content-indent-five-spaces",
+      "markdown": "-     five\n # h\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 11,
+          "text": "h"
+        }
+      ]
+    },
+    {
+      "id": "setext-under-fence-is-not-a-heading",
+      "markdown": "```\nnot\n===\n```\n\nTitle\n=====\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 17,
+          "text": "Title"
+        }
+      ]
+    },
+    {
+      "id": "setext-levels",
+      "markdown": "Title\n=====\n\nSub\n---\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 0,
+          "text": "Title"
+        },
+        {
+          "depth": 2,
+          "offset": 13,
+          "text": "Sub"
+        }
+      ]
+    },
+    {
+      "id": "setext-multiline-with-indent",
+      "markdown": "  Foo  \n   bar\n---\n",
+      "headings": [
+        {
+          "depth": 2,
+          "offset": 0,
+          "text": "Foo  \n   bar"
+        }
+      ]
+    },
+    {
+      "id": "setext-underline-indent-three",
+      "markdown": "Foo\n   ---\n",
+      "headings": [
+        {
+          "depth": 2,
+          "offset": 0,
+          "text": "Foo"
+        }
+      ]
+    },
+    {
+      "id": "setext-underline-indent-four-is-text",
+      "markdown": "Foo\n    ===\n",
+      "headings": []
+    },
+    {
+      "id": "setext-underline-with-inner-space-is-text",
+      "markdown": "Foo\n= =\n",
+      "headings": []
+    },
+    {
+      "id": "setext-after-atx-is-text",
+      "markdown": "# h\n===\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 0,
+          "text": "h"
+        }
+      ]
+    },
+    {
+      "id": "setext-dash-then-atx",
+      "markdown": "para\n-\n# h\n",
+      "headings": [
+        {
+          "depth": 2,
+          "offset": 0,
+          "text": "para"
+        },
+        {
+          "depth": 1,
+          "offset": 7,
+          "text": "h"
+        }
+      ]
+    },
+    {
+      "id": "setext-on-bracket-text",
+      "markdown": "[TOC]\n===\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 0,
+          "text": "[TOC]"
+        }
+      ]
+    },
+    {
+      "id": "thematic-break-after-blank-line",
+      "markdown": "para\n\n---\n\n- item\n---\n",
+      "headings": []
+    },
+    {
+      "id": "list-then-equals-is-not-setext",
+      "markdown": "- a\n===\n",
+      "headings": []
+    },
+    {
+      "id": "lazy-quote-line-then-atx",
+      "markdown": "> a\n===\n# h\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 8,
+          "text": "h"
+        }
+      ]
+    },
+    {
+      "id": "lazy-quote-paragraph-then-atx",
+      "markdown": "> quote para\nlazy\n# yes\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 18,
+          "text": "yes"
+        }
+      ]
+    },
+    {
+      "id": "quote-fence-then-root-setext",
+      "markdown": "> ```\nlazy\n===\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 6,
+          "text": "lazy"
+        }
+      ]
+    },
+    {
+      "id": "paragraph-after-list-is-root",
+      "markdown": "- a\n\nb\n===\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 5,
+          "text": "b"
+        }
+      ]
+    },
+    {
+      "id": "ordered-two-cannot-interrupt-paragraph",
+      "markdown": "para\n2. x\n===\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 0,
+          "text": "para\n2. x"
+        }
+      ]
+    },
+    {
+      "id": "ordered-one-interrupts-paragraph",
+      "markdown": "para\n1. x\n===\n",
+      "headings": []
+    },
+    {
+      "id": "empty-bullet-cannot-interrupt-paragraph",
+      "markdown": "para\n*\n# h\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 7,
+          "text": "h"
+        }
+      ]
+    },
+    {
+      "id": "table-then-thematic-break",
+      "markdown": "| a | b |\n| - | - |\n| c | d |\n---\n",
+      "headings": []
+    },
+    {
+      "id": "pipe-line-then-dashes-is-setext",
+      "markdown": "| a |\n---\n",
+      "headings": [
+        {
+          "depth": 2,
+          "offset": 0,
+          "text": "| a |"
+        }
+      ]
+    },
+    {
+      "id": "table-cell-count-mismatch-is-setext",
+      "markdown": "| a | b |\n| - |\n===\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 0,
+          "text": "| a | b |\n| - |"
+        }
+      ]
+    },
+    {
+      "id": "table-without-outer-pipes",
+      "markdown": "a | b\n--- | ---\nc | d\n===\n",
+      "headings": []
+    },
+    {
+      "id": "table-interrupts-paragraph",
+      "markdown": "x\n| a |\n| - |\n---\n",
+      "headings": []
+    },
+    {
+      "id": "html-block-hides-heading",
+      "markdown": "<div>\n# not\n</div>\n\n# yes\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 20,
+          "text": "yes"
+        }
+      ]
+    },
+    {
+      "id": "html-block-swallows-setext",
+      "markdown": "<div>\nFoo\n---\n",
+      "headings": []
+    },
+    {
+      "id": "html-open-tag-runs-to-blank-line",
+      "markdown": "<span>\n# not\n\n# yes\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 14,
+          "text": "yes"
+        }
+      ]
+    },
+    {
+      "id": "html-open-tag-cannot-interrupt-paragraph",
+      "markdown": "para\n<span>\n===\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 0,
+          "text": "para\n<span>"
+        }
+      ]
+    },
+    {
+      "id": "html-pre-runs-to-close-tag",
+      "markdown": "<pre>\n# not\n\n# still not\n</pre>\n# yes\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 32,
+          "text": "yes"
+        }
+      ]
+    },
+    {
+      "id": "html-comment-runs-to-close",
+      "markdown": "<!--\n# not\n\n-->\n# yes\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 16,
+          "text": "yes"
+        }
+      ]
+    },
+    {
+      "id": "details-block-is-opaque",
+      "markdown": "<details>\n<summary>S</summary>\n\n# inside\n\n</details>\n\n# after\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 54,
+          "text": "after"
+        }
+      ]
+    },
+    {
+      "id": "math-block-hides-heading",
+      "markdown": "$$\n# not\n$$\n\n# yes\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 13,
+          "text": "yes"
+        }
+      ]
+    },
+    {
+      "id": "math-block-with-meta",
+      "markdown": "$$ meta\n# x\n$$\n",
+      "headings": []
+    },
+    {
+      "id": "math-block-indented-opener",
+      "markdown": "   $$\n# x\n$$\n",
+      "headings": []
+    },
+    {
+      "id": "inline-display-math-setext",
+      "markdown": "$$x$$\n===\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 0,
+          "text": "$$x$$"
+        }
+      ]
+    },
+    {
+      "id": "frontmatter-then-heading",
+      "markdown": "---\ntitle: x\n---\n# yes\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 17,
+          "text": "yes"
+        }
+      ]
+    },
+    {
+      "id": "ambiguous-list-underline-disables-setext",
+      "markdown": "Para\n\n  - \n\nTitle\n===\n",
+      "headings": []
+    },
+    {
+      "id": "tab-indented-marker-keeps-setext",
+      "markdown": "Para\n\t-\n\nTitle\n===\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 9,
+          "text": "Title"
+        }
+      ]
+    },
+    {
+      "id": "ordered-ten-cannot-interrupt-paragraph",
+      "markdown": "para\n10. x\n===\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 0,
+          "text": "para\n10. x"
+        }
+      ]
+    },
+    {
+      "id": "other-list-kind-in-lazy-line-starts-a-list",
+      "markdown": "- a\n2. x\n===\n",
+      "headings": []
+    },
+    {
+      "id": "empty-item-ends-at-blank-line",
+      "markdown": "-\n\n  foo\n===\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 3,
+          "text": "foo"
+        }
+      ]
+    },
+    {
+      "id": "under-indented-line-after-blank-leaves-list",
+      "markdown": "- a\n\n b\n===\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 5,
+          "text": "b"
+        }
+      ]
+    },
+    {
+      "id": "lazy-line-through-nested-quote",
+      "markdown": "- a\n  > b\nc\n===\n",
+      "headings": []
+    },
+    {
+      "id": "definition-then-equals-is-text",
+      "markdown": "[a]: /u\n===\n",
+      "headings": []
+    },
+    {
+      "id": "definition-with-destination-on-next-line",
+      "markdown": "[a]:\n/u\n===\n",
+      "headings": []
+    },
+    {
+      "id": "math-closes-after-blank-tail",
+      "markdown": "$$\nx\n\n$$\n# h\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 9,
+          "text": "h"
+        }
+      ]
+    },
+    {
+      "id": "compact-details-is-opaque",
+      "markdown": "<details><summary>x</summary>\n# a\n</details>\n\n# b\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 46,
+          "text": "b"
+        }
+      ]
+    },
+    {
+      "id": "unclosed-details-stays-html",
+      "markdown": "<details>\n\n# a\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 11,
+          "text": "a"
+        }
+      ]
+    },
+    {
+      "id": "details-interrupts-paragraph",
+      "markdown": "x\n<details>\n# a\n</details>\n\n# b\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 28,
+          "text": "b"
+        }
+      ]
+    },
+    {
+      "id": "lone-cr-line-endings",
+      "markdown": "a\rb\r===\r",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 0,
+          "text": "a\rb"
+        }
+      ]
+    },
+    {
+      "id": "html-tag-with-attribute-runs-to-blank-line",
+      "markdown": "<span x>\n# n\n\n# y\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 14,
+          "text": "y"
+        }
+      ]
+    },
+    {
+      "id": "html-comment-closed-on-its-line",
+      "markdown": "<!-- a -->\n# h\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 11,
+          "text": "h"
+        }
+      ]
+    },
+    {
+      "id": "table-body-ends-at-heading",
+      "markdown": "|a|\n|-|\nb\n# h\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 10,
+          "text": "h"
+        }
+      ]
+    },
+    {
+      "id": "indented-code-then-setext",
+      "markdown": "    a\n  b\n===\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 6,
+          "text": "b"
+        }
+      ]
+    },
+    {
+      "id": "quote-math-then-root-setext",
+      "markdown": "> $$\n> x\n> $$\nplain\n===\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 14,
+          "text": "plain"
+        }
+      ]
+    },
+    {
+      "id": "quote-definition-then-root-setext",
+      "markdown": "> [a]: b\nplain\n===\n",
+      "headings": []
+    },
+    {
+      "id": "quote-table-then-root-setext",
+      "markdown": "> |a|\n> |-|\nplain\n===\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 12,
+          "text": "plain"
+        }
+      ]
+    },
+    {
+      "id": "list-math-then-root-setext",
+      "markdown": "- $$\n  x\n  $$\nplain\n===\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 14,
+          "text": "plain"
+        }
+      ]
+    },
+    {
+      "id": "list-definition-then-root-setext",
+      "markdown": "- [a]: b\nplain\n===\n",
+      "headings": []
+    },
+    {
+      "id": "list-table-then-root-setext",
+      "markdown": "- |a|\n  |-|\nplain\n===\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 12,
+          "text": "plain"
+        }
+      ]
+    },
+    {
+      "id": "quote-closed-script-then-lazy",
+      "markdown": "> <script>\n> </script>\n> para\nlazy\n===\n",
+      "headings": []
+    },
+    {
+      "id": "quote-closed-comment-then-lazy",
+      "markdown": "> <!-- c -->\n> para\nlazy\n===\n",
+      "headings": []
+    },
+    {
+      "id": "list-closed-comment-then-lazy",
+      "markdown": "- <!-- c -->\n  para\nlazy\n===\n",
+      "headings": []
+    },
+    {
+      "id": "definition-unbalanced-destination",
+      "markdown": "[foo]: foo(bar\n===\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 0,
+          "text": "[foo]: foo(bar"
+        }
+      ]
+    },
+    {
+      "id": "definition-balanced-destination",
+      "markdown": "[foo]: foo(b(a)r)\n===\n",
+      "headings": []
+    },
+    {
+      "id": "definition-title-on-next-line",
+      "markdown": "[foo]: /url\n'title'\n===\n",
+      "headings": []
+    },
+    {
+      "id": "definition-title-spanning-lines",
+      "markdown": "[foo]: /url 'a\nb'\n===\n",
+      "headings": []
+    },
+    {
+      "id": "definition-unicode-label",
+      "markdown": "[éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé]: /u\n===\n",
+      "headings": []
+    },
+    {
+      "id": "definition-label-over-999-chars",
+      "markdown": "[aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa]: /u\n===\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 0,
+          "text": "[aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa]: /u"
+        }
+      ]
+    },
+    {
+      "id": "cdata-lowercase-is-not-html",
+      "markdown": "<![cdata[\n# visible\n]]>\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 10,
+          "text": "visible"
+        }
+      ]
+    },
+    {
+      "id": "cdata-uppercase-is-html",
+      "markdown": "<![CDATA[\n# hidden\n]]>\n",
+      "headings": []
+    },
+    {
+      "id": "definition-title-across-underline",
+      "markdown": "[foo]: /url 'a\n===\nb'\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 0,
+          "text": "[foo]: /url 'a"
+        }
+      ]
+    },
+    {
+      "id": "definition-paren-title-with-open-paren",
+      "markdown": "[a]: /u (x(y)\n===\n",
+      "headings": []
+    },
+    {
+      "id": "footnote-definition-then-underline",
+      "markdown": "[^1]: x\n===\n",
+      "headings": []
+    },
+    {
+      "id": "definition-then-indented-definition",
+      "markdown": "[a]: b\n    [c]: d\n===\n",
+      "headings": []
+    },
+    {
+      "id": "definition-then-lone-tag-then-heading",
+      "markdown": "[a]: b\n<a href='x'>\n# n\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 20,
+          "text": "n"
+        }
+      ]
+    },
+    {
+      "id": "definition-then-indented-line",
+      "markdown": "[a]: b\n    c\n===\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 0,
+          "text": "c"
+        }
+      ]
+    },
+    {
+      "id": "definition-enclosed-destination-with-space",
+      "markdown": "[a]: <b c>\n===\n",
+      "headings": []
+    },
+    {
+      "id": "definition-garbage-after-title",
+      "markdown": "[a]: b 'c' d\n===\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 0,
+          "text": "[a]: b 'c' d"
+        }
+      ]
+    },
+    {
+      "id": "definition-parts-on-separate-lines",
+      "markdown": "[a]:\n/u\n'c'\n===\n",
+      "headings": []
+    },
+    {
+      "id": "definition-label-across-lines",
+      "markdown": "[a\nb]: /u\n===\n",
+      "headings": []
+    },
+    {
+      "id": "definition-next-line-title-with-garbage",
+      "markdown": "[a]: /u\n'c' x\n===\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 0,
+          "text": "'c' x"
+        }
+      ]
+    },
+    {
+      "id": "definition-label-1000-utf16-units",
+      "markdown": "[😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀]: /u\n===\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 0,
+          "text": "[😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀]: /u"
+        }
+      ]
+    },
+    {
+      "id": "definition-label-999-utf16-units",
+      "markdown": "[😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀a]: /u\n===\n",
+      "headings": []
+    },
+    {
+      "id": "definition-then-paragraph-then-underline",
+      "markdown": "[a]: b\nfoo\n===\n",
+      "headings": [
+        {
+          "depth": 1,
+          "offset": 0,
+          "text": "foo"
+        }
+      ]
+    }
+  ],
+  "blockCases": [
+    {
+      "id": "blocks-01",
+      "markdown": "  para  \n  more  \n",
+      "blocks": [
+        [
+          2,
+          17
+        ]
+      ]
+    },
+    {
+      "id": "blocks-02",
+      "markdown": "  # h  \n",
+      "blocks": [
+        [
+          2,
+          7
+        ]
+      ]
+    },
+    {
+      "id": "blocks-03",
+      "markdown": "  ```\n  x\n  ```  \n",
+      "blocks": [
+        [
+          2,
+          17
+        ]
+      ]
+    },
+    {
+      "id": "blocks-04",
+      "markdown": "    code\n    more  \n\n",
+      "blocks": [
+        [
+          0,
+          19
+        ]
+      ]
+    },
+    {
+      "id": "blocks-05",
+      "markdown": "  <div>\n  x  \n",
+      "blocks": [
+        [
+          0,
+          13
+        ]
+      ]
+    },
+    {
+      "id": "blocks-06",
+      "markdown": "  > q  \n",
+      "blocks": [
+        [
+          2,
+          7
+        ]
+      ]
+    },
+    {
+      "id": "blocks-07",
+      "markdown": "  - a  \n  - b  \n",
+      "blocks": [
+        [
+          2,
+          15
+        ]
+      ]
+    },
+    {
+      "id": "blocks-08",
+      "markdown": "| a |\n| - |\n| b |  \n",
+      "blocks": [
+        [
+          0,
+          19
+        ]
+      ]
+    },
+    {
+      "id": "blocks-09",
+      "markdown": "---\nt: 1\n---  \n# h\n",
+      "blocks": [
+        [
+          0,
+          14
+        ],
+        [
+          15,
+          18
+        ]
+      ]
+    },
+    {
+      "id": "blocks-10",
+      "markdown": "$$\nx\n$$  \n",
+      "blocks": [
+        [
+          0,
+          9
+        ]
+      ]
+    },
+    {
+      "id": "blocks-11",
+      "markdown": "  $$\nx\n  $$  \n",
+      "blocks": [
+        [
+          2,
+          13
+        ]
+      ]
+    },
+    {
+      "id": "blocks-12",
+      "markdown": "  ***  \n",
+      "blocks": [
+        [
+          2,
+          7
+        ]
+      ]
+    },
+    {
+      "id": "blocks-13",
+      "markdown": "Foo  \nbar  \n===  \n",
+      "blocks": [
+        [
+          0,
+          17
+        ]
+      ]
+    },
+    {
+      "id": "blocks-14",
+      "markdown": "```\nunclosed\n\n",
+      "blocks": [
+        [
+          0,
+          14
+        ]
+      ]
+    },
+    {
+      "id": "blocks-15",
+      "markdown": "- a\n\n\n",
+      "blocks": [
+        [
+          0,
+          3
+        ]
+      ]
+    },
+    {
+      "id": "blocks-16",
+      "markdown": "> a\n>\n",
+      "blocks": [
+        [
+          0,
+          5
+        ]
+      ]
+    },
+    {
+      "id": "blocks-17",
+      "markdown": "    code\n\n\n    more\n",
+      "blocks": [
+        [
+          0,
+          19
+        ]
+      ]
+    },
+    {
+      "id": "blocks-18",
+      "markdown": "<!--\nx\n\n",
+      "blocks": [
+        [
+          0,
+          8
+        ]
+      ]
+    },
+    {
+      "id": "blocks-19",
+      "markdown": "<pre>\nx\n\n\n",
+      "blocks": [
+        [
+          0,
+          10
+        ]
+      ]
+    },
+    {
+      "id": "blocks-20",
+      "markdown": "para\n$$\nx\n$$\n# y\n",
+      "blocks": [
+        [
+          0,
+          4
+        ],
+        [
+          5,
+          12
+        ],
+        [
+          13,
+          16
+        ]
+      ]
+    },
+    {
+      "id": "blocks-21",
+      "markdown": "|a|\n|-|\n- x\n",
+      "blocks": [
+        [
+          0,
+          7
+        ],
+        [
+          8,
+          11
+        ]
+      ]
+    },
+    {
+      "id": "blocks-22",
+      "markdown": "|a|\n|-|\n> x\n",
+      "blocks": [
+        [
+          0,
+          7
+        ],
+        [
+          8,
+          11
+        ]
+      ]
+    },
+    {
+      "id": "blocks-23",
+      "markdown": "|a|\n|-|\n    x\n",
+      "blocks": [
+        [
+          0,
+          7
+        ],
+        [
+          8,
+          13
+        ]
+      ]
+    },
+    {
+      "id": "blocks-24",
+      "markdown": "a\r\n\r\n- b\r\n",
+      "blocks": [
+        [
+          0,
+          1
+        ],
+        [
+          5,
+          8
+        ]
+      ]
+    },
+    {
+      "id": "blocks-25",
+      "markdown": "[a]: <x y> 't'\n===\n",
+      "blocks": [
+        [
+          0,
+          14
+        ],
+        [
+          15,
+          18
+        ]
+      ]
+    },
+    {
+      "id": "blocks-26",
+      "markdown": "x\n| a |\n| - |\n---\n",
+      "blocks": [
+        [
+          0,
+          1
+        ],
+        [
+          2,
+          13
+        ],
+        [
+          14,
+          17
+        ]
+      ]
+    },
+    {
+      "id": "blocks-27",
+      "markdown": "- a\n- - -\n",
+      "blocks": [
+        [
+          0,
+          3
+        ],
+        [
+          4,
+          9
+        ]
+      ]
+    },
+    {
+      "id": "blocks-28",
+      "markdown": "Foo\n***\n",
+      "blocks": [
+        [
+          0,
+          3
+        ],
+        [
+          4,
+          7
+        ]
+      ]
+    },
+    {
+      "id": "blocks-29",
+      "markdown": "-\n\n  foo\n",
+      "blocks": [
+        [
+          0,
+          1
+        ],
+        [
+          5,
+          8
+        ]
+      ]
+    },
+    {
+      "id": "blocks-30",
+      "markdown": "中文 😀\n\n# עב\n",
+      "blocks": [
+        [
+          0,
+          5
+        ],
+        [
+          7,
+          11
+        ]
+      ]
+    },
+    {
+      "id": "blocks-31",
+      "markdown": "- a\n  > b\nc\n===\n",
+      "blocks": [
+        [
+          0,
+          15
+        ]
+      ]
+    },
+    {
+      "id": "blocks-32",
+      "markdown": "para\n<div>\n# h\n",
+      "blocks": [
+        [
+          0,
+          4
+        ],
+        [
+          5,
+          14
+        ]
+      ]
+    },
+    {
+      "id": "blocks-33",
+      "markdown": "<a href='x'>\n# n\n\n# y\n",
+      "blocks": [
+        [
+          0,
+          16
+        ],
+        [
+          18,
+          21
+        ]
+      ]
+    },
+    {
+      "id": "blocks-34",
+      "markdown": "[a]: b\nfoo\n===\n",
+      "blocks": [
+        [
+          0,
+          6
+        ],
+        [
+          0,
+          14
+        ]
+      ]
+    },
+    {
+      "id": "blocks-35",
+      "markdown": "[a]: b\nfoo\n",
+      "blocks": [
+        [
+          0,
+          6
+        ],
+        [
+          7,
+          10
+        ]
+      ]
+    },
+    {
+      "id": "blocks-36",
+      "markdown": "[a]: b\n  [c]: d 't'\n",
+      "blocks": [
+        [
+          0,
+          6
+        ],
+        [
+          9,
+          19
+        ]
+      ]
+    },
+    {
+      "id": "blocks-37",
+      "markdown": "[a]: b\n'c' x\n===\n",
+      "blocks": [
+        [
+          0,
+          6
+        ],
+        [
+          0,
+          16
+        ]
+      ]
+    }
+  ]
+}

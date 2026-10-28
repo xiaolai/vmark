@@ -430,99 +430,91 @@ flowchart TB
 
 插件只是故事的一半。另一半是随之积累的知识基础设施。
 
-### 13 条规则（1,950 行组织知识）
+### 14 条规则（组织知识）
 
 ```mermaid
 flowchart LR
     subgraph Engineering["Engineering (00-10)"]
-        R00["00 Principles\n11 lines"]
-        R10["10 TDD\n196 lines"]
+        R00["00 Principles"]
+        R10["10 TDD"]
     end
-    subgraph Docs["Documentation (20-22)"]
-        R20["20 Logging\n4 lines"]
-        R21["21 Website Docs\n65 lines"]
-        R22["22 Comments\n36 lines"]
+    subgraph Docs["Documentation (21-22)"]
+        R21["21 Website Docs"]
+        R22["22 Comments"]
     end
-    subgraph UI["UI Consistency (30-34)"]
-        R30["30 UI Core\n25 lines"]
-        R31["31 Design Tokens\n261 lines"]
-        R32["32 Components\n436 lines"]
-        R33["33 Focus A11y\n164 lines"]
-        R34["34 Dark Theme\n196 lines"]
+    subgraph UI["UI Consistency (30-35)"]
+        R30["30 UI Core"]
+        R31["31 Design Tokens"]
+        R32["32 Components"]
+        R33["33 Focus A11y"]
+        R34["34 Dark Theme"]
+        R35["35 Copy"]
     end
     subgraph Ops["Operations (40-41)"]
-        R40["40 Version Bump\n79 lines"]
-        R41["41 Shortcuts\n122 lines"]
+        R40["40 Version Bump"]
+        R41["41 Shortcuts"]
     end
-    subgraph Patterns["Patterns (50)"]
-        R50["50 Conventions\n211 lines"]
+    subgraph Patterns["Patterns (50-60)"]
+        R50["50 Conventions"]
+        R60["60 AI Governance"]
     end
 ```
 
-VMark 的 `.claude/rules/` 目录包含 13 个规则文件——不是模糊的指导方针，而是具体的、可执行的规范：
+VMark 的 `.claude/rules/` 目录包含 14 个规则文件——不是模糊的指导方针，而是具体的、可执行的规范：
 
-| 规则文件 | 行数 | 编纂内容 |
-|-----------|-------|----------------|
-| `00-engineering-principles.md` | 11 | 核心规范（禁止 Zustand 解构、300 行限制） |
-| `10-tdd.md` | 196 | 5 个测试模式模板、反模式目录、覆盖率门控 |
-| `20-logging-and-docs.md` | 4 | 每个主题单一信息源 |
-| `21-website-docs.md` | 65 | 代码到文档的映射表（哪些代码变更需要更新哪些文档） |
-| `22-comment-maintenance.md` | 36 | 何时更新/不更新注释、防止注释腐化 |
-| `30-ui-consistency.md` | 25 | 核心 UI 原则、子规则交叉引用 |
-| `31-design-tokens.md` | 261 | 完整的 CSS Token 参考——每种颜色、间距、圆角、阴影 |
-| `32-component-patterns.md` | 436 | 弹出框、工具栏、上下文菜单、表格、滚动条模式及代码 |
-| `33-focus-indicators.md` | 164 | 按组件类型分类的 6 种焦点模式（WCAG 合规） |
-| `34-dark-theme.md` | 196 | 主题检测、覆盖模式、迁移清单 |
-| `40-version-bump.md` | 79 | 5 文件版本同步流程及验证脚本 |
-| `41-keyboard-shortcuts.md` | 122 | 3 文件同步（Rust/前端/文档）、冲突检查、规范 |
-| `50-codebase-conventions.md` | 211 | 开发过程中发现的 10 个未文档化模式 |
+| 规则文件 | 编纂内容 |
+|-----------|----------------|
+| `00-engineering-principles.md` | 核心规范（禁止 Zustand 解构、300 行限制） |
+| `10-tdd.md` | 测试模式模板、反模式目录、覆盖率门控 |
+| `21-website-docs.md` | 代码到文档的映射表（哪些代码变更需要更新哪些文档） |
+| `22-comment-maintenance.md` | 文件头约定、何时更新注释、注释可以引用什么 |
+| `30-ui-consistency.md` | 核心 UI 原则、子规则交叉引用 |
+| `31-design-tokens.md` | CSS Token 参考——每种颜色、间距、圆角、阴影 Token 及其用途 |
+| `32-component-patterns.md` | 弹出框、工具栏、上下文菜单、表格、滚动条模式及代码 |
+| `33-focus-indicators.md` | 按组件类型分类的焦点模式（WCAG 合规） |
+| `34-dark-theme.md` | 主题检测、覆盖模式、迁移清单 |
+| `35-copy-conventions.md` | 界面文案：措辞、标点、绝不出现在面向用户文本中的内容 |
+| `40-version-bump.md` | 5 文件版本同步流程及验证脚本 |
+| `41-keyboard-shortcuts.md` | 3 文件同步（Rust/前端/文档）、冲突检查、规范 |
+| `50-codebase-conventions.md` | 开发过程中发现的 Store、Hook、插件、MCP 桥接和 Rust 命令模式 |
+| `60-ai-governance.md` | 计划、工作项 ID、跨模型评审、受保护路径 |
 
-这些规则在每次会话开始时被 Claude Code 读取。正因如此，第 2,180 次提交与第 100 次遵循的是同样的规范。
+当会话涉及某条规则所覆盖的文件时，Claude Code 会加载该规则；没有路径范围的规则则在每次会话中加载。正因如此，第 2,180 次提交与第 100 次遵循的是同样的规范。
 
 规则 `50-codebase-conventions.md` 尤为值得注意——它记录的是*没有人设计过*的模式。它们在开发过程中自然涌现，然后被编纂：Store 命名规范、Hook 清理模式、插件结构、MCP 桥接处理器签名、CSS 组织方式、错误处理惯用法。
 
-### 19 个项目技能（领域专业知识）
+### 10 个项目技能（领域专业知识）
 
 ```mermaid
 flowchart TB
     subgraph Platform["Platform Skills"]
         S1["rust-tauri-backend"]
-        S2["tauri-v2-integration"]
-        S3["tauri-app-dev"]
-        S4["tauri-mcp-testing"]
-        S5["tauri-mcp-test-runner"]
+        S2["tauri-mcp-testing"]
     end
     subgraph Editor["Editor Skills"]
-        S6["react-app-dev"]
-        S7["tiptap-dev"]
-        S8["tiptap-editor"]
+        S3["react-app-dev"]
+        S4["tiptap-dev"]
     end
     subgraph Quality["Quality Skills"]
-        S9["release-gate"]
-        S10["css-design-tdd"]
-        S11["shortcut-audit"]
-        S12["workflow-audit"]
-        S13["plan-audit"]
-        S14["plan-verify"]
+        S5["css-design-tdd"]
+        S6["workflow-audit"]
+        S7["plan-audit"]
     end
     subgraph Other["Other Skills"]
-        S15["translate-docs\n9 locales"]
-        S16["mcp-dev"]
-        S17["mcp-server-manager"]
-        S18["planning"]
-        S19["ai-coding-agents"]
+        S8["translate-docs\n9 locales"]
+        S9["mcp-dev"]
+        S10["planning"]
     end
 ```
 
 | 分类 | 技能 | 用途 |
 |----------|--------|-----------------|
-| **Tauri/Rust** | `rust-tauri-backend`、`tauri-v2-integration`、`tauri-app-dev`、`tauri-mcp-testing`、`tauri-mcp-test-runner` | 遵循 Tauri v2 规范的平台特定 Rust 开发 |
-| **React/编辑器** | `react-app-dev`、`tiptap-dev`、`tiptap-editor` | Tiptap/ProseMirror 编辑器模式、Zustand 选择器规则 |
-| **质量** | `release-gate`、`css-design-tdd`、`shortcut-audit`、`workflow-audit`、`plan-audit`、`plan-verify` | 各层级的自动化质量验证 |
+| **Tauri/Rust** | `rust-tauri-backend`、`tauri-mcp-testing` | 遵循 Tauri v2 规范的 Rust 后端与 IPC 开发，以及对运行中应用的端到端测试 |
+| **React/编辑器** | `react-app-dev`、`tiptap-dev` | Tiptap/ProseMirror 编辑器模式、Zustand 选择器规则 |
+| **质量** | `css-design-tdd`、`workflow-audit`、`plan-audit` | 各层级的自动化质量验证 |
 | **文档** | `translate-docs` | 子代理驱动审计的 9 语言翻译 |
-| **MCP** | `mcp-dev`、`mcp-server-manager` | MCP 服务器开发与配置 |
+| **MCP** | `mcp-dev` | MCP 工具开发与服务器注册 |
 | **规划** | `planning` | 带决策记录的实施计划生成 |
-| **AI 工具** | `ai-coding-agents` | 多代理编排（Codex CLI、Claude Code、Gemini CLI） |
 
 ### 7 个斜杠命令（工作流自动化）
 
@@ -554,7 +546,7 @@ flowchart TB
 
 规则 + 技能 + 插件 + 命令构成了复合系统。当你运行 `/fix-issue` 时，它使用 `rust-tauri-backend` 技能处理 Rust 变更，遵循 `10-tdd.md` 规则满足测试要求，调用 `cc-suite` 进行审计，检查 `31-design-tokens.md` 确保 CSS 合规，并根据 `41-keyboard-shortcuts.md` 验证快捷键同步。
 
-没有单独哪一部分是革命性的。复合效应——13 条规则 x 19 个技能 x 7 个插件 x 7 个命令，全部相互强化——才是系统运转的原因。每一部分都是在发现缺口时添加的，在真实开发中测试，并通过使用来完善。
+没有单独哪一部分是革命性的。复合效应——14 条规则 x 10 个技能 x 7 个插件 x 7 个命令，全部相互强化——才是系统运转的原因。每一部分都是在发现缺口时添加的，在真实开发中测试，并通过使用来完善。
 
 ## 给插件构建者的建议
 

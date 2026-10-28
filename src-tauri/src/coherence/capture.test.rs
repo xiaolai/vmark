@@ -6,7 +6,7 @@
 
 use super::*;
 use crate::coherence::state::WorkspaceKernel;
-use crate::coherence::types::{AgentType, WriterId};
+use crate::coherence::types::{AgentType, InputRef, WriterId};
 use std::path::Path;
 
 const NOW: &str = "2026-07-18T12:00:00Z";
@@ -455,5 +455,159 @@ fn an_input_whose_registered_original_exists_but_is_unreadable_is_refused() {
         registry.path_of.get(&a.object).map(String::as_str),
         Some("a.md"),
         "the registry is not repointed on an unverifiable original"
+    );
+}
+
+// -- the capture's own object is never one of its inputs ---------------------
+//
+// The webview excludes the write target by lexical path only; an alias of the
+// same coherence object (named by id, or reached through a symlink or another
+// spelling) survived as a self-input, recording an edge that is stale the
+// moment it is written. Inputs are deduplicated by object for the same reason.
+
+fn object_input(object: ObjectId) -> CaptureInputSpec {
+    CaptureInputSpec {
+        path: None,
+        object_id: Some(object),
+        revision: None,
+        role: InputRole::Direct,
+        kind: crate::coherence::edge_kind::OriginEdgeKind::Dependency,
+    }
+}
+
+fn recorded_inputs(kernel: &WorkspaceKernel, entry: Uuid) -> Vec<InputRef> {
+    let read = kernel.ledger().read_all().unwrap();
+    let env = read.entries.iter().find(|e| e.id == entry).unwrap();
+    let t: Transformation = serde_json::from_value(env.body.clone()).unwrap();
+    assert_eq!(
+        t.confidence,
+        Confidence::Exact,
+        "dropping a self-input loses nothing"
+    );
+    t.inputs
+}
+
+#[test]
+fn an_input_naming_the_captures_own_object_is_dropped() {
+    let (dir, mut kernel) = workspace();
+    write_file(dir.path(), "notes.md", "notes\n");
+    let notes = capture(&mut kernel, human_save("notes.md", "notes\n")).unwrap();
+    write_file(dir.path(), "ch1.md", "v1\n");
+    let ch1 = capture(&mut kernel, human_save("ch1.md", "v1\n")).unwrap();
+
+    let mut req = human_save("ch1.md", "v2\n");
+    req.inputs = vec![object_input(ch1.object), path_input("notes.md")];
+    let r = capture(&mut kernel, req).unwrap();
+
+    let inputs = recorded_inputs(&kernel, r.entry_id.unwrap());
+    assert_eq!(inputs.len(), 1);
+    assert_eq!(inputs[0].object, notes.object);
+}
+
+#[test]
+fn an_input_object_named_twice_is_recorded_once() {
+    let (dir, mut kernel) = workspace();
+    write_file(dir.path(), "notes.md", "notes\n");
+    let notes = capture(&mut kernel, human_save("notes.md", "notes\n")).unwrap();
+    write_file(dir.path(), "ch1.md", "v1\n");
+
+    let mut req = human_save("ch1.md", "v1\n");
+    req.inputs = vec![path_input("notes.md"), object_input(notes.object)];
+    let r = capture(&mut kernel, req).unwrap();
+
+    let inputs = recorded_inputs(&kernel, r.entry_id.unwrap());
+    assert_eq!(inputs.len(), 1);
+    assert_eq!(inputs[0].object, notes.object);
+}
+
+/// A contextual mention named first must not swallow a later direct
+/// dependency on the same object: contextual edges carry no staleness, so
+/// keeping only the first would hide the downstream going stale.
+#[test]
+fn a_direct_input_wins_over_a_contextual_one_on_the_same_object() {
+    let (dir, mut kernel) = workspace();
+    write_file(dir.path(), "notes.md", "notes-v1\n");
+    let notes = capture(&mut kernel, human_save("notes.md", "notes-v1\n")).unwrap();
+    write_file(dir.path(), "ch1.md", "v1\n");
+
+    let mut req = human_save("ch1.md", "v1\n");
+    let mut contextual = object_input(notes.object);
+    contextual.role = InputRole::Contextual;
+    req.inputs = vec![contextual, object_input(notes.object)];
+    let r = capture(&mut kernel, req).unwrap();
+    let inputs = recorded_inputs(&kernel, r.entry_id.unwrap());
+    assert_eq!(inputs.len(), 1);
+    assert_eq!(inputs[0].role, InputRole::Direct);
+
+    let disk = std::fs::read_to_string(dir.path().join("notes.md")).unwrap();
+    let v2 = disk.replace("notes-v1", "notes-v2");
+    write_file(dir.path(), "notes.md", &v2);
+    capture(&mut kernel, human_save("notes.md", &v2)).unwrap();
+    let rows = crate::coherence::commands::perform_breakdown(&mut kernel).unwrap();
+    assert_eq!(rows.len(), 1, "the advanced upstream leaves ch1 stale");
+    assert!(matches!(
+        rows[0].state,
+        crate::coherence::project::EdgeState::VersionStale
+    ));
+}
+
+#[test]
+fn identical_content_whose_only_input_is_itself_is_a_noop() {
+    let (dir, mut kernel) = workspace();
+    write_file(dir.path(), "ch1.md", "v1\n");
+    let ch1 = capture(&mut kernel, human_save("ch1.md", "v1\n")).unwrap();
+    let stamped = ch1.content_with_identity.clone().unwrap();
+
+    let mut req = human_save("ch1.md", &stamped);
+    req.inputs = vec![object_input(ch1.object)];
+    let r = capture(&mut kernel, req).unwrap();
+
+    assert_eq!(
+        r.entry_id, None,
+        "no edges and no new content: an autosave replay"
+    );
+    assert_eq!(r.revision, ch1.revision);
+}
+
+#[cfg(unix)]
+#[test]
+fn an_input_reaching_the_captures_own_file_through_a_symlink_is_dropped() {
+    let (dir, mut kernel) = workspace();
+    write_file(dir.path(), "ch1.md", "v1\n");
+    capture(&mut kernel, human_save("ch1.md", "v1\n")).unwrap();
+    std::os::unix::fs::symlink(dir.path().join("ch1.md"), dir.path().join("alias.md")).unwrap();
+
+    let mut req = human_save("ch1.md", "v2\n");
+    req.inputs = vec![path_input("alias.md")];
+    let r = capture(&mut kernel, req).unwrap();
+
+    assert!(recorded_inputs(&kernel, r.entry_id.unwrap()).is_empty());
+}
+
+#[cfg(unix)]
+#[test]
+fn an_input_read_through_a_symlink_to_a_tracked_document_is_that_document_not_a_copy() {
+    let (dir, mut kernel) = workspace();
+    write_file(dir.path(), "notes.md", "notes\n");
+    let notes = capture(&mut kernel, human_save("notes.md", "notes\n")).unwrap();
+    std::os::unix::fs::symlink(dir.path().join("notes.md"), dir.path().join("link.md")).unwrap();
+    write_file(dir.path(), "ch1.md", "v1\n");
+
+    let mut req = human_save("ch1.md", "v1\n");
+    req.inputs = vec![path_input("link.md")];
+    let r = capture(&mut kernel, req).unwrap();
+
+    let inputs = recorded_inputs(&kernel, r.entry_id.unwrap());
+    assert_eq!(inputs.len(), 1);
+    assert_eq!(inputs[0].object, notes.object);
+    assert!(
+        !kernel.index().is_held(&notes.object).unwrap(),
+        "an alias is not a duplicate"
+    );
+    let registry = kernel.index().registry_state().unwrap();
+    assert_eq!(
+        registry.path_of.get(&notes.object).map(String::as_str),
+        Some("notes.md"),
+        "the registry is not repointed at the alias"
     );
 }

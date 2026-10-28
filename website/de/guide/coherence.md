@@ -37,8 +37,9 @@ bleiben der Chefredakteur.
 - Wenn eine KI ein Dokument schreibt und dabei andere liest, werden diese
   Lesevorgänge zu **Abhängigkeitskanten**, fixiert auf die exakte
   Revision, die gelesen wurde. In der App instrumentierte Pfade
-  zeichnen `exact`-Eingaben auf; MCP-Schreibvorgänge erfassen ehrlich
-  einen `inferred`, in der Sitzung beobachteten Lesesatz.
+  zeichnen `exact`-Eingaben auf; ein MCP-Schreibvorgang erfasst ehrlich
+  einen `inferred` Lesesatz — nur das, was derselbe Client über seine eigene
+  Verbindung gelesen hat — und nennt den Client, der geschrieben hat.
 - Wenn ein Upstream-Dokument über eine fixierte Revision hinaus
   voranschreitet, wird die Kante **veraltet**. Haben sich zwei Revisionen
   parallel entwickelt (z. B. auf Git-Branches), ist die Kante

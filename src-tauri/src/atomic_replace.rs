@@ -169,6 +169,28 @@ pub(crate) fn atomic_replace(
     atomic_replace_with(target, parent, |w| w.write_all(contents))
 }
 
+/// Atomically create `target` with `contents`, refusing (never replacing)
+/// when anything is already there at the instant of publication.
+///
+/// The path-based no-replace publication: Windows' document save path
+/// (`files::write`, Save As to a distinct destination), where std has no
+/// `openat`. Same temp file, fsync and directory sync as `atomic_replace`; the
+/// rename is `MoveFileExW` WITHOUT `MOVEFILE_REPLACE_EXISTING`, so a file
+/// created after any earlier existence check fails the call with
+/// `AlreadyExists` and keeps its bytes. No metadata is carried: there is no
+/// file whose metadata a new one should inherit.
+#[cfg(any(not(unix), test))]
+pub(crate) fn atomic_create(
+    target: &Path,
+    parent: &Path,
+    contents: &[u8],
+) -> Result<(), AtomicReplaceError> {
+    let temp = staged_temp(parent, |w| w.write_all(contents), |_| {})?;
+    // On failure the temp file is dropped → removed, and whatever is at
+    // `target` is untouched.
+    crate::atomic_persist::persist_new_with_retry(temp, target)
+}
+
 /// Atomically replace `target` with whatever `write` emits.
 ///
 /// The streaming form. `atomic_replace` is this with a slice, and everything
@@ -187,30 +209,15 @@ pub(crate) fn atomic_replace_with<F>(
 where
     F: FnOnce(&mut NamedTempFile) -> std::io::Result<()>,
 {
-    let mut temp =
-        NamedTempFile::new_in(parent).map_err(|source| AtomicReplaceError::CreateTemp {
-            parent: parent.to_path_buf(),
-            source,
-        })?;
-
-    // Written through the STILL-OPEN handle. Handing out the path instead — for
-    // the producer to reopen by name — is a window in which the path can be
-    // swapped for a symlink, which is what this API exists to avoid.
-    write(&mut temp).map_err(AtomicReplaceError::WriteTemp)?;
-
-    temp.flush().map_err(AtomicReplaceError::FlushTemp)?;
-
     // Metadata BEFORE the sync, the same order `workflow::commit_dir`
     // uses. `sync_all` is what makes the inode durable, so a mode or an xattr
     // applied after it survived only until the next crash — the rename is made
     // durable independently, and the file would then be at the target with the
     // temp file's own permissions and none of the user's Finder tags.
-    preserve_target_permissions(target, &temp);
-    preserve_target_xattrs(target, &temp);
-
-    temp.as_file()
-        .sync_all()
-        .map_err(AtomicReplaceError::SyncTemp)?;
+    let temp = staged_temp(parent, write, |temp| {
+        preserve_target_permissions(target, temp);
+        preserve_target_xattrs(target, temp);
+    })?;
 
     // `persist` does the atomic rename over `target`, on EVERY platform. On
     // Unix `rename` replaces an existing target; on Windows `NamedTempFile`
@@ -232,6 +239,36 @@ where
     // and — the property that matters — the existing target is untouched. On
     // success the same call syncs the parent directory.
     crate::atomic_persist::persist_with_retry(temp, target)
+}
+
+/// The one staging pipeline both publications share: a temp file in
+/// `parent`, filled by `write`, flushed, given `prepare`'s metadata, then
+/// synced so the inode is durable before any rename exposes it.
+///
+/// Written through the STILL-OPEN handle. Handing out the path instead — for
+/// the producer to reopen by name — is a window in which the path can be
+/// swapped for a symlink, which is what this API exists to avoid. On any
+/// early return the temp file is dropped, and so removed.
+fn staged_temp<F>(
+    parent: &Path,
+    write: F,
+    prepare: impl FnOnce(&NamedTempFile),
+) -> Result<NamedTempFile, AtomicReplaceError>
+where
+    F: FnOnce(&mut NamedTempFile) -> std::io::Result<()>,
+{
+    let mut temp =
+        NamedTempFile::new_in(parent).map_err(|source| AtomicReplaceError::CreateTemp {
+            parent: parent.to_path_buf(),
+            source,
+        })?;
+    write(&mut temp).map_err(AtomicReplaceError::WriteTemp)?;
+    temp.flush().map_err(AtomicReplaceError::FlushTemp)?;
+    prepare(&temp);
+    temp.as_file()
+        .sync_all()
+        .map_err(AtomicReplaceError::SyncTemp)?;
+    Ok(temp)
 }
 
 #[cfg(test)]

@@ -15,11 +15,11 @@ import { closeTabWithDirtyCheck, closeTabsWithDirtyCheck } from "./tabOperations
 import { message, save } from "@tauri-apps/plugin-dialog";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { invoke } from "@tauri-apps/api/core";
-import { saveToPath } from "@/services/persistence/saveToPath";
+import { saveToPathForClose } from "@/services/persistence/saveToPath";
 import { startTabStateCleanup } from "@/services/windowClose/tabCleanup";
 import type { OrphanCleanupResult, OrphanedImage } from "@/services/media/orphanAssetCleanup";
 
-vi.mock("@/services/persistence/saveToPath", () => ({ saveToPath: vi.fn() }));
+vi.mock("@/services/persistence/saveToPath", () => ({ saveToPathForClose: vi.fn() }));
 
 vi.mock("@/services/media/orphanAssetCleanup", () => ({ findOrphanedImages: vi.fn(), deleteOrphanedImages: vi.fn() }));
 
@@ -119,7 +119,7 @@ describe("closeTabWithDirtyCheck", () => {
     const result = await closeTabWithDirtyCheck(WINDOW_LABEL, tabId);
 
     expect(result).toBe(true);
-    expect(saveToPath).not.toHaveBeenCalled();
+    expect(saveToPathForClose).not.toHaveBeenCalled();
     // Window stays open after the last tab closes.
     expect(invokedCommands()).not.toContain("close_window");
     expect(useTabStore.getState().tabs[WINDOW_LABEL]).toEqual([]);
@@ -135,7 +135,7 @@ describe("closeTabWithDirtyCheck", () => {
     const result = await closeTabWithDirtyCheck(WINDOW_LABEL, tabId);
 
     expect(result).toBe(true);
-    expect(saveToPath).not.toHaveBeenCalled();
+    expect(saveToPathForClose).not.toHaveBeenCalled();
     expect(invokedCommands()).not.toContain("close_window");
     expect(useTabStore.getState().tabs[WINDOW_LABEL]).toEqual([]);
   });
@@ -149,7 +149,7 @@ describe("closeTabWithDirtyCheck", () => {
     // the real saveToPath (markSaved), or the revalidation loop correctly
     // treats the still-dirty doc as an unresolved save and re-prompts.
     vi.mocked(message).mockResolvedValueOnce("Yes");
-    vi.mocked(saveToPath).mockImplementationOnce(async (id, _p, content) => {
+    vi.mocked(saveToPathForClose).mockImplementationOnce(async (id, _p, content) => {
       useDocumentStore.getState().markSaved(id, saveSnapshots(content));
       return true;
     });
@@ -157,7 +157,7 @@ describe("closeTabWithDirtyCheck", () => {
     const result = await closeTabWithDirtyCheck(WINDOW_LABEL, tabId);
 
     expect(result).toBe(true);
-    expect(saveToPath).toHaveBeenCalledWith(tabId, "/tmp/dirty.md", "changed", "manual");
+    expect(saveToPathForClose).toHaveBeenCalledWith(tabId, "/tmp/dirty.md", "changed");
     expect(invokedCommands()).not.toContain("close_window");
     expect(useTabStore.getState().tabs[WINDOW_LABEL]).toEqual([]);
   });
@@ -441,7 +441,7 @@ describe("closeTabWithDirtyCheck — orphan cleanup", () => {
     vi.mocked(message).mockResolvedValueOnce("Yes");
     // The real saveToPath calls markSaved — mirror it, or the doc stays dirty
     // and the scan would read the file instead of the freshly saved content.
-    vi.mocked(saveToPath).mockImplementationOnce(async (id, _path, content) => {
+    vi.mocked(saveToPathForClose).mockImplementationOnce(async (id, _path, content) => {
       useDocumentStore.getState().markSaved(id, saveSnapshots(content));
       return true;
     });
@@ -462,7 +462,7 @@ describe("closeTabWithDirtyCheck — orphan cleanup", () => {
     useDocumentStore.getState().setEditorContent(tabId, "changed");
 
     vi.mocked(message).mockResolvedValueOnce("Yes");
-    vi.mocked(saveToPath).mockImplementationOnce(async (id) => {
+    vi.mocked(saveToPathForClose).mockImplementationOnce(async (id) => {
       // Remove the document before returning so savedDoc lookup returns null
       useDocumentStore.getState().removeDocument(id);
       return true;

@@ -1,18 +1,18 @@
 ---
 name: plan-audit
-description: Audit an implementation against a plan (dev-docs/plans/*). Use when a user asks to check for gaps, logic errors, or missing tests relative to a plan or Work Items.
+description: Audit or verify an implementation against a plan (dev-docs/plans/* or .claude/tdd-guardian/*). Audit mode inspects for gaps, logic errors and missing tests; verify mode runs the gates and marks each acceptance criterion. Use when asked to check work items against a plan or confirm they are complete.
 ---
 
 # Plan Audit
 
 ## Overview
 
-Audits completed work against a plan (WIs + acceptance + tests) and reports gaps, logic errors, and missing coverage with file/line references.
+Two modes over the same plan. **Audit** (default) inspects completed work against the plan (WIs + acceptance + tests) and reports gaps, logic errors, and missing coverage with file/line references; it runs nothing. **Verify** runs the gates and marks every acceptance criterion; use it when asked to verify or confirm completion.
 
 ## Workflow (Audit)
 
 1) **Locate the plan**
-   - Prefer `dev-docs/plans/<plan>.md`.
+   - `dev-docs/plans/<plan>.md` (local) or `.claude/tdd-guardian/<plan>.md` (tracked).
    - If unclear, ask for the plan path or the WI list.
 
 2) **Extract audit checklist**
@@ -57,6 +57,22 @@ Audits completed work against a plan (WIs + acceptance + tests) and reports gaps
 
 ## Audit Rules
 
-- Do **not** run tests here unless the user explicitly asks; this is an inspection pass.
+- In audit mode, do **not** run tests unless the user explicitly asks; it is an inspection pass.
 - Be strict about spec drift: if behavior diverges from plan text, flag it.
 - If you cannot locate the plan, stop and ask for it.
+
+## Verify mode
+
+1) Locate the plan and list, for each WI, its acceptance criteria, required
+   tests and manual checks.
+2) Run the plan's own gates (its "Testing Procedures", or the phase script
+   `scripts/check-*-phase.sh` it names); otherwise pick from the `AGENTS.md`
+   gate table. Note any gate that cannot run as a blocker.
+3) Mark each criterion Pass / Fail / Blocked with evidence: the command and its
+   result line, file references, or manual steps with the observed result.
+4) Report: a summary (WIs verified, Pass/Fail/Blocked counts), gate results
+   (command → status, key error lines for failures), the acceptance matrix
+   (WI → criterion → status), and manual checks.
+
+Rules: always run the gates unless the user forbids it; a skipped or failing
+test makes its WI **Blocked**; never claim "verified" without test evidence.

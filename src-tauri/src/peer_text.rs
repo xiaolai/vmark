@@ -21,7 +21,12 @@
 //!     the part a reader needs.
 //!   - [`peer_label`] is for a value VMark stores and shows (the client name in
 //!     Settings → Integrations). Quoting would be wrong there, so control
-//!     characters are removed instead.
+//!     characters and bidirectional formatting characters
+//!     ([`is_bidi_formatting`]) are removed instead.
+//!
+//! [`is_bidi_formatting`] is the one definition of that set: every rule that
+//! refuses or strips them for a label (`mcp_bridge/attribution.rs`,
+//! `agent_journal/actor.rs`, `genies/scanning.rs`) asks it.
 //!
 //! All three bound the length, with a marker, so a truncated value cannot be
 //! mistaken for a short one.
@@ -76,16 +81,28 @@ pub(crate) fn peer_message(value: &str) -> String {
     format!("{:?}", bounded(value, MAX_PEER_MESSAGE))
 }
 
-/// A peer-supplied value as it may be STORED and shown: control characters
-/// removed and bounded, with no quoting, since this one is rendered as a
-/// label rather than as a token in a log line.
+/// A peer-supplied value as it may be STORED and shown: control and
+/// bidirectional formatting characters removed and bounded, with no quoting,
+/// since this one is rendered as a label rather than as a token in a log line.
 pub(crate) fn peer_label(value: &str) -> String {
     bounded(
         &value
             .chars()
-            .filter(|c| !c.is_control())
+            .filter(|c| !c.is_control() && !is_bidi_formatting(*c))
             .collect::<String>(),
         MAX_PEER_TEXT,
+    )
+}
+
+/// Unicode's bidirectional formatting characters (UAX #9): the Arabic letter
+/// mark, the left-to-right and right-to-left marks, the embeddings, overrides
+/// and their pop, and the isolates and theirs. None is `char::is_control`
+/// (they are `Cf`, not `Cc`), yet each reorders how a label and the text
+/// after it render — the Trojan-Source class.
+pub(crate) fn is_bidi_formatting(c: char) -> bool {
+    matches!(
+        c,
+        '\u{061C}' | '\u{200E}' | '\u{200F}' | '\u{202A}'..='\u{202E}' | '\u{2066}'..='\u{2069}'
     )
 }
 

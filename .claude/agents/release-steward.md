@@ -2,7 +2,6 @@
 name: release-steward
 description: Prepares commit messages and release notes; commits only on explicit request.
 tools: Read, Bash
-skills: tauri-app-dev
 ---
 
 You propose commit(s) that match Work Items:

@@ -1,0 +1,92 @@
+{
+  "spec": "transitions[event][fromState] = toState; an absent entry is refused with INVALID_TRANSITION. Every applied transition bumps reviewGen by exactly 1 under the genBounds class of (event, toState). There is no reverted → conflicted: a refused revert-of-revert (re-apply) changes no content, no state, no reviewGen, and leaves the journal generation unchanged.",
+  "states": [
+    "pending",
+    "kept",
+    "reverted",
+    "conflicted",
+    "superseded",
+    "resolvedByHumanEdit",
+    "settled"
+  ],
+  "userEvents": [
+    "keep",
+    "unkeep",
+    "revertApplied",
+    "revertRefused",
+    "revertOfRevertApplied",
+    "revertFoundBase",
+    "markHandled",
+    "clearReviewed"
+  ],
+  "captureEvents": [
+    "supersede",
+    "humanResolve"
+  ],
+  "transitions": {
+    "keep": {
+      "pending": "kept",
+      "conflicted": "kept"
+    },
+    "unkeep": {
+      "kept": "pending"
+    },
+    "revertApplied": {
+      "pending": "reverted",
+      "conflicted": "reverted"
+    },
+    "revertRefused": {
+      "pending": "conflicted"
+    },
+    "revertOfRevertApplied": {
+      "reverted": "pending"
+    },
+    "revertFoundBase": {
+      "pending": "resolvedByHumanEdit",
+      "conflicted": "resolvedByHumanEdit"
+    },
+    "markHandled": {
+      "conflicted": "resolvedByHumanEdit"
+    },
+    "clearReviewed": {
+      "kept": "settled",
+      "reverted": "settled",
+      "superseded": "settled",
+      "resolvedByHumanEdit": "settled"
+    },
+    "supersede": {
+      "pending": "superseded",
+      "conflicted": "superseded"
+    },
+    "humanResolve": {
+      "pending": "resolvedByHumanEdit",
+      "conflicted": "resolvedByHumanEdit"
+    }
+  },
+  "forbidden": [
+    {
+      "from": "reverted",
+      "to": "conflicted"
+    }
+  ],
+  "genBounds": {
+    "settle": {
+      "when": "toState = settled",
+      "allowedWhileGenAtMost": "u64::MAX-1"
+    },
+    "capture": {
+      "when": "event is a capture event",
+      "allowedWhileGenAtMost": "u64::MAX-2",
+      "onViolation": "invariant failure, never a user-facing refusal"
+    },
+    "userToDecided": {
+      "when": "user event to kept/reverted/superseded/resolvedByHumanEdit",
+      "allowedWhileGenAtMost": "u64::MAX-2"
+    },
+    "userToActive": {
+      "when": "user event to pending/conflicted",
+      "allowedWhileGenAtMost": "u64::MAX-3"
+    },
+    "refusalCode": "REVIEW_STATE_EXHAUSTED"
+  }
+}

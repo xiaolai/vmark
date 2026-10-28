@@ -430,99 +430,91 @@ I plugin non sono indispensabili perché sono ingegnosi. Sono indispensabili per
 
 I plugin sono metà della storia. L'altra metà è l'infrastruttura di conoscenza accumulata insieme a essi.
 
-### 13 Regole (1,950 Righe di Conoscenza Istituzionale)
+### 14 Regole (Conoscenza Istituzionale)
 
 ```mermaid
 flowchart LR
     subgraph Engineering["Engineering (00-10)"]
-        R00["00 Principles\n11 lines"]
-        R10["10 TDD\n196 lines"]
+        R00["00 Principles"]
+        R10["10 TDD"]
     end
-    subgraph Docs["Documentation (20-22)"]
-        R20["20 Logging\n4 lines"]
-        R21["21 Website Docs\n65 lines"]
-        R22["22 Comments\n36 lines"]
+    subgraph Docs["Documentation (21-22)"]
+        R21["21 Website Docs"]
+        R22["22 Comments"]
     end
-    subgraph UI["UI Consistency (30-34)"]
-        R30["30 UI Core\n25 lines"]
-        R31["31 Design Tokens\n261 lines"]
-        R32["32 Components\n436 lines"]
-        R33["33 Focus A11y\n164 lines"]
-        R34["34 Dark Theme\n196 lines"]
+    subgraph UI["UI Consistency (30-35)"]
+        R30["30 UI Core"]
+        R31["31 Design Tokens"]
+        R32["32 Components"]
+        R33["33 Focus A11y"]
+        R34["34 Dark Theme"]
+        R35["35 Copy"]
     end
     subgraph Ops["Operations (40-41)"]
-        R40["40 Version Bump\n79 lines"]
-        R41["41 Shortcuts\n122 lines"]
+        R40["40 Version Bump"]
+        R41["41 Shortcuts"]
     end
-    subgraph Patterns["Patterns (50)"]
-        R50["50 Conventions\n211 lines"]
+    subgraph Patterns["Patterns (50-60)"]
+        R50["50 Conventions"]
+        R60["60 AI Governance"]
     end
 ```
 
-La directory `.claude/rules/` di VMark contiene 13 file di regole — non linee guida vaghe, ma convenzioni specifiche e applicabili:
+La directory `.claude/rules/` di VMark contiene 14 file di regole — non linee guida vaghe, ma convenzioni specifiche e applicabili:
 
-| File di Regole | Righe | Cosa Codifica |
-|----------------|-------|---------------|
-| `00-engineering-principles.md` | 11 | Convenzioni fondamentali (niente destructuring di Zustand, limite di 300 righe) |
-| `10-tdd.md` | 196 | 5 template di pattern di test, catalogo di anti-pattern, gate di copertura |
-| `20-logging-and-docs.md` | 4 | Fonte unica di verità per argomento |
-| `21-website-docs.md` | 65 | Tabella di mappatura codice-documentazione (quali cambiamenti di codice richiedono quali aggiornamenti doc) |
-| `22-comment-maintenance.md` | 36 | Quando aggiornare/non aggiornare i commenti, prevenzione del deterioramento |
-| `30-ui-consistency.md` | 25 | Principi fondamentali dell'UI, riferimenti incrociati alle sotto-regole |
-| `31-design-tokens.md` | 261 | Riferimento completo dei token CSS — ogni colore, spaziatura, raggio, ombra |
-| `32-component-patterns.md` | 436 | Pattern per popup, toolbar, menu contestuale, tabella, scrollbar con codice |
-| `33-focus-indicators.md` | 164 | 6 pattern di focus per tipo di componente (conformità WCAG) |
-| `34-dark-theme.md` | 196 | Rilevamento del tema, pattern di override, checklist di migrazione |
-| `40-version-bump.md` | 79 | Procedura di sincronizzazione versione su 5 file con script di verifica |
-| `41-keyboard-shortcuts.md` | 122 | Sincronizzazione di 3 file (Rust/Frontend/Docs), verifica conflitti, convenzioni |
-| `50-codebase-conventions.md` | 211 | 10 pattern non documentati scoperti durante lo sviluppo |
+| File di Regole | Cosa Codifica |
+|----------------|---------------|
+| `00-engineering-principles.md` | Convenzioni fondamentali (niente destructuring di Zustand, limite di 300 righe) |
+| `10-tdd.md` | Template di pattern di test, catalogo di anti-pattern, gate di copertura |
+| `21-website-docs.md` | Tabella di mappatura codice-documentazione (quali cambiamenti di codice richiedono quali aggiornamenti doc) |
+| `22-comment-maintenance.md` | Contratto dell'intestazione dei file, quando aggiornare i commenti, cosa può citare un commento |
+| `30-ui-consistency.md` | Principi fondamentali dell'UI, riferimenti incrociati alle sotto-regole |
+| `31-design-tokens.md` | Riferimento dei token CSS — ogni token di colore, spaziatura, raggio e ombra e il suo scopo |
+| `32-component-patterns.md` | Pattern per popup, toolbar, menu contestuale, tabella, scrollbar con codice |
+| `33-focus-indicators.md` | Pattern di focus per tipo di componente (conformità WCAG) |
+| `34-dark-theme.md` | Rilevamento del tema, pattern di override, checklist di migrazione |
+| `35-copy-conventions.md` | Testi dell'interfaccia: formulazione, punteggiatura, cosa non compare mai nel testo visibile all'utente |
+| `40-version-bump.md` | Procedura di sincronizzazione versione su 5 file con script di verifica |
+| `41-keyboard-shortcuts.md` | Sincronizzazione di 3 file (Rust/Frontend/Docs), verifica conflitti, convenzioni |
+| `50-codebase-conventions.md` | Pattern di store, hook, plugin, bridge MCP e comandi Rust scoperti durante lo sviluppo |
+| `60-ai-governance.md` | Piani, id dei work item, revisione tra modelli, percorsi protetti |
 
-Queste regole vengono lette da Claude Code all'inizio di ogni sessione. Sono il motivo per cui il commit 2,180 segue le stesse convenzioni del commit 100.
+Claude Code carica una regola quando una sessione tocca i file che copre, oppure in ogni sessione per una regola senza ambito di percorsi. Sono il motivo per cui il commit 2,180 segue le stesse convenzioni del commit 100.
 
 La regola `50-codebase-conventions.md` è particolarmente notevole — documenta pattern che *nessuno ha progettato*. Sono emersi organicamente durante lo sviluppo e sono stati poi codificati: convenzioni di denominazione degli store, pattern di pulizia degli hook, struttura dei plugin, firme degli handler del bridge MCP, organizzazione dei CSS, idiomi di gestione degli errori.
 
-### 19 Skill del Progetto (Competenza del Dominio)
+### 10 Skill del Progetto (Competenza del Dominio)
 
 ```mermaid
 flowchart TB
     subgraph Platform["Platform Skills"]
         S1["rust-tauri-backend"]
-        S2["tauri-v2-integration"]
-        S3["tauri-app-dev"]
-        S4["tauri-mcp-testing"]
-        S5["tauri-mcp-test-runner"]
+        S2["tauri-mcp-testing"]
     end
     subgraph Editor["Editor Skills"]
-        S6["react-app-dev"]
-        S7["tiptap-dev"]
-        S8["tiptap-editor"]
+        S3["react-app-dev"]
+        S4["tiptap-dev"]
     end
     subgraph Quality["Quality Skills"]
-        S9["release-gate"]
-        S10["css-design-tdd"]
-        S11["shortcut-audit"]
-        S12["workflow-audit"]
-        S13["plan-audit"]
-        S14["plan-verify"]
+        S5["css-design-tdd"]
+        S6["workflow-audit"]
+        S7["plan-audit"]
     end
     subgraph Other["Other Skills"]
-        S15["translate-docs\n9 locales"]
-        S16["mcp-dev"]
-        S17["mcp-server-manager"]
-        S18["planning"]
-        S19["ai-coding-agents"]
+        S8["translate-docs\n9 locales"]
+        S9["mcp-dev"]
+        S10["planning"]
     end
 ```
 
 | Categoria | Skill | Cosa Abilitano |
 |-----------|-------|----------------|
-| **Tauri/Rust** | `rust-tauri-backend`, `tauri-v2-integration`, `tauri-app-dev`, `tauri-mcp-testing`, `tauri-mcp-test-runner` | Sviluppo Rust specifico per piattaforma con convenzioni Tauri v2 |
-| **React/Editor** | `react-app-dev`, `tiptap-dev`, `tiptap-editor` | Pattern dell'editor Tiptap/ProseMirror, regole dei selettori Zustand |
-| **Qualità** | `release-gate`, `css-design-tdd`, `shortcut-audit`, `workflow-audit`, `plan-audit`, `plan-verify` | Verifica della qualità automatizzata a ogni livello |
+| **Tauri/Rust** | `rust-tauri-backend`, `tauri-mcp-testing` | Lavoro sul backend Rust e sull'IPC con le convenzioni Tauri v2, e test E2E dell'app in esecuzione |
+| **React/Editor** | `react-app-dev`, `tiptap-dev` | Pattern dell'editor Tiptap/ProseMirror, regole dei selettori Zustand |
+| **Qualità** | `css-design-tdd`, `workflow-audit`, `plan-audit` | Verifica della qualità automatizzata a ogni livello |
 | **Documentazione** | `translate-docs` | Traduzione in 9 lingue con audit guidato da subagent |
-| **MCP** | `mcp-dev`, `mcp-server-manager` | Sviluppo e configurazione di server MCP |
+| **MCP** | `mcp-dev` | Sviluppo di strumenti MCP e registrazione dei server |
 | **Pianificazione** | `planning` | Generazione di piani di implementazione con documentazione delle decisioni |
-| **Strumenti IA** | `ai-coding-agents` | Orchestrazione multi-agente (Codex CLI, Claude Code, Gemini CLI) |
 
 ### 7 Comandi Slash (Automazione dei Workflow)
 
@@ -554,7 +546,7 @@ flowchart TB
 
 Regole + skill + plugin + comandi formano un sistema composto. Quando esegui `/fix-issue`, usa lo skill `rust-tauri-backend` per le modifiche Rust, segue la regola `10-tdd.md` per i requisiti di test, invoca `cc-suite` per l'audit, verifica `31-design-tokens.md` per la conformità CSS e controlla `41-keyboard-shortcuts.md` per la sincronizzazione delle scorciatoie.
 
-Nessun singolo pezzo è rivoluzionario. L'effetto composto — 13 regole x 19 skill x 7 plugin x 7 comandi, tutti che si rafforzano a vicenda — è ciò che fa funzionare il sistema. Ogni pezzo è stato aggiunto quando è stata scoperta una lacuna, testato nello sviluppo reale e perfezionato attraverso l'uso.
+Nessun singolo pezzo è rivoluzionario. L'effetto composto — 14 regole x 10 skill x 7 plugin x 7 comandi, tutti che si rafforzano a vicenda — è ciò che fa funzionare il sistema. Ogni pezzo è stato aggiunto quando è stata scoperta una lacuna, testato nello sviluppo reale e perfezionato attraverso l'uso.
 
 ## Per i Creatori di Plugin
 

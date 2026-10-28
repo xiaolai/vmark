@@ -32,6 +32,8 @@ import { handleWorkspaceSave } from "@/services/mcpBridge/v2/workspaceSave";
 import { handleWorkspaceSaveAs } from "@/services/mcpBridge/v2/workspaceSaveAs";
 import { captures, resetBridge, responseTo, structuredErrorOf } from "./bridgeDiskHarness";
 import { writeGate } from "./bridgeWriteGate";
+import { TEST_ATTRIBUTION, TEST_WRITE_CONTEXT } from "@/test/mcpAttributionFixture";
+import { mcpCoherenceAgent } from "@/services/coherence/mcpActor";
 
 const DOC = `${ROOT}/notes.md`;
 const NEW = `${ROOT}/renamed.md`;
@@ -69,7 +71,7 @@ const WRITE_PATHS = [
   {
     tool: "document.write",
     async run(tabId: string, id: string): Promise<string> {
-      await handleDocumentWrite(id, { tabId, content: EDITED_LF });
+      await handleDocumentWrite(id, { tabId, content: EDITED_LF }, TEST_WRITE_CONTEXT);
       return DOC;
     },
   },
@@ -77,7 +79,7 @@ const WRITE_PATHS = [
     tool: "workspace.save",
     async run(tabId: string, id: string): Promise<string> {
       editDoc(tabId, EDITED_LF);
-      await handleWorkspaceSave(id, { tabId });
+      await handleWorkspaceSave(id, { tabId }, TEST_WRITE_CONTEXT);
       return DOC;
     },
   },
@@ -85,7 +87,7 @@ const WRITE_PATHS = [
     tool: "workspace.save_as",
     async run(tabId: string, id: string): Promise<string> {
       editDoc(tabId, EDITED_LF);
-      await handleWorkspaceSaveAs(id, { tabId, filePath: NEW });
+      await handleWorkspaceSaveAs(id, { tabId, filePath: NEW }, TEST_WRITE_CONTEXT);
       return NEW;
     },
   },
@@ -165,7 +167,7 @@ describe.each(WRITE_PATHS)("$tool goes through the save pipeline", ({ tool, run 
       // The exact bytes on disk — not the editor-domain text.
       content: EDITED_ON_DISK,
       confidence: "inferred",
-      agent: { type: "model", id: "mcp-client" },
+      agent: mcpCoherenceAgent(TEST_ATTRIBUTION),
       intent: { kind: "mcp-document-write", summary: tool },
     });
   });
@@ -224,7 +226,7 @@ describe("document.write reports why a save did not happen", () => {
     await handleDocumentWrite("req-crlf", {
       tabId,
       content: "# 标题\r\n\r\n正文\r\n新增一行\r\n",
-    });
+    }, TEST_WRITE_CONTEXT);
 
     expect(writeData("req-crlf").saved).toBe(true);
     expect(doc(tabId).isDirty).toBe(false);
@@ -236,7 +238,7 @@ describe("document.write reports why a save did not happen", () => {
     const tabId = await openDocInTab(DOC, "before\n");
     statefulFs.failWrites(new Error("EACCES: permission denied"));
 
-    await handleDocumentWrite("req-eacces", { tabId, content: "after\n" });
+    await handleDocumentWrite("req-eacces", { tabId, content: "after\n" }, TEST_WRITE_CONTEXT);
 
     const data = writeData("req-eacces");
     expect(data.saved).toBe(false);
@@ -250,7 +252,7 @@ describe("document.write reports why a save did not happen", () => {
     const tabId = await openDocInTab(DOC, "before\n");
     statefulFs.failWrites({ code: "io", message: "disk quota exceeded" });
 
-    await handleDocumentWrite("req-typed", { tabId, content: "after\n" });
+    await handleDocumentWrite("req-typed", { tabId, content: "after\n" }, TEST_WRITE_CONTEXT);
 
     expect(writeData("req-typed").save_error).toBe("disk quota exceeded");
   });
@@ -263,7 +265,7 @@ describe("document.write reports why a save did not happen", () => {
       detail: { dir: `${ROOT}/sub` },
     });
 
-    await handleDocumentWrite("req-gone", { tabId, content: "after\n" });
+    await handleDocumentWrite("req-gone", { tabId, content: "after\n" }, TEST_WRITE_CONTEXT);
 
     const data = writeData("req-gone");
     expect(data.saved).toBe(false);
@@ -279,7 +281,7 @@ describe("document.write reports why a save did not happen", () => {
       throw new Error("path resolves outside the allowed roots");
     });
 
-    await handleDocumentWrite("req-guard", { tabId, content: "after\n" });
+    await handleDocumentWrite("req-guard", { tabId, content: "after\n" }, TEST_WRITE_CONTEXT);
 
     const data = writeData("req-guard");
     expect(data.saved).toBe(false);
@@ -291,7 +293,7 @@ describe("document.write reports why a save did not happen", () => {
   it("save:false leaves the disk alone and the document dirty", async () => {
     const tabId = await openDocInTab(DOC, "before\n");
 
-    await handleDocumentWrite("req-optout", { tabId, content: "after\n", save: false });
+    await handleDocumentWrite("req-optout", { tabId, content: "after\n", save: false }, TEST_WRITE_CONTEXT);
 
     const data = writeData("req-optout");
     expect(data).toMatchObject({ saved: false, save_skipped: "opt_out" });
@@ -303,7 +305,7 @@ describe("document.write reports why a save did not happen", () => {
   it("an untitled tab is not saved and says so", async () => {
     const tabId = newUntitledTab();
 
-    await handleDocumentWrite("req-untitled", { tabId, content: "draft\n" });
+    await handleDocumentWrite("req-untitled", { tabId, content: "draft\n" }, TEST_WRITE_CONTEXT);
 
     const data = writeData("req-untitled");
     expect(data).toMatchObject({ saved: false, save_skipped: "untitled" });
@@ -315,7 +317,7 @@ describe("document.write reports why a save did not happen", () => {
   it("an empty document is a real save", async () => {
     const tabId = await openDocInTab(DOC, "before\n");
 
-    await handleDocumentWrite("req-empty", { tabId, content: "" });
+    await handleDocumentWrite("req-empty", { tabId, content: "" }, TEST_WRITE_CONTEXT);
 
     expect(writeData("req-empty").saved).toBe(true);
     expect(statefulFs.read(DOC)).toBe("");
@@ -329,7 +331,7 @@ describe("workspace.save and save_as report why a save did not happen", () => {
     editDoc(tabId, "after\n");
     statefulFs.failWrites(new Error("EACCES: permission denied"));
 
-    await handleWorkspaceSave("req-s-fail", { tabId });
+    await handleWorkspaceSave("req-s-fail", { tabId }, TEST_WRITE_CONTEXT);
 
     const r = responseTo("req-s-fail");
     expect(r.success).toBe(false);
@@ -341,7 +343,7 @@ describe("workspace.save and save_as report why a save did not happen", () => {
     editDoc(tabId, "after\n");
     statefulFs.failWrites({ code: "permission-denied", message: "read-only volume" });
 
-    await handleWorkspaceSave("req-s-typed", { tabId });
+    await handleWorkspaceSave("req-s-typed", { tabId }, TEST_WRITE_CONTEXT);
 
     const r = responseTo("req-s-typed");
     expect(r.success).toBe(false);
@@ -358,7 +360,7 @@ describe("workspace.save and save_as report why a save did not happen", () => {
       detail: { dir: `${ROOT}/sub` },
     });
 
-    await handleWorkspaceSave("req-s-gone", { tabId });
+    await handleWorkspaceSave("req-s-gone", { tabId }, TEST_WRITE_CONTEXT);
 
     const err = structuredErrorOf(responseTo("req-s-gone"));
     expect(err).toMatchObject({ error: "INVALID_PATH" });
@@ -373,7 +375,7 @@ describe("workspace.save and save_as report why a save did not happen", () => {
       throw new Error("path resolves outside the allowed roots");
     });
 
-    await handleWorkspaceSave("req-s-guard", { tabId });
+    await handleWorkspaceSave("req-s-guard", { tabId }, TEST_WRITE_CONTEXT);
 
     expect(structuredErrorOf(responseTo("req-s-guard"))).toEqual({
       error: "INVALID_PATH",
@@ -387,7 +389,7 @@ describe("workspace.save and save_as report why a save did not happen", () => {
     const tabId = newUntitledTab();
     editDoc(tabId, "draft\n");
 
-    await handleWorkspaceSave("req-s-untitled", { tabId });
+    await handleWorkspaceSave("req-s-untitled", { tabId }, TEST_WRITE_CONTEXT);
 
     expect(structuredErrorOf(responseTo("req-s-untitled"))).toMatchObject({
       error: "INVALID_PATH",
@@ -399,13 +401,14 @@ describe("workspace.save and save_as report why a save did not happen", () => {
     const tabId = await openDocInTab(DOC, "before\n");
     editDoc(tabId, "after\n");
 
-    await handleWorkspaceSave("req-s-ok", {});
+    await handleWorkspaceSave("req-s-ok", {}, TEST_WRITE_CONTEXT);
 
     const r = responseTo("req-s-ok");
     expect(r.success).toBe(true);
     expect(r.data).toEqual({
       filePath: DOC,
       revision: useRevisionStore.getState().getRevision(tabId),
+      journaled: "yes",
     });
   });
 
@@ -414,7 +417,7 @@ describe("workspace.save and save_as report why a save did not happen", () => {
     editDoc(tabId, "draft\n");
     statefulFs.failWrites(new Error("disk full"));
 
-    await handleWorkspaceSaveAs("req-as-fail", { tabId, filePath: NEW });
+    await handleWorkspaceSaveAs("req-as-fail", { tabId, filePath: NEW }, TEST_WRITE_CONTEXT);
 
     const r = responseTo("req-as-fail");
     expect(r.success).toBe(false);
@@ -428,11 +431,14 @@ describe("workspace.save and save_as report why a save did not happen", () => {
     const tabId = newUntitledTab();
     editDoc(tabId, "初稿\n");
 
-    await handleWorkspaceSaveAs("req-as-ok", { tabId, filePath: NEW });
+    await handleWorkspaceSaveAs("req-as-ok", { tabId, filePath: NEW }, TEST_WRITE_CONTEXT);
 
     const r = responseTo("req-as-ok");
     expect(r.success).toBe(true);
-    expect(r.data).toEqual({ revision: useRevisionStore.getState().getRevision(tabId) });
+    expect(r.data).toEqual({
+      revision: useRevisionStore.getState().getRevision(tabId),
+      journaled: "yes",
+    });
     expect(statefulFs.read(NEW)).toBe("初稿\n");
     expect(doc(tabId).filePath).toBe(NEW);
     expect(doc(tabId).isDirty).toBe(false);
@@ -468,7 +474,7 @@ describe("a file another tab holds unsaved changes to", () => {
     openDirtyCopyElsewhere(DOC);
     const errorToast = vi.spyOn(imeToast, "error");
 
-    await handleDocumentWrite("req-owned", { tabId, content: "after\n" });
+    await handleDocumentWrite("req-owned", { tabId, content: "after\n" }, TEST_WRITE_CONTEXT);
 
     const data = writeData("req-owned");
     expect(data.saved).toBe(false);
@@ -487,7 +493,7 @@ describe("a file another tab holds unsaved changes to", () => {
     editDoc(tabId, "after\n");
     openDirtyCopyElsewhere(DOC);
 
-    await handleWorkspaceSave("req-s-owned", { tabId });
+    await handleWorkspaceSave("req-s-owned", { tabId }, TEST_WRITE_CONTEXT);
 
     const err = structuredErrorOf(responseTo("req-s-owned"));
     expect(err?.error).toBe("INTERNAL");
@@ -497,12 +503,16 @@ describe("a file another tab holds unsaved changes to", () => {
 });
 
 describe("MCP writes are ordered with every other save", () => {
-  it("two concurrent document.write calls to one file are written one after the other", async () => {
+  it("a document.write issued while another's save is in flight is written after it", async () => {
     const tabId = await openDocInTab(DOC, "before\n");
     writeGate.hold(DOC);
 
-    const first = handleDocumentWrite("req-a", { tabId, content: "A\n" });
-    const second = handleDocumentWrite("req-b", { tabId, content: "B\n" });
+    // The second request arrives once the first is applied and recorded and
+    // only its save is in flight. (Two writes racing through the journal's
+    // prepare are refused JOURNAL_BUSY instead: documentWriteJournal.test.tsx.)
+    const first = handleDocumentWrite("req-a", { tabId, content: "A\n" }, TEST_WRITE_CONTEXT);
+    await vi.waitFor(() => expect(writeGate.waitingAt(DOC)).toBe(1));
+    const second = handleDocumentWrite("req-b", { tabId, content: "B\n" }, TEST_WRITE_CONTEXT);
     await settle();
 
     // Unserialized, both writes are in flight here and whichever the disk
@@ -531,7 +541,7 @@ describe("MCP writes are ordered with every other save", () => {
     writeGate.hold(DOC);
 
     const autosave = saveToPath(tabId, DOC, "typed\n", "auto");
-    const write = handleDocumentWrite("req-after-auto", { tabId, content: "from the client\n" });
+    const write = handleDocumentWrite("req-after-auto", { tabId, content: "from the client\n" }, TEST_WRITE_CONTEXT);
     await settle();
 
     expect(writeGate.waitingAt(DOC)).toBe(1);
@@ -553,7 +563,7 @@ describe("MCP writes are ordered with every other save", () => {
     await settle();
     expect(writeGate.waitingAt(DOC)).toBe(1);
 
-    await handleWorkspaceSaveAs("req-race", { tabId, filePath: NEW });
+    await handleWorkspaceSaveAs("req-race", { tabId, filePath: NEW }, TEST_WRITE_CONTEXT);
     expect(responseTo("req-race").success).toBe(true);
     expect(doc(tabId).filePath).toBe(NEW);
 
@@ -576,9 +586,9 @@ describe("MCP writes are ordered with every other save", () => {
     const second = `${ROOT}/second.md`;
     writeGate.hold(first);
 
-    const slow = handleWorkspaceSaveAs("req-first", { tabId, filePath: first });
+    const slow = handleWorkspaceSaveAs("req-first", { tabId, filePath: first }, TEST_WRITE_CONTEXT);
     await settle();
-    await handleWorkspaceSaveAs("req-second", { tabId, filePath: second });
+    await handleWorkspaceSaveAs("req-second", { tabId, filePath: second }, TEST_WRITE_CONTEXT);
     writeGate.open(first);
     await slow;
 

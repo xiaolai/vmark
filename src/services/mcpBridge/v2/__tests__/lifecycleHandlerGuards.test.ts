@@ -23,7 +23,7 @@ vi.mock("@tauri-apps/plugin-fs", () => ({
 import { invoke } from "@tauri-apps/api/core";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore, useRevisionStore } from "@/stores/documentStore";
-import { useMcpStore } from "@/stores/mcpStore";
+import { agentJournalFake } from "@/test/agentJournalFake";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { registerWysiwygFlusher } from "@/utils/wysiwygFlush";
@@ -36,6 +36,7 @@ import {
   handleWorkflowValidate,
 } from "@/services/mcpBridge/v2/workflow";
 import { handleWorkspaceClose, handleWorkspaceOpen } from "@/services/mcpBridge/v2/workspace";
+import { TEST_WRITE_CONTEXT } from "@/test/mcpAttributionFixture";
 
 const MAIN = "main";
 const WORKFLOW_PATH = "/w/.github/workflows/ci.yml";
@@ -101,7 +102,6 @@ beforeEach(() => {
   useTabStore.setState({ tabs: {}, activeTabId: {}, untitledCounter: 0 });
   useDocumentStore.setState({ documents: {} });
   useRevisionStore.setState({ revisions: {} });
-  useMcpStore.setState((s) => ({ checkpoint: { ...s.checkpoint, checkpoints: [], hydrated: false } }));
   useWorkspaceStore.setState({ rootPath: "/w", isWorkspaceMode: true });
   stopCleanup = startTabStateCleanup();
 });
@@ -122,13 +122,13 @@ describe.each([
   it("an unknown tabId", async () => {
     openTab(WORKFLOW_PATH, WORKFLOW);
 
-    await run("req-unknown", { ...args, tabId: "ghost" });
+    await run("req-unknown", { ...args, tabId: "ghost" }, TEST_WRITE_CONTEXT);
 
     expect(errorOf("req-unknown")).toEqual({ error: "INVALID_TAB", message: "Unknown tabId" });
   });
 
   it("no tabId and nothing focused", async () => {
-    await run("req-none", args);
+    await run("req-none", args, TEST_WRITE_CONTEXT);
 
     expect(errorOf("req-none")).toEqual({ error: "INVALID_TAB", message: "No focused tab" });
   });
@@ -137,7 +137,7 @@ describe.each([
     const tabId = openTab(WORKFLOW_PATH, WORKFLOW);
     useDocumentStore.setState({ documents: {} });
 
-    await run("req-orphan", { ...args, tabId });
+    await run("req-orphan", { ...args, tabId }, TEST_WRITE_CONTEXT);
 
     expect(errorOf("req-orphan")).toEqual({ error: "INVALID_TAB", message: "No document for tab" });
   });
@@ -145,7 +145,7 @@ describe.each([
   it("an empty tabId means the focused tab", async () => {
     openTab(WORKFLOW_PATH, WORKFLOW);
 
-    await run("req-empty", { ...args, tabId: "" });
+    await run("req-empty", { ...args, tabId: "" }, TEST_WRITE_CONTEXT);
 
     expect(replyTo("req-empty").success).toBe(true);
   });
@@ -153,7 +153,7 @@ describe.each([
   it("a Markdown tab", async () => {
     const tabId = openTab("/w/notes.md", "# notes\n");
 
-    await run("req-md", { ...args, tabId });
+    await run("req-md", { ...args, tabId }, TEST_WRITE_CONTEXT);
 
     expect(errorOf("req-md").error).toBe("NOT_WORKFLOW");
   });
@@ -168,7 +168,7 @@ describe("workflow.apply_patch", () => {
       tabId,
       expected_revision: "rev-OLDOLDOL",
       patches: [{ kind: "workflow.set", path: "name", value: "renamed" }],
-    });
+    }, TEST_WRITE_CONTEXT);
 
     expect(errorOf("req-stale")).toEqual({
       error: "STALE",
@@ -185,7 +185,7 @@ describe("workflow.apply_patch", () => {
     await handleWorkflowApplyPatch("req-patch", {
       tabId,
       patches: [{ kind: "job.set", jobId: "build", path: "runs-on", value: "macos-latest" }],
-    });
+    }, TEST_WRITE_CONTEXT);
 
     expect(replyTo("req-patch").success).toBe(true);
     const patched = contentOf(tabId) ?? "";
@@ -202,33 +202,28 @@ describe("workflow.apply_patch", () => {
       tabId,
       expected_revision: readRevision,
       patches: [{ kind: "workflow.set", path: "name", value: "renamed" }],
-    });
+    }, TEST_WRITE_CONTEXT);
 
     expect(errorOf("req-late").error).toBe("STALE");
     expect(contentOf(tabId)).toBe(WORKFLOW_TYPED);
   });
 
-  it("returns the revision the document is at after the patch, and records a checkpoint", async () => {
+  it("returns the revision the document is at after the patch, and journals the text it replaced", async () => {
     const tabId = openTab(WORKFLOW_PATH, WORKFLOW);
     const before = useRevisionStore.getState().getRevision(tabId);
 
     await handleWorkflowApplyPatch("req-rev", {
       tabId,
       patches: [{ kind: "workflow.set", path: "name", value: "renamed" }],
-    });
+    }, TEST_WRITE_CONTEXT);
 
     const reply = replyTo("req-rev");
     const current = useRevisionStore.getState().getRevision(tabId);
-    expect(reply.data).toEqual({ revision: current });
+    expect(reply.data).toEqual({ revision: current, applied: true, durable: true });
     expect(current).not.toBe(before);
-    const checkpoints = useMcpStore.getState().checkpointList({ filePath: WORKFLOW_PATH });
-    expect(checkpoints).toHaveLength(1);
-    expect(checkpoints[0]).toMatchObject({
-      tool: "workflow.apply_patch",
-      contentBefore: WORKFLOW,
-      revisionBefore: before,
-      revisionAfter: current,
-    });
+    expect(agentJournalFake.prepareControlledWrite).toHaveBeenCalledWith(
+      expect.objectContaining({ docKey: `path:${WORKFLOW_PATH}`, preimage: WORKFLOW, tool: "workflow.apply_patch" }),
+    );
   });
 });
 

@@ -489,7 +489,8 @@ La barre d'état court le long du bas de la fenêtre (`F7` la masque). Le côté
 | Lint | ⊗ erreurs ou ⚠ avertissements trouvés par la dernière exécution du [lint](#lint-markdown) ; masqué lorsqu'il n'y en a aucun | Va au problème suivant |
 | IA | Pendant l'exécution d'un génie, *Réflexion…* avec les secondes écoulées et un × pour annuler ; puis *Terminé*, ou l'erreur avec **Réessayer**, qui relance la requête en échec, et **Ignorer** ; Réessayer est absent quand il n'y a rien à relancer, par exemple sans fournisseur | — |
 | MCP | Une icône satellite, teintée lorsqu'un client IA est connecté ; le mot *off*, *…* ou *error* lorsqu'il ne fonctionne pas normalement. L'infobulle nomme les clients connectés | Ouvre **Paramètres → Intégrations** |
-| Historique MCP | Les écritures de l'IA dans cet onglet, de la plus récente à la plus ancienne, chacune avec **Restaurer l'état d'avant cette écriture** ; un bouton corbeille efface l'historique de l'onglet sans demander | Ouvre la liste |
+| Écouteur MCP | Un avertissement, *MCP indisponible dans cette fenêtre*, quand l'écouteur de requêtes de cette fenêtre n'a pas pu démarrer malgré toutes les tentatives : les clients d'IA ne peuvent pas joindre cette fenêtre, même si le serveur MCP fonctionne. Redémarrez VMark pour réessayer | — |
+| Historique MCP | Une icône d'historique avec le nombre de versions IA du document actif, en couleur d'avertissement quand ses modifications ne sont pas enregistrées ; le panneau indique qui a fait chaque version, avec **Restaurer cette version** et **Restaurer l’état d’avant cette modification**, ainsi que [Points de contrôle antérieurs](/fr/guide/mcp-setup#points-de-controle-d-edition) | Ouvre le panneau |
 | Terminal | — | Affiche ou masque le terminal |
 | Mode | Le mode actuel — Source ou WYSIWYG (masqué pour les fichiers de workflow GitHub Actions) | Change de mode |
 | Verrou | Si le document est en lecture seule | Active ou désactive la lecture seule |

@@ -58,6 +58,7 @@
   "openFilter.markdown": "Markdown",
   "chooseFolderForDocs": "{{count}}個の新しいドキュメントのフォルダを選択",
   "toast.mcpApprovalRequired": "AI による新しい場所への保存リクエストをブロックしました: {{filename}}。許可するには、設定 → 連携で「編集を自動承認」を有効にしてください。",
+  "toast.mcpOverwriteRefused": "AI による既存ファイルの上書きリクエストをブロックしました: {{filename}}。AI のリクエストが既存のファイルを置き換えることはありません。別の名前を指定するか、先にそのファイルの名前を変更または削除してください。",
   "toast.saveDialogFailed": "保存ダイアログが失敗しました: {{error}}",
   "toast.failedToMoveToNewWindow": "ファイルを新しいウィンドウに移動できませんでした",
   "toast.failedToSaveDocuments": "ドキュメントの保存に失敗しました",

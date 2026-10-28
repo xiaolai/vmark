@@ -1,15 +1,17 @@
 // WI-1.4 — vmark.document.{read, write, transform} including the
 // load-bearing STALE-revision concurrency path (ADR-4). These suites pin the
-// buffer, revision and checkpoint behaviour; what a write puts on DISK is
+// buffer, revision and journal behaviour; what a write puts on DISK is
 // asserted against a stateful disk in mcpSavePipeline.test.ts.
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { getSchema } from "@tiptap/core";
+import { getSchema, type Editor } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useRevisionStore, generateRevisionId } from "@/stores/documentStore";
-import { useMcpStore } from "@/stores/mcpStore";
+import { agentJournalFake } from "@/test/agentJournalFake";
+import { registerWysiwygFlusher } from "@/utils/wysiwygFlush";
+import { markContentApplied } from "@/services/editor/contentApplied";
 
 vi.mock("@/services/mcpBridge/utils", () => ({
   respond: vi.fn(),
@@ -17,10 +19,6 @@ vi.mock("@/services/mcpBridge/utils", () => ({
 
 vi.mock("@/services/persistence/workspaceStorage", () => ({
   getCurrentWindowLabel: () => "main",
-}));
-
-vi.mock("@/stores/mcpCheckpointPersistence", () => ({
-  appendCheckpoint: vi.fn(async () => undefined),
 }));
 
 // Configurable editor state — defaults to no editor (writeContent's fallback
@@ -43,6 +41,7 @@ import {
   handleDocumentWrite,
   handleDocumentTransform,
 } from "@/services/mcpBridge/v2/document";
+import { TEST_WRITE_CONTEXT } from "@/test/mcpAttributionFixture";
 
 function resetStores() {
   useTabStore.setState({
@@ -52,7 +51,6 @@ function resetStores() {
     closedTabs: {},
   });
   useDocumentStore.setState({ documents: {} });
-  useMcpStore.setState((s) => ({ checkpoint: { ...s.checkpoint, checkpoints: [], hydrated: false } }));
 }
 
 function seedTab(tabId: string, content: string, filePath: string | null) {
@@ -89,7 +87,7 @@ describe("vmark.document.read", () => {
 
   it("returns content + revision + filePath + kind for the focused tab", async () => {
     seedTab("t-1", "# hi", "/tmp/notes.md");
-    await handleDocumentRead("req-1", {});
+    await handleDocumentRead("req-1", {}, TEST_WRITE_CONTEXT);
     const r = lastRespond();
     expect(r.success).toBe(true);
     expect(r.data).toMatchObject({
@@ -102,7 +100,7 @@ describe("vmark.document.read", () => {
   });
 
   it("returns INVALID_TAB when no tab exists", async () => {
-    await handleDocumentRead("req-2", {});
+    await handleDocumentRead("req-2", {}, TEST_WRITE_CONTEXT);
     const r = lastRespond();
     expect(r.success).toBe(false);
     expect(parseStructuredError(r.error)).toMatchObject({
@@ -121,7 +119,7 @@ describe("vmark.document.read", () => {
       },
     }));
     useDocumentStore.getState().initDocument("t-other", "second", null);
-    await handleDocumentRead("req-3", { tabId: "t-other" });
+    await handleDocumentRead("req-3", { tabId: "t-other" }, TEST_WRITE_CONTEXT);
     const r = lastRespond();
     expect((r.data as { content: string }).content).toBe("second");
   });
@@ -142,10 +140,13 @@ describe("vmark.document.write — STALE concurrency", () => {
       replaceWith: vi.fn().mockReturnThis(),
       setMeta: vi.fn().mockReturnThis(),
     };
-    return {
+    const editor = {
       schema: getSchema([StarterKit]),
       view: { state: { tr, doc: { content: { size: 1 } } }, dispatch },
     };
+    // A mounted editor whose initial load has run.
+    markContentApplied(editor as unknown as Editor);
+    return editor;
   }
 
   // C5 follow-up — a write to a background markdown tab must not dispatch into
@@ -172,7 +173,7 @@ describe("vmark.document.write — STALE concurrency", () => {
       tabId: "t-bg",
       content: "# new bg",
       save: false,
-    });
+    }, TEST_WRITE_CONTEXT);
 
     const r = lastRespond();
     expect(r.success).toBe(true);
@@ -188,17 +189,25 @@ describe("vmark.document.write — STALE concurrency", () => {
     const dispatch = vi.fn();
     mockEditorState.tiptap.editor = fakeEditor(dispatch);
     mockEditorState.active.activeWysiwygTabId = "t-active";
+    // The mounted editor's flusher; this fake editor's store already holds its text.
+    const flush = vi.fn();
+    registerWysiwygFlusher("t-active", flush);
 
-    await handleDocumentWrite("req-active", {
-      tabId: "t-active",
-      content: "# new active",
-      save: false,
-    });
+    try {
+      await handleDocumentWrite("req-active", {
+        tabId: "t-active",
+        content: "# new active",
+        save: false,
+      }, TEST_WRITE_CONTEXT);
+    } finally {
+      registerWysiwygFlusher("t-active", null);
+    }
 
     const r = lastRespond();
     expect(r.success).toBe(true);
-    // The active tab's write DOES re-render the live editor.
+    // The active tab's write DOES re-render the live editor, then flushes it.
     expect(dispatch).toHaveBeenCalled();
+    expect(flush).toHaveBeenCalled();
   });
 
   it("rejects writes whose expected_revision is stale", async () => {
@@ -211,7 +220,7 @@ describe("vmark.document.write — STALE concurrency", () => {
       tabId: "t-w",
       content: "should not land",
       expected_revision: stale,
-    });
+    }, TEST_WRITE_CONTEXT);
     const r = lastRespond();
     expect(r.success).toBe(false);
     const err = parseStructuredError(r.error);
@@ -230,7 +239,7 @@ describe("vmark.document.write — STALE concurrency", () => {
       tabId: "t-w2",
       content: "after",
       expected_revision: current,
-    });
+    }, TEST_WRITE_CONTEXT);
     const r = lastRespond();
     expect(r.success).toBe(true);
     expect(useDocumentStore.getState().documents["t-w2"].content).toBe(
@@ -260,7 +269,7 @@ describe("vmark.document.write — STALE concurrency", () => {
       tabId: "t-bg",
       content: "should not land",
       expected_revision: "rev-ACTIVEXX",
-    });
+    }, TEST_WRITE_CONTEXT);
     let r = lastRespond();
     expect(r.success).toBe(false);
     expect(parseStructuredError(r.error)).toMatchObject({ error: "STALE" });
@@ -273,7 +282,7 @@ describe("vmark.document.write — STALE concurrency", () => {
       tabId: "t-bg",
       content: "landed",
       expected_revision: "rev-BGBGBGBG",
-    });
+    }, TEST_WRITE_CONTEXT);
     r = lastRespond();
     expect(r.success).toBe(true);
     expect(useDocumentStore.getState().documents["t-bg"].content).toBe("landed");
@@ -284,7 +293,7 @@ describe("vmark.document.write — STALE concurrency", () => {
     await handleDocumentWrite("req-blind", {
       tabId: "t-w3",
       content: "first paragraph",
-    });
+    }, TEST_WRITE_CONTEXT);
     const r = lastRespond();
     expect(r.success).toBe(true);
     expect(useDocumentStore.getState().documents["t-w3"].content).toBe(
@@ -294,7 +303,7 @@ describe("vmark.document.write — STALE concurrency", () => {
 
   it("rejects non-string content", async () => {
     seedTab("t-w4", "x", null);
-    await handleDocumentWrite("req-bad", { tabId: "t-w4", content: 42 });
+    await handleDocumentWrite("req-bad", { tabId: "t-w4", content: 42 }, TEST_WRITE_CONTEXT);
     const r = lastRespond();
     expect(r.success).toBe(false);
     expect(parseStructuredError(r.error)).toMatchObject({
@@ -302,32 +311,16 @@ describe("vmark.document.write — STALE concurrency", () => {
     });
   });
 
-  it("pushes a checkpoint after a successful write", async () => {
+  it("records the write in the agent edit journal, with the text it replaced", async () => {
     seedTab("t-cp", "before", "/notes.md");
     await handleDocumentWrite("req-cp", {
       tabId: "t-cp",
       content: "after",
-    });
-    const cps = useMcpStore.getState().checkpointList({
-      filePath: "/notes.md",
-    });
-    expect(cps).toHaveLength(1);
-    expect(cps[0]).toMatchObject({
-      tabId: "t-cp",
-      filePath: "/notes.md",
-      tool: "document.write",
-      contentBefore: "before",
-    });
-    expect(cps[0].byteSize).toBe("before".length);
-  });
-
-  it("does not push a checkpoint when content is unchanged", async () => {
-    seedTab("t-noop", "same", null);
-    await handleDocumentWrite("req-noop", {
-      tabId: "t-noop",
-      content: "same",
-    });
-    expect(useMcpStore.getState().checkpoint.checkpoints).toHaveLength(0);
+    }, TEST_WRITE_CONTEXT);
+    expect(agentJournalFake.prepareControlledWrite).toHaveBeenCalledWith(
+      expect.objectContaining({ docKey: "path:/notes.md", preimage: "before", tool: "document.write" }),
+    );
+    expect(agentJournalFake.doc("path:/notes.md").text).toBe("after");
   });
 
   it("re-detects kind from the INCOMING content (empty-tab YAML write)", async () => {
@@ -341,7 +334,7 @@ describe("vmark.document.write — STALE concurrency", () => {
     await handleDocumentWrite("req-yaml", {
       tabId: "t-yaml-write",
       content: yaml,
-    });
+    }, TEST_WRITE_CONTEXT);
     // The doc store must hold the YAML verbatim, including newlines
     // and indentation that the markdown parser would otherwise mangle.
     const stored =
@@ -361,7 +354,7 @@ describe("vmark.document.transform — CJK rewriter", () => {
     await handleDocumentTransform("req-cjk", {
       tabId: "t-c",
       kind: "cjk-spacing",
-    });
+    }, TEST_WRITE_CONTEXT);
     const r = lastRespond();
     expect(r.success).toBe(true);
     expect(useDocumentStore.getState().documents["t-c"].content).toBe(
@@ -374,7 +367,7 @@ describe("vmark.document.transform — CJK rewriter", () => {
     await handleDocumentTransform("req-pn", {
       tabId: "t-p",
       kind: "cjk-punctuation",
-    });
+    }, TEST_WRITE_CONTEXT);
     const r = lastRespond();
     expect(r.success).toBe(true);
     expect(useDocumentStore.getState().documents["t-p"].content).toBe(
@@ -387,7 +380,7 @@ describe("vmark.document.transform — CJK rewriter", () => {
     await handleDocumentTransform("req-x", {
       tabId: "t-x",
       kind: "not-a-kind",
-    });
+    }, TEST_WRITE_CONTEXT);
     const r = lastRespond();
     expect(r.success).toBe(false);
     expect(parseStructuredError(r.error)).toMatchObject({
@@ -401,29 +394,23 @@ describe("vmark.document.transform — CJK rewriter", () => {
     await handleDocumentTransform("req-noop", {
       tabId: "t-noop",
       kind: "cjk-spacing",
-    });
+    }, TEST_WRITE_CONTEXT);
     const r = lastRespond();
     expect(r.success).toBe(true);
-    // No content change → revision should not bump.
+    // No content change → revision should not bump, and nothing is journaled.
     expect(useRevisionStore.getState().getRevision("t-noop")).toBe(before);
-    // No checkpoint either.
-    expect(useMcpStore.getState().checkpoint.checkpoints).toHaveLength(0);
+    expect(agentJournalFake.prepareControlledWrite).not.toHaveBeenCalled();
   });
 
-  it("pushes a checkpoint after a successful transform", async () => {
+  it("records a transform in the agent edit journal, with the text it replaced", async () => {
     seedTab("t-cp-tf", "测试ABC", "/cjk.md");
     await handleDocumentTransform("req-cp-tf", {
       tabId: "t-cp-tf",
       kind: "cjk-spacing",
-    });
-    const cps = useMcpStore.getState().checkpointList({
-      filePath: "/cjk.md",
-    });
-    expect(cps).toHaveLength(1);
-    expect(cps[0]).toMatchObject({
-      tool: "document.transform",
-      contentBefore: "测试ABC",
-    });
-    expect(cps[0].description).toContain("cjk-spacing");
+    }, TEST_WRITE_CONTEXT);
+    expect(agentJournalFake.prepareControlledWrite).toHaveBeenCalledWith(
+      expect.objectContaining({ docKey: "path:/cjk.md", preimage: "测试ABC", tool: "document.transform" }),
+    );
+    expect(agentJournalFake.doc("path:/cjk.md").text).not.toBe("测试ABC");
   });
 });

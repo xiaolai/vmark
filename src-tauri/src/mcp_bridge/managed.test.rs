@@ -28,6 +28,7 @@ fn client() -> (
             shutdown: Some(shutdown_tx),
             identity: None,
             principal: BridgePrincipal::Anonymous,
+            connection_id: uuid::Uuid::new_v4(),
         },
         rx,
         shutdown_rx,
@@ -220,4 +221,26 @@ async fn forget_window_drops_only_that_windows_workspace_registration() {
         guard.window_workspaces.get("doc-2").map(String::as_str),
         Some("/work/b")
     );
+}
+
+// A window's tabs go with it: a destroyed window never publishes its empty
+// list, so the Destroyed handler forgets it, and an empty list is no entry.
+#[tokio::test]
+async fn window_tabs_are_replaced_cleared_and_forgotten_per_window() {
+    let state = McpBridgeState::default();
+    state
+        .set_window_tabs("doc-1", vec!["a".into(), "b".into()])
+        .await;
+    state.set_window_tabs("doc-2", vec!["c".into()]).await;
+    state.set_window_tabs("doc-1", vec!["b".into()]).await;
+    assert_eq!(
+        state.lock().await.window_tabs.get("doc-1"),
+        Some(&vec!["b".to_string()])
+    );
+
+    state.set_window_tabs("doc-2", vec![]).await;
+    assert_eq!(state.lock().await.window_tabs.get("doc-2"), None);
+
+    state.forget_window("doc-1").await;
+    assert!(state.lock().await.window_tabs.is_empty());
 }

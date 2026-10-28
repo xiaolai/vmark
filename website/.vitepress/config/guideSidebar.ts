@@ -44,6 +44,7 @@ const GUIDE_SECTIONS = {
     "ai-providers",
     "mcp-setup",
     "mcp-tools",
+    "edit-history-git",
     "lint",
     "link-check",
     "settings",

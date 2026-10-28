@@ -1,7 +1,7 @@
 /**
  * Global test lifecycle hooks.
  *
- * Two properties every app-tier test gets for free, both of which were
+ * Properties every app-tier test gets for free, both of which were
  * previously each file's job to remember — which is the same as saying they
  * were nobody's.
  *
@@ -15,6 +15,26 @@ import { vi, beforeEach, afterEach } from "vitest";
 import { signalMenuCommandsMounted } from "@/services/commands/menuCommandsReady";
 import { signalCloseListenersMounted } from "@/services/windowClose/closeListenersReady";
 import { resetWindowListeningForTest } from "@/contexts/windowListening";
+import { agentJournalFake } from "./agentJournalFake";
+import { abandonSpy } from "./agentJournalWireFake";
+import { agentJournalEpochFake } from "./agentJournalEpochFake";
+import { resetJournalBases } from "@/services/agentJournal/documentIdentity";
+// Keep this file's imports light: a module loaded here is loaded before any
+// test file's `vi.mock`, so whatever it imports (sonner, stores) can no longer
+// be mocked by that file. `saveJournal` reaches sonner through the persistence
+// layer, so its per-file state is reset through `documentIdentity` instead.
+
+// Every bridge write goes through the agent edit journal's IPC client; the
+// global `invoke` stub answers `undefined`, which the client rightly reads as
+// an unavailable journal. The in-memory fake (same reservation, parent CAS,
+// baseline and degraded-queue rules as the Rust writer) answers the journal's
+// wire (`agentJournalWireFake.ts`), so a test about saving or editing does not
+// have to know the journal exists, while the real client, page registration
+// and request coordinator still run. Suites that script raw `invoke` opt out
+// with `vi.unmock`.
+vi.mock("@/services/agentJournal/journalTransport", () => import("./agentJournalWireFake").then((m) => m.journalTransportModule()));
+// The epoch calls a tab's provenance session makes, on the same fake journal.
+vi.mock("@/services/agentJournal/epochClient", () => import("./agentJournalEpochFake").then((m) => m.epochClientModule()));
 
 // The window-ready handshake waits for the menu listener to mount before it
 // tells Rust (and the DOM) that the window is listening — see
@@ -44,6 +64,10 @@ beforeEach(() => {
   // opens it (`windowListening`). Module state outlives a test, so a test whose
   // window never announced would leave the next one's surfaces held back.
   resetWindowListeningForTest();
+  agentJournalFake.reset();
+  abandonSpy.mockClear();
+  agentJournalEpochFake.reset();
+  resetJournalBases();
 });
 
 // Real timers are the DEFAULT after every test, not a courtesy each file pays

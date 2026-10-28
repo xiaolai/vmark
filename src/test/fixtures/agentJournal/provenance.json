@@ -1,0 +1,5831 @@
+{
+  "spec": "golden/provenance.md",
+  "generator": "golden/generateProvenance.mjs + golden/writerVectors.mjs (reference: revert/lib/provenanceNaive.mjs)",
+  "unit": "utf16CodeUnit",
+  "maxCap": 16384,
+  "cases": [
+    {
+      "name": "codex-counterexample",
+      "why": "replace [0,2) then insert at 0: sequential L(1)=0, R(1)=2; ChangeSet.compose would give 1",
+      "cap": 16384,
+      "pre": "abc",
+      "post": "YXc",
+      "transactions": [
+        {
+          "kind": "certified",
+          "sections": [
+            {
+              "fromA": 0,
+              "toA": 2,
+              "fromB": 0,
+              "toB": 1,
+              "insert": "X"
+            }
+          ]
+        },
+        {
+          "kind": "certified",
+          "sections": [
+            {
+              "fromA": 0,
+              "toA": 0,
+              "fromB": 0,
+              "toB": 1,
+              "insert": "Y"
+            }
+          ]
+        }
+      ],
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "1",
+        "basis": "r0001",
+        "preHash": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        "postHash": "bf3f32cde10ca882e20576d9bddd28a7a74d7959fa6bd6440b3617acf227f62b",
+        "body": {
+          "lenA": 3,
+          "lenB": 3,
+          "transactions": 2,
+          "map": {
+            "L0": 0,
+            "R0": 1,
+            "runs": [
+              [
+                1,
+                0,
+                1
+              ],
+              [
+                1,
+                2,
+                0
+              ],
+              [
+                1,
+                1,
+                1
+              ]
+            ]
+          },
+          "deletedChars": [
+            [
+              0,
+              1
+            ]
+          ],
+          "touchedGaps": [
+            [
+              0,
+              1
+            ]
+          ],
+          "breaks": {
+            "whole": null,
+            "bounded": []
+          }
+        }
+      },
+      "spans": [
+        {
+          "input": {
+            "from": 1,
+            "to": 1,
+            "growing": true
+          },
+          "expect": {
+            "span": {
+              "from": 0,
+              "to": 2,
+              "growing": true
+            },
+            "hit": true,
+            "edited": true,
+            "block": null
+          }
+        },
+        {
+          "input": {
+            "from": 0,
+            "to": 1,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 1,
+              "to": 0,
+              "growing": false
+            },
+            "hit": true,
+            "edited": true,
+            "block": null
+          }
+        },
+        {
+          "input": {
+            "from": 2,
+            "to": 3,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 2,
+              "to": 3,
+              "growing": false
+            },
+            "hit": false,
+            "edited": false,
+            "block": null
+          }
+        },
+        {
+          "input": {
+            "from": 0,
+            "to": 3,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 1,
+              "to": 3,
+              "growing": false
+            },
+            "hit": true,
+            "edited": true,
+            "block": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "touching-sections",
+      "why": "one transaction whose sections touch at 2 (replace, insert, delete): never merged",
+      "cap": 16384,
+      "pre": "abcdef",
+      "post": "aXYdef",
+      "transactions": [
+        {
+          "kind": "certified",
+          "sections": [
+            {
+              "fromA": 1,
+              "toA": 2,
+              "fromB": 1,
+              "toB": 2,
+              "insert": "X"
+            },
+            {
+              "fromA": 2,
+              "toA": 2,
+              "fromB": 2,
+              "toB": 3,
+              "insert": "Y"
+            },
+            {
+              "fromA": 2,
+              "toA": 3,
+              "fromB": 3,
+              "toB": 3,
+              "insert": ""
+            }
+          ]
+        }
+      ],
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "1",
+        "basis": "r0001",
+        "preHash": "bef57ec7f53a6d40beb640a780a639c83bc29ac8a9816f1fc6c5c6dcd93c4721",
+        "postHash": "905f7538403eeb090e6d54bf2d4d2db843682432b9fca7fb757ea0002222db53",
+        "body": {
+          "lenA": 6,
+          "lenB": 6,
+          "transactions": 1,
+          "map": {
+            "L0": 0,
+            "R0": 0,
+            "runs": [
+              [
+                1,
+                1,
+                1
+              ],
+              [
+                1,
+                1,
+                2
+              ],
+              [
+                1,
+                1,
+                0
+              ],
+              [
+                3,
+                1,
+                1
+              ]
+            ]
+          },
+          "deletedChars": [
+            [
+              1,
+              2
+            ]
+          ],
+          "touchedGaps": [
+            [
+              2,
+              2
+            ]
+          ],
+          "breaks": {
+            "whole": null,
+            "bounded": []
+          }
+        }
+      },
+      "spans": [
+        {
+          "input": {
+            "from": 1,
+            "to": 2,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 1,
+              "to": 2,
+              "growing": false
+            },
+            "hit": true,
+            "edited": true,
+            "block": null
+          }
+        },
+        {
+          "input": {
+            "from": 2,
+            "to": 3,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 3,
+              "to": 3,
+              "growing": false
+            },
+            "hit": true,
+            "edited": true,
+            "block": null
+          }
+        },
+        {
+          "input": {
+            "from": 2,
+            "to": 2,
+            "growing": true
+          },
+          "expect": {
+            "span": {
+              "from": 2,
+              "to": 3,
+              "growing": true
+            },
+            "hit": true,
+            "edited": true,
+            "block": null
+          }
+        },
+        {
+          "input": {
+            "from": 3,
+            "to": 6,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 3,
+              "to": 6,
+              "growing": false
+            },
+            "hit": false,
+            "edited": false,
+            "block": null
+          }
+        },
+        {
+          "input": {
+            "from": 0,
+            "to": 1,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 0,
+              "to": 1,
+              "growing": false
+            },
+            "hit": false,
+            "edited": false,
+            "block": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "net-zero",
+      "why": "type then delete inside a span, and beside another: the map is identity, the effects are not",
+      "cap": 16384,
+      "pre": "hello world",
+      "post": "hello world",
+      "transactions": [
+        {
+          "kind": "certified",
+          "sections": [
+            {
+              "fromA": 2,
+              "toA": 2,
+              "fromB": 2,
+              "toB": 3,
+              "insert": "x"
+            }
+          ]
+        },
+        {
+          "kind": "certified",
+          "sections": [
+            {
+              "fromA": 2,
+              "toA": 3,
+              "fromB": 2,
+              "toB": 2,
+              "insert": ""
+            }
+          ]
+        },
+        {
+          "kind": "certified",
+          "sections": [
+            {
+              "fromA": 11,
+              "toA": 11,
+              "fromB": 11,
+              "toB": 12,
+              "insert": "!"
+            }
+          ]
+        },
+        {
+          "kind": "certified",
+          "sections": [
+            {
+              "fromA": 11,
+              "toA": 12,
+              "fromB": 11,
+              "toB": 11,
+              "insert": ""
+            }
+          ]
+        }
+      ],
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "1",
+        "basis": "r0001",
+        "preHash": "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
+        "postHash": "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
+        "body": {
+          "lenA": 11,
+          "lenB": 11,
+          "transactions": 4,
+          "map": {
+            "L0": 0,
+            "R0": 0,
+            "runs": [
+              [
+                11,
+                1,
+                1
+              ]
+            ]
+          },
+          "deletedChars": [],
+          "touchedGaps": [
+            [
+              2,
+              2
+            ],
+            [
+              11,
+              11
+            ]
+          ],
+          "breaks": {
+            "whole": null,
+            "bounded": []
+          }
+        }
+      },
+      "spans": [
+        {
+          "input": {
+            "from": 1,
+            "to": 4,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 1,
+              "to": 4,
+              "growing": false
+            },
+            "hit": true,
+            "edited": true,
+            "block": null
+          }
+        },
+        {
+          "input": {
+            "from": 6,
+            "to": 11,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 6,
+              "to": 11,
+              "growing": false
+            },
+            "hit": false,
+            "edited": false,
+            "block": null
+          }
+        },
+        {
+          "input": {
+            "from": 11,
+            "to": 11,
+            "growing": true
+          },
+          "expect": {
+            "span": {
+              "from": 11,
+              "to": 11,
+              "growing": true
+            },
+            "hit": true,
+            "edited": true,
+            "block": null
+          }
+        },
+        {
+          "input": {
+            "from": 0,
+            "to": 1,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 0,
+              "to": 1,
+              "growing": false
+            },
+            "hit": false,
+            "edited": false,
+            "block": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "multi-range",
+      "why": "three changes in one transaction, including an insertion at the end",
+      "cap": 16384,
+      "pre": "one two three",
+      "post": "1 2 three!",
+      "transactions": [
+        {
+          "kind": "certified",
+          "sections": [
+            {
+              "fromA": 0,
+              "toA": 3,
+              "fromB": 0,
+              "toB": 1,
+              "insert": "1"
+            },
+            {
+              "fromA": 4,
+              "toA": 7,
+              "fromB": 2,
+              "toB": 3,
+              "insert": "2"
+            },
+            {
+              "fromA": 13,
+              "toA": 13,
+              "fromB": 9,
+              "toB": 10,
+              "insert": "!"
+            }
+          ]
+        }
+      ],
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "1",
+        "basis": "r0001",
+        "preHash": "6899ee404683a14e8c2a03149860df25d67d34d9cd4dae7350cbe91e4b3976be",
+        "postHash": "c04dc99513269b05d2a2238f81bcbfd4fd23f5bb56dab2edd9ef63b5cbfb2ba6",
+        "body": {
+          "lenA": 13,
+          "lenB": 10,
+          "transactions": 1,
+          "map": {
+            "L0": 0,
+            "R0": 0,
+            "runs": [
+              [
+                1,
+                0,
+                1
+              ],
+              [
+                1,
+                0,
+                0
+              ],
+              [
+                1,
+                1,
+                0
+              ],
+              [
+                1,
+                1,
+                1
+              ],
+              [
+                1,
+                0,
+                1
+              ],
+              [
+                1,
+                0,
+                0
+              ],
+              [
+                1,
+                1,
+                0
+              ],
+              [
+                5,
+                1,
+                1
+              ],
+              [
+                1,
+                1,
+                2
+              ]
+            ]
+          },
+          "deletedChars": [
+            [
+              0,
+              2
+            ],
+            [
+              4,
+              6
+            ]
+          ],
+          "touchedGaps": [
+            [
+              1,
+              2
+            ],
+            [
+              5,
+              6
+            ],
+            [
+              13,
+              13
+            ]
+          ],
+          "breaks": {
+            "whole": null,
+            "bounded": []
+          }
+        }
+      },
+      "spans": [
+        {
+          "input": {
+            "from": 0,
+            "to": 3,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 0,
+              "to": 1,
+              "growing": false
+            },
+            "hit": true,
+            "edited": true,
+            "block": null
+          }
+        },
+        {
+          "input": {
+            "from": 4,
+            "to": 7,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 2,
+              "to": 3,
+              "growing": false
+            },
+            "hit": true,
+            "edited": true,
+            "block": null
+          }
+        },
+        {
+          "input": {
+            "from": 8,
+            "to": 13,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 4,
+              "to": 9,
+              "growing": false
+            },
+            "hit": false,
+            "edited": false,
+            "block": null
+          }
+        },
+        {
+          "input": {
+            "from": 13,
+            "to": 13,
+            "growing": true
+          },
+          "expect": {
+            "span": {
+              "from": 9,
+              "to": 10,
+              "growing": true
+            },
+            "hit": true,
+            "edited": true,
+            "block": null
+          }
+        },
+        {
+          "input": {
+            "from": 0,
+            "to": 0,
+            "growing": true
+          },
+          "expect": {
+            "span": {
+              "from": 0,
+              "to": 0,
+              "growing": true
+            },
+            "hit": false,
+            "edited": true,
+            "block": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "start-and-end",
+      "why": "insertions at gap 0 and gap lenA in one transaction: edge insertions stay outside normal spans",
+      "cap": 16384,
+      "pre": "ab",
+      "post": "<ab>",
+      "transactions": [
+        {
+          "kind": "certified",
+          "sections": [
+            {
+              "fromA": 0,
+              "toA": 0,
+              "fromB": 0,
+              "toB": 1,
+              "insert": "<"
+            },
+            {
+              "fromA": 2,
+              "toA": 2,
+              "fromB": 3,
+              "toB": 4,
+              "insert": ">"
+            }
+          ]
+        }
+      ],
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "1",
+        "basis": "r0001",
+        "preHash": "fb8e20fc2e4c3f248c60c39bd652f3c1347298bb977b8b4d5903b85055620603",
+        "postHash": "af8a5d4625d39876eda7c2eeee352a0f49197873ba435acf3ca3f870a28ffebb",
+        "body": {
+          "lenA": 2,
+          "lenB": 4,
+          "transactions": 1,
+          "map": {
+            "L0": 0,
+            "R0": 1,
+            "runs": [
+              [
+                1,
+                2,
+                1
+              ],
+              [
+                1,
+                1,
+                2
+              ]
+            ]
+          },
+          "deletedChars": [],
+          "touchedGaps": [
+            [
+              0,
+              0
+            ],
+            [
+              2,
+              2
+            ]
+          ],
+          "breaks": {
+            "whole": null,
+            "bounded": []
+          }
+        }
+      },
+      "spans": [
+        {
+          "input": {
+            "from": 0,
+            "to": 2,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 1,
+              "to": 3,
+              "growing": false
+            },
+            "hit": false,
+            "edited": false,
+            "block": null
+          }
+        },
+        {
+          "input": {
+            "from": 0,
+            "to": 0,
+            "growing": true
+          },
+          "expect": {
+            "span": {
+              "from": 0,
+              "to": 1,
+              "growing": true
+            },
+            "hit": true,
+            "edited": true,
+            "block": null
+          }
+        },
+        {
+          "input": {
+            "from": 2,
+            "to": 2,
+            "growing": true
+          },
+          "expect": {
+            "span": {
+              "from": 3,
+              "to": 4,
+              "growing": true
+            },
+            "hit": true,
+            "edited": true,
+            "block": null
+          }
+        },
+        {
+          "input": {
+            "from": 0,
+            "to": 1,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 1,
+              "to": 2,
+              "growing": false
+            },
+            "hit": false,
+            "edited": false,
+            "block": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "cjk-emoji-rtl",
+      "why": "UTF-16 units: a surrogate pair replaced whole, CJK inserted, RTL text deleted",
+      "cap": 16384,
+      "pre": "你好😀שלום\n",
+      "post": "你美丽好👋🏽ום\n",
+      "transactions": [
+        {
+          "kind": "certified",
+          "sections": [
+            {
+              "fromA": 2,
+              "toA": 4,
+              "fromB": 2,
+              "toB": 6,
+              "insert": "👋🏽"
+            }
+          ]
+        },
+        {
+          "kind": "certified",
+          "sections": [
+            {
+              "fromA": 1,
+              "toA": 1,
+              "fromB": 1,
+              "toB": 3,
+              "insert": "美丽"
+            }
+          ]
+        },
+        {
+          "kind": "certified",
+          "sections": [
+            {
+              "fromA": 8,
+              "toA": 10,
+              "fromB": 8,
+              "toB": 8,
+              "insert": ""
+            }
+          ]
+        }
+      ],
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "1",
+        "basis": "r0001",
+        "preHash": "9210587110f691583b7c3d09c1b0bba64ecc6369d485dda6c236cfe6ad7aa014",
+        "postHash": "ba9f1fb630cde284041f3f66d408c4190565d39757accae8f206ec0b6dcf421f",
+        "body": {
+          "lenA": 9,
+          "lenB": 11,
+          "transactions": 3,
+          "map": {
+            "L0": 0,
+            "R0": 0,
+            "runs": [
+              [
+                1,
+                1,
+                3
+              ],
+              [
+                1,
+                3,
+                1
+              ],
+              [
+                1,
+                0,
+                4
+              ],
+              [
+                1,
+                4,
+                0
+              ],
+              [
+                2,
+                0,
+                0
+              ],
+              [
+                3,
+                1,
+                1
+              ]
+            ]
+          },
+          "deletedChars": [
+            [
+              2,
+              5
+            ]
+          ],
+          "touchedGaps": [
+            [
+              1,
+              1
+            ],
+            [
+              3,
+              3
+            ],
+            [
+              5,
+              5
+            ]
+          ],
+          "breaks": {
+            "whole": null,
+            "bounded": []
+          }
+        }
+      },
+      "spans": [
+        {
+          "input": {
+            "from": 0,
+            "to": 2,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 0,
+              "to": 4,
+              "growing": false
+            },
+            "hit": true,
+            "edited": true,
+            "block": null
+          }
+        },
+        {
+          "input": {
+            "from": 2,
+            "to": 4,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 4,
+              "to": 8,
+              "growing": false
+            },
+            "hit": true,
+            "edited": true,
+            "block": null
+          }
+        },
+        {
+          "input": {
+            "from": 4,
+            "to": 8,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 8,
+              "to": 10,
+              "growing": false
+            },
+            "hit": true,
+            "edited": true,
+            "block": null
+          }
+        },
+        {
+          "input": {
+            "from": 4,
+            "to": 4,
+            "growing": true
+          },
+          "expect": {
+            "span": {
+              "from": 8,
+              "to": 8,
+              "growing": true
+            },
+            "hit": false,
+            "edited": true,
+            "block": null
+          }
+        },
+        {
+          "input": {
+            "from": 8,
+            "to": 9,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 10,
+              "to": 11,
+              "growing": false
+            },
+            "hit": false,
+            "edited": false,
+            "block": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "empty-document",
+      "why": "lenA = 0: one gap, no characters; typing then clearing (the first window: basis genesis)",
+      "cap": 16384,
+      "pre": "",
+      "post": "",
+      "transactions": [
+        {
+          "kind": "certified",
+          "sections": [
+            {
+              "fromA": 0,
+              "toA": 0,
+              "fromB": 0,
+              "toB": 3,
+              "insert": "abc"
+            }
+          ]
+        },
+        {
+          "kind": "certified",
+          "sections": [
+            {
+              "fromA": 0,
+              "toA": 3,
+              "fromB": 0,
+              "toB": 0,
+              "insert": ""
+            }
+          ]
+        }
+      ],
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "1",
+        "basis": "genesis",
+        "preHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "postHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "body": {
+          "lenA": 0,
+          "lenB": 0,
+          "transactions": 2,
+          "map": {
+            "L0": 0,
+            "R0": 0,
+            "runs": []
+          },
+          "deletedChars": [],
+          "touchedGaps": [
+            [
+              0,
+              0
+            ]
+          ],
+          "breaks": {
+            "whole": null,
+            "bounded": []
+          }
+        }
+      },
+      "spans": [
+        {
+          "input": {
+            "from": 0,
+            "to": 0,
+            "growing": true
+          },
+          "expect": {
+            "span": {
+              "from": 0,
+              "to": 0,
+              "growing": true
+            },
+            "hit": true,
+            "edited": true,
+            "block": null
+          }
+        },
+        {
+          "input": {
+            "from": 0,
+            "to": 0,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 0,
+              "to": 0,
+              "growing": false
+            },
+            "hit": false,
+            "edited": true,
+            "block": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "delete-all-retype",
+      "why": "the text of a normal span deleted and re-typed: the span inverts (from > to), text unknown",
+      "cap": 16384,
+      "pre": "abc",
+      "post": "abc",
+      "transactions": [
+        {
+          "kind": "certified",
+          "sections": [
+            {
+              "fromA": 0,
+              "toA": 3,
+              "fromB": 0,
+              "toB": 0,
+              "insert": ""
+            }
+          ]
+        },
+        {
+          "kind": "certified",
+          "sections": [
+            {
+              "fromA": 0,
+              "toA": 0,
+              "fromB": 0,
+              "toB": 3,
+              "insert": "abc"
+            }
+          ]
+        }
+      ],
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "1",
+        "basis": "r0001",
+        "preHash": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        "postHash": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        "body": {
+          "lenA": 3,
+          "lenB": 3,
+          "transactions": 2,
+          "map": {
+            "L0": 0,
+            "R0": 3,
+            "runs": [
+              [
+                3,
+                0,
+                0
+              ]
+            ]
+          },
+          "deletedChars": [
+            [
+              0,
+              2
+            ]
+          ],
+          "touchedGaps": [
+            [
+              0,
+              3
+            ]
+          ],
+          "breaks": {
+            "whole": null,
+            "bounded": []
+          }
+        }
+      },
+      "spans": [
+        {
+          "input": {
+            "from": 0,
+            "to": 3,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 3,
+              "to": 0,
+              "growing": false
+            },
+            "hit": true,
+            "edited": true,
+            "block": null
+          }
+        },
+        {
+          "input": {
+            "from": 1,
+            "to": 2,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 3,
+              "to": 0,
+              "growing": false
+            },
+            "hit": true,
+            "edited": true,
+            "block": null
+          }
+        },
+        {
+          "input": {
+            "from": 0,
+            "to": 0,
+            "growing": true
+          },
+          "expect": {
+            "span": {
+              "from": 0,
+              "to": 3,
+              "growing": true
+            },
+            "hit": true,
+            "edited": true,
+            "block": null
+          }
+        },
+        {
+          "input": {
+            "from": 3,
+            "to": 3,
+            "growing": true
+          },
+          "expect": {
+            "span": {
+              "from": 0,
+              "to": 3,
+              "growing": true
+            },
+            "hit": true,
+            "edited": true,
+            "block": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "bounded-break",
+      "why": "an uncertified replacement of [2,3): spans whose mapped positions meet it are blocked, others map exactly",
+      "cap": 16384,
+      "pre": "a\nb\nc\nd\n",
+      "post": "> a\nB\nc\nD\n",
+      "transactions": [
+        {
+          "kind": "certified",
+          "sections": [
+            {
+              "fromA": 6,
+              "toA": 7,
+              "fromB": 6,
+              "toB": 7,
+              "insert": "D"
+            }
+          ]
+        },
+        {
+          "kind": "breakRange",
+          "fromA": 2,
+          "toA": 3,
+          "insert": "B",
+          "reason": "uncertifiedRange",
+          "origin": "wysiwyg"
+        },
+        {
+          "kind": "certified",
+          "sections": [
+            {
+              "fromA": 0,
+              "toA": 0,
+              "fromB": 0,
+              "toB": 2,
+              "insert": "> "
+            }
+          ]
+        }
+      ],
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "18446744073709551615",
+        "basis": "r0001",
+        "preHash": "cf2c7f63055d2e84af6e3f01ac1bb7fce598d20cf213fab2b56b8e8047b46ced",
+        "postHash": "59043009a1739c4d634224082f1657f8bd5a029aa7589ee8dce86cffb70d2654",
+        "body": {
+          "lenA": 8,
+          "lenB": 10,
+          "transactions": 3,
+          "map": {
+            "L0": 0,
+            "R0": 2,
+            "runs": [
+              [
+                1,
+                3,
+                1
+              ],
+              [
+                7,
+                1,
+                1
+              ]
+            ]
+          },
+          "deletedChars": [
+            [
+              2,
+              2
+            ],
+            [
+              6,
+              6
+            ]
+          ],
+          "touchedGaps": [
+            [
+              0,
+              0
+            ]
+          ],
+          "breaks": {
+            "whole": null,
+            "bounded": [
+              {
+                "normal": [
+                  3,
+                  2
+                ],
+                "growing": [
+                  3,
+                  2
+                ],
+                "reason": "uncertifiedRange",
+                "origin": "wysiwyg"
+              }
+            ]
+          }
+        }
+      },
+      "spans": [
+        {
+          "input": {
+            "from": 2,
+            "to": 3,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 4,
+              "to": 5,
+              "growing": false
+            },
+            "hit": true,
+            "edited": true,
+            "block": {
+              "reason": "uncertifiedRange",
+              "origin": "wysiwyg"
+            }
+          }
+        },
+        {
+          "input": {
+            "from": 4,
+            "to": 5,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 6,
+              "to": 7,
+              "growing": false
+            },
+            "hit": false,
+            "edited": false,
+            "block": null
+          }
+        },
+        {
+          "input": {
+            "from": 6,
+            "to": 7,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 8,
+              "to": 9,
+              "growing": false
+            },
+            "hit": true,
+            "edited": true,
+            "block": null
+          }
+        },
+        {
+          "input": {
+            "from": 3,
+            "to": 3,
+            "growing": true
+          },
+          "expect": {
+            "span": {
+              "from": 5,
+              "to": 5,
+              "growing": true
+            },
+            "hit": false,
+            "edited": true,
+            "block": {
+              "reason": "uncertifiedRange",
+              "origin": "wysiwyg"
+            }
+          }
+        },
+        {
+          "input": {
+            "from": 4,
+            "to": 4,
+            "growing": true
+          },
+          "expect": {
+            "span": {
+              "from": 6,
+              "to": 6,
+              "growing": true
+            },
+            "hit": false,
+            "edited": false,
+            "block": null
+          }
+        },
+        {
+          "input": {
+            "from": 0,
+            "to": 1,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 2,
+              "to": 3,
+              "growing": false
+            },
+            "hit": false,
+            "edited": false,
+            "block": null
+          }
+        },
+        {
+          "input": {
+            "from": 1,
+            "to": 1,
+            "growing": true
+          },
+          "expect": {
+            "span": {
+              "from": 3,
+              "to": 3,
+              "growing": true
+            },
+            "hit": false,
+            "edited": false,
+            "block": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "inverted-span-meets-bounded-break",
+      "why": "a span given inverted (from > to, as an earlier window can map it) is blocked when its gaps [lo, hi] meet a bounded break, as if written the other way round",
+      "cap": 16384,
+      "pre": "abcdefghij",
+      "post": "abZefghij",
+      "transactions": [
+        {
+          "kind": "breakRange",
+          "fromA": 2,
+          "toA": 4,
+          "insert": "Z",
+          "reason": "uncertifiedRange",
+          "origin": "wysiwyg"
+        }
+      ],
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "1",
+        "basis": "r0001",
+        "preHash": "72399361da6a7754fec986dca5b7cbaf1c810a28ded4abaf56b2106d06cb78b0",
+        "postHash": "546351819823aef24643c1eea7918e9185be21b68b07798a39311443e3d0f912",
+        "body": {
+          "lenA": 10,
+          "lenB": 9,
+          "transactions": 1,
+          "map": {
+            "L0": 0,
+            "R0": 0,
+            "runs": [
+              [
+                2,
+                1,
+                1
+              ],
+              [
+                1,
+                0,
+                1
+              ],
+              [
+                1,
+                1,
+                0
+              ],
+              [
+                6,
+                1,
+                1
+              ]
+            ]
+          },
+          "deletedChars": [
+            [
+              2,
+              3
+            ]
+          ],
+          "touchedGaps": [
+            [
+              3,
+              3
+            ]
+          ],
+          "breaks": {
+            "whole": null,
+            "bounded": [
+              {
+                "normal": [
+                  4,
+                  2
+                ],
+                "growing": [
+                  4,
+                  2
+                ],
+                "reason": "uncertifiedRange",
+                "origin": "wysiwyg"
+              }
+            ]
+          }
+        }
+      },
+      "spans": [
+        {
+          "input": {
+            "from": 5,
+            "to": 3,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 4,
+              "to": 2,
+              "growing": false
+            },
+            "hit": true,
+            "edited": true,
+            "block": {
+              "reason": "uncertifiedRange",
+              "origin": "wysiwyg"
+            }
+          }
+        },
+        {
+          "input": {
+            "from": 3,
+            "to": 0,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 3,
+              "to": 0,
+              "growing": false
+            },
+            "hit": true,
+            "edited": true,
+            "block": {
+              "reason": "uncertifiedRange",
+              "origin": "wysiwyg"
+            }
+          }
+        },
+        {
+          "input": {
+            "from": 4,
+            "to": 2,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 3,
+              "to": 2,
+              "growing": false
+            },
+            "hit": true,
+            "edited": true,
+            "block": {
+              "reason": "uncertifiedRange",
+              "origin": "wysiwyg"
+            }
+          }
+        },
+        {
+          "input": {
+            "from": 3,
+            "to": 5,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 3,
+              "to": 4,
+              "growing": false
+            },
+            "hit": true,
+            "edited": true,
+            "block": {
+              "reason": "uncertifiedRange",
+              "origin": "wysiwyg"
+            }
+          }
+        },
+        {
+          "input": {
+            "from": 9,
+            "to": 6,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 8,
+              "to": 5,
+              "growing": false
+            },
+            "hit": false,
+            "edited": false,
+            "block": null
+          }
+        },
+        {
+          "input": {
+            "from": 6,
+            "to": 9,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 5,
+              "to": 8,
+              "growing": false
+            },
+            "hit": false,
+            "edited": false,
+            "block": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "whole-break-keeps-first-reason",
+      "why": "a snapshot-only update then an external reload: the first reason stays, every span is blocked",
+      "cap": 16384,
+      "pre": "a\nb\n",
+      "post": "z\n",
+      "transactions": [
+        {
+          "kind": "certified",
+          "sections": [
+            {
+              "fromA": 0,
+              "toA": 0,
+              "fromB": 0,
+              "toB": 1,
+              "insert": "x"
+            }
+          ]
+        },
+        {
+          "kind": "breakWhole",
+          "text": "p\nq\n",
+          "reason": "snapshotOnly",
+          "origin": "snapshot"
+        },
+        {
+          "kind": "certified",
+          "sections": [
+            {
+              "fromA": 0,
+              "toA": 0,
+              "fromB": 0,
+              "toB": 1,
+              "insert": "y"
+            }
+          ]
+        },
+        {
+          "kind": "breakWhole",
+          "text": "z\n",
+          "reason": "externalReload",
+          "origin": "watcher"
+        }
+      ],
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "1",
+        "basis": "r0001",
+        "preHash": "911169ddaaf146aff539f58c26c489af3b892dff0fe283c1c264c65ae5aa59a2",
+        "postHash": "c865f6c5ab8d1b0bcd383a5e1e3879d22681c96bf462c269b7581d523fbe70ab",
+        "body": {
+          "lenA": 4,
+          "lenB": 2,
+          "transactions": 4,
+          "map": {
+            "L0": 0,
+            "R0": 2,
+            "runs": [
+              [
+                4,
+                0,
+                0
+              ]
+            ]
+          },
+          "deletedChars": [
+            [
+              0,
+              3
+            ]
+          ],
+          "touchedGaps": [
+            [
+              0,
+              4
+            ]
+          ],
+          "breaks": {
+            "whole": {
+              "reason": "snapshotOnly",
+              "origin": "snapshot"
+            },
+            "bounded": []
+          }
+        }
+      },
+      "spans": [
+        {
+          "input": {
+            "from": 0,
+            "to": 1,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 2,
+              "to": 0,
+              "growing": false
+            },
+            "hit": true,
+            "edited": true,
+            "block": {
+              "reason": "snapshotOnly",
+              "origin": "snapshot"
+            }
+          }
+        },
+        {
+          "input": {
+            "from": 2,
+            "to": 2,
+            "growing": true
+          },
+          "expect": {
+            "span": {
+              "from": 0,
+              "to": 2,
+              "growing": true
+            },
+            "hit": true,
+            "edited": true,
+            "block": {
+              "reason": "snapshotOnly",
+              "origin": "snapshot"
+            }
+          }
+        },
+        {
+          "input": {
+            "from": 2,
+            "to": 3,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 2,
+              "to": 0,
+              "growing": false
+            },
+            "hit": true,
+            "edited": true,
+            "block": {
+              "reason": "snapshotOnly",
+              "origin": "snapshot"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "cap-overflow",
+      "why": "cap 8, nine disjoint deletions: at least nine deletedChars intervals in any representation, so a whole break capOverflow/accumulator",
+      "cap": 8,
+      "pre": "abcdefghijklmnopqrst",
+      "post": "Zabdfhjlnprt",
+      "transactions": [
+        {
+          "kind": "certified",
+          "sections": [
+            {
+              "fromA": 18,
+              "toA": 19,
+              "fromB": 18,
+              "toB": 18,
+              "insert": ""
+            }
+          ]
+        },
+        {
+          "kind": "certified",
+          "sections": [
+            {
+              "fromA": 16,
+              "toA": 17,
+              "fromB": 16,
+              "toB": 16,
+              "insert": ""
+            }
+          ]
+        },
+        {
+          "kind": "certified",
+          "sections": [
+            {
+              "fromA": 14,
+              "toA": 15,
+              "fromB": 14,
+              "toB": 14,
+              "insert": ""
+            }
+          ]
+        },
+        {
+          "kind": "certified",
+          "sections": [
+            {
+              "fromA": 12,
+              "toA": 13,
+              "fromB": 12,
+              "toB": 12,
+              "insert": ""
+            }
+          ]
+        },
+        {
+          "kind": "certified",
+          "sections": [
+            {
+              "fromA": 10,
+              "toA": 11,
+              "fromB": 10,
+              "toB": 10,
+              "insert": ""
+            }
+          ]
+        },
+        {
+          "kind": "certified",
+          "sections": [
+            {
+              "fromA": 8,
+              "toA": 9,
+              "fromB": 8,
+              "toB": 8,
+              "insert": ""
+            }
+          ]
+        },
+        {
+          "kind": "certified",
+          "sections": [
+            {
+              "fromA": 6,
+              "toA": 7,
+              "fromB": 6,
+              "toB": 6,
+              "insert": ""
+            }
+          ]
+        },
+        {
+          "kind": "certified",
+          "sections": [
+            {
+              "fromA": 4,
+              "toA": 5,
+              "fromB": 4,
+              "toB": 4,
+              "insert": ""
+            }
+          ]
+        },
+        {
+          "kind": "certified",
+          "sections": [
+            {
+              "fromA": 2,
+              "toA": 3,
+              "fromB": 2,
+              "toB": 2,
+              "insert": ""
+            }
+          ]
+        },
+        {
+          "kind": "certified",
+          "sections": [
+            {
+              "fromA": 0,
+              "toA": 0,
+              "fromB": 0,
+              "toB": 1,
+              "insert": "Z"
+            }
+          ]
+        }
+      ],
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 8,
+        "document": "doc-0001",
+        "epoch": "1",
+        "basis": "r0001",
+        "preHash": "dd65eea0329dcb94b17187af9dff28c31a1d78026737a16af75979a1fa4618e5",
+        "postHash": "5e78dd4527be69ec3c1298802f2e79e60d306726cb97f6a25cad98c0650841af",
+        "body": {
+          "lenA": 20,
+          "lenB": 12,
+          "transactions": 10,
+          "map": {
+            "L0": 0,
+            "R0": 12,
+            "runs": [
+              [
+                20,
+                0,
+                0
+              ]
+            ]
+          },
+          "deletedChars": [
+            [
+              0,
+              19
+            ]
+          ],
+          "touchedGaps": [
+            [
+              0,
+              20
+            ]
+          ],
+          "breaks": {
+            "whole": {
+              "reason": "capOverflow",
+              "origin": "accumulator"
+            },
+            "bounded": []
+          }
+        }
+      },
+      "spans": [
+        {
+          "input": {
+            "from": 0,
+            "to": 1,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 12,
+              "to": 0,
+              "growing": false
+            },
+            "hit": true,
+            "edited": true,
+            "block": {
+              "reason": "capOverflow",
+              "origin": "accumulator"
+            }
+          }
+        },
+        {
+          "input": {
+            "from": 1,
+            "to": 1,
+            "growing": true
+          },
+          "expect": {
+            "span": {
+              "from": 0,
+              "to": 12,
+              "growing": true
+            },
+            "hit": true,
+            "edited": true,
+            "block": {
+              "reason": "capOverflow",
+              "origin": "accumulator"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "invalid": [
+    {
+      "name": "unknown-version",
+      "payload": {
+        "provenanceVersion": 2,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "18446744073709551615",
+        "basis": "r0001",
+        "preHash": "cf2c7f63055d2e84af6e3f01ac1bb7fce598d20cf213fab2b56b8e8047b46ced",
+        "postHash": "59043009a1739c4d634224082f1657f8bd5a029aa7589ee8dce86cffb70d2654",
+        "body": {
+          "lenA": 8,
+          "lenB": 10,
+          "transactions": 3,
+          "map": {
+            "L0": 0,
+            "R0": 2,
+            "runs": [
+              [
+                1,
+                3,
+                1
+              ],
+              [
+                7,
+                1,
+                1
+              ]
+            ]
+          },
+          "deletedChars": [
+            [
+              2,
+              2
+            ],
+            [
+              6,
+              6
+            ]
+          ],
+          "touchedGaps": [
+            [
+              0,
+              0
+            ]
+          ],
+          "breaks": {
+            "whole": null,
+            "bounded": [
+              {
+                "normal": [
+                  3,
+                  2
+                ],
+                "growing": [
+                  3,
+                  2
+                ],
+                "reason": "uncertifiedRange",
+                "origin": "wysiwyg"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "unknown-field",
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "18446744073709551615",
+        "basis": "r0001",
+        "preHash": "cf2c7f63055d2e84af6e3f01ac1bb7fce598d20cf213fab2b56b8e8047b46ced",
+        "postHash": "59043009a1739c4d634224082f1657f8bd5a029aa7589ee8dce86cffb70d2654",
+        "body": {
+          "lenA": 8,
+          "lenB": 10,
+          "transactions": 3,
+          "map": {
+            "L0": 0,
+            "R0": 2,
+            "runs": [
+              [
+                1,
+                3,
+                1
+              ],
+              [
+                7,
+                1,
+                1
+              ]
+            ]
+          },
+          "deletedChars": [
+            [
+              2,
+              2
+            ],
+            [
+              6,
+              6
+            ]
+          ],
+          "touchedGaps": [
+            [
+              0,
+              0
+            ]
+          ],
+          "breaks": {
+            "whole": null,
+            "bounded": [
+              {
+                "normal": [
+                  3,
+                  2
+                ],
+                "growing": [
+                  3,
+                  2
+                ],
+                "reason": "uncertifiedRange",
+                "origin": "wysiwyg"
+              }
+            ]
+          }
+        },
+        "extra": 1
+      }
+    },
+    {
+      "name": "epoch-not-decimal-string",
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": 7,
+        "basis": "r0001",
+        "preHash": "cf2c7f63055d2e84af6e3f01ac1bb7fce598d20cf213fab2b56b8e8047b46ced",
+        "postHash": "59043009a1739c4d634224082f1657f8bd5a029aa7589ee8dce86cffb70d2654",
+        "body": {
+          "lenA": 8,
+          "lenB": 10,
+          "transactions": 3,
+          "map": {
+            "L0": 0,
+            "R0": 2,
+            "runs": [
+              [
+                1,
+                3,
+                1
+              ],
+              [
+                7,
+                1,
+                1
+              ]
+            ]
+          },
+          "deletedChars": [
+            [
+              2,
+              2
+            ],
+            [
+              6,
+              6
+            ]
+          ],
+          "touchedGaps": [
+            [
+              0,
+              0
+            ]
+          ],
+          "breaks": {
+            "whole": null,
+            "bounded": [
+              {
+                "normal": [
+                  3,
+                  2
+                ],
+                "growing": [
+                  3,
+                  2
+                ],
+                "reason": "uncertifiedRange",
+                "origin": "wysiwyg"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "epoch-over-u64",
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "18446744073709551616",
+        "basis": "r0001",
+        "preHash": "cf2c7f63055d2e84af6e3f01ac1bb7fce598d20cf213fab2b56b8e8047b46ced",
+        "postHash": "59043009a1739c4d634224082f1657f8bd5a029aa7589ee8dce86cffb70d2654",
+        "body": {
+          "lenA": 8,
+          "lenB": 10,
+          "transactions": 3,
+          "map": {
+            "L0": 0,
+            "R0": 2,
+            "runs": [
+              [
+                1,
+                3,
+                1
+              ],
+              [
+                7,
+                1,
+                1
+              ]
+            ]
+          },
+          "deletedChars": [
+            [
+              2,
+              2
+            ],
+            [
+              6,
+              6
+            ]
+          ],
+          "touchedGaps": [
+            [
+              0,
+              0
+            ]
+          ],
+          "breaks": {
+            "whole": null,
+            "bounded": [
+              {
+                "normal": [
+                  3,
+                  2
+                ],
+                "growing": [
+                  3,
+                  2
+                ],
+                "reason": "uncertifiedRange",
+                "origin": "wysiwyg"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "epoch-leading-zero",
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "01",
+        "basis": "r0001",
+        "preHash": "cf2c7f63055d2e84af6e3f01ac1bb7fce598d20cf213fab2b56b8e8047b46ced",
+        "postHash": "59043009a1739c4d634224082f1657f8bd5a029aa7589ee8dce86cffb70d2654",
+        "body": {
+          "lenA": 8,
+          "lenB": 10,
+          "transactions": 3,
+          "map": {
+            "L0": 0,
+            "R0": 2,
+            "runs": [
+              [
+                1,
+                3,
+                1
+              ],
+              [
+                7,
+                1,
+                1
+              ]
+            ]
+          },
+          "deletedChars": [
+            [
+              2,
+              2
+            ],
+            [
+              6,
+              6
+            ]
+          ],
+          "touchedGaps": [
+            [
+              0,
+              0
+            ]
+          ],
+          "breaks": {
+            "whole": null,
+            "bounded": [
+              {
+                "normal": [
+                  3,
+                  2
+                ],
+                "growing": [
+                  3,
+                  2
+                ],
+                "reason": "uncertifiedRange",
+                "origin": "wysiwyg"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "uppercase-hash",
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "18446744073709551615",
+        "basis": "r0001",
+        "preHash": "CF2C7F63055D2E84AF6E3F01AC1BB7FCE598D20CF213FAB2B56B8E8047B46CED",
+        "postHash": "59043009a1739c4d634224082f1657f8bd5a029aa7589ee8dce86cffb70d2654",
+        "body": {
+          "lenA": 8,
+          "lenB": 10,
+          "transactions": 3,
+          "map": {
+            "L0": 0,
+            "R0": 2,
+            "runs": [
+              [
+                1,
+                3,
+                1
+              ],
+              [
+                7,
+                1,
+                1
+              ]
+            ]
+          },
+          "deletedChars": [
+            [
+              2,
+              2
+            ],
+            [
+              6,
+              6
+            ]
+          ],
+          "touchedGaps": [
+            [
+              0,
+              0
+            ]
+          ],
+          "breaks": {
+            "whole": null,
+            "bounded": [
+              {
+                "normal": [
+                  3,
+                  2
+                ],
+                "growing": [
+                  3,
+                  2
+                ],
+                "reason": "uncertifiedRange",
+                "origin": "wysiwyg"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "unknown-break-reason",
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "18446744073709551615",
+        "basis": "r0001",
+        "preHash": "cf2c7f63055d2e84af6e3f01ac1bb7fce598d20cf213fab2b56b8e8047b46ced",
+        "postHash": "59043009a1739c4d634224082f1657f8bd5a029aa7589ee8dce86cffb70d2654",
+        "body": {
+          "lenA": 8,
+          "lenB": 10,
+          "transactions": 3,
+          "map": {
+            "L0": 0,
+            "R0": 2,
+            "runs": [
+              [
+                1,
+                3,
+                1
+              ],
+              [
+                7,
+                1,
+                1
+              ]
+            ]
+          },
+          "deletedChars": [
+            [
+              2,
+              2
+            ],
+            [
+              6,
+              6
+            ]
+          ],
+          "touchedGaps": [
+            [
+              0,
+              0
+            ]
+          ],
+          "breaks": {
+            "whole": null,
+            "bounded": [
+              {
+                "normal": [
+                  3,
+                  2
+                ],
+                "growing": [
+                  3,
+                  2
+                ],
+                "reason": "guess",
+                "origin": "wysiwyg"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "break-without-origin",
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "18446744073709551615",
+        "basis": "r0001",
+        "preHash": "cf2c7f63055d2e84af6e3f01ac1bb7fce598d20cf213fab2b56b8e8047b46ced",
+        "postHash": "59043009a1739c4d634224082f1657f8bd5a029aa7589ee8dce86cffb70d2654",
+        "body": {
+          "lenA": 8,
+          "lenB": 10,
+          "transactions": 3,
+          "map": {
+            "L0": 0,
+            "R0": 2,
+            "runs": [
+              [
+                1,
+                3,
+                1
+              ],
+              [
+                7,
+                1,
+                1
+              ]
+            ]
+          },
+          "deletedChars": [
+            [
+              2,
+              2
+            ],
+            [
+              6,
+              6
+            ]
+          ],
+          "touchedGaps": [
+            [
+              0,
+              0
+            ]
+          ],
+          "breaks": {
+            "whole": null,
+            "bounded": [
+              {
+                "normal": [
+                  3,
+                  2
+                ],
+                "growing": [
+                  3,
+                  2
+                ],
+                "reason": "uncertifiedRange",
+                "origin": ""
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "map-not-monotone",
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "18446744073709551615",
+        "basis": "r0001",
+        "preHash": "cf2c7f63055d2e84af6e3f01ac1bb7fce598d20cf213fab2b56b8e8047b46ced",
+        "postHash": "59043009a1739c4d634224082f1657f8bd5a029aa7589ee8dce86cffb70d2654",
+        "body": {
+          "lenA": 8,
+          "lenB": 10,
+          "transactions": 3,
+          "map": {
+            "L0": 0,
+            "R0": 2,
+            "runs": [
+              [
+                1,
+                -1,
+                1
+              ],
+              [
+                7,
+                1,
+                1
+              ]
+            ]
+          },
+          "deletedChars": [
+            [
+              2,
+              2
+            ],
+            [
+              6,
+              6
+            ]
+          ],
+          "touchedGaps": [
+            [
+              0,
+              0
+            ]
+          ],
+          "breaks": {
+            "whole": null,
+            "bounded": [
+              {
+                "normal": [
+                  3,
+                  2
+                ],
+                "growing": [
+                  3,
+                  2
+                ],
+                "reason": "uncertifiedRange",
+                "origin": "wysiwyg"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "map-past-postimage",
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "18446744073709551615",
+        "basis": "r0001",
+        "preHash": "cf2c7f63055d2e84af6e3f01ac1bb7fce598d20cf213fab2b56b8e8047b46ced",
+        "postHash": "59043009a1739c4d634224082f1657f8bd5a029aa7589ee8dce86cffb70d2654",
+        "body": {
+          "lenA": 8,
+          "lenB": 1,
+          "transactions": 3,
+          "map": {
+            "L0": 0,
+            "R0": 2,
+            "runs": [
+              [
+                1,
+                3,
+                1
+              ],
+              [
+                7,
+                1,
+                1
+              ]
+            ]
+          },
+          "deletedChars": [
+            [
+              2,
+              2
+            ],
+            [
+              6,
+              6
+            ]
+          ],
+          "touchedGaps": [
+            [
+              0,
+              0
+            ]
+          ],
+          "breaks": {
+            "whole": null,
+            "bounded": [
+              {
+                "normal": [
+                  3,
+                  2
+                ],
+                "growing": [
+                  3,
+                  2
+                ],
+                "reason": "uncertifiedRange",
+                "origin": "wysiwyg"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "interval-outside-document",
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "18446744073709551615",
+        "basis": "r0001",
+        "preHash": "cf2c7f63055d2e84af6e3f01ac1bb7fce598d20cf213fab2b56b8e8047b46ced",
+        "postHash": "59043009a1739c4d634224082f1657f8bd5a029aa7589ee8dce86cffb70d2654",
+        "body": {
+          "lenA": 8,
+          "lenB": 10,
+          "transactions": 3,
+          "map": {
+            "L0": 0,
+            "R0": 2,
+            "runs": [
+              [
+                1,
+                3,
+                1
+              ],
+              [
+                7,
+                1,
+                1
+              ]
+            ]
+          },
+          "deletedChars": [
+            [
+              2,
+              2
+            ],
+            [
+              6,
+              6
+            ]
+          ],
+          "touchedGaps": [
+            [
+              0,
+              0
+            ],
+            [
+              100,
+              101
+            ]
+          ],
+          "breaks": {
+            "whole": null,
+            "bounded": [
+              {
+                "normal": [
+                  3,
+                  2
+                ],
+                "growing": [
+                  3,
+                  2
+                ],
+                "reason": "uncertifiedRange",
+                "origin": "wysiwyg"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "intervals-not-disjoint-sorted",
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "18446744073709551615",
+        "basis": "r0001",
+        "preHash": "cf2c7f63055d2e84af6e3f01ac1bb7fce598d20cf213fab2b56b8e8047b46ced",
+        "postHash": "59043009a1739c4d634224082f1657f8bd5a029aa7589ee8dce86cffb70d2654",
+        "body": {
+          "lenA": 8,
+          "lenB": 10,
+          "transactions": 3,
+          "map": {
+            "L0": 0,
+            "R0": 2,
+            "runs": [
+              [
+                1,
+                3,
+                1
+              ],
+              [
+                7,
+                1,
+                1
+              ]
+            ]
+          },
+          "deletedChars": [
+            [
+              3,
+              4
+            ],
+            [
+              1,
+              2
+            ]
+          ],
+          "touchedGaps": [
+            [
+              0,
+              0
+            ]
+          ],
+          "breaks": {
+            "whole": null,
+            "bounded": [
+              {
+                "normal": [
+                  3,
+                  2
+                ],
+                "growing": [
+                  3,
+                  2
+                ],
+                "reason": "uncertifiedRange",
+                "origin": "wysiwyg"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "cap-over-maximum",
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16385,
+        "document": "doc-0001",
+        "epoch": "18446744073709551615",
+        "basis": "r0001",
+        "preHash": "cf2c7f63055d2e84af6e3f01ac1bb7fce598d20cf213fab2b56b8e8047b46ced",
+        "postHash": "59043009a1739c4d634224082f1657f8bd5a029aa7589ee8dce86cffb70d2654",
+        "body": {
+          "lenA": 8,
+          "lenB": 10,
+          "transactions": 3,
+          "map": {
+            "L0": 0,
+            "R0": 2,
+            "runs": [
+              [
+                1,
+                3,
+                1
+              ],
+              [
+                7,
+                1,
+                1
+              ]
+            ]
+          },
+          "deletedChars": [
+            [
+              2,
+              2
+            ],
+            [
+              6,
+              6
+            ]
+          ],
+          "touchedGaps": [
+            [
+              0,
+              0
+            ]
+          ],
+          "breaks": {
+            "whole": null,
+            "bounded": [
+              {
+                "normal": [
+                  3,
+                  2
+                ],
+                "growing": [
+                  3,
+                  2
+                ],
+                "reason": "uncertifiedRange",
+                "origin": "wysiwyg"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "empty-document-id",
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "",
+        "epoch": "18446744073709551615",
+        "basis": "r0001",
+        "preHash": "cf2c7f63055d2e84af6e3f01ac1bb7fce598d20cf213fab2b56b8e8047b46ced",
+        "postHash": "59043009a1739c4d634224082f1657f8bd5a029aa7589ee8dce86cffb70d2654",
+        "body": {
+          "lenA": 8,
+          "lenB": 10,
+          "transactions": 3,
+          "map": {
+            "L0": 0,
+            "R0": 2,
+            "runs": [
+              [
+                1,
+                3,
+                1
+              ],
+              [
+                7,
+                1,
+                1
+              ]
+            ]
+          },
+          "deletedChars": [
+            [
+              2,
+              2
+            ],
+            [
+              6,
+              6
+            ]
+          ],
+          "touchedGaps": [
+            [
+              0,
+              0
+            ]
+          ],
+          "breaks": {
+            "whole": null,
+            "bounded": [
+              {
+                "normal": [
+                  3,
+                  2
+                ],
+                "growing": [
+                  3,
+                  2
+                ],
+                "reason": "uncertifiedRange",
+                "origin": "wysiwyg"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "bounded-break-whole-reason",
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "18446744073709551615",
+        "basis": "r0001",
+        "preHash": "cf2c7f63055d2e84af6e3f01ac1bb7fce598d20cf213fab2b56b8e8047b46ced",
+        "postHash": "59043009a1739c4d634224082f1657f8bd5a029aa7589ee8dce86cffb70d2654",
+        "body": {
+          "lenA": 8,
+          "lenB": 10,
+          "transactions": 3,
+          "map": {
+            "L0": 0,
+            "R0": 2,
+            "runs": [
+              [
+                1,
+                3,
+                1
+              ],
+              [
+                7,
+                1,
+                1
+              ]
+            ]
+          },
+          "deletedChars": [
+            [
+              2,
+              2
+            ],
+            [
+              6,
+              6
+            ]
+          ],
+          "touchedGaps": [
+            [
+              0,
+              0
+            ]
+          ],
+          "breaks": {
+            "whole": null,
+            "bounded": [
+              {
+                "normal": [
+                  3,
+                  2
+                ],
+                "growing": [
+                  3,
+                  2
+                ],
+                "reason": "snapshotOnly",
+                "origin": "wysiwyg"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "whole-break-uncertified-range",
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "18446744073709551615",
+        "basis": "r0001",
+        "preHash": "cf2c7f63055d2e84af6e3f01ac1bb7fce598d20cf213fab2b56b8e8047b46ced",
+        "postHash": "59043009a1739c4d634224082f1657f8bd5a029aa7589ee8dce86cffb70d2654",
+        "body": {
+          "lenA": 8,
+          "lenB": 10,
+          "transactions": 3,
+          "map": {
+            "L0": 0,
+            "R0": 2,
+            "runs": [
+              [
+                1,
+                3,
+                1
+              ],
+              [
+                7,
+                1,
+                1
+              ]
+            ]
+          },
+          "deletedChars": [
+            [
+              2,
+              2
+            ],
+            [
+              6,
+              6
+            ]
+          ],
+          "touchedGaps": [
+            [
+              0,
+              0
+            ]
+          ],
+          "breaks": {
+            "whole": {
+              "reason": "uncertifiedRange",
+              "origin": "window:blocks"
+            },
+            "bounded": []
+          }
+        }
+      }
+    },
+    {
+      "name": "rebuilds-over-cap",
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 4,
+        "document": "doc-0001",
+        "epoch": "1",
+        "basis": "r0001",
+        "preHash": "dd65eea0329dcb94b17187af9dff28c31a1d78026737a16af75979a1fa4618e5",
+        "postHash": "53fd6aae1134969ad098c8f78c01a76033e25c8bc391b9b47975168692c4ea6f",
+        "body": {
+          "lenA": 20,
+          "lenB": 18,
+          "transactions": 2,
+          "map": {
+            "L0": 0,
+            "R0": 0,
+            "runs": [
+              [
+                3,
+                1,
+                1
+              ],
+              [
+                1,
+                0,
+                0
+              ],
+              [
+                5,
+                1,
+                1
+              ],
+              [
+                1,
+                0,
+                0
+              ],
+              [
+                10,
+                1,
+                1
+              ]
+            ]
+          },
+          "deletedChars": [
+            [
+              3,
+              3
+            ],
+            [
+              9,
+              9
+            ]
+          ],
+          "touchedGaps": [],
+          "breaks": {
+            "whole": null,
+            "bounded": []
+          }
+        }
+      }
+    }
+  ],
+  "writerCases": [
+    {
+      "name": "writer-review-no-map",
+      "why": "an agent whole-document write with no map: a whole break {wholeDocumentWrite, agent}; no epoch armed, so epoch \"0\"",
+      "cap": 16384,
+      "pre": "a\nb\n",
+      "post": "a\nB\nc\n",
+      "transactions": [
+        {
+          "kind": "breakWhole",
+          "text": "a\nB\nc\n",
+          "reason": "wholeDocumentWrite",
+          "origin": "agent"
+        }
+      ],
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "0",
+        "basis": "r0001",
+        "preHash": "911169ddaaf146aff539f58c26c489af3b892dff0fe283c1c264c65ae5aa59a2",
+        "postHash": "4c6508965080889a0cd0250e5816021ff3b87c1c95891251f9642b67c42c8137",
+        "body": {
+          "lenA": 4,
+          "lenB": 6,
+          "transactions": 1,
+          "map": {
+            "L0": 0,
+            "R0": 6,
+            "runs": [
+              [
+                4,
+                0,
+                0
+              ]
+            ]
+          },
+          "deletedChars": [
+            [
+              0,
+              3
+            ]
+          ],
+          "touchedGaps": [
+            [
+              0,
+              4
+            ]
+          ],
+          "breaks": {
+            "whole": {
+              "reason": "wholeDocumentWrite",
+              "origin": "agent"
+            },
+            "bounded": []
+          }
+        }
+      },
+      "spans": [
+        {
+          "input": {
+            "from": 0,
+            "to": 1,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 6,
+              "to": 0,
+              "growing": false
+            },
+            "hit": true,
+            "edited": true,
+            "block": {
+              "reason": "wholeDocumentWrite",
+              "origin": "agent"
+            }
+          }
+        },
+        {
+          "input": {
+            "from": 2,
+            "to": 3,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 6,
+              "to": 0,
+              "growing": false
+            },
+            "hit": true,
+            "edited": true,
+            "block": {
+              "reason": "wholeDocumentWrite",
+              "origin": "agent"
+            }
+          }
+        },
+        {
+          "input": {
+            "from": 4,
+            "to": 4,
+            "growing": true
+          },
+          "expect": {
+            "span": {
+              "from": 0,
+              "to": 6,
+              "growing": true
+            },
+            "hit": true,
+            "edited": true,
+            "block": {
+              "reason": "wholeDocumentWrite",
+              "origin": "agent"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "writer-none-no-map",
+      "why": "a save with no map: a whole break {snapshotOnly, snapshot}; built on pending observation o0001 while epoch 7 is armed",
+      "cap": 16384,
+      "pre": "a\nb\n",
+      "post": "a\nb\n",
+      "transactions": [
+        {
+          "kind": "breakWhole",
+          "text": "a\nb\n",
+          "reason": "snapshotOnly",
+          "origin": "snapshot"
+        }
+      ],
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "7",
+        "basis": "o0001",
+        "preHash": "911169ddaaf146aff539f58c26c489af3b892dff0fe283c1c264c65ae5aa59a2",
+        "postHash": "911169ddaaf146aff539f58c26c489af3b892dff0fe283c1c264c65ae5aa59a2",
+        "body": {
+          "lenA": 4,
+          "lenB": 4,
+          "transactions": 1,
+          "map": {
+            "L0": 0,
+            "R0": 4,
+            "runs": [
+              [
+                4,
+                0,
+                0
+              ]
+            ]
+          },
+          "deletedChars": [
+            [
+              0,
+              3
+            ]
+          ],
+          "touchedGaps": [
+            [
+              0,
+              4
+            ]
+          ],
+          "breaks": {
+            "whole": {
+              "reason": "snapshotOnly",
+              "origin": "snapshot"
+            },
+            "bounded": []
+          }
+        }
+      },
+      "spans": [
+        {
+          "input": {
+            "from": 0,
+            "to": 1,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 4,
+              "to": 0,
+              "growing": false
+            },
+            "hit": true,
+            "edited": true,
+            "block": {
+              "reason": "snapshotOnly",
+              "origin": "snapshot"
+            }
+          }
+        },
+        {
+          "input": {
+            "from": 2,
+            "to": 2,
+            "growing": true
+          },
+          "expect": {
+            "span": {
+              "from": 0,
+              "to": 4,
+              "growing": true
+            },
+            "hit": true,
+            "edited": true,
+            "block": {
+              "reason": "snapshotOnly",
+              "origin": "snapshot"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "writer-restore",
+      "why": "a restore never carries a worker map: a whole break {restore, restore}",
+      "cap": 16384,
+      "pre": "x\ny\n",
+      "post": "a\nb\n",
+      "transactions": [
+        {
+          "kind": "breakWhole",
+          "text": "a\nb\n",
+          "reason": "restore",
+          "origin": "restore"
+        }
+      ],
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "0",
+        "basis": "r0004",
+        "preHash": "09834d488008f5f1ef589a2d7cedc52425bee9dd23b2212e4c1d673c5cbb54e4",
+        "postHash": "911169ddaaf146aff539f58c26c489af3b892dff0fe283c1c264c65ae5aa59a2",
+        "body": {
+          "lenA": 4,
+          "lenB": 4,
+          "transactions": 1,
+          "map": {
+            "L0": 0,
+            "R0": 4,
+            "runs": [
+              [
+                4,
+                0,
+                0
+              ]
+            ]
+          },
+          "deletedChars": [
+            [
+              0,
+              3
+            ]
+          ],
+          "touchedGaps": [
+            [
+              0,
+              4
+            ]
+          ],
+          "breaks": {
+            "whole": {
+              "reason": "restore",
+              "origin": "restore"
+            },
+            "bounded": []
+          }
+        }
+      },
+      "spans": [
+        {
+          "input": {
+            "from": 0,
+            "to": 1,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 4,
+              "to": 0,
+              "growing": false
+            },
+            "hit": true,
+            "edited": true,
+            "block": {
+              "reason": "restore",
+              "origin": "restore"
+            }
+          }
+        },
+        {
+          "input": {
+            "from": 2,
+            "to": 3,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 4,
+              "to": 0,
+              "growing": false
+            },
+            "hit": true,
+            "edited": true,
+            "block": {
+              "reason": "restore",
+              "origin": "restore"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "writer-concurrent-observation",
+      "why": "a save captured on a revision that is no longer the head: {parentMismatch, concurrentObservation}",
+      "cap": 16384,
+      "pre": "a\nb\n",
+      "post": "a\nb!\n",
+      "transactions": [
+        {
+          "kind": "breakWhole",
+          "text": "a\nb!\n",
+          "reason": "parentMismatch",
+          "origin": "concurrentObservation"
+        }
+      ],
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "0",
+        "basis": "r0002",
+        "preHash": "911169ddaaf146aff539f58c26c489af3b892dff0fe283c1c264c65ae5aa59a2",
+        "postHash": "b88d27d9b353340ce124b9b3b059b2c3a639bdd8515f1fc54f06e8e9e38663b7",
+        "body": {
+          "lenA": 4,
+          "lenB": 5,
+          "transactions": 1,
+          "map": {
+            "L0": 0,
+            "R0": 5,
+            "runs": [
+              [
+                4,
+                0,
+                0
+              ]
+            ]
+          },
+          "deletedChars": [
+            [
+              0,
+              3
+            ]
+          ],
+          "touchedGaps": [
+            [
+              0,
+              4
+            ]
+          ],
+          "breaks": {
+            "whole": {
+              "reason": "parentMismatch",
+              "origin": "concurrentObservation"
+            },
+            "bounded": []
+          }
+        }
+      },
+      "spans": [
+        {
+          "input": {
+            "from": 2,
+            "to": 3,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 5,
+              "to": 0,
+              "growing": false
+            },
+            "hit": true,
+            "edited": true,
+            "block": {
+              "reason": "parentMismatch",
+              "origin": "concurrentObservation"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "writer-gap",
+      "why": "a save captured on a revision the journal never recorded: {parentMismatch, gap}",
+      "cap": 16384,
+      "pre": "a\nb\n",
+      "post": "q\n",
+      "transactions": [
+        {
+          "kind": "breakWhole",
+          "text": "q\n",
+          "reason": "parentMismatch",
+          "origin": "gap"
+        }
+      ],
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "0",
+        "basis": "r0002",
+        "preHash": "911169ddaaf146aff539f58c26c489af3b892dff0fe283c1c264c65ae5aa59a2",
+        "postHash": "4adc33bd9fe74303c344be46e5916d65182fb218e248fe80452ab3f025b06c64",
+        "body": {
+          "lenA": 4,
+          "lenB": 2,
+          "transactions": 1,
+          "map": {
+            "L0": 0,
+            "R0": 2,
+            "runs": [
+              [
+                4,
+                0,
+                0
+              ]
+            ]
+          },
+          "deletedChars": [
+            [
+              0,
+              3
+            ]
+          ],
+          "touchedGaps": [
+            [
+              0,
+              4
+            ]
+          ],
+          "breaks": {
+            "whole": {
+              "reason": "parentMismatch",
+              "origin": "gap"
+            },
+            "bounded": []
+          }
+        }
+      },
+      "spans": [
+        {
+          "input": {
+            "from": 0,
+            "to": 1,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 2,
+              "to": 0,
+              "growing": false
+            },
+            "hit": true,
+            "edited": true,
+            "block": {
+              "reason": "parentMismatch",
+              "origin": "gap"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "writer-hunk-revert",
+      "why": "a hunk revert is one certified change the writer builds from the hunk; epoch \"0\" when none is armed",
+      "cap": 16384,
+      "pre": "a\nBETA\nc\n",
+      "post": "a\nbeta\nc\n",
+      "transactions": [
+        {
+          "kind": "certified",
+          "sections": [
+            {
+              "fromA": 2,
+              "toA": 6,
+              "fromB": 2,
+              "toB": 6,
+              "insert": "beta"
+            }
+          ]
+        }
+      ],
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "0",
+        "basis": "r0003",
+        "preHash": "375a06c74520c302ae97d42b244e03c94ed37ea79e6e12c8c7ecfb95c1a53d52",
+        "postHash": "f85a09ae372a53af84ff7017cff8ffe23fd714190f9181defe13b0c27da73891",
+        "body": {
+          "lenA": 9,
+          "lenB": 9,
+          "transactions": 1,
+          "map": {
+            "L0": 0,
+            "R0": 0,
+            "runs": [
+              [
+                2,
+                1,
+                1
+              ],
+              [
+                1,
+                0,
+                4
+              ],
+              [
+                2,
+                0,
+                0
+              ],
+              [
+                1,
+                4,
+                0
+              ],
+              [
+                3,
+                1,
+                1
+              ]
+            ]
+          },
+          "deletedChars": [
+            [
+              2,
+              5
+            ]
+          ],
+          "touchedGaps": [
+            [
+              3,
+              5
+            ]
+          ],
+          "breaks": {
+            "whole": null,
+            "bounded": []
+          }
+        }
+      },
+      "spans": [
+        {
+          "input": {
+            "from": 2,
+            "to": 6,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 2,
+              "to": 6,
+              "growing": false
+            },
+            "hit": true,
+            "edited": true,
+            "block": null
+          }
+        },
+        {
+          "input": {
+            "from": 0,
+            "to": 1,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 0,
+              "to": 1,
+              "growing": false
+            },
+            "hit": false,
+            "edited": false,
+            "block": null
+          }
+        },
+        {
+          "input": {
+            "from": 7,
+            "to": 8,
+            "growing": false
+          },
+          "expect": {
+            "span": {
+              "from": 7,
+              "to": 8,
+              "growing": false
+            },
+            "hit": false,
+            "edited": false,
+            "block": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "genesis-first-window",
+      "why": "the first window of a new document maps from genesis: basis \"genesis\", preimage empty",
+      "cap": 16384,
+      "pre": "",
+      "post": "hello\n",
+      "transactions": [
+        {
+          "kind": "certified",
+          "sections": [
+            {
+              "fromA": 0,
+              "toA": 0,
+              "fromB": 0,
+              "toB": 6,
+              "insert": "hello\n"
+            }
+          ]
+        }
+      ],
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "1",
+        "basis": "genesis",
+        "preHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "postHash": "5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03",
+        "body": {
+          "lenA": 0,
+          "lenB": 6,
+          "transactions": 1,
+          "map": {
+            "L0": 0,
+            "R0": 6,
+            "runs": []
+          },
+          "deletedChars": [],
+          "touchedGaps": [
+            [
+              0,
+              0
+            ]
+          ],
+          "breaks": {
+            "whole": null,
+            "bounded": []
+          }
+        }
+      },
+      "spans": [
+        {
+          "input": {
+            "from": 0,
+            "to": 0,
+            "growing": true
+          },
+          "expect": {
+            "span": {
+              "from": 0,
+              "to": 6,
+              "growing": true
+            },
+            "hit": true,
+            "edited": true,
+            "block": null
+          }
+        }
+      ]
+    }
+  ],
+  "textChecks": [
+    {
+      "name": "replace-honest",
+      "why": "replace b with X; a and c survive in place",
+      "pre": "abc",
+      "post": "aXc",
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "1",
+        "basis": "r0001",
+        "preHash": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        "postHash": "3f3b03b261467a830a975cd59da6f0bc0a68469c2f451e4c08e03eb6fafd6bbb",
+        "body": {
+          "lenA": 3,
+          "lenB": 3,
+          "transactions": 1,
+          "map": {
+            "L0": 0,
+            "R0": 0,
+            "runs": [
+              [
+                3,
+                1,
+                1
+              ]
+            ]
+          },
+          "deletedChars": [
+            [
+              1,
+              1
+            ]
+          ],
+          "touchedGaps": [],
+          "breaks": {
+            "whole": null,
+            "bounded": []
+          }
+        }
+      },
+      "valid": true
+    },
+    {
+      "name": "replace-lie",
+      "why": "the same map over Xbc: hashes and lengths match, but a does not survive",
+      "pre": "abc",
+      "post": "Xbc",
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "1",
+        "basis": "r0001",
+        "preHash": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        "postHash": "2da3fb271a953e43f43655aa6f388820c498dfe2ddf419b5b4d9850bc43a9a85",
+        "body": {
+          "lenA": 3,
+          "lenB": 3,
+          "transactions": 1,
+          "map": {
+            "L0": 0,
+            "R0": 0,
+            "runs": [
+              [
+                3,
+                1,
+                1
+              ]
+            ]
+          },
+          "deletedChars": [
+            [
+              1,
+              1
+            ]
+          ],
+          "touchedGaps": [],
+          "breaks": {
+            "whole": null,
+            "bounded": []
+          }
+        }
+      },
+      "valid": false,
+      "error": "original character 0 survives the map but not the texts"
+    },
+    {
+      "name": "insert-moved",
+      "why": "the map inserts at 0 but the text has it at the end",
+      "pre": "ab",
+      "post": "abx",
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "1",
+        "basis": "r0001",
+        "preHash": "fb8e20fc2e4c3f248c60c39bd652f3c1347298bb977b8b4d5903b85055620603",
+        "postHash": "b2bdab4230154046ad0b7dfa830a9260caa5bd6ae230e582a2244ab4bf0b4ca5",
+        "body": {
+          "lenA": 2,
+          "lenB": 3,
+          "transactions": 1,
+          "map": {
+            "L0": 0,
+            "R0": 1,
+            "runs": [
+              [
+                1,
+                2,
+                1
+              ],
+              [
+                1,
+                1,
+                1
+              ]
+            ]
+          },
+          "deletedChars": [],
+          "touchedGaps": [
+            [
+              0,
+              0
+            ]
+          ],
+          "breaks": {
+            "whole": null,
+            "bounded": []
+          }
+        }
+      },
+      "valid": false,
+      "error": "original character 0 survives the map but not the texts"
+    },
+    {
+      "name": "surrogate-unit",
+      "why": "UTF-16 units: the low surrogate of the surviving emoji changed (😀 → 😁)",
+      "pre": "😀b",
+      "post": "😁X",
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "1",
+        "basis": "r0001",
+        "preHash": "f4cfdf0d361e1dab7f3456091702288223100e0eb6a1d3306c6b2bada63121ef",
+        "postHash": "e96701e6f6020873c0adecbb47c4a4842b459e2646362504fcae0770f8fb269d",
+        "body": {
+          "lenA": 3,
+          "lenB": 3,
+          "transactions": 1,
+          "map": {
+            "L0": 0,
+            "R0": 0,
+            "runs": [
+              [
+                3,
+                1,
+                1
+              ]
+            ]
+          },
+          "deletedChars": [
+            [
+              2,
+              2
+            ]
+          ],
+          "touchedGaps": [],
+          "breaks": {
+            "whole": null,
+            "bounded": []
+          }
+        }
+      },
+      "valid": false,
+      "error": "original character 1 survives the map but not the texts"
+    },
+    {
+      "name": "whole-break-any-text",
+      "why": "a whole break keeps no character, so any texts agree",
+      "pre": "abc",
+      "post": "zz",
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "1",
+        "basis": "r0001",
+        "preHash": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        "postHash": "4a60bf7d4bc1e485744cf7e8d0860524752fca1ce42331be7c439fd23043f151",
+        "body": {
+          "lenA": 3,
+          "lenB": 2,
+          "transactions": 1,
+          "map": {
+            "L0": 0,
+            "R0": 2,
+            "runs": [
+              [
+                3,
+                0,
+                0
+              ]
+            ]
+          },
+          "deletedChars": [
+            [
+              0,
+              2
+            ]
+          ],
+          "touchedGaps": [
+            [
+              0,
+              3
+            ]
+          ],
+          "breaks": {
+            "whole": {
+              "reason": "snapshotOnly",
+              "origin": "snapshot"
+            },
+            "bounded": []
+          }
+        }
+      },
+      "valid": true
+    },
+    {
+      "name": "cjk-honest",
+      "why": "CJK inserted between surviving CJK",
+      "pre": "你好",
+      "post": "你们好",
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "1",
+        "basis": "r0001",
+        "preHash": "670d9743542cae3ea7ebe36af56bd53648b0a1126162e78d81a32934a711302e",
+        "postHash": "d36d24a8a0e932b006eca79fc353d60204598d1f4bf79b9d245bb20621c202b8",
+        "body": {
+          "lenA": 2,
+          "lenB": 3,
+          "transactions": 1,
+          "map": {
+            "L0": 0,
+            "R0": 0,
+            "runs": [
+              [
+                1,
+                1,
+                2
+              ],
+              [
+                1,
+                2,
+                1
+              ]
+            ]
+          },
+          "deletedChars": [],
+          "touchedGaps": [
+            [
+              1,
+              1
+            ]
+          ],
+          "breaks": {
+            "whole": null,
+            "bounded": []
+          }
+        }
+      },
+      "valid": true
+    }
+  ],
+  "workerPayloads": [
+    {
+      "name": "accepted",
+      "why": "names this document, the open epoch, the head, and maps these texts",
+      "window": {
+        "document": "doc-0001",
+        "openEpoch": "1",
+        "basis": "r0001",
+        "pre": "ab",
+        "post": "abc"
+      },
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "1",
+        "basis": "r0001",
+        "preHash": "fb8e20fc2e4c3f248c60c39bd652f3c1347298bb977b8b4d5903b85055620603",
+        "postHash": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        "body": {
+          "lenA": 2,
+          "lenB": 3,
+          "transactions": 1,
+          "map": {
+            "L0": 0,
+            "R0": 0,
+            "runs": [
+              [
+                1,
+                1,
+                1
+              ],
+              [
+                1,
+                1,
+                2
+              ]
+            ]
+          },
+          "deletedChars": [],
+          "touchedGaps": [
+            [
+              2,
+              2
+            ]
+          ],
+          "breaks": {
+            "whole": null,
+            "bounded": []
+          }
+        }
+      },
+      "expect": "accept"
+    },
+    {
+      "name": "pending-basis",
+      "why": "a save built on pending observation o0001 names it as basis",
+      "window": {
+        "document": "doc-0001",
+        "openEpoch": "1",
+        "basis": "o0001",
+        "pre": "ab",
+        "post": "abc"
+      },
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "1",
+        "basis": "o0001",
+        "preHash": "fb8e20fc2e4c3f248c60c39bd652f3c1347298bb977b8b4d5903b85055620603",
+        "postHash": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        "body": {
+          "lenA": 2,
+          "lenB": 3,
+          "transactions": 1,
+          "map": {
+            "L0": 0,
+            "R0": 0,
+            "runs": [
+              [
+                1,
+                1,
+                1
+              ],
+              [
+                1,
+                1,
+                2
+              ]
+            ]
+          },
+          "deletedChars": [],
+          "touchedGaps": [
+            [
+              2,
+              2
+            ]
+          ],
+          "breaks": {
+            "whole": null,
+            "bounded": []
+          }
+        }
+      },
+      "expect": "accept"
+    },
+    {
+      "name": "genesis-basis",
+      "why": "the first window of a document names genesis",
+      "window": {
+        "document": "doc-0001",
+        "openEpoch": "1",
+        "basis": "genesis",
+        "pre": "",
+        "post": "c"
+      },
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "1",
+        "basis": "genesis",
+        "preHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "postHash": "2e7d2c03a9507ae265ecf5b5356885a53393a2029d241394997265a1a25aefc6",
+        "body": {
+          "lenA": 0,
+          "lenB": 1,
+          "transactions": 1,
+          "map": {
+            "L0": 0,
+            "R0": 1,
+            "runs": []
+          },
+          "deletedChars": [],
+          "touchedGaps": [
+            [
+              0,
+              0
+            ]
+          ],
+          "breaks": {
+            "whole": null,
+            "bounded": []
+          }
+        }
+      },
+      "expect": "accept"
+    },
+    {
+      "name": "no-epoch-armed",
+      "why": "no epoch is armed: no worker map counts",
+      "window": {
+        "document": "doc-0001",
+        "openEpoch": null,
+        "basis": "r0001",
+        "pre": "ab",
+        "post": "abc"
+      },
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "1",
+        "basis": "r0001",
+        "preHash": "fb8e20fc2e4c3f248c60c39bd652f3c1347298bb977b8b4d5903b85055620603",
+        "postHash": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        "body": {
+          "lenA": 2,
+          "lenB": 3,
+          "transactions": 1,
+          "map": {
+            "L0": 0,
+            "R0": 0,
+            "runs": [
+              [
+                1,
+                1,
+                1
+              ],
+              [
+                1,
+                1,
+                2
+              ]
+            ]
+          },
+          "deletedChars": [],
+          "touchedGaps": [
+            [
+              2,
+              2
+            ]
+          ],
+          "breaks": {
+            "whole": null,
+            "bounded": []
+          }
+        }
+      },
+      "expect": "INVALID_REQUEST"
+    },
+    {
+      "name": "writer-epoch-zero",
+      "why": "\"0\" is the writer's no-epoch marker, never a worker's epoch",
+      "window": {
+        "document": "doc-0001",
+        "openEpoch": "1",
+        "basis": "r0001",
+        "pre": "ab",
+        "post": "abc"
+      },
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "0",
+        "basis": "r0001",
+        "preHash": "fb8e20fc2e4c3f248c60c39bd652f3c1347298bb977b8b4d5903b85055620603",
+        "postHash": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        "body": {
+          "lenA": 2,
+          "lenB": 3,
+          "transactions": 1,
+          "map": {
+            "L0": 0,
+            "R0": 0,
+            "runs": [
+              [
+                1,
+                1,
+                1
+              ],
+              [
+                1,
+                1,
+                2
+              ]
+            ]
+          },
+          "deletedChars": [],
+          "touchedGaps": [
+            [
+              2,
+              2
+            ]
+          ],
+          "breaks": {
+            "whole": null,
+            "bounded": []
+          }
+        }
+      },
+      "expect": "INVALID_REQUEST"
+    },
+    {
+      "name": "another-epoch",
+      "why": "an epoch other than the open one (closed, or not yet armed)",
+      "window": {
+        "document": "doc-0001",
+        "openEpoch": "1",
+        "basis": "r0001",
+        "pre": "ab",
+        "post": "abc"
+      },
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "2",
+        "basis": "r0001",
+        "preHash": "fb8e20fc2e4c3f248c60c39bd652f3c1347298bb977b8b4d5903b85055620603",
+        "postHash": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        "body": {
+          "lenA": 2,
+          "lenB": 3,
+          "transactions": 1,
+          "map": {
+            "L0": 0,
+            "R0": 0,
+            "runs": [
+              [
+                1,
+                1,
+                1
+              ],
+              [
+                1,
+                1,
+                2
+              ]
+            ]
+          },
+          "deletedChars": [],
+          "touchedGaps": [
+            [
+              2,
+              2
+            ]
+          ],
+          "breaks": {
+            "whole": null,
+            "bounded": []
+          }
+        }
+      },
+      "expect": "INVALID_REQUEST"
+    },
+    {
+      "name": "another-document",
+      "why": "a map of another document",
+      "window": {
+        "document": "doc-0001",
+        "openEpoch": "1",
+        "basis": "r0001",
+        "pre": "ab",
+        "post": "abc"
+      },
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0002",
+        "epoch": "1",
+        "basis": "r0001",
+        "preHash": "fb8e20fc2e4c3f248c60c39bd652f3c1347298bb977b8b4d5903b85055620603",
+        "postHash": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        "body": {
+          "lenA": 2,
+          "lenB": 3,
+          "transactions": 1,
+          "map": {
+            "L0": 0,
+            "R0": 0,
+            "runs": [
+              [
+                1,
+                1,
+                1
+              ],
+              [
+                1,
+                1,
+                2
+              ]
+            ]
+          },
+          "deletedChars": [],
+          "touchedGaps": [
+            [
+              2,
+              2
+            ]
+          ],
+          "breaks": {
+            "whole": null,
+            "bounded": []
+          }
+        }
+      },
+      "expect": "INVALID_REQUEST"
+    },
+    {
+      "name": "another-basis",
+      "why": "a map built on another revision",
+      "window": {
+        "document": "doc-0001",
+        "openEpoch": "1",
+        "basis": "r0001",
+        "pre": "ab",
+        "post": "abc"
+      },
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "1",
+        "basis": "r0000",
+        "preHash": "fb8e20fc2e4c3f248c60c39bd652f3c1347298bb977b8b4d5903b85055620603",
+        "postHash": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        "body": {
+          "lenA": 2,
+          "lenB": 3,
+          "transactions": 1,
+          "map": {
+            "L0": 0,
+            "R0": 0,
+            "runs": [
+              [
+                1,
+                1,
+                1
+              ],
+              [
+                1,
+                1,
+                2
+              ]
+            ]
+          },
+          "deletedChars": [],
+          "touchedGaps": [
+            [
+              2,
+              2
+            ]
+          ],
+          "breaks": {
+            "whole": null,
+            "bounded": []
+          }
+        }
+      },
+      "expect": "INVALID_REQUEST"
+    },
+    {
+      "name": "genesis-after-first-revision",
+      "why": "genesis once the document has a revision",
+      "window": {
+        "document": "doc-0001",
+        "openEpoch": "1",
+        "basis": "r0001",
+        "pre": "ab",
+        "post": "abc"
+      },
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "1",
+        "basis": "genesis",
+        "preHash": "fb8e20fc2e4c3f248c60c39bd652f3c1347298bb977b8b4d5903b85055620603",
+        "postHash": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        "body": {
+          "lenA": 2,
+          "lenB": 3,
+          "transactions": 1,
+          "map": {
+            "L0": 0,
+            "R0": 0,
+            "runs": [
+              [
+                1,
+                1,
+                1
+              ],
+              [
+                1,
+                1,
+                2
+              ]
+            ]
+          },
+          "deletedChars": [],
+          "touchedGaps": [
+            [
+              2,
+              2
+            ]
+          ],
+          "breaks": {
+            "whole": null,
+            "bounded": []
+          }
+        }
+      },
+      "expect": "INVALID_REQUEST"
+    },
+    {
+      "name": "another-preimage",
+      "why": "hashes bind the map to its preimage",
+      "window": {
+        "document": "doc-0001",
+        "openEpoch": "1",
+        "basis": "r0001",
+        "pre": "xy",
+        "post": "xyc"
+      },
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "1",
+        "basis": "r0001",
+        "preHash": "fb8e20fc2e4c3f248c60c39bd652f3c1347298bb977b8b4d5903b85055620603",
+        "postHash": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        "body": {
+          "lenA": 2,
+          "lenB": 3,
+          "transactions": 1,
+          "map": {
+            "L0": 0,
+            "R0": 0,
+            "runs": [
+              [
+                1,
+                1,
+                1
+              ],
+              [
+                1,
+                1,
+                2
+              ]
+            ]
+          },
+          "deletedChars": [],
+          "touchedGaps": [
+            [
+              2,
+              2
+            ]
+          ],
+          "breaks": {
+            "whole": null,
+            "bounded": []
+          }
+        }
+      },
+      "expect": "INVALID_REQUEST"
+    },
+    {
+      "name": "lying-map",
+      "why": "hashes and lengths match, a surviving character does not",
+      "window": {
+        "document": "doc-0001",
+        "openEpoch": "1",
+        "basis": "r0001",
+        "pre": "abc",
+        "post": "Xbc"
+      },
+      "payload": {
+        "provenanceVersion": 1,
+        "unit": "utf16CodeUnit",
+        "cap": 16384,
+        "document": "doc-0001",
+        "epoch": "1",
+        "basis": "r0001",
+        "preHash": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        "postHash": "2da3fb271a953e43f43655aa6f388820c498dfe2ddf419b5b4d9850bc43a9a85",
+        "body": {
+          "lenA": 3,
+          "lenB": 3,
+          "transactions": 1,
+          "map": {
+            "L0": 0,
+            "R0": 0,
+            "runs": [
+              [
+                3,
+                1,
+                1
+              ]
+            ]
+          },
+          "deletedChars": [
+            [
+              1,
+              1
+            ]
+          ],
+          "touchedGaps": [],
+          "breaks": {
+            "whole": null,
+            "bounded": []
+          }
+        }
+      },
+      "expect": "INVALID_REQUEST"
+    }
+  ],
+  "mappedSpans": [
+    {
+      "name": "certified-shift",
+      "why": "a certified insertion before the span shifts it; no block, no lastCertified",
+      "parent": "0190a000-0000-7000-8000-000000000002",
+      "pre": "a\nbeta\n",
+      "transactions": [
+        {
+          "kind": "certified",
+          "sections": [
+            {
+              "fromA": 0,
+              "toA": 0,
+              "fromB": 0,
+              "toB": 2,
+              "insert": "> "
+            }
+          ]
+        }
+      ],
+      "before": {
+        "hunkId": "hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh",
+        "range": {
+          "from": 2,
+          "to": 6
+        },
+        "growing": false,
+        "editedSince": false,
+        "block": null
+      },
+      "expect": {
+        "hunkId": "hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh",
+        "range": {
+          "from": 4,
+          "to": 8
+        },
+        "growing": false,
+        "editedSince": false,
+        "block": null
+      }
+    },
+    {
+      "name": "first-block-records-lastCertified",
+      "why": "a whole break: the block arrives with lastCertified at the parent, the old range",
+      "parent": "0190a000-0000-7000-8000-000000000002",
+      "pre": "a\nbeta\n",
+      "transactions": [
+        {
+          "kind": "breakWhole",
+          "text": "a\nbeta\n",
+          "reason": "snapshotOnly",
+          "origin": "snapshot"
+        }
+      ],
+      "before": {
+        "hunkId": "hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh",
+        "range": {
+          "from": 2,
+          "to": 6
+        },
+        "growing": false,
+        "editedSince": false,
+        "block": null
+      },
+      "expect": {
+        "hunkId": "hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh",
+        "range": {
+          "from": 7,
+          "to": 0
+        },
+        "growing": false,
+        "editedSince": true,
+        "block": {
+          "reason": "snapshotOnly",
+          "origin": "snapshot"
+        },
+        "lastCertified": {
+          "at": "0190a000-0000-7000-8000-000000000002",
+          "range": {
+            "from": 2,
+            "to": 6
+          }
+        }
+      }
+    },
+    {
+      "name": "block-and-lastCertified-are-sticky",
+      "why": "a later break keeps the first block and its lastCertified; the range still maps",
+      "parent": "0190a000-0000-7000-8000-000000000005",
+      "pre": "a\nbeta\n",
+      "transactions": [
+        {
+          "kind": "breakWhole",
+          "text": "zz",
+          "reason": "externalReload",
+          "origin": "watcher"
+        }
+      ],
+      "before": {
+        "hunkId": "hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh",
+        "range": {
+          "from": 2,
+          "to": 6
+        },
+        "growing": false,
+        "editedSince": true,
+        "block": {
+          "reason": "snapshotOnly",
+          "origin": "snapshot"
+        },
+        "lastCertified": {
+          "at": "0190a000-0000-7000-8000-000000000002",
+          "range": {
+            "from": 2,
+            "to": 6
+          }
+        }
+      },
+      "expect": {
+        "hunkId": "hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh",
+        "range": {
+          "from": 2,
+          "to": 0
+        },
+        "growing": false,
+        "editedSince": true,
+        "block": {
+          "reason": "snapshotOnly",
+          "origin": "snapshot"
+        },
+        "lastCertified": {
+          "at": "0190a000-0000-7000-8000-000000000002",
+          "range": {
+            "from": 2,
+            "to": 6
+          }
+        }
+      }
+    },
+    {
+      "name": "certified-after-block-keeps-it",
+      "why": "a certified edit after the block clears nothing",
+      "parent": "0190a000-0000-7000-8000-000000000005",
+      "pre": "a\nbeta\n",
+      "transactions": [
+        {
+          "kind": "certified",
+          "sections": [
+            {
+              "fromA": 0,
+              "toA": 0,
+              "fromB": 0,
+              "toB": 1,
+              "insert": "x"
+            }
+          ]
+        }
+      ],
+      "before": {
+        "hunkId": "hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh",
+        "range": {
+          "from": 2,
+          "to": 6
+        },
+        "growing": false,
+        "editedSince": false,
+        "block": {
+          "reason": "snapshotOnly",
+          "origin": "snapshot"
+        },
+        "lastCertified": {
+          "at": "0190a000-0000-7000-8000-000000000002",
+          "range": {
+            "from": 2,
+            "to": 6
+          }
+        }
+      },
+      "expect": {
+        "hunkId": "hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh",
+        "range": {
+          "from": 3,
+          "to": 7
+        },
+        "growing": false,
+        "editedSince": false,
+        "block": {
+          "reason": "snapshotOnly",
+          "origin": "snapshot"
+        },
+        "lastCertified": {
+          "at": "0190a000-0000-7000-8000-000000000002",
+          "range": {
+            "from": 2,
+            "to": 6
+          }
+        }
+      }
+    },
+    {
+      "name": "bounded-break-reaches",
+      "why": "an uncertified range over the span blocks it; lastCertified at the parent",
+      "parent": "0190a000-0000-7000-8000-000000000003",
+      "pre": "a\nbeta\nc\n",
+      "transactions": [
+        {
+          "kind": "breakRange",
+          "fromA": 3,
+          "toA": 4,
+          "insert": "E",
+          "reason": "uncertifiedRange",
+          "origin": "wysiwyg"
+        }
+      ],
+      "before": {
+        "hunkId": "hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh",
+        "range": {
+          "from": 2,
+          "to": 6
+        },
+        "growing": false,
+        "editedSince": false,
+        "block": null
+      },
+      "expect": {
+        "hunkId": "hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh",
+        "range": {
+          "from": 2,
+          "to": 6
+        },
+        "growing": false,
+        "editedSince": true,
+        "block": {
+          "reason": "uncertifiedRange",
+          "origin": "wysiwyg"
+        },
+        "lastCertified": {
+          "at": "0190a000-0000-7000-8000-000000000003",
+          "range": {
+            "from": 2,
+            "to": 6
+          }
+        }
+      }
+    },
+    {
+      "name": "bounded-break-elsewhere",
+      "why": "an uncertified range elsewhere leaves the span certified",
+      "parent": "0190a000-0000-7000-8000-000000000003",
+      "pre": "a\nbeta\nc\n",
+      "transactions": [
+        {
+          "kind": "breakRange",
+          "fromA": 7,
+          "toA": 8,
+          "insert": "C",
+          "reason": "uncertifiedRange",
+          "origin": "wysiwyg"
+        }
+      ],
+      "before": {
+        "hunkId": "hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh",
+        "range": {
+          "from": 2,
+          "to": 6
+        },
+        "growing": false,
+        "editedSince": false,
+        "block": null
+      },
+      "expect": {
+        "hunkId": "hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh",
+        "range": {
+          "from": 2,
+          "to": 6
+        },
+        "growing": false,
+        "editedSince": false,
+        "block": null
+      }
+    },
+    {
+      "name": "growing-anchor-blocked",
+      "why": "a deletion anchor reached by a whole break records its empty range",
+      "parent": "0190a000-0000-7000-8000-000000000001",
+      "pre": "a\nc\n",
+      "transactions": [
+        {
+          "kind": "breakWhole",
+          "text": "a\nb\nc\n",
+          "reason": "wholeDocumentWrite",
+          "origin": "agent"
+        }
+      ],
+      "before": {
+        "hunkId": "hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh",
+        "range": {
+          "from": 2,
+          "to": 2
+        },
+        "growing": true,
+        "editedSince": false,
+        "block": null
+      },
+      "expect": {
+        "hunkId": "hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh",
+        "range": {
+          "from": 0,
+          "to": 6
+        },
+        "growing": true,
+        "editedSince": true,
+        "block": {
+          "reason": "wholeDocumentWrite",
+          "origin": "agent"
+        },
+        "lastCertified": {
+          "at": "0190a000-0000-7000-8000-000000000001",
+          "range": {
+            "from": 2,
+            "to": 2
+          }
+        }
+      }
+    },
+    {
+      "name": "v1-block-without-lastCertified",
+      "why": "a block decoded from a v1 history has no lastCertified, and none is invented",
+      "parent": "0190a000-0000-7000-8000-000000000005",
+      "pre": "a\nbeta\n",
+      "transactions": [
+        {
+          "kind": "breakWhole",
+          "text": "zz",
+          "reason": "snapshotOnly",
+          "origin": "snapshot"
+        }
+      ],
+      "before": {
+        "hunkId": "hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh",
+        "range": {
+          "from": 2,
+          "to": 6
+        },
+        "growing": false,
+        "editedSince": false,
+        "block": {
+          "reason": "snapshotOnly",
+          "origin": "schemaV1"
+        }
+      },
+      "expect": {
+        "hunkId": "hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh",
+        "range": {
+          "from": 2,
+          "to": 0
+        },
+        "growing": false,
+        "editedSince": true,
+        "block": {
+          "reason": "snapshotOnly",
+          "origin": "schemaV1"
+        }
+      }
+    },
+    {
+      "name": "no-parent-is-an-error",
+      "why": "a span cannot exist before any revision: a block reaching one with no parent is refused",
+      "parent": null,
+      "pre": "ab",
+      "transactions": [
+        {
+          "kind": "breakWhole",
+          "text": "cd",
+          "reason": "snapshotOnly",
+          "origin": "snapshot"
+        }
+      ],
+      "before": {
+        "hunkId": "hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh",
+        "range": {
+          "from": 0,
+          "to": 2
+        },
+        "growing": false,
+        "editedSince": false,
+        "block": null
+      },
+      "expect": "error"
+    },
+    {
+      "name": "snapshot-block-pins-lastCertified",
+      "why": "a snapshot save blocks the span at its parent; that parent is pinned while the hunk is live",
+      "parent": "0190a000-0000-7000-8000-000000000002",
+      "pre": "aBc!",
+      "transactions": [
+        {
+          "kind": "breakWhole",
+          "text": "ZZZ",
+          "reason": "snapshotOnly",
+          "origin": "snapshot"
+        }
+      ],
+      "before": {
+        "hunkId": "hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh",
+        "range": {
+          "from": 1,
+          "to": 2
+        },
+        "growing": false,
+        "editedSince": false,
+        "block": null
+      },
+      "expect": {
+        "hunkId": "hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh",
+        "range": {
+          "from": 3,
+          "to": 0
+        },
+        "growing": false,
+        "editedSince": true,
+        "block": {
+          "reason": "snapshotOnly",
+          "origin": "snapshot"
+        },
+        "lastCertified": {
+          "at": "0190a000-0000-7000-8000-000000000002",
+          "range": {
+            "from": 1,
+            "to": 2
+          }
+        }
+      },
+      "pinsLastCertified": true
+    }
+  ],
+  "revertGate": [
+    {
+      "name": "certified-passes",
+      "hunk": {
+        "hunkId": "h1",
+        "state": "pending",
+        "range": {
+          "from": 2,
+          "to": 6
+        },
+        "growing": false,
+        "block": null
+      },
+      "others": [
+        {
+          "hunkId": "h2",
+          "state": "pending",
+          "range": {
+            "from": 9,
+            "to": 14
+          },
+          "growing": false,
+          "block": null
+        }
+      ],
+      "expect": null
+    },
+    {
+      "name": "blocked",
+      "hunk": {
+        "hunkId": "h1",
+        "state": "pending",
+        "range": {
+          "from": 2,
+          "to": 6
+        },
+        "growing": false,
+        "block": {
+          "reason": "snapshotOnly",
+          "origin": "snapshot"
+        }
+      },
+      "others": [],
+      "expect": {
+        "code": "AMBIGUOUS_REVERT",
+        "hunk": "h1",
+        "block": {
+          "reason": "snapshotOnly",
+          "origin": "snapshot"
+        }
+      }
+    },
+    {
+      "name": "blocked-reverted",
+      "hunk": {
+        "hunkId": "h1",
+        "state": "reverted",
+        "range": {
+          "from": 2,
+          "to": 6
+        },
+        "growing": false,
+        "block": {
+          "reason": "unclosedEpoch",
+          "origin": "restart"
+        }
+      },
+      "others": [],
+      "expect": {
+        "code": "AMBIGUOUS_REVERT",
+        "hunk": "h1",
+        "block": {
+          "reason": "unclosedEpoch",
+          "origin": "restart"
+        }
+      }
+    },
+    {
+      "name": "anchor-collision",
+      "hunk": {
+        "hunkId": "h1",
+        "state": "pending",
+        "range": {
+          "from": 0,
+          "to": 0
+        },
+        "growing": true,
+        "block": null
+      },
+      "others": [
+        {
+          "hunkId": "h2",
+          "state": "pending",
+          "range": {
+            "from": 0,
+            "to": 0
+          },
+          "growing": true,
+          "block": null
+        }
+      ],
+      "expect": {
+        "code": "AMBIGUOUS_REVERT",
+        "hunk": "h1",
+        "block": null
+      }
+    },
+    {
+      "name": "collision-with-reverted",
+      "hunk": {
+        "hunkId": "h1",
+        "state": "conflicted",
+        "range": {
+          "from": 4,
+          "to": 4
+        },
+        "growing": true,
+        "block": null
+      },
+      "others": [
+        {
+          "hunkId": "h2",
+          "state": "reverted",
+          "range": {
+            "from": 4,
+            "to": 4
+          },
+          "growing": true,
+          "block": null
+        }
+      ],
+      "expect": {
+        "code": "AMBIGUOUS_REVERT",
+        "hunk": "h1",
+        "block": null
+      }
+    },
+    {
+      "name": "kept-anchor-is-no-collision",
+      "hunk": {
+        "hunkId": "h1",
+        "state": "pending",
+        "range": {
+          "from": 0,
+          "to": 0
+        },
+        "growing": true,
+        "block": null
+      },
+      "others": [
+        {
+          "hunkId": "h2",
+          "state": "kept",
+          "range": {
+            "from": 0,
+            "to": 0
+          },
+          "growing": true,
+          "block": null
+        }
+      ],
+      "expect": null
+    },
+    {
+      "name": "normal-span-is-no-collision",
+      "hunk": {
+        "hunkId": "h1",
+        "state": "pending",
+        "range": {
+          "from": 2,
+          "to": 2
+        },
+        "growing": true,
+        "block": null
+      },
+      "others": [
+        {
+          "hunkId": "h2",
+          "state": "pending",
+          "range": {
+            "from": 2,
+            "to": 5
+          },
+          "growing": false,
+          "block": null
+        }
+      ],
+      "expect": null
+    },
+    {
+      "name": "block-wins-over-collision",
+      "hunk": {
+        "hunkId": "h1",
+        "state": "pending",
+        "range": {
+          "from": 0,
+          "to": 0
+        },
+        "growing": true,
+        "block": {
+          "reason": "snapshotOnly",
+          "origin": "snapshot"
+        }
+      },
+      "others": [
+        {
+          "hunkId": "h2",
+          "state": "pending",
+          "range": {
+            "from": 0,
+            "to": 0
+          },
+          "growing": true,
+          "block": null
+        }
+      ],
+      "expect": {
+        "code": "AMBIGUOUS_REVERT",
+        "hunk": "h1",
+        "block": {
+          "reason": "snapshotOnly",
+          "origin": "snapshot"
+        }
+      }
+    },
+    {
+      "name": "restart-after-plan",
+      "hunk": {
+        "hunkId": "h1",
+        "state": "pending",
+        "range": {
+          "from": 1,
+          "to": 1
+        },
+        "growing": true,
+        "block": {
+          "reason": "unclosedEpoch",
+          "origin": "restart"
+        }
+      },
+      "others": [],
+      "expect": {
+        "code": "AMBIGUOUS_REVERT",
+        "hunk": "h1",
+        "block": {
+          "reason": "unclosedEpoch",
+          "origin": "restart"
+        }
+      },
+      "replay": {
+        "pre": "aZb",
+        "steps": [
+          {
+            "call": "agentEdit",
+            "ops": [
+              [
+                1,
+                2,
+                ""
+              ]
+            ]
+          },
+          {
+            "call": "humanEdit",
+            "ops": [
+              [
+                1,
+                2,
+                ""
+              ]
+            ]
+          },
+          {
+            "call": "planRevert"
+          },
+          {
+            "call": "restart"
+          },
+          {
+            "call": "prepare"
+          },
+          {
+            "call": "commitRevert"
+          }
+        ],
+        "text": "a"
+      }
+    }
+  ],
+  "epochs": {
+    "sequences": [
+      {
+        "name": "arm-close-cas",
+        "steps": [
+          {
+            "call": "arm",
+            "expect": {
+              "ok": true,
+              "epoch": "1"
+            }
+          },
+          {
+            "call": "arm",
+            "expect": {
+              "ok": false,
+              "code": "INVALID_REQUEST"
+            }
+          },
+          {
+            "call": "close",
+            "epoch": "2",
+            "expect": {
+              "ok": false,
+              "code": "INVALID_REQUEST"
+            }
+          },
+          {
+            "call": "close",
+            "epoch": "1",
+            "expect": {
+              "ok": true
+            }
+          },
+          {
+            "call": "close",
+            "epoch": "1",
+            "expect": {
+              "ok": false,
+              "code": "INVALID_REQUEST"
+            }
+          },
+          {
+            "call": "arm",
+            "expect": {
+              "ok": true,
+              "epoch": "2"
+            }
+          }
+        ],
+        "records": [
+          "epochArmed",
+          "epochClosed",
+          "epochArmed"
+        ]
+      },
+      {
+        "name": "restart-closes-once",
+        "steps": [
+          {
+            "call": "arm",
+            "expect": {
+              "ok": true,
+              "epoch": "1"
+            }
+          },
+          {
+            "call": "restart",
+            "expect": {
+              "unclosedEpochs": [
+                "1"
+              ]
+            }
+          },
+          {
+            "call": "restart",
+            "expect": {
+              "unclosedEpochs": []
+            }
+          },
+          {
+            "call": "close",
+            "epoch": "1",
+            "expect": {
+              "ok": false,
+              "code": "INVALID_REQUEST"
+            }
+          },
+          {
+            "call": "arm",
+            "expect": {
+              "ok": true,
+              "epoch": "2"
+            }
+          }
+        ],
+        "records": [
+          "epochArmed",
+          "epochUnclosed",
+          "epochArmed"
+        ]
+      },
+      {
+        "name": "restart-with-none-open",
+        "steps": [
+          {
+            "call": "restart",
+            "expect": {
+              "unclosedEpochs": []
+            }
+          }
+        ],
+        "records": []
+      }
+    ],
+    "restartBlocks": [
+      {
+        "name": "blocks-live-at-head",
+        "head": "0190a000-0000-7000-8000-000000000003",
+        "before": [
+          {
+            "hunkId": "hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh",
+            "range": {
+              "from": 2,
+              "to": 6
+            },
+            "growing": false,
+            "editedSince": false,
+            "block": null
+          },
+          {
+            "hunkId": "hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh",
+            "range": {
+              "from": 9,
+              "to": 9
+            },
+            "growing": true,
+            "editedSince": false,
+            "block": null
+          },
+          {
+            "hunkId": "hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh",
+            "range": {
+              "from": 10,
+              "to": 12
+            },
+            "growing": false,
+            "editedSince": false,
+            "block": {
+              "reason": "snapshotOnly",
+              "origin": "snapshot"
+            },
+            "lastCertified": {
+              "at": "0190a000-0000-7000-8000-000000000001",
+              "range": {
+                "from": 10,
+                "to": 12
+              }
+            }
+          }
+        ],
+        "expect": [
+          {
+            "hunkId": "hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh",
+            "range": {
+              "from": 2,
+              "to": 6
+            },
+            "growing": false,
+            "editedSince": false,
+            "block": {
+              "reason": "unclosedEpoch",
+              "origin": "restart"
+            },
+            "lastCertified": {
+              "at": "0190a000-0000-7000-8000-000000000003",
+              "range": {
+                "from": 2,
+                "to": 6
+              }
+            }
+          },
+          {
+            "hunkId": "hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh",
+            "range": {
+              "from": 9,
+              "to": 9
+            },
+            "growing": true,
+            "editedSince": false,
+            "block": {
+              "reason": "unclosedEpoch",
+              "origin": "restart"
+            },
+            "lastCertified": {
+              "at": "0190a000-0000-7000-8000-000000000003",
+              "range": {
+                "from": 9,
+                "to": 9
+              }
+            }
+          },
+          {
+            "hunkId": "hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh",
+            "range": {
+              "from": 10,
+              "to": 12
+            },
+            "growing": false,
+            "editedSince": false,
+            "block": {
+              "reason": "snapshotOnly",
+              "origin": "snapshot"
+            },
+            "lastCertified": {
+              "at": "0190a000-0000-7000-8000-000000000001",
+              "range": {
+                "from": 10,
+                "to": 12
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "planned-anchor-equal-text",
+        "head": "0190a000-0000-7000-8000-000000000002",
+        "before": [
+          {
+            "hunkId": "hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh",
+            "range": {
+              "from": 1,
+              "to": 1
+            },
+            "growing": true,
+            "editedSince": true,
+            "block": null
+          }
+        ],
+        "expect": [
+          {
+            "hunkId": "hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh",
+            "range": {
+              "from": 1,
+              "to": 1
+            },
+            "growing": true,
+            "editedSince": true,
+            "block": {
+              "reason": "unclosedEpoch",
+              "origin": "restart"
+            },
+            "lastCertified": {
+              "at": "0190a000-0000-7000-8000-000000000002",
+              "range": {
+                "from": 1,
+                "to": 1
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "writerEpoch": {
+      "noneArmed": "0",
+      "armed": "the open epoch"
+    }
+  },
+  "barriers": {
+    "review": {
+      "reason": "wholeDocumentWrite",
+      "origin": "agent"
+    },
+    "none": {
+      "reason": "snapshotOnly",
+      "origin": "snapshot"
+    },
+    "restore": {
+      "reason": "restore",
+      "origin": "restore"
+    }
+  }
+}

@@ -58,6 +58,7 @@
   "openFilter.markdown": "Markdown",
   "chooseFolderForDocs": "为 {{count}} 个新文档选择文件夹",
   "toast.mcpApprovalRequired": "已阻止 AI 请求保存到新位置：{{filename}}。如需允许，请在“设置 → 集成”中启用“自动批准编辑”。",
+  "toast.mcpOverwriteRefused": "已阻止 AI 请求覆盖现有文件：{{filename}}。AI 请求绝不会替换现有文件；请改用其他名称，或先重命名或删除该文件。",
   "toast.saveDialogFailed": "保存对话框失败：{{error}}",
   "toast.failedToMoveToNewWindow": "无法将文件移动到新窗口",
   "toast.failedToSaveDocuments": "无法保存文档",

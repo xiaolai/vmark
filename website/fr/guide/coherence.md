@@ -36,8 +36,9 @@ artefacts aval pourraient désormais être obsolètes. Rien n'est jamais mis
 - Quand une IA écrit un document en en lisant d'autres, ces lectures
   deviennent des **arêtes de dépendance**, épinglées à la révision exacte
   qui a été lue. Les chemins instrumentés dans l'application consignent
-  des entrées `exact`&nbsp;; les écritures MCP consignent honnêtement un
-  ensemble de lectures `inferred`, observé au cours de la session.
+  des entrées `exact`&nbsp;; une écriture MCP consigne honnêtement un
+  ensemble de lectures `inferred` — uniquement ce que ce même client a lu par
+  sa propre connexion — et nomme le client qui l'a faite.
 - Quand un document amont avance au-delà d'une révision épinglée, l'arête
   devient **obsolète**. Si deux révisions ont évolué en parallèle (par ex.
   sur des branches git), l'arête est **divergente** — signalée, jamais

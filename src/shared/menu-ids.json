@@ -134,6 +134,7 @@
     "edit-select-all",
     "expand-selection",
     "export-html",
+    "export-journal-git",
     "export-pandoc-docx",
     "export-pandoc-epub",
     "export-pandoc-hint",
@@ -259,5 +260,5 @@
     "zoom-in",
     "zoom-out"
   ],
-  "generatedAt": "2026-09-07T04:37:08.491Z"
+  "generatedAt": "2026-10-22T21:37:34.852Z"
 }

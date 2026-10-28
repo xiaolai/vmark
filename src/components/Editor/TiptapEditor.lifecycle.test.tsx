@@ -32,6 +32,7 @@ vi.mock("@tauri-apps/api/core", async () => {
 import { WindowContext } from "@/contexts/WindowContext";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useEditorStore } from "@/stores/editorStore";
+import { useFileLoadStore } from "@/stores/documentStore/fileLoad";
 import { useTabStore } from "@/stores/tabStore";
 import { flushActiveWysiwygNow } from "@/utils/wysiwygFlush";
 import { bootstrapFormats } from "@/lib/formats/registryBootstrap";
@@ -362,6 +363,35 @@ describe("a pending content-search jump", () => {
     // A preview never registers as the window's editor.
     expect(useEditorStore.getState().tiptap.editor).toBeNull();
     expect(shownText(container)).toContain("First paragraph.");
+  });
+});
+
+describe("the large-file loading indicator", () => {
+  afterEach(() => useFileLoadStore.getState().endLoad());
+
+  it("is cleared when the editor unmounts before its deferred parse runs", async () => {
+    useFileLoadStore.getState().startLoad("notes.md", 5_000_000);
+    const { unmount } = mount();
+    unmount();
+    await settle();
+
+    expect(useFileLoadStore.getState().active).toBe(false);
+  });
+
+  it("is left alone when a newer load superseded the one the editor mounted under", async () => {
+    const mounted = useFileLoadStore.getState().startLoad("notes.md", 5_000_000);
+    const { container, unmount } = mount();
+    // Run timers one at a time until the editor is created (it captures the
+    // load id then) and its deferred parse is queued, but has not run.
+    const created = () => (container.querySelector(".ProseMirror") as (HTMLElement & { editor?: Editor }) | null)?.editor?.isInitialized === true;
+    while (!created() && vi.getTimerCount() > 0) act(() => void vi.advanceTimersToNextTimer());
+    expect(created()).toBe(true);
+    const newer = useFileLoadStore.getState().startLoad("other.md", 6_000_000);
+    expect(newer).toBeGreaterThan(mounted);
+    unmount();
+    await settle();
+
+    expect(useFileLoadStore.getState()).toMatchObject({ active: true, loadId: newer, filename: "other.md" });
   });
 });
 

@@ -24,13 +24,10 @@ vi.mock("@/lib/ghaWorkflow/lint/actionlint", () => ({
   })),
 }));
 
-vi.mock("@/stores/mcpCheckpointPersistence", () => ({
-  appendCheckpoint: vi.fn(async () => undefined),
-}));
-
 import { respond } from "@/services/mcpBridge/utils";
 import { lintWithActionlint } from "@/lib/ghaWorkflow/lint/actionlint";
-import { useMcpStore } from "@/stores/mcpStore";
+import { agentJournalFake } from "@/test/agentJournalFake";
+import { TEST_WRITE_CONTEXT } from "@/test/mcpAttributionFixture";
 
 const WORKFLOW = `name: ci
 on:
@@ -51,7 +48,6 @@ function resetStores() {
     closedTabs: {},
   });
   useDocumentStore.setState({ documents: {} });
-  useMcpStore.setState((s) => ({ checkpoint: { ...s.checkpoint, checkpoints: [], hydrated: false } }));
 }
 
 function seedWorkflowTab(tabId = "t-yaml") {
@@ -99,7 +95,7 @@ describe("vmark.workflow.apply_patch", () => {
     seedWorkflowTab();
     await handleWorkflowApplyPatch("req-1", {
       patches: [{ kind: "workflow.set", path: "name", value: "renamed" }],
-    });
+    }, TEST_WRITE_CONTEXT);
     const r = lastRespond();
     expect(r.success).toBe(true);
     const content = useDocumentStore.getState().documents["t-yaml"].content;
@@ -108,7 +104,7 @@ describe("vmark.workflow.apply_patch", () => {
 
   it("rejects non-array patches with INVALID_PATCH", async () => {
     seedWorkflowTab();
-    await handleWorkflowApplyPatch("req-2", { patches: "not-array" });
+    await handleWorkflowApplyPatch("req-2", { patches: "not-array" }, TEST_WRITE_CONTEXT);
     const r = lastRespond();
     expect(r.success).toBe(false);
     expect(parseStructuredError(r.error)).toMatchObject({
@@ -120,7 +116,7 @@ describe("vmark.workflow.apply_patch", () => {
     seedWorkflowTab();
     await handleWorkflowApplyPatch("req-3", {
       patches: [{ kind: "unknown.thing", value: "x" }],
-    });
+    }, TEST_WRITE_CONTEXT);
     const r = lastRespond();
     expect(r.success).toBe(false);
     expect(parseStructuredError(r.error)).toMatchObject({
@@ -148,7 +144,7 @@ describe("vmark.workflow.apply_patch", () => {
 
     await handleWorkflowApplyPatch("req-4", {
       patches: [{ kind: "workflow.set", path: "name", value: "ci" }],
-    });
+    }, TEST_WRITE_CONTEXT);
     const r = lastRespond();
     expect(r.success).toBe(false);
     expect(parseStructuredError(r.error)).toMatchObject({
@@ -161,7 +157,7 @@ describe("vmark.workflow.apply_patch", () => {
     await handleWorkflowApplyPatch("req-5", {
       expected_revision: "rev-IMPOSSIBLE",
       patches: [{ kind: "workflow.set", path: "name", value: "x" }],
-    });
+    }, TEST_WRITE_CONTEXT);
     const r = lastRespond();
     expect(r.success).toBe(false);
     expect(parseStructuredError(r.error)).toMatchObject({ error: "STALE" });
@@ -173,30 +169,24 @@ describe("vmark.workflow.apply_patch", () => {
     // workflow.set with same value as the existing one — no-op.
     await handleWorkflowApplyPatch("req-6", {
       patches: [{ kind: "workflow.set", path: "name", value: "ci" }],
-    });
+    }, TEST_WRITE_CONTEXT);
     const r = lastRespond();
     expect(r.success).toBe(true);
     expect(useRevisionStore.getState().getRevision("t-yaml")).toBe(before);
-    expect(useMcpStore.getState().checkpoint.checkpoints).toHaveLength(0);
+    expect(agentJournalFake.prepareControlledWrite).not.toHaveBeenCalled();
   });
 
-  it("pushes a checkpoint after a successful patch batch", async () => {
+  it("records a patch batch in the agent edit journal, with the text it replaced", async () => {
     seedWorkflowTab();
     await handleWorkflowApplyPatch("req-cp", {
       patches: [
         { kind: "workflow.set", path: "name", value: "renamed" },
       ],
-    });
-    const cps = useMcpStore.getState().checkpointList({
-      filePath: "/repo/.github/workflows/ci.yml",
-    });
-    expect(cps).toHaveLength(1);
-    expect(cps[0]).toMatchObject({
-      tool: "workflow.apply_patch",
-      filePath: "/repo/.github/workflows/ci.yml",
-    });
-    expect(cps[0].description).toContain("workflow name");
-    expect(cps[0].contentBefore).toBe(WORKFLOW);
+    }, TEST_WRITE_CONTEXT);
+    expect(agentJournalFake.prepareControlledWrite).toHaveBeenCalledWith(
+      expect.objectContaining({ docKey: "path:/repo/.github/workflows/ci.yml", preimage: WORKFLOW, tool: "workflow.apply_patch" }),
+    );
+    expect(agentJournalFake.doc("path:/repo/.github/workflows/ci.yml").text).toContain("renamed");
   });
 });
 

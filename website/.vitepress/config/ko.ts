@@ -44,6 +44,7 @@ export const ko = {
           "ai-providers": "AI 제공업체",
           "mcp-setup": "MCP 설정",
           "mcp-tools": "MCP 도구 참조",
+          "edit-history-git": "Git으로 편집 기록 내보내기",
           "lint": "Markdown 린트",
           "link-check": "링크 검사",
           "settings": "설정",

@@ -35,6 +35,7 @@
 
 mod batch;
 mod paths;
+mod renames;
 
 use crate::command_error::CommandError;
 use batch::{BatchConfig, FsChange, FsChangeBatch, FsChangeKind, Signal};
@@ -140,14 +141,19 @@ fn signal_for(result: Result<Event, notify::Error>, scope: &WatchScope) -> Optio
     Some(Signal::Change(FsChange { kind, paths }))
 }
 
-/// Deliver one batch to the window that owns the watcher, and to no other.
+/// Deliver one batch to the window that owns the watcher, and to no other —
+/// after the agent journal has followed its renames (files and the trees of
+/// renamed directories), so a document the window opens already has its
+/// identity at the new path (see `watcher/renames.rs`).
 fn emit_batch<R: Runtime>(app: &AppHandle<R>, batch: &FsChangeBatch) {
-    if let Err(error) = app.emit_to(batch.watch_id.as_str(), FS_CHANGED_EVENT, batch) {
-        log::warn!(
-            "[watcher] failed to deliver {FS_CHANGED_EVENT} to {:?}: {error}",
-            batch.watch_id
-        );
-    }
+    renames::deliver(app, batch, || {
+        if let Err(error) = app.emit_to(batch.watch_id.as_str(), FS_CHANGED_EVENT, batch) {
+            log::warn!(
+                "[watcher] failed to deliver {FS_CHANGED_EVENT} to {:?}: {error}",
+                batch.watch_id
+            );
+        }
+    });
 }
 
 fn lock_watchers() -> std::sync::MutexGuard<'static, Option<HashMap<String, WatcherEntry>>> {

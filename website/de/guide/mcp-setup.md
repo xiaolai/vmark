@@ -230,6 +230,8 @@ vmark-mcp-server --version
 vmark-mcp-server --port 9223   # Legacy / manuell
 ```
 
+Jedes andere Argument — ein vertipptes Flag, `--port=9223` oder ein überzähliges Wort — wird abgelehnt: Das Programm gibt einen Aufruffehler aus und beendet sich mit Code 64, statt auf die automatische Erkennung zurückzufallen.
+
 ## Funktionsweise
 
 ```text
@@ -244,7 +246,7 @@ KI-Assistent <--stdio--> MCP-Server <--WebSocket--> VMark-Editor
 
 ## Verfügbare Fähigkeiten
 
-Wenn verbunden, verfügt Ihr KI-Assistent über neun Tools:
+Wenn verbunden, verfügt Ihr KI-Assistent über zehn Tools:
 
 | Tool | Was es abdeckt |
 |------|----------------|
@@ -252,6 +254,7 @@ Wenn verbunden, verfügt Ihr KI-Assistent über neun Tools:
 | `workspace` | Neu, Öffnen, Speichern, Speichern unter, Schließen, Tabs wechseln, ein Fenster fokussieren, einen Arbeitsbereich öffnen |
 | `document` | Das ganze Dokument als Markdown lesen und schreiben; CJK-Formatierungstransformationen |
 | `selection` | Den ausgewählten Text lesen und ersetzen |
+| `comments` | Review-Kommentare zum Dokument auflisten, beantworten und als erledigt markieren (ein Assistent kann sie nicht auflösen) |
 | `workflow` | CST-sichere Patches und Validierung für GitHub-Actions-YAML |
 | `browser` / `browser_read` | Automatisierung des eingebetteten Browsers unter macOS — die ändernde und die nur lesende Hälfte |
 | `coherence` / `coherence_resolve` | Die Kohärenzschicht lesen; veraltete Kanten im Rahmen einer von Ihnen erteilten Delegation auflösen |
@@ -326,9 +329,25 @@ Für `document.write`, `selection.set` oder `workflow.apply_patch` gibt es keine
 
 ## Bearbeitungs-Prüfpunkte
 
-Jede KI-Änderung an einem Dokument — `document.write`, `document.transform`, `selection.set` und `workflow.apply_patch` — sichert zuerst den Inhalt, den sie gleich ersetzt. Die Schaltfläche **Verlauf** in der Statusleiste öffnet ein Popover, das für den fokussierten Tab auflistet, wann jeder KI-Schreibvorgang stattfand und welches Tool ihn ausführte, mit einem Ein-Klick-**Auf den Stand vor diesem Schreibvorgang zurücksetzen** in jeder Zeile und einer Aktion **Verlauf für diesen Tab löschen**. Das Zurücksetzen stellt den früheren Inhalt wieder her und erhöht die Revision des Dokuments, sodass ein KI-Client, der noch die alte Revision hält, beim nächsten Schreiben `STALE` erhält, statt Ihre Wiederherstellung zu überschreiben.
+Jede KI-Änderung an einem Dokument — `document.write`, `document.transform`, `selection.set` und `workflow.apply_patch` — wird im Bearbeitungsverlauf von VMark aufgezeichnet, bevor sie etwas ändert. Die Schaltfläche **Verlauf** in der Statusleiste öffnet ein Panel für das fokussierte Dokument. Ihr Zähler nennt die KI-Versionen des Dokuments, und die Schaltfläche nimmt eine Warnfarbe an, wenn Änderungen nicht aufgezeichnet werden. Das Panel aktualisiert sich live, in jedem Fenster, sobald Versionen aufgezeichnet werden.
 
-Prüfpunkte werden pro Datei aufbewahrt — 50 pro Datei und insgesamt 5 MiB — und in `mcp-checkpoints.jsonl` im App-Datenverzeichnis von VMark gespeichert, sodass sie einen Neustart überstehen. Die Datei enthält den vollständigen vorherigen Text jeder gesicherten Bearbeitung und wird nur für den Eigentümer zugänglich (`0600` unter macOS und Linux) angelegt. Die Fußzeile des Popovers zeigt, wie viel Platz die Datei auf der Festplatte belegt, und löscht den gesamten Speicher — alle Dateien und alle Fenster — mit einer Aktion. Unbenannte Dokumente werden pro Tab gesichert.
+Das Panel listet die Versionen des Dokuments auf, die neueste zuerst. Jede Zeile zeigt, wann sie entstand, welche Art von Änderung es war, das Tool und wer sie vorgenommen hat: den Anbieter des KI-Clients (zum Beispiel `claude` oder `codex`), seine Verbindung und seine Sitzungsbezeichnung. Ein Client ohne Token wird als **Nicht identifizierter Client** angezeigt, ein unbekanntes Token als **Unbekannte Zugangsdaten** und ein von mehreren Clients geteiltes Token als **Von mehreren Anbietern geteilte Zugangsdaten** — nie als Anbieter, welchen Namen sich der Client auch gibt. **Diese Version wiederherstellen** setzt den Text dieser Version zurück; **Stand vor dieser Änderung wiederherstellen** setzt den Text davor zurück. Eine Wiederherstellung erhöht die Revision des Dokuments, sodass ein KI-Client, der noch die alte Revision hält, bei seinem nächsten Schreibvorgang `STALE` erhält, statt Ihre Wiederherstellung zu überschreiben. Eine Wiederherstellung wird selbst aufgezeichnet: Der Text, den sie ersetzt, wird zuerst gesichert, und ein Dokument, das während der Wiederherstellung bearbeitet wurde, bleibt unverändert. Kann VMark nicht bestätigen, dass der Eintrag einer Wiederherstellung auf der Festplatte angekommen ist, warnt es Sie neben dem Ergebnis.
+
+Über den Versionen listet **KI-Änderungen prüfen** die KI-Änderungen auf, die Sie noch nicht geprüft haben, gruppiert nach Client und Sitzung; Versionen, deren Änderungen alle geprüft sind, werden als Anzahl zusammengefasst. Jede Änderung bietet **Behalten** oder **Zurücknehmen** (danach **Behalten rückgängig machen** bzw. **Zurücknahme rückgängig machen**). Eine Zurücknahme, die Text überschreiben würde, den Sie seitdem bearbeitet haben, wird nicht ausgeführt: Die Änderung wird als Konflikt markiert, und sobald Sie ihn von Hand gelöst haben, hält **Als erledigt markieren** das fest. Eine Änderung, deren Position nicht mehr bestätigt werden kann, nennt den Grund und bietet keine automatische Zurücknahme. **Geprüfte abschließen** schließt nach einer Bestätigung alle geprüften Änderungen endgültig ab, denn das lässt sich nicht rückgängig machen. Ein Dokument fasst höchstens 500 ungeprüfte KI-Änderungen: An dieser Grenze weist ein Hinweis darauf hin, und KI-Bearbeitungen werden mit `REVIEW_BACKLOG_FULL` abgelehnt, bis Sie prüfen und abschließen. Eine Speicherung, die von einer anderen Version ausging als der davor — das Dokument wurde in zwei Fenstern bearbeitet —, wird so gekennzeichnet, mit beiden Wiederherstellungen, um die Zusammenführung rückgängig zu machen. **Beide Änderungen anzeigen** öffnet zwei Diffs dieser Speicherung: *Gegenüber der Ausgangsversion dieser Speicherung*, und *Gegenüber der vorherigen Version*, gegenüber der Version davor im Verlauf.
+
+Darauf folgen unter **Kommentare** die Kommentar-Threads des Dokuments. **Auswahl kommentieren** zitiert den im Editor markierten Text (bei bloßem Cursor den Absatz, in dem er steht) und fügt Ihren Kommentar hinzu; ungespeicherter Text wird zuerst aufgezeichnet, sodass ein Kommentar nie auf eine ältere Version zeigt. Jeder Thread zeigt seinen Status — offen, bearbeitet, erledigt oder wieder geöffnet —, wer ihn geschrieben hat, den zitierten Text und die Antworten. Kommentare werden als reiner Text angezeigt: HTML in einem Kommentar wird dargestellt, nie ausgeführt. Kommt der zitierte Text inzwischen mehrfach vor, nennt der Thread die Anzahl; ist er verschwunden, sagt der Thread das. Sie können in jedem Status **Antworten**, einen offenen oder wieder geöffneten Thread **Als bearbeitet markieren**, ihn **Erledigen** und einen erledigten **Wieder öffnen** oder **Löschen**; das Löschen fragt zuerst nach und kann nicht rückgängig gemacht werden. Solange ein Kommentar oder eine Antwort gesendet wird, lässt sich der Beitrag weder bearbeiten noch abbrechen, auch wenn Sie das Panel schließen und wieder öffnen; ein abgelehnter Beitrag bleibt erhalten, sodass Sie ihn ändern und erneut senden können. Nur Sie können einen Thread erledigen, wieder öffnen oder löschen. Ein Thread, der wieder geöffnet wurde, nachdem seine ursprüngliche Revision aus dem Verlauf entfernt wurde, zeigt *Revision der Erstellung nicht mehr vorhanden* und wird mit dem aktuellen Text abgeglichen.
+
+Oben im Panel steht, wenn Änderungen nicht aufgezeichnet werden: Der Verlauf konnte nicht starten oder ist schreibgeschützt, er hängt hinterher (Einträge warten und sind noch nicht auf der Festplatte), das letzte Speichern dieses Dokuments wurde abgelehnt oder der Verlauf hat nicht rechtzeitig geantwortet, KI-Bearbeitungen wurden in einem Fenster mit zu vielen offenen Seiten abgelehnt, oder manche KI-Änderungen lassen sich nicht mehr automatisch rückgängig machen. Außerdem zählt das Panel KI-Bearbeitungen, die als Änderungen am ganzen Dokument aufgezeichnet wurden, weil ihr geänderter Bereich nicht bestätigt werden konnte. Eine Änderung, die sich nicht mehr automatisch rückgängig machen lässt, lautet **Blockiert: Grund (Herkunft)** und steht unter der letzten Version, an der ihre Stelle bestätigt war; diese wird hervorgehoben. Gibt es keine, sagt das Panel, dass die Stelle nicht verfügbar ist. Schreibvorgänge, die angewendet, aber nie aufgezeichnet wurden, stehen unter **Nicht protokollierte Schreibvorgänge**, jeweils mit Wiederherstellen und Verwerfen.
+
+Um mehrere Sitzungen eines Clients zu unterscheiden, setzen Sie `VMARK_SESSION_LABEL` in der MCP-Konfiguration des Clients, neben `VMARK_MCP_TOKEN`:
+
+```json
+"env": { "VMARK_MCP_TOKEN": "…", "VMARK_SESSION_LABEL": "docs refactor" }
+```
+
+Die Bezeichnung ist höchstens 128 UTF-8-Bytes lang und enthält keine Steuerzeichen; eine Bezeichnung, die die Regel verletzt, wird mit einer Warnung verworfen, und der Client verbindet sich ohne sie. Sie wird von der Konfiguration des Clients gewählt, dient daher nur der Anzeige und entscheidet nichts.
+
+Der Verlauf liegt im Ordner `agent-journal` im App-Datenverzeichnis von VMark und übersteht so einen Neustart. Der Ordner enthält den vollständigen vorherigen Text jeder aufgezeichneten Bearbeitung und ist nur für den Eigentümer zugänglich (`0700` unter macOS und Linux). Prüfpunkte aus einer früheren Version von VMark (eine `mcp-checkpoints.jsonl`, beim ersten Start importiert und dann umbenannt beiseitegelegt) stehen unter **Frühere Prüfpunkte**, eine Liste für alle Dokumente und Fenster. Wer einen wiederherstellt, öffnet seine Datei; ein unbenannter oder einer, dessen Datei sich nicht mehr öffnen lässt, wird in ein neues Dokument wiederhergestellt. Der Abschnitt zeigt, wie viel Prüfpunkttext aufbewahrt wird, und löscht alles — jede Datei und jedes Fenster — in einem Schritt, wobei die Texte von der Festplatte entfernt werden.
 
 ## Sicherheitshinweise
 

@@ -333,4 +333,64 @@ mod main_window {
             assert_eq!(built.load(Ordering::SeqCst), 1, "round {round}");
         }
     }
+
+    /// The destroyed `main`'s release tombstones its bare label in the
+    /// journal writer; the rebuild must reopen it, or no capture of the new
+    /// `main` ever pins its base. The mock runtime drops a destroyed window
+    /// from the app only inside a running event loop, so the old `main` is
+    /// modelled by its release alone: no window holds the label when the
+    /// release runs, exactly as after the app's `Destroyed` handler.
+    #[test]
+    fn rebuilding_main_after_its_release_reopens_the_label_in_the_journal() {
+        use crate::agent_journal::service::{self, start, AgentJournalState};
+        let app = mock_app();
+        let data = tempfile::tempdir().expect("tempdir");
+        let state = AgentJournalState::default();
+        state.finish(Ok(start(data.path()).expect("the journal starts")));
+        app.manage(state);
+        let writer = app
+            .state::<AgentJournalState>()
+            .writer()
+            .expect("the journal is ready");
+        let remembered = || writer.lock().released.iter().any(|r| r == MAIN_LABEL);
+
+        service::release_window_label(app.handle(), MAIN_LABEL);
+        assert!(remembered(), "the release tombstones the bare label");
+
+        let rebuilt = ensure_main_window(app.handle(), None).expect("rebuild");
+        assert!(matches!(rebuilt, Ensured::Created(_)), "main was rebuilt");
+        assert!(!remembered(), "the rebuild reopened the label");
+    }
+
+    /// The reversed order: the new `main` is built first and the old one's
+    /// release lands after it. Tauri has already dropped the old window from
+    /// the app when its `Destroyed` handler runs, so the `main` the release
+    /// finds is the new one, and the release must not leave its label
+    /// tombstoned: a refused base is not pinned and the collector takes it.
+    #[test]
+    fn a_release_landing_after_main_was_rebuilt_leaves_the_label_open() {
+        use crate::agent_journal::ids::DocId;
+        use crate::agent_journal::record::ObservedRef;
+        use crate::agent_journal::service::{self, start, AgentJournalState};
+        let app = mock_app();
+        let data = tempfile::tempdir().expect("tempdir");
+        let state = AgentJournalState::default();
+        state.finish(Ok(start(data.path()).expect("the journal starts")));
+        app.manage(state);
+        let writer = app
+            .state::<AgentJournalState>()
+            .writer()
+            .expect("the journal is ready");
+
+        let built = ensure_main_window(app.handle(), None).expect("build");
+        assert!(matches!(built, Ensured::Created(_)));
+        service::release_window_label(app.handle(), MAIN_LABEL);
+
+        assert!(
+            !writer.lock().released.iter().any(|r| r == MAIN_LABEL),
+            "the live main's label is not tombstoned"
+        );
+        writer.register_window_base("main/t1@new", DocId::new(), ObservedRef::Genesis);
+        assert!(writer.lock().window_bases.contains_key("main/t1@new"));
+    }
 }

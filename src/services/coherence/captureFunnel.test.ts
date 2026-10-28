@@ -6,6 +6,7 @@
 // coherence is unavailable (a failed capture never fails a save).
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { readInputsOf } from "@/test/mcpReadInputs";
 
 const mockInvoke = vi.fn();
 vi.mock("@tauri-apps/api/core", () => ({
@@ -27,7 +28,11 @@ import {
   captureWrite,
   workspaceRelativePath,
 } from "./captureFunnel";
-import { captureMcpWrite, recordMcpRead, takeMcpReadInputs } from "./mcpCapture";
+import { captureMcpWrite, detachMcpReads, recordMcpRead } from "./mcpCapture";
+import { mcpCoherenceAgent } from "./mcpActor";
+import { TEST_ATTRIBUTION } from "@/test/mcpAttributionFixture";
+
+const CONN = TEST_ATTRIBUTION.connectionId;
 import { useDocumentStore } from "@/stores/documentStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useSettingsStore } from "@/stores/settingsStore";
@@ -102,7 +107,7 @@ describe("captureWrite", () => {
       absolutePath: "/ws/story/ch1.md",
       content: "x",
       inputs: [{ path: "elena.md", role: "direct" }],
-      agent: { type: "model", id: "mcp-client" },
+      agent: mcpCoherenceAgent(TEST_ATTRIBUTION),
       intent: { kind: "mcp-document-write", summary: "document.write" },
       confidence: "inferred",
     });
@@ -222,31 +227,33 @@ describe("captureAiEdit", () => {
 
 describe("MCP session reads and writes", () => {
   it("consumed reads become inferred direct inputs, excluding the target", async () => {
-    // recordMcpRead also fires a best-effort coherence_head pin per read.
+    // recordMcpRead pins each read (coherence_head); only a pinned read is an
+    // input (an unpinned one is pinned in mcpCapture.test.ts).
     mockInvoke.mockImplementation(async (cmd: unknown) =>
-      cmd === "coherence_head" ? null : receipt
+      cmd === "coherence_head" ? { object: receipt.object, revision: receipt.revision } : receipt
     );
-    recordMcpRead("/ws/story/elena.md");
-    recordMcpRead("/ws/story/timeline.md");
-    recordMcpRead("/elsewhere/outside.md"); // outside workspace: dropped
-    recordMcpRead("/ws/story/ch1.md"); // the write target itself: excluded
+    recordMcpRead(CONN, "/ws/story/elena.md");
+    recordMcpRead(CONN, "/ws/story/timeline.md");
+    recordMcpRead(CONN, "/elsewhere/outside.md"); // outside workspace: dropped
+    recordMcpRead(CONN, "/ws/story/ch1.md"); // the write target itself: excluded
     await captureMcpWrite({
       absolutePath: "/ws/story/ch1.md",
       content: "chapter",
       toolName: "document.write",
+      actor: TEST_ATTRIBUTION,
     });
     const captureCall = mockInvoke.mock.calls.find((c) => c[0] === "coherence_capture");
     const args = captureCall?.[1] as { request: Record<string, unknown> };
     expect(args.request.confidence).toBe("inferred");
-    expect(args.request.agent).toEqual({ type: "model", id: "mcp-client" });
+    expect(args.request.agent).toEqual(mcpCoherenceAgent(TEST_ATTRIBUTION));
     const inputs = args.request.inputs as { path: string; role: string }[];
     expect(inputs.map((i) => i.path).sort()).toEqual(["elena.md", "timeline.md"]);
   });
 
   it("read set is consumed once per write", async () => {
-    recordMcpRead("/ws/story/elena.md");
-    expect(takeMcpReadInputs("/ws/story")).toHaveLength(1);
-    expect(takeMcpReadInputs("/ws/story")).toHaveLength(0);
+    recordMcpRead(CONN, "/ws/story/elena.md");
+    expect(readInputsOf(detachMcpReads(CONN), "/ws/story")).toHaveLength(1);
+    expect(readInputsOf(detachMcpReads(CONN), "/ws/story")).toHaveLength(0);
   });
 });
 
@@ -275,7 +282,12 @@ describe("capture-on-save setting reaches the kernel on every write path", () =>
     {
       name: "captureMcpWrite (MCP document.write / workspace.save)",
       run: () =>
-        captureMcpWrite({ absolutePath: "/ws/story/ch1.md", content: "c", toolName: "document.write" }),
+        captureMcpWrite({
+          absolutePath: "/ws/story/ch1.md",
+          content: "c",
+          toolName: "document.write",
+          actor: TEST_ATTRIBUTION,
+        }),
     },
     {
       name: "captureAiEdit (genie apply, accepted AI suggestion)",

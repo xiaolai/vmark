@@ -1,0 +1,112 @@
+{
+  "generation": "7",
+  "head": "rev-3",
+  "rows": [
+    {
+      "revision": "rev-3",
+      "seq": "7",
+      "at": 1767268800000,
+      "kind": "observed",
+      "parent": "rev-2",
+      "actor": {
+        "type": "human"
+      },
+      "initiator": {
+        "type": "human"
+      },
+      "tool": null,
+      "restore": false,
+      "collected": false,
+      "addresses": []
+    },
+    {
+      "revision": "rev-2",
+      "seq": "5",
+      "at": 1767268800000,
+      "kind": "controlled",
+      "parent": "rev-1",
+      "actor": {
+        "type": "mcp",
+        "principal": {
+          "state": "provider",
+          "provider": "claude-code"
+        },
+        "connectionId": "conn-1"
+      },
+      "initiator": {
+        "type": "mcp",
+        "principal": {
+          "state": "provider",
+          "provider": "claude-code"
+        },
+        "connectionId": "conn-1"
+      },
+      "tool": "document.write",
+      "restore": false,
+      "collected": false,
+      "addresses": []
+    },
+    {
+      "revision": "rev-1",
+      "seq": "3",
+      "at": 1767268800000,
+      "kind": "observed",
+      "parent": null,
+      "actor": {
+        "type": "human"
+      },
+      "initiator": {
+        "type": "human"
+      },
+      "tool": null,
+      "restore": false,
+      "collected": false,
+      "addresses": []
+    }
+  ],
+  "truncated": false,
+  "hunks": [
+    {
+      "hunkId": "hunk-1",
+      "kind": "change",
+      "state": "pending",
+      "target": "rev-2",
+      "baseRange": {
+        "from": 1,
+        "to": 2
+      },
+      "targetRange": {
+        "from": 1,
+        "to": 2
+      },
+      "reviewGen": "0",
+      "span": {
+        "from": 1,
+        "to": 2
+      },
+      "editedSince": false
+    },
+    {
+      "hunkId": "hunk-2",
+      "kind": "change",
+      "state": "pending",
+      "target": "rev-2",
+      "baseRange": {
+        "from": 4,
+        "to": 5
+      },
+      "targetRange": {
+        "from": 4,
+        "to": 5
+      },
+      "reviewGen": "0",
+      "span": {
+        "from": 5,
+        "to": 6
+      },
+      "editedSince": false
+    }
+  ],
+  "blocked": [],
+  "degraded": false
+}

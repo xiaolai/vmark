@@ -24,6 +24,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { SUPPORTED_TOOL_PREFIXES } from "@/services/mcpBridge/v2/dispatch";
 import type { McpResponse } from "./types";
 import { handleRequest } from "./handleRequest";
+import { withAttribution } from "@/test/mcpAttributionFixture";
 
 // A lazily loaded handler chunk that fails to load: the one failure that
 // reaches the router from OUTSIDE a handler's own error wrapper.
@@ -100,7 +101,7 @@ describe("handleRequest — mutations of a read-only document", () => {
     openTabs([{ id: "t-locked", content: "测试ABC", readOnly: true }]);
     const revision = useRevisionStore.getState().getRevision("t-locked");
 
-    await handleRequest({ id: "req-ro", type, args });
+    await handleRequest(withAttribution({ id: "req-ro", type, args }));
 
     const reply = replyTo("req-ro");
     expect(reply.success).toBe(false);
@@ -109,17 +110,28 @@ describe("handleRequest — mutations of a read-only document", () => {
     expect(useRevisionStore.getState().getRevision("t-locked")).toBe(revision);
   });
 
+  it("refuses a request with no valid attribution before judging read-only", async () => {
+    openTabs([{ id: "t-locked", content: "locked", readOnly: true }]);
+
+    await handleRequest({ id: "req-anon", type: "vmark.document.write", args: { content: "x" } } as never);
+
+    const reply = replyTo("req-anon");
+    expect(reply.success).toBe(false);
+    expect(reply.error).toMatch(/no valid attribution/);
+    expect(content("t-locked")).toBe("locked");
+  });
+
   it("refuses a write that TARGETS a read-only background tab, though the focused tab is writable", async () => {
     openTabs([
       { id: "t-focused", content: "focused" },
       { id: "t-locked", content: "locked", readOnly: true },
     ]);
 
-    await handleRequest({
+    await handleRequest(withAttribution({
       id: "req-bg",
       type: "vmark.document.write",
       args: { tabId: "t-locked", content: "overwritten", save: false },
-    });
+    }));
 
     expect(structuredError(replyTo("req-bg"))?.error).toBe("READ_ONLY");
     expect(content("t-locked")).toBe("locked");
@@ -131,11 +143,11 @@ describe("handleRequest — mutations of a read-only document", () => {
       { id: "t-writable", content: "before" },
     ]);
 
-    await handleRequest({
+    await handleRequest(withAttribution({
       id: "req-ok",
       type: "vmark.document.write",
       args: { tabId: "t-writable", content: "after", save: false },
-    });
+    }));
 
     const reply = replyTo("req-ok");
     expect(reply.success).toBe(true);
@@ -150,11 +162,11 @@ describe("handleRequest — mutations of a read-only document", () => {
       { id: "t-locked", content: "locked", readOnly: true },
     ]);
 
-    await handleRequest({
+    await handleRequest(withAttribution({
       id: "req-focused",
       type: "vmark.document.write",
       args: { content: "after", save: false },
-    });
+    }));
 
     expect(replyTo("req-focused").success).toBe(true);
     expect(content("t-writable")).toBe("after");
@@ -163,11 +175,11 @@ describe("handleRequest — mutations of a read-only document", () => {
   it("treats a non-string tabId as naming no tab, not as a writable one", async () => {
     openTabs([{ id: "t-locked", content: "locked", readOnly: true }]);
 
-    await handleRequest({
+    await handleRequest(withAttribution({
       id: "req-bad-tab",
       type: "vmark.document.write",
       args: { tabId: 42, content: "overwritten", save: false },
-    });
+    }));
 
     expect(structuredError(replyTo("req-bad-tab"))?.error).toBe("READ_ONLY");
     expect(content("t-locked")).toBe("locked");
@@ -178,7 +190,7 @@ describe("handleRequest — reads of a read-only document", () => {
   it("document.read is answered with the content", async () => {
     openTabs([{ id: "t-locked", content: "# locked\n", readOnly: true }]);
 
-    await handleRequest({ id: "req-read", type: "vmark.document.read", args: {} });
+    await handleRequest(withAttribution({ id: "req-read", type: "vmark.document.read", args: {} }));
 
     const reply = replyTo("req-read");
     expect(reply.success).toBe(true);
@@ -188,7 +200,7 @@ describe("handleRequest — reads of a read-only document", () => {
   it("selection.get reaches its handler instead of being refused as READ_ONLY", async () => {
     openTabs([{ id: "t-locked", content: "# locked\n", readOnly: true }]);
 
-    await handleRequest({ id: "req-sel", type: "vmark.selection.get", args: {} });
+    await handleRequest(withAttribution({ id: "req-sel", type: "vmark.selection.get", args: {} }));
 
     // No editor is mounted in this suite, so the handler's own answer is
     // NO_EDITOR — which only the handler can give.
@@ -200,7 +212,7 @@ describe("handleRequest — unknown request types", () => {
   it("names the type, every tool prefix this build routes, and the version-skew cause", async () => {
     // Issue #900: a sidecar/app version mismatch sends a type the dispatcher
     // does not know; the error must let the user diagnose it without logs.
-    await handleRequest({ id: "req-unknown", type: "vmark.bogus", args: {} });
+    await handleRequest(withAttribution({ id: "req-unknown", type: "vmark.bogus", args: {} }));
 
     const reply = replyTo("req-unknown");
     expect(reply.success).toBe(false);
@@ -212,7 +224,7 @@ describe("handleRequest — unknown request types", () => {
   it.each(["constructor", "toString", "__proto__", ""])(
     "treats %j as unknown rather than resolving it on the route table",
     async (type) => {
-      await handleRequest({ id: "req-proto", type, args: {} });
+      await handleRequest(withAttribution({ id: "req-proto", type, args: {} }));
 
       const reply = replyTo("req-proto");
       expect(reply.success).toBe(false);
@@ -236,7 +248,7 @@ describe("handleRequest — failures outside a handler", () => {
     );
     expect(loadFailure).toBeInstanceOf(Error);
 
-    await router.handleRequest({ id: "req-chunk", type: "vmark.browser.read", args: {} });
+    await router.handleRequest(withAttribution({ id: "req-chunk", type: "vmark.browser.read", args: {} }));
 
     // A client left without a reply waits for its own timeout; it gets the
     // failure's own message instead.

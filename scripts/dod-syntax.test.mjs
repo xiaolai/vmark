@@ -268,6 +268,15 @@ describe("ts-code-grep / tsCode", () => {
     expect(code(src)).not.toMatch(/use-selection-for-find/);
   });
 
+  it("keeps a comment marker INSIDE a kept literal, and still blanks the real comment", () => {
+    const src = 'const u = "http://host/keepMe"; // dropMe\nconst c = "/* keepToo */";\n/* dropToo */\n';
+    const out = code(src, { keepStrings: true });
+    expect(out.length).toBe(src.length);
+    expect(out).toMatch(/http:\/\/host\/keepMe/);
+    expect(out).toMatch(/\/\* keepToo \*\//);
+    expect(out).not.toMatch(/dropMe|dropToo/);
+  });
+
   it("does not read a comment marker out of a regex or a nested template", () => {
     const src = "const re = /a\\/\\/b/;\nconst t = `x${[`y`].length}// not a comment`;\nconst live = keepMe();\n";
     expect(code(src)).toMatch(/keepMe\(\)/);
@@ -283,6 +292,70 @@ describe("ts-code-grep / tsCode", () => {
     expect(run("ts-code-grep", "clearHistory", commented).status).toBe(1);
     expect(run("ts-code-grep", "clearHistory", live).status).toBe(0);
     expect(run("ts-code-grep", "(unclosed", live).status).toBe(64);
+  });
+
+  it("refuses a file the parser only recovered, in every mode, and names it", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "dod-syntax-broken-"));
+    const broken = path.join(dir, "broken.ts");
+    // An unclosed call: the parser invents the missing tokens and the symbol survives.
+    writeFileSync(broken, "export function clearHistory( {\n  invoke(\"agent_journal_git_export\";\n");
+    const run = (...args) => spawnSync(process.execPath, [SCRIPT, ...args], { encoding: "utf8" });
+    for (const mode of [[], ["--keep-strings"], ["--test-reach"]]) {
+      const r = run("ts-code-grep", ...mode, "clearHistory|agent_journal_git_export", broken);
+      expect(r.status, `${mode.join(" ")}: ${r.stdout}${r.stderr}`).toBe(1);
+      expect(r.stdout).toBe("");
+      expect(r.stderr).toMatch(/broken\.ts: does not parse/);
+    }
+  });
+
+  it("--ignore-case matches regardless of case, in either flag order, for both languages", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "dod-syntax-ci-"));
+    const tsFile = path.join(dir, "a.test.ts");
+    writeFileSync(tsFile, 'it("handles CJK text", () => {});\n// emoji only in a comment\n');
+    const rsFile = path.join(dir, "a.test.rs");
+    writeFileSync(rsFile, '#[test]\nfn rtl() { let _ = "RTL"; }\n// Emoji\n');
+    const run = (...args) => spawnSync(process.execPath, [SCRIPT, ...args], { encoding: "utf8" });
+    expect(run("ts-code-grep", "--keep-strings", "cjk", tsFile).status).toBe(1);
+    expect(run("ts-code-grep", "--keep-strings", "--ignore-case", "cjk", tsFile).status).toBe(0);
+    expect(run("ts-code-grep", "--ignore-case", "--keep-strings", "cjk", tsFile).status).toBe(0);
+    expect(run("ts-code-grep", "--ignore-case", "--keep-strings", "emoji", tsFile).status).toBe(1);
+    expect(run("rust-code-grep", "--ignore-case", "--keep-strings", "rtl", rsFile).status).toBe(0);
+    expect(run("rust-code-grep", "--ignore-case", "--keep-strings", "emoji", rsFile).status).toBe(1);
+    expect(run("ts-code-grep", "--ignore-case", "--ignore-case", "cjk", tsFile).status).toBe(64);
+  });
+
+  it("--test-reach reads only what runnable cases reach, and excludes --keep-strings", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "dod-syntax-reach-"));
+    const tsFile = path.join(dir, "a.test.ts");
+    writeFileSync(tsFile, 'const unused = "stale";\nconst used = "cjk";\nit("pins", () => { void used; });\n');
+    const rsFile = path.join(dir, "a.test.rs");
+    writeFileSync(rsFile, 'const UNUSED: &str = "stale";\n#[test]\nfn pins() { let _ = "cjk"; }\n');
+    const run = (...args) => spawnSync(process.execPath, [SCRIPT, ...args], { encoding: "utf8" });
+    expect(run("ts-code-grep", "--keep-strings", "stale", tsFile).status).toBe(0);
+    expect(run("ts-code-grep", "--test-reach", "stale", tsFile).status).toBe(1);
+    expect(run("ts-code-grep", "--test-reach", "cjk", tsFile).status).toBe(0);
+    expect(run("rust-code-grep", "--test-reach", "stale", rsFile).status).toBe(1);
+    expect(run("rust-code-grep", "--test-reach", "--ignore-case", "CJK", rsFile).status).toBe(0);
+    expect(run("ts-code-grep", "--test-reach", "--keep-strings", "cjk", tsFile).status).toBe(64);
+  });
+
+  it("--test-reach does not count a Rust test marked #[ignore], before or after #[test]", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "dod-syntax-reach-ignore-"));
+    const rsFile = path.join(dir, "a.test.rs");
+    writeFileSync(
+      rsFile,
+      [
+        "fn helper() -> &'static str { \"rtl\" }",
+        "#[test]\n#[ignore]\nfn skipped_after() { let _ = \"cjk\"; }",
+        "#[ignore = \"slow\"]\n#[tokio::test]\nasync fn skipped_before() { let _ = helper(); }",
+        "#[test]\nfn runs() { let _ = \"emoji\"; }",
+        "",
+      ].join("\n"),
+    );
+    const run = (...args) => spawnSync(process.execPath, [SCRIPT, ...args], { encoding: "utf8" });
+    expect(run("rust-code-grep", "--test-reach", "cjk", rsFile).status).toBe(1);
+    expect(run("rust-code-grep", "--test-reach", "rtl", rsFile).status).toBe(1);
+    expect(run("rust-code-grep", "--test-reach", "emoji", rsFile).status).toBe(0);
   });
 });
 

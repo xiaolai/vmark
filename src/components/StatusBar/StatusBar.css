@@ -551,6 +551,21 @@
 }
 
 /* ========================================
+   MCP request-listener warning (this window cannot answer AI requests)
+   ======================================== */
+
+.status-mcp-listener-warning {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-half) var(--space-1-5);
+  border-radius: var(--radius-sm);
+  color: var(--warning-color);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+}
+
+/* ========================================
    AI Status Indicator (running / error / success)
    ======================================== */
 

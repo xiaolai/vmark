@@ -192,7 +192,7 @@ fn cjk_content_and_path_survive_the_write_and_the_error_path() {
 mod list_aliases {
     use std::path::Path;
 
-    use super::super::write_checked;
+    use super::super::{write_checked, Publish};
     use crate::command_error::{CommandError, ErrorCode};
     use crate::workspace::grants::{names_grant_list, GRANTS_FILE};
 
@@ -221,6 +221,7 @@ mod list_aliases {
         let err = write_checked(
             &dir.path().join("workspace-grants.json::$DATA"),
             "x",
+            Publish::Replace,
             guard(&list),
         )
         .expect_err("the list's own contents");
@@ -241,7 +242,8 @@ mod list_aliases {
             return;
         }
 
-        let err = write_checked(&short, "x", guard(&list)).expect_err("the list itself");
+        let err = write_checked(&short, "x", Publish::Replace, guard(&list))
+            .expect_err("the list itself");
 
         assert_eq!(err.code(), ErrorCode::PermissionDenied);
         assert_eq!(std::fs::read(&list).expect("list"), before);
@@ -261,7 +263,7 @@ mod grant_list {
     use std::path::{Path, PathBuf};
     use std::time::Duration;
 
-    use super::super::{atomic_write_file, write_checked};
+    use super::super::{atomic_write_file, write_checked, Publish};
     use crate::command_error::{CommandError, ErrorCode};
     use crate::files::create::{create_checked, create_file_exclusive};
     use crate::workspace::grants::{restore_from, WorkspaceGrants, GRANTS_FILE};
@@ -289,6 +291,8 @@ mod grant_list {
             app.handle().clone(),
             path.to_str().expect("utf-8").to_owned(),
             FORGED.to_owned(),
+            None,
+            None,
         ))
     }
 
@@ -392,7 +396,7 @@ mod grant_list {
         let link = docs.path().join("note.md");
         std::os::unix::fs::symlink(&real, &link).expect("link");
 
-        write_checked(&link, FORGED, |at| {
+        write_checked(&link, FORGED, Publish::Replace, |at| {
             at.refuse_grant_list(app.handle())?;
             std::fs::remove_file(&link).expect("unlink");
             std::os::unix::fs::symlink(&list, &link).expect("relink to the list");
@@ -414,7 +418,7 @@ mod grant_list {
         std::fs::create_dir(&work).expect("mkdir");
         let mut moved = None;
 
-        write_checked(&work.join(GRANTS_FILE), FORGED, |at| {
+        write_checked(&work.join(GRANTS_FILE), FORGED, Publish::Replace, |at| {
             at.refuse_grant_list(app.handle())?;
             moved = Some(swap_folder(&work, data.path()));
             Ok(())
@@ -462,9 +466,12 @@ mod grant_list {
         let alias = docs.path().join("alias");
         std::os::unix::fs::symlink(data.path(), &alias).expect("link");
 
-        assert_refused(write_checked(&alias.join(GRANTS_FILE), FORGED, |at| {
-            at.refuse_grant_list(app.handle())
-        }));
+        assert_refused(write_checked(
+            &alias.join(GRANTS_FILE),
+            FORGED,
+            Publish::Replace,
+            |at| at.refuse_grant_list(app.handle()),
+        ));
 
         assert_eq!(std::fs::read(&list).expect("still there"), before);
     }

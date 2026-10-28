@@ -14,6 +14,9 @@
  *   - MCP tooltip is built from live client list (connected AI tools)
  *     and clicking opens the integrations settings panel.
  *   - formatClientName handles acronym capitalization (CLI, AI, MCP, etc.).
+ *   - Beside the MCP badge sits McpBridgeListenerWarning: the server can be
+ *     running while THIS window's request listener never registered, and the
+ *     badge (server state) cannot say so.
  *   - AI status indicators are role="status" aria-live="polite" so screen
  *     readers hear AI start/error/done. Running's per-second elapsed text
  *     is aria-hidden with a static sr-only sibling carrying the
@@ -36,6 +39,7 @@ import { ICON_SM } from "@/utils/iconSizes";
 import { StatusBarCounts } from "./StatusBarCounts";
 import { StatusBarAiIndicator } from "./StatusBarAiIndicator";
 import { McpHistoryButton } from "@/components/McpHistory";
+import { McpBridgeListenerWarning } from "./McpBridgeListenerWarning";
 import { LintBadge } from "./LintBadge";
 import type { McpClient } from "@/hooks/useMcpClients";
 
@@ -187,6 +191,8 @@ export function StatusBarRight({
           </span>
         )}
       </button>
+
+      <McpBridgeListenerWarning />
 
       <McpHistoryButton />
 

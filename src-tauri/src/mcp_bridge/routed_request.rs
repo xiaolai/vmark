@@ -24,10 +24,11 @@ use std::future::Future;
 use tauri::AppHandle;
 use tokio::sync::{mpsc, oneshot};
 
+use super::attribution::register_attributed;
 use super::delivery::{deliver_response, fail_pending};
 use super::managed::bridge;
 use super::routing::{emit_to_window_or_reply, route_target_or_reply};
-use super::state::{is_read_only_operation, try_register_pending_for, REQUEST_TIMEOUT};
+use super::state::{is_read_only_operation, REQUEST_TIMEOUT};
 use super::types::{McpRequest, McpRequestEvent};
 use super::wake_retry::wake_retry_after_timeout;
 
@@ -88,7 +89,8 @@ pub(super) async fn run<R: tauri::Runtime>(
     let is_read = is_read_only_operation(&request.request_type);
 
     // For write operations, acquire the write lock: writes go one at a time
-    // while reads run together.
+    // while reads run together. The wait is bounded; a write that cannot get
+    // the lock in time is refused before it is registered or emitted.
     let write_guard = if is_read {
         None
     } else {
@@ -97,7 +99,15 @@ pub(super) async fn run<R: tauri::Runtime>(
             client_id,
             crate::peer_text::peer_text(&request.request_type)
         );
-        Some(bridge.write_lock().await)
+        match bridge.write_lock_for_request().await {
+            Ok(guard) => Some(guard),
+            Err(err) => {
+                log::warn!("[MCP Bridge] Client {client_id} write refused: {err}");
+                super::delivery::send_error_response(bridge, client_id, client_tx, &msg_id, &err)
+                    .await;
+                return Ok(());
+            }
+        }
     };
 
     let (response_tx, response_rx) = oneshot::channel();
@@ -105,19 +115,23 @@ pub(super) async fn run<R: tauri::Runtime>(
     let request_type_for_log = request.request_type.clone();
 
     // Store the pending request (sweeps stale entries, enforces the overload
-    // cap, and refuses a client a stop already drained). The state lock
+    // cap, and refuses a client a stop already drained), reading the
+    // client's attribution under the same lock. The state lock
     // is released before responding: send_error_response may force-disconnect.
     let registered = {
         let mut guard = bridge.lock().await;
-        try_register_pending_for(&mut guard, client_id, request_id.clone(), response_tx)
+        register_attributed(&mut guard, client_id, request_id.clone(), response_tx)
     };
-    if let Err(err) = registered {
-        log::warn!("[MCP Bridge] Client {client_id} request rejected: {err}");
-        // Answer the client instead of silently dropping the request —
-        // otherwise it hangs until its own timeout.
-        super::delivery::send_error_response(bridge, client_id, client_tx, &msg_id, &err).await;
-        return Ok(());
-    }
+    let attribution = match registered {
+        Ok(attribution) => attribution,
+        Err(err) => {
+            log::warn!("[MCP Bridge] Client {client_id} request rejected: {err}");
+            // Answer the client instead of silently dropping the request —
+            // otherwise it hangs until its own timeout.
+            super::delivery::send_error_response(bridge, client_id, client_tx, &msg_id, &err).await;
+            return Ok(());
+        }
+    };
 
     // Emit to the target window (never broadcast): each window has its own
     // webview with independent editor state, so the wrong one is a
@@ -128,6 +142,7 @@ pub(super) async fn run<R: tauri::Runtime>(
         id: request_id.clone(),
         request_type: request.request_type.clone(),
         args_json,
+        attribution,
     };
 
     // F5: route by owning workspace, fail loud on ambiguity /
@@ -207,9 +222,9 @@ async fn await_response<R: tauri::Runtime>(
     client_tx: &mpsc::Sender<String>,
     msg_id: &str,
     request_type_for_log: &str,
-    response_rx: oneshot::Receiver<super::types::McpResponse>,
+    mut response_rx: oneshot::Receiver<super::types::McpResponse>,
 ) -> Option<super::types::McpResponse> {
-    match tokio::time::timeout(REQUEST_TIMEOUT, response_rx).await {
+    match tokio::time::timeout(REQUEST_TIMEOUT, &mut response_rx).await {
         Ok(Ok(response)) => Some(response),
         Ok(Err(_)) => {
             // Channel closed — clean up and tell the sidecar.
@@ -234,6 +249,7 @@ async fn await_response<R: tauri::Runtime>(
                 client_tx,
                 msg_id,
                 request_type_for_log,
+                &mut response_rx,
             )
             .await
         }
@@ -243,3 +259,8 @@ async fn await_response<R: tauri::Runtime>(
 #[cfg(test)]
 #[path = "routed_request.test.rs"]
 mod tests;
+
+// Mock-runtime tests: `tauri::test` does not exist on Windows.
+#[cfg(all(test, not(target_os = "windows")))]
+#[path = "routed_request_run.test.rs"]
+mod run_tests;

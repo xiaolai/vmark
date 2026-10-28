@@ -6,8 +6,10 @@
  * dispatcher that routes every `menu:*` event through CommandBus.
  *
  * Order contract:
- *   1. Sync registrations run first (`registerAllCommands`; idempotent — each
- *      register* is a no-op on the second call).
+ *   1. Sync registrations run first (`registerAllCommands`). A second call is
+ *      safe but not a no-op: each non-editor batch is replace-own (it removes
+ *      its owner's previous batch and installs the new one), and a registrar
+ *      that throws part-way restores the bus to its pre-batch snapshot.
  *   2. The window-lifetime services start (`startRuntimeServices`, one disposer).
  *   3. The Pandoc-format expansion runs next, synchronously: the format list
  *      is a leaf module, so nothing — not the exporter chunk — is awaited
@@ -22,23 +24,22 @@
  *      failed counts the same way — its menu items exist and
  *      route to commands that were never registered.
  *
+ * The effect is only that order and its teardown; each step and its disposer
+ * live in `services/commands/commandBootstrap.ts`.
+ *
+ * @coordinates-with services/commands/commandBootstrap.ts — the steps and their disposers
  * @module hooks/useCommandBootstrap
  */
 
 import { useEffect } from "react";
-import type { UnlistenFn } from "@tauri-apps/api/event";
-import { menuError, appError } from "@/utils/debug";
-import { mountMenuCommands, type MenuCommandBinding } from "@/services/commands/menuListener";
+import type { MenuCommandBinding } from "@/services/commands/menuListener";
 import { MENU_TO_ACTION } from "@/plugins/actions/actionRegistry";
-import { registerPandocFormatCommands } from "@/services/commands/exportCommands";
 import { registerAllCommands } from "@/services/commands/registerAllCommands";
-import { startRuntimeServices } from "@/services/runtimeWiring";
-import { closeBrowserTabById } from "@/services/browser/browserTabLifecycle";
-import { useRecentWorkspacesStore } from "@/stores/recentsStore";
-import { useSettingsStore } from "@/stores/settingsStore";
-import { publishDebugHandle } from "@/utils/devDebugHandle";
-import { executeCommand } from "@/services/commands/CommandBus";
-import { signalMenuCommandsMounted } from "@/services/commands/menuCommandsReady";
+import {
+  mountMenuBridge,
+  publishCommandDebugHandles,
+  startRuntimeServicesOrRollback,
+} from "@/services/commands/commandBootstrap";
 
 const EXPORT_BINDINGS: MenuCommandBinding[] = [
   { menuEvent: "menu:export-html", commandId: "export.html" },
@@ -68,6 +69,7 @@ const MISC_BINDINGS: MenuCommandBinding[] = [
   { menuEvent: "menu:bring-all-to-front", commandId: "window.bringAllToFront" },
   { menuEvent: "menu:clear-history", commandId: "history.clearAll" },
   { menuEvent: "menu:clear-workspace-history", commandId: "history.clearWorkspace" },
+  { menuEvent: "menu:export-journal-git", commandId: "history.exportToGit" },
   { menuEvent: "menu:cleanup-images", commandId: "image.cleanupOrphans" },
   { menuEvent: "menu:vmark-help", commandId: "help.vmarkHelp" },
   { menuEvent: "menu:keyboard-shortcuts", commandId: "help.keyboardShortcuts" },
@@ -156,131 +158,11 @@ export const STATIC_MENU_BINDINGS: readonly MenuCommandBinding[] = [
 export function useCommandBootstrap(): void {
   useEffect(() => {
     const disposeEditorCommands = registerAllCommands();
-
-    // DEV-only harness seam. The E2E journeys have no other way to
-    // invoke a command: the debug bridge offers only execute_js, a Tauri event
-    // emitted inside the webview never reaches the app's own listeners (verified
-    // with a non-browser control event), and synthetic key events do not reach
-    // the keybinding layer. Publishing `executeCommand` — the SAME function the
-    // menu route calls (menuListener.ts) — means a journey exercises the real
-    // dispatch path rather than a test-only shortcut past it.
-    //
-    // Compiled out of production: `publishDebugHandle` is DEV-gated, so this
-    // cannot become a way for page script in the app webview to run commands.
-    publishDebugHandle(
-      "runCommand",
-      (commandId: string, payload?: unknown, windowLabel?: string) =>
-        executeCommand(commandId, payload, { windowLabel: windowLabel ?? "main" }),
-    );
-    // Same seam, for teardown: the harness closes the tabs it created through the
-    // app's own lifecycle instead of tearing the native view out from under it.
-    publishDebugHandle("closeBrowserTab", closeBrowserTabById);
-    // Same seam, for hygiene: a journey that opened a temporary workspace in a
-    // second window removes it from the persisted recents through the store's own
-    // action, so a run leaves no dead entry behind in the dev profile's menu.
-    publishDebugHandle("forgetRecentWorkspace", (path: string) =>
-      useRecentWorkspacesStore.getState().removeWorkspace(path),
-    );
-    // Same seam, for the features that are hidden behind Developer Mode
-    // (#1425): the Knowledge Base's menu item, palette command and shortcut are
-    // all absent until it is on, so a journey that exercises the panel has to
-    // turn it on the way the user would — through the store's own action, which
-    // is what pushes the native menu item back too.
-    // Returns the PREVIOUS value: the setting persists into the dev profile, so
-    // a journey has to put back what it found rather than assume the default.
-    publishDebugHandle("setDeveloperMode", (on: boolean) => {
-      const previous = useSettingsStore.getState().advanced.developerMode;
-      useSettingsStore.getState().updateAdvancedSetting("developerMode", on);
-      return previous;
-    });
-
-    // The window-lifetime services (grant/policy mirrors, tab events and
-    // lifecycle, recorder, coherence, workspace sync, menu mirror, per-tab
-    // state cleanup) — one list, one disposer (services/runtimeWiring.ts).
-    // They start HERE, synchronously with the window's first effects, which is
-    // what lets every later tab removal — a session restore included — rely on
-    // the cleanup instead of freeing a tab's state itself. If they fail to
-    // start, this effect never returns its cleanup, so the editor batch — the
-    // one registration that owns resources — is disposed here before the error
-    // propagates; the services themselves roll back inside
-    // startRuntimeServices.
-    let stopRuntimeServices: () => void;
-    try {
-      stopRuntimeServices = startRuntimeServices();
-    } catch (error) {
-      disposeEditorCommands();
-      throw error;
-    }
-
-    let unlisten: UnlistenFn | null = null;
-    // Aborted by the cleanup: tears this pass's listeners down at once, even
-    // while the mount is still in flight.
-    const pass = new AbortController();
-
-    void (async () => {
-      const bindings: MenuCommandBinding[] = [...STATIC_MENU_BINDINGS];
-      // Part of the readiness VERDICT, not just a log line. A
-      // failed expansion means every Pandoc export item in the native menu
-      // routes nowhere — the same defect as a binding that could not listen,
-      // which readiness already reports — and reporting `true` over it is the
-      // "announcing a menu that routes nowhere" this hook's header forbids.
-      let expanded = true;
-
-      try {
-        const formats = registerPandocFormatCommands();
-        for (const fmt of formats) {
-          bindings.push({
-            menuEvent: `menu:export-pandoc-${fmt}`,
-            commandId: `export.pandoc-${fmt}`,
-          });
-        }
-      } catch (err) {
-        expanded = false;
-        menuError("Failed to expand Pandoc menu bindings:", err);
-      }
-
-      // mountMenuCommands wires the Tauri menu→command bridge. A failure here
-      // is critical: every native menu item, accelerator, and palette entry
-      // stops routing. Without this catch a rejection becomes an
-      // unhandled-promise warning and the user sees no error — just
-      // silently dead menus.
-      //
-      // The mount is best-effort and REPORTS its completeness, and
-      // the readiness signal carries that verdict. Two shapes were wrong before:
-      // signalling from a `finally` announced a fully-dead menu as ready, and
-      // an all-or-nothing mount turned one refused listener into a window with
-      // no menu at all. A partial mount is kept — every item that bound still
-      // works — and the incompleteness is logged and signalled, never hidden.
-      // The signal reaches into the mount: a cancelled pass otherwise kept ITS
-      // listeners live until the mount finished — overlapping the replay pass,
-      // which double-dispatched every menu event bound in that window.
-      try {
-        const { off, failed } = await mountMenuCommands(bindings, { signal: pass.signal });
-        if (pass.signal.aborted) {
-          off(); // already torn down by the abort; idempotent
-          return;
-        }
-        unlisten = off;
-        if (failed.length > 0) {
-          menuError(`${failed.length} menu binding(s) could not mount:`, failed);
-        }
-        // The window-ready handshake waits on this instead of guessing how
-        // long the mount takes — IPC round trips that no constant could
-        // bound. Only from a setup that is still LIVE: a
-        // StrictMode-cancelled first pass must not signal after removing its
-        // listener and before the replay mounts one.
-        signalMenuCommandsMounted(expanded && failed.length === 0);
-      } catch (err) {
-        // Only the duplicate-binding preflight rejects now, and it means the
-        // static binding list is malformed: nothing mounted, so nothing routes.
-        menuError("Failed to mount menu commands:", err);
-        if (!pass.signal.aborted) signalMenuCommandsMounted(false);
-      }
-    })().catch((err) => appError("Command bootstrap failed:", err));
-
+    publishCommandDebugHandles();
+    const stopRuntimeServices = startRuntimeServicesOrRollback(disposeEditorCommands);
+    const unmountMenu = mountMenuBridge(STATIC_MENU_BINDINGS);
     return () => {
-      pass.abort();
-      if (unlisten) unlisten();
+      unmountMenu();
       disposeEditorCommands();
       stopRuntimeServices();
     };

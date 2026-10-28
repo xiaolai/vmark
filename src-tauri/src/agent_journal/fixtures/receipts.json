@@ -1,0 +1,35 @@
+{
+  "rule": "R64 §3–§4, R101 rule 2, R103 rule 7: a receipt is stored and replayed byte for byte; digest = SHA-256 of the exact payload bytes",
+  "receipts": [
+    {
+      "name": "controlledPrepared",
+      "payload": "{\"docKey\":\"path:/notes/receipt — 稿.md\",\"parent\":\"0190d3c4-0000-7000-8000-000000000001\",\"preimage\":\"héllo 世界 👋\\n\",\"actor\":{\"type\":\"mcp\",\"principal\":{\"state\":\"provider\",\"provider\":\"claude\"},\"connectionId\":\"0190d3c4-0000-7000-8000-00000000000c\",\"sessionLabel\":\"審稿 pass 🧪\"},\"tool\":\"document.write\",\"baselineProvenance\":null,\"baselineTouched\":true,\"requestId\":\"6f1c2b8e-3d4a-4e5f-9a6b-7c8d9e0f1a2b\"}",
+      "receipt": "{\"requestId\":\"6f1c2b8e-3d4a-4e5f-9a6b-7c8d9e0f1a2b\",\"digest\":\"79a9c322294a9dc3be60a113750c73237288c1cd9eb8857fe5f6f5e40b46ffd6\",\"outcome\":{\"kind\":\"prepared\",\"response\":{\"doc\":\"0190d3c4-0000-7000-8000-0000000000d0\",\"txn\":\"0190d3c4-0000-7000-8000-000000000002\",\"revision\":\"0190d3c4-0000-7000-8000-000000000003\",\"generation\":\"18446744073709551614\",\"baseline\":\"0190d3c4-0000-7000-8000-000000000004\",\"certified\":false,\"fallbackReason\":\"notTheParent\"}}}"
+    },
+    {
+      "name": "restorePrepared",
+      "payload": "{\"docKey\":\"path:/notes/receipt — 稿.md\",\"parent\":\"0190d3c4-0000-7000-8000-000000000005\",\"preimage\":\"agent 改写 ✍️\\n\",\"source\":{\"from\":\"uncommittedPreimage\",\"txn\":\"0190d3c4-0000-7000-8000-000000000007\"},\"baselineProvenance\":null,\"baselineTouched\":false,\"requestId\":\"0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d\"}",
+      "receipt": "{\"requestId\":\"0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d\",\"digest\":\"2b7d9e469e8dec1c40cfe05b0e0efe9333e66798207213886ae7d8b5f577d6d2\",\"outcome\":{\"kind\":\"prepared\",\"response\":{\"doc\":\"0190d3c4-0000-7000-8000-0000000000d0\",\"txn\":\"0190d3c4-0000-7000-8000-000000000008\",\"revision\":\"0190d3c4-0000-7000-8000-000000000009\",\"generation\":\"42\",\"baseline\":null,\"text\":\"原文 — the café draft 🧾\\r\\n\\u0000tab\\there\\n\",\"resolves\":\"0190d3c4-0000-7000-8000-000000000007\"}}}"
+    },
+    {
+      "name": "revertPrepared",
+      "payload": "{\"docKey\":\"path:/notes/receipt — 稿.md\",\"parent\":\"0190d3c4-0000-7000-8000-00000000000a\",\"preimage\":\"keep 世界 👋\\nagent line\\n\",\"baselineProvenance\":null,\"baselineTouched\":true,\"hunkId\":\"5f2b5f2b5f2b5f2b5f2b5f2b5f2b5f2b5f2b5f2b5f2b5f2b5f2b5f2b5f2b5f2b\",\"expectedReviewGen\":\"7\",\"requestId\":\"3c2d1e0f-9a8b-4c7d-8e6f-5a4b3c2d1e0f\"}",
+      "receipt": "{\"requestId\":\"3c2d1e0f-9a8b-4c7d-8e6f-5a4b3c2d1e0f\",\"digest\":\"3108a165ddf9dd01fc58443b88fbdcb1540fa6d99314946e7edae1bd09682d24\",\"outcome\":{\"kind\":\"prepared\",\"response\":{\"doc\":\"0190d3c4-0000-7000-8000-0000000000d0\",\"txn\":\"0190d3c4-0000-7000-8000-00000000000b\",\"revision\":\"0190d3c4-0000-7000-8000-00000000000c\",\"generation\":\"9007199254740993\",\"baseline\":\"0190d3c4-0000-7000-8000-00000000000d\",\"hunk\":\"5f2b5f2b5f2b5f2b5f2b5f2b5f2b5f2b5f2b5f2b5f2b5f2b5f2b5f2b5f2b5f2b\",\"reviewGen\":\"7\",\"from\":11,\"to\":22,\"insert\":\"原文 🧾 line\\n\",\"postimageHash\":\"sha256-a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\"}}}"
+    },
+    {
+      "name": "revertDecided",
+      "payload": "{\"docKey\":\"path:/notes/receipt — 稿.md\",\"parent\":\"0190d3c4-0000-7000-8000-00000000000a\",\"preimage\":\"keep 世界 👋\\nagent line\\n\",\"baselineProvenance\":null,\"baselineTouched\":true,\"hunkId\":\"5f2b5f2b5f2b5f2b5f2b5f2b5f2b5f2b5f2b5f2b5f2b5f2b5f2b5f2b5f2b5f2b\",\"expectedReviewGen\":\"3\",\"requestId\":\"7e6d5c4b-3a29-4180-9f0e-1d2c3b4a5968\"}",
+      "receipt": "{\"requestId\":\"7e6d5c4b-3a29-4180-9f0e-1d2c3b4a5968\",\"digest\":\"af9b7d5226fbb773e9955028ef160a64c487c57b0c41452f315b976711933271\",\"outcome\":{\"kind\":\"decision\",\"response\":{\"doc\":\"0190d3c4-0000-7000-8000-0000000000d0\",\"hunk\":\"5f2b5f2b5f2b5f2b5f2b5f2b5f2b5f2b5f2b5f2b5f2b5f2b5f2b5f2b5f2b5f2b\",\"action\":\"revertFoundBase\",\"reviewGen\":\"4\",\"generation\":\"43\",\"baseline\":\"0190d3c4-0000-7000-8000-00000000000e\",\"head\":\"0190d3c4-0000-7000-8000-00000000000e\"}}}"
+    }
+  ],
+  "fieldOrder": [
+    {
+      "payload": "{\"docKey\":\"path:/notes/receipt — 稿.md\",\"parent\":\"0190d3c4-0000-7000-8000-000000000001\",\"preimage\":\"héllo 世界 👋\\n\",\"actor\":{\"type\":\"mcp\",\"principal\":{\"state\":\"provider\",\"provider\":\"claude\"},\"connectionId\":\"0190d3c4-0000-7000-8000-00000000000c\",\"sessionLabel\":\"審稿 pass 🧪\"},\"tool\":\"document.write\",\"baselineProvenance\":null,\"baselineTouched\":true,\"requestId\":\"6f1c2b8e-3d4a-4e5f-9a6b-7c8d9e0f1a2b\"}",
+      "digest": "79a9c322294a9dc3be60a113750c73237288c1cd9eb8857fe5f6f5e40b46ffd6"
+    },
+    {
+      "payload": "{\"requestId\":\"6f1c2b8e-3d4a-4e5f-9a6b-7c8d9e0f1a2b\",\"tool\":\"document.write\",\"actor\":{\"type\":\"mcp\",\"principal\":{\"state\":\"provider\",\"provider\":\"claude\"},\"connectionId\":\"0190d3c4-0000-7000-8000-00000000000c\",\"sessionLabel\":\"審稿 pass 🧪\"},\"preimage\":\"héllo 世界 👋\\n\",\"parent\":\"0190d3c4-0000-7000-8000-000000000001\",\"docKey\":\"path:/notes/receipt — 稿.md\",\"baselineProvenance\":null,\"baselineTouched\":true}",
+      "digest": "75165ffe0190c57a112be8e098a372e16db56b05c71eaf86355dfa954d4d74fa"
+    }
+  ]
+}

@@ -430,99 +430,91 @@ flowchart TB
 
 プラグインは物語の半分です。もう半分は、プラグインとともに蓄積された知識インフラストラクチャです。
 
-### 13 のルール（1,950 行の組織知識）
+### 14 のルール（組織知識）
 
 ```mermaid
 flowchart LR
     subgraph Engineering["Engineering (00-10)"]
-        R00["00 Principles\n11 lines"]
-        R10["10 TDD\n196 lines"]
+        R00["00 Principles"]
+        R10["10 TDD"]
     end
-    subgraph Docs["Documentation (20-22)"]
-        R20["20 Logging\n4 lines"]
-        R21["21 Website Docs\n65 lines"]
-        R22["22 Comments\n36 lines"]
+    subgraph Docs["Documentation (21-22)"]
+        R21["21 Website Docs"]
+        R22["22 Comments"]
     end
-    subgraph UI["UI Consistency (30-34)"]
-        R30["30 UI Core\n25 lines"]
-        R31["31 Design Tokens\n261 lines"]
-        R32["32 Components\n436 lines"]
-        R33["33 Focus A11y\n164 lines"]
-        R34["34 Dark Theme\n196 lines"]
+    subgraph UI["UI Consistency (30-35)"]
+        R30["30 UI Core"]
+        R31["31 Design Tokens"]
+        R32["32 Components"]
+        R33["33 Focus A11y"]
+        R34["34 Dark Theme"]
+        R35["35 Copy"]
     end
     subgraph Ops["Operations (40-41)"]
-        R40["40 Version Bump\n79 lines"]
-        R41["41 Shortcuts\n122 lines"]
+        R40["40 Version Bump"]
+        R41["41 Shortcuts"]
     end
-    subgraph Patterns["Patterns (50)"]
-        R50["50 Conventions\n211 lines"]
+    subgraph Patterns["Patterns (50-60)"]
+        R50["50 Conventions"]
+        R60["60 AI Governance"]
     end
 ```
 
-VMark の `.claude/rules/` ディレクトリには 13 のルールファイルがあります——曖昧なガイドラインではなく、具体的で強制可能な規約です：
+VMark の `.claude/rules/` ディレクトリには 14 のルールファイルがあります——曖昧なガイドラインではなく、具体的で強制可能な規約です：
 
-| ルールファイル | 行数 | 体系化された内容 |
-|-----------|-------|----------------|
-| `00-engineering-principles.md` | 11 | コア規約（Zustand デストラクチャリング禁止、300 行制限） |
-| `10-tdd.md` | 196 | 5 つのテストパターンテンプレート、アンチパターンカタログ、カバレッジゲート |
-| `20-logging-and-docs.md` | 4 | トピックごとの単一情報源 |
-| `21-website-docs.md` | 65 | コード対ドキュメントマッピングテーブル（どのコード変更がどのドキュメント更新を必要とするか） |
-| `22-comment-maintenance.md` | 36 | コメントの更新/非更新のタイミング、コメント腐敗の防止 |
-| `30-ui-consistency.md` | 25 | コア UI 原則、サブルールへのクロスリファレンス |
-| `31-design-tokens.md` | 261 | 完全な CSS トークンリファレンス——すべてのカラー、スペーシング、ボーダーラディウス、シャドウ |
-| `32-component-patterns.md` | 436 | ポップアップ、ツールバー、コンテキストメニュー、テーブル、スクロールバーのパターンとコード |
-| `33-focus-indicators.md` | 164 | コンポーネントタイプ別 6 つのフォーカスパターン（WCAG 準拠） |
-| `34-dark-theme.md` | 196 | テーマ検出、オーバーライドパターン、移行チェックリスト |
-| `40-version-bump.md` | 79 | 5 ファイルバージョン同期手順と検証スクリプト |
-| `41-keyboard-shortcuts.md` | 122 | 3 ファイル同期（Rust/フロントエンド/ドキュメント）、競合チェック、規約 |
-| `50-codebase-conventions.md` | 211 | 開発中に発見された 10 のドキュメント化されていないパターン |
+| ルールファイル | 体系化された内容 |
+|-----------|----------------|
+| `00-engineering-principles.md` | コア規約（Zustand デストラクチャリング禁止、300 行制限） |
+| `10-tdd.md` | テストパターンテンプレート、アンチパターンカタログ、カバレッジゲート |
+| `21-website-docs.md` | コード対ドキュメントマッピングテーブル（どのコード変更がどのドキュメント更新を必要とするか） |
+| `22-comment-maintenance.md` | ファイルヘッダー規約、コメントを更新するタイミング、コメントが参照してよいもの |
+| `30-ui-consistency.md` | コア UI 原則、サブルールへのクロスリファレンス |
+| `31-design-tokens.md` | CSS トークンリファレンス——すべてのカラー、スペーシング、ボーダーラディウス、シャドウのトークンとその目的 |
+| `32-component-patterns.md` | ポップアップ、ツールバー、コンテキストメニュー、テーブル、スクロールバーのパターンとコード |
+| `33-focus-indicators.md` | コンポーネントタイプ別のフォーカスパターン（WCAG 準拠） |
+| `34-dark-theme.md` | テーマ検出、オーバーライドパターン、移行チェックリスト |
+| `35-copy-conventions.md` | UI コピー：文言、句読点、ユーザー向けテキストに決して現れないもの |
+| `40-version-bump.md` | 5 ファイルバージョン同期手順と検証スクリプト |
+| `41-keyboard-shortcuts.md` | 3 ファイル同期（Rust/フロントエンド/ドキュメント）、競合チェック、規約 |
+| `50-codebase-conventions.md` | 開発中に発見された Store、Hook、プラグイン、MCP ブリッジ、Rust コマンドのパターン |
+| `60-ai-governance.md` | 計画、ワークアイテム ID、モデル間レビュー、保護されたパス |
 
-これらのルールは毎セッションの開始時に Claude Code が読み込みます。だからこそ、2,180 番目のコミットは 100 番目と同じ規約に従っています。
+Claude Code は、セッションがルールの対象ファイルに触れたときにそのルールを読み込みます。パススコープのないルールは毎セッション読み込まれます。だからこそ、2,180 番目のコミットは 100 番目と同じ規約に従っています。
 
 ルール `50-codebase-conventions.md` は特に注目に値します——*誰も設計していない*パターンを文書化しています。開発中に自然に現れ、その後体系化されました：Store 命名規約、Hook クリーンアップパターン、プラグイン構造、MCP ブリッジハンドラシグネチャ、CSS 構成、エラーハンドリングイディオム。
 
-### 19 のプロジェクトスキル（ドメイン専門知識）
+### 10 のプロジェクトスキル（ドメイン専門知識）
 
 ```mermaid
 flowchart TB
     subgraph Platform["Platform Skills"]
         S1["rust-tauri-backend"]
-        S2["tauri-v2-integration"]
-        S3["tauri-app-dev"]
-        S4["tauri-mcp-testing"]
-        S5["tauri-mcp-test-runner"]
+        S2["tauri-mcp-testing"]
     end
     subgraph Editor["Editor Skills"]
-        S6["react-app-dev"]
-        S7["tiptap-dev"]
-        S8["tiptap-editor"]
+        S3["react-app-dev"]
+        S4["tiptap-dev"]
     end
     subgraph Quality["Quality Skills"]
-        S9["release-gate"]
-        S10["css-design-tdd"]
-        S11["shortcut-audit"]
-        S12["workflow-audit"]
-        S13["plan-audit"]
-        S14["plan-verify"]
+        S5["css-design-tdd"]
+        S6["workflow-audit"]
+        S7["plan-audit"]
     end
     subgraph Other["Other Skills"]
-        S15["translate-docs\n9 locales"]
-        S16["mcp-dev"]
-        S17["mcp-server-manager"]
-        S18["planning"]
-        S19["ai-coding-agents"]
+        S8["translate-docs\n9 locales"]
+        S9["mcp-dev"]
+        S10["planning"]
     end
 ```
 
 | カテゴリ | スキル | 用途 |
 |----------|--------|-----------------|
-| **Tauri/Rust** | `rust-tauri-backend`、`tauri-v2-integration`、`tauri-app-dev`、`tauri-mcp-testing`、`tauri-mcp-test-runner` | Tauri v2 規約に準拠したプラットフォーム固有の Rust 開発 |
-| **React/エディタ** | `react-app-dev`、`tiptap-dev`、`tiptap-editor` | Tiptap/ProseMirror エディタパターン、Zustand セレクタルール |
-| **品質** | `release-gate`、`css-design-tdd`、`shortcut-audit`、`workflow-audit`、`plan-audit`、`plan-verify` | あらゆるレベルでの自動化品質検証 |
+| **Tauri/Rust** | `rust-tauri-backend`、`tauri-mcp-testing` | Tauri v2 規約に準拠した Rust バックエンドと IPC の開発、および実行中アプリの E2E テスト |
+| **React/エディタ** | `react-app-dev`、`tiptap-dev` | Tiptap/ProseMirror エディタパターン、Zustand セレクタルール |
+| **品質** | `css-design-tdd`、`workflow-audit`、`plan-audit` | あらゆるレベルでの自動化品質検証 |
 | **ドキュメント** | `translate-docs` | サブエージェント駆動監査付き 9 ロケール翻訳 |
-| **MCP** | `mcp-dev`、`mcp-server-manager` | MCP サーバー開発と設定 |
+| **MCP** | `mcp-dev` | MCP ツール開発とサーバー登録 |
 | **プランニング** | `planning` | 意思決定ドキュメント付き実装計画の生成 |
-| **AI ツール** | `ai-coding-agents` | マルチエージェントオーケストレーション（Codex CLI、Claude Code、Gemini CLI） |
 
 ### 7 つのスラッシュコマンド（ワークフロー自動化）
 
@@ -554,7 +546,7 @@ flowchart TB
 
 ルール + スキル + プラグイン + コマンドが複合システムを形成します。`/fix-issue` を実行すると、Rust の変更に `rust-tauri-backend` スキルを使用し、テスト要件に `10-tdd.md` ルールに従い、監査に `cc-suite` を呼び出し、CSS 準拠を `31-design-tokens.md` で確認し、ショートカット同期を `41-keyboard-shortcuts.md` で検証します。
 
-単独で革命的な部分はありません。複合効果——13 ルール x 19 スキル x 7 プラグイン x 7 コマンド、すべてが相互に強化——がシステムを機能させるのです。各部品はギャップが発見されたときに追加され、実際の開発でテストされ、使用を通じて洗練されました。
+単独で革命的な部分はありません。複合効果——14 ルール x 10 スキル x 7 プラグイン x 7 コマンド、すべてが相互に強化——がシステムを機能させるのです。各部品はギャップが発見されたときに追加され、実際の開発でテストされ、使用を通じて洗練されました。
 
 ## プラグインビルダーへ
 

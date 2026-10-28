@@ -255,6 +255,9 @@ assert_ts_code_grep() {
 # is relative to the directory of the file that carries it): `pty.rs` mounts
 # `pty/commands.test.rs` that way, and looking only beside the test reported
 # those tests as included by nothing.
+# A module one level down mounts a test beside its directory as
+# `#[path = "../<basename>"]`: `agent_journal/admission/mod.rs` mounts the
+# admission, request and page tests in `agent_journal/` that way.
 rust_mount_owner() {
   local file="$1" dir base cand up; dir="$(dirname "$file")"; base="$(basename "$file")"
   _DOD_MOUNT=""
@@ -266,6 +269,10 @@ rust_mount_owner() {
   if [[ -f "$dir.rs" ]] && grep -qF -- "\"$up\"" "$dir.rs" 2>/dev/null && rust_test_included "$dir.rs" "$up"; then
     _DOD_MOUNT="$dir.rs"; printf '%s\n' "$dir.rs"; return 0
   fi
+  while IFS= read -r cand; do
+    [[ -n "$cand" ]] || continue
+    if rust_test_included "$cand" "../$base"; then _DOD_MOUNT="$cand"; printf '%s\n' "$cand"; return 0; fi
+  done < <(grep -lF -- "\"../$base\"" "$dir"/*/*.rs 2>/dev/null)
   return 1
 }
 # Is `mod <stem>;` declared, in CODE, by a mod.rs/lib.rs/main.rs beside `$1`?

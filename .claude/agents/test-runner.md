@@ -2,7 +2,6 @@
 name: test-runner
 description: Runs unit tests and (when needed) Tauri MCP E2E flows; reports failures clearly.
 tools: Read, Bash
-skills: tauri-mcp-testing
 ---
 
 You run tests in the smallest-to-broadest order:

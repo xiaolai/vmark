@@ -15,7 +15,7 @@ that enforces it; the pre-cleanup long form is `git show 12c98051e:AGENTS.md`.
 - **Research before building**: look for established patterns and prior art before inventing.
 - **Edge cases are not optional**: empty/null input, max values, concurrency, Unicode/CJK, RTL, rapid repeats, network failure, permission denial — test each.
 - **Test-first is mandatory** for new behavior (RED → GREEN → REFACTOR). Coverage floors are enforced. Exempt: CSS-only, docs, config. See `.claude/rules/10-tdd.md`.
-- `dev-docs/` and `.vmark/` are maintainer-local (gitignored); skip references to them when absent. Archive finished deep research to `dev-docs/deep-researches/YYYYMMDD-topic.md` and link it from `dev-docs/README.md`.
+- `dev-docs/` and `.vmark/` are maintainer-local (gitignored); skip references to them when absent. When present, update the dev doc a behavior change affects in the same change. Archive finished deep research to `dev-docs/deep-researches/YYYYMMDD-topic.md` and link it from `dev-docs/README.md`.
 - Never bypass a hook or gate (`--no-verify`, removing hooks, loosening a gate) without explicit authorization. Fix the gate instead.
 
 ## Gates — what to run

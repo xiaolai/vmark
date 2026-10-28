@@ -488,7 +488,8 @@ Die Statusleiste verläuft am unteren Rand des Fensters (`F7` blendet sie aus). 
 | Lint | ⊗ Fehler oder ⚠ Warnungen aus dem letzten [Lint](#markdown-lint)-Durchlauf; ausgeblendet, wenn es keine gibt | Springt zum nächsten Problem |
 | KI | Während ein Genie läuft, *Denkt nach...* mit den verstrichenen Sekunden und einem × zum Abbrechen; danach *Fertig* oder der Fehler mit **Erneut versuchen**, das die fehlgeschlagene Anfrage erneut ausführt, und **Schließen**; Erneut versuchen fehlt, wenn es nichts zu wiederholen gibt, etwa ohne Anbieter | — |
 | MCP | Ein Satellitensymbol, eingefärbt, wenn ein KI-Client verbunden ist; das Wort *aus*, *…* oder *Fehler*, wenn er nicht normal läuft. Der Tooltip nennt die verbundenen Clients | Öffnet **Einstellungen → Integrationen** |
-| MCP-Verlauf | Die KI-Schreibvorgänge in diesem Tab, neueste zuerst, jeweils mit **Auf den Stand vor diesem Schreibvorgang zurücksetzen**; eine Papierkorb-Schaltfläche löscht den Verlauf des Tabs ohne Rückfrage | Öffnet die Liste |
+| MCP-Listener | Eine Warnung, *MCP in diesem Fenster nicht verfügbar*, wenn der Anfrage-Listener dieses Fensters auch nach allen Wiederholungen nicht starten konnte: KI-Clients erreichen dieses Fenster nicht, selbst wenn der MCP-Server läuft. Starten Sie VMark neu, um es erneut zu versuchen | — |
+| MCP-Verlauf | Ein Verlaufssymbol mit der Zahl der KI-Versionen des fokussierten Dokuments, in Warnfarbe, wenn seine Änderungen nicht aufgezeichnet werden; das Panel zeigt, wer jede Version erstellt hat, mit **Diese Version wiederherstellen** und **Stand vor dieser Änderung wiederherstellen**, dazu [Frühere Prüfpunkte](/de/guide/mcp-setup#bearbeitungs-prufpunkte) | Öffnet das Panel |
 | Terminal | — | Zeigt das Terminal an oder blendet es aus |
 | Modus | Der aktuelle Modus — Quelle oder WYSIWYG (bei GitHub-Actions-Workflow-Dateien ausgeblendet) | Wechselt den Modus |
 | Sperre | Ob das Dokument schreibgeschützt ist | Schaltet den Schreibschutz um |

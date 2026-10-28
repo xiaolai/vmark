@@ -60,7 +60,7 @@ vi.mock("@codemirror/view", () => ({
     }
     return this;
   }),
-  keymap: { of: vi.fn(() => []) },
+  keymap: { of: vi.fn(() => []) }, ViewPlugin: { define: vi.fn(() => "provenance") },
 }));
 
 // Attach static properties to EditorView
@@ -408,7 +408,7 @@ describe("SourceEditor", () => {
           initialShowLineNumbers: false,
           // The cursor snapshot's fence index and the find counter's match
           // tracking ride with the update listener.
-          updateListener: [capturedUpdateListener, "fenceIndex", "sourceSearchPlace"],
+          updateListener: ["provenance", capturedUpdateListener, "fenceIndex", "sourceSearchPlace"],
         })
       );
     });

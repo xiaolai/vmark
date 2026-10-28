@@ -32,7 +32,7 @@ import {
   footnotePopupPluginKey,
 } from "./tiptap";
 import {
-  getReferenceLabels,
+  collectFootnoteNodes,
   getDefinitionInfo,
   createRenumberTransaction,
   createCleanupAndRenumberTransaction,
@@ -91,7 +91,7 @@ describe("appendTransaction logic", () => {
   // We test the appendTransaction logic indirectly through the cleanup functions
   // since the extension creates a PM plugin internally.
 
-  it("getReferenceLabels detects deleted references", () => {
+  it("collectFootnoteNodes refLabels detects deleted references", () => {
     const oldDoc = schema.node("doc", null, [
       pWithRef("A", "1"),
       pWithRef("B", "2"),
@@ -106,8 +106,8 @@ describe("appendTransaction logic", () => {
       fnDef("2"),
     ]);
 
-    const oldLabels = getReferenceLabels(oldDoc);
-    const newLabels = getReferenceLabels(newDoc);
+    const oldLabels = collectFootnoteNodes(oldDoc).refLabels;
+    const newLabels = collectFootnoteNodes(newDoc).refLabels;
 
     expect(oldLabels.has("2")).toBe(true);
     expect(newLabels.has("2")).toBe(false);
@@ -130,7 +130,7 @@ describe("appendTransaction logic", () => {
       fnDef("2"), // orphaned — no matching ref
     ]);
 
-    const refLabels = getReferenceLabels(doc);
+    const refLabels = collectFootnoteNodes(doc).refLabels;
     const defs = getDefinitionInfo(doc);
     const orphans = defs.filter((d) => !refLabels.has(d.label));
 
@@ -161,8 +161,8 @@ describe("appendTransaction logic", () => {
       fnDef("1"),
     ]);
 
-    const oldLabels = getReferenceLabels(oldDoc);
-    const newLabels = getReferenceLabels(newDoc);
+    const oldLabels = collectFootnoteNodes(oldDoc).refLabels;
+    const newLabels = collectFootnoteNodes(newDoc).refLabels;
 
     let refDeleted = false;
     for (const label of oldLabels) {
@@ -181,7 +181,7 @@ describe("appendTransaction logic", () => {
       fnDef("2"),
     ]);
 
-    const newRefLabels = getReferenceLabels(newDoc);
+    const newRefLabels = collectFootnoteNodes(newDoc).refLabels;
     const defs = getDefinitionInfo(newDoc);
     const orphanedDefs = defs.filter((d) => !newRefLabels.has(d.label));
 
@@ -211,7 +211,7 @@ describe("appendTransaction logic", () => {
     expect(tr).not.toBeNull();
 
     // After renumbering, label should be "1"
-    const newLabels = getReferenceLabels(tr!.doc);
+    const newLabels = collectFootnoteNodes(tr!.doc).refLabels;
     expect(newLabels).toEqual(new Set(["1"]));
   });
 
@@ -380,7 +380,7 @@ describe("appendTransaction edge cases", () => {
       fnDef("1"),
     ]);
 
-    const refLabels = getReferenceLabels(doc);
+    const refLabels = collectFootnoteNodes(doc).refLabels;
     expect(refLabels.has("1")).toBe(true);
     expect(refLabels.size).toBe(1); // Both refs have same label
   });
@@ -403,7 +403,7 @@ describe("appendTransaction edge cases", () => {
     expect(tr).not.toBeNull();
 
     // After renumbering, labels should be 1, 2, 3
-    const newLabels = getReferenceLabels(tr!.doc);
+    const newLabels = collectFootnoteNodes(tr!.doc).refLabels;
     expect(newLabels).toEqual(new Set(["1", "2", "3"]));
   });
 
@@ -412,7 +412,7 @@ describe("appendTransaction edge cases", () => {
       p("No more footnotes"),
     ]);
 
-    const refLabels = getReferenceLabels(doc);
+    const refLabels = collectFootnoteNodes(doc).refLabels;
     expect(refLabels.size).toBe(0);
 
     const defs = getDefinitionInfo(doc);
@@ -432,7 +432,7 @@ describe("appendTransaction edge cases", () => {
     const tr = createRenumberTransaction(state, refType, defType);
     // Label is already "1", no renumbering needed — should return null or identity
     if (tr) {
-      const newLabels = getReferenceLabels(tr.doc);
+      const newLabels = collectFootnoteNodes(tr.doc).refLabels;
       expect(newLabels).toEqual(new Set(["1"]));
     }
   });
@@ -1536,7 +1536,7 @@ describe("footnotePopup plugin handler integration", () => {
       const newState = state.apply(tr);
 
       // Verify: new doc has refs [1, 3] and defs [1, 3]
-      const newRefLabels = getReferenceLabels(newState.doc);
+      const newRefLabels = collectFootnoteNodes(newState.doc).refLabels;
       expect(newRefLabels).toEqual(new Set(["1", "3"]));
       const newDefs = getDefinitionInfo(newState.doc);
       expect(newDefs.map((d) => d.label)).toEqual(expect.arrayContaining(["1", "3"]));
@@ -1549,7 +1549,7 @@ describe("footnotePopup plugin handler integration", () => {
       // Should return a renumber transaction (line 284)
       expect(result).not.toBeNull();
       // After renumbering, labels should be 1, 2
-      const finalRefLabels = getReferenceLabels(result!.doc);
+      const finalRefLabels = collectFootnoteNodes(result!.doc).refLabels;
       expect(finalRefLabels).toEqual(new Set(["1", "2"]));
     });
 

@@ -180,6 +180,24 @@ fn a_bidi_override_is_stripped_from_the_label_like_a_control_character() {
     assert_eq!(display_name(path), "harmlessgnp.exe");
 }
 
+// The whole bidi formatting set, not a subset: the pop and the
+// right-to-left and first-strong isolates reorder a label as well.
+#[test]
+fn every_bidi_formatting_character_is_stripped_from_the_label() {
+    for c in [
+        '\u{061C}', '\u{200E}', '\u{200F}', '\u{202A}', '\u{202B}', '\u{202C}', '\u{202D}',
+        '\u{202E}', '\u{2066}', '\u{2067}', '\u{2068}', '\u{2069}',
+    ] {
+        let name = format!("/g/harmless{c}gnp.exe.md");
+        assert_eq!(
+            display_name(std::path::Path::new(&name)),
+            "harmlessgnp.exe",
+            "U+{:04X}",
+            c as u32
+        );
+    }
+}
+
 // And a stem that is NOTHING but those characters must not leave an empty row,
 // which names no file at all.
 #[test]

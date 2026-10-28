@@ -45,6 +45,7 @@ export { registerWorkspaceTool } from './tools/workspace.js';
 export { registerDocumentTool } from './tools/document.js';
 export { registerWorkflowTool } from './tools/workflow.js';
 export { registerSelectionTool } from './tools/selection.js';
+export { registerCommentsTool } from './tools/comments.js';
 export { registerBrowserTool } from './tools/browser.js';
 export { registerBrowserReadTool } from './tools/browserRead.js';
 export { registerCoherenceTool } from './tools/coherence.js';
@@ -69,6 +70,7 @@ import { WORKSPACE_ACTIONS, WORKSPACE_TOOL, registerWorkspaceTool } from './tool
 import { DOCUMENT_ACTIONS, DOCUMENT_TOOL, registerDocumentTool } from './tools/document.js';
 import { WORKFLOW_ACTIONS, WORKFLOW_TOOL, registerWorkflowTool } from './tools/workflow.js';
 import { SELECTION_ACTIONS, SELECTION_TOOL, registerSelectionTool } from './tools/selection.js';
+import { COMMENTS_ACTIONS, COMMENTS_TOOL, registerCommentsTool } from './tools/comments.js';
 import { BROWSER_TOOL, registerBrowserTool } from './tools/browser.js';
 import { BROWSER_ACTIONS } from './tools/browserActions.js';
 import { BROWSER_READ_TOOL, registerBrowserReadTool } from './tools/browserRead.js';
@@ -132,6 +134,13 @@ export const TOOL_REGISTRY = [
     category: 'Selection',
     description:
       "Read or replace the user's current editor selection — cheap targeted edits on large documents",
+  },
+  {
+    name: COMMENTS_TOOL,
+    actions: COMMENTS_ACTIONS,
+    register: registerCommentsTool,
+    category: 'Comments',
+    description: "Read and answer the user's review comments — no resolve, reopen or delete",
   },
   {
     name: BROWSER_TOOL,

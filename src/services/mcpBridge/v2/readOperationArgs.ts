@@ -12,7 +12,8 @@
  * a tightening — a stricter payload gate belongs with a protocol change.
  * `readOperationArgsChecked` also names those fields, for the handlers whose
  * guard must refuse them rather than treat them as absent (the browser
- * surface's tab id, timeouts, style operations, workflow inputs).
+ * surface's tab id, timeouts, style operations, workflow inputs, every
+ * field of a journaled write — `writeAddresses.ts`).
  *
  * Undeclared fields are LOGGED, never silently dropped (ledger D5): the app
  * side cannot refuse them without breaking version skew in the direction skew

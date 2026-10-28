@@ -41,6 +41,7 @@ menu:
   file.docHistory: "ドキュメント履歴"
   file.docHistory.clearWorkspace: "ワークスペース履歴を消去..."
   file.docHistory.clearAll: "すべての履歴を消去..."
+  file.docHistory.exportToGit: "編集履歴を Git にエクスポート..."
   file.print: "印刷..."
 
   # ファイルメニュー — Windows/Linux の追加項目
@@ -311,6 +312,9 @@ errors:
   save.parentMissing: "このファイルのフォルダはもう存在しません: %{dir}"
   save.noParentDirectory: "ファイルパスに親フォルダがありません"
   save.symlinkLoop: "このファイルのエイリアスが循環しているため、実際のファイルが見つかりませんでした"
+  save.targetExists: "%{path} には既にファイルがあるため、置き換えませんでした"
+  save.superseded: "この保存より後に行われた保存が既に %{path} に反映されているため、古い保存は書き込みませんでした"
+  save.noReplaceUnsupported: "このディスクでは既存のファイルを置き換えずに保存できないため、%{path} は保存されませんでした"
   save.writeFailed: "ファイルを保存できませんでした: %{detail}"
   window.pdfExportMenu: "PDF 書き出しウィンドウに空のメニューバーを設定できませんでした: %{detail}"
   window.pdfExportCreate: "PDF 書き出しウィンドウを開けませんでした: %{detail}"
@@ -353,7 +357,7 @@ errors:
   hotExit.captureTimeout: "キャプチャがタイムアウトしました: ウィンドウからの応答がありません"
 
   # === Content search ===
-  search.queryTooShort: "検索クエリは 3 文字以上である必要があります"
+  search.queryTooShort: "検索クエリは %{min} 文字以上である必要があります"
 
   # === CLI install ===
   cli.noFile: "インストールは成功したように見えますが、ファイルが作成されませんでした。"

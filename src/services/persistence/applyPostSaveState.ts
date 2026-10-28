@@ -18,14 +18,15 @@ import {
 } from "@/services/workspaces/reassignTabOwnershipForPath";
 import { useRecentFilesStore } from "@/stores/workspaceStore";
 import { clearPendingSaveAfterGrace, type registerPendingSave } from "@/utils/pendingSaves";
-import { normalizePath } from "@/utils/paths";
-import { isCurrentSaveTarget, type SaveTargetClaim } from "./saveTargetClaim";
+import { isSameFile } from "@/utils/paths/fileIdentity";
+import { getRuntimePlatform } from "@/utils/platform";
+import { isCurrentSaveTarget, isSameDocument, type SaveTargetClaim } from "./saveTargetClaim";
 import type { SaveType } from "./saveHistorySnapshot";
 import type { NormalizedSaveContent } from "./normalizedSaveContent";
 
 /**
- * Whether a finished write may still update its document's path, tab path and
- * saved snapshots.
+ * The path a finished write may still record as its document's (path, tab
+ * path and saved snapshots), or `null` when it may not.
  *
  * Two ways to qualify, and BOTH are needed:
  *
@@ -43,17 +44,23 @@ import type { NormalizedSaveContent } from "./normalizedSaveContent";
  * `/repo/old.md` is no longer the document — so it must not reset the document
  * and tab back to the file the user just moved away from.
  *
+ * "Still where the document lives" is file identity (`fileIdentity.ts`), not
+ * spelling: `/repo/./a.md` is `/repo/a.md`. Such a save records the spelling
+ * the document already has, never the alias it was written through.
+ *
  * An untitled document (no live path) matches nothing, so only its newest save
- * may name it.
+ * may name it. A save of a document closed since it was submitted names
+ * nothing, even when the same tab id was opened again on the same file.
  */
-function mayRepointDocument(
+function repointPath(
   tabId: string,
   path: string,
   claim: SaveTargetClaim
-): boolean {
-  if (isCurrentSaveTarget(claim)) return true;
+): string | null {
+  if (!isSameDocument(claim)) return null;
+  if (isCurrentSaveTarget(claim)) return path;
   const live = useDocumentStore.getState().getDocument(tabId)?.filePath;
-  return live != null && normalizePath(live) === normalizePath(path);
+  return live != null && isSameFile(live, path, getRuntimePlatform()) ? live : null;
 }
 
 /**
@@ -87,9 +94,10 @@ export function applyPostSaveState(
 
   // Everything below RE-POINTS the document. A completion may only do that
   // while it still describes where the document lives.
-  if (!mayRepointDocument(tabId, path, claim)) return;
+  const recorded = repointPath(tabId, path, claim);
+  if (recorded === null) return;
 
-  useDocumentStore.getState().setFilePath(tabId, path);
+  useDocumentStore.getState().setFilePath(tabId, recorded);
   useDocumentStore
     .getState()
     .setLineMetadata(tabId, { lineEnding: targetLineEnding, hardBreakStyle: targetHardBreakStyle });
@@ -101,7 +109,7 @@ export function applyPostSaveState(
   }
 
   // Update tab path for title sync
-  useTabStore.getState().updateTabPath(tabId, path);
+  useTabStore.getState().updateTabPath(tabId, recorded);
   // Save As across a workspace boundary reassigns ownership; the
   // visible context follows when this is the active tab — unless an AI client
   // asked for the save, which reclassifies ownership but must never yank the
@@ -109,7 +117,7 @@ export function applyPostSaveState(
   {
     const ownerWindow = windowLabelForTab(tabId);
     if (ownerWindow) {
-      reassignTabOwnershipForPath(ownerWindow, tabId, path, {
+      reassignTabOwnershipForPath(ownerWindow, tabId, recorded, {
         allowVisibleSwitch: saveType !== "mcp",
       });
     }
@@ -118,6 +126,6 @@ export function applyPostSaveState(
   // Add to recent files. Only for a save the user asked for: an autosave is
   // noise, and an AI client's file activity is not the human's history.
   if (saveType === "manual") {
-    useRecentFilesStore.getState().addFile(path);
+    useRecentFilesStore.getState().addFile(recorded);
   }
 }

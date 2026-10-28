@@ -22,7 +22,7 @@ const reportUnparseableDocument = vi.hoisted(() => vi.fn());
 vi.mock("@/services/editor/unparseableDocument", () => ({ reportUnparseableDocument }));
 
 import { setContentWithoutHistory, syncMarkdownToEditor } from "./tiptapContentLoad";
-import { hasContentApplied } from "./contentApplied";
+import { hasContentApplied } from "@/services/editor/contentApplied";
 import { MAX_NESTING_DEPTH, nestingRefusal } from "@/utils/markdownPipeline/nestingDepth";
 
 let editor: Editor;
@@ -221,5 +221,107 @@ describe("syncMarkdownToEditor on a document the parser refuses (#1407)", () => 
     const lastExternalContent = { current: "" };
     expect(syncMarkdownToEditor(editor, "# fine\n", lastExternalContent, false, "tab-7")).toBe(true);
     expect(reportUnparseableDocument).not.toHaveBeenCalled();
+  });
+});
+
+describe("a newer sync the parser refuses supersedes a load waiting behind a composition", () => {
+  const tooDeep = `${"> ".repeat(MAX_NESTING_DEPTH + 1)}a\n`;
+
+  it("drops the waiting load: the store has moved past it", () => {
+    const lastExternalContent = { current: "old document\n" };
+    composing.mockReturnValue(true);
+    syncMarkdownToEditor(editor, "queued valid\n", lastExternalContent, false, "tab-1");
+    expect(syncMarkdownToEditor(editor, tooDeep, lastExternalContent, false, "tab-1")).toBe(false);
+
+    endComposition();
+    vi.advanceTimersByTime(IME_GRACE_PERIOD_MS);
+
+    expect(editor.getText()).toBe("old document");
+    expect(transactions).toHaveLength(0);
+    expect(reportUnparseableDocument).toHaveBeenCalledTimes(1);
+  });
+
+  it("drops a waiting initial load too", () => {
+    const lastExternalContent = { current: "initial\n" };
+    composing.mockReturnValue(true);
+    setContentWithoutHistory(editor, docOf("initial"), () => lastExternalContent.current === "initial\n", "initial\n");
+    syncMarkdownToEditor(editor, tooDeep, lastExternalContent, false, "tab-1");
+
+    endComposition();
+    vi.advanceTimersByTime(IME_GRACE_PERIOD_MS);
+
+    expect(editor.getText()).toBe("old document");
+  });
+
+  it("a later valid sync after the refusal still loads", () => {
+    const lastExternalContent = { current: "old document\n" };
+    composing.mockReturnValue(true);
+    syncMarkdownToEditor(editor, "queued valid\n", lastExternalContent, false, "tab-1");
+    syncMarkdownToEditor(editor, tooDeep, lastExternalContent, false, "tab-1");
+    syncMarkdownToEditor(editor, "newest\n", lastExternalContent, false, "tab-1");
+
+    endComposition();
+    vi.advanceTimersByTime(IME_GRACE_PERIOD_MS);
+
+    expect(editor.getText()).toBe("newest");
+  });
+
+  it("a repeat of the dropped load's own text still loads it", () => {
+    const lastExternalContent = { current: "old document\n" };
+    composing.mockReturnValue(true);
+    syncMarkdownToEditor(editor, "queued valid\n", lastExternalContent, false, "tab-1");
+    syncMarkdownToEditor(editor, tooDeep, lastExternalContent, false, "tab-1");
+    // The editor never held "queued valid": the tracking ref must not say so.
+    expect(lastExternalContent.current).toBe("old document\n");
+    syncMarkdownToEditor(editor, "queued valid\n", lastExternalContent, false, "tab-1");
+
+    endComposition();
+    vi.advanceTimersByTime(IME_GRACE_PERIOD_MS);
+
+    expect(editor.getText()).toBe("queued valid");
+    expect(lastExternalContent.current).toBe("queued valid\n");
+  });
+
+  it("a repeat after two dropped loads restores what the editor held before both", () => {
+    const lastExternalContent = { current: "old document\n" };
+    composing.mockReturnValue(true);
+    syncMarkdownToEditor(editor, "first\n", lastExternalContent, false, "tab-1");
+    syncMarkdownToEditor(editor, "second\n", lastExternalContent, false, "tab-1");
+    syncMarkdownToEditor(editor, tooDeep, lastExternalContent, false, "tab-1");
+    expect(lastExternalContent.current).toBe("old document\n");
+    syncMarkdownToEditor(editor, "first\n", lastExternalContent, false, "tab-1");
+
+    endComposition();
+    vi.advanceTimersByTime(IME_GRACE_PERIOD_MS);
+
+    expect(editor.getText()).toBe("first");
+  });
+
+  it("a repeat of a dropped initial load's text still loads it", () => {
+    const lastExternalContent = { current: "" };
+    composing.mockReturnValue(true);
+    setContentWithoutHistory(
+      editor, docOf("initial"), () => lastExternalContent.current === "initial\n", "initial\n", lastExternalContent.current,
+    );
+    lastExternalContent.current = "initial\n";
+    syncMarkdownToEditor(editor, tooDeep, lastExternalContent, false, "tab-1");
+    expect(lastExternalContent.current).toBe("");
+    syncMarkdownToEditor(editor, "initial\n", lastExternalContent, false, "tab-1");
+
+    endComposition();
+    vi.advanceTimersByTime(IME_GRACE_PERIOD_MS);
+
+    expect(editor.getText()).toBe("initial");
+  });
+
+  it("a refusal after the waiting load ran keeps the tracking ref: the editor holds it", () => {
+    const lastExternalContent = { current: "old document\n" };
+    composing.mockReturnValue(true);
+    syncMarkdownToEditor(editor, "queued valid\n", lastExternalContent, false, "tab-1");
+    endComposition();
+    vi.advanceTimersByTime(IME_GRACE_PERIOD_MS);
+    syncMarkdownToEditor(editor, tooDeep, lastExternalContent, false, "tab-1");
+
+    expect(lastExternalContent.current).toBe("queued valid\n");
   });
 });

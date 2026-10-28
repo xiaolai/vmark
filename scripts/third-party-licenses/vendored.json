@@ -80,7 +80,7 @@
       "component": "llhttp",
       "version": "8.1.0",
       "license": "MIT",
-      "host": { "name": "undici", "version": "6.29.0" },
+      "host": { "name": "undici", "version": "6.29.1" },
       "source": "https://github.com/nodejs/llhttp/blob/v8.1.0/LICENSE-MIT",
       "file": "llhttp-8.1.0.txt"
     },

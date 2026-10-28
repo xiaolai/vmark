@@ -189,11 +189,7 @@ describe('WebSocketBridge', () => {
     });
 
     it('should timeout if no response', async () => {
-      const fastBridge = new WebSocketBridge({
-        port: TEST_PORT,
-        requestTimeout: 100,
-        autoReconnect: false,
-      });
+      const fastBridge = new WebSocketBridge({ port: TEST_PORT, autoReconnect: false });
 
       const conn = await connectAndServerSocket(fastBridge);
 
@@ -202,9 +198,11 @@ describe('WebSocketBridge', () => {
         // Intentionally don't respond
       });
 
-      await expect(
-        fastBridge.send({ type: 'vmark.document.read' })
-      ).rejects.toThrow('Request timeout');
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      const sent = expect(fastBridge.send({ type: 'vmark.document.read' })).rejects.toThrow('Request timeout');
+      await vi.advanceTimersByTimeAsync(25_000);
+      await sent;
+      vi.useRealTimers();
 
       await fastBridge.disconnect();
     });
@@ -1247,9 +1245,9 @@ describe('WebSocketBridge', () => {
   describe('queue-wait timer / flush race (#959)', () => {
     it('resolves a queued request that flush completes after the queue timer fires', async () => {
       vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
-      // Short queue-wait timeout so the timer fires while sendImmediate is
-      // still in flight (sendImmediate is stubbed to resolve on demand).
-      const raceBridge = new WebSocketBridge({ requestTimeout: 20 });
+      // The queue-wait timer fires while sendImmediate is still in flight
+      // (sendImmediate is stubbed to resolve on demand).
+      const raceBridge = new WebSocketBridge();
       const internal = raceBridge as unknown as {
         queueRequest: (r: BridgeRequest) => Promise<BridgeResponse>;
         flushRequestQueue: () => Promise<void>;
@@ -1268,7 +1266,7 @@ describe('WebSocketBridge', () => {
 
       // The queue-wait timer fires while the request is in flight (the queue
       // was already drained by flush) ...
-      await vi.advanceTimersByTimeAsync(20);
+      await vi.advanceTimersByTimeAsync(25_000);
       // ... and only then does the send complete.
       deliver(success);
       await flushed;
@@ -1278,14 +1276,15 @@ describe('WebSocketBridge', () => {
     });
 
     it('still rejects with a timeout when a queued request is never flushed', async () => {
-      const raceBridge = new WebSocketBridge({ requestTimeout: 20 });
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      const raceBridge = new WebSocketBridge();
       const internal = raceBridge as unknown as {
         queueRequest: (r: BridgeRequest) => Promise<BridgeResponse>;
       };
 
-      await expect(
-        internal.queueRequest({ type: 'vmark.session.get_state' }),
-      ).rejects.toThrow(/timed out/);
+      const queued = expect(internal.queueRequest({ type: 'vmark.session.get_state' })).rejects.toThrow(/timed out/);
+      await vi.advanceTimersByTimeAsync(25_000);
+      await queued;
     });
   });
 });

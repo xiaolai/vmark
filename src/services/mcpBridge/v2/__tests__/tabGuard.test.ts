@@ -17,6 +17,8 @@ import { useUIStore } from "@/stores/uiStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { registerWysiwygFlusher } from "@/utils/wysiwygFlush";
 import type { McpResponse } from "@/services/mcpBridge/types";
+import type { McpWriteContext } from "@/services/mcpBridge/writeContext";
+import { TEST_WRITE_CONTEXT } from "@/test/mcpAttributionFixture";
 import {
   requireCurrentRevision,
   requireTab,
@@ -95,9 +97,11 @@ describe("resolveTab", () => {
 
     expect(resolveTab(undefined)).toEqual({
       tabId: "t-active",
+      windowLabel: "main",
       filePath: "/w/a.md",
       content: "# hi\n",
       dirty: false,
+      revision: useRevisionStore.getState().getRevision("t-active"),
       kind: "markdown",
     });
   });
@@ -106,7 +110,7 @@ describe("resolveTab", () => {
     openTabs("main", [{ id: "t-main" }]);
     openTabs("doc-1", [{ id: "t-elsewhere", content: "there\n" }]);
 
-    expect(resolveTab("t-elsewhere")).toMatchObject({ tabId: "t-elsewhere", content: "there\n" });
+    expect(resolveTab("t-elsewhere")).toMatchObject({ tabId: "t-elsewhere", windowLabel: "doc-1", content: "there\n" });
   });
 
   it("reports the document's dirty flag as it is now", () => {
@@ -156,6 +160,7 @@ describe("resolveTab", () => {
 
       expect(resolveTab(undefined, "focused")).toMatchObject({ tabId: "t-focused" });
       expect(resolveTab("t-focused", "focused")).toMatchObject({ tabId: "t-focused" });
+      expect(resolveTab("", "focused")).toMatchObject({ tabId: "t-focused", windowLabel: "main" });
     });
 
     it("refuses another open tab instead of redirecting to the focused one", () => {
@@ -235,7 +240,8 @@ describe("requireTab / requireCurrentRevision", () => {
   });
 });
 
-type Handler = (id: string, args: Record<string, unknown>) => Promise<void>;
+/** A routed handler, called as dispatchV2 calls it: with the request's write context. */
+type Handler = (id: string, args: Record<string, unknown>, context: McpWriteContext) => Promise<void>;
 
 /** Every handler that targets a tab, with the other arguments it needs. */
 const TAB_HANDLERS: Array<{ name: string; run: Handler; args: Record<string, unknown> }> = [
@@ -255,7 +261,7 @@ describe.each(TAB_HANDLERS)("$name refuses an unresolvable tab the same way", ({
   it("an unknown tabId", async () => {
     openTabs("main", [{ id: "t-1", filePath: "/w/a.md" }]);
 
-    await run("req-unknown", { ...args, tabId: "ghost" });
+    await run("req-unknown", { ...args, tabId: "ghost" }, TEST_WRITE_CONTEXT);
 
     expect(errorOf("req-unknown")).toEqual({ error: "INVALID_TAB", message: "Unknown tabId" });
   });
@@ -263,7 +269,7 @@ describe.each(TAB_HANDLERS)("$name refuses an unresolvable tab the same way", ({
   it("no tabId and nothing focused", async () => {
     openTabs("doc-1", [{ id: "t-elsewhere", filePath: "/w/a.md" }]);
 
-    await run("req-none", args);
+    await run("req-none", args, TEST_WRITE_CONTEXT);
 
     expect(errorOf("req-none")).toEqual({ error: "INVALID_TAB", message: "No focused tab" });
   });
@@ -272,7 +278,7 @@ describe.each(TAB_HANDLERS)("$name refuses an unresolvable tab the same way", ({
     openTabs("main", [{ id: "t-orphan", filePath: "/w/a.md" }]);
     useDocumentStore.setState({ documents: {} });
 
-    await run("req-orphan", { ...args, tabId: "t-orphan" });
+    await run("req-orphan", { ...args, tabId: "t-orphan" }, TEST_WRITE_CONTEXT);
 
     expect(errorOf("req-orphan")).toEqual({ error: "INVALID_TAB", message: "No document for tab" });
   });
@@ -283,7 +289,7 @@ describe.each(REVISION_HANDLERS)("$name refuses a stale revision the same way", 
     openTabs("main", [{ id: "t-1", content: "测试ABC\n" }]);
     const current = useRevisionStore.getState().getRevision("t-1");
 
-    await run("req-stale", { ...args, tabId: "t-1", expected_revision: "rev-OLDOLDOL" });
+    await run("req-stale", { ...args, tabId: "t-1", expected_revision: "rev-OLDOLDOL" }, TEST_WRITE_CONTEXT);
 
     expect(errorOf("req-stale")).toEqual({
       error: "STALE",
@@ -296,13 +302,13 @@ describe.each(REVISION_HANDLERS)("$name refuses a stale revision the same way", 
 });
 
 describe.each([
-  { name: "selection.get", run: handleSelectionGet as Handler, args: {} },
-  { name: "selection.set", run: handleSelectionSet as Handler, args: { content: "x" } },
+  { name: "selection.get", run: handleSelectionGet, args: {} },
+  { name: "selection.set", run: handleSelectionSet, args: { content: "x" } },
 ])("$name acts on the focused tab only", ({ run, args }) => {
   it("refuses another open tab instead of acting on the focused one", async () => {
     openTabs("main", [{ id: "t-focused" }, { id: "t-background" }]);
 
-    await run("req-bg", { ...args, tabId: "t-background" });
+    await run("req-bg", { ...args, tabId: "t-background" }, TEST_WRITE_CONTEXT);
 
     const err = errorOf("req-bg");
     expect(err.error).toBe("INVALID_TAB");
@@ -310,7 +316,7 @@ describe.each([
   });
 
   it("refuses when nothing is focused", async () => {
-    await run("req-none", args);
+    await run("req-none", args, TEST_WRITE_CONTEXT);
 
     expect(errorOf("req-none")).toEqual({ error: "INVALID_TAB", message: "No focused tab" });
   });

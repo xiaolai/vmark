@@ -337,6 +337,7 @@ fn connect(state: &mut BridgeState, id: u64) {
             shutdown: None,
             identity: None,
             principal: BridgePrincipal::Anonymous,
+            connection_id: uuid::Uuid::new_v4(),
         },
     );
 }

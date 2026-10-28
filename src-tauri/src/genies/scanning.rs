@@ -13,6 +13,7 @@
 //! as deep and as wide as its owner likes.
 
 use super::types::{GenieEntry, GenieKind, GenieMenuEntry};
+use crate::peer_text::is_bidi_formatting;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -156,27 +157,14 @@ fn category_of(path: &Path, base: &Path) -> Option<String> {
         .map(|rel| rel.to_string_lossy().replace('\\', "/"))
 }
 
-/// Characters that reorder the text AROUND them rather than draw anything —
-/// the bidi overrides, embeddings and isolates. `char::is_control` does not
-/// cover a single one of them (they are `Cf`, not `Cc`), so a genie named
-/// `harmless\u{202E}gnp.exe.md` still rendered a menu label reading
-/// `harmless.exe.png` — the Trojan-Source class, in a list the user
-/// clicks to RUN something.
-const BIDI_CONTROLS: [char; 9] = [
-    '\u{061C}', // ARABIC LETTER MARK
-    '\u{200E}', // LEFT-TO-RIGHT MARK
-    '\u{200F}', // RIGHT-TO-LEFT MARK
-    '\u{202A}', // LEFT-TO-RIGHT EMBEDDING
-    '\u{202B}', // RIGHT-TO-LEFT EMBEDDING
-    '\u{202D}', // LEFT-TO-RIGHT OVERRIDE
-    '\u{202E}', // RIGHT-TO-LEFT OVERRIDE
-    '\u{2066}', // LEFT-TO-RIGHT ISOLATE
-    '\u{2069}', // POP DIRECTIONAL ISOLATE
-];
-
-/// Whether `c` may appear in a label at all.
+/// Whether `c` may appear in a label at all: not a control character, and
+/// not one that reorders the text AROUND it rather than drawing anything.
+/// `char::is_control` covers none of the bidi formatting characters (they are
+/// `Cf`, not `Cc`), so a genie named `harmless\u{202E}gnp.exe.md` once rendered
+/// a menu label reading `harmless.exe.png` — the Trojan-Source class, in a
+/// list the user clicks to RUN something.
 fn renders_honestly(c: char) -> bool {
-    !c.is_control() && !BIDI_CONTROLS.contains(&c)
+    !c.is_control() && !is_bidi_formatting(c)
 }
 
 /// The display name for a genie file: its stem, minus every character that

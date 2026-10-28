@@ -350,6 +350,31 @@ async fn an_authenticated_peer_is_registered() {
     );
 }
 
+/// Each authenticated connection gets its own random UUID, minted on the real
+/// path — never derived from the restarting client-id counter.
+#[tokio::test]
+async fn each_authenticated_connection_gets_its_own_connection_uuid() {
+    let _lock = connection_test_lock().lock().await;
+    await_idle_gauge().await;
+    let server = serve().await;
+    let mut ids = Vec::new();
+    let mut sockets = Vec::new();
+    for _ in 0..2 {
+        let mut socket = dial(server.port, None).await.expect("connect");
+        let client_id = welcome_client_id(&mut socket).await;
+        send_auth(&mut socket, TOKEN).await;
+        next_json(&mut socket).await.expect("auth_result");
+        assert!(eventually_registered(server.app.handle(), client_id).await);
+        let connection_id =
+            bridge(server.app.handle()).lock().await.clients[&client_id].connection_id;
+        assert_eq!(connection_id.get_version_num(), 4);
+        assert_ne!(connection_id.as_u128(), u128::from(client_id));
+        ids.push(connection_id);
+        sockets.push(socket);
+    }
+    assert_ne!(ids[0], ids[1], "two connections, two ids");
+}
+
 // --- 3b. Concurrent-connection cap -----------------------------------------
 
 #[tokio::test]
@@ -470,6 +495,7 @@ async fn register_with_writer(
             shutdown: None,
             identity: None,
             principal: BridgePrincipal::Anonymous,
+            connection_id: uuid::Uuid::new_v4(),
         },
     );
     (writer, probe)

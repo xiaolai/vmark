@@ -160,6 +160,7 @@
   "findbar.find.placeholder": "検索...",
   "findbar.find.label": "ドキュメント内のテキストを検索",
   "contentSearch.label": "ワークスペース内を検索",
+  "contentSearch.minChars": "{{count}} 文字以上入力してください",
   "findbar.prev": "前へ (Shift+Enter)",
   "findbar.next": "次へ (Enter)",
   "findbar.replace.placeholder": "置換...",

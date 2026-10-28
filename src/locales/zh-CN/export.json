@@ -49,5 +49,18 @@
   "pdf.pageNumbers.format.verbose": "第 7 页，共 12 页",
   "pdf.warning.outline-failed": "侧边栏目录",
   "pdf.warning.page-numbers-failed": "页码",
-  "pdf.pageNumbers.verboseTemplate": "第 {n} 页，共 {total} 页"
+  "pdf.pageNumbers.verboseTemplate": "第 {n} 页，共 {total} 页",
+  "gitJournal.pickTitle": "选择 Git 仓库文件夹",
+  "gitJournal.done_one": "已将 {{count}} 个提交导出到 {{branch}}",
+  "gitJournal.done_other": "已将 {{count}} 个提交导出到 {{branch}}",
+  "gitJournal.upToDate": "{{branch}} 已是最新",
+  "gitJournal.error.GIT_MISSING": "未找到 Git。请安装 Git 后重试。",
+  "gitJournal.error.NO_HISTORY": "此文档还没有可导出的编辑历史。",
+  "gitJournal.error.NOT_A_REPOSITORY": "所选文件夹不在 Git 仓库中。",
+  "gitJournal.error.INVALID_REQUEST": "导出请求无效。",
+  "gitJournal.error.EXPORT_CONFLICT": "自上次导出以来，导出分支已被更改。请移动或删除该分支，然后重新导出。",
+  "gitJournal.error.UNRELATED_BRANCH": "已存在同名分支，且它不是 VMark 对此文档的导出。",
+  "gitJournal.error.BRANCH_CHECKED_OUT": "导出分支已在某个工作树中检出。请先将该工作树切换到其他分支。",
+  "gitJournal.error.GIT_FAILED": "导出时 Git 报告了错误。详情请查看日志。",
+  "gitJournal.error.JOURNAL_ERROR": "无法读取用于导出的编辑历史。"
 }

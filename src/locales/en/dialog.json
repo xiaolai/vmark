@@ -79,6 +79,7 @@
   "openFilter.markdown": "Markdown",
   "chooseFolderForDocs": "Choose folder for {{count}} new documents",
   "toast.mcpApprovalRequired": "Blocked an AI request to save to a new location: {{filename}}. Enable \"Auto-approve edits\" in Settings → Integrations to allow this.",
+  "toast.mcpOverwriteRefused": "Blocked an AI request to overwrite an existing file: {{filename}}. AI requests never replace existing files; ask for a different name, or rename or remove that file first.",
   "toast.saveDialogFailed": "Save dialog failed: {{error}}",
   "toast.failedToMoveToNewWindow": "Failed to move file to new window",
   "toast.failedToSaveDocuments": "Failed to save documents",

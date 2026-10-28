@@ -11,10 +11,17 @@
  * failure as a reason the handler can report to the client.
  *
  * Key decisions:
- *   - The path guard runs HERE, in front of the pipeline, on every call. A
+ *   - The path guard runs on every call, as the pipeline's admission check. A
  *     handler cannot reach the disk without it, whatever it checked earlier;
  *     `save_as` checks first as well because its overwrite probe needs the
  *     verdict before it may touch the path at all.
+ *   - The save is SUBMITTED before the guard's round trip: the guard runs at
+ *     the save's turn in the per-path queue. Submitted after it, a request
+ *     delayed in that await could land its older bytes after a later save of
+ *     the file, or take a newer claim than a later Save As and re-point the
+ *     tab. A handler that awaits before saving (`save_as`) reserves its place
+ *     in the document's save order at admission and passes the reservation
+ *     in; the pipeline activates it only once the write succeeds.
  *   - The caller passes the content. Each handler captures the buffer at the
  *     moment its write is defined, before any await; reading the store here,
  *     after the guard's round trip, would save whatever a later request put
@@ -25,6 +32,8 @@
  *   - A rejected write keeps its raw rejection (`cause`). The handlers that
  *     answer a failed save with an error reply rethrow it, so `wrapHandler`
  *     renders a typed error with its token exactly as for any other command.
+ *   - A success carries the save's `journaled` flag. A save the journal did
+ *     not record is still a success: the file is on disk.
  *
  * @coordinates-with services/persistence/saveToPath.ts — saveToPathForMcp, the pipeline
  * @coordinates-with services/persistence/saveOutcome.ts — the failure being rendered
@@ -35,21 +44,48 @@
 import { checkBridgePath } from "@/services/mcpBridge/bridgePathGuard";
 import { respond } from "@/services/mcpBridge/utils";
 import { saveToPathForMcp } from "@/services/persistence/saveToPath";
+import type { McpWriteContext } from "@/services/mcpBridge/writeContext";
 import type { SaveFailure } from "@/services/persistence/saveOutcome";
+import type { SaveTargetReservation } from "@/services/persistence/saveTargetClaim";
+import type { McpReadBatch } from "@/services/coherence/mcpCapture";
+import type { Journaled } from "@/services/agentJournal/journalClient";
 import { commandErrorMessage } from "@/services/commands/commandError";
+import { getFileName } from "@/utils/paths";
 import { v2ErrorString, type V2ErrorCode } from "./types";
 
 /** A bridge save that wrote nothing, and why. */
 export interface BridgeSaveFailure {
   saved: false;
-  reason: "path-denied" | SaveFailure["reason"];
+  reason: SaveFailure["reason"];
   /** What to tell the AI client. */
   message: string;
   /** The raw rejection, for `write-failed` only. */
   cause?: unknown;
 }
 
-export type BridgeSaveResult = { saved: true } | BridgeSaveFailure;
+/**
+ * A bridge save that wrote the file. `journaled` says whether the agent edit
+ * journal recorded the saved text: "yes", "pending" (recorded, ordered after
+ * a write still in flight) or "no" (the file is saved; the journal is not).
+ */
+interface BridgeSaveSuccess {
+  saved: true;
+  journaled: Journaled;
+}
+
+export type BridgeSaveResult = BridgeSaveSuccess | BridgeSaveFailure;
+
+/**
+ * The refusal `save_as` gives for a destination that already holds a file,
+ * whether its overwrite probe saw the file or the no-replace write met it.
+ */
+export function overwriteRefusal(name: string): string {
+  return (
+    `Refusing to overwrite the existing file ${name}. ` +
+    `save_as will not replace a file that is not the tab's own path. ` +
+    `Choose a different filePath, or have the user open ${name} and save over it deliberately.`
+  );
+}
 
 /** Render a pipeline failure for an AI client. */
 function describeFailure(failure: SaveFailure): string {
@@ -72,28 +108,45 @@ function describeFailure(failure: SaveFailure): string {
       );
     case "write-failed":
       return commandErrorMessage(failure.error);
+    case "path-denied":
+      return failure.detail;
+    case "target-exists":
+      return overwriteRefusal(getFileName(failure.path) || failure.path);
+    case "superseded":
+      return (
+        `A save made after this one already reached ${failure.path}, so this older one wrote nothing. ` +
+        "Read the document before writing again"
+      );
   }
 }
 
 /**
  * Save `content` as tab `tabId`'s document at `path`, through the path guard
- * and the app's save pipeline, on behalf of MCP tool `toolName`.
+ * and the app's save pipeline, on behalf of MCP tool `toolName` called by the
+ * client `context` names — the client the provenance capture records.
  *
  * `content` is editor-domain text (LF, no byte-order mark); the pipeline
- * re-applies the file's own convention on the way out.
+ * re-applies the file's own convention on the way out. `admission.reservation`
+ * is the place the handler reserved at admission, when it awaited anything
+ * before calling; `admission.noReplace` makes the write refuse (`target-exists`)
+ * rather than replace a file already at `path` when it publishes;
+ * `admission.reads` the read batch the request detached at admission.
  */
 export async function saveTabForBridge(
   tabId: string,
   path: string,
   content: string,
   toolName: string,
+  context: McpWriteContext,
+  admission: { reservation?: SaveTargetReservation; noReplace?: boolean; reads?: McpReadBatch } = {},
 ): Promise<BridgeSaveResult> {
-  const decision = await checkBridgePath(path);
-  if (!decision.allowed) {
-    return { saved: false, reason: "path-denied", message: decision.reason };
-  }
-  const outcome = await saveToPathForMcp(tabId, path, content, toolName);
-  if (outcome.ok) return { saved: true };
+  const admit = async (): Promise<SaveFailure | null> => {
+    const decision = await checkBridgePath(path);
+    return decision.allowed ? null : { reason: "path-denied", detail: decision.reason };
+  };
+  // No await before this call: the save takes its place in the queue now.
+  const outcome = await saveToPathForMcp(tabId, path, content, toolName, context.attribution, { ...admission, admit });
+  if (outcome.ok) return { saved: true, journaled: outcome.journaled };
   return {
     saved: false,
     reason: outcome.reason,
@@ -108,10 +161,15 @@ export async function saveTabForBridge(
  * not about the path at all. Keyed by reason so a new one cannot be added
  * without deciding its code.
  */
-const REFUSAL_CODE: Record<Exclude<BridgeSaveFailure["reason"], "write-failed">, V2ErrorCode> = {
+const REFUSAL_CODE: Record<Exclude<BridgeSaveFailure["reason"], "write-failed">, Exclude<V2ErrorCode, "ABORTED">> = {
   "path-denied": "INVALID_PATH",
   "parent-missing": "INVALID_PATH",
   "ownership-conflict": "INTERNAL",
+  // Overwriting a file that is not the tab's own needs the user, as when
+  // save_as's own probe finds it.
+  "target-exists": "APPROVAL_REQUIRED",
+  // The file already holds a save made after this one: read, then retry.
+  superseded: "STALE",
 };
 
 /**

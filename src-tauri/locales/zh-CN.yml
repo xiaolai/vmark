@@ -41,6 +41,7 @@ menu:
   file.docHistory: "文档历史"
   file.docHistory.clearWorkspace: "清除工作区历史..."
   file.docHistory.clearAll: "清除所有历史..."
+  file.docHistory.exportToGit: "将编辑历史导出到 Git..."
   file.print: "打印..."
 
   # 文件菜单 — Windows/Linux 额外项
@@ -311,6 +312,9 @@ errors:
   save.parentMissing: "该文件所在的文件夹已不存在：%{dir}"
   save.noParentDirectory: "文件路径没有上级文件夹"
   save.symlinkLoop: "此文件的替身指向形成循环，因此找不到真正的文件"
+  save.targetExists: "%{path} 处已有文件，因此未替换它"
+  save.superseded: "在这次保存之后进行的另一次保存已写入 %{path}，因此未写入这次较旧的保存"
+  save.noReplaceUnsupported: "此磁盘无法在不替换现有文件的情况下保存，因此未保存 %{path}"
   save.writeFailed: "无法保存文件：%{detail}"
   window.pdfExportMenu: "无法为导出 PDF 窗口设置空菜单栏：%{detail}"
   window.pdfExportCreate: "无法打开导出 PDF 窗口：%{detail}"
@@ -353,7 +357,7 @@ errors:
   hotExit.captureTimeout: "捕获超时：没有窗口响应"
 
   # === Content search ===
-  search.queryTooShort: "搜索关键字至少需要 3 个字符"
+  search.queryTooShort: "搜索关键字至少需要 %{min} 个字符"
 
   # === CLI install ===
   cli.noFile: "安装似乎成功，但文件未能创建。"

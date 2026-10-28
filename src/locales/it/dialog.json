@@ -58,6 +58,7 @@
   "openFilter.markdown": "Markdown",
   "chooseFolderForDocs": "Scegli cartella per {{count}} nuovi documenti",
   "toast.mcpApprovalRequired": "Bloccata una richiesta AI di salvataggio in una nuova posizione: {{filename}}. Abilita \"Approva automaticamente le modifiche\" in Impostazioni → Integrazioni per consentirla.",
+  "toast.mcpOverwriteRefused": "Bloccata una richiesta AI di sovrascrivere un file esistente: {{filename}}. Le richieste AI non sostituiscono mai file esistenti; chiedi un nome diverso, oppure rinomina o rimuovi prima quel file.",
   "toast.saveDialogFailed": "Finestra di dialogo di salvataggio fallita: {{error}}",
   "toast.failedToMoveToNewWindow": "Spostamento del file in una nuova finestra fallito",
   "toast.failedToSaveDocuments": "Salvataggio dei documenti fallito",

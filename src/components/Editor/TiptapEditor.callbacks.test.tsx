@@ -42,6 +42,7 @@ const mocks = vi.hoisted(() => ({
   })),
   useWindowLabel: vi.fn(() => "main"),
   reportUnparseableDocument: vi.fn(),
+  noteWysiwygLoaded: vi.fn(),
   // Mock editor returned by useEditor
   mockEditor: null as ReturnType<typeof createMockEditor> | null,
   useEditor: vi.fn(),
@@ -221,9 +222,13 @@ vi.mock("@/stores/documentStore", () => ({
 vi.mock("@/services/editor/unparseableDocument", () => ({
   reportUnparseableDocument: (...args: unknown[]) => mocks.reportUnparseableDocument(...args),
 }));
+vi.mock("@/services/agentJournal/collectors/wysiwyg/wysiwygCollector", () => ({
+  noteWysiwygLoaded: (...args: unknown[]) => mocks.noteWysiwygLoaded(...args),
+  noteWysiwygFlush: vi.fn(),
+}));
 
 import { TiptapEditorInner } from "./TiptapEditor";
-import { markContentApplied } from "./contentApplied";
+import { markContentApplied } from "@/services/editor/contentApplied";
 import type { Editor as TiptapEditor } from "@tiptap/core";
 
 // ── Tests ────────────────────────────────────────────────────────────
@@ -337,6 +342,8 @@ describe("setContentWithoutHistory — via onCreate with view", () => {
     expect(mockTr.replaceWith).toHaveBeenCalled();
     expect(mockTr.setMeta).toHaveBeenCalledWith("addToHistory", false);
     expect(mockTr.setMeta).toHaveBeenCalledWith("preventUpdate", true);
+    // The agent edit journal anchors on the text the initial load parsed.
+    expect(mocks.noteWysiwygLoaded).toHaveBeenCalledWith(editor, "# hello");
   });
 
   it("falls back to editor.commands.setContent when view not available", () => {

@@ -83,5 +83,6 @@ fn manage_state_registers_every_backend_state() {
         crate::close_to_tray::CloseToTrayState,
         crate::workspace::grants::WorkspaceGrants,
         crate::terminal_transcript::TranscriptConfigState,
+        crate::agent_journal::service::AgentJournalState,
     );
 }

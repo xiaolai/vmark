@@ -34,6 +34,11 @@ const mockRemove = vi.fn((path: string) => {
   fileStore.delete(path);
   return Promise.resolve();
 });
+// The index is written beside itself, then renamed over the old one.
+const mockRename = vi.fn(async (from: string, to: string) => {
+  fileStore.set(to, fileStore.get(from)!);
+  fileStore.delete(from);
+});
 const mockAppDataDir = vi.fn().mockResolvedValue("/app-data");
 const mockJoin = vi.fn((...parts: string[]) =>
   Promise.resolve(parts.join("/"))
@@ -46,6 +51,7 @@ vi.mock("@tauri-apps/plugin-fs", () => ({
   writeTextFile: (path: string, content: string) =>
     mockWriteTextFile(path, content),
   remove: (path: string) => mockRemove(path),
+  rename: (from: string, to: string) => mockRename(from, to),
 }));
 
 vi.mock("@tauri-apps/api/path", () => ({
@@ -69,14 +75,7 @@ vi.mock("@/utils/historyTypes", async (importOriginal) => {
 });
 
 import {
-  createSnapshot,
-  deleteSnapshot,
-  getHistoryIndex,
-  getSnapshots,
-  loadSnapshot,
-  revertToSnapshot,
-  pruneSnapshots,
-
+  createSnapshot, deleteSnapshot, getHistoryIndex, getSnapshots, loadSnapshot, revertToSnapshot, pruneSnapshots,
 } from "../historyOperations";
 
 const DOC_PATH = "/docs/test.md";
@@ -128,7 +127,7 @@ function getLastWrittenIndex(): Record<string, unknown> {
   const indexWrites = mockWriteTextFile.mock.calls.filter(
     (call: unknown[]) =>
       typeof call[0] === "string" &&
-      (call[0] as string).endsWith("index.json")
+      (call[0] as string).endsWith("index.json.tmp")
   );
   expect(indexWrites.length).toBeGreaterThan(0);
   return JSON.parse(
@@ -355,7 +354,7 @@ describe("createSnapshot — merge window", () => {
     expect(writtenIndex.snapshots as unknown[]).toHaveLength(2);
   });
 
-  it("keeps index entry when merge file deletion fails", async () => {
+  it("a failed removal of the merged file orphans the file, never the index entry", async () => {
     const now = 1700000000000;
     vi.setSystemTime(now);
 
@@ -375,9 +374,9 @@ describe("createSnapshot — merge window", () => {
 
     await createSnapshot(DOC_PATH, "new content", "auto", defaultSettings);
 
-    // Should keep both entries (old + new) since deletion failed
-    const writtenIndex = getLastWrittenIndex();
-    expect(writtenIndex.snapshots as unknown[]).toHaveLength(2);
+    // Index written first: it names only the new snapshot; the old file is merely left behind.
+    const snapshots = getLastWrittenIndex().snapshots as Array<{ id: string }>;
+    expect(snapshots.map((s) => s.id.startsWith(String(now)))).toEqual([true]);
   });
 });
 
@@ -593,7 +592,7 @@ describe("deleteSnapshot", () => {
     const indexWrites = mockWriteTextFile.mock.calls.filter(
       (call: unknown[]) =>
         typeof call[0] === "string" &&
-        (call[0] as string).endsWith("index.json")
+        (call[0] as string).endsWith("index.json.tmp")
     );
     expect(indexWrites).toHaveLength(0);
   });

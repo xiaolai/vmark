@@ -49,5 +49,18 @@
   "pdf.pageNumbers.format.verbose": "12페이지 중 7페이지",
   "pdf.warning.outline-failed": "사이드바 개요",
   "pdf.warning.page-numbers-failed": "페이지 번호",
-  "pdf.pageNumbers.verboseTemplate": "{total}페이지 중 {n}페이지"
+  "pdf.pageNumbers.verboseTemplate": "{total}페이지 중 {n}페이지",
+  "gitJournal.pickTitle": "Git 저장소 폴더 선택",
+  "gitJournal.done_one": "커밋 {{count}}개를 {{branch}}(으)로 내보냈습니다",
+  "gitJournal.done_other": "커밋 {{count}}개를 {{branch}}(으)로 내보냈습니다",
+  "gitJournal.upToDate": "{{branch}}은(는) 이미 최신 상태입니다",
+  "gitJournal.error.GIT_MISSING": "Git을 찾을 수 없습니다. Git을 설치한 뒤 다시 시도하세요.",
+  "gitJournal.error.NO_HISTORY": "이 문서에는 아직 내보낼 편집 기록이 없습니다.",
+  "gitJournal.error.NOT_A_REPOSITORY": "선택한 폴더가 Git 저장소 안에 있지 않습니다.",
+  "gitJournal.error.INVALID_REQUEST": "내보내기 요청이 올바르지 않습니다.",
+  "gitJournal.error.EXPORT_CONFLICT": "마지막 내보내기 이후 내보내기 브랜치가 변경되었습니다. 브랜치를 옮기거나 삭제한 뒤 다시 내보내세요.",
+  "gitJournal.error.UNRELATED_BRANCH": "같은 이름의 브랜치가 이미 있으며, 이 문서의 VMark 내보내기가 아닙니다.",
+  "gitJournal.error.BRANCH_CHECKED_OUT": "내보내기 브랜치가 워크트리에 체크아웃되어 있습니다. 먼저 해당 워크트리를 다른 브랜치로 전환하세요.",
+  "gitJournal.error.GIT_FAILED": "내보내는 중 Git이 오류를 보고했습니다. 자세한 내용은 로그를 확인하세요.",
+  "gitJournal.error.JOURNAL_ERROR": "내보내기를 위해 편집 기록을 읽을 수 없습니다."
 }

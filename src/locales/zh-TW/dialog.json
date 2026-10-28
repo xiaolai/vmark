@@ -58,6 +58,7 @@
   "openFilter.markdown": "Markdown",
   "chooseFolderForDocs": "選擇 {{count}} 份新文件的儲存資料夾",
   "toast.mcpApprovalRequired": "已阻止 AI 請求儲存到新位置：{{filename}}。如需允許，請在「設定 → 整合」中啟用「自動核准編輯」。",
+  "toast.mcpOverwriteRefused": "已阻止 AI 請求覆寫現有檔案：{{filename}}。AI 請求絕不會取代現有檔案；請改用其他名稱，或先重新命名或刪除該檔案。",
   "toast.saveDialogFailed": "儲存對話框失敗：{{error}}",
   "toast.failedToMoveToNewWindow": "無法將檔案移至新視窗",
   "toast.failedToSaveDocuments": "無法儲存文件",

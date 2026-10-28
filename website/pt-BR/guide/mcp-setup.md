@@ -229,6 +229,8 @@ vmark-mcp-server --version
 vmark-mcp-server --port 9223   # legado / manual
 ```
 
+Qualquer outro argumento — uma flag digitada errado, `--port=9223` ou uma palavra solta — é recusado: o programa exibe um erro de uso e sai com o código 64 em vez de recorrer à detecção automática.
+
 ## Como Funciona
 
 ```text
@@ -243,7 +245,7 @@ Assistente de IA <--stdio--> Servidor MCP <--WebSocket--> Editor VMark
 
 ## Capacidades Disponíveis
 
-Quando conectado, seu assistente de IA tem nove ferramentas:
+Quando conectado, seu assistente de IA tem dez ferramentas:
 
 | Ferramenta | O que abrange |
 |------|----------------|
@@ -251,6 +253,7 @@ Quando conectado, seu assistente de IA tem nove ferramentas:
 | `workspace` | Novo, abrir, salvar, salvar como, fechar, trocar de aba, focar uma janela, abrir um espaço de trabalho |
 | `document` | Ler e escrever o documento inteiro como Markdown; transformações de formatação CJK |
 | `selection` | Ler e substituir o texto selecionado |
+| `comments` | Listar os comentários de revisão do documento, respondê-los e marcá-los como atendidos (um assistente não pode resolvê-los) |
 | `workflow` | Patches seguros para a CST e validação de YAML do GitHub Actions |
 | `browser` / `browser_read` | Automação do navegador incorporado no macOS — as metades que alteram e as somente leitura |
 | `coherence` / `coherence_resolve` | Ler a camada de coerência; resolver arestas desatualizadas sob uma delegação que você concedeu |
@@ -325,9 +328,25 @@ Não há etapa de prévia para `document.write`, `selection.set` ou `workflow.ap
 
 ## Pontos de Verificação de Edição
 
-Toda mutação de documento feita pela IA — `document.write`, `document.transform`, `selection.set` e `workflow.apply_patch` — primeiro tira um snapshot do conteúdo que está prestes a substituir. O botão de **histórico** na barra de status abre um popover que lista, para a aba em foco, quando cada escrita da IA aconteceu e qual ferramenta a fez, com um **Restaurar ao estado anterior a esta escrita** de um clique em cada linha e uma ação **Limpar o histórico desta aba**. Restaurar coloca o conteúdo anterior de volta e avança a revisão do documento, então um cliente de IA que ainda tenha a revisão antiga recebe `STALE` na próxima escrita em vez de sobrescrever a sua restauração.
+Cada modificação de documento feita pela IA — `document.write`, `document.transform`, `selection.set` e `workflow.apply_patch` — é registrada no histórico de edição do VMark antes de alterar qualquer coisa. O botão **histórico** na barra de status abre um painel para o documento em foco. Seu contador mostra as versões do documento feitas pela IA, e o botão assume uma cor de aviso quando as alterações não estão sendo registradas. O painel se atualiza ao vivo, em todas as janelas, à medida que versões são registradas.
 
-Os pontos de verificação são mantidos por arquivo — 50 por arquivo e 5 MiB no total — e persistidos em `mcp-checkpoints.jsonl` no diretório de dados do aplicativo VMark, então sobrevivem a uma reinicialização. O arquivo contém o texto anterior completo de cada edição registrada e é criado acessível apenas ao proprietário (`0600` no macOS e no Linux). O rodapé do painel mostra quanto o arquivo ocupa no disco e limpa todo o armazenamento — todos os arquivos e todas as janelas — em uma única ação. Documentos sem título têm pontos de verificação por aba.
+O painel lista as versões do documento, da mais recente para a mais antiga. Cada linha mostra quando aconteceu, que tipo de alteração foi, a ferramenta e quem a fez: o provedor do cliente de IA (por exemplo `claude` ou `codex`), sua conexão e seu rótulo de sessão. Um cliente sem token aparece como **Cliente não identificado**, um token desconhecido como **Credencial não reconhecida** e um token compartilhado por vários clientes como **Credencial compartilhada por vários provedores** — nunca como um provedor, seja qual for o nome que o cliente se dê. **Restaurar esta versão** devolve o texto daquela versão; **Restaurar o estado anterior a esta alteração** devolve o texto anterior. Restaurar incrementa a revisão do documento, então um cliente de IA que ainda tenha a revisão antiga recebe `STALE` na próxima escrita em vez de sobrescrever sua restauração. A própria restauração é registrada: o texto que ela substitui é guardado primeiro, e um documento editado enquanto a restauração estava em andamento não é alterado. Quando o VMark não consegue confirmar que o registro de uma restauração chegou ao disco, ele avisa ao lado do resultado.
+
+Acima das versões, **Revisar alterações da IA** lista as alterações da IA que você ainda não revisou, agrupadas por cliente e sessão; versões cujas alterações estão todas revisadas são resumidas em uma contagem. Cada alteração oferece **Manter** ou **Reverter** (e depois **Desfazer manter** ou **Desfazer reversão**). Uma reversão que sobrescreveria texto que você editou desde então não é aplicada: a alteração é marcada como em conflito e, depois que você o resolver à mão, **Marcar como resolvida** registra isso. Uma alteração cuja posição não pode mais ser certificada diz o motivo e não oferece reversão automática. **Encerrar revisadas** encerra de vez todas as alterações revisadas, após uma confirmação, pois não pode ser desfeito. Um documento comporta no máximo 500 alterações da IA não revisadas: nesse limite um aviso informa isso, e as edições da IA são recusadas com `REVIEW_BACKLOG_FULL` até você revisar e encerrar. Um salvamento que partiu de uma versão diferente da anterior — o documento foi editado em duas janelas — é marcado como tal, com as duas restaurações para desfazer a mesclagem. **Mostrar as duas alterações** abre duas diferenças desse salvamento: *Em relação à versão da qual este salvamento partiu*, e *Em relação à versão anterior*, em relação à versão anterior no histórico.
+
+Em seguida, **Comentários** reúne as conversas de comentários do documento. **Comentar a seleção** cita o texto selecionado no editor (com apenas o cursor, o parágrafo em que ele está) e adiciona o seu comentário; o texto não salvo é registrado primeiro, então um comentário nunca aponta para uma versão anterior. Cada conversa mostra o estado — aberto, tratado, resolvido ou reaberto —, quem a escreveu, o texto citado e as respostas. Os comentários aparecem como texto simples: HTML em um comentário é exibido, nunca executado. Quando o texto citado passa a aparecer várias vezes, a conversa diz quantas; quando ele some, a conversa avisa. Você pode **Responder** em qualquer estado, **Marcar como tratado** uma conversa aberta ou reaberta, **Resolver** e **Reabrir** ou **Excluir** uma resolvida; excluir pede confirmação e não pode ser desfeito. Enquanto um comentário ou uma resposta está sendo enviado, não é possível editá-lo nem cancelá-lo, mesmo se você fechar o painel e abri-lo de novo; se for recusado, é mantido para que você possa alterá-lo e enviá-lo de novo. Só você pode resolver, reabrir ou excluir uma conversa. Uma conversa reaberta depois que a revisão original saiu do histórico mostra *Revisão de criação não é mais mantida* e é comparada com o texto atual.
+
+O topo do painel informa quando as alterações não estão sendo registradas: o histórico não conseguiu iniciar ou é somente leitura, está atrasado (registros na fila, ainda não no disco), o último salvamento deste documento foi recusado ou o histórico não respondeu a tempo, edições de IA foram recusadas em uma janela com páginas abertas demais, ou algumas alterações da IA não podem mais ser revertidas automaticamente. O painel também conta as edições da IA registradas como alterações do documento inteiro porque não foi possível confirmar o trecho alterado. Uma alteração que não pode mais ser revertida automaticamente aparece como **Bloqueado: motivo (origem)** sob a última versão em que sua posição foi certificada, que fica destacada; quando não há nenhuma, o painel informa que a posição não está disponível. Gravações aplicadas mas nunca registradas aparecem em **Gravações não registradas**, cada uma com restaurar e descartar.
+
+Para distinguir várias sessões de um mesmo cliente, defina `VMARK_SESSION_LABEL` na configuração MCP do cliente, ao lado de `VMARK_MCP_TOKEN`:
+
+```json
+"env": { "VMARK_MCP_TOKEN": "…", "VMARK_SESSION_LABEL": "docs refactor" }
+```
+
+O rótulo tem no máximo 128 bytes UTF-8, sem caracteres de controle; um rótulo que viola a regra é descartado com um aviso e o cliente se conecta sem ele. Ele é escolhido pela configuração do cliente, então serve apenas para exibição e não decide nada.
+
+O histórico fica na pasta `agent-journal` do diretório de dados do VMark, então sobrevive a uma reinicialização. A pasta contém o texto anterior completo de cada edição registrada e só é acessível ao proprietário (`0700` no macOS e no Linux). Pontos de verificação de uma versão anterior do VMark (um `mcp-checkpoints.jsonl`, importado na primeira inicialização e depois renomeado) aparecem em **Pontos de verificação anteriores**, uma única lista para todos os documentos e janelas. Restaurar um abre o arquivo dele; um sem título, ou um cujo arquivo não pode mais ser aberto, é restaurado em um novo documento. A seção mostra quanto texto de pontos de verificação é mantido e limpa tudo — cada arquivo e cada janela — em uma única ação, apagando os textos do disco.
 
 ## Notas de Segurança
 

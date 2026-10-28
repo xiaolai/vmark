@@ -35,6 +35,7 @@ import { registerClipboardCommands } from "./clipboardCommands";
 import { registerRecentFilesCommands } from "./recentFilesCommands";
 import { registerRecentWorkspacesCommands } from "./recentWorkspacesCommands";
 import { registerClaimCommands } from "./claimCommands";
+import { registerJournalExportCommands } from "./journalExportCommands";
 import { registerViewCommands } from "./viewCommands";
 import { registerWorkspaceCommands } from "./workspaceCommands";
 import { registerFormatCommands } from "./formatCommands";
@@ -59,6 +60,7 @@ export function registerAllCommands(): () => void {
     registerRecentWorkspacesCommands();
     registerViewCommands();
     registerClaimCommands();
+    registerJournalExportCommands();
     registerFormatCommands();
     registerBrowserCommands();
     registerTabCommands();

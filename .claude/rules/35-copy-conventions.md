@@ -47,13 +47,11 @@ did not stop the "(6:1)" strip.
 
 Punctuation vocabulary:
 
-- `…` never `...` (fixed repo-wide: 91 JSON values + 24 in `en.yml`).
+- `…` never `...`.
 - `→` never `->`; navigation paths read `Settings → Integrations`, never `Settings > X`.
 - Em-dashes are spaced: `word — word`. A doubled `——` and a dash beside CJK text follow CJK rules.
 - Descriptions carry **no trailing period** (Q3). Multi-sentence descriptions
   are the baselined remainder — reword them or revisit Q3 before adding more.
 - Curly quotes around interpolations: `“{{name}}”`, never `"{{name}}"`.
 - Never capitalize INSIDE an interpolation: `{{count}}` is a variable name, and
-  `{{Count}}` silently renders the raw braces (caught live 2026-08-29 — and the
-  placeholder-mismatch check used to fail the run WITHOUT printing why; it is
-  loud now).
+  `{{Count}}` silently renders the raw braces.

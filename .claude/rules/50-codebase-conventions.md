@@ -72,8 +72,9 @@ No bare `console.log`. Add a named `[category]Log` to `src/utils/debug.ts`
 
 ## 10. Rust commands
 
-- Layout: `src-tauri/src/<feature>/{mod.rs,commands.rs}`; register in `lib.rs`
-  `generate_handler![...]`. Commands never panic on input.
+- Layout: `src-tauri/src/<feature>/{mod.rs,commands.rs}`; register in the
+  `all_commands!` list in `command_registry.rs` (`lint:ipc-contract` reads it).
+  Commands never panic on input.
 - **New commands return `Result<T, CommandError>`** (`command_error.rs`);
   `Result<T, String>` is legacy under `pnpm lint:command-errors` (per-file
   count, ratchets down).

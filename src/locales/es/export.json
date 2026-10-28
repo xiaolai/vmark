@@ -49,5 +49,18 @@
   "pdf.pageNumbers.format.verbose": "Página 7 de 12",
   "pdf.warning.outline-failed": "el esquema de la barra lateral",
   "pdf.warning.page-numbers-failed": "los números de página",
-  "pdf.pageNumbers.verboseTemplate": "Página {n} de {total}"
+  "pdf.pageNumbers.verboseTemplate": "Página {n} de {total}",
+  "gitJournal.pickTitle": "Elige la carpeta del repositorio Git",
+  "gitJournal.done_one": "Se exportó {{count}} commit a {{branch}}",
+  "gitJournal.done_other": "Se exportaron {{count}} commits a {{branch}}",
+  "gitJournal.upToDate": "{{branch}} ya está al día",
+  "gitJournal.error.GIT_MISSING": "No se encontró Git. Instala Git y vuelve a intentarlo.",
+  "gitJournal.error.NO_HISTORY": "Este documento aún no tiene historial de edición que exportar.",
+  "gitJournal.error.NOT_A_REPOSITORY": "La carpeta elegida no está dentro de un repositorio Git.",
+  "gitJournal.error.INVALID_REQUEST": "La solicitud de exportación no era válida.",
+  "gitJournal.error.EXPORT_CONFLICT": "La rama de exportación ha cambiado desde la última exportación. Muévela o elimínala y vuelve a exportar.",
+  "gitJournal.error.UNRELATED_BRANCH": "Ya existe una rama con este nombre y no es la exportación de VMark de este documento.",
+  "gitJournal.error.BRANCH_CHECKED_OUT": "La rama de exportación está activa en un worktree. Cambia ese worktree a otra rama primero.",
+  "gitJournal.error.GIT_FAILED": "Git informó de un error durante la exportación. Consulta el registro para más detalles.",
+  "gitJournal.error.JOURNAL_ERROR": "No se pudo leer el historial de edición para la exportación."
 }

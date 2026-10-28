@@ -7,7 +7,8 @@
 // a `structuredError` in each file, and a `typeof args.x === "string"` chain
 // restating a contract that is declared once elsewhere. The copies drifted.
 // This test keeps the handlers migrated: it fails if one of them grows its own
-// resolver, revision check, checkpoint or error helper again, or reads a
+// resolver, revision check or error helper again, records a checkpoint (agent
+// writes are journaled revisions; the checkpoint store is retired), or reads a
 // payload field straight off `args` — and it fails if a new handler module of
 // this surface appears without being held to the rule.
 //
@@ -20,7 +21,6 @@
 //
 // @coordinates-with services/mcpBridge/v2/tabGuard.ts — the shared guard
 // @coordinates-with services/mcpBridge/v2/readOperationArgs.ts — the one payload parse
-// @coordinates-with services/mcpBridge/v2/checkpoint.ts — the one checkpoint recorder
 
 import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -30,7 +30,9 @@ const V2_ROOT = resolve(import.meta.dirname, "..");
 
 /** Handlers that act on a DOCUMENT: each resolves it through the tab guard. */
 const DOCUMENT_HANDLERS = [
+  "comments.ts",
   "document.ts",
+  "documentWrite.ts",
   "selection.ts",
   "workflow.ts",
   "workspaceSave.ts",
@@ -84,17 +86,16 @@ describe.each(ALL_HANDLERS)("%s stays on the shared contract", (file) => {
   });
 
   it("reads its payload with readOperationArgs, never straight off args", () => {
-    expect(source).toContain("readOperationArgs(");
+    expect(source).toMatch(/readOperationArgs(Checked)?\(/);
     // `args` may only be handed on whole; `args.field`, `args?.field` and
     // `args[field]` are hand-written reads.
     expect(source).not.toMatch(/\bargs\s*(\?\.|\.|\[)/);
     expect(source).not.toMatch(/typeof\s+args\b/);
   });
 
-  it("does not check a revision or record a checkpoint by hand", () => {
+  it("does not check a revision by hand, nor record a checkpoint", () => {
     expect(source).not.toContain("isCurrentRevision");
-    expect(source).not.toContain("checkpointPush");
-    expect(source).not.toContain("appendCheckpoint");
+    expect(source).not.toMatch(/checkpointPush|appendCheckpoint|recordBridgeCheckpoint|checkpoint_append/);
   });
 });
 

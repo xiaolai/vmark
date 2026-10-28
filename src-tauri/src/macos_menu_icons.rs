@@ -47,6 +47,7 @@ pub(crate) const MENU_ICONS: &[(&str, &str)] = &[
     // History
     ("clear-workspace-history", "clock.badge.xmark"),
     ("clear-history", "clock.badge.xmark"),
+    ("export-journal-git", "arrow.triangle.branch"),
     // Recent
     ("clear-recent", "trash"),
     ("clear-recent-workspaces", "trash"),

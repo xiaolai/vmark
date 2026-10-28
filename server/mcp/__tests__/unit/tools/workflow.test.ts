@@ -9,7 +9,7 @@
 import { describe, it, expect } from 'vitest';
 import type { BridgeRequest, BridgeResponse } from '../../../src/bridge/core-types.js';
 import { VMarkMcpServer } from '../../../src/server.js';
-import { registerWorkflowTool } from '../../../src/tools/workflow.js';
+import { registerWorkflowTool, WORKFLOW_ACTIONS } from '../../../src/tools/workflow.js';
 import { MockBridge } from '../../mocks/mockBridge.js';
 import { toolJson, toolText } from '../../utils/toolResult.js';
 
@@ -88,6 +88,46 @@ describe('workflow.apply_patch', () => {
   });
 });
 
+describe('workflow.apply_patch — STALE carries machine-readable detail', () => {
+  it('surfaces the parsed STALE envelope in structuredContent, like document.write', async () => {
+    const { server } = harness({
+      'vmark.workflow.apply_patch': () => ({
+        success: false,
+        error: '{"error":"STALE","message":"Document has changed since the last read","current_revision":"r9"}',
+      }),
+    });
+
+    const result = await server.callTool('workflow', { action: 'apply_patch', patches: [], expected_revision: 'r1' });
+
+    expect(result.isError).toBe(true);
+    expect(toolText(result)).toContain('r9');
+    expect(result.structuredContent).toMatchObject({ error: 'STALE', current_revision: 'r9' });
+  });
+
+  it('a refusal that is not STALE stays prose, with no invented structure', async () => {
+    const { server } = harness({
+      'vmark.workflow.apply_patch': () => ({ success: false, error: 'tab is markdown' }),
+    });
+
+    const result = await server.callTool('workflow', { action: 'apply_patch', patches: [] });
+
+    expect(result.isError).toBe(true);
+    expect(toolText(result)).toContain('tab is markdown');
+    expect(result.structuredContent).toBeUndefined();
+  });
+
+  it('a validate refusal is a tool error too', async () => {
+    const { server } = harness({
+      'vmark.workflow.validate': () => ({ success: false, error: 'no such tab' }),
+    });
+
+    const result = await server.callTool('workflow', { action: 'validate', tabId: 'gone' });
+
+    expect(result.isError).toBe(true);
+    expect(toolText(result)).toContain('no such tab');
+  });
+});
+
 describe('workflow.validate', () => {
   it('forwards the tabId and returns the diagnostics payload', async () => {
     const payload = {
@@ -130,6 +170,7 @@ describe('workflow — invalid actions', () => {
 
     expect(result.isError).toBe(true);
     expect(toolText(result)).toContain('Invalid action');
+    expect(toolText(result)).toContain(`Expected one of: ${WORKFLOW_ACTIONS.join(', ')}`);
     expect(bridge.requests).toHaveLength(0);
   });
 });

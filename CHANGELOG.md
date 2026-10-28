@@ -11,6 +11,73 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 ## [Unreleased]
 
+## [0.9.105] - 2026-10-28
+
+### Fixed
+
+- **Right-click menus open at the pointer again.** Since 0.9.55 the editor's
+  right-click menu and the image menu opened in the window's top-left corner,
+  pushed the rest of the window sideways while open, and could leave the
+  selection highlight behind after they closed. Both now open where you click,
+  over the page, and close cleanly.
+- **Find in Files accepts two-character searches** (#1598). The minimum was
+  three characters, which blocked common two-character Chinese, Japanese and
+  Korean words such as 选址 or 招聘. Two characters is now enough, counted the
+  same way for every script, and the "type at least" hint is translated.
+
+## [0.9.104] - 2026-10-28
+
+### Added
+
+- **A durable, reviewable history of AI edits** (#1591). Every edit an AI
+  client makes through VMark's MCP tools is now recorded before it changes
+  anything, in an edit history that survives restarts. The status-bar
+  **history** button opens a panel that lists each revision with when it
+  happened, the tool, and who made it: the client's provider, connection and
+  session. Set `VMARK_SESSION_LABEL` in a client's MCP configuration to tell
+  its sessions apart. A client with no token, an unknown token or a shared
+  token is shown as such, never as the name it gives itself. Any revision can
+  be restored, or the document put back to just before it.
+- **Review AI changes one by one.** *Review AI Changes* groups the changes you
+  have not reviewed yet by client and session. **Keep** or **Revert** each one,
+  and undo either. A revert that would overwrite text you edited since is not
+  applied: the change is marked as conflicting, so your own edits are never
+  lost to it.
+- **Comments you can hand back to the AI.** Select text and choose
+  **Comment on selection** to start a thread. Threads can be replied to, and are open,
+  addressed, resolved or reopened. A new MCP tool, `comments`, lets an AI
+  client read your comments, reply, and mark them addressed. Resolving stays
+  with you. An edit can say which comments it answers, and the history shows
+  the link.
+- **Export Edit History to Git.** *File → Document History → Export Edit
+  History to Git…* copies a document's history into a Git repository as one
+  commit per revision, on a branch of its own. Exporting again adds only what
+  is new.
+
+### Changed
+
+- AI edit replies now say whether the edit was recorded (`applied`,
+  `durable`). New refusals (`JOURNAL_BUSY`, `STALE_PARENT`,
+  `JOURNAL_DEGRADED`, `JOURNAL_UNAVAILABLE`, `INVALID_TEXT`,
+  `REVIEW_BACKLOG_FULL`, `ABORTED`) change nothing, so a client can safely
+  re-read and retry. See the MCP tools guide.
+- Checkpoints from earlier versions are imported once and listed under
+  **Earlier checkpoints** in the history panel.
+
+### Fixed
+
+- Saves to one file now land in the order they were asked for, across
+  documents and windows. A save that a later one has already overtaken is
+  reported as stale instead of silently overwriting it.
+- A **Save As** from an AI client never replaces a file that is not the
+  document's own, even one created while the save was in flight.
+
+### Security
+
+- Dependencies with published security advisories are updated to their
+  patched releases, among them DOMPurify, markdown-it, the MCP SDK, undici,
+  rustls-webpki and tokio.
+
 ## [0.9.103] - 2026-10-20
 
 ### Fixed
@@ -368,7 +435,9 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 - Raised the `markdown-it` version floor past GHSA-253c-mchw-3w2r.
 
-[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.103...HEAD
+[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.105...HEAD
+[0.9.105]: https://github.com/xiaolai/vmark/releases/tag/v0.9.105
+[0.9.104]: https://github.com/xiaolai/vmark/releases/tag/v0.9.104
 [0.9.103]: https://github.com/xiaolai/vmark/releases/tag/v0.9.103
 [0.9.102]: https://github.com/xiaolai/vmark/releases/tag/v0.9.102
 [0.9.101]: https://github.com/xiaolai/vmark/releases/tag/v0.9.101

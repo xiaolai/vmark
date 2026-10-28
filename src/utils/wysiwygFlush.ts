@@ -12,6 +12,11 @@
  *     multiple mounted tabs) is synced to the document store before dirty
  *     content is collected, not just the focused one.
  *
+ * `flushAllWysiwygNow` is best-effort: a flusher's failure does not stop the
+ * rest, and is returned for a caller that must know; `flushWysiwygNow`
+ * flushes one editor and throws its failure, for a caller that must know the
+ * store now holds that editor's text.
+ *
  * @module utils/wysiwygFlush
  */
 
@@ -47,14 +52,31 @@ export function flushActiveWysiwygNow() {
  * Immediately invoke EVERY registered keyed WYSIWYG flusher. Used before
  * collecting dirty documents for Save All so inactive-but-mounted editors are
  * synced from their live editor state rather than stale store content. A
- * throwing flusher does not prevent the others from running.
+ * throwing flusher does not prevent the others from running; the keys whose
+ * flusher threw are returned with their errors.
  */
-export function flushAllWysiwygNow() {
-  for (const flusher of keyedFlushers.values()) {
+export function flushAllWysiwygNow(): ReadonlyMap<string, unknown> {
+  const failed = new Map<string, unknown>();
+  for (const [key, flusher] of keyedFlushers) {
     try {
       flusher();
-    } catch {
+    } catch (error) {
       // Best-effort: one editor failing to flush must not block the rest.
+      failed.set(key, error);
     }
   }
+  return failed;
+}
+
+/**
+ * Immediately invoke the keyed flusher registered for `key`, and report its
+ * failure: a flusher's error is rethrown, and a key with no flusher throws,
+ * because nothing brought the store up to that editor's text. For a caller
+ * that has just changed that editor and must not report the store as current
+ * unless it is.
+ */
+export function flushWysiwygNow(key: string): void {
+  const flusher = keyedFlushers.get(key);
+  if (!flusher) throw new Error(`no WYSIWYG flusher is registered for ${key}`);
+  flusher();
 }

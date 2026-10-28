@@ -8,8 +8,10 @@
 //! allowlist, size caps, connection cap, token comparison, auth state
 //! machine); this file is just the wire shapes.
 
+use super::handshake::AuthOutcome;
+use super::principal::BridgePrincipal;
 use super::types::WsMessage;
-use futures_util::SinkExt;
+use futures_util::{Sink, SinkExt};
 use tokio_tungstenite::tungstenite::Message;
 
 /// The outbound half of a split bridge socket, used directly during the auth
@@ -54,12 +56,56 @@ pub(super) fn auth_result_frame(success: bool) -> WsMessage {
 /// Serialize and write a frame straight to the socket, bypassing the
 /// per-client queue (which does not exist yet during the auth phase).
 /// Returns `false` when the write failed — the caller closes the socket.
-pub(super) async fn send_frame(sink: &mut WsSink, msg: &WsMessage) -> bool {
+pub(super) async fn send_frame<S>(sink: &mut S, msg: &WsMessage) -> bool
+where
+    S: Sink<Message> + Unpin,
+{
     let Ok(json) = serde_json::to_string(msg) else {
         log::error!("[MCP Bridge] Failed to serialize handshake frame");
         return false;
     };
     sink.send(Message::Text(json.into())).await.is_ok()
+}
+
+/// Tell the peer the auth verdict. The principal comes back only when the
+/// acceptance reached the wire; a refusal, an abort or a failed write
+/// closes the socket, and the peer is never registered.
+pub(super) async fn announce_verdict<S>(
+    sink: &mut S,
+    outcome: AuthOutcome,
+    client_id: u64,
+) -> Option<BridgePrincipal>
+where
+    S: Sink<Message> + Unpin,
+{
+    match outcome {
+        AuthOutcome::Accepted(principal) => {
+            if !send_frame(sink, &auth_result_frame(true)).await {
+                let _ = sink.close().await;
+                log::warn!("[MCP Bridge] Peer {client_id} left before its acceptance was sent");
+                return None;
+            }
+            log::debug!(
+                "[MCP Bridge] Client {client_id} authenticated as {}",
+                principal.label()
+            );
+            Some(principal)
+        }
+        AuthOutcome::Rejected => {
+            // `send` flushes, so the rejection is on the wire before the
+            // close — no sleep-and-hope needed now that the auth phase
+            // writes to the socket directly.
+            send_frame(sink, &auth_result_frame(false)).await;
+            let _ = sink.close().await;
+            log::warn!("[MCP Bridge] Peer {client_id} rejected: auth failed");
+            None
+        }
+        AuthOutcome::Aborted => {
+            let _ = sink.close().await;
+            log::warn!("[MCP Bridge] Peer {client_id} auth timeout or transport error");
+            None
+        }
+    }
 }
 
 #[cfg(test)]

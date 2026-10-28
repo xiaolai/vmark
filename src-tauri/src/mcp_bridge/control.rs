@@ -159,7 +159,7 @@ fn announce_started(app: &AppHandle, port: u16) {
 pub async fn mcp_bridge_stop<R: tauri::Runtime>(
     app: AppHandle<R>,
 ) -> Result<McpServerStatus, CommandError> {
-    shutdown(&app).await;
+    shutdown(&app, mcp_bridge::InFlightWrites::Await).await;
     let _ = app.emit("mcp-server:stopped", ());
     Ok(BridgePhase::Stopped.into())
 }
@@ -171,12 +171,12 @@ pub async fn mcp_bridge_stop<R: tauri::Runtime>(
 /// supersede any in-flight loop — its `on_exit` sees a stale generation and
 /// cannot clobber state a later start writes — mark the
 /// bridge stopped, and tear it down.
-async fn shutdown<R: tauri::Runtime>(app: &AppHandle<R>) {
+async fn shutdown<R: tauri::Runtime>(app: &AppHandle<R>, writes: mcp_bridge::InFlightWrites) {
     let bridge = app.state::<McpBridgeState>();
     let lifecycle = bridge.lifecycle();
     let _serial = lifecycle.serialize().await;
     lifecycle.mark_stopped();
-    mcp_bridge::stop_bridge(app).await;
+    mcp_bridge::stop_bridge_with(app, writes).await;
 }
 
 /// Get the current MCP server status.
@@ -206,10 +206,14 @@ pub async fn mcp_bridge_connected_clients(
 
 /// Stop the bridge on app exit. Synchronous (`block_on`) because exit goes
 /// through `std::process::exit`, which waits for nothing — the teardown has
-/// to complete before this returns.
+/// to complete before this returns. Writes already emitted are abandoned
+/// (`InFlightWrites::Abandon`): their answers would have to cross the main
+/// thread this blocks.
 pub fn cleanup<R: tauri::Runtime>(app: &AppHandle<R>) {
     let app_clone = app.clone();
-    tauri::async_runtime::block_on(async move { shutdown(&app_clone).await });
+    tauri::async_runtime::block_on(async move {
+        shutdown(&app_clone, mcp_bridge::InFlightWrites::Abandon).await
+    });
 }
 
 #[cfg(test)]

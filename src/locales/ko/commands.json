@@ -202,5 +202,6 @@
   "edit.cut": "잘라내기",
   "edit.copy": "복사",
   "edit.paste": "붙여넣기",
-  "edit.selectAll": "모두 선택"
+  "edit.selectAll": "모두 선택",
+  "history.exportToGit": "편집 기록을 Git으로 내보내기…"
 }

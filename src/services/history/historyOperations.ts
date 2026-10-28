@@ -24,16 +24,22 @@
  *     the version being restored, if that was the one asked for
  *   - Pruning respects HistorySettings (max count, max age)
  *   - Merge window consolidates consecutive auto-saves into one snapshot
+ *   - The index is written before any file it stops naming is removed, so a
+ *     failed write never leaves an entry whose snapshot file is gone; that
+ *     failure is reported to the caller, never swallowed
+ *   - A pruned index's retention settings are range-checked by the parser:
+ *     they decide which files are deleted
  *   - File size guard skips snapshots for oversized files before any I/O
  *
  * @coordinates-with historyQueue.ts — orders operations per document
  * @coordinates-with historyStorage.ts — paths, and the index/snapshot file steps
+ * @coordinates-with historyFiles.ts — snapshot ids, and removal of unreferenced files
  * @coordinates-with historyTypes.ts — shared types and constants
  * @coordinates-with historyRecovery.ts — removal of whole histories
  * @module services/history/historyOperations
  */
 
-import { mkdir, exists, writeTextFile, remove } from "@tauri-apps/plugin-fs";
+import { mkdir, exists, writeTextFile } from "@tauri-apps/plugin-fs";
 import { join } from "@tauri-apps/api/path";
 import i18n from "@/i18n";
 import { historyLog, historyError } from "@/utils/debug";
@@ -47,6 +53,7 @@ import {
   hashPath,
 } from "@/utils/historyTypes";
 import { serializeHistory } from "./historyQueue";
+import { allocateSnapshotId, removeUnreferenced } from "./historyFiles";
 import {
   getDocHistoryDir,
   getHistoryBaseDir,
@@ -73,7 +80,8 @@ async function createSnapshotStep(
   documentPath: string,
   content: string,
   type: SnapshotType,
-  settings: HistorySettings
+  settings: HistorySettings,
+  journalRevision: string | null = null
 ): Promise<void> {
   try {
     // Compute hash and ensure dir in one pass (avoids double hashPath)
@@ -91,58 +99,42 @@ async function createSnapshotStep(
 
     const timestamp = Date.now();
 
-    // Merge window — replace last auto snapshot if within window
-    if (
-      type === "auto" &&
-      settings.mergeWindowSeconds > 0 &&
-      index.snapshots.length > 0
-    ) {
+    // Merge window — replace last auto snapshot if within window. Its file is
+    // removed only once the index without it is written.
+    let merged: string | null = null;
+    if (type === "auto" && settings.mergeWindowSeconds > 0 && index.snapshots.length > 0) {
       // Sort to ensure we check the actual newest snapshot (defensive against corruption)
       index.snapshots.sort((a, b) => a.timestamp - b.timestamp);
-      const lastSnapshot = index.snapshots[index.snapshots.length - 1];
-      const windowMs = settings.mergeWindowSeconds * 1000;
-      if (
-        lastSnapshot.type === "auto" &&
-        timestamp >= lastSnapshot.timestamp &&
-        timestamp - lastSnapshot.timestamp <= windowMs
-      ) {
-        const oldPath = await join(historyDir, `${lastSnapshot.id}.md`);
-        try {
-          if (await exists(oldPath)) await remove(oldPath);
-          // Only pop if deletion succeeded — avoid orphaning the index reference
-          index.snapshots.pop();
-          historyLog("Merged with previous auto snapshot:", lastSnapshot.id);
-        } catch {
-          historyLog("Merge cleanup failed, keeping both snapshots:", lastSnapshot.id);
-        }
+      const last = index.snapshots[index.snapshots.length - 1];
+      const age = timestamp - last.timestamp;
+      if (last.type === "auto" && age >= 0 && age <= settings.mergeWindowSeconds * 1000) {
+        merged = last.id;
+        index.snapshots.pop();
       }
     }
 
-    // Create snapshot with unique ID (timestamp + random suffix for collision safety)
-    const snapshotId = `${timestamp}-${Math.random().toString(36).slice(2, 8)}`;
-    const snapshotPath = await join(historyDir, `${snapshotId}.md`);
+    // An id no other snapshot holds, in the index or on disk.
+    const { id: snapshotId, path: snapshotPath } = await allocateSnapshotId(historyDir, index, timestamp);
 
-    // Write snapshot content
     await writeTextFile(snapshotPath, content);
 
     // Update index
-    const snapshot: Snapshot = {
-      id: snapshotId,
-      timestamp,
-      type,
-      size: content.length,
-      preview: generatePreview(content),
-    };
+    // Only an `mcp` snapshot carries a journal link; any other kind stores none.
+    const base = { id: snapshotId, timestamp, size: content.length, preview: generatePreview(content) };
+    const snapshot: Snapshot =
+      type === "mcp" && journalRevision !== null ? { ...base, type, journalRevision } : { ...base, type };
 
     index.snapshots.push(snapshot);
     index.status = "active";
     index.deletedAt = null;
     index.settings = settings;
 
-    // Save index
     await saveHistoryIndex(documentPath, index);
+    if (merged !== null) {
+      await removeUnreferenced(historyDir, [merged]);
+      historyLog("Merged with previous auto snapshot:", merged);
+    }
 
-    // Prune old snapshots
     await pruneSnapshotsStep(documentPath);
 
     historyLog(`Created ${type} snapshot:`, snapshotId);
@@ -175,28 +167,17 @@ async function pruneSnapshotsStep(documentPath: string): Promise<void> {
     // Step 3: Identify snapshots to remove
     const toRemove = index.snapshots.filter((s) => !toKeepIds.has(s.id));
 
-    // Delete snapshot files
-    for (const snapshot of toRemove) {
-      try {
-        const snapshotPath = await join(historyDir, `${snapshot.id}.md`);
-        if (await exists(snapshotPath)) {
-          await remove(snapshotPath);
-        }
-      } catch {
-        // Ignore deletion errors for individual snapshots
-      }
-    }
-
-    // Update index with kept snapshots (maintain original order)
+    // Index first: a failed write leaves every file the old index names.
     index.snapshots = index.snapshots.filter((s) => toKeepIds.has(s.id));
     await saveHistoryIndex(documentPath, index);
+    await removeUnreferenced(historyDir, toRemove.map((s) => s.id));
 
     if (toRemove.length > 0) {
       historyLog(`Pruned ${toRemove.length} old snapshots`);
     }
   } catch (error) {
-    /* v8 ignore next -- @preserve reason: catch only fires on Tauri filesystem errors; not reproducible in mocked tests */
     historyError("Failed to prune snapshots:", error);
+    throw error;
   }
 }
 
@@ -211,23 +192,15 @@ async function deleteSnapshotStep(documentPath: string, snapshotId: string): Pro
     const snapshotIndex = index.snapshots.findIndex((s) => s.id === snapshotId);
     if (snapshotIndex === -1) return;
 
-    // Delete snapshot file (tolerate missing)
-    try {
-      const historyDir = await getDocHistoryDir(documentPath);
-      const snapshotPath = await join(historyDir, `${snapshotId}.md`);
-      await remove(snapshotPath);
-    } catch {
-      // File may already be missing — continue to update index
-    }
-
-    // Remove from index and save
+    // Index first: a failed write leaves the entry and its file together.
     index.snapshots.splice(snapshotIndex, 1);
     await saveHistoryIndex(documentPath, index);
+    await removeUnreferenced(await getDocHistoryDir(documentPath), [snapshotId]);
 
     historyLog("Deleted snapshot:", snapshotId);
   } catch (error) {
-    /* v8 ignore next -- @preserve reason: catch only fires on Tauri filesystem errors; not reproducible in mocked tests */
     historyError("Failed to delete snapshot:", error);
+    throw error;
   }
 }
 
@@ -241,13 +214,15 @@ export function getHistoryIndex(documentPath: string): Promise<HistoryIndex | nu
 }
 
 /**
- * Create a new snapshot of the document
+ * Create a new snapshot of the document. `journalRevision` links an `mcp`
+ * snapshot to the agent edit journal; it is ignored for every other type.
  */
 export async function createSnapshot(
   documentPath: string,
   content: string,
   type: SnapshotType,
-  settings: HistorySettings
+  settings: HistorySettings,
+  journalRevision: string | null = null
 ): Promise<void> {
   // File size guard — only for auto-saves; manual/revert always create a safety snapshot
   if (type === "auto" && settings.maxFileSizeKB > 0) {
@@ -265,7 +240,7 @@ export async function createSnapshot(
   }
 
   await serializeHistory(documentPath, () =>
-    createSnapshotStep(documentPath, content, type, settings)
+    createSnapshotStep(documentPath, content, type, settings, journalRevision)
   );
 }
 

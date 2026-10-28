@@ -60,6 +60,9 @@ export const BRIDGE_OPERATIONS = Object.freeze({
   // ── Selection ──
   "vmark.selection.get": { owner: "webview", effect: "read" },
   "vmark.selection.set": { owner: "webview", effect: "write" },
+  "vmark.comments.list": { owner: "webview", effect: "read" },
+  "vmark.comments.reply": { owner: "webview", effect: "write" },
+  "vmark.comments.mark_addressed": { owner: "webview", effect: "write" },
 
   // ── Browser ──
   // `wait` USED to be write-class: its handler activated the target window and

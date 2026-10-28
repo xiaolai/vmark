@@ -4,9 +4,9 @@ vmark:
 ---
 # MCP Tools Reference
 
-VMark exposes **nine composite MCP tools** to AI assistants: `session`, `workspace`, `document`, `workflow`, `selection`, `browser`, `browser_read`, `coherence`, and `coherence_resolve`. Together they cover the editor spine, file/window lifecycle, CST-safe workflow edits, targeted selection edits, bounded browser navigation, and a view of the workspace coherence layer.
+VMark exposes **ten composite MCP tools** to AI assistants: `session`, `workspace`, `document`, `workflow`, `selection`, `comments`, `browser`, `browser_read`, `coherence`, and `coherence_resolve`. Together they cover the editor spine, file/window lifecycle, CST-safe workflow edits, targeted selection edits, bounded browser navigation, and a view of the workspace coherence layer.
 
-Three of the nine — `session`, `browser_read`, and `coherence` — declare `readOnlyHint: true`, so an MCP client can auto-approve them. That is why `browser`/`browser_read` and `coherence`/`coherence_resolve` are separate tools at all: annotations are **per tool**, not per action, so a tool that bundles an ARIA snapshot with `execute_js` has to advertise the danger of `execute_js`. Splitting along "does this modify anything?" lets each half state the truth, and keeps the surface's genuinely destructive actions conspicuous in the tool list.
+Three of the ten — `session`, `browser_read`, and `coherence` — declare `readOnlyHint: true`, so an MCP client can auto-approve them. That is why `browser`/`browser_read` and `coherence`/`coherence_resolve` are separate tools at all: annotations are **per tool**, not per action, so a tool that bundles an ARIA snapshot with `execute_js` has to advertise the danger of `execute_js`. Splitting along "does this modify anything?" lets each half state the truth, and keeps the surface's genuinely destructive actions conspicuous in the tool list.
 
 The previous 12-tool / 76-action surface was pruned because in-document formatting tools (bold, headings, tables, etc.) duplicate work that AI agents already do trivially via Markdown round-trip. `selection` was kept (per ADR-7 of the pruning plan) because the full-doc round-trip is uneconomical on large files — every edit pays the whole document in input tokens, the whole document in output tokens (~5× input price), and a longer write window that widens the stale-revision retry loop. See [the MCP pruning plan](https://github.com/xiaolai/vmark/blob/main/.claude/adr/plans/20260504-mcp-pruning.md) for the full rationale.
 
@@ -159,7 +159,7 @@ Save a tab to its existing path.
 |-----------|------|----------|
 | `tabId` | string | No (defaults to focused) |
 
-Returns `{filePath, revision}`.
+Returns `{filePath, revision, journaled}`.
 
 ### `save_as`
 
@@ -170,12 +170,18 @@ Save a tab to a new path.
 | `tabId` | string | No |
 | `filePath` | string | Yes |
 
-Returns `{revision}`.
+Returns `{revision, journaled}`.
 
 Saving to a path other than the tab's own current file is treated as a new
 write. When **Auto-approve saves to a new location and genie results** (Settings → Integrations) is off (the
 default), such a request is refused with `APPROVAL_REQUIRED` and a toast tells
 you what was blocked. Saving back to the tab's own path is always allowed.
+
+The path check runs again when the save's turn comes in the queue of saves to that file. A path that has left the scope by then (for example, the workspace was closed while the save waited) is refused with `INVALID_PATH`, and nothing is written.
+
+`save_as` never replaces a file that is not the tab's own. A destination that already holds a file is refused with `APPROVAL_REQUIRED` — including a file created after the request was checked, while the save was in flight: the file is written only if nothing is at that path at the moment it is put in place, and the file found there keeps its contents. If the disk cannot write that way, the save is refused rather than overwriting.
+
+A `save` or `save_as` is refused with `STALE` when a save made after this one — from any document or window — already reached that file, for example through a symlink and the file it points to, so this older one wrote nothing. Read the document before writing again. `document.write` reports the same case as `saved: false` with a `save_error`.
 
 ### `close`
 
@@ -240,23 +246,30 @@ Replace full document content.
 | `tabId` | string | No | Target tab (defaults to focused) |
 | `content` | string | Yes | New full content |
 | `expected_revision` | string | No | Revision token from the most recent read |
+| `addresses` | string[] | No | Comment ids from `comments.list` this edit answers (at most 64) |
 | `save` | boolean | No | Also save to disk (default `true`); `false` changes the tab only |
 
 By default the write is saved: the response carries `saved: true`, or `saved: false` with `save_skipped` (`"untitled"` — the tab has no file yet, use `save_as`; `"opt_out"` — you passed `save: false`) or `save_error` (the disk write failed). When the target is the active WYSIWYG tab of a Markdown document, the text is loaded into the live editor (as one undoable step), and what is saved is the editor's serialization of it — the same Markdown, possibly normalized, not necessarily the exact characters sent. Other tabs save the text as sent, line endings normalized.
 
+If the tab is closed after the write changed it but before the save ran, the reply is `saved: false` with a `save_error` saying the tab was closed. Nothing is written to the path the tab held.
+
 Every save an AI client makes — through `write`, `workspace.save` or `workspace.save_as` — is filed in the document's history as an `mcp` snapshot (labelled *(mcp)* in the History sidebar), so the versions an AI wrote stand apart from yours. Like a manual save, it is never merged into a neighbouring autosave or skipped for its size.
+
+Each save reply also carries `journaled` — on `write` only when a save ran. `"yes"`: VMark's agent edit journal recorded the saved text. `"pending"`: it is recorded, and takes its place in the document's history once a write still being recorded finishes. `"no"`: the file is saved, but the journal did not record it. A save is never an error because of the journal.
 
 If `expected_revision` is supplied and the document has changed since that read, the response is a `STALE` structured-error envelope with the current revision; re-read and retry.
 
 ```json
 // success
-{ "revision": "rev-newAfterWrite", "saved": true }
+{ "revision": "rev-newAfterWrite", "applied": true, "durable": true, "saved": true }
 
 // stale
 { "error": "STALE", "message": "Document has changed since the last read", "current_revision": "rev-currentNow" }
 ```
 
 While the user is composing text with an input method (IME) in the WYSIWYG editor showing the tab, the write is refused with `BUSY` and nothing changes: the text being composed belongs to the input method until it is committed. Retry shortly. In Source mode the write is accepted, and the editor shows it once the composition ends.
+
+Every write is recorded in VMark's agent edit journal before anything changes. The success response carries `applied: true` and `durable`: `durable: false` means the content was written but its journal record could not be stored yet — VMark retries it in the background, and until it lands the next write to that document is refused with `JOURNAL_DEGRADED`. If the journal refuses the record outright, the write stays applied, it is logged as unrecorded, and the next write goes ahead. A write is refused, changing nothing, with `JOURNAL_BUSY` while another write to the same document is being recorded (two windows showing one file share one document), with `STALE_PARENT` when another window wrote the document after this tab last did (re-read and retry), with `JOURNAL_UNAVAILABLE` when the journal is not running or does not answer in time, and with `INVALID_TEXT` when `content` holds a lone UTF-16 surrogate. If the user edits the document, closes the tab, starts composing with an input method, or moves the selection (or switches tabs, when no `tabId` was given) while the write is being recorded, the write is refused with `ABORTED` and a `reason` (`edited`, `closed`, `composing`, `selection`) and nothing changes; re-read and retry. An `INTERNAL` error that carries `applied: true` is different: the editor failed after the write had changed the document, and the text it then held was recorded (`durable` as above, `current_revision` the document's revision) — re-read before writing again. An `INTERNAL` error without `applied` after a failed write means the document may be partly changed; re-read it too.
 
 ### `transform`
 
@@ -267,10 +280,11 @@ Apply a deterministic rewrite. Currently supports CJK-specific transforms (full-
 | `tabId` | string | No | Target tab |
 | `kind` | string | Yes | `"cjk-format"`, `"cjk-spacing"`, or `"cjk-punctuation"` |
 | `expected_revision` | string | No | Concurrency token |
+| `addresses` | string[] | No | Comment ids from `comments.list` this edit answers (at most 64) |
 
 `cjk-format` applies the user's CJK formatting settings end-to-end. `cjk-spacing` inserts single spaces between CJK characters and adjacent Latin/digits. `cjk-punctuation` converts ASCII punctuation that sits beside CJK characters to its full-width form.
 
-Returns `{revision}`. Like `write`, it is refused with `BUSY`, changing nothing, while the user is composing with an input method in the WYSIWYG editor showing the tab.
+Returns `{revision, applied, durable}`. Like `write`, it is refused with `BUSY`, changing nothing, while the user is composing with an input method in the WYSIWYG editor showing the tab. Like `write`, it is recorded in VMark's agent edit journal before anything changes: `applied`, `durable` and the journal refusals (`JOURNAL_BUSY`, `STALE_PARENT`, `JOURNAL_DEGRADED`, `JOURNAL_UNAVAILABLE`, `INVALID_TEXT`, `ABORTED`) mean the same; a call that changes nothing is not recorded.
 
 ---
 
@@ -297,6 +311,7 @@ Apply an array of `IRPatch` objects. Patches are dispatched through VMark's CST-
 | `tabId` | string | No |
 | `patches` | IRPatch[] | Yes |
 | `expected_revision` | string | No |
+| `addresses` | string[] | No |
 
 `IRPatch` is a discriminated union (`kind` field). Supported kinds:
 
@@ -310,7 +325,7 @@ Apply an array of `IRPatch` objects. Patches are dispatched through VMark's CST-
 | `needs.add` / `needs.remove` | Add or remove a job ID from `needs:` |
 | `trigger.setFilters` | Replace a trigger filter array — branches, paths, types, etc. (`{event, filter, value: string[]}`) |
 
-Returns `{revision}` on success or a structured `STALE` / `INVALID_PATCH` / `NOT_WORKFLOW` error envelope.
+Returns `{revision, applied, durable}` on success or a structured `STALE` / `INVALID_PATCH` / `NOT_WORKFLOW` error envelope. Like `write`, it is recorded in VMark's agent edit journal before anything changes: `applied`, `durable` and the journal refusals (`JOURNAL_BUSY`, `STALE_PARENT`, `JOURNAL_DEGRADED`, `JOURNAL_UNAVAILABLE`, `INVALID_TEXT`, `ABORTED`) mean the same; a call that changes nothing is not recorded.
 
 ### `validate`
 
@@ -357,14 +372,57 @@ Returns:
 | `tabId` | string | No |
 | `content` | string | Yes |
 | `expected_revision` | string | No (recommended) |
+| `addresses` | string[] | No |
 
 Replaces whatever the editor reports as the current selection. **In WYSIWYG mode**, plain inline text inserts as a literal text node so leading/trailing whitespace round-trips exactly; content carrying markdown markers (`**bold**`, `*italic*`, `` `code` ``, fenced code, blockquotes, lists, etc.) is parsed as markdown and inserted as the corresponding nodes. **In source mode**, `content` is always spliced as raw text — the source surface is already markdown bytes. Empty `content` deletes the selection. When the selection is collapsed, `content` is inserted at the cursor.
 
-Returns `{revision, replaced_chars}` on success. `replaced_chars` is the length of the text that was selected before the call — useful for the AI to confirm it edited what it expected.
+Returns `{revision, replaced_chars, applied, durable}` on success. `replaced_chars` is the length of the text that was selected before the call — useful for the AI to confirm it edited what it expected. Like `write`, it is recorded in VMark's agent edit journal before anything changes: `applied`, `durable` and the journal refusals (`JOURNAL_BUSY`, `STALE_PARENT`, `JOURNAL_DEGRADED`, `JOURNAL_UNAVAILABLE`, `INVALID_TEXT`, `ABORTED`) mean the same; a call that changes nothing is not recorded.
 
 `STALE` returns `{error: "STALE", message, current_revision}` exactly like `document.write`. The doc-level revision catches keystrokes between `get` and `set`. Pure cursor movement (without a keystroke) is not arbitrated by the server — if the user moved the cursor between `get` and `set`, the edit lands at the new position.
 
 `set` returns `BUSY`, changing nothing, while the user is composing text with an input method in the focused editor, in WYSIWYG or Source mode; retry shortly. `get` is never refused for this.
+
+---
+
+## `comments`
+
+Read and answer the user's review comments on a document. Resolving, reopening and deleting a comment are the user's decisions: the tool has no such action, and a call that asks for one is refused before it reaches VMark.
+
+### `list`
+
+| Parameter | Type | Required |
+|-----------|------|----------|
+| `tabId` | string | No |
+| `cursor` | string | No |
+
+Returns `{doc, generation, threads, nextCursor?}`, oldest thread first. Each thread carries its `comment` id, its `state` (`open`, `addressed`, `resolved` or `reopened`), its `commentGen`, the quoted text it is anchored to, and its replies.
+
+A long list comes in pages, each small enough to arrive whole. While `nextCursor` is present, call `list` again with `cursor` set to it. A thread split across pages carries `repliesFrom` and `repliesTotal`; its later parts carry only `comment`, `state`, `commentGen`, `continued: true` and the next replies. A body too long for any page as JSON text (only heavily escaped text) comes as `bodyBase64`, its UTF-8 bytes in base64, in place of `body`. A cursor whose thread was deleted, or one issued for another document, is refused with `STALE_COMMENT`: list again without one.
+
+### `reply`
+
+| Parameter | Type | Required |
+|-----------|------|----------|
+| `tabId` | string | No |
+| `commentId` | string | Yes |
+| `body` | string | Yes |
+| `expectedCommentGen` | string | Yes |
+
+Adds a reply to the thread. VMark mints the reply id itself, so a retried call is answered with the first result and never adds a second reply.
+
+### `mark_addressed`
+
+| Parameter | Type | Required |
+|-----------|------|----------|
+| `tabId` | string | No |
+| `commentId` | string | Yes |
+| `expectedCommentGen` | string | Yes |
+
+Marks the thread addressed. Whether to resolve it stays with the user.
+
+`comments.reply` and `comments.mark_addressed` both name the thread's `commentGen` as `list` returned it. They are refused, changing nothing, with `STALE_COMMENT` when the thread changed or was deleted since (list again), `INVALID_COMMENT` when the comment id is malformed or names no comment of this document, `COMMENT_NOT_ALLOWED` when the thread is resolved, `COMMENT_LIMIT` when the thread has too many replies, the body is too long or the thread can change no more, and the journal refusals `JOURNAL_BUSY`, `JOURNAL_DEGRADED`, `JOURNAL_UNAVAILABLE` and `INVALID_TEXT`.
+
+To say an edit answers comments, pass their ids as `addresses` to `document.write`, `document.transform`, `workflow.apply_patch` or `selection.set`. The link is recorded with the revision and shown in the document's history (a comment deleted later shows as a deleted comment); it moves no thread. More than 64 ids, a repeated id, or an id that is unknown, deleted, resolved or of another document is refused with `INVALID_ADDRESSES`, and nothing changes.
 
 ---
 
@@ -789,12 +847,21 @@ Two error shapes appear:
 
 | Code | Surfaced as | Meaning |
 |---|---|---|
-| `STALE` | envelope | `expected_revision` did not match; re-read and retry |
+| `STALE` | envelope | `expected_revision` did not match; re-read and retry. Or `save` / `save_as`: a save made after this one already reached that file, so this one wrote nothing — read before writing again |
 | `INVALID_PATCH` | envelope | `workflow.apply_patch` received a malformed `patches` array |
 | `INVALID_TAB` | envelope | `tabId` could not be resolved |
 | `INVALID_PATH` | envelope | A `filePath` could not be read, or is outside the open workspace / document scope |
-| `APPROVAL_REQUIRED` | envelope | `save_as` to a new location while **Auto-approve saves to a new location and genie results** is off; or `open_workspace` waiting for the user's approval, or for them to choose the folder in VMark's folder dialog |
+| `APPROVAL_REQUIRED` | envelope | `save_as` to a new location while **Auto-approve saves to a new location and genie results** is off; `save_as` to a path that already holds a file other than the tab's own; or `open_workspace` waiting for the user's approval, or for them to choose the folder in VMark's folder dialog |
 | `BUSY` | envelope | `open_workspace` could not proceed: another folder dialog is open, or a workspace switch is running in that window; the approval is kept — retry. Or `document.write`, `document.transform` or `selection.set` arrived while the user was composing text with an input method; nothing was changed — retry shortly |
+| `JOURNAL_BUSY` | envelope | `document.write` / `document.transform` / `selection.set` / `workflow.apply_patch` arrived while another write to the same document was being recorded; nothing was changed — retry shortly |
+| `WRITE_BUSY` | string | A write-class call (`document.write` / `document.transform`, `selection.set`, `workflow.apply_patch`, `comments.reply` / `mark_addressed`, `coherence_resolve`, …) waited 3 s behind another write without its turn; it was not applied — retry |
+| `TIMEOUT` | string | A `coherence` or `coherence_resolve` call did not finish within 20 s. For a write (`edges`, `resolve`) it is still running and its outcome is unknown — read the current state before retrying |
+| `STALE_PARENT` | envelope | `document.write` / `document.transform` / `selection.set` / `workflow.apply_patch`: another window wrote the document after this tab last did; nothing was changed — re-read and retry |
+| `JOURNAL_DEGRADED` | envelope | `document.write` / `document.transform` / `selection.set` / `workflow.apply_patch`: an earlier journal record for this document is still waiting to be stored; nothing was changed — retry in a few seconds |
+| `JOURNAL_UNAVAILABLE` | envelope | `document.write` / `document.transform` / `selection.set` / `workflow.apply_patch`: the agent edit journal is not running or cannot record; nothing was changed |
+| `INVALID_TEXT` | envelope | `document.write` / `document.transform` / `selection.set` / `workflow.apply_patch`: `content` contains a lone UTF-16 surrogate; nothing was changed |
+| `REVIEW_BACKLOG_FULL` | envelope | `document.write`: the document has too many unreviewed AI changes; nothing was changed |
+| `ABORTED` | envelope | `document.write` / `document.transform` / `selection.set` / `workflow.apply_patch`: the user edited, closed, composed in or moved the selection of the document while the write was being recorded; `reason` says which; nothing was changed — re-read and retry |
 | `NOT_WORKFLOW` | envelope | `workflow.*` was called on a non-YAML-workflow tab |
 | `READ_ONLY` | envelope | A mutation was attempted on a read-only document |
 | `NO_EDITOR` | envelope | `selection.*` was called but the focused tab has no live editor |

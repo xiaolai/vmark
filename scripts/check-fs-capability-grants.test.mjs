@@ -38,7 +38,7 @@
  * invoke `write_file` directly.
  */
 import { createRequire } from "node:module";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -131,7 +131,9 @@ function fsImports(file, source) {
 
 // All of `src/`, filtered here: a `src/**/*.ts` pathspec skips files directly in `src/`.
 const productionSources = execFileSync("git", ["ls-files", "--", "src"], { cwd: ROOT, encoding: "utf8" })
-  .trim().split("\n").filter((f) => /\.tsx?$/.test(f) && !f.endsWith(".d.ts") && !isTest(f));
+  .trim().split("\n").filter((f) => /\.tsx?$/.test(f) && !f.endsWith(".d.ts") && !isTest(f))
+  // A file deleted in the working tree but not yet in the index has nothing to read.
+  .filter((f) => existsSync(join(ROOT, f)));
 
 /** Export name → files that import it, across all production sources. */
 const usedExports = new Map();

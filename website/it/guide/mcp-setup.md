@@ -229,6 +229,8 @@ vmark-mcp-server --version
 vmark-mcp-server --port 9223   # legacy / manuale
 ```
 
+Qualsiasi altro argomento — un flag scritto male, `--port=9223` o una parola in più — viene rifiutato: il programma stampa un errore di utilizzo ed esce con codice 64 invece di ripiegare sul rilevamento automatico.
+
 ## Come Funziona
 
 ```text
@@ -243,7 +245,7 @@ Assistente IA <--stdio--> Server MCP <--WebSocket--> Editor VMark
 
 ## Capacità Disponibili
 
-Quando connesso, il tuo assistente IA dispone di nove strumenti:
+Quando connesso, il tuo assistente IA dispone di dieci strumenti:
 
 | Strumento | Cosa copre |
 |------|----------------|
@@ -251,6 +253,7 @@ Quando connesso, il tuo assistente IA dispone di nove strumenti:
 | `workspace` | Nuovo, apri, salva, salva con nome, chiudi, cambia scheda, porta il focus su una finestra, apri un workspace |
 | `document` | Leggere e scrivere l'intero documento come Markdown; trasformazioni di formattazione CJK |
 | `selection` | Leggere e sostituire il testo selezionato |
+| `comments` | Elencare i commenti di revisione del documento, rispondere e segnarli come gestiti (un assistente non può risolverli) |
 | `workflow` | Patch sicure per il CST e validazione per lo YAML di GitHub Actions |
 | `browser` / `browser_read` | Automazione del browser integrato su macOS — la metà che modifica e quella in sola lettura |
 | `coherence` / `coherence_resolve` | Leggere il livello di coerenza; risolvere i collegamenti obsoleti in base a una delega che hai concesso |
@@ -325,9 +328,25 @@ Non c'è un passaggio di anteprima per `document.write`, `selection.set` o `work
 
 ## Checkpoint delle Modifiche
 
-Ogni modifica di un documento da parte dell'IA — `document.write`, `document.transform`, `selection.set` e `workflow.apply_patch` — salva prima un'istantanea del contenuto che sta per sostituire. Il pulsante **cronologia** nella barra di stato apre un popover che elenca, per la scheda attiva, quando è avvenuta ogni scrittura dell'IA e quale strumento l'ha eseguita, con **Ripristina allo stato precedente a questa scrittura** in un clic su ogni riga e un'azione **Cancella la cronologia di questa scheda**. Il ripristino rimette il contenuto precedente e incrementa la revisione del documento, così un client IA che conserva ancora la vecchia revisione riceve `STALE` alla scrittura successiva invece di sovrascrivere il tuo ripristino.
+Ogni modifica di un documento da parte dell’IA — `document.write`, `document.transform`, `selection.set` e `workflow.apply_patch` — viene registrata nella cronologia delle modifiche di VMark prima di cambiare qualsiasi cosa. Il pulsante **cronologia** nella barra di stato apre un pannello per il documento attivo. Il suo contatore indica le versioni del documento fatte dall’IA, e il pulsante assume un colore di avviso quando le modifiche non vengono registrate. Il pannello si aggiorna in tempo reale, in ogni finestra, man mano che le versioni vengono registrate.
 
-I checkpoint vengono conservati per file — 50 per file e 5 MiB in totale — e salvati in `mcp-checkpoints.jsonl` nella directory dati dell'app VMark, quindi sopravvivono a un riavvio. Il file contiene il testo precedente completo di ogni modifica registrata e viene creato accessibile solo al proprietario (`0600` su macOS e Linux). Il piè di pagina del pannello mostra quanto spazio occupa il file su disco e cancella l'intero archivio — tutti i file e tutte le finestre — con una sola azione. I documenti senza titolo hanno checkpoint per scheda.
+Il pannello elenca le versioni del documento, dalla più recente. Ogni riga mostra quando è avvenuta, che tipo di modifica era, lo strumento e chi l’ha fatta: il fornitore del client IA (per esempio `claude` o `codex`), la sua connessione e la sua etichetta di sessione. Un client senza token appare come **Client non identificato**, un token sconosciuto come **Credenziale non riconosciuta** e un token condiviso da più client come **Credenziale condivisa da più fornitori** — mai come un fornitore, qualunque nome il client si dia. **Ripristina questa versione** rimette il testo di quella versione; **Ripristina lo stato precedente a questa modifica** rimette il testo precedente. Il ripristino incrementa la revisione del documento, così un client IA che detiene ancora la vecchia revisione riceve `STALE` alla scrittura successiva invece di sovrascrivere il ripristino. Anche il ripristino viene registrato: il testo che sostituisce viene conservato prima, e un documento modificato mentre il ripristino era in corso non viene toccato. Quando VMark non riesce a confermare che la voce di un ripristino sia arrivata sul disco, te lo segnala accanto al risultato.
+
+Sopra le versioni, **Rivedi le modifiche dell’IA** elenca le modifiche dell’IA che non hai ancora rivisto, raggruppate per client e sessione; le versioni le cui modifiche sono tutte riviste sono riassunte in un conteggio. Ogni modifica offre **Mantieni** o **Ripristina** (e poi **Annulla mantenimento** o **Annulla ripristino**). Un ripristino che sovrascriverebbe testo che hai modificato nel frattempo non viene applicato: la modifica è segnata come in conflitto e, quando l’hai risolto a mano, **Segna come gestita** lo registra. Una modifica la cui posizione non può più essere certificata ne indica il motivo e non offre il ripristino automatico. **Chiudi riviste** chiude per sempre tutte le modifiche riviste, dopo una conferma, perché non si può annullare. Un documento contiene al massimo 500 modifiche dell’IA non riviste: a quel limite un avviso lo segnala e le modifiche dell’IA vengono rifiutate con `REVIEW_BACKLOG_FULL` finché non rivedi e chiudi. Un salvataggio partito da una versione diversa da quella precedente — il documento è stato modificato in due finestre — viene segnalato come tale, con entrambi i ripristini per annullare l’unione. **Mostra entrambe le modifiche** apre due differenze di quel salvataggio: *Rispetto alla versione da cui è partito questo salvataggio*, e *Rispetto alla versione precedente*, rispetto alla versione che lo precede nella cronologia.
+
+Seguono, in **Commenti**, le discussioni dei commenti del documento. **Commenta la selezione** cita il testo selezionato nell’editor (con il solo cursore, il paragrafo in cui si trova) e aggiunge il tuo commento; il testo non salvato viene registrato prima, così un commento non punta mai a una versione precedente. Ogni discussione mostra il suo stato — aperto, gestito, risolto o riaperto —, chi l’ha scritta, il testo citato e le risposte. I commenti sono mostrati come testo semplice: l’HTML in un commento viene visualizzato, mai eseguito. Quando il testo citato ora compare più volte, la discussione dice quante; quando non c’è più, la discussione lo segnala. Puoi **Rispondere** in qualsiasi stato, **Segnare come gestito** una discussione aperta o riaperta, **Risolverla**, e **Riaprire** o **Eliminare** una discussione risolta; l’eliminazione chiede conferma e non può essere annullata. Mentre un commento o una risposta viene inviato, non può essere modificato né annullato, anche se chiudi e riapri il pannello; se viene rifiutato resta lì, così puoi cambiarlo e inviarlo di nuovo. Solo tu puoi risolvere, riaprire o eliminare una discussione. Una discussione riaperta dopo che la sua revisione originale è stata rimossa dalla cronologia mostra *Revisione di creazione non più conservata* e viene confrontata con il testo attuale.
+
+La parte superiore del pannello indica quando le modifiche non vengono registrate: la cronologia non è riuscita ad avviarsi o è di sola lettura, è in ritardo (voci in coda non ancora su disco), l’ultimo salvataggio di questo documento è stato rifiutato o la cronologia non ha risposto in tempo, le modifiche dell’IA sono state rifiutate in una finestra con troppe pagine aperte, oppure alcune modifiche dell’IA non possono più essere annullate automaticamente. Il pannello conta anche le modifiche dell’IA registrate come modifiche all’intero documento perché non è stato possibile confermare l’intervallo modificato. Una modifica che non può più essere annullata automaticamente si legge **Bloccato: motivo (origine)** sotto l’ultima versione in cui la sua posizione era certificata, che viene evidenziata; se non ce n’è nessuna, il pannello indica che la posizione non è disponibile. Le scritture applicate ma mai registrate sono elencate in **Scritture non registrate**, ciascuna con ripristino e scarto.
+
+Per distinguere più sessioni di uno stesso client, imposta `VMARK_SESSION_LABEL` nella configurazione MCP del client, accanto a `VMARK_MCP_TOKEN`:
+
+```json
+"env": { "VMARK_MCP_TOKEN": "…", "VMARK_SESSION_LABEL": "docs refactor" }
+```
+
+L’etichetta è lunga al massimo 128 byte UTF-8, senza caratteri di controllo; un’etichetta che viola la regola viene scartata con un avviso e il client si connette senza di essa. È scelta dalla configurazione del client, quindi serve solo alla visualizzazione e non decide nulla.
+
+La cronologia è conservata nella cartella `agent-journal` nella directory dei dati di VMark, quindi sopravvive a un riavvio. La cartella contiene il testo precedente completo di ogni modifica registrata ed è accessibile solo al proprietario (`0700` su macOS e Linux). I checkpoint di una versione precedente di VMark (un `mcp-checkpoints.jsonl`, importato al primo avvio e poi rinominato) sono elencati in **Checkpoint precedenti**, un unico elenco per tutti i documenti e le finestre. Ripristinarne uno apre il suo file; uno senza titolo, o uno il cui file non si può più aprire, viene ripristinato in un nuovo documento. La sezione mostra quanto testo dei checkpoint è conservato e lo cancella tutto — ogni file e ogni finestra — con un’unica azione, eliminando i testi dal disco.
 
 ## Note sulla Sicurezza
 

@@ -60,6 +60,7 @@ export const en = {
           "ai-providers": "AI Providers",
           "mcp-setup": "MCP Setup",
           "mcp-tools": "MCP Tools Reference",
+          "edit-history-git": "Edit History in Git",
           "lint": "Markdown Lint",
           "link-check": "Link Check",
           "settings": "Settings",

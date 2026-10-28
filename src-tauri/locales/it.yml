@@ -41,6 +41,7 @@ menu:
   file.docHistory: "Cronologia documento"
   file.docHistory.clearWorkspace: "Cancella cronologia spazio di lavoro..."
   file.docHistory.clearAll: "Cancella tutta la cronologia..."
+  file.docHistory.exportToGit: "Esporta cronologia modifiche in Git..."
   file.print: "Stampa..."
 
   # File menu — Windows/Linux extras
@@ -311,6 +312,9 @@ errors:
   save.parentMissing: "La cartella di questo file non esiste più: %{dir}"
   save.noParentDirectory: "Il percorso del file non ha una cartella superiore"
   save.symlinkLoop: "L'alias di questo file punta in circolo, quindi il file reale non è stato trovato"
+  save.targetExists: "Esiste già un file in %{path}, quindi non è stato sostituito"
+  save.superseded: "Un salvataggio fatto dopo questo ha già raggiunto %{path}, quindi questo più vecchio non è stato scritto"
+  save.noReplaceUnsupported: "Questo disco non può salvare senza sostituire un file esistente, quindi %{path} non è stato salvato"
   save.writeFailed: "Impossibile salvare il file: %{detail}"
   window.pdfExportMenu: "Impossibile assegnare una barra dei menu vuota alla finestra Esporta PDF: %{detail}"
   window.pdfExportCreate: "Impossibile aprire la finestra Esporta PDF: %{detail}"
@@ -353,7 +357,7 @@ errors:
   hotExit.captureTimeout: "Timeout cattura: nessuna finestra ha risposto"
 
   # === Content search ===
-  search.queryTooShort: "La query deve contenere almeno 3 caratteri"
+  search.queryTooShort: "La query deve contenere almeno %{min} caratteri"
 
   # === CLI install ===
   cli.noFile: "L'installazione sembra riuscita ma il file non è stato creato."

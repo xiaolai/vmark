@@ -1,8 +1,8 @@
 # MCP-Tools-Referenz
 
-VMark stellt KI-Assistenten **neun zusammengesetzte MCP-Tools** zur Verfügung: `session`, `workspace`, `document`, `workflow`, `selection`, `browser`, `browser_read`, `coherence` und `coherence_resolve`. Zusammen decken sie das Editor-Rückgrat, den Datei- und Fenster-Lebenszyklus, CST-sichere Workflow-Bearbeitungen, gezielte Bearbeitungen der Auswahl, begrenzte Browser-Navigation und eine Sicht auf die Kohärenzschicht des Arbeitsbereichs ab.
+VMark stellt KI-Assistenten **zehn zusammengesetzte MCP-Tools** zur Verfügung: `session`, `workspace`, `document`, `workflow`, `selection`, `comments`, `browser`, `browser_read`, `coherence` und `coherence_resolve`. Zusammen decken sie das Editor-Rückgrat, den Datei- und Fenster-Lebenszyklus, CST-sichere Workflow-Bearbeitungen, gezielte Bearbeitungen der Auswahl, begrenzte Browser-Navigation und eine Sicht auf die Kohärenzschicht des Arbeitsbereichs ab.
 
-Drei der neun — `session`, `browser_read` und `coherence` — deklarieren `readOnlyHint: true`, sodass ein MCP-Client sie automatisch genehmigen kann. Genau deshalb sind `browser`/`browser_read` und `coherence`/`coherence_resolve` überhaupt getrennte Tools: Annotationen gelten **pro Tool**, nicht pro Aktion, sodass ein Tool, das einen ARIA-Snapshot mit `execute_js` bündelt, die Gefahr von `execute_js` ausweisen müsste. Die Aufteilung entlang der Frage „Verändert dies etwas?“ lässt jede Hälfte die Wahrheit sagen und hält die wirklich destruktiven Aktionen der Oberfläche in der Tool-Liste auffällig.
+Drei der zehn — `session`, `browser_read` und `coherence` — deklarieren `readOnlyHint: true`, sodass ein MCP-Client sie automatisch genehmigen kann. Genau deshalb sind `browser`/`browser_read` und `coherence`/`coherence_resolve` überhaupt getrennte Tools: Annotationen gelten **pro Tool**, nicht pro Aktion, sodass ein Tool, das einen ARIA-Snapshot mit `execute_js` bündelt, die Gefahr von `execute_js` ausweisen müsste. Die Aufteilung entlang der Frage „Verändert dies etwas?“ lässt jede Hälfte die Wahrheit sagen und hält die wirklich destruktiven Aktionen der Oberfläche in der Tool-Liste auffällig.
 
 Die frühere Oberfläche mit 12 Tools und 76 Aktionen wurde reduziert, weil dokumentinterne Formatierungs-Tools (Fettdruck, Überschriften, Tabellen usw.) Arbeit duplizieren, die KI-Agenten ohnehin trivial über einen Markdown-Roundtrip erledigen. `selection` wurde beibehalten (gemäß ADR-7 des Pruning-Plans), weil der Roundtrip über das gesamte Dokument bei großen Dateien unwirtschaftlich ist — jede Bearbeitung bezahlt das ganze Dokument an Eingabe-Tokens, das ganze Dokument an Ausgabe-Tokens (~5× Eingabepreis) und ein längeres Schreibfenster, das die Wiederholungsschleife bei veralteten Revisionen vergrößert. Die vollständige Begründung steht im [MCP-Pruning-Plan](https://github.com/xiaolai/vmark/blob/main/.claude/adr/plans/20260504-mcp-pruning.md).
 
@@ -143,7 +143,7 @@ Einen Tab unter seinem bestehenden Pfad speichern.
 |-----------|-----|--------------|
 | `tabId` | string | Nein (Standard ist der fokussierte) |
 
-Gibt `{filePath, revision}` zurück.
+Gibt `{filePath, revision, journaled}` zurück.
 
 ### `save_as`
 
@@ -154,9 +154,15 @@ Einen Tab unter einem neuen Pfad speichern.
 | `tabId` | string | Nein |
 | `filePath` | string | Ja |
 
-Gibt `{revision}` zurück.
+Gibt `{revision, journaled}` zurück.
 
 Das Speichern unter einem anderen Pfad als der aktuellen Datei des Tabs wird als neuer Schreibvorgang behandelt. Wenn **Speichern an neuem Ort und Genie-Ergebnisse automatisch genehmigen** (Einstellungen → Integrationen) aus ist (Standard), wird eine solche Anfrage mit `APPROVAL_REQUIRED` abgelehnt, und eine Benachrichtigung teilt Ihnen mit, was blockiert wurde. Das Zurückspeichern unter dem eigenen Pfad des Tabs ist immer erlaubt.
+
+Die Pfadprüfung läuft erneut, wenn das Speichern in der Warteschlange der Speichervorgänge für diese Datei an der Reihe ist. Ein Pfad, der bis dahin den zulässigen Bereich verlassen hat (etwa weil der Arbeitsbereich geschlossen wurde, während das Speichern wartete), wird mit `INVALID_PATH` abgelehnt, und es wird nichts geschrieben.
+
+`save_as` ersetzt nie eine Datei, die nicht die eigene Datei des Tabs ist. Ein Ziel, an dem bereits eine Datei liegt, wird mit `APPROVAL_REQUIRED` abgelehnt — auch eine Datei, die erst nach der Prüfung der Anfrage entstanden ist, während das Speichern lief: Die Datei wird nur geschrieben, wenn in dem Moment, in dem sie an ihren Platz kommt, nichts unter diesem Pfad liegt, und die dort gefundene Datei behält ihren Inhalt. Kann das Laufwerk so nicht schreiben, wird das Speichern abgelehnt, statt zu überschreiben.
+
+Ein `save` oder `save_as` wird mit `STALE` abgelehnt, wenn bereits ein nach diesem vorgenommenes Speichern — aus einem beliebigen Dokument oder Fenster — diese Datei erreicht hat (zum Beispiel über einen Symlink und die Datei, auf die er zeigt), sodass dieses ältere nichts geschrieben hat. Das Dokument vor einem erneuten Schreiben lesen. `document.write` meldet denselben Fall als `saved: false` mit einem `save_error`.
 
 ### `close`
 
@@ -218,23 +224,30 @@ Den vollständigen Dokumentinhalt ersetzen.
 | `tabId` | string | Nein | Ziel-Tab (Standard ist der fokussierte) |
 | `content` | string | Ja | Neuer Gesamtinhalt |
 | `expected_revision` | string | Nein | Revisions-Token aus dem letzten read |
+| `addresses` | string[] | Nein | Kommentar-IDs aus `comments.list`, die diese Bearbeitung beantwortet (höchstens 64) |
 | `save` | boolean | Nein | Auch auf dem Datenträger speichern (Standard `true`); `false` ändert nur den Tab |
 
 Standardmäßig wird der Schreibvorgang gespeichert: Die Antwort trägt `saved: true` oder `saved: false` mit `save_skipped` (`"untitled"` — der Tab hat noch keine Datei, verwenden Sie `save_as`; `"opt_out"` — Sie haben `save: false` übergeben) oder `save_error` (das Schreiben auf den Datenträger ist fehlgeschlagen). Ist das Ziel der aktive WYSIWYG-Tab eines Markdown-Dokuments, wird der Text in den laufenden Editor geladen (als ein rückgängig machbarer Schritt), und gespeichert wird dessen Serialisierung durch den Editor — dasselbe Markdown, möglicherweise normalisiert, nicht unbedingt genau die gesendeten Zeichen. Andere Tabs speichern den Text wie gesendet, mit normalisierten Zeilenenden.
 
+Wird der Tab geschlossen, nachdem der Schreibvorgang ihn geändert hat, aber bevor gespeichert wurde, lautet die Antwort `saved: false` mit einem `save_error`, der meldet, dass der Tab geschlossen wurde. In den Pfad, den der Tab hatte, wird nichts geschrieben.
+
 Jede Speicherung durch einen KI-Client — über `write`, `workspace.save` oder `workspace.save_as` — wird im Verlauf des Dokuments als `mcp`-Snapshot abgelegt (in der Verlaufs-Seitenleiste mit *(mcp)* beschriftet), sodass sich die von einer KI geschriebenen Versionen von Ihren abheben. Wie eine manuelle Speicherung wird sie nie mit einer benachbarten automatischen Speicherung zusammengeführt oder wegen ihrer Größe übersprungen.
+
+Jede Antwort auf eine Speicherung enthält außerdem `journaled` — bei `write` nur, wenn gespeichert wurde. `"yes"`: VMarks Agent-Bearbeitungsjournal hat den gespeicherten Text aufgezeichnet. `"pending"`: er ist aufgezeichnet und erhält seinen Platz in der Dokumentgeschichte, sobald ein noch laufender Schreibvorgang aufgezeichnet ist. `"no"`: die Datei ist gespeichert, das Journal hat sie aber nicht aufgezeichnet. Wegen des Journals ist eine Speicherung nie ein Fehler.
 
 Wird `expected_revision` übergeben und das Dokument hat sich seit diesem Lesevorgang geändert, ist die Antwort eine strukturierte Fehlerhülle `STALE` mit der aktuellen Revision; erneut lesen und wiederholen.
 
 ```json
 // success
-{ "revision": "rev-newAfterWrite", "saved": true }
+{ "revision": "rev-newAfterWrite", "applied": true, "durable": true, "saved": true }
 
 // stale
 { "error": "STALE", "message": "Document has changed since the last read", "current_revision": "rev-currentNow" }
 ```
 
 Während der Benutzer im WYSIWYG-Editor, der den Tab anzeigt, mit einer Eingabemethode (IME) Text komponiert, wird der Schreibvorgang mit `BUSY` abgelehnt und nichts ändert sich: Der Text in Komposition gehört der Eingabemethode, bis er bestätigt ist. Kurz darauf erneut versuchen. Im Quellmodus wird der Schreibvorgang angenommen, und der Editor zeigt ihn, sobald die Komposition endet.
+
+Jeder Schreibvorgang wird im Agenten-Bearbeitungsjournal von VMark festgehalten, bevor sich etwas ändert. Die Erfolgsantwort enthält `applied: true` und `durable`: `durable: false` bedeutet, dass der Inhalt geschrieben wurde, sein Journaleintrag aber noch nicht gespeichert werden konnte — VMark wiederholt das im Hintergrund, und bis dahin wird der nächste Schreibvorgang in dieses Dokument mit `JOURNAL_DEGRADED` abgelehnt. Lehnt das Journal den Eintrag ganz ab, bleibt der Schreibvorgang angewendet, wird als nicht erfasst protokolliert, und der nächste Schreibvorgang läuft normal. Ein Schreibvorgang wird ohne Änderung abgelehnt: mit `JOURNAL_BUSY`, solange ein anderer Schreibvorgang in dasselbe Dokument festgehalten wird (zwei Fenster mit derselben Datei teilen sich ein Dokument), mit `STALE_PARENT`, wenn ein anderes Fenster das Dokument nach dem letzten Schreibvorgang dieses Tabs geschrieben hat (neu lesen und erneut versuchen), mit `JOURNAL_UNAVAILABLE`, wenn das Journal nicht läuft oder nicht rechtzeitig antwortet, und mit `INVALID_TEXT`, wenn `content` ein einzelnes UTF-16-Surrogat enthält. Bearbeitet der Benutzer das Dokument, schließt den Tab, beginnt mit einer Eingabemethode zu komponieren oder verschiebt die Auswahl (oder wechselt den Tab, wenn kein `tabId` angegeben wurde), während der Schreibvorgang festgehalten wird, wird er mit `ABORTED` und einem `reason` (`edited`, `closed`, `composing`, `selection`) abgelehnt, und nichts ändert sich; neu lesen und erneut versuchen. Ein `INTERNAL`-Fehler mit `applied: true` ist etwas anderes: Der Editor ist ausgefallen, nachdem der Schreibvorgang das Dokument bereits geändert hatte, und der Text, den es dann enthielt, wurde festgehalten (`durable` wie oben, `current_revision` ist die Revision des Dokuments) – vor dem nächsten Schreiben neu lesen. Ein `INTERNAL`-Fehler ohne `applied` nach einem fehlgeschlagenen Schreibvorgang bedeutet, dass das Dokument teilweise geändert sein kann; auch dann neu lesen.
 
 ### `transform`
 
@@ -245,10 +258,11 @@ Eine deterministische Umschreibung anwenden. Aktuell werden CJK-spezifische Tran
 | `tabId` | string | Nein | Ziel-Tab |
 | `kind` | string | Ja | `"cjk-format"`, `"cjk-spacing"` oder `"cjk-punctuation"` |
 | `expected_revision` | string | Nein | Nebenläufigkeits-Token |
+| `addresses` | string[] | Nein | Kommentar-IDs aus `comments.list`, die diese Bearbeitung beantwortet (höchstens 64) |
 
 `cjk-format` wendet die CJK-Formatierungseinstellungen des Benutzers durchgehend an. `cjk-spacing` fügt einzelne Leerzeichen zwischen CJK-Zeichen und benachbarten lateinischen Zeichen oder Ziffern ein. `cjk-punctuation` konvertiert ASCII-Interpunktion, die neben CJK-Zeichen steht, in ihre Vollbreitenform.
 
-Gibt `{revision}` zurück. Wie `write` wird es mit `BUSY` abgelehnt, ohne etwas zu ändern, während der Benutzer im WYSIWYG-Editor, der den Tab anzeigt, mit einer Eingabemethode komponiert.
+Gibt `{revision, applied, durable}` zurück. Wie `write` wird es mit `BUSY` abgelehnt, ohne etwas zu ändern, während der Benutzer im WYSIWYG-Editor, der den Tab anzeigt, mit einer Eingabemethode komponiert. Wie `write` wird der Aufruf im Agenten-Bearbeitungsjournal von VMark festgehalten, bevor sich etwas ändert: `applied`, `durable` und die Journal-Ablehnungen (`JOURNAL_BUSY`, `STALE_PARENT`, `JOURNAL_DEGRADED`, `JOURNAL_UNAVAILABLE`, `INVALID_TEXT`, `ABORTED`) bedeuten dasselbe; ein Aufruf, der nichts ändert, wird nicht festgehalten.
 
 ---
 
@@ -275,6 +289,7 @@ Ein Array von `IRPatch`-Objekten anwenden. Patches werden über die CST-bewusste
 | `tabId` | string | Nein |
 | `patches` | IRPatch[] | Ja |
 | `expected_revision` | string | Nein |
+| `addresses` | string[] | Nein |
 
 `IRPatch` ist eine diskriminierte Vereinigung (`kind`-Feld). Unterstützte Arten:
 
@@ -288,7 +303,7 @@ Ein Array von `IRPatch`-Objekten anwenden. Patches werden über die CST-bewusste
 | `needs.add` / `needs.remove` | Eine Job-ID zu `needs:` hinzufügen oder daraus entfernen |
 | `trigger.setFilters` | Ein Trigger-Filter-Array ersetzen — Branches, Pfade, Typen usw. (`{event, filter, value: string[]}`) |
 
-Gibt bei Erfolg `{revision}` zurück oder eine strukturierte Fehlerhülle `STALE` / `INVALID_PATCH` / `NOT_WORKFLOW`.
+Gibt bei Erfolg `{revision, applied, durable}` zurück oder eine strukturierte Fehlerhülle `STALE` / `INVALID_PATCH` / `NOT_WORKFLOW`. Wie `write` wird der Aufruf im Agenten-Bearbeitungsjournal von VMark festgehalten, bevor sich etwas ändert: `applied`, `durable` und die Journal-Ablehnungen (`JOURNAL_BUSY`, `STALE_PARENT`, `JOURNAL_DEGRADED`, `JOURNAL_UNAVAILABLE`, `INVALID_TEXT`, `ABORTED`) bedeuten dasselbe; ein Aufruf, der nichts ändert, wird nicht festgehalten.
 
 ### `validate`
 
@@ -335,14 +350,57 @@ Gibt zurück:
 | `tabId` | string | Nein |
 | `content` | string | Ja |
 | `expected_revision` | string | Nein (empfohlen) |
+| `addresses` | string[] | Nein |
 
 Ersetzt, was auch immer der Editor als aktuelle Auswahl meldet. **Im WYSIWYG-Modus** wird einfacher Inline-Text als literaler Textknoten eingefügt, sodass führende/nachfolgende Leerzeichen exakt erhalten bleiben; Inhalt mit Markdown-Markierungen (`**bold**`, `*italic*`, `` `code` ``, umzäunter Code, Blockzitate, Listen usw.) wird als Markdown geparst und als die entsprechenden Knoten eingefügt. **Im Quelltext-Modus** wird `content` immer als roher Text eingespleißt — die Quelltext-Oberfläche besteht bereits aus Markdown-Bytes. Leerer `content` löscht die Auswahl. Ist die Auswahl kollabiert, wird `content` an der Cursorposition eingefügt.
 
-Gibt bei Erfolg `{revision, replaced_chars}` zurück. `replaced_chars` ist die Länge des Textes, der vor dem Aufruf ausgewählt war — nützlich für die KI, um zu bestätigen, dass sie das Erwartete bearbeitet hat.
+Gibt bei Erfolg `{revision, replaced_chars, applied, durable}` zurück. `replaced_chars` ist die Länge des Textes, der vor dem Aufruf ausgewählt war — nützlich für die KI, um zu bestätigen, dass sie das Erwartete bearbeitet hat. Wie `write` wird der Aufruf im Agenten-Bearbeitungsjournal von VMark festgehalten, bevor sich etwas ändert: `applied`, `durable` und die Journal-Ablehnungen (`JOURNAL_BUSY`, `STALE_PARENT`, `JOURNAL_DEGRADED`, `JOURNAL_UNAVAILABLE`, `INVALID_TEXT`, `ABORTED`) bedeuten dasselbe; ein Aufruf, der nichts ändert, wird nicht festgehalten.
 
 `STALE` gibt `{error: "STALE", message, current_revision}` zurück, genau wie `document.write`. Die Revision auf Dokumentebene erfasst Tastenanschläge zwischen `get` und `set`. Reine Cursorbewegung (ohne Tastenanschlag) wird vom Server nicht arbitriert — wenn der Benutzer den Cursor zwischen `get` und `set` bewegt hat, landet die Bearbeitung an der neuen Position.
 
 `set` gibt `BUSY` zurück und ändert nichts, während der Benutzer im fokussierten Editor mit einer Eingabemethode Text komponiert, im WYSIWYG- wie im Quellmodus; kurz darauf erneut versuchen. `get` wird deswegen nie abgelehnt.
+
+---
+
+## `comments`
+
+Liest die Review-Kommentare des Nutzers zu einem Dokument und beantwortet sie. Einen Kommentar aufzulösen, wieder zu öffnen oder zu löschen, entscheidet der Nutzer: Das Tool hat keine solche Aktion, und ein Aufruf, der eine verlangt, wird abgewiesen, bevor er VMark erreicht.
+
+### `list`
+
+| Parameter | Typ | Erforderlich |
+|-----------|-----|--------------|
+| `tabId` | string | Nein |
+| `cursor` | string | Nein |
+
+Gibt `{doc, generation, threads, nextCursor?}` zurück, den ältesten Thread zuerst. Jeder Thread enthält seine `comment`-ID, seinen `state` (`open`, `addressed`, `resolved` oder `reopened`), seine `commentGen`, den zitierten Text, an dem er verankert ist, und seine Antworten.
+
+Eine lange Liste wird seitenweise geliefert, jede Seite klein genug, um vollständig anzukommen. Solange `nextCursor` vorhanden ist, rufen Sie `list` erneut auf und setzen Sie `cursor` auf diesen Wert. Ein über mehrere Seiten geteilter Thread trägt `repliesFrom` und `repliesTotal`; seine späteren Teile tragen nur `comment`, `state`, `commentGen`, `continued: true` und die nächsten Antworten. Ein Text, der als JSON-Text auf keine Seite passt (nur stark maskierter Text), kommt als `bodyBase64`, seine UTF-8-Bytes in Base64, anstelle von `body`. Ein Cursor, dessen Thread gelöscht wurde oder der für ein anderes Dokument ausgegeben wurde, wird mit `STALE_COMMENT` abgelehnt: Listen Sie ohne Cursor erneut auf.
+
+### `reply`
+
+| Parameter | Typ | Erforderlich |
+|-----------|-----|--------------|
+| `tabId` | string | Nein |
+| `commentId` | string | Ja |
+| `body` | string | Ja |
+| `expectedCommentGen` | string | Ja |
+
+Fügt dem Thread eine Antwort hinzu. VMark vergibt die Antwort-ID selbst, daher erhält ein wiederholter Aufruf das erste Ergebnis und fügt nie eine zweite Antwort hinzu.
+
+### `mark_addressed`
+
+| Parameter | Typ | Erforderlich |
+|-----------|-----|--------------|
+| `tabId` | string | Nein |
+| `commentId` | string | Ja |
+| `expectedCommentGen` | string | Ja |
+
+Markiert den Thread als bearbeitet. Ob er aufgelöst wird, bleibt dem Nutzer überlassen.
+
+`comments.reply` und `comments.mark_addressed` nennen beide die `commentGen` des Threads, wie `list` sie geliefert hat. Sie werden abgewiesen, ohne etwas zu ändern: mit `STALE_COMMENT`, wenn sich der Thread seitdem geändert hat oder gelöscht wurde (erneut auflisten), mit `INVALID_COMMENT`, wenn die Kommentar-ID fehlerhaft ist oder keinen Kommentar dieses Dokuments bezeichnet, mit `COMMENT_NOT_ALLOWED`, wenn der Thread aufgelöst ist, mit `COMMENT_LIMIT`, wenn der Thread zu viele Antworten hat, der Text zu lang ist oder der Thread sich nicht mehr ändern kann, sowie mit den Journal-Abweisungen `JOURNAL_BUSY`, `JOURNAL_DEGRADED`, `JOURNAL_UNAVAILABLE` und `INVALID_TEXT`.
+
+Um anzugeben, dass eine Bearbeitung Kommentare beantwortet, übergib ihre IDs als `addresses` an `document.write`, `document.transform`, `workflow.apply_patch` oder `selection.set`. Die Verknüpfung wird mit der Revision gespeichert und im Verlauf des Dokuments angezeigt (ein später gelöschter Kommentar erscheint als gelöschter Kommentar); sie verändert keinen Thread. Mehr als 64 IDs, eine doppelte ID oder eine unbekannte, gelöschte, aufgelöste oder zu einem anderen Dokument gehörende ID wird mit `INVALID_ADDRESSES` abgewiesen, und nichts ändert sich.
 
 ---
 
@@ -576,12 +634,21 @@ Es treten zwei Fehlerformen auf:
 
 | Code | Form | Bedeutung |
 |---|---|---|
-| `STALE` | Hülle | `expected_revision` stimmte nicht; erneut lesen und wiederholen |
+| `STALE` | Hülle | `expected_revision` stimmte nicht; erneut lesen und wiederholen. Oder `save` / `save_as`: ein nach diesem vorgenommenes Speichern hat diese Datei bereits erreicht, also hat dieses nichts geschrieben — vor erneutem Schreiben lesen |
 | `INVALID_PATCH` | Hülle | `workflow.apply_patch` hat ein fehlerhaftes `patches`-Array erhalten |
 | `INVALID_TAB` | Hülle | `tabId` konnte nicht aufgelöst werden |
 | `INVALID_PATH` | Hülle | Ein `filePath` konnte nicht gelesen werden oder liegt außerhalb des Geltungsbereichs des offenen Arbeitsbereichs / Dokuments |
-| `APPROVAL_REQUIRED` | Hülle | `save_as` an einen neuen Ort, während **Speichern an neuem Ort und Genie-Ergebnisse automatisch genehmigen** aus ist; oder `open_workspace` wartet auf die Bestätigung des Benutzers oder darauf, dass er den Ordner im Ordnerdialog von VMark auswählt |
+| `APPROVAL_REQUIRED` | Hülle | `save_as` an einen neuen Ort, während **Speichern an neuem Ort und Genie-Ergebnisse automatisch genehmigen** aus ist; `save_as` an einen Pfad, an dem bereits eine andere Datei als die des Tabs liegt; oder `open_workspace` wartet auf die Bestätigung des Benutzers oder darauf, dass er den Ordner im Ordnerdialog von VMark auswählt |
 | `BUSY` | Hülle | `open_workspace` konnte nicht fortfahren: Ein anderer Ordnerdialog ist offen oder in diesem Fenster läuft ein Arbeitsbereichswechsel; die Bestätigung bleibt erhalten — erneut versuchen. Oder `document.write`, `document.transform` bzw. `selection.set` kam an, während der Benutzer mit einer Eingabemethode Text komponierte; nichts wurde geändert — kurz darauf erneut versuchen |
+| `JOURNAL_BUSY` | Hülle | `document.write` / `document.transform` / `selection.set` / `workflow.apply_patch` kam an, während ein anderer Schreibvorgang in dasselbe Dokument festgehalten wurde; nichts wurde geändert — kurz darauf erneut versuchen |
+| `WRITE_BUSY` | Zeichenkette | Ein schreibender Aufruf (`document.write` / `document.transform`, `selection.set`, `workflow.apply_patch`, `comments.reply` / `mark_addressed`, `coherence_resolve`, …) wartete 3 s hinter einem anderen Schreibvorgang, ohne an die Reihe zu kommen; er wurde nicht ausgeführt — erneut versuchen |
+| `TIMEOUT` | Zeichenkette | Ein Aufruf von `coherence` oder `coherence_resolve` wurde nicht innerhalb von 20 s fertig. Bei einem Schreibvorgang (`edges`, `resolve`) läuft er noch, und sein Ergebnis ist unbekannt — lesen Sie den aktuellen Stand, bevor Sie es erneut versuchen |
+| `STALE_PARENT` | Hülle | `document.write` / `document.transform` / `selection.set` / `workflow.apply_patch`: Ein anderes Fenster hat das Dokument nach dem letzten Schreibvorgang dieses Tabs geschrieben; nichts wurde geändert — neu lesen und erneut versuchen |
+| `JOURNAL_DEGRADED` | Hülle | `document.write` / `document.transform` / `selection.set` / `workflow.apply_patch`: Ein früherer Journaleintrag für dieses Dokument wartet noch auf das Speichern; nichts wurde geändert — in ein paar Sekunden erneut versuchen |
+| `JOURNAL_UNAVAILABLE` | Hülle | `document.write` / `document.transform` / `selection.set` / `workflow.apply_patch`: Das Agenten-Bearbeitungsjournal läuft nicht oder kann nichts festhalten; nichts wurde geändert |
+| `INVALID_TEXT` | Hülle | `document.write` / `document.transform` / `selection.set` / `workflow.apply_patch`: `content` enthält ein einzelnes UTF-16-Surrogat; nichts wurde geändert |
+| `REVIEW_BACKLOG_FULL` | Hülle | `document.write`: Das Dokument hat zu viele nicht geprüfte KI-Änderungen; nichts wurde geändert |
+| `ABORTED` | Hülle | `document.write` / `document.transform` / `selection.set` / `workflow.apply_patch`: Der Benutzer hat das Dokument bearbeitet, geschlossen, darin komponiert oder die Auswahl verschoben, während der Schreibvorgang festgehalten wurde; `reason` sagt, was davon; nichts wurde geändert — neu lesen und erneut versuchen |
 | `NOT_WORKFLOW` | Hülle | `workflow.*` wurde auf einem Tab aufgerufen, der kein YAML-Workflow ist |
 | `READ_ONLY` | Hülle | Eine Mutation wurde auf einem schreibgeschützten Dokument versucht |
 | `NO_EDITOR` | Hülle | `selection.*` wurde aufgerufen, aber der fokussierte Tab hat keinen aktiven Editor |

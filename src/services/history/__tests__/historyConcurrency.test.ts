@@ -246,10 +246,10 @@ describe("a reader waits for the mutation in progress", () => {
       { id: "one", type: "manual", content: "# One" },
       { id: "two", type: "manual", content: "# Two" },
     ]);
-    // Read at the moment the index file is truncated and not yet rewritten.
+    // Read at the moment the new index is half-written beside the old one.
     let read: Promise<Snapshot[]> | null = null;
     vfs.setTruncatedWindow(50, (path) => {
-      if (!read && path.endsWith("index.json")) read = getSnapshots(DOC);
+      if (!read && path.endsWith("index.json.tmp")) read = getSnapshots(DOC);
     });
 
     await createSnapshot(DOC, "# Three", "manual", settings);

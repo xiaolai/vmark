@@ -38,7 +38,7 @@ vi.mock("@/stores/documentStore", async () => ({
 import { useTiptapFlush } from "./useTiptapFlush";
 import { useLargeFileSessionStore } from "@/stores/documentStore";
 import { hasPendingWysiwygEdit } from "@/utils/wysiwygEditPending";
-import { markContentApplied } from "./contentApplied";
+import { markContentApplied } from "@/services/editor/contentApplied";
 
 /** Minimal editor stand-in — the flush only reads schema/state.doc. */
 const editor = {
@@ -130,6 +130,20 @@ describe("flushToStore user-edit reporting", () => {
     result.current.flushToStore(editor);
 
     expect(setContent).toHaveBeenCalledWith("SERIALIZED", { fromUserEdit: true });
+  });
+
+  it("a sync flush cancels a large document's pending debounce, so the edit is written once", () => {
+    const setContent = vi.fn();
+    const { result } = setup(setContent);
+    const large = { schema: {}, state: { doc: { content: { size: 200_000 } } } } as unknown as TiptapEditor;
+    markContentApplied(large);
+
+    result.current.scheduleFlush(large); // 1 s debounce armed
+    result.current.flushToStore(large); // Save flushes first
+    vi.advanceTimersByTime(10_000);
+
+    expect(setContent).toHaveBeenCalledTimes(1);
+    expect(result.current.pendingDebounceTimeout.current).toBeNull();
   });
 
   it("repeated sync flushes never claim a user edit", () => {
@@ -311,5 +325,40 @@ describe("the edit-pending signal auto-save reads", () => {
     result.current.scheduleFlush(editor);
     unmount();
     expect(hasPendingWysiwygEdit()).toBe(false);
+  });
+});
+
+describe("timer handles are compared with their null sentinel", () => {
+  it("cancels a pending RAF whose handle is 0 when flushing now", () => {
+    vi.stubGlobal("requestAnimationFrame", vi.fn(() => 0));
+    const setContent = vi.fn();
+    const { result } = setup(setContent);
+
+    result.current.scheduleFlush(editor);
+    expect(result.current.pendingRaf.current).toBe(0);
+    result.current.flushToStore(editor);
+
+    expect(cancelAnimationFrame).toHaveBeenCalledWith(0);
+    expect(result.current.pendingRaf.current).toBeNull();
+  });
+
+  it("cancels a pending RAF whose handle is 0 when a newer edit reschedules", () => {
+    vi.stubGlobal("requestAnimationFrame", vi.fn(() => 0));
+    const { result } = setup(vi.fn());
+
+    result.current.scheduleFlush(editor);
+    result.current.scheduleFlush(editor);
+
+    expect(cancelAnimationFrame).toHaveBeenCalledWith(0);
+  });
+
+  it("cancels the internal-change reset RAF whose handle is 0 before scheduling another", () => {
+    vi.stubGlobal("requestAnimationFrame", vi.fn(() => 0));
+    const { result } = setup(vi.fn());
+
+    result.current.flushToStore(editor);
+    result.current.flushToStore(editor);
+
+    expect(cancelAnimationFrame).toHaveBeenCalledWith(0);
   });
 });

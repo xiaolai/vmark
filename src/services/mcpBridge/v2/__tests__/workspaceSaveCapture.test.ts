@@ -19,6 +19,8 @@ import { statefulFs } from "@/test/statefulFsFake";
 import { ROOT, doc, editDoc, newUntitledTab, openDocInTab, settle } from "@/test/tier0/harness";
 import { handleWorkspaceSave } from "@/services/mcpBridge/v2/workspaceSave";
 import { captures, resetBridge, responseTo } from "./bridgeDiskHarness";
+import { TEST_ATTRIBUTION, TEST_WRITE_CONTEXT } from "@/test/mcpAttributionFixture";
+import { mcpCoherenceAgent } from "@/services/coherence/mcpActor";
 
 const CHAPTER = `${ROOT}/story/ch1.md`;
 
@@ -31,7 +33,7 @@ describe("workspace.save hands successful writes to coherence capture", () => {
     const tabId = await openDocInTab(CHAPTER, "saved\n");
     editDoc(tabId, "edited body\n");
 
-    await handleWorkspaceSave("req-1", {});
+    await handleWorkspaceSave("req-1", {}, TEST_WRITE_CONTEXT);
 
     expect(responseTo("req-1").success).toBe(true);
     expect(statefulFs.read(CHAPTER)).toBe("edited body\n");
@@ -40,7 +42,7 @@ describe("workspace.save hands successful writes to coherence capture", () => {
       path: "story/ch1.md",
       content: "edited body\n",
       confidence: "inferred",
-      agent: { type: "model", id: "mcp-client" },
+      agent: mcpCoherenceAgent(TEST_ATTRIBUTION),
       intent: { kind: "mcp-document-write", summary: "workspace.save" },
     });
   });
@@ -52,7 +54,7 @@ describe("workspace.save hands successful writes to coherence capture", () => {
       throw new Error("kernel down");
     });
 
-    await handleWorkspaceSave("req-2", {});
+    await handleWorkspaceSave("req-2", {}, TEST_WRITE_CONTEXT);
 
     expect(responseTo("req-2").success).toBe(true);
     expect(statefulFs.read(CHAPTER)).toBe("y\n");
@@ -64,7 +66,7 @@ describe("workspace.save hands successful writes to coherence capture", () => {
     editDoc(tabId, "y\n");
     statefulFs.failWrites(new Error("EACCES"));
 
-    await handleWorkspaceSave("req-3", {});
+    await handleWorkspaceSave("req-3", {}, TEST_WRITE_CONTEXT);
     await settle();
 
     expect(responseTo("req-3").success).toBe(false);
@@ -78,7 +80,7 @@ describe("workspace.save hands successful writes to coherence capture", () => {
       throw new Error("outside roots");
     });
 
-    await handleWorkspaceSave("req-4", {});
+    await handleWorkspaceSave("req-4", {}, TEST_WRITE_CONTEXT);
     await settle();
 
     expect(responseTo("req-4").success).toBe(false);
@@ -90,7 +92,7 @@ describe("workspace.save hands successful writes to coherence capture", () => {
     const tabId = newUntitledTab();
     editDoc(tabId, "draft\n");
 
-    await handleWorkspaceSave("req-5", {});
+    await handleWorkspaceSave("req-5", {}, TEST_WRITE_CONTEXT);
     await settle();
 
     expect(responseTo("req-5").success).toBe(false);

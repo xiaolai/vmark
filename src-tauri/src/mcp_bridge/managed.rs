@@ -25,7 +25,7 @@ use super::principal::BridgePrincipal;
 use super::state::{BridgeState, ClientConnection};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use tauri::{AppHandle, Manager, Runtime};
-use tokio::sync::{oneshot, Mutex, MutexGuard};
+use tokio::sync::{oneshot, Mutex, MutexGuard, RwLock, RwLockReadGuard};
 
 /// Shared bridge state, held by the Tauri app for the life of the process.
 pub struct McpBridgeState {
@@ -61,6 +61,11 @@ pub struct McpBridgeState {
     /// start generation — which used to be three statics in `control.rs`
     /// (audit 20260907 #177).
     lifecycle: BridgeLifecycle,
+    /// Rust-answered operations in flight: each holds a read lease from
+    /// admission to completion (`admit_operation`), and `stop_bridge` takes
+    /// the write side after draining, so it completes only after every
+    /// operation admitted before the drain — and none admitted after it.
+    operations: RwLock<()>,
 }
 
 impl Default for McpBridgeState {
@@ -75,6 +80,7 @@ impl Default for McpBridgeState {
             webview_alive: AtomicBool::new(true),
             connection_generation: AtomicU64::new(0),
             lifecycle: BridgeLifecycle::default(),
+            operations: RwLock::new(()),
         }
     }
 }
@@ -98,6 +104,21 @@ impl McpBridgeState {
     /// Acquire the write lock that serializes write-class operations.
     pub(crate) async fn write_lock(&self) -> MutexGuard<'_, ()> {
         self.write_lock.lock().await
+    }
+
+    /// The write lock for a client's request, or the WRITE_BUSY refusal once
+    /// [`WRITE_LOCK_WAIT`](super::state::WRITE_LOCK_WAIT) passes without it.
+    /// The refusal comes before the request is registered or run, so it is a
+    /// definite "not applied" the client can retry.
+    pub(crate) async fn write_lock_for_request(&self) -> Result<MutexGuard<'_, ()>, String> {
+        tokio::time::timeout(super::state::WRITE_LOCK_WAIT, self.write_lock.lock())
+            .await
+            .map_err(|_| {
+                format!(
+                    "WRITE_BUSY: another write held VMark's write lock for {} s; this request was not applied. Retry it.",
+                    super::state::WRITE_LOCK_WAIT.as_secs()
+                )
+            })
     }
 
     /// Mark the webview as alive or not.
@@ -165,10 +186,43 @@ impl McpBridgeState {
 }
 
 impl McpBridgeState {
+    /// Admit one Rust-answered operation for `client_id`: a lease held until
+    /// the operation finishes, or `None` when the client is gone (a stop
+    /// drained it). The lease is taken BEFORE the liveness check, so a stop
+    /// that drains after the check waits for the operation
+    /// ([`Self::await_operations`]), and one that drained before it refuses.
+    pub(crate) async fn admit_operation(&self, client_id: u64) -> Option<RwLockReadGuard<'_, ()>> {
+        let lease = self.operations.read().await;
+        self.lock()
+            .await
+            .clients
+            .contains_key(&client_id)
+            .then_some(lease)
+    }
+
+    /// Wait until every admitted operation has finished. `stop_bridge` calls
+    /// it after draining the clients, so no new operation can be admitted,
+    /// and bounds the wait.
+    pub(crate) async fn await_operations(&self) {
+        drop(self.operations.write().await);
+    }
+
     /// Forget everything keyed by a destroyed window's label. Its webview
-    /// dies without clearing its own workspace registration.
+    /// dies without clearing its own workspace and tab registrations.
     pub(crate) async fn forget_window(&self, label: &str) {
-        self.lock().await.window_workspaces.remove(label);
+        let mut guard = self.lock().await;
+        guard.window_workspaces.remove(label);
+        guard.window_tabs.remove(label);
+    }
+
+    /// Replace the tabs `label`'s window holds; an empty list removes its entry.
+    pub(crate) async fn set_window_tabs(&self, label: &str, tab_ids: Vec<String>) {
+        let mut guard = self.lock().await;
+        if tab_ids.is_empty() {
+            guard.window_tabs.remove(label);
+        } else {
+            guard.window_tabs.insert(label.to_string(), tab_ids);
+        }
     }
 }
 
@@ -185,3 +239,8 @@ pub(crate) fn bridge<R: Runtime>(app: &AppHandle<R>) -> &McpBridgeState {
 #[cfg(test)]
 #[path = "managed.test.rs"]
 mod tests;
+
+// Mock-runtime tests: `tauri::test` does not exist on Windows.
+#[cfg(all(test, not(target_os = "windows")))]
+#[path = "operation_lease.test.rs"]
+mod operation_lease_tests;

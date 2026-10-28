@@ -184,6 +184,109 @@ describe("check-window-creation-thread", () => {
     expect(code).toBe(1);
   });
 
+  it("does NOT charge a BARE call for a same-named `self` METHOD in another file", () => {
+    // The fourth instance of the name-collision class: `files::write::anchored`
+    // gained `HeldDir::publish(&self, …)`, and `mcp_config::client_tokens`
+    // calls its OWN free `publish(tokens)`. Rust never resolves a bare call to
+    // a method (that takes a receiver or a `Type::` path), so the edge is false.
+    const dir = writeTree({
+      "src-tauri/src/render.rs": `pub struct Held;\nimpl Held {\n${BUILDER("publish", "    pub(crate) ").replace("(app: &AppHandle)", "(&self, app: &AppHandle)")}}\n`,
+      "src-tauri/src/tokens.rs":
+        `fn publish(x: u32) -> u32 {\n    x\n}\n\n#[tauri::command]\npub fn install() -> u32 {\n    publish(1)\n}\n`,
+    });
+    const { code, out } = run(dir);
+    expect(out).toContain("window-creation threading: OK");
+    expect(code).toBe(0);
+  });
+
+  it("still follows a PATH-QUALIFIED call to a `self` method across files", () => {
+    const dir = writeTree({
+      "src-tauri/src/render.rs": `pub struct Held;\nimpl Held {\n${BUILDER("publish", "    pub(crate) ").replace("(app: &AppHandle)", "(&self, app: &AppHandle)")}}\n`,
+      "src-tauri/src/cmd.rs":
+        `#[tauri::command]\npub fn install(h: Held, app: AppHandle) {\n    let _ = Held::publish(&h, &app);\n}\n`,
+    });
+    const { code, err } = run(dir);
+    expect(err).toContain("install");
+    expect(code).toBe(1);
+  });
+
+  it("does NOT let library code reach a fn in a separate `src/bin` target", () => {
+    // `src/bin/*` is its own crate: the library cannot call into it. The live
+    // false edge was `anchored.rs`'s `super::publish_hook::run(name)` matched
+    // to `bin/pdf_smoke`'s `run`, which drives the PDF window.
+    const dir = writeTree({
+      "src-tauri/src/render.rs": BUILDER("start", "pub "),
+      "src-tauri/src/bin/smoke/case.rs": `pub fn run(app: &AppHandle) {\n    let _ = vmark_lib::render::start(app);\n}\n`,
+      "src-tauri/src/hook.rs": `pub(crate) fn run(name: &str) {\n    let _ = name;\n}\n`,
+      "src-tauri/src/cmd.rs": `#[tauri::command]\npub fn save(name: String) {\n    crate::hook::run(&name);\n}\n`,
+    });
+    const { code, out } = run(dir);
+    expect(out).toContain("window-creation threading: OK");
+    expect(code).toBe(0);
+  });
+
+  it.each([
+    ["a std-rooted path", "std::mem::start(1)"],
+    ["a path through a type the crate implements, when the callee is a free fn", "Thing::start(1)"],
+  ])("does NOT resolve %s to a same-named free fn in another module", (_label, call) => {
+    const dir = writeTree({
+      "src-tauri/src/render.rs": BUILDER("start", "pub "),
+      "src-tauri/src/other.rs": `pub fn start(x: u32) -> u32 {\n    x\n}\n\npub struct Thing;\nimpl Thing {\n    pub fn start(x: u32) -> u32 {\n        x\n    }\n}\n`,
+      "src-tauri/src/cmd.rs": `#[tauri::command]\npub fn tick() {\n    let _ = ${call};\n}\n`,
+    });
+    const { code, out } = run(dir);
+    expect(out).toContain("window-creation threading: OK");
+    expect(code).toBe(0);
+  });
+
+  it.each([
+    ["a glob re-export", "pub use document_windows::*;"],
+    ["a named re-export", "pub use document_windows::{start};"],
+  ])("follows a module path through %s to the defining child module", (_label, reexport) => {
+    // `window_manager::start` resolves to `window_manager/document_windows.rs`:
+    // a module segment is never evidence against an edge.
+    const dir = writeTree({
+      "src-tauri/src/window_manager/mod.rs": `mod document_windows;\n${reexport}\n`,
+      "src-tauri/src/window_manager/document_windows.rs": BUILDER("start", "pub "),
+      "src-tauri/src/cmd.rs": `#[tauri::command]\npub fn tick(app: AppHandle) {\n    let _ = crate::window_manager::start(&app);\n}\n`,
+    });
+    const { code, err } = run(dir);
+    expect(err).toContain("tick");
+    expect(code).toBe(1);
+  });
+
+  it("keeps an edge through an unknown type segment (a generic or an alias)", () => {
+    const dir = writeTree({
+      "src-tauri/src/render.rs": BUILDER("start", "pub "),
+      "src-tauri/src/cmd.rs": `#[tauri::command]\npub fn tick(app: AppHandle) {\n    let _ = Alias::start(&app);\n}\n`,
+    });
+    const { code, err } = run(dir);
+    expect(err).toContain("tick");
+    expect(code).toBe(1);
+  });
+
+  it("resolves a bare call to the caller's OWN free fn, not another module's", () => {
+    const dir = writeTree({
+      "src-tauri/src/render.rs": BUILDER("apply", "pub(crate) "),
+      "src-tauri/src/index.rs": `fn apply(x: u32) -> u32 {\n    x\n}\n\n#[tauri::command]\npub fn tick() -> u32 {\n    apply(1)\n}\n`,
+    });
+    const { code, out } = run(dir);
+    expect(out).toContain("window-creation threading: OK");
+    expect(code).toBe(0);
+  });
+
+  it("fails CLOSED on a path segment it cannot resolve (an alias)", () => {
+    // `use crate::render as r; r::start(…)` — `r` names no module of the crate,
+    // so the edge is kept rather than guessed away.
+    const dir = writeTree({
+      "src-tauri/src/render.rs": BUILDER("start", "pub "),
+      "src-tauri/src/cmd.rs": `use crate::render as r;\n#[tauri::command]\npub fn tick(app: AppHandle) {\n    let _ = r::start(&app);\n}\n`,
+    });
+    const { code, err } = run(dir);
+    expect(err).toContain("tick");
+    expect(code).toBe(1);
+  });
+
   it("reads prose as prose: an attribute named in a doc comment is not a command", () => {
     const dir = writeTree({
       "src-tauri/src/w.rs":

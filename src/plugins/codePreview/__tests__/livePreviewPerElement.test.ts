@@ -40,8 +40,10 @@ describe("updateLivePreview per-element debounce", () => {
 
   afterEach(() => {
     vi.useRealTimers();
-    vi.unstubAllGlobals();
+    // Unmount the workflow root while any ResizeObserver stub is still in
+    // place: React Flow must never run against jsdom's missing global.
     __resetSnapshotForTests();
+    vi.unstubAllGlobals();
   });
 
   it("does not cancel element A's pending render when element B updates", () => {
@@ -74,9 +76,13 @@ describe("updateLivePreview per-element debounce", () => {
     // jsdom cannot lay out, so the render itself never completes here. What
     // routing is observable by is that root: only the workflow renderer
     // mounts it. jsdom lacks ResizeObserver, which React Flow constructs.
+    let observers = 0;
     vi.stubGlobal(
       "ResizeObserver",
       class {
+        constructor() {
+          observers += 1;
+        }
         observe() {}
         unobserve() {}
         disconnect() {}
@@ -89,6 +95,11 @@ describe("updateLivePreview per-element debounce", () => {
     vi.runAllTimers();
 
     await vi.waitFor(() => expect(document.getElementById(WORKFLOW_ROOT_ID)).not.toBeNull(), RENDER_WAIT);
+    // The root's div is appended before React Flow mounts, and React's
+    // scheduler, loaded under fake timers, defers that mount to whichever
+    // test next advances them — after this stub is gone. Wait (waitFor
+    // advances fake timers) until React Flow has mounted under the stub.
+    await vi.waitFor(() => expect(observers).toBeGreaterThan(0), RENDER_WAIT);
   });
 
   it("does not route latex content to the workflow renderer", async () => {

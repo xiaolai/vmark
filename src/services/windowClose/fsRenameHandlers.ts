@@ -1,8 +1,8 @@
 /**
  * Rename handling for filesystem-change events.
  *
- * Purpose: re-point an open tab when its file is renamed, and fall back to a
- *   probe when the event is not a usable pair. The probe (`probeOpenFile`) is
+ * Purpose: re-point an open tab when its file — or a directory above it — is
+ *   renamed, and fall back to a probe when the event is not a usable pair. The probe (`probeOpenFile`) is
  *   also what a watcher `rescan` runs for every open file under its root.
  *
  * Split from `fsChangeHandlers.ts`, which was at the 300-line limit. The seam
@@ -20,7 +20,8 @@ import type { FsChangeContext } from "./fsChangeContext";
 
 /**
  * Resolve a single rename pair: re-point the open tab if the OLD path matches a
- * tracked file. Returns true when a pair was applied.
+ * tracked file, or — when the OLD path is a directory — every open tab under
+ * it. Returns true when a pair was applied.
  */
 function applyRenamePair(
   ctx: FsChangeContext,
@@ -31,9 +32,37 @@ function applyRenamePair(
   const oldPath = ctx.normalizePath(oldRaw);
   const newPath = ctx.normalizePath(newRaw);
   const tabId = openPaths.get(oldPath);
-  if (!tabId) return false;
-  ctx.applyRename(tabId, newPath);
-  return true;
+  if (tabId) {
+    ctx.applyRename(tabId, newPath);
+    return true;
+  }
+  return rebaseDescendants(ctx, openPaths, oldPath, newPath);
+}
+
+/**
+ * A renamed directory: re-point each open tab whose path lies under `oldDir`
+ * to the same place under `newDir`. Matching is on path-component boundaries
+ * (`/a/b` never claims `/a/bc/x`); both paths are already normalized to
+ * forward slashes, so a Windows event spelled with `\` matches too. The tab
+ * keeps its id and its buffer — nothing is re-read.
+ */
+function rebaseDescendants(
+  ctx: FsChangeContext,
+  openPaths: Map<string, string>,
+  oldDir: string,
+  newDir: string,
+): boolean {
+  // @edge-case an empty old path would make every absolute path its descendant
+  if (!oldDir || !newDir) return false;
+  const prefix = oldDir.endsWith("/") ? oldDir : `${oldDir}/`;
+  const target = newDir.endsWith("/") ? newDir : `${newDir}/`;
+  let rebased = false;
+  for (const [path, tabId] of openPaths) {
+    if (!path.startsWith(prefix)) continue;
+    ctx.applyRename(tabId, `${target}${path.slice(prefix.length)}`);
+    rebased = true;
+  }
+  return rebased;
 }
 
 /**
@@ -88,6 +117,23 @@ export async function handleRenameEvent(
   paths: string[],
   openPaths: Map<string, string>,
 ): Promise<void> {
+  for (const changedPath of applyRenames(ctx, paths, openPaths)) {
+    const normalizedPath = ctx.normalizePath(changedPath);
+    const tabId = openPaths.get(normalizedPath);
+    if (!tabId) continue;
+    await probeOpenFile(ctx, tabId, changedPath, normalizedPath);
+  }
+}
+
+/**
+ * Apply every [old, new] pair in `paths` and return the paths no pair
+ * accounted for — the ones that need a probe.
+ */
+function applyRenames(
+  ctx: FsChangeContext,
+  paths: string[],
+  openPaths: Map<string, string>,
+): string[] {
   // Per PAIR, not per batch. `handled` used to be a single flag for the whole
   // array: one recognised rename returned early and every other path in the
   // same batch was dropped, so an atomic replacement arriving alongside a real
@@ -102,13 +148,7 @@ export async function handleRenameEvent(
   }
   // A trailing odd path is an unpaired rename (an atomic-write target).
   if (i < paths.length) unmatched.push(paths[i]);
-
-  for (const changedPath of unmatched) {
-    const normalizedPath = ctx.normalizePath(changedPath);
-    const tabId = openPaths.get(normalizedPath);
-    if (!tabId) continue;
-    await probeOpenFile(ctx, tabId, changedPath, normalizedPath);
-  }
+  return unmatched;
 }
 
 /**
@@ -156,45 +196,52 @@ export async function probeOpenFile(
 }
 
 /**
- * Route a coalesced batch of normalized workspace events onto the per-kind
- * handlers. Scope, self-write flagging, and no-op suppression already happened
- * upstream (the workspace event source), so this is pure routing.
+ * Apply every rename in the batch IN EVENT ORDER, then probe what they left
+ * unexplained.
  *
- * Rename handling: each rename is dispatched to {@link handleRenameEvent} on its
- * own, against a freshly read path map — `applyRename` re-points tabs in the
- * store, so any map read before it is stale for every rename after it. Complete
- * [old, new] pairs and unpaired renames (atomic-write targets) stay separate
- * because mixing them into one flat array would corrupt its positional pairing.
- */
-/**
- * Apply every rename in the batch, one at a time.
+ * Each rename is applied against a FRESH path map, because applying one
+ * re-points a tab in the store and invalidates any snapshot taken before it. A
+ * single snapshot for the whole group broke a chained `a -> b -> c` rename
+ * arriving in one batch: the second hop looked the tab up under a name the
+ * snapshot still held, found nothing, and left the tab pointing at `b` while
+ * the file was at `c`. Re-reading is cheap — a map build over the window's open
+ * tabs — and correctness here is not optional.
  *
- * Each is dispatched against a FRESH path map, because applying one re-points a
- * tab in the store and invalidates any snapshot taken before it. A single
- * snapshot for the whole group broke a chained `a -> b -> c` rename arriving in
- * one batch: the second hop looked the tab up under a name the snapshot still
- * held, found nothing, and left the tab pointing at `b` while the file was at
- * `c`. Re-reading is cheap — it is a map build over the
- * window's open tabs — and correctness here is not optional.
+ * Probes are DEFERRED, by tab, to the end of the batch, and run at the tab's
+ * FINAL path. The batch is handled after the fact, so the disk already holds
+ * its end state: probing a replaced `a` in place, when a later event moved
+ * `a -> b`, would find `a` gone and report a deletion. Applying the pairs first
+ * and the unpaired renames second (as this once did) lost the replacement
+ * instead — the tab had moved before the probe looked for it. Each tab is
+ * probed once, however many events asked.
  *
- * Paired renames go first, then unpaired ones (atomic-write targets / lone
- * paths) individually: a single-element array cannot be mis-paired, and that
- * preserves the fallback's probe semantics (readable → modify, gone → delete,
- * media → existence-only).
+ * A self-write (`selfWrite`, fixed when the event was normalized) is VMark's
+ * own atomic save landing; it is never probed, even when its pending save has
+ * expired by the time a queued batch runs. Its pair still re-points a tab: a
+ * move is a fact whoever made it.
  */
 export async function dispatchRenames(
   ctx: FsChangeContext,
   renamed: SemanticWorkspaceEvent[],
   getOpenPaths: () => Map<string, string>,
 ): Promise<void> {
+  const toProbe = new Set<string>();
   for (const event of renamed) {
-    if (event.previousPath !== undefined) {
-      await handleRenameEvent(ctx, [event.previousPath, event.path], getOpenPaths());
+    const paths =
+      event.previousPath !== undefined ? [event.previousPath, event.path] : [event.path];
+    const openPaths = getOpenPaths();
+    // Unmatched paths applied nothing, so `openPaths` is still current for them.
+    const unmatched = applyRenames(ctx, paths, openPaths);
+    if (event.selfWrite) continue;
+    for (const path of unmatched) {
+      const tabId = openPaths.get(ctx.normalizePath(path));
+      if (tabId) toProbe.add(tabId);
     }
   }
-  for (const event of renamed) {
-    if (event.previousPath === undefined) {
-      await handleRenameEvent(ctx, [event.path], getOpenPaths());
-    }
+  if (toProbe.size === 0) return;
+  const finalPathOf = new Map([...getOpenPaths()].map(([path, tabId]) => [tabId, path]));
+  for (const tabId of toProbe) {
+    const path = finalPathOf.get(tabId);
+    if (path !== undefined) await probeOpenFile(ctx, tabId, path, path);
   }
 }

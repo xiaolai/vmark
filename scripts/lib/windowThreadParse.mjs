@@ -87,6 +87,39 @@ function attributeBlock(src, start) {
   return src.slice(i, start);
 }
 
+/**
+ * Every `impl` block in CODE as `{ type, trait, open, close }`: the implemented
+ * type's own name and trait (`impl<T> Trait for path::Type<T> {` → `Type`,
+ * `Trait`) and its brace span.
+ * An item inside one is reachable only through that type's path or a receiver,
+ * never by a bare call, so reachability needs to know which items they are.
+ */
+function implBlocks(src) {
+  const out = [];
+  const IMPL = /\bimpl\b([^{;]*)\{/g;
+  let m;
+  while ((m = IMPL.exec(src))) {
+    let head = m[1].replace(/\bwhere\b[\s\S]*$/, "");
+    while (/<[^<>]*>/.test(head)) head = head.replace(/<[^<>]*>/g, "");
+    const forAt = head.lastIndexOf(" for ");
+    const lastIdent = (t) => t.match(/([A-Za-z_][A-Za-z0-9_]*)\s*$/)?.[1] ?? null;
+    const name = lastIdent(forAt >= 0 ? head.slice(forAt + 5) : head);
+    const trait = forAt >= 0 ? lastIdent(head.slice(0, forAt)) : null;
+    const open = m.index + m[0].length - 1;
+    let depth = 0;
+    let i = open;
+    for (; i < src.length; i++) {
+      if (src[i] === "{") depth++;
+      else if (src[i] === "}") { depth--; if (depth === 0) break; }
+    }
+    if (name) out.push({ type: name, trait, open, close: i });
+  }
+  return out;
+}
+
+/** The innermost impl block containing `at`, or undefined. */
+const enclosing = (impls, at) => impls.filter((b) => b.open < at && at < b.close).sort((a, b) => b.open - a.open)[0];
+
 /** Item header + body for every `fn` in one file, with its command attribute. */
 export function parseFns(file, rawSrc) {
   const src = stripComments(rawSrc);
@@ -95,6 +128,7 @@ export function parseFns(file, rawSrc) {
   // keyword — and the bare class stopped at the `r`, naming the function "r".
   const FN =
     /(?:^|\n)[ \t]*((?:pub(?:\s*\([^)]*\))?\s+)?(?:const\s+)?(?:async\s+)?(?:unsafe\s+)?(?:extern\s+"[^"]*"\s+)?fn\s+(?:r#)?([A-Za-z0-9_]+))/g;
+  const impls = implBlocks(src);
   const out = [];
   let m;
   while ((m = FN.exec(src))) {
@@ -147,6 +181,10 @@ export function parseFns(file, rawSrc) {
       // impl blocks, a nested fn) shared `file::name`, so marking one reachable
       // marked the other, and a command calling the innocent one was reported.
       id: `${file}::${name}@${start}`,
+      /** The innermost `impl` block's type, or null for a free fn. */
+      implType: enclosing(impls, start)?.type ?? null,
+      /** The trait that `impl` block implements (`impl Trait for Type`), or null. */
+      implTrait: enclosing(impls, start)?.trait ?? null,
     });
   }
   return out;

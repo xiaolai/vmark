@@ -70,7 +70,9 @@ const BARE_MARKER = /\/\/\s*window-thread-ok:?\s*$/m;
  * provided.
  *
  * A path-qualified call (`module::name(`, `Type::name(`) still counts across
- * files: `::` is not a receiver. What is given up is a window-creating METHOD
+ * files, within the limits `siteReaches` sets (a separate binary crate, a std
+ * path, or a different known type never reaches): `::` is not a receiver.
+ * What is given up is a window-creating METHOD
  * reached from another file through a value — none exists here (every builder
  * site is a free function, and `check-window-creation-thread.test.mjs` pins
  * that all seven #1301 commands are still caught by this rule).
@@ -87,23 +89,70 @@ function bindsLocally(caller, name) {
   return param.test(caller.params) || binding.test(caller.body);
 }
 
-function callsByName(caller, callee) {
+/**
+ * The crate a file compiles into: each `src/bin/<target>` (file or folder) is
+ * its own binary crate; everything else is the library.
+ */
+function crateOf(file) {
+  const m = file.match(/(?:^|\/)src\/bin\/([^/]+?)(?:\.rs$|\/)/);
+  return m ? `bin:${m[1]}` : "lib";
+}
+
+/** Path roots that never lead into this crate's items. */
+const FOREIGN_ROOTS = new Set(["std", "core", "alloc"]);
+
+/**
+ * Every call site of `name` in `body` with its path segments: `a::b::name(` →
+ * `["a", "b"]`, a bare `name(` → `[]`. A receiver call (`x.name(`) is not a
+ * call site here; the same-file branch handles those.
+ */
+function callSites(body, name) {
+  const re = new RegExp(`(?<![.\\w:])((?:[A-Za-z_]\\w*\\s*::\\s*)*)${name}\\s*(?:::\\s*<[^>]*>\\s*)?\\(`, "g");
+  return [...body.matchAll(re)].map((m) => m[1].split("::").map((x) => x.trim()).filter(Boolean));
+}
+
+/**
+ * Can this call site, written in `caller`, name `callee` in another file?
+ *
+ * FOURTH instance of the name-collision class, so the walk now refuses the
+ * spellings Rust itself would never resolve to `callee`, and nothing else.
+ * Live false edges this removes: a bare `publish(tokens)` matched to
+ * `HeldDir::publish` (an impl item is never reachable bare),
+ * `std::mem::replace(…)` matched to `HeldDir::replace`, `anchored::HeldDir::open`
+ * matched to another type's `open`, and a bare call to a file's OWN free
+ * `apply` matched to another module's `apply`.
+ *
+ * Module segments are NOT checked: `#[path]` remaps files to other module
+ * names and parents re-export children (`window_manager::create_document_window…`
+ * lives in `document_windows.rs`), so a file stem says nothing reliable. A type
+ * segment refuses only when it names a DIFFERENT type or trait this crate
+ * implements; an unknown one (a generic, an alias, an external type) keeps the
+ * edge, so the gate fails closed.
+ */
+function siteReaches(segs, caller, callee, ctx) {
+  if (segs.length === 0) {
+    if (callee.implType) return false;
+    if (bindsLocally(caller, callee.name)) return false;
+    return !ctx.freeNames.get(caller.file)?.has(callee.name);
+  }
+  if (FOREIGN_ROOTS.has(segs[0])) return false;
+  const last = segs[segs.length - 1];
+  if (!/^[A-Z]/.test(last) || last === "Self") return true;
+  if (last === callee.implType || last === callee.implTrait) return true;
+  return !ctx.implNames.has(last);
+}
+
+function callsByName(caller, callee, ctx) {
+  // A library item cannot call into a `src/bin` target (a separate crate):
+  // `bin/pdf_smoke`'s `run`, which drives the PDF window, was reached that way.
+  if (crateOf(callee.file) !== "lib" && crateOf(callee.file) !== crateOf(caller.file)) return false;
   if (caller.file === callee.file) {
     return new RegExp(`\\b${callee.name}\\s*(?:::\\s*<[^>]*>\\s*)?\\(`).test(caller.body);
   }
-  const qualified = new RegExp(`::\\s*${callee.name}\\s*(?:::\\s*<[^>]*>\\s*)?\\(`);
-  // A caller that BINDS the name locally cannot reach the crate item through a
-  // bare call — Rust resolves the binding — so only a path-qualified spelling
-  // counts. This is the THIRD instance of one class (after bare-name and
-  // receiver calls), and it arrived the moment an unrelated refactor gave the
-  // crate a `pub(crate) fn register`: `dock_recent.rs`'s `try_register_with`
-  // takes a closure PARAMETER called `register` and calls `register(path)`, so
-  // the whole dock-recent chain became "reachable" from a window builder and
-  // `register_dock_recent` was reported as a Windows deadlock it cannot have.
-  // Nothing is given up: a shadowing body that really does mean the crate item
-  // has to write `module::name(...)`, which `qualified` still matches.
-  if (bindsLocally(caller, callee.name)) return qualified.test(caller.body);
-  return new RegExp(`(?<![.\\w])${callee.name}\\s*(?:::\\s*<[^>]*>\\s*)?\\(`).test(caller.body);
+  // A caller that BINDS the name locally (a closure parameter, a `let`) cannot
+  // reach the crate item through a bare call — `siteReaches` refuses that
+  // spelling; `dock_recent.rs`'s `register(path)` was the live case.
+  return callSites(caller.body, callee.name).some((segs) => siteReaches(segs, caller, callee, ctx));
 }
 
 /** Does this body construct a window? */
@@ -112,6 +161,10 @@ export const buildsWindow = (fn) => WINDOW_BUILDER_CALL.test(fn.body);
 /** Ids of every fn that can reach a window builder, transitively. */
 export function reachableWindowCreators(fns) {
   const reach = new Set(fns.filter(buildsWindow).map((f) => f.id));
+  const freeNames = new Map();
+  for (const f of fns) if (!f.implType) (freeNames.get(f.file) ?? freeNames.set(f.file, new Set()).get(f.file)).add(f.name);
+  const implNames = new Set(fns.flatMap((f) => [f.implType, f.implTrait]).filter(Boolean));
+  const ctx = { freeNames, implNames };
   let changed = true;
   while (changed) {
     changed = false;
@@ -121,7 +174,7 @@ export function reachableWindowCreators(fns) {
         if (!reach.has(callee.id)) continue;
         // A private callee is only visible inside its own module (= its file).
         if (!callee.crateVisible && callee.file !== caller.file) continue;
-        if (callsByName(caller, callee)) { reach.add(caller.id); changed = true; break; }
+        if (callsByName(caller, callee, ctx)) { reach.add(caller.id); changed = true; break; }
       }
     }
   }

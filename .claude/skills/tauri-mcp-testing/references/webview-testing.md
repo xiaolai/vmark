@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `tauri_webview_*` tools interact with the DOM inside a Tauri app's webview. These tools provide full control over element discovery, interaction, and verification.
+The `webview_*` tools interact with the DOM inside a Tauri app's webview. These tools provide full control over element discovery, interaction, and verification.
 
 ## Element Discovery
 
@@ -10,16 +10,16 @@ The `tauri_webview_*` tools interact with the DOM inside a Tauri app's webview. 
 
 ```typescript
 // Find by CSS selector
-tauri_webview_find_element({ selector: '.editor-content' })
+webview_find_element({ selector: '.editor-content' })
 
 // Find by XPath
-tauri_webview_find_element({
+webview_find_element({
   selector: '//div[@class="editor"]//p',
   strategy: 'xpath'
 })
 
 // Find by text content
-tauri_webview_find_element({
+webview_find_element({
   selector: 'Save Document',
   strategy: 'text'
 })
@@ -48,25 +48,25 @@ tauri_webview_find_element({
 ### Full Viewport
 
 ```typescript
-tauri_webview_screenshot()
+webview_screenshot()
 ```
 
 ### Specific Element
 
 ```typescript
-tauri_webview_screenshot({ uid: 'element-abc123' })
+webview_screenshot({ uid: 'element-abc123' })
 ```
 
 ### Save to File
 
 ```typescript
-tauri_webview_screenshot({
+webview_screenshot({
   filePath: 'dev-docs/archive/test-screenshots/screenshot.png',
   format: 'png'
 })
 
 // JPEG with quality
-tauri_webview_screenshot({
+webview_screenshot({
   filePath: 'dev-docs/archive/test-screenshots/screenshot.jpg',
   format: 'jpeg',
   quality: 80
@@ -79,47 +79,47 @@ tauri_webview_screenshot({
 
 ```typescript
 // Single click
-tauri_webview_interact({ action: 'click', selector: '.button' })
+webview_interact({ action: 'click', selector: '.button' })
 
 // Double click
-tauri_webview_interact({ action: 'double-click', selector: '.item' })
+webview_interact({ action: 'double-click', selector: '.item' })
 
 // Long press (touch)
-tauri_webview_interact({
+webview_interact({
   action: 'long-press',
   selector: '.context-trigger',
   duration: 500  // ms
 })
 
 // Click by coordinates
-tauri_webview_interact({ action: 'click', x: 150, y: 200 })
+webview_interact({ action: 'click', x: 150, y: 200 })
 ```
 
 ### Focus
 
 ```typescript
-tauri_webview_interact({ action: 'focus', selector: 'input.search' })
+webview_interact({ action: 'focus', selector: 'input.search' })
 ```
 
 ### Scrolling
 
 ```typescript
 // Scroll element vertically
-tauri_webview_interact({
+webview_interact({
   action: 'scroll',
   selector: '.scrollable-content',
   scrollY: 500  // pixels down
 })
 
 // Scroll horizontally
-tauri_webview_interact({
+webview_interact({
   action: 'scroll',
   selector: '.horizontal-list',
   scrollX: 200  // pixels right
 })
 
 // Scroll both directions
-tauri_webview_interact({
+webview_interact({
   action: 'scroll',
   selector: '.canvas',
   scrollX: 100,
@@ -131,7 +131,7 @@ tauri_webview_interact({
 
 ```typescript
 // Swipe left
-tauri_webview_interact({
+webview_interact({
   action: 'swipe',
   fromX: 300, fromY: 400,
   toX: 100, toY: 400,
@@ -139,7 +139,7 @@ tauri_webview_interact({
 })
 
 // Swipe up (scroll down on mobile)
-tauri_webview_interact({
+webview_interact({
   action: 'swipe',
   fromX: 200, fromY: 500,
   toX: 200, toY: 200,
@@ -153,14 +153,14 @@ tauri_webview_interact({
 
 ```typescript
 // Type into specific element
-tauri_webview_keyboard({
+webview_keyboard({
   action: 'type',
   selector: 'textarea.content',
   text: 'Hello, World!'
 })
 
 // Type multiline
-tauri_webview_keyboard({
+webview_keyboard({
   action: 'type',
   selector: '.editor',
   text: '# Title\n\nParagraph text here.'
@@ -171,34 +171,34 @@ tauri_webview_keyboard({
 
 ```typescript
 // Single key
-tauri_webview_keyboard({ action: 'press', key: 'Enter' })
-tauri_webview_keyboard({ action: 'press', key: 'Escape' })
-tauri_webview_keyboard({ action: 'press', key: 'Tab' })
+webview_keyboard({ action: 'press', key: 'Enter' })
+webview_keyboard({ action: 'press', key: 'Escape' })
+webview_keyboard({ action: 'press', key: 'Tab' })
 
 // Arrow keys
-tauri_webview_keyboard({ action: 'press', key: 'ArrowDown' })
-tauri_webview_keyboard({ action: 'press', key: 'ArrowRight' })
+webview_keyboard({ action: 'press', key: 'ArrowDown' })
+webview_keyboard({ action: 'press', key: 'ArrowRight' })
 ```
 
 ### Key Combinations
 
 ```typescript
 // Ctrl+S (Save)
-tauri_webview_keyboard({
+webview_keyboard({
   action: 'press',
   key: 's',
   modifiers: ['Control']
 })
 
 // Cmd+Shift+Z (Redo on macOS)
-tauri_webview_keyboard({
+webview_keyboard({
   action: 'press',
   key: 'z',
   modifiers: ['Meta', 'Shift']
 })
 
 // Ctrl+Alt+Delete
-tauri_webview_keyboard({
+webview_keyboard({
   action: 'press',
   key: 'Delete',
   modifiers: ['Control', 'Alt']
@@ -209,9 +209,9 @@ tauri_webview_keyboard({
 
 ```typescript
 // Hold Shift while clicking
-tauri_webview_keyboard({ action: 'down', key: 'Shift' })
-tauri_webview_interact({ action: 'click', selector: '.item:last-child' })
-tauri_webview_keyboard({ action: 'up', key: 'Shift' })
+webview_keyboard({ action: 'down', key: 'Shift' })
+webview_interact({ action: 'click', selector: '.item:last-child' })
+webview_keyboard({ action: 'up', key: 'Shift' })
 ```
 
 ## Waiting
@@ -220,7 +220,7 @@ tauri_webview_keyboard({ action: 'up', key: 'Shift' })
 
 ```typescript
 // Wait for element to appear
-tauri_webview_wait_for({
+webview_wait_for({
   type: 'selector',
   value: '.loading-complete',
   timeout: 10000  // 10 seconds
@@ -231,7 +231,7 @@ tauri_webview_wait_for({
 
 ```typescript
 // Wait for specific text
-tauri_webview_wait_for({
+webview_wait_for({
   type: 'text',
   value: 'Operation successful',
   timeout: 5000
@@ -242,7 +242,7 @@ tauri_webview_wait_for({
 
 ```typescript
 // Wait for Tauri event
-tauri_webview_wait_for({
+webview_wait_for({
   type: 'ipc-event',
   value: 'document-saved',
   timeout: 5000
@@ -255,24 +255,17 @@ tauri_webview_wait_for({
 
 ```typescript
 // All computed styles
-tauri_webview_get_styles({ selector: '.editor' })
+webview_execute_js({ script: `(() => { const s = getComputedStyle(document.querySelector('.editor')); return Object.fromEntries([...s].map(p => [p, s.getPropertyValue(p)])); })()` })
 
 // Specific properties
-tauri_webview_get_styles({
-  selector: '.editor',
-  properties: ['font-size', 'font-family', 'color', 'background-color']
-})
+webview_execute_js({ script: `(() => { const s = getComputedStyle(document.querySelector('.editor')); return Object.fromEntries(["font-size", "font-family", "color", "background-color"].map(p => [p, s.getPropertyValue(p)])); })()` })
 ```
 
 ### Multiple Elements
 
 ```typescript
 // Get styles from all matching elements
-tauri_webview_get_styles({
-  selector: '.toolbar-button',
-  multiple: true,
-  properties: ['opacity', 'background-color']
-})
+webview_execute_js({ script: `[...document.querySelectorAll('.toolbar-button')].map(el => { const s = getComputedStyle(el); return Object.fromEntries(["opacity", "background-color"].map(p => [p, s.getPropertyValue(p)])); })` })
 ```
 
 ## JavaScript Execution
@@ -281,7 +274,7 @@ tauri_webview_get_styles({
 
 ```typescript
 // Execute without return value
-tauri_webview_execute_js({
+webview_execute_js({
   script: 'console.log("Test running")'
 })
 ```
@@ -290,12 +283,12 @@ tauri_webview_execute_js({
 
 ```typescript
 // CORRECT: Use IIFE for return values
-tauri_webview_execute_js({
+webview_execute_js({
   script: '(() => { return document.title; })()'
 })
 
 // WRONG: This returns undefined
-tauri_webview_execute_js({
+webview_execute_js({
   script: 'return document.title;'  // Won't work!
 })
 ```
@@ -304,12 +297,12 @@ tauri_webview_execute_js({
 
 ```typescript
 // Get element count
-tauri_webview_execute_js({
+webview_execute_js({
   script: '(() => { return document.querySelectorAll(".item").length; })()'
 })
 
 // Check state
-tauri_webview_execute_js({
+webview_execute_js({
   script: `(() => {
     const editor = document.querySelector('.editor');
     return {
@@ -321,7 +314,7 @@ tauri_webview_execute_js({
 })
 
 // Access Tauri API
-tauri_webview_execute_js({
+webview_execute_js({
   script: '(() => { return window.__TAURI__.app.getName(); })()'
 })
 ```
@@ -332,45 +325,42 @@ tauri_webview_execute_js({
 
 ```typescript
 // 1. Fill form fields
-tauri_webview_keyboard({
+webview_keyboard({
   action: 'type',
   selector: '#username',
   text: 'testuser'
 })
 
-tauri_webview_keyboard({
+webview_keyboard({
   action: 'type',
   selector: '#password',
   text: 'testpass123'
 })
 
 // 2. Submit form
-tauri_webview_interact({ action: 'click', selector: 'button[type="submit"]' })
+webview_interact({ action: 'click', selector: 'button[type="submit"]' })
 
 // 3. Wait for result
-tauri_webview_wait_for({ type: 'selector', value: '.dashboard', timeout: 5000 })
+webview_wait_for({ type: 'selector', value: '.dashboard', timeout: 5000 })
 ```
 
 ### Pattern: Verify Visual State
 
 ```typescript
 // 1. Take baseline screenshot
-tauri_webview_screenshot({ filePath: 'dev-docs/archive/test-screenshots/before.png' })
+webview_screenshot({ filePath: 'dev-docs/archive/test-screenshots/before.png' })
 
 // 2. Perform action
-tauri_webview_interact({ action: 'click', selector: '.toggle-dark-mode' })
+webview_interact({ action: 'click', selector: '.toggle-dark-mode' })
 
 // 3. Wait for transition
-tauri_webview_wait_for({ type: 'selector', value: '[data-theme="dark"]' })
+webview_wait_for({ type: 'selector', value: '[data-theme="dark"]' })
 
 // 4. Take comparison screenshot
-tauri_webview_screenshot({ filePath: 'dev-docs/archive/test-screenshots/after.png' })
+webview_screenshot({ filePath: 'dev-docs/archive/test-screenshots/after.png' })
 
 // 5. Check CSS changes
-tauri_webview_get_styles({
-  selector: 'body',
-  properties: ['background-color', 'color']
-})
+webview_execute_js({ script: `(() => { const s = getComputedStyle(document.querySelector('body')); return Object.fromEntries(["background-color", "color"].map(p => [p, s.getPropertyValue(p)])); })()` })
 ```
 
 ### Pattern: Drag and Drop
@@ -378,19 +368,19 @@ tauri_webview_get_styles({
 ```typescript
 // Note: Use swipe for drag-and-drop simulation
 // 1. Find source element position
-const source = tauri_webview_find_element({ selector: '.draggable' })
+const source = webview_find_element({ selector: '.draggable' })
 
 // 2. Find target element position
-const target = tauri_webview_find_element({ selector: '.drop-zone' })
+const target = webview_find_element({ selector: '.drop-zone' })
 
 // 3. Perform drag (long press + swipe)
-tauri_webview_interact({
+webview_interact({
   action: 'long-press',
   selector: '.draggable',
   duration: 200
 })
 
-tauri_webview_interact({
+webview_interact({
   action: 'swipe',
   fromX: source.rect.x + source.rect.width/2,
   fromY: source.rect.y + source.rect.height/2,

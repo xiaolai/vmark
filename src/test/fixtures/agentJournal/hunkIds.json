@@ -1,0 +1,438 @@
+{
+  "spec": "id = lowercase hex SHA-256 of the UTF-8 bytes of the JSON array [baseRev, targetRev, baseRange.from, baseRange.to, targetRange.from, targetRange.to, baseTextHash, targetTextHash], serialized with no whitespace, strings escaped as JSON.stringify / serde_json do (\\\" \\\\ \\b \\f \\n \\r \\t, other C0 controls as lowercase \\u00xx, everything else literal UTF-8), integers in plain decimal. textHash = lowercase hex SHA-256 of the text's UTF-8 bytes; text that is not well-formed UTF-16 is refused, never replaced with U+FFFD. Revision ids must be well-formed; ranges are non-negative integers ≤ 2^53−1 with from ≤ to. The diff-algorithm version is metadata, never part of the id.",
+  "rangeUnit": "utf16CodeUnit",
+  "cases": [
+    {
+      "name": "ascii-replace",
+      "baseRev": "r0000",
+      "targetRev": "r0001",
+      "baseRange": {
+        "from": 2,
+        "to": 6
+      },
+      "targetRange": {
+        "from": 2,
+        "to": 6
+      },
+      "baseText": "beta",
+      "targetText": "BETA",
+      "baseTextHash": "f44e64e75f3948e9f73f8dfa94721c4ce8cbb4f265c4790c702b2d41cfbf2753",
+      "targetTextHash": "639181fd63cbad6e274ecd205b79f5c3e7c11971cac617ee8bddcac6e79b20e7",
+      "preimage": "[\"r0000\",\"r0001\",2,6,2,6,\"f44e64e75f3948e9f73f8dfa94721c4ce8cbb4f265c4790c702b2d41cfbf2753\",\"639181fd63cbad6e274ecd205b79f5c3e7c11971cac617ee8bddcac6e79b20e7\"]",
+      "id": "29386e1a085f666cad4d7bc9f5838ea1432d441bf31099811827b39f23d9b4f9"
+    },
+    {
+      "name": "cjk-pure-insertion",
+      "baseRev": "r0001",
+      "targetRev": "r0002",
+      "baseRange": {
+        "from": 3,
+        "to": 3
+      },
+      "targetRange": {
+        "from": 3,
+        "to": 6
+      },
+      "baseText": "",
+      "targetText": "美丽的",
+      "baseTextHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "targetTextHash": "9445b53c94cd0847a0e862a2ff39ae613fc23749c9931fe3d8889389cc0088a8",
+      "preimage": "[\"r0001\",\"r0002\",3,3,3,6,\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"9445b53c94cd0847a0e862a2ff39ae613fc23749c9931fe3d8889389cc0088a8\"]",
+      "id": "77a98b77b44bff2112aca41087415b7173949a25d48331771f27c56b79ea44d3"
+    },
+    {
+      "name": "cjk-replace",
+      "baseRev": "r0002",
+      "targetRev": "r0003",
+      "baseRange": {
+        "from": 1,
+        "to": 2
+      },
+      "targetRange": {
+        "from": 1,
+        "to": 2
+      },
+      "baseText": "二",
+      "targetText": "三",
+      "baseTextHash": "084b42f6e95e4e6545e236975ade8e205383fefe1021c9d793f758c21f9377dc",
+      "targetTextHash": "a4c3313deb180960469d0e79a770b9deee47fdeed74fe0f74d0bf51006fcc4f0",
+      "preimage": "[\"r0002\",\"r0003\",1,2,1,2,\"084b42f6e95e4e6545e236975ade8e205383fefe1021c9d793f758c21f9377dc\",\"a4c3313deb180960469d0e79a770b9deee47fdeed74fe0f74d0bf51006fcc4f0\"]",
+      "id": "054214b65aeb9df7c3c3fddd0f9d7703e125bb7b968aa94ba388afca1d1dc518"
+    },
+    {
+      "name": "emoji-surrogate-pair-modifier",
+      "baseRev": "r0003",
+      "targetRev": "r0004",
+      "baseRange": {
+        "from": 7,
+        "to": 9
+      },
+      "targetRange": {
+        "from": 7,
+        "to": 9
+      },
+      "baseText": "🏽",
+      "targetText": "🏿",
+      "baseTextHash": "d1e14ae2aeac427fbe5bd209b66de8fc9b1abfe2da1c0cad933e809cfc742da9",
+      "targetTextHash": "2a93f686d2c6cd930ecfe2bfe858612afc9a6cbce80f6adaaa861c5ebb8de143",
+      "preimage": "[\"r0003\",\"r0004\",7,9,7,9,\"d1e14ae2aeac427fbe5bd209b66de8fc9b1abfe2da1c0cad933e809cfc742da9\",\"2a93f686d2c6cd930ecfe2bfe858612afc9a6cbce80f6adaaa861c5ebb8de143\"]",
+      "id": "7a4760a500287b2b1ec0d618d69cf9431f5bfe8946135427e5b637e0d9f1a839"
+    },
+    {
+      "name": "emoji-zwj-family-member",
+      "baseRev": "r0004",
+      "targetRev": "r0005",
+      "baseRange": {
+        "from": 10,
+        "to": 12
+      },
+      "targetRange": {
+        "from": 10,
+        "to": 12
+      },
+      "baseText": "👧",
+      "targetText": "👦",
+      "baseTextHash": "8fee5afa8d101b50550847302a88d1a5a0a2797f81cefcb457b53bc29da0370d",
+      "targetTextHash": "f6d0cf5c5c3210d024b87886f35465c50d5ec96c86d6767ac98ebdb7768a0c54",
+      "preimage": "[\"r0004\",\"r0005\",10,12,10,12,\"8fee5afa8d101b50550847302a88d1a5a0a2797f81cefcb457b53bc29da0370d\",\"f6d0cf5c5c3210d024b87886f35465c50d5ec96c86d6767ac98ebdb7768a0c54\"]",
+      "id": "2eccebb40476df4c6ced1347ef43ab74534a986f130c15516a25b12260e4e17c"
+    },
+    {
+      "name": "empty-document-insert",
+      "baseRev": "r0000",
+      "targetRev": "r0001",
+      "baseRange": {
+        "from": 0,
+        "to": 0
+      },
+      "targetRange": {
+        "from": 0,
+        "to": 6
+      },
+      "baseText": "",
+      "targetText": "hello\n",
+      "baseTextHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "targetTextHash": "5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03",
+      "preimage": "[\"r0000\",\"r0001\",0,0,0,6,\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"5891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03\"]",
+      "id": "dc057ee0f8ae8434750b3ecf484d6fd1eee2be1bef427b0d0e4176c95baa12c2"
+    },
+    {
+      "name": "empty-document-delete-all",
+      "baseRev": "r0001",
+      "targetRev": "r0002",
+      "baseRange": {
+        "from": 0,
+        "to": 4
+      },
+      "targetRange": {
+        "from": 0,
+        "to": 0
+      },
+      "baseText": "abc\n",
+      "targetText": "",
+      "baseTextHash": "edeaaff3f1774ad2888673770c6d64097e391bc362d7d6fb34982ddf0efd18cb",
+      "targetTextHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "preimage": "[\"r0001\",\"r0002\",0,4,0,0,\"edeaaff3f1774ad2888673770c6d64097e391bc362d7d6fb34982ddf0efd18cb\",\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\"]",
+      "id": "55cbbdc5b87394337c4a92c564152d1cb02bc4df8da5557b0ff2064aec36df2d"
+    },
+    {
+      "name": "deletion-anchor-line",
+      "baseRev": "r0005",
+      "targetRev": "r0006",
+      "baseRange": {
+        "from": 3,
+        "to": 6
+      },
+      "targetRange": {
+        "from": 3,
+        "to": 3
+      },
+      "baseText": "L1\n",
+      "targetText": "",
+      "baseTextHash": "e7cc81bf09ab9cfed0484401a95110a233b0ebe005a48c57990ea5a8874cfacb",
+      "targetTextHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "preimage": "[\"r0005\",\"r0006\",3,6,3,3,\"e7cc81bf09ab9cfed0484401a95110a233b0ebe005a48c57990ea5a8874cfacb\",\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\"]",
+      "id": "93d62fd2782d44a3c3d22526fbc06b3282cbe7bbe49af0de58346b3490a43868"
+    },
+    {
+      "name": "deletion-anchor-end-of-document",
+      "baseRev": "r0006",
+      "targetRev": "r0007",
+      "baseRange": {
+        "from": 1,
+        "to": 2
+      },
+      "targetRange": {
+        "from": 1,
+        "to": 1
+      },
+      "baseText": "A",
+      "targetText": "",
+      "baseTextHash": "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd",
+      "targetTextHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "preimage": "[\"r0006\",\"r0007\",1,2,1,1,\"559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd\",\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\"]",
+      "id": "e589121387091b50edf6b983065716636b368748140e674050274043433d553b"
+    },
+    {
+      "name": "rtl-hebrew-insertion",
+      "baseRev": "r0007",
+      "targetRev": "r0008",
+      "baseRange": {
+        "from": 5,
+        "to": 5
+      },
+      "targetRange": {
+        "from": 5,
+        "to": 9
+      },
+      "baseText": "",
+      "targetText": "יפה ",
+      "baseTextHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "targetTextHash": "9a5b4becb809a1d129fd084ba8fef50e6129f8120aef318abdef5097a0283d59",
+      "preimage": "[\"r0007\",\"r0008\",5,5,5,9,\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"9a5b4becb809a1d129fd084ba8fef50e6129f8120aef318abdef5097a0283d59\"]",
+      "id": "cd4db15fe00a2350f0b9f82e438ec0a86b3523f6dd3aef13afcc76f00e6a8208"
+    },
+    {
+      "name": "u+fffd-is-ordinary-text",
+      "baseRev": "r0008",
+      "targetRev": "r0009",
+      "baseRange": {
+        "from": 0,
+        "to": 1
+      },
+      "targetRange": {
+        "from": 0,
+        "to": 1
+      },
+      "baseText": "�",
+      "targetText": "?",
+      "baseTextHash": "83d544ccc223c057d2bf80d3f2a32982c32c3c0db8e2674820da5064783fb097",
+      "targetTextHash": "8a8de823d5ed3e12746a62ef169bcf372be0ca44f0a1236abc35df05d96928e1",
+      "preimage": "[\"r0008\",\"r0009\",0,1,0,1,\"83d544ccc223c057d2bf80d3f2a32982c32c3c0db8e2674820da5064783fb097\",\"8a8de823d5ed3e12746a62ef169bcf372be0ca44f0a1236abc35df05d96928e1\"]",
+      "id": "9ed2b5f1a95907f96e755f3cf17eb15614326b34a017ed5739c3d3a82d520174"
+    },
+    {
+      "name": "crlf-and-tab-in-text",
+      "baseRev": "r0009",
+      "targetRev": "r0010",
+      "baseRange": {
+        "from": 0,
+        "to": 4
+      },
+      "targetRange": {
+        "from": 0,
+        "to": 3
+      },
+      "baseText": "a\r\nb",
+      "targetText": "a\tb",
+      "baseTextHash": "18745f36a05e29072709042d6062ce54f1b08ff36c27ba80c39f81fb010c8ce2",
+      "targetTextHash": "894891f8b78a9945b0aa07e70d5f71f10b1f1990af127de561cc0ac36024c188",
+      "preimage": "[\"r0009\",\"r0010\",0,4,0,3,\"18745f36a05e29072709042d6062ce54f1b08ff36c27ba80c39f81fb010c8ce2\",\"894891f8b78a9945b0aa07e70d5f71f10b1f1990af127de561cc0ac36024c188\"]",
+      "id": "796753ba22dbfcbac102425880cd4ceb58eac0f99f872d7ed24e4d9bcdefe217"
+    },
+    {
+      "name": "revision-ids-needing-json-escapes",
+      "baseRev": "r\"q\\uote\u0001\t\u001f",
+      "targetRev": "版本-٢-😀 ",
+      "baseRange": {
+        "from": 0,
+        "to": 1
+      },
+      "targetRange": {
+        "from": 0,
+        "to": 1
+      },
+      "baseText": "x",
+      "targetText": "y",
+      "baseTextHash": "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881",
+      "targetTextHash": "a1fce4363854ff888cff4b8e7875d600c2682390412a8cf79b37d0b11148b0fa",
+      "preimage": "[\"r\\\"q\\\\uote\\u0001\\t\\u001f\",\"版本-٢-😀 \",0,1,0,1,\"2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881\",\"a1fce4363854ff888cff4b8e7875d600c2682390412a8cf79b37d0b11148b0fa\"]",
+      "id": "d3bf926e042b2d96c75d9f2fcfd1c8b0695cd7cc9b61cafca9b27b23e823a141"
+    },
+    {
+      "name": "max-safe-integer-offsets",
+      "baseRev": "r0010",
+      "targetRev": "r0011",
+      "baseRange": {
+        "from": 9007199254740990,
+        "to": 9007199254740991
+      },
+      "targetRange": {
+        "from": 9007199254740990,
+        "to": 9007199254740990
+      },
+      "baseText": "z",
+      "targetText": "",
+      "baseTextHash": "594e519ae499312b29433b7dd8a97ff068defcba9755b6d5d00e84c524d67b06",
+      "targetTextHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "preimage": "[\"r0010\",\"r0011\",9007199254740990,9007199254740991,9007199254740990,9007199254740990,\"594e519ae499312b29433b7dd8a97ff068defcba9755b6d5d00e84c524d67b06\",\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\"]",
+      "id": "60522d73e71479c5ac8f9ed696a40e0d37fbd08eba49a60d136827218bd5a373"
+    }
+  ],
+  "invalid": [
+    {
+      "name": "lone high surrogate in a revision id",
+      "input": {
+        "baseRev": "r0",
+        "targetRev": "r1",
+        "baseRange": {
+          "from": 0,
+          "to": 1
+        },
+        "targetRange": {
+          "from": 0,
+          "to": 1
+        },
+        "baseTextHash": "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881",
+        "targetTextHash": "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881"
+      },
+      "utf16Fields": {
+        "baseRev": [
+          114,
+          55296
+        ]
+      }
+    },
+    {
+      "name": "lone low surrogate in a revision id",
+      "input": {
+        "baseRev": "r0",
+        "targetRev": "r1",
+        "baseRange": {
+          "from": 0,
+          "to": 1
+        },
+        "targetRange": {
+          "from": 0,
+          "to": 1
+        },
+        "baseTextHash": "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881",
+        "targetTextHash": "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881"
+      },
+      "utf16Fields": {
+        "targetRev": [
+          56320,
+          114
+        ]
+      }
+    },
+    {
+      "name": "negative offset",
+      "input": {
+        "baseRev": "r0",
+        "targetRev": "r1",
+        "baseRange": {
+          "from": -1,
+          "to": 1
+        },
+        "targetRange": {
+          "from": 0,
+          "to": 1
+        },
+        "baseTextHash": "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881",
+        "targetTextHash": "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881"
+      }
+    },
+    {
+      "name": "from after to",
+      "input": {
+        "baseRev": "r0",
+        "targetRev": "r1",
+        "baseRange": {
+          "from": 0,
+          "to": 1
+        },
+        "targetRange": {
+          "from": 2,
+          "to": 1
+        },
+        "baseTextHash": "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881",
+        "targetTextHash": "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881"
+      }
+    },
+    {
+      "name": "fractional offset",
+      "input": {
+        "baseRev": "r0",
+        "targetRev": "r1",
+        "baseRange": {
+          "from": 0.5,
+          "to": 1
+        },
+        "targetRange": {
+          "from": 0,
+          "to": 1
+        },
+        "baseTextHash": "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881",
+        "targetTextHash": "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881"
+      }
+    },
+    {
+      "name": "offset above 2^53-1",
+      "input": {
+        "baseRev": "r0",
+        "targetRev": "r1",
+        "baseRange": {
+          "from": 0,
+          "to": 1
+        },
+        "targetRange": {
+          "from": 0,
+          "to": 9007199254740992
+        },
+        "baseTextHash": "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881",
+        "targetTextHash": "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881"
+      }
+    },
+    {
+      "name": "uppercase text hash",
+      "input": {
+        "baseRev": "r0",
+        "targetRev": "r1",
+        "baseRange": {
+          "from": 0,
+          "to": 1
+        },
+        "targetRange": {
+          "from": 0,
+          "to": 1
+        },
+        "baseTextHash": "2D711642B726B04401627CA9FBAC32F5C8530FB1903CC4DB02258717921A4881",
+        "targetTextHash": "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881"
+      }
+    },
+    {
+      "name": "short text hash",
+      "input": {
+        "baseRev": "r0",
+        "targetRev": "r1",
+        "baseRange": {
+          "from": 0,
+          "to": 1
+        },
+        "targetRange": {
+          "from": 0,
+          "to": 1
+        },
+        "baseTextHash": "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881",
+        "targetTextHash": "d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881"
+      }
+    },
+    {
+      "name": "missing field",
+      "input": {
+        "baseRev": "r0",
+        "targetRev": "r1",
+        "baseRange": {
+          "from": 0,
+          "to": 1
+        },
+        "targetRange": {
+          "from": 0,
+          "to": 1
+        },
+        "baseTextHash": "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881"
+      }
+    }
+  ]
+}

@@ -26,7 +26,7 @@
  * `DevGlobalName` union is the inventory of every such name.
  *
  * @coordinates-with src/stores/editorStore.ts — publishes `editorView`
- * @coordinates-with src/hooks/useCommandBootstrap.ts — publishes `runCommand`
+ * @coordinates-with src/services/commands/commandBootstrap.ts — publishes `runCommand`
  * @coordinates-with src/stores/mcpStore.ts — publishes `__mcpStore`
  * @coordinates-with src/stores/contentServerStore.ts — publishes `__contentServerStore`
  * @coordinates-with src/components/Terminal/terminalInputTrace.ts — publishes `__vmarkInputTrace`

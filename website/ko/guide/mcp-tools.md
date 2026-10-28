@@ -1,8 +1,8 @@
 # MCP 도구 참조
 
-VMark는 AI 어시스턴트에게 **아홉 가지 복합 MCP 도구** 를 노출합니다: `session`, `workspace`, `document`, `workflow`, `selection`, `browser`, `browser_read`, `coherence`, `coherence_resolve`. 이들은 함께 편집기 척추, 파일/창 라이프사이클, CST 안전 워크플로우 편집, 선택 영역 대상 편집, 제한된 브라우저 탐색, 그리고 워크스페이스 정합성 레이어의 뷰를 다룹니다.
+VMark는 AI 어시스턴트에게 **열 가지 복합 MCP 도구** 를 노출합니다: `session`, `workspace`, `document`, `workflow`, `selection`, `comments`, `browser`, `browser_read`, `coherence`, `coherence_resolve`. 이들은 함께 편집기 척추, 파일/창 라이프사이클, CST 안전 워크플로우 편집, 선택 영역 대상 편집, 제한된 브라우저 탐색, 그리고 워크스페이스 정합성 레이어의 뷰를 다룹니다.
 
-아홉 가지 중 셋 — `session`, `browser_read`, `coherence` — 은 `readOnlyHint: true`를 선언하므로 MCP 클라이언트가 자동 승인할 수 있습니다. `browser`/`browser_read`와 `coherence`/`coherence_resolve`가 애초에 별개의 도구인 이유가 바로 이것입니다: 주석(annotation)은 액션별이 아니라 **도구별** 이므로, ARIA 스냅샷과 `execute_js`를 한데 묶은 도구는 `execute_js`의 위험성을 알려야 합니다. "이것이 무언가를 수정하는가?"를 기준으로 분리하면 각 절반이 진실을 말할 수 있고, 표면에서 정말로 파괴적인 액션들이 도구 목록에서 눈에 띄게 유지됩니다.
+열 가지 중 셋 — `session`, `browser_read`, `coherence` — 은 `readOnlyHint: true`를 선언하므로 MCP 클라이언트가 자동 승인할 수 있습니다. `browser`/`browser_read`와 `coherence`/`coherence_resolve`가 애초에 별개의 도구인 이유가 바로 이것입니다: 주석(annotation)은 액션별이 아니라 **도구별** 이므로, ARIA 스냅샷과 `execute_js`를 한데 묶은 도구는 `execute_js`의 위험성을 알려야 합니다. "이것이 무언가를 수정하는가?"를 기준으로 분리하면 각 절반이 진실을 말할 수 있고, 표면에서 정말로 파괴적인 액션들이 도구 목록에서 눈에 띄게 유지됩니다.
 
 이전 12-도구 / 76-액션 표면은 정리되었습니다. 문서 내 서식 도구 (굵게, 제목, 테이블 등)는 AI 에이전트가 마크다운 왕복을 통해 이미 쉽게 수행하는 작업과 중복되기 때문입니다. `selection`은 (정리 계획의 ADR-7에 따라) 유지되었는데, 큰 파일에서는 전체 문서 왕복이 비경제적이기 때문입니다 — 편집할 때마다 전체 문서를 입력 토큰으로, 전체 문서를 출력 토큰으로 (입력의 약 5배 가격) 지불하며, 쓰기 창이 길어져 오래된 리비전 재시도 루프가 넓어집니다. 전체 근거는 [MCP 정리 계획](https://github.com/xiaolai/vmark/blob/main/.claude/adr/plans/20260504-mcp-pruning.md)을 참조하세요.
 
@@ -141,7 +141,7 @@ MCP를 통해 AI로 Mermaid 다이어그램을 생성할 때 [mermaid-validator 
 |---------|------|------|
 | `tabId` | string | 아니오 (기본값은 포커스된 탭) |
 
-`{filePath, revision}`을 반환합니다.
+`{filePath, revision, journaled}`을 반환합니다.
 
 ### `save_as`
 
@@ -152,9 +152,15 @@ MCP를 통해 AI로 Mermaid 다이어그램을 생성할 때 [mermaid-validator 
 | `tabId` | string | 아니오 |
 | `filePath` | string | 예 |
 
-`{revision}`을 반환합니다.
+`{revision, journaled}`을 반환합니다.
 
 탭 자신의 현재 파일이 아닌 경로에 저장하는 것은 새 쓰기로 취급됩니다. **새 위치로 저장 및 지니 결과 자동 승인** (설정 → 통합) 이 꺼져 있으면 (기본값), 그러한 요청은 `APPROVAL_REQUIRED`로 거부되고 토스트가 무엇이 차단되었는지 알려줍니다. 탭 자신의 경로로 다시 저장하는 것은 항상 허용됩니다.
+
+경로 검사는 해당 파일의 저장 대기열에서 저장 차례가 왔을 때 다시 실행됩니다. 그때까지 허용 범위를 벗어난 경로(예: 저장이 대기하는 동안 워크스페이스가 닫힌 경우)는 `INVALID_PATH`로 거부되며, 아무것도 쓰지 않습니다.
+
+`save_as`는 탭 자신의 파일이 아닌 파일을 절대 대체하지 않습니다. 이미 파일이 있는 대상은 `APPROVAL_REQUIRED`로 거부됩니다. 요청을 검사한 뒤 저장이 진행되는 동안 생긴 파일도 마찬가지입니다. 파일은 제자리에 놓이는 순간 그 경로에 아무것도 없을 때만 쓰이며, 그곳에 있던 파일은 내용을 그대로 유지합니다. 디스크가 이 방식으로 쓸 수 없으면 덮어쓰지 않고 저장을 거부합니다.
+
+`save` 또는 `save_as`는 이 저장보다 나중에 한 저장이 어느 문서나 창에서든 이미 그 파일에 도달했을 때(예: 심볼릭 링크와 그것이 가리키는 파일을 통해) `STALE`로 거부됩니다. 그래서 이 오래된 저장은 아무것도 쓰지 않았습니다. 다시 쓰기 전에 문서를 읽으세요. `document.write`는 같은 경우를 `saved: false`와 `save_error`로 보고합니다.
 
 ### `close`
 
@@ -216,23 +222,30 @@ MCP를 통해 AI로 Mermaid 다이어그램을 생성할 때 [mermaid-validator 
 | `tabId` | string | 아니오 | 대상 탭 (기본값은 포커스된 탭) |
 | `content` | string | 예 | 새 전체 콘텐츠 |
 | `expected_revision` | string | 아니오 | 가장 최근 read의 리비전 토큰 |
+| `addresses` | string[] | 아니오 | 이 편집이 답하는 `comments.list`의 댓글 ID (최대 64개) |
 | `save` | boolean | 아니오 | 디스크에도 저장 (기본값 `true`); `false`는 탭만 변경 |
 
 기본적으로 쓰기는 저장됩니다: 응답에 `saved: true`가 담기거나, `saved: false`와 함께 `save_skipped` (`"untitled"` — 탭에 아직 파일이 없으므로 `save_as`를 사용하세요; `"opt_out"` — `save: false`를 전달함) 또는 `save_error` (디스크 쓰기 실패) 가 담깁니다. 대상이 마크다운 문서의 활성 WYSIWYG 탭이면 텍스트는 실시간 에디터에 (실행 취소 가능한 한 단계로) 로드되며, 저장되는 것은 에디터가 이를 직렬화한 결과입니다 — 같은 마크다운이지만 정규화될 수 있으므로, 보낸 문자와 정확히 같다는 보장은 없습니다. 다른 탭은 보낸 텍스트를 그대로 저장하되 줄 끝만 정규화합니다.
 
+쓰기가 탭을 변경한 뒤 저장이 실행되기 전에 탭이 닫히면, 응답은 `saved: false`이며 탭이 닫혔다는 `save_error`가 함께 옵니다. 탭이 가리키던 경로에는 아무것도 쓰지 않습니다.
+
 AI 클라이언트가 하는 모든 저장은 — `write`, `workspace.save`, `workspace.save_as` 중 무엇을 통하든 — 문서 기록에 `mcp` 스냅샷으로 남으므로 (히스토리 사이드바에 *(mcp)* 로 표시됩니다) AI가 쓴 버전을 사용자의 버전과 구별할 수 있습니다. 수동 저장과 마찬가지로 인접한 자동 저장과 병합되거나 크기 때문에 건너뛰어지지 않습니다.
+
+저장 응답에는 `journaled`도 포함됩니다(`write`에서는 저장을 수행한 경우에만). `"yes"`: VMark의 에이전트 편집 저널이 저장된 텍스트를 기록했습니다. `"pending"`: 기록되었으며, 아직 기록 중인 쓰기가 끝나면 문서 기록에서 제자리를 갖습니다. `"no"`: 파일은 저장되었지만 저널에는 기록되지 않았습니다. 저널 때문에 저장이 오류가 되는 일은 없습니다.
 
 `expected_revision`이 제공되었고 해당 read 이후 문서가 변경된 경우, 응답은 현재 리비전이 포함된 `STALE` 구조화된 오류 봉투입니다; 다시 읽고 재시도하세요.
 
 ```json
 // 성공
-{ "revision": "rev-newAfterWrite", "saved": true }
+{ "revision": "rev-newAfterWrite", "applied": true, "durable": true, "saved": true }
 
 // 오래됨
 { "error": "STALE", "message": "Document has changed since the last read", "current_revision": "rev-currentNow" }
 ```
 
 탭을 보여 주는 WYSIWYG 에디터에서 사용자가 입력기 (IME) 로 텍스트를 조합하는 동안에는 쓰기가 `BUSY`로 거부되고 아무것도 바뀌지 않습니다: 조합 중인 텍스트는 확정될 때까지 입력기의 것이기 때문입니다. 잠시 후 다시 시도하세요. 소스 모드에서는 쓰기가 받아들여지고, 조합이 끝나는 대로 에디터에 표시됩니다.
+
+모든 쓰기는 무엇이든 바뀌기 전에 VMark의 에이전트 편집 저널에 기록됩니다. 성공 응답에는 `applied: true`와 `durable`이 들어 있습니다: `durable: false`는 내용은 쓰였지만 그 저널 기록을 아직 저장하지 못했다는 뜻입니다. VMark가 백그라운드에서 다시 시도하며, 그것이 끝날 때까지 그 문서에 대한 다음 쓰기는 `JOURNAL_DEGRADED`로 거부됩니다. 저널이 기록 자체를 거부하면 쓰기는 적용된 상태로 남고 기록되지 않은 것으로 로그에 남으며, 다음 쓰기는 그대로 진행됩니다. 쓰기는 아무것도 바꾸지 않고 다음 경우에 거부됩니다: 같은 문서에 대한 다른 쓰기를 기록하는 동안에는 `JOURNAL_BUSY`(같은 파일을 보여 주는 두 창은 하나의 문서를 공유합니다), 이 탭이 마지막으로 쓴 뒤 다른 창이 그 문서를 썼다면 `STALE_PARENT`(다시 읽고 다시 시도하세요), 저널이 실행 중이 아니거나 제시간에 응답하지 않으면 `JOURNAL_UNAVAILABLE`, `content`에 짝 없는 UTF-16 서로게이트가 있으면 `INVALID_TEXT`. 쓰기를 기록하는 동안 사용자가 문서를 편집하거나, 탭을 닫거나, 입력기로 조합을 시작하거나, 선택 영역을 옮기면(`tabId`를 주지 않았다면 탭을 바꾸면) 쓰기는 `ABORTED`와 `reason`(`edited`, `closed`, `composing`, `selection`)으로 거부되고 아무것도 바뀌지 않습니다. 다시 읽고 다시 시도하세요. `applied: true`가 붙은 `INTERNAL` 오류는 다릅니다. 쓰기가 문서를 바꾼 뒤에 편집기가 실패했고, 그때 문서에 있던 텍스트가 기록되었습니다(`durable`은 위와 같고, `current_revision`은 문서의 리비전입니다). 다시 쓰기 전에 다시 읽으세요. 실패한 쓰기 뒤에 `applied`가 없는 `INTERNAL` 오류는 문서가 일부 바뀌었을 수 있다는 뜻이니, 이때도 다시 읽으세요.
 
 ### `transform`
 
@@ -243,10 +256,11 @@ AI 클라이언트가 하는 모든 저장은 — `write`, `workspace.save`, `wo
 | `tabId` | string | 아니오 | 대상 탭 |
 | `kind` | string | 예 | `"cjk-format"`, `"cjk-spacing"`, 또는 `"cjk-punctuation"` |
 | `expected_revision` | string | 아니오 | 동시성 토큰 |
+| `addresses` | string[] | 아니오 | 이 편집이 답하는 `comments.list`의 댓글 ID (최대 64개) |
 
 `cjk-format`은 사용자의 CJK 서식 설정을 끝에서 끝까지 적용합니다. `cjk-spacing`은 CJK 문자와 인접한 라틴/숫자 사이에 단일 공백을 삽입합니다. `cjk-punctuation`은 CJK 문자 옆에 있는 ASCII 구두점을 전각 형태로 변환합니다.
 
-`{revision}`을 반환합니다. `write`와 마찬가지로, 탭을 보여 주는 WYSIWYG 에디터에서 사용자가 입력기로 조합하는 동안에는 아무것도 바꾸지 않고 `BUSY`로 거부됩니다.
+`{revision, applied, durable}`을 반환합니다. `write`와 마찬가지로, 탭을 보여 주는 WYSIWYG 에디터에서 사용자가 입력기로 조합하는 동안에는 아무것도 바꾸지 않고 `BUSY`로 거부됩니다. `write`와 마찬가지로 무엇이든 바뀌기 전에 VMark의 에이전트 편집 저널에 기록됩니다. `applied`, `durable`과 저널 거부 (`JOURNAL_BUSY`, `STALE_PARENT`, `JOURNAL_DEGRADED`, `JOURNAL_UNAVAILABLE`, `INVALID_TEXT`, `ABORTED`)의 의미도 같습니다. 아무것도 바꾸지 않는 호출은 기록되지 않습니다.
 
 ---
 
@@ -273,6 +287,7 @@ GitHub Actions 워크플로우 YAML을 위한 `actionlint` 검증과 **CST 안�
 | `tabId` | string | 아니오 |
 | `patches` | IRPatch[] | 예 |
 | `expected_revision` | string | 아니오 |
+| `addresses` | string[] | 아니오 |
 
 `IRPatch`는 판별 유니온입니다 (`kind` 필드). 지원되는 종류:
 
@@ -286,7 +301,7 @@ GitHub Actions 워크플로우 YAML을 위한 `actionlint` 검증과 **CST 안�
 | `needs.add` / `needs.remove` | `needs:`에서 작업 ID 추가 또는 제거 |
 | `trigger.setFilters` | 트리거 필터 배열 교체 — branches, paths, types 등 (`{event, filter, value: string[]}`) |
 
-성공 시 `{revision}`을, 또는 구조화된 `STALE` / `INVALID_PATCH` / `NOT_WORKFLOW` 오류 봉투를 반환합니다.
+성공 시 `{revision, applied, durable}`을, 또는 구조화된 `STALE` / `INVALID_PATCH` / `NOT_WORKFLOW` 오류 봉투를 반환합니다. `write`와 마찬가지로 무엇이든 바뀌기 전에 VMark의 에이전트 편집 저널에 기록됩니다. `applied`, `durable`과 저널 거부 (`JOURNAL_BUSY`, `STALE_PARENT`, `JOURNAL_DEGRADED`, `JOURNAL_UNAVAILABLE`, `INVALID_TEXT`, `ABORTED`)의 의미도 같습니다. 아무것도 바꾸지 않는 호출은 기록되지 않습니다.
 
 ### `validate`
 
@@ -333,14 +348,57 @@ GitHub Actions 워크플로우 YAML을 위한 `actionlint` 검증과 **CST 안�
 | `tabId` | string | 아니오 |
 | `content` | string | 예 |
 | `expected_revision` | string | 아니오 (권장) |
+| `addresses` | string[] | 아니오 |
 
 편집기가 현재 선택 영역으로 보고하는 것을 무엇이든 교체합니다. **WYSIWYG 모드에서는**, 일반 인라인 텍스트가 리터럴 텍스트 노드로 삽입되므로 선행/후행 공백이 정확히 왕복됩니다; 마크다운 마커 (`**bold**`, `*italic*`, `` `code` ``, 펜스 코드, 인용구, 목록 등) 를 담은 콘텐츠는 마크다운으로 파싱되어 해당 노드로 삽입됩니다. **소스 모드에서는**, `content`가 항상 원시 텍스트로 이어 붙여집니다 — 소스 표면은 이미 마크다운 바이트입니다. 빈 `content`는 선택 영역을 삭제합니다. 선택 영역이 축소된 경우, `content`는 커서 위치에 삽입됩니다.
 
-성공 시 `{revision, replaced_chars}`를 반환합니다. `replaced_chars`는 호출 전에 선택되어 있던 텍스트의 길이입니다 — AI가 예상한 것을 편집했는지 확인하는 데 유용합니다.
+성공 시 `{revision, replaced_chars, applied, durable}`를 반환합니다. `replaced_chars`는 호출 전에 선택되어 있던 텍스트의 길이입니다 — AI가 예상한 것을 편집했는지 확인하는 데 유용합니다. `write`와 마찬가지로 무엇이든 바뀌기 전에 VMark의 에이전트 편집 저널에 기록됩니다. `applied`, `durable`과 저널 거부 (`JOURNAL_BUSY`, `STALE_PARENT`, `JOURNAL_DEGRADED`, `JOURNAL_UNAVAILABLE`, `INVALID_TEXT`, `ABORTED`)의 의미도 같습니다. 아무것도 바꾸지 않는 호출은 기록되지 않습니다.
 
 `STALE`은 `document.write`와 똑같이 `{error: "STALE", message, current_revision}`을 반환합니다. 문서 수준 리비전은 `get`과 `set` 사이의 키 입력을 잡아냅니다. 순수한 커서 이동은 (키 입력 없이) 서버가 중재하지 않습니다 — 사용자가 `get`과 `set` 사이에 커서를 옮겼다면, 편집은 새 위치에 적용됩니다.
 
 포커스된 에디터에서 사용자가 입력기로 텍스트를 조합하는 동안 `set`은 WYSIWYG 모드든 소스 모드든 아무것도 바꾸지 않고 `BUSY`를 반환합니다; 잠시 후 다시 시도하세요. `get`은 이 이유로 거부되지 않습니다.
+
+---
+
+## `comments`
+
+문서에 달린 사용자의 리뷰 댓글을 읽고 답합니다. 댓글을 해결하거나 다시 열거나 삭제하는 것은 사용자의 결정입니다: 이 도구에는 그런 액션이 없으며, 그런 액션을 요청하는 호출은 VMark에 닿기 전에 거부됩니다.
+
+### `list`
+
+| 매개변수 | 타입 | 필수 |
+|---------|------|------|
+| `tabId` | string | 아니오 |
+| `cursor` | string | 아니오 |
+
+`{doc, generation, threads, nextCursor?}`를 반환하며, 가장 오래된 스레드가 먼저 옵니다. 각 스레드는 `comment` id, `state`(`open`, `addressed`, `resolved`, `reopened` 중 하나), `commentGen`, 고정된 인용 텍스트, 답글을 담습니다.
+
+긴 목록은 페이지로 나뉘어 오며, 각 페이지는 잘리지 않고 도착할 만큼 작습니다. `nextCursor`가 있는 동안에는 `cursor`를 그 값으로 지정해 `list`를 다시 호출하세요. 여러 페이지에 걸쳐 나뉜 스레드는 `repliesFrom`과 `repliesTotal`을 담고, 이후 부분은 `comment`, `state`, `commentGen`, `continued: true`와 이어지는 답글만 담습니다. JSON 텍스트로는 어느 페이지에도 들어가지 않는 본문(이스케이프가 아주 많은 텍스트뿐입니다)은 `body` 대신 `bodyBase64`로, UTF-8 바이트를 base64로 인코딩해 전달됩니다. 커서가 가리키는 스레드가 삭제되었거나 다른 문서용으로 발급된 커서이면 `STALE_COMMENT`로 거부됩니다. 커서 없이 다시 목록을 요청하세요.
+
+### `reply`
+
+| 매개변수 | 타입 | 필수 |
+|---------|------|------|
+| `tabId` | string | 아니오 |
+| `commentId` | string | 예 |
+| `body` | string | 예 |
+| `expectedCommentGen` | string | 예 |
+
+스레드에 답글을 추가합니다. 답글 ID는 VMark가 직접 발급하므로, 재시도된 호출은 첫 번째 결과를 받으며 두 번째 답글을 추가하지 않습니다.
+
+### `mark_addressed`
+
+| 매개변수 | 타입 | 필수 |
+|---------|------|------|
+| `tabId` | string | 아니오 |
+| `commentId` | string | 예 |
+| `expectedCommentGen` | string | 예 |
+
+스레드를 처리됨으로 표시합니다. 해결할지는 여전히 사용자가 정합니다.
+
+`comments.reply`와 `comments.mark_addressed` 모두 `list`가 반환한 스레드의 `commentGen`을 지정합니다. 다음 경우 아무것도 바꾸지 않고 거부됩니다: 그 뒤 스레드가 바뀌었거나 삭제되었으면 `STALE_COMMENT`(다시 list 하세요), 댓글 ID가 잘못되었거나 이 문서의 댓글을 가리키지 않으면 `INVALID_COMMENT`, 스레드가 해결되었으면 `COMMENT_NOT_ALLOWED`, 답글이 너무 많거나 본문이 너무 길거나 스레드를 더 이상 변경할 수 없으면 `COMMENT_LIMIT`, 그리고 저널 거부 `JOURNAL_BUSY`, `JOURNAL_DEGRADED`, `JOURNAL_UNAVAILABLE`, `INVALID_TEXT`.
+
+편집이 댓글에 답한다는 것을 나타내려면, 그 ID들을 `addresses`로 `document.write`, `document.transform`, `workflow.apply_patch` 또는 `selection.set`에 전달하세요. 이 연결은 리비전과 함께 기록되어 문서 기록에 표시되며(나중에 삭제된 댓글은 삭제된 댓글로 표시됩니다), 어떤 스레드의 상태도 바꾸지 않습니다. 64개를 넘는 ID, 중복된 ID, 또는 알 수 없거나 삭제되었거나 해결되었거나 다른 문서의 ID는 `INVALID_ADDRESSES`로 거부되며 아무것도 바뀌지 않습니다.
 
 ---
 
@@ -745,12 +803,21 @@ VMark로 되돌아가는 **메시징 채널이 열리지 않습니다** (무브�
 
 | 코드 | 표현 형식 | 의미 |
 |------|----------|------|
-| `STALE` | 봉투 | `expected_revision`이 일치하지 않음; 다시 읽고 재시도하세요 |
+| `STALE` | 봉투 | `expected_revision`이 일치하지 않음; 다시 읽고 재시도하세요. 또는 `save` / `save_as`: 이 저장보다 나중에 한 저장이 이미 그 파일에 도달해서 이 저장은 아무것도 쓰지 않았습니다; 쓰기 전에 다시 읽으세요 |
 | `INVALID_PATCH` | 봉투 | `workflow.apply_patch`가 잘못된 형식의 `patches` 배열을 받음 |
 | `INVALID_TAB` | 봉투 | `tabId`를 해석할 수 없음 |
 | `INVALID_PATH` | 봉투 | `filePath`를 읽을 수 없거나, 열린 워크스페이스 / 문서 범위를 벗어남 |
-| `APPROVAL_REQUIRED` | 봉투 | **새 위치로 저장 및 지니 결과 자동 승인** 이 꺼진 상태에서 `save_as`로 새 위치에 저장, 또는 `open_workspace`가 사용자의 승인이나 VMark 폴더 선택기에서의 폴더 선택을 기다리는 중 |
+| `APPROVAL_REQUIRED` | 봉투 | **새 위치로 저장 및 지니 결과 자동 승인** 이 꺼진 상태에서 `save_as`로 새 위치에 저장, 탭 자신의 파일이 아닌 파일이 이미 있는 경로로 `save_as`, 또는 `open_workspace`가 사용자의 승인이나 VMark 폴더 선택기에서의 폴더 선택을 기다리는 중 |
 | `BUSY` | 봉투 | `open_workspace`를 진행할 수 없음: 다른 폴더 대화상자가 열려 있거나 해당 창에서 작업 공간 전환이 진행 중. 승인은 유지됨 — 다시 시도. 또는 사용자가 입력기로 텍스트를 조합하는 중에 `document.write`, `document.transform`, `selection.set`이 도착함. 아무것도 바뀌지 않음 — 잠시 후 다시 시도 |
+| `JOURNAL_BUSY` | 봉투 | 같은 문서에 대한 다른 쓰기를 기록하는 중에 `document.write` / `document.transform` / `selection.set` / `workflow.apply_patch`가 도착함. 아무것도 바뀌지 않음 — 잠시 후 다시 시도 |
+| `WRITE_BUSY` | 문자열 | 쓰기 계열 호출(`document.write` / `document.transform`, `selection.set`, `workflow.apply_patch`, `comments.reply` / `mark_addressed`, `coherence_resolve` 등)이 다른 쓰기 뒤에서 3초를 기다렸지만 차례가 오지 않음. 적용되지 않음 — 다시 시도 |
+| `TIMEOUT` | 문자열 | `coherence` 또는 `coherence_resolve` 호출이 20초 안에 끝나지 않았습니다. 쓰기(`edges`, `resolve`)라면 아직 실행 중이며 결과를 알 수 없습니다. 다시 시도하기 전에 현재 상태를 읽으세요 |
+| `STALE_PARENT` | 봉투 | `document.write` / `document.transform` / `selection.set` / `workflow.apply_patch`: 이 탭이 마지막으로 쓴 뒤 다른 창이 문서를 씀. 아무것도 바뀌지 않음 — 다시 읽고 다시 시도 |
+| `JOURNAL_DEGRADED` | 봉투 | `document.write` / `document.transform` / `selection.set` / `workflow.apply_patch`: 이 문서의 이전 저널 기록이 아직 저장을 기다리는 중. 아무것도 바뀌지 않음 — 몇 초 뒤 다시 시도 |
+| `JOURNAL_UNAVAILABLE` | 봉투 | `document.write` / `document.transform` / `selection.set` / `workflow.apply_patch`: 에이전트 편집 저널이 실행 중이 아니거나 기록할 수 없음. 아무것도 바뀌지 않음 |
+| `INVALID_TEXT` | 봉투 | `document.write` / `document.transform` / `selection.set` / `workflow.apply_patch`: `content`에 짝 없는 UTF-16 서로게이트가 있음. 아무것도 바뀌지 않음 |
+| `REVIEW_BACKLOG_FULL` | 봉투 | `document.write`: 문서에 검토하지 않은 AI 변경이 너무 많음. 아무것도 바뀌지 않음 |
+| `ABORTED` | 봉투 | `document.write` / `document.transform` / `selection.set` / `workflow.apply_patch`: 쓰기를 기록하는 중에 사용자가 문서를 편집하거나 닫거나 조합하거나 선택 영역을 옮김. 어느 것인지는 `reason`이 알려 줌. 아무것도 바뀌지 않음 — 다시 읽고 다시 시도 |
 | `NOT_WORKFLOW` | 봉투 | YAML 워크플로우가 아닌 탭에서 `workflow.*`가 호출됨 |
 | `READ_ONLY` | 봉투 | 읽기 전용 문서에 대해 변형이 시도됨 |
 | `NO_EDITOR` | 봉투 | `selection.*`이 호출되었으나 포커스된 탭에 활성 편집기가 없음 |

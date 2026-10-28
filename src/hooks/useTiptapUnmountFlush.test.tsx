@@ -240,3 +240,20 @@ describe("useTiptapUnmountFlush — the #755 mechanism end to end", () => {
     expect(refs.pendingDebounceTimeout.current).toBeNull();
   });
 });
+
+describe("useTiptapUnmountFlush — a handle of 0 is a pending timer", () => {
+  it("flushes, then cancels, every slot holding 0", () => {
+    const flush = vi.fn();
+    const refs = makeRefs({ flush });
+    refs.pendingRaf.current = 0;
+    refs.pendingCursorRaf.current = 0;
+    refs.internalChangeRaf.current = 0;
+    const { unmount } = renderHook(() => useTiptapUnmountFlush(refs));
+
+    unmount();
+
+    expect(flush).toHaveBeenCalledTimes(1);
+    expect(ids("raf")).toEqual([0, 0, 0]);
+    expect(timerSlots(refs).every((slot) => slot === null)).toBe(true);
+  });
+});

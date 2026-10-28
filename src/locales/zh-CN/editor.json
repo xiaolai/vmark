@@ -160,6 +160,7 @@
   "findbar.find.placeholder": "查找...",
   "findbar.find.label": "在文档中搜索文本",
   "contentSearch.label": "在工作区中搜索",
+  "contentSearch.minChars": "请至少输入 {{count}} 个字符",
   "findbar.prev": "上一个 (Shift+Enter)",
   "findbar.next": "下一个 (Enter)",
   "findbar.replace.placeholder": "替换...",

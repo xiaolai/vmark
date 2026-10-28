@@ -69,9 +69,9 @@ An ADR resting on an unverified library assumption needs a Phase 0 spike under
 
 ## 8. Subagent context isolation
 
-Dispatch verbose search/audit/research to subagents (`Explore`,
-`coding-researcher`, `auditor`, `execution-agent`) rather than filling the main
-thread. New session per phase.
+Dispatch verbose search/audit/research to subagents (`Explore`, `auditor`,
+`impact-analyst`, `test-runner`) rather than filling the main thread. New
+session per phase.
 
 ## 9. Don't bypass; ask
 

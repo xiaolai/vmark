@@ -21,6 +21,8 @@ const mockExists = vi.fn((..._args: unknown[]) => Promise.resolve(false));
 const mockReadTextFile = vi.fn();
 const mockWriteTextFile = vi.fn();
 const mockRemove = vi.fn();
+// The index is written beside itself and renamed over the old one.
+const mockRename = vi.fn();
 
 vi.mock("@tauri-apps/plugin-fs", () => ({
   mkdir: (...args: unknown[]) => mockMkdir(...args),
@@ -28,6 +30,7 @@ vi.mock("@tauri-apps/plugin-fs", () => ({
   readTextFile: (...args: unknown[]) => mockReadTextFile(...args),
   writeTextFile: (...args: unknown[]) => mockWriteTextFile(...args),
   remove: (...args: unknown[]) => mockRemove(...args),
+  rename: (...args: unknown[]) => mockRename(...args),
 }));
 
 vi.mock("@tauri-apps/api/path", () => ({
@@ -75,6 +78,10 @@ const defaultSettings = {
   maxFileSizeKB: 1024,
 };
 
+/** Every path exists except a newly allocated snapshot file (timestamp-uuid.md). */
+const existsExceptNewSnapshot = (path: unknown) =>
+  Promise.resolve(!/\/\d+-[0-9a-f]{8}-[0-9a-f-]{27}\.md$/.test(String(path)));
+
 function makeIndex(overrides = {}) {
   return {
     documentPath: "/test/doc.md",
@@ -97,6 +104,7 @@ describe("useHistoryOperations", () => {
     mockWriteTextFile.mockResolvedValue(undefined);
     mockMkdir.mockResolvedValue(undefined);
     mockRemove.mockResolvedValue(undefined);
+    mockRename.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -146,7 +154,7 @@ describe("useHistoryOperations", () => {
     it("names a document with no file name in the UI language", async () => {
       mockExists.mockResolvedValue(false);
       await createSnapshot("/test/folder/", "content", "manual", defaultSettings);
-      const indexWrite = mockWriteTextFile.mock.calls.find(([path]) => String(path).endsWith("index.json"));
+      const indexWrite = mockWriteTextFile.mock.calls.find(([path]) => String(path).endsWith("index.json.tmp"));
       expect(JSON.parse(String(indexWrite?.[1])).documentName).toBe("未命名");
     });
 
@@ -186,7 +194,7 @@ describe("useHistoryOperations", () => {
       const index = makeIndex({
         snapshots: [{ id: "prev-id", timestamp: now - 10000, type: previousType, size: 100, preview: "old" }],
       });
-      mockExists.mockResolvedValue(true);
+      mockExists.mockImplementation(existsExceptNewSnapshot);
       mockReadTextFile.mockResolvedValue(JSON.stringify(index));
 
       await createSnapshot("/test/doc.md", "new content", type, { ...defaultSettings, mergeWindowSeconds: 60 });
@@ -205,13 +213,7 @@ describe("useHistoryOperations", () => {
       };
       const index = makeIndex({ snapshots: [prevSnapshot] });
 
-      // First call: exists for historyDir, second: for index
-      mockExists
-        .mockResolvedValueOnce(true) // historyDir
-        .mockResolvedValueOnce(true) // index
-        .mockResolvedValueOnce(true) // old snapshot file
-        .mockResolvedValueOnce(false); // new snapshot doesn't exist for prune
-
+      mockExists.mockImplementation(existsExceptNewSnapshot);
       mockReadTextFile.mockResolvedValue(JSON.stringify(index));
 
       await createSnapshot("/test/doc.md", "new content", "auto", {
@@ -220,7 +222,7 @@ describe("useHistoryOperations", () => {
       });
 
       // Should have removed old snapshot file
-      expect(mockRemove).toHaveBeenCalled();
+      expect(mockRemove).toHaveBeenCalledWith(expect.stringContaining("prev-id.md"));
     });
 
     it("throws on write failure", async () => {

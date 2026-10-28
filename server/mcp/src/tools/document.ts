@@ -18,10 +18,13 @@ import {
   TRUNCATION_OUTPUT_SHAPE,
   structuredJsonResult,
 } from '../utils/toolOutput.js';
+import { JOURNAL_REFUSALS } from './journalRefusals.js';
 import { bridgeErrorResult } from './staleError.js';
 import {
+  addressesSchema,
   optionalIdSchema,
   optionalRevisionSchema,
+  readOptionalAddresses,
   readOptionalBoolean,
   readOptionalId,
   readOptionalRevision,
@@ -59,8 +62,10 @@ export function registerDocumentTool(server: VMarkMcpServer): void {
         'Read, write, and transform document content. The spine of the MCP surface — for in-document changes, prefer `read → reason → write` over the legacy granular formatting tools (now removed).\n\n' +
         'Actions:\n' +
         '- read: Return {content, revision, filePath, kind, dirty} for a tab. Pass `tabId` to target a specific tab; omit to use the focused tab. Always read before writing — the `revision` token must be passed back in `write`.\n' +
-        '- write: Replace full document content AND save to disk. Args: {tabId?, content, expected_revision?, save?}. By default the new content is also persisted to the file on disk so a subsequent disk read sees the new value — do NOT bypass MCP and write the file yourself; that loses checkpoint history and races with VMark\'s buffer. Set `save: false` only if you explicitly want to stage in-memory without persistence (rare). Response carries structured save fields you can branch on without parsing prose: `saved: true` → buffer updated AND disk write succeeded. `saved: false` + `save_skipped: "untitled"` → tab has no filePath; call `workspace.save_as` to choose one. `saved: false` + `save_skipped: "opt_out"` → you passed `save: false` (in-memory only). `saved: false` + `save_error: <message>` → write attempt failed on the FS (e.g. read-only); do not retry, surface the error to the user. `save_skipped` and `save_error` are mutually exclusive. If `expected_revision` is supplied and does not match the current revision, returns a STALE error carrying the up-to-date `current_revision` BOTH in the message and in the error\'s `structuredContent` (so you can branch on it without parsing prose); the caller should re-read and retry. If omitted, the write is unconditional (use only when no prior read exists, e.g. greenfield drafting).\n' +
-        '- transform: Apply a deterministic rewrite. Args: {tabId?, kind, expected_revision?}. `kind` is one of "cjk-format" (full CJK formatting per user settings), "cjk-spacing" (insert spaces between CJK and Latin/digits), "cjk-punctuation" (convert ASCII punctuation adjacent to CJK to fullwidth).',
+        '- write: Replace full document content AND save to disk. Args: {tabId?, content, expected_revision?, save?}. By default the new content is also persisted to the file on disk so a subsequent disk read sees the new value — do NOT bypass MCP and write the file yourself; that loses checkpoint history and races with VMark\'s buffer. Set `save: false` only if you explicitly want to stage in-memory without persistence (rare). Response carries structured save fields you can branch on without parsing prose: `saved: true` → buffer updated AND disk write succeeded. `saved: false` + `save_skipped: "untitled"` → tab has no filePath; call `workspace.save_as` to choose one. `saved: false` + `save_skipped: "opt_out"` → you passed `save: false` (in-memory only). `saved: false` + `save_error: <message>` → write attempt failed on the FS (e.g. read-only); do not retry, surface the error to the user. `save_skipped` and `save_error` are mutually exclusive. A save that ran also carries `journaled`: "yes" (VMark\'s agent edit journal recorded the saved text), "pending" (recorded, ordered after a write still being recorded) or "no" (the file is saved, the journal did not record it — never an error). If `expected_revision` is supplied and does not match the current revision, returns a STALE error carrying the up-to-date `current_revision` BOTH in the message and in the error\'s `structuredContent` (so you can branch on it without parsing prose); the caller should re-read and retry. If omitted, the write is unconditional (use only when no prior read exists, e.g. greenfield drafting). Every write is recorded in VMark\'s agent edit journal first; success carries `applied: true` and `durable` (false = written, but the journal record is still queued; the next write to that document is refused JOURNAL_DEGRADED until it lands; if the journal refused the record outright, the write stays applied and the next write goes ahead). ' +
+          JOURNAL_REFUSALS +
+          '\n' +
+        '- transform: Apply a deterministic rewrite. Args: {tabId?, kind, expected_revision?}. `kind` is one of "cjk-format" (full CJK formatting per user settings), "cjk-spacing" (insert spaces between CJK and Latin/digits), "cjk-punctuation" (convert ASCII punctuation adjacent to CJK to fullwidth). A transform that changes the text is recorded in the agent edit journal exactly like write (same `applied`/`durable` fields and the same refusals); one that changes nothing is not recorded.',
       inputSchema: {
         action: z.enum(DOCUMENT_ACTIONS).describe('The action to perform'),
         tabId: optionalIdSchema(
@@ -74,6 +79,7 @@ export function registerDocumentTool(server: VMarkMcpServer): void {
         expected_revision: optionalRevisionSchema(
           'Optimistic-concurrency token from the most recent read (write/transform only).',
         ),
+        addresses: addressesSchema(),
         save: z
           .boolean()
           .default(true)
@@ -115,6 +121,15 @@ export function registerDocumentTool(server: VMarkMcpServer): void {
           .boolean()
           .optional()
           .describe('true = buffer updated AND disk write succeeded (write).'),
+        applied: z.boolean().optional().describe('true = the content was written (write, transform).'),
+        durable: z
+          .boolean()
+          .optional()
+          .describe('false = written, but its journal record is still queued for a retry (write, transform).'),
+        journaled: z
+          .string()
+          .optional()
+          .describe('"yes" | "pending" | "no": whether the journal recorded the saved text (write, when saved).'),
         save_skipped: z
           .string()
           .optional()
@@ -149,6 +164,9 @@ export function registerDocumentTool(server: VMarkMcpServer): void {
       const revision = readOptionalRevision(args.expected_revision);
       if (!revision.ok) return VMarkMcpServer.errorResult(revision.error);
       const expected_revision = revision.value;
+      const addressed = readOptionalAddresses(args.addresses);
+      if (!addressed.ok) return VMarkMcpServer.errorResult(addressed.error);
+      const addresses = addressed.value ? { addresses: addressed.value } : {};
 
       try {
         if (action === 'read') {
@@ -175,6 +193,7 @@ export function registerDocumentTool(server: VMarkMcpServer): void {
             content: args.content,
             expected_revision,
             ...(save !== undefined ? { save } : {}),
+            ...addresses,
           });
           return structuredJsonResult(data);
         }
@@ -187,6 +206,7 @@ export function registerDocumentTool(server: VMarkMcpServer): void {
             tabId,
             kind: args.kind,
             expected_revision,
+            ...addresses,
           });
           return structuredJsonResult(data);
         }

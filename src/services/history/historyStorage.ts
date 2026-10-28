@@ -13,6 +13,7 @@
  *   - History stored in appDataDir, not alongside documents (portable)
  *   - One directory per document, named by the hash of its path
  *   - Index file tracks metadata; actual content in one file per snapshot
+ *   - The index is replaced by rename, never rewritten in place
  *
  * @coordinates-with historyOperations.ts — the queued operations built from these steps
  * @coordinates-with historyQueue.ts — what makes calling these steps safe
@@ -20,7 +21,7 @@
  * @module services/history/historyStorage
  */
 
-import { mkdir, exists, readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
+import { mkdir, exists, readTextFile, writeTextFile, rename } from "@tauri-apps/plugin-fs";
 import { appDataDir, join } from "@tauri-apps/api/path";
 import { historyError } from "@/utils/debug";
 import {
@@ -85,12 +86,17 @@ export async function readHistoryIndex(documentPath: string): Promise<HistoryInd
 }
 
 /**
- * Save the history index
+ * Save the history index: written beside it, then renamed over it, so the
+ * index is replaced in one step. Written in place, a failure or crash between
+ * the truncate and the data would leave an empty index — every snapshot in
+ * the history unreachable. Rejects when either step fails.
  */
 export async function saveHistoryIndex(documentPath: string, index: HistoryIndex): Promise<void> {
   const historyDir = await ensureHistoryDir(documentPath);
   const indexPath = await join(historyDir, INDEX_FILE);
-  await writeTextFile(indexPath, JSON.stringify(index, null, 2));
+  const stagedPath = `${indexPath}.tmp`;
+  await writeTextFile(stagedPath, JSON.stringify(index, null, 2));
+  await rename(stagedPath, indexPath);
 }
 
 /**

@@ -12,55 +12,66 @@ use crate::menu::{RECENT_FILES_SUBMENU_ID, RECENT_WORKSPACES_SUBMENU_ID};
 
 /// Build the Open Recent (files) submenu placeholder.
 pub(super) fn recent_files(app: &tauri::AppHandle) -> tauri::Result<Submenu<tauri::Wry>> {
-    Submenu::with_id_and_items(
+    recent_submenu(
         app,
         RECENT_FILES_SUBMENU_ID,
         &t!("menu.file.openRecent"),
-        true,
-        &[
-            &MenuItem::with_id(
-                app,
-                "no-recent",
-                &t!("menu.recentFiles.empty"),
-                false,
-                None::<&str>,
-            )?,
-            &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(
-                app,
-                "clear-recent",
-                &t!("menu.recentFiles.clear"),
-                true,
-                None::<&str>,
-            )?,
-        ],
+        MenuItem::with_id(
+            app,
+            "no-recent",
+            &t!("menu.recentFiles.empty"),
+            false,
+            None::<&str>,
+        )?,
+        MenuItem::with_id(
+            app,
+            "clear-recent",
+            &t!("menu.recentFiles.clear"),
+            true,
+            None::<&str>,
+        )?,
     )
 }
 
 /// Build the Open Recent Workspace submenu placeholder.
 pub(super) fn recent_workspaces(app: &tauri::AppHandle) -> tauri::Result<Submenu<tauri::Wry>> {
-    Submenu::with_id_and_items(
+    recent_submenu(
         app,
         RECENT_WORKSPACES_SUBMENU_ID,
         &t!("menu.file.openRecentWorkspace"),
+        MenuItem::with_id(
+            app,
+            "no-recent-workspace",
+            &t!("menu.recentWorkspaces.empty"),
+            false,
+            None::<&str>,
+        )?,
+        MenuItem::with_id(
+            app,
+            "clear-recent-workspaces",
+            &t!("menu.recentWorkspaces.clear"),
+            true,
+            None::<&str>,
+        )?,
+    )
+}
+
+/// A recent-items placeholder: the disabled "empty" item, a separator, the
+/// "clear" item. The items are built at the call sites so each id and label
+/// stays a literal the menu-contract scanners read.
+fn recent_submenu(
+    app: &tauri::AppHandle,
+    id: &str,
+    title: &str,
+    empty: MenuItem<tauri::Wry>,
+    clear: MenuItem<tauri::Wry>,
+) -> tauri::Result<Submenu<tauri::Wry>> {
+    Submenu::with_id_and_items(
+        app,
+        id,
+        title,
         true,
-        &[
-            &MenuItem::with_id(
-                app,
-                "no-recent-workspace",
-                &t!("menu.recentWorkspaces.empty"),
-                false,
-                None::<&str>,
-            )?,
-            &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(
-                app,
-                "clear-recent-workspaces",
-                &t!("menu.recentWorkspaces.clear"),
-                true,
-                None::<&str>,
-            )?,
-        ],
+        &[&empty, &PredefinedMenuItem::separator(app)?, &clear],
     )
 }
 
@@ -83,6 +94,14 @@ pub(super) fn doc_history(app: &tauri::AppHandle) -> tauri::Result<Submenu<tauri
                 app,
                 "clear-history",
                 &t!("menu.file.docHistory.clearAll"),
+                true,
+                None::<&str>,
+            )?,
+            &PredefinedMenuItem::separator(app)?,
+            &MenuItem::with_id(
+                app,
+                "export-journal-git",
+                &t!("menu.file.docHistory.exportToGit"),
                 true,
                 None::<&str>,
             )?,

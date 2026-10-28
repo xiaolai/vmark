@@ -25,7 +25,7 @@ import { save, open } from "@tauri-apps/plugin-dialog";
 import { remove } from "@tauri-apps/plugin-fs";
 import i18n from "@/i18n";
 import { getDefaultSaveFolderWithFallback } from "@/services/files/defaultSaveFolder";
-import { saveToPath } from "@/services/persistence/saveToPath";
+import { saveToPathForClose } from "@/services/persistence/saveToPath";
 import { joinPath } from "@/utils/pathUtils";
 import { reserveBatchDestinations } from "./reserveBatchDestinations";
 import {
@@ -72,11 +72,10 @@ export async function persistDocumentBatch(
     if (!live) continue;
     onProgress?.(current, total, live.title);
 
-    const saved = await saveToPath(
+    const saved = await saveToPathForClose(
       live.tabId,
       live.filePath ?? context.filePath!,
       live.content,
-      "manual"
     );
     if (!saved) return CANCELLED;
   }
@@ -102,7 +101,7 @@ export async function persistDocumentBatch(
 
     const live = revalidate(doc);
     if (!live) return null;
-    const saved = await saveToPath(live.tabId, newPath, live.content, "manual");
+    const saved = await saveToPathForClose(live.tabId, newPath, live.content);
     return saved ? null : CANCELLED;
   }
 
@@ -134,7 +133,7 @@ export async function persistDocumentBatch(
       await remove(destinations[index]);
       continue;
     }
-    const saved = await saveToPath(live.tabId, destinations[index], live.content, "manual");
+    const saved = await saveToPathForClose(live.tabId, destinations[index], live.content);
     if (!saved) return CANCELLED;
   }
 

@@ -489,7 +489,8 @@ A barra de status fica ao longo da parte inferior da janela (`F7` a oculta). O l
 | Lint | ⊗ erros ou ⚠ avisos encontrados pela última execução do [lint](#lint-de-markdown); oculto quando não há nenhum | Vai para o próximo problema |
 | IA | Enquanto um gênio é executado, *Pensando...* com os segundos decorridos e um × para cancelar; depois *Concluído*, ou o erro com **Tentar novamente**, que executa de novo a solicitação que falhou, e **Dispensar**; Tentar novamente não aparece quando não há nada a repetir, como sem provedor | — |
 | MCP | Um ícone de satélite, colorido quando um cliente de IA está conectado; a palavra *off*, *…* ou *error* quando não está funcionando normalmente. A dica de ferramenta mostra os clientes conectados | Abre **Configurações → Integrações** |
-| Histórico do MCP | As escritas da IA nesta aba, das mais recentes para as mais antigas, cada uma com **Restaurar ao estado anterior a esta escrita**; um botão de lixeira limpa o histórico da aba sem perguntar | Abre a lista |
+| Receptor MCP | Um aviso, *MCP indisponível nesta janela*, quando o receptor de solicitações desta janela não conseguiu iniciar após todas as tentativas: os clientes de IA não alcançam esta janela, mesmo com o servidor MCP em execução. Reinicie o VMark para tentar novamente | — |
+| Histórico do MCP | Um ícone de histórico com o número de versões de IA do documento em foco, em cor de aviso quando suas alterações não estão sendo registradas; o painel mostra quem fez cada versão, com **Restaurar esta versão** e **Restaurar o estado anterior a esta alteração**, além de [Pontos de verificação anteriores](/pt-BR/guide/mcp-setup#pontos-de-verificacao-de-edicao) | Abre o painel |
 | Terminal | — | Mostra ou oculta o terminal |
 | Modo | O modo atual — Fonte ou WYSIWYG (oculto para arquivos de workflow do GitHub Actions) | Alterna o modo |
 | Cadeado | Se o documento está somente leitura | Alterna somente leitura |

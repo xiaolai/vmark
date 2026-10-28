@@ -25,7 +25,7 @@
 //! synced — but read from the existing entry opened through the held
 //! folder, never by path.
 //!
-//! @coordinates-with files/write.rs — write_checked, create_checked
+//! @coordinates-with files/write.rs — write_ordered, create_checked
 //! @coordinates-with workspace/grants/protect.rs — held_write_reaches_list
 //! @module files/write/anchored
 
@@ -37,17 +37,24 @@ use std::os::unix::fs::MetadataExt;
 use std::os::unix::io::{AsRawFd, FromRawFd};
 use std::path::Path;
 
+use super::{rename_excl, Publish};
+
 /// A folder held open. Every operation names its entries relative to it.
 pub(crate) struct HeldDir {
     dir: File,
 }
 
-/// Why an anchored write failed, by the stage `atomic_replace` would name.
+/// Why an anchored write failed, by the stage `atomic_replace` would name,
+/// or why a no-replace publication refused.
 pub(crate) enum Stage {
     CreateTemp(io::Error),
     WriteTemp(io::Error),
     SyncTemp(io::Error),
     Persist(io::Error),
+    /// No-replace: a file was already at the name; it is untouched.
+    TargetExists,
+    /// No-replace: the volume cannot rename without replacing; refused.
+    NoReplaceUnsupported,
 }
 
 fn c_name(name: &OsStr) -> io::Result<CString> {
@@ -131,11 +138,27 @@ impl HeldDir {
         self.open_at(name, libc::O_WRONLY | libc::O_CREAT | libc::O_EXCL, 0o644)
     }
 
-    fn rename(&self, from: &OsStr, to: &OsStr) -> io::Result<()> {
-        let (from, to) = (c_name(from)?, c_name(to)?);
+    /// Rename `from` to `to` in the held folder: replacing whatever is at
+    /// `to`, or (no-replace) refusing when anything is there.
+    fn rename(&self, from: &OsStr, to: &OsStr, mode: Publish) -> Result<(), Stage> {
+        let (from, to) = (
+            c_name(from).map_err(Stage::Persist)?,
+            c_name(to).map_err(Stage::Persist)?,
+        );
         let fd = self.dir.as_raw_fd();
-        // SAFETY: valid dir fd and NUL-terminated names.
-        cvt(unsafe { libc::renameat(fd, from.as_ptr(), fd, to.as_ptr()) }).map(|_| ())
+        match mode {
+            // SAFETY: valid dir fd and NUL-terminated names.
+            Publish::Replace => cvt(unsafe { libc::renameat(fd, from.as_ptr(), fd, to.as_ptr()) })
+                .map(|_| ())
+                .map_err(Stage::Persist),
+            Publish::NoReplace => {
+                rename_excl::rename_no_replace(fd, &from, &to).map_err(|e| match e.kind() {
+                    io::ErrorKind::AlreadyExists => Stage::TargetExists,
+                    io::ErrorKind::Unsupported => Stage::NoReplaceUnsupported,
+                    _ => Stage::Persist(e),
+                })
+            }
+        }
     }
 
     fn unlink(&self, name: &OsStr) {
@@ -145,10 +168,24 @@ impl HeldDir {
         }
     }
 
-    /// Atomically replace `name` in the held folder with `contents`: a temp
-    /// file created beside it, metadata carried, synced, renamed over it. On
-    /// any failure the temp file is removed and the existing entry untouched.
+    /// [`HeldDir::publish`] replacing whatever is at `name`.
+    #[cfg(test)]
     pub(crate) fn replace(&self, name: &OsStr, contents: &[u8]) -> Result<(), Stage> {
+        self.publish(name, contents, Publish::Replace)
+    }
+
+    /// Atomically publish `contents` at `name` in the held folder: a temp
+    /// file created beside it, metadata carried, synced, renamed into place.
+    /// `Publish::NoReplace` renames only if nothing is at `name` at that
+    /// instant — one kernel operation, so a file created after any earlier
+    /// check is still never replaced. On any failure the temp file is removed
+    /// and the existing entry untouched.
+    pub(crate) fn publish(
+        &self,
+        name: &OsStr,
+        contents: &[u8],
+        mode: Publish,
+    ) -> Result<(), Stage> {
         let temp_name = format!(".vmark-save-{}.tmp", uuid::Uuid::new_v4());
         let temp_name = OsStr::new(&temp_name);
         let mut temp = self
@@ -160,9 +197,14 @@ impl HeldDir {
             .map_err(Stage::CreateTemp)?;
         let result = (|| {
             temp.write_all(contents).map_err(Stage::WriteTemp)?;
-            self.carry_metadata(name, &temp);
+            // A no-replace publication creates a new file: nothing to inherit.
+            if mode == Publish::Replace {
+                self.carry_metadata(name, &temp);
+            }
             temp.sync_all().map_err(Stage::SyncTemp)?;
-            self.rename(temp_name, name).map_err(Stage::Persist)
+            #[cfg(test)]
+            super::publish_hook::run(name);
+            self.rename(temp_name, name, mode)
         })();
         if result.is_err() {
             self.unlink(temp_name);

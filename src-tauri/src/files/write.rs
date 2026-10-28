@@ -1,22 +1,16 @@
 //! Atomic file write for the frontend save path.
 //!
 //! Purpose: temp-file + fsync + rename atomic write, exposed as the
-//! `atomic_write_file` Tauri command. Extracted from `lib.rs` verbatim to
-//! keep that file under the size gate.
+//! `atomic_write_file` Tauri command.
 //!
-//! NOTE: A separate sync variant exists in `app_paths::atomic_write_file` for
-//! internal use (workspace config, MCP port file). Both are thin wrappers
-//! over the shared `atomic_replace` core; they stay separate commands because
-//! this one is async for the frontend invoke path and carries frontend-only
+//! NOTE: `app_paths::atomic_write_file` is the sync variant for internal use
+//! (workspace config, MCP port file). Both wrap the shared `atomic_replace`
+//! core; this one is async for the frontend and carries frontend-only
 //! validation and error semantics.
 //!
-//! This was the first command migrated to [`CommandError`]. The
-//! parent-directory failure used to travel as a `"PARENT_MISSING:"` string
-//! prefix that `saveToPath.ts` re-parsed — a cross-language contract held
-//! together by a comment in each file asking the reader to keep the other in
-//! sync. It is now `code: "not-found"` with the directory in `detail.dir`, and
-//! every message here resolves through `t!` instead of being raw English that
-//! `lint:i18n` could not see.
+//! Errors are [`CommandError`]s: a missing parent folder is `code:
+//! "not-found"` with the directory in `detail.dir`, and every message
+//! resolves through `t!`.
 //!
 //! WI-LX1.1: this command and `files::create::create_file_exclusive` let the
 //! webview name a path, so both refuse the workspace-grant list — the folders
@@ -26,16 +20,50 @@
 //! folder on the path swapped after the check cannot redirect the write. On
 //! Windows the write stays path-based; that module states the residual.
 //!
+//! Three more guarantees hold at this boundary: a write takes a per-file lock
+//! (`files/write/target_lock.rs`; Unix: held folder identity + entry name,
+//! Windows: the target's canonical key) through publication, so an alias and
+//! its referent never write at once; under that lock a save older than one
+//! already published there is refused `conflict` / `detail.kind =
+//! "superseded"` (`files/write/save_order.rs`); and `noReplace` publishes only if
+//! nothing is at the target at the rename (`files/write/rename_excl.rs`,
+//! `atomic_replace::atomic_create`), else `detail.kind = "target-exists"`.
+//!
 //! @coordinates-with workspace/grants/protect.rs — what counts as the list
 //! @coordinates-with files/write/anchored.rs — the held-folder write (Unix)
 //! @coordinates-with files/create.rs — the exclusive create, same guard
+//! @coordinates-with src/services/persistence/saveToPath.ts — sends noReplace
 
 use crate::command_error::{CommandError, ErrorCode};
 use crate::localized_error;
-use serde_json::json;
 
 #[cfg(unix)]
 pub(crate) mod anchored;
+mod failures;
+pub(crate) mod lock_key;
+#[cfg(all(test, unix))]
+pub(crate) mod publish_hook;
+#[cfg(unix)]
+mod rename_excl;
+mod save_order;
+mod target_lock;
+
+use failures::link_failure;
+pub(crate) use failures::parent_missing;
+#[cfg(unix)]
+use failures::write_failed;
+use save_order::ordered;
+pub use save_order::SaveOrder;
+
+/// How a save puts its file in place.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Publish {
+    /// Replace whatever is at the target (an ordinary save).
+    Replace,
+    /// Refuse if anything is at the target at the instant of publication
+    /// (Save As to a distinct destination). Never degrades to a replace.
+    NoReplace,
+}
 
 /// Where a checked write lands, as the list guard judges it: the resolved
 /// path, and on Unix the folder held open for the write itself.
@@ -81,14 +109,24 @@ impl<'a> WriteAt<'a> {
     }
 }
 
-/// [`write_checked`] with nothing to authorize — the write core's own
-/// behaviour, for tests that do not need an app.
+/// [`write_ordered`] with no order — what every unordered write does.
+#[cfg(test)]
+pub(crate) fn write_checked(
+    target: &std::path::Path,
+    content: &str,
+    publish: Publish,
+    authorize: impl FnOnce(&WriteAt<'_>) -> Result<(), CommandError>,
+) -> Result<(), CommandError> {
+    write_ordered(target, content, publish, None, authorize)
+}
+
+/// [`write_checked`] with nothing to authorize, for tests needing no app.
 #[cfg(test)]
 pub(crate) fn atomic_write_file_sync(
     target: &std::path::Path,
     content: &str,
 ) -> Result<(), CommandError> {
-    write_checked(target, content, |_| Ok(()))
+    write_checked(target, content, Publish::Replace, |_| Ok(()))
 }
 
 /// Refuse what no write command accepts: a `..` component (defense-in-depth,
@@ -117,14 +155,18 @@ pub(crate) fn reject_unsafe_target(target: &std::path::Path) -> Result<(), Comma
 /// there — never resolving the name again, so a link swapped in at it is
 /// replaced by the rename, not followed.
 ///
-/// The referent is resolved BEFORE choosing a directory. A save writes a temp
-/// file and renames it, and renaming onto a symlink replaces the LINK — the
-/// alias stops being an alias and the real document keeps its old bytes, while
-/// the save reports success. The temp file is created in
-/// the REFERENT's directory too, or the rename crosses filesystems.
-pub(crate) fn write_checked(
+/// The referent is resolved BEFORE choosing a directory: renaming the temp
+/// file onto a symlink would replace the LINK and leave the real document
+/// stale while the save reports success. The temp file goes in the
+/// REFERENT's directory too, or the rename crosses filesystems.
+///
+/// A save with an `order` is refused `superseded`, under the file's lock,
+/// when a save asked for after it already published here (`save_order.rs`).
+pub(crate) fn write_ordered(
     target: &std::path::Path,
     content: &str,
+    publish: Publish,
+    order: Option<&SaveOrder>,
     authorize: impl FnOnce(&WriteAt<'_>) -> Result<(), CommandError>,
 ) -> Result<(), CommandError> {
     use crate::atomic_replace::resolve_link_target;
@@ -139,75 +181,59 @@ pub(crate) fn write_checked(
     };
     #[cfg(unix)]
     {
-        // A structured error when the folder is gone (renamed or deleted while
-        // the file was open): the frontend reads `code` + `detail.dir` to route
-        // the user into Save As.
+        // A gone folder is a structured error: the frontend reads `code` +
+        // `detail.dir` to route the user into Save As.
+        #[cfg(test)]
+        publish_hook::run_before_hold(name);
         let held = anchored::HeldDir::open(dir).map_err(|e| match e.kind() {
             std::io::ErrorKind::NotFound | std::io::ErrorKind::NotADirectory => parent_missing(dir),
-            _ => localized_error!(
-                ErrorCode::Io,
-                "errors.save.writeFailed",
-                detail = e.to_string()
-            ),
+            _ => write_failed(e),
         })?;
+        // One write per file at a time, however it is named, keyed by the
+        // folder actually held (a folder swapped after resolution cannot hand
+        // two writers of one file two keys); held through the publication.
+        let folder = held.identity().map_err(write_failed)?;
+        let key = target_lock::held_entry_key(folder, name);
+        let _one_writer = target_lock::lock(key.clone());
         authorize(&WriteAt::new(&resolved, &held))?;
-        held.replace(name, content.as_bytes())
-            .map_err(|stage| stage_failure(dir, stage))
+        ordered(&key, order, target, || {
+            held.publish(name, content.as_bytes(), publish)
+                .map_err(|stage| failures::stage_failure(dir, target, stage))
+        })
     }
     #[cfg(not(unix))]
     {
         let _ = name;
+        let key = lock_key::target_key(&resolved);
+        let _one_writer = target_lock::lock(key.clone());
         authorize(&WriteAt::new(&resolved))?;
-        write_resolved(&resolved, dir, content)
+        ordered(&key, order, target, || {
+            write_resolved(target, &resolved, dir, content, publish)
+        })
     }
-}
-
-/// The folder a save would land in is gone.
-pub(crate) fn parent_missing(dir: &std::path::Path) -> CommandError {
-    localized_error!(
-        ErrorCode::NotFound,
-        "errors.save.parentMissing",
-        dir = dir.display()
-    )
-    .with_detail(json!({ "dir": dir.to_string_lossy() }))
-}
-
-/// Localize a held-folder write failure with the same `detail.stage` the
-/// path-based core reports, so the frontend sees one error shape.
-#[cfg(unix)]
-fn stage_failure(dir: &std::path::Path, stage: anchored::Stage) -> CommandError {
-    use anchored::Stage;
-    let (stage, error) = match stage {
-        Stage::CreateTemp(e) => ("create-temp", e),
-        Stage::WriteTemp(e) => ("write-temp", e),
-        Stage::SyncTemp(e) => ("sync-temp", e),
-        Stage::Persist(e) => ("persist", e),
-    };
-    let mut detail = json!({ "kind": "atomic-replace", "stage": stage });
-    if stage == "create-temp" {
-        detail["parent"] = json!(dir.display().to_string());
-    }
-    localized_error!(
-        ErrorCode::Io,
-        "errors.save.writeFailed",
-        detail = error.to_string()
-    )
-    .with_detail(detail)
 }
 
 /// Write `target`, whose links are already resolved, through its path
 /// (Windows: no `openat`/`renameat` in std — see `files/write/anchored.rs`).
+/// A refusal names `requested`, the path the caller asked for.
 #[cfg(not(unix))]
 fn write_resolved(
+    requested: &std::path::Path,
     target: &std::path::Path,
     dir: &std::path::Path,
     content: &str,
+    publish: Publish,
 ) -> Result<(), CommandError> {
-    use crate::atomic_replace::atomic_replace;
+    use crate::atomic_replace::{atomic_create, atomic_replace};
     if !dir.is_dir() {
         return Err(parent_missing(dir));
     }
-    atomic_replace(target, dir, content.as_bytes()).map_err(save_failure)?;
+    let bytes = content.as_bytes();
+    match publish {
+        Publish::Replace => atomic_replace(target, dir, bytes),
+        Publish::NoReplace => atomic_create(target, dir, bytes),
+    }
+    .map_err(|e| failures::save_failure(requested, e))?;
     // Best-effort: the file itself is already synced and persisted.
     if let Ok(dir_file) = std::fs::File::open(dir) {
         if let Err(e) = dir_file.sync_all() {
@@ -221,58 +247,39 @@ fn write_resolved(
     Ok(())
 }
 
-/// Localize a symlink-resolution failure. A loop or an unreadable link is bad
-/// input; a referent whose directory is gone is the same "the place you are
-/// saving to no longer exists" condition as the missing-parent check below,
-/// so it carries the same code and `detail.dir` that routes the frontend into
-/// Save As.
-fn link_failure(error: crate::atomic_replace::LinkResolveError) -> CommandError {
-    use crate::atomic_replace::LinkResolveError as E;
-    match error {
-        E::ReferentParentMissing(dir) => parent_missing(&dir),
-        E::TooManyLinks => localized_error!(ErrorCode::InvalidInput, "errors.save.symlinkLoop"),
-        E::ReadLink(e) => localized_error!(
-            ErrorCode::Io,
-            "errors.save.writeFailed",
-            detail = e.to_string()
-        ),
-    }
-}
-
-/// Localize an atomic-replace failure while keeping the stage and the OS text
-/// the `From` impl extracted. The user sees a translated sentence; the frontend
-/// still gets `detail.stage` to tell "the temp file could not be created" from
-/// "the rename over the target failed".
-#[cfg(not(unix))]
-fn save_failure(error: crate::atomic_replace::AtomicReplaceError) -> CommandError {
-    let converted = CommandError::from(error);
-    let localized = localized_error!(
-        ErrorCode::Io,
-        "errors.save.writeFailed",
-        detail = converted.message()
-    );
-    match converted.detail() {
-        Some(detail) => localized.with_detail(detail.clone()),
-        None => localized,
-    }
-}
-
-/// Atomic file write using temp file + rename (async Tauri command variant).
-///
-/// Prevents data loss on crash by writing to a temporary file in the same
-/// directory, flushing to disk, then atomically renaming over the target.
+/// Atomic file write (temp file, fsync, rename; async Tauri command variant).
 /// Refuses the workspace-grant list, by the path as named AND by the referent
 /// the write then lands on (`write_checked`).
+///
+/// `no_replace` (Save As to a distinct destination): publish only if nothing
+/// is at the target at that instant; a file already there is a `conflict`
+/// with `detail.kind = "target-exists"` and is left untouched.
+///
+/// `order`: when the save was asked for; one older than a save already
+/// published to this file is refused `conflict` with `detail.kind =
+/// "superseded"` (`files/write/save_order.rs`).
 #[tauri::command]
 pub async fn atomic_write_file<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     path: String,
     content: String,
+    no_replace: Option<bool>,
+    order: Option<SaveOrder>,
 ) -> Result<(), CommandError> {
+    if let Some(order) = &order {
+        save_order::validate(order)?;
+    }
+    let publish = if no_replace == Some(true) {
+        Publish::NoReplace
+    } else {
+        Publish::Replace
+    };
     tokio::task::spawn_blocking(move || {
         let target = std::path::Path::new(&path);
         crate::workspace::grants::refuse_list_write(&app, target)?;
-        write_checked(target, &content, |at| at.refuse_grant_list(&app))
+        write_ordered(target, &content, publish, order.as_ref(), |at| {
+            at.refuse_grant_list(&app)
+        })
     })
     .await
     .map_err(|e| {
@@ -287,3 +294,7 @@ pub async fn atomic_write_file<R: tauri::Runtime>(
 #[cfg(test)]
 #[path = "write.test.rs"]
 mod tests;
+
+#[cfg(all(test, unix))]
+#[path = "write/publish.test.rs"]
+mod publish_tests;

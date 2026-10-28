@@ -44,6 +44,7 @@ export const ptBR = {
           "ai-providers": "Provedores de IA",
           "mcp-setup": "Configuração do MCP",
           "mcp-tools": "Referência de ferramentas MCP",
+          "edit-history-git": "Histórico de edições no Git",
           "lint": "Lint do Markdown",
           "link-check": "Verificação de links",
           "settings": "Configurações",

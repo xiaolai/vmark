@@ -2,7 +2,6 @@
 name: spec-guardian
 description: Validates planned work against specs and project rules; blocks spec drift.
 tools: Read, Grep
-skills: tiptap-dev, tauri-app-dev
 ---
 
 You verify the plan and proposed changes against:

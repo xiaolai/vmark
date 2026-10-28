@@ -58,6 +58,7 @@
   "openFilter.markdown": "Markdown",
   "chooseFolderForDocs": "Ordner für {{count}} neue Dokumente auswählen",
   "toast.mcpApprovalRequired": "Eine KI-Anfrage zum Speichern an einem neuen Ort wurde blockiert: {{filename}}. Aktivieren Sie „Änderungen automatisch genehmigen“ unter Einstellungen → Integrationen, um dies zu erlauben.",
+  "toast.mcpOverwriteRefused": "Eine KI-Anfrage zum Überschreiben einer vorhandenen Datei wurde blockiert: {{filename}}. KI-Anfragen ersetzen nie vorhandene Dateien; fordern Sie einen anderen Namen an oder benennen Sie die Datei vorher um bzw. entfernen Sie sie.",
   "toast.saveDialogFailed": "Speicherdialog fehlgeschlagen: {{error}}",
   "toast.failedToMoveToNewWindow": "Datei konnte nicht in neues Fenster verschoben werden",
   "toast.failedToSaveDocuments": "Dokumente konnten nicht gespeichert werden",

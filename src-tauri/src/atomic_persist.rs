@@ -68,6 +68,22 @@ pub(crate) fn persist_with_retry(
     persist_durably(temp, target, sync_directory)
 }
 
+/// Publish `temp` at `target` only if nothing is there, and make it durable.
+///
+/// The no-replace twin of `persist_with_retry`: `persist_noclobber` is
+/// `MoveFileExW` without `MOVEFILE_REPLACE_EXISTING` on Windows, so an
+/// existing target fails the move with `AlreadyExists` and keeps its bytes.
+/// The same transient-sharing retry applies; `AlreadyExists` is not transient.
+#[cfg(any(not(unix), test))]
+pub(crate) fn persist_new_with_retry(
+    temp: NamedTempFile,
+    target: &Path,
+) -> Result<(), AtomicReplaceError> {
+    retry_persist(temp, target, |t, to| t.persist_noclobber(to))?;
+    sync_parent_with(target, sync_directory);
+    Ok(())
+}
+
 /// `persist_with_retry` with the directory sync injected, so a test can see
 /// that it runs, when, and on which directory.
 fn persist_durably(
@@ -75,7 +91,7 @@ fn persist_durably(
     target: &Path,
     sync_dir: impl FnOnce(&Path) -> std::io::Result<()>,
 ) -> Result<(), AtomicReplaceError> {
-    rename_with_retry(temp, target)?;
+    retry_persist(temp, target, |t, to| t.persist(to))?;
     sync_parent_with(target, sync_dir);
     Ok(())
 }
@@ -122,7 +138,8 @@ fn sync_directory(_dir: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
-/// Atomically replace `target`, retrying a TRANSIENT Windows sharing refusal.
+/// Publish `temp` at `target` through `persist` (replacing or not), retrying
+/// a TRANSIENT Windows sharing refusal.
 ///
 /// `MoveFileExW` needs delete access to the file it replaces, and returns
 /// `ERROR_ACCESS_DENIED` while any other handle holds it — an antivirus
@@ -145,14 +162,18 @@ fn sync_directory(_dir: &Path) -> std::io::Result<()> {
 /// only delay a real error.
 ///
 #[cfg(windows)]
-fn rename_with_retry(temp: NamedTempFile, target: &Path) -> Result<(), AtomicReplaceError> {
+fn retry_persist(
+    temp: NamedTempFile,
+    target: &Path,
+    persist: impl Fn(NamedTempFile, &Path) -> Result<std::fs::File, tempfile::PersistError>,
+) -> Result<(), AtomicReplaceError> {
     use std::io::ErrorKind;
 
     let mut candidate = temp;
     let mut backoff = std::time::Duration::from_millis(1);
 
     for attempt in 1..=PERSIST_ATTEMPTS {
-        match candidate.persist(target) {
+        match persist(candidate, target) {
             Ok(_) => return Ok(()),
             Err(err) => {
                 let transient = matches!(
@@ -175,8 +196,12 @@ fn rename_with_retry(temp: NamedTempFile, target: &Path) -> Result<(), AtomicRep
 }
 
 #[cfg(not(windows))]
-fn rename_with_retry(temp: NamedTempFile, target: &Path) -> Result<(), AtomicReplaceError> {
-    temp.persist(target)
+fn retry_persist(
+    temp: NamedTempFile,
+    target: &Path,
+    persist: impl Fn(NamedTempFile, &Path) -> Result<std::fs::File, tempfile::PersistError>,
+) -> Result<(), AtomicReplaceError> {
+    persist(temp, target)
         .map(|_| ())
         .map_err(AtomicReplaceError::Persist)
 }

@@ -202,5 +202,6 @@
   "edit.cut": "切り取り",
   "edit.copy": "コピー",
   "edit.paste": "貼り付け",
-  "edit.selectAll": "すべて選択"
+  "edit.selectAll": "すべて選択",
+  "history.exportToGit": "編集履歴を Git にエクスポート…"
 }

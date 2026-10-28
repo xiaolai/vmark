@@ -16,6 +16,12 @@
  *     avoiding repeated walks in createRenumberTransaction and createCleanupAndRenumberTransaction
  *   - Both transactions are built by one function (rebuildFootnotes); they differ only
  *     in when they apply and in which definitions keep their content (keepLabels)
+ *   - A label with several definitions keeps the FIRST one's content, the one
+ *     navigation resolves; the later duplicates are dropped by the rebuild
+ *   - Recreated definitions go ahead of the document's trailing empty paragraphs:
+ *     Tiptap's trailing-node extension keeps one after a final definition, and
+ *     appending past it left a stray empty block before the definitions on
+ *     every rebuild
  *
  * @coordinates-with tiptap.ts — calls these functions from appendTransaction
  * @coordinates-with tiptapNodes.ts — footnote node type definitions
@@ -46,10 +52,6 @@ export function collectFootnoteNodes(doc: PMNode): {
   });
 
   return { refs, defs, refLabels };
-}
-
-export function getReferenceLabels(doc: PMNode): Set<string> {
-  return collectFootnoteNodes(doc).refLabels;
 }
 
 /**
@@ -99,8 +101,23 @@ function numberLabels(refs: FootnoteNodes["refs"]): Map<string, string> {
 }
 
 /**
+ * Position where the run of empty top-level paragraphs that ends the document
+ * starts; the document's end when it does not end in one.
+ */
+function trailingEmptyParagraphsStart(doc: PMNode): number {
+  let pos = doc.content.size;
+  for (let i = doc.childCount - 1; i >= 0; i -= 1) {
+    const child = doc.child(i);
+    if (child.type.name !== "paragraph" || child.content.size > 0) break;
+    pos -= child.nodeSize;
+  }
+  return pos;
+}
+
+/**
  * Relabel every reference per `labelMap`, drop every definition, and append
- * one definition per referenced label in reference order. A definition's
+ * one definition per referenced label in reference order, at the end of the
+ * document but ahead of its trailing empty paragraphs. A definition's
  * content is carried over when its label is in `keepLabels` (all labels when
  * omitted); any other referenced label gets an empty definition.
  */
@@ -118,11 +135,11 @@ function rebuildFootnotes(
   for (const def of defs) {
     if (keepLabels && !keepLabels.has(def.label)) continue;
     const node = doc.nodeAt(def.pos);
-    /* v8 ignore start -- @preserve else branch: node is always present at valid position */
-    if (node) {
+    // @edge-case Duplicate definitions of one label: keep the first, the one
+    // navigation resolves (findFootnoteDefinition), never the last duplicate.
+    if (node && !defContentByLabel.has(def.label)) {
       defContentByLabel.set(def.label, node);
     }
-    /* v8 ignore stop */
   }
 
   let tr = state.tr;
@@ -144,7 +161,10 @@ function rebuildFootnotes(
     tr = tr.delete(mappedPos, mappedPos + def.size);
   }
 
-  let insertPos = tr.doc.content.size;
+  // Before the document's trailing empty paragraphs, not after them: the
+  // trailing-node extension keeps one after a final definition, and appending
+  // past it would strand it between the body and the definitions.
+  let insertPos = tr.mapping.map(trailingEmptyParagraphsStart(doc));
   for (const [oldLabel, newLabel] of labelMap) {
     const oldDef = defContentByLabel.get(oldLabel);
     const content = oldDef ? oldDef.content : [schema.nodes.paragraph.create()];

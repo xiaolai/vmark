@@ -68,6 +68,7 @@ vi.mock("@/utils/pendingSaves", () => ({
 vi.mock("@/stores/documentStore", () => ({
   useDocumentStore: {
     getState: () => ({
+      documents: {}, // the open documents the journal's recording report reads
       setFilePath: mockSetFilePath,
       markSaved: mockMarkSaved,
       markAutoSaved: mockMarkAutoSaved,

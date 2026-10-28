@@ -29,11 +29,13 @@ const { listeners, invokeCalls } = vi.hoisted(() => ({
   invokeCalls: [] as Array<{ cmd: string; args: unknown }>,
 }));
 
-vi.mock("@tauri-apps/api/event", () => ({
-  listen: (_event: string, handler: BridgeHandler) => {
-    listeners.add(handler);
-    return Promise.resolve(() => listeners.delete(handler));
-  },
+vi.mock("@tauri-apps/api/webviewWindow", () => ({
+  getCurrentWebviewWindow: () => ({
+    listen: (_event: string, handler: BridgeHandler) => {
+      listeners.add(handler);
+      return Promise.resolve(() => listeners.delete(handler));
+    },
+  }),
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({
@@ -46,6 +48,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 import { useMcpBridge } from "./useMcpBridge";
 import { useTabStore } from "@/stores/tabStore";
 import { resetRequestDedup } from "@/services/mcpBridge/requestDedup";
+import envelopeFixture from "@/test/fixtures/mcpRequestEnvelope.json";
 
 /** Outbound bridge responses, in send order. */
 function respondPayloads(): Array<{ id: string; success: boolean; data?: unknown }> {
@@ -78,7 +81,13 @@ function seedTwoTabs(): void {
 }
 
 function switchTabEvent(id: string, tabId: string) {
-  return { id, type: "vmark.workspace.switch_tab", args_json: JSON.stringify({ tabId }) };
+  return {
+    id,
+    type: "vmark.workspace.switch_tab",
+    args_json: JSON.stringify({ tabId }),
+    // Rust attaches this to every request; the hook refuses one without it.
+    attribution: envelopeFixture.envelopes.provider.attribution,
+  };
 }
 
 beforeEach(() => {

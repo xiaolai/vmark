@@ -1,0 +1,632 @@
+{
+  "//": [
+    "One named executable witness per Definition-of-Done row of the agent edit ledger's phases 2 and 3,",
+    "read by scripts/al-witness.mjs through al_witnesses in scripts/lib/al-witness.sh.",
+    "Each row: the test (file + exact title; a Rust test's title is its fn name), the work item its header",
+    "must cite, the runner that executes it alone, and the regexes the code that ONE case reaches must",
+    "match (JavaScript syntax, case-sensitive; comments never count). A witness file that does not exist",
+    "yet fails its row by name. Changing a row changes the contract: review it like a gate edit."
+  ],
+  "phases": {
+    "2": [
+      {
+        "row": "keep B of {A, B}, restart → only A pending",
+        "wi": "WI-AL2.3",
+        "file": "src-tauri/src/agent_journal/review_restart.test.rs",
+        "title": "keep_b_of_a_and_b_then_restart_leaves_only_a_pending",
+        "runner": "cargo",
+        "assert": ["Writer::open(?:_with_max_schema)?\\(", "assert_eq!\\([^;]*HunkState::Pending", "assert_eq!\\([^;]*HunkState::Kept"]
+      },
+      {
+        "row": "revert preserves a later disjoint human edit",
+        "wi": "WI-AL2.3",
+        "file": "src-tauri/src/agent_journal/review_revert.test.rs",
+        "title": "revert_preserves_a_later_disjoint_human_edit",
+        "runner": "cargo",
+        "assert": ["\\brevert\\w*\\(", "assert!\\([^;]*\\.contains\\(", "assert_eq!\\([^;]*\""]
+      },
+      {
+        "row": "revert of a revert restores exactly, across a restart",
+        "wi": "WI-AL2.3",
+        "file": "src-tauri/src/agent_journal/review_revert.test.rs",
+        "title": "revert_of_a_revert_restores_exactly_across_a_restart",
+        "runner": "cargo",
+        "assert": ["Writer::open(?:_with_max_schema)?\\(", "\\brevert\\w*\\([\\s\\S]*\\brevert\\w*\\(", "\\brevert\\w*\\([\\s\\S]*\\brevert\\w*\\([\\s\\S]*assert_eq!\\([^;]*\""]
+      },
+      {
+        "row": "overlap → conflicted, with a message",
+        "wi": "WI-AL2.4",
+        "file": "src/components/ReviewPanel/__tests__/reviewPanelConflict.test.tsx",
+        "title": "an overlapping human edit shows the hunk as conflicted, with its message",
+        "runner": "vitest",
+        "assert": ["expect\\([^;]*\\)\\.(?:toBe|toEqual|toHaveAttribute|toHaveTextContent)\\([^;]*[\"']conflicted[\"']", "[\"']review\\.[A-Za-z.]*[Cc]onflict[A-Za-z.]*[\"']"]
+      },
+      {
+        "row": "CRLF- or BOM-only save shows no hunks; a real whitespace edit shows",
+        "wi": "WI-AL2.5",
+        "file": "src/services/agentJournal/review/__tests__/transportNormalization.test.ts",
+        "title": "CRLF-only and BOM-only saves show no hunks; a real whitespace edit shows one",
+        "runner": "vitest",
+        "assert": ["\\\\r\\\\n", "\\\\u[Ff][Ee][Ff][Ff]", "\\.toHaveLength\\(0\\)", "\\.toBeGreaterThanOrEqual\\(1\\)|\\.toBeGreaterThan\\(0\\)"]
+      },
+      {
+        "row": "WI-AL0.6 budgets met, measured on the CPU clock",
+        "wi": "WI-AL2.1a",
+        "file": "src/services/agentJournal/review/__tests__/diffBudget.test.ts",
+        "title": "the diff pipeline stays within its CPU budget on the 1 MB fixture",
+        "runner": "vitest",
+        "assert": ["\\b(?:cpuMs|measureGrowth|growthExponent|CPU_CLOCK)\\b", "\\.toBeLessThan(?:OrEqual)?\\(\\s*\\d"]
+      },
+      {
+        "row": "600 review rows paint and scroll to the last row within 100 ms",
+        "wi": "WI-AL2.4",
+        "file": "src/components/ReviewPanel/__tests__/reviewPanelScale.webkit.test.tsx",
+        "title": "600 rows paint and scroll to the last row within 100 ms each",
+        "runner": "webkit",
+        "assert": ["\\b600\\b", "\\bscrollTo\\w*\\(|\\bscrollIntoView\\(|\\.scrollTop\\s*=[^=]", "toBeLessThan(?:OrEqual)?\\(\\s*100\\s*\\)[\\s\\S]*toBeLessThan(?:OrEqual)?\\(\\s*100\\s*\\)", "\\.toBeVisible\\(\\)"]
+      },
+      {
+        "row": "aZ/Za: the rotating hunk is refused, the disjoint one reverts exactly",
+        "wi": "WI-AL2.1b",
+        "file": "src-tauri/src/agent_journal/rotation.test.rs",
+        "title": "az_za_refuses_the_rotating_hunk_and_reverts_the_disjoint_one_exactly",
+        "runner": "cargo",
+        "assert": ["\"[^\"\\n]*aZ[^\"\\n]*\"", "\"[^\"\\n]*Za[^\"\\n]*\"", "AMBIGUOUS_REVERT|AmbiguousRevert", "assert_eq!\\("]
+      },
+      {
+        "row": "a remount without a certificate refuses, journal and projection unchanged",
+        "wi": "WI-AL2.1c",
+        "file": "src-tauri/src/agent_journal/certificate_remount.test.rs",
+        "title": "a_remount_without_a_certificate_refuses_with_journal_and_projection_unchanged",
+        "runner": "cargo",
+        "assert": ["Writer::open(?:_with_max_schema)?\\(|\\bremount\\w*\\(", "AMBIGUOUS_REVERT|AmbiguousRevert", "assert_eq!\\([^;]*proj", "assert_eq!\\([^;]*len"]
+      },
+      {
+        "row": "R24 oracle: zero wrong, zero span mismatches, nonzero successes, refusals change nothing",
+        "wi": "WI-AL2.3",
+        "file": "src/services/agentJournal/review/__tests__/ledgerOracle.test.ts",
+        "title": "the oracle fuzz finds zero wrong reverts, zero span mismatches and nonzero successes, and every refusal leaves the state unchanged",
+        "runner": "vitest",
+        "assert": ["expect\\([^;]*\\bwrong\\w*\\)\\.toBe\\(0\\)", "expect\\([^;]*\\bspanMismatch\\w*\\)\\.toBe\\(0\\)", "expect\\([^;]*\\bsuccess\\w*\\)\\.toBeGreaterThan\\(0\\)", "expect\\([^;]*\\)\\.toEqual\\([^;]*[Bb]efore"]
+      },
+      {
+        "row": "WYSIWYG net-zero capture, end to end through the production sessions",
+        "wi": "WI-AL2.0",
+        "file": "src/services/agentJournal/__tests__/netZeroRevertSequence.test.ts",
+        "title": "the full sequence: the baseline exists and blocks the retyped hunk; a disjoint hunk maps exactly",
+        "runner": "vitest",
+        "assert": ["\\bstartProvenanceSessions\\(", "\\bdeleteAndRetype\\(", "baselineTouched:\\s*true", "\\.baseline\\)\\.not\\.toBeNull\\(\\)", "\\.block\\)\\.toEqual\\(\\{\\s*reason:\\s*\"uncertifiedRange\"", "\\.block\\)\\.toBeNull\\(\\)"]
+      },
+      {
+        "row": "WYSIWYG net-zero capture, in the production collector",
+        "wi": "WI-AL2.0",
+        "file": "src/services/agentJournal/collectors/wysiwyg/__tests__/wysiwygNetZero.test.ts",
+        "title": "the agent-then-human regression: a retyped agent hunk is blocked, not mapped as an identity",
+        "runner": "vitest",
+        "assert": ["\\bdeleteAndRetype\\(", "expect\\(touched\\)\\.toBe\\(true\\)", "\\.block\\)\\.toEqual\\(\\{\\s*reason:\\s*\"uncertifiedRange\"", "\\.block\\)\\.toBeNull\\(\\)"]
+      },
+      {
+        "row": "WYSIWYG widening shown: the production collector's blocked hunk carries the panel indicator",
+        "wi": "WI-AL2.4",
+        "file": "src/components/ReviewPanel/__tests__/reviewPanelWidening.test.tsx",
+        "title": "a hunk the production collector widened shows the blocked-hunk indicator",
+        "runner": "vitest",
+        "assert": ["\\bstartProvenanceSessions\\(", "[\"']review\\.[A-Za-z.]*(?:[Bb]locked|[Ww]idened)[A-Za-z.]*[\"']", "\\.toBeInTheDocument\\(\\)|\\.toBeVisible\\(\\)"]
+      },
+      {
+        "row": "admission outcome: a write error refuses, journal and projection unchanged",
+        "wi": "WI-AL2.2a",
+        "file": "src-tauri/src/agent_journal/admission_outcomes.test.rs",
+        "title": "an_admission_write_error_refuses_with_journal_and_projection_unchanged",
+        "runner": "cargo",
+        "assert": ["\\bRefused\\b|\"refused\"", "assert_eq!\\([^;]*proj", "assert_eq!\\([^;]*len", "fail\\w*_write|write_error|WriteError"]
+      },
+      {
+        "row": "admission outcome: an fsync failure is indeterminate, poisons, and reopens cleanly",
+        "wi": "WI-AL2.2a",
+        "file": "src-tauri/src/agent_journal/admission_outcomes.test.rs",
+        "title": "an_admission_fsync_failure_is_indeterminate_and_reopens_cleanly",
+        "runner": "cargo",
+        "assert": ["fail\\w*_fsync|fsync_error|FsyncError", "assert!\\([^;]*indeterminate", "[Pp]oison", "Writer::open(?:_with_max_schema)?\\("]
+      },
+      {
+        "row": "admission outcome: success prepares and the live projection equals the replayed one",
+        "wi": "WI-AL2.2a",
+        "file": "src-tauri/src/agent_journal/admission_outcomes.test.rs",
+        "title": "an_admission_success_prepares_and_swaps_the_projection",
+        "runner": "cargo",
+        "assert": ["\\bPrepared\\b|\"prepared\"", "assert_eq!\\([^;]*proj", "Writer::open(?:_with_max_schema)?\\("]
+      },
+      {
+        "row": "prepare failure leaves the content unchanged",
+        "wi": "WI-AL2.2e",
+        "file": "src/services/agentJournal/__tests__/journaledMutationFailures.test.ts",
+        "title": "an injected prepare failure leaves the content unchanged",
+        "runner": "vitest",
+        "assert": ["\\.mockRejectedValue(?:Once)?\\(", "expect\\([^;]*content[^;]*\\)\\.toBe\\(", "[\"']refused[\"']"]
+      },
+      {
+        "row": "commit failure answers applied but not durable, and blocks the next mutation",
+        "wi": "WI-AL2.2e",
+        "file": "src/services/agentJournal/__tests__/journaledMutationFailures.test.ts",
+        "title": "an injected commit failure answers applied but not durable and blocks the next mutation",
+        "runner": "vitest",
+        "assert": ["\\.mockRejectedValue(?:Once)?\\(", "applied:\\s*true,\\s*durable:\\s*false", "[\"']refused[\"']"]
+      },
+      {
+        "row": "trust boundary: no MCP operation schema admits provenance keys",
+        "wi": "WI-AL2.1d",
+        "file": "src/services/mcpBridge/__tests__/provenanceTrustBoundary.test.ts",
+        "title": "no MCP operation schema admits provenance, certificate, capture, hunks or spans",
+        "runner": "vitest",
+        "assert": ["[\"']provenance[\"']", "[\"']certificate[\"']", "[\"']capture[\"']", "[\"']hunks[\"']", "[\"']spans[\"']", "\\.toEqual\\(\\[\\]\\)"]
+      },
+      {
+        "row": "trust boundary: the bridge refuses a request carrying a provenance key",
+        "wi": "WI-AL2.1d",
+        "file": "src/services/mcpBridge/__tests__/provenanceTrustBoundary.test.ts",
+        "title": "the bridge refuses a request that carries a provenance key, naming the key",
+        "runner": "vitest",
+        "assert": ["\\bprovenance\\s*:", "isError|\\.rejects\\.|\\.toThrow\\(", "(?:toContain|toMatch)\\([^;]*provenance"]
+      },
+      {
+        "row": "trust boundary: a capture seq regression is refused",
+        "wi": "WI-AL2.1d",
+        "file": "src-tauri/src/agent_journal/capture_trust.test.rs",
+        "title": "a_capture_seq_regression_is_refused_with_nothing_appended",
+        "runner": "cargo",
+        "assert": ["\\bseq\\b", "\\.is_err\\(\\)|\\.unwrap_err\\(\\)", "assert_eq!\\([^;]*len"]
+      },
+      {
+        "row": "staged blob visibility: the baseline derives with its preimage absent from the pack",
+        "wi": "WI-AL2.2a",
+        "file": "src-tauri/src/agent_journal/admission_staging.test.rs",
+        "title": "a_staged_baseline_derives_with_its_preimage_absent_from_the_pack",
+        "runner": "cargo",
+        "assert": ["baseline", "assert!\\(\\s*!\\s*[^;]*(?:pack|blob)", "assert_eq!\\([^;]*(?:pack|blob)\\w*[^;]*len|assert_eq!\\([^;]*len\\w*[^;]*(?:pack|blob)"]
+      },
+      {
+        "row": "admission-owned state: a refused admission leaves reservations, degraded queues and window bases unchanged",
+        "wi": "WI-AL2.2a",
+        "file": "src-tauri/src/agent_journal/admission_staging.test.rs",
+        "title": "a_refused_admission_leaves_reservations_queues_and_window_bases_unchanged",
+        "runner": "cargo",
+        "assert": ["\\bRefused\\b|\"refused\"", "assert_eq!\\([^;]*reservation", "assert_eq!\\([^;]*(?:degraded|queue)", "assert_eq!\\([^;]*window_base", "assert_eq!\\([^;]*(?:journal_len|append)"]
+      },
+      {
+        "row": "live = replay: Projection equality, requests included, after an immediate retry",
+        "wi": "WI-AL2.2a",
+        "file": "src-tauri/src/agent_journal/admission_replay.test.rs",
+        "title": "live_projection_equals_replay_including_requests_after_an_immediate_retry",
+        "runner": "cargo",
+        "assert": ["\\bprepare\\w*\\([\\s\\S]*\\bprepare\\w*\\(", "Writer::open(?:_with_max_schema)?\\(", "assert_eq!\\([^;]*proj", "\\.requests\\b"]
+      },
+      {
+        "row": "compaction of admissions: surviving seq unchanged, receipt retained, reopen clean",
+        "wi": "WI-AL2.2a",
+        "file": "src-tauri/src/agent_journal/admission_compaction.test.rs",
+        "title": "compaction_keeps_surviving_seq_and_receipts_and_reopens_clean",
+        "runner": "cargo",
+        "assert": ["\\bcompact\\w*\\(", "assert_eq!\\([^;]*\\bseq", "receipt", "Writer::open(?:_with_max_schema)?\\("]
+      },
+      {
+        "row": "duplicate states: executable, terminalPending, terminal and unavailable, with zero extra apply",
+        "wi": "WI-AL2.2f",
+        "file": "src-tauri/src/agent_journal/duplicate_requests.test.rs",
+        "title": "duplicate_requests_answer_each_of_four_states_with_zero_extra_apply",
+        "runner": "cargo",
+        "assert": ["\\bExecutable\\b", "\\bTerminalPending\\b", "\\bTerminal\\b", "\\bUnavailable\\b", "assert_eq!\\([^;]*appl(?:y|ies|ied)"]
+      },
+      {
+        "row": "page load revokes the owner: its commit is STALE_PAGE and the worker records uncommitted",
+        "wi": "WI-AL2.2h",
+        "file": "src-tauri/src/agent_journal/page_lifecycle.test.rs",
+        "title": "revoked_owner_commit_is_stale_page_and_the_worker_records_uncommitted",
+        "runner": "cargo",
+        "assert": ["\\.started\\(", "STALE_PAGE", "\\brun_held\\(", "TxnStatus::Uncommitted"]
+      },
+      {
+        "row": "destroy between begin and admission: staleGeneration, nothing reserved",
+        "wi": "WI-AL2.2h",
+        "file": "src-tauri/src/agent_journal/page_lifecycle.test.rs",
+        "title": "destroy_between_begin_and_admission_is_stale_generation_nothing_reserved",
+        "runner": "cargo",
+        "assert": ["\\bhold_original\\(", "\\.destroyed\\(", "assert_eq!\\([^;]*\\(0, 0, 0, 0\\)"]
+      },
+      {
+        "row": "page entries change the table before they signal the cleanup worker",
+        "wi": "WI-AL2.2h",
+        "file": "src-tauri/src/agent_journal/page_lifecycle.test.rs",
+        "title": "each_entry_changes_the_table_before_it_signals_the_worker",
+        "runner": "cargo",
+        "assert": ["\\blife_inline\\(", "\\.started\\(", "\\.replace\\(", "\\.destroyed\\(", "OwnedEnd::Recorded"]
+      },
+      {
+        "row": "page entries return while the writer lock is held",
+        "wi": "WI-AL2.2h",
+        "file": "src-tauri/src/agent_journal/page_lifecycle.test.rs",
+        "title": "writer_held_main_thread_rendezvous_needs_no_writer_lock",
+        "runner": "cargo",
+        "assert": ["writer\\.lock\\(\\)", "\\breturns_at_once\\(", "assert_eq!\\([^;]*labels\\(\\),\\s*0"]
+      },
+      {
+        "row": "cleanup worker: an event before the exit decision is served by the running worker",
+        "wi": "WI-AL2.2h",
+        "file": "src-tauri/src/agent_journal/cleanup_worker.test.rs",
+        "title": "worker_exit_loses_reacquire_to_producer",
+        "runner": "cargo",
+        "assert": ["Point::AfterPass", "assert_eq!\\([^;]*spawns"]
+      },
+      {
+        "row": "cleanup worker: concurrent producers never run two passes, and a pass follows the last event",
+        "wi": "WI-AL2.2h",
+        "file": "src-tauri/src/agent_journal/cleanup_worker.test.rs",
+        "title": "concurrent_producers_never_run_two_passes",
+        "runner": "cargo",
+        "assert": ["assert_eq!\\([^;]*max", "40_000"]
+      },
+      {
+        "row": "cleanup worker: a panicking pass leaves the work pending and counted, and the next event restarts it",
+        "wi": "WI-AL2.2h",
+        "file": "src-tauri/src/agent_journal/cleanup_worker.test.rs",
+        "title": "a_panicking_pass_clears_running_and_the_next_event_restarts_it",
+        "runner": "cargo",
+        "assert": ["assert_eq!\\(w\\.state\\(\\), \\(true, false\\)", "assert_eq!\\([^;]*spawns[^;]*\\(1, 2\\)"]
+      },
+      {
+        "row": "cleanup worker: a refused spawn rolls back the claim",
+        "wi": "WI-AL2.2h",
+        "file": "src-tauri/src/agent_journal/cleanup_worker.test.rs",
+        "title": "spawn_failure_rolls_back_worker_claim",
+        "runner": "cargo",
+        "assert": ["assert_eq!\\(w\\.state\\(\\), \\(true, false\\)", "assert_eq!\\([^;]*w\\.failures\\(\\)"]
+      },
+      {
+        "row": "owner death: a queued commit is left as it is and survives",
+        "wi": "WI-AL2.2h",
+        "file": "src-tauri/src/agent_journal/owner_death.test.rs",
+        "title": "a_queued_commit_is_left_as_it_is_and_survives",
+        "runner": "cargo",
+        "assert": ["\\.commit\\(", "OwnedEnd::AlreadyQueued", "assert_eq!\\(queue\\(&l\\), queued"]
+      },
+      {
+        "row": "owner death: a cleanup append failing once is released by the drainer alone",
+        "wi": "WI-AL2.2h",
+        "file": "src-tauri/src/agent_journal/owner_death.test.rs",
+        "title": "cleanup_append_failing_once_is_released_by_the_drainer_alone",
+        "runner": "cargo",
+        "assert": ["fail_next_appends\\(1\\)", "OwnedEnd::Queued", "\\breleased\\("]
+      },
+      {
+        "row": "owner death: destroying one window ends only its transactions",
+        "wi": "WI-AL2.2h",
+        "file": "src-tauri/src/agent_journal/owner_death.test.rs",
+        "title": "destroying_one_window_ends_only_its_transactions",
+        "runner": "cargo",
+        "assert": ["\\.destroyed\\(", "OwnedEnd::Recorded", "TxnStatus::Prepared"]
+      },
+      {
+        "row": "owner death: discarded and resolved are already terminal, with nothing appended",
+        "wi": "WI-AL2.2h",
+        "file": "src-tauri/src/agent_journal/owner_death.test.rs",
+        "title": "discarded_and_resolved_are_already_terminal",
+        "runner": "cargo",
+        "assert": ["TxnStatus::Discarded", "TxnStatus::Resolved", "\\bswept_as_already_terminal\\("]
+      },
+      {
+        "row": "abandon racing a queued commit keeps the earlier intent, in both orders",
+        "wi": "WI-AL2.2h",
+        "file": "src-tauri/src/agent_journal/request_abandon_race.test.rs",
+        "title": "abandon_racing_a_queued_commit_keeps_the_earlier_intent",
+        "runner": "cargo",
+        "assert": ["\\.commit\\(", "\\.abandon\\(", "\\bone_intent\\("]
+      },
+      {
+        "row": "abandon racing a queued abort keeps the earlier intent, in both orders",
+        "wi": "WI-AL2.2h",
+        "file": "src-tauri/src/agent_journal/request_abandon_race.test.rs",
+        "title": "abandon_racing_a_queued_abort_keeps_the_earlier_intent",
+        "runner": "cargo",
+        "assert": ["\\.abort\\(", "\\.abandon\\(", "\\bone_intent\\("]
+      },
+      {
+        "row": "the journal status reports cleanup worker failures",
+        "wi": "WI-AL2.2h",
+        "file": "src-tauri/src/agent_journal/cleanup_worker.test.rs",
+        "title": "the_status_reports_cleanup_worker_failures",
+        "runner": "cargo",
+        "assert": ["cleanupWorkerFailures", "cleanup_worker_failures"]
+      },
+      {
+        "row": "a capture reply delivered into another page's callback cannot mark a save recorded",
+        "wi": "WI-AL2.2i",
+        "file": "src/services/agentJournal/__tests__/tauriIpcCallBind.test.ts",
+        "title": "a_misdelivered_capture_reply_cannot_mark_a_save_recorded",
+        "runner": "vitest",
+        "assert": ["\\bharness\\.reload\\(", "\\bharness\\.deliver\\(", "\\bcaptureSaveToJournal\\(", "JOURNAL_UNAVAILABLE"]
+      },
+      {
+        "row": "every agent_journal command in all_commands! has an R98 bind or a callId echo",
+        "wi": "WI-AL2.2i",
+        "file": "src-tauri/src/agent_journal/call_bind_dispatch.test.rs",
+        "title": "every_journal_command_reply_is_bound",
+        "runner": "cargo",
+        "assert": ["command_registry\\.rs", "Bound<CallBind", "call_id: String", "CALL_BOUND"]
+      },
+      {
+        "row": "uncertainty contract: the freeze is released only on a confirmed clean refusal",
+        "wi": "WI-AL2.2g",
+        "file": "src/services/agentJournal/__tests__/journalUncertainty.test.ts",
+        "title": "the freeze is released only on a confirmed clean refusal",
+        "runner": "vitest",
+        "assert": ["expect\\([^;]*release\\w*\\)\\.toHaveBeenCalled", "expect\\([^;]*release\\w*\\)\\.not\\.toHaveBeenCalled", "expect\\([^;]*invalidate\\w*\\)\\.toHaveBeenCalled", "uncertain:\\s*true"]
+      },
+      {
+        "row": "uncertainty contract: every Rust refusal code has its TypeScript journal code",
+        "wi": "WI-AL2.2g",
+        "file": "src/services/agentJournal/__tests__/journalCodeParity.test.ts",
+        "title": "every Rust journal refusal code is a TypeScript journal code",
+        "runner": "vitest",
+        "assert": ["[\"'][^\"']*(?:refusal|errors)\\.rs[\"']", "\\bJOURNAL_CODES\\b", "[\"']AMBIGUOUS_REVERT[\"']"]
+      },
+      {
+        "row": "identity on the wire: every live journal command refuses a request missing an identity field",
+        "wi": "WI-AL2.2g",
+        "file": "src-tauri/src/agent_journal/commands_dispatch.test.rs",
+        "title": "each_live_command_refuses_a_request_missing_an_identity_field",
+        "runner": "cargo",
+        "assert": ["\\binvoke_from\\(", "\"INVALID_REQUEST\"", "missing required key", "assert_eq!\\([^;]*journal_len"]
+      },
+      {
+        "row": "Tauri's IPC fallback re-executes a command whose response body failed, with its payload byte for byte",
+        "wi": "WI-AL2.2g",
+        "file": "src/services/agentJournal/__tests__/tauriIpcReplies.test.ts",
+        "title": "tauri_ipc_fallback_repeats_an_executed_command",
+        "runner": "vitest",
+        "assert": ["\\.toEqual\\(\\[[\"']customProtocol[\"'],\\s*[\"']postMessage[\"']\\]\\)", "expect\\(effects\\)\\.toBe\\(2\\)", "expect\\(second\\.body\\)\\.toBe\\(first\\.body\\)"]
+      },
+      {
+        "row": "a reloaded page's old prepare and commit replies cannot confirm the successor's write",
+        "wi": "WI-AL2.2g",
+        "file": "src/services/agentJournal/__tests__/tauriIpcReplies.test.ts",
+        "title": "old_prepare_and_commit_replies_cannot_confirm_successor_write",
+        "runner": "vitest",
+        "assert": ["\\.reload\\(\\)", "\\.deliver\\(", "expect\\(content\\(\\)\\)\\.toBe\\([\"']before[\"']\\)", "uncertain:\\s*true"]
+      },
+      {
+        "row": "stale page: a commit refused STALE_PAGE is applied, not durable, never retried, and the registration renews with replaces = the old pair",
+        "wi": "WI-AL2.2g",
+        "file": "src/services/agentJournal/__tests__/journalPageEnds.test.ts",
+        "title": "a stale-page commit reports durable false and never retries",
+        "runner": "vitest",
+        "assert": ["wire\\.on\\(COMMIT,\\s*stalePage\\)", "durable:\\s*false", "argsOf\\(COMMIT\\)\\)\\.toHaveLength\\(1\\)", "replaces\\)\\.toEqual\\("]
+      },
+      {
+        "row": "stale page: an abort refused STALE_PAGE ends the request and the registration renews",
+        "wi": "WI-AL2.2g",
+        "file": "src/services/agentJournal/__tests__/journalPageEnds.test.ts",
+        "title": "a stale-page abort ends the request and renews the registration",
+        "runner": "vitest",
+        "assert": ["wire\\.on\\(ABORT,\\s*stalePage\\)", "status:\\s*\\\"aborted\\\"", "argsOf\\(COMMIT\\)\\)\\.toEqual\\(\\[\\]\\)", "replaces\\)\\.toEqual\\("]
+      },
+      {
+        "row": "sealed and revoked staleGeneration answers recover identically: drain, then one fresh registration naming the old pair",
+        "wi": "WI-AL2.2g",
+        "file": "src/services/agentJournal/__tests__/journalPageEnds.test.ts",
+        "title": "sealed_and_revoked_stale_answers_recover_identically",
+        "runner": "vitest",
+        "assert": ["recover\\([\\\"']sealed[\\\"']\\)", "recover\\([\\\"']revoked[\\\"']\\)", "staleGeneration", "registeredBeforeDrain\\)\\.toBe\\(1\\)", "slots\\)\\.toBe\\(1\\)"]
+      },
+      {
+        "row": "a pagehide while committing leaves the commit and its outcome unchanged",
+        "wi": "WI-AL2.2g",
+        "file": "src/services/agentJournal/__tests__/journalPageEnds.test.ts",
+        "title": "pagehide during committing → the commit continues, outcome unchanged",
+        "runner": "vitest",
+        "assert": ["pagehide\\(true\\)", "status:\\s*\\\"applied\\\",\\s*durable:\\s*true", "argsOf\\(ABANDON\\)\\)\\.toEqual\\(\\[\\]\\)"]
+      },
+      {
+        "row": "a registration that never answers ends JOURNAL_TIMEOUT with zero prepares and no timer left",
+        "wi": "WI-AL2.2g",
+        "file": "src/services/agentJournal/__tests__/journalPageEnds.test.ts",
+        "title": "a hanging register ends JOURNAL_TIMEOUT with zero prepare invokes",
+        "runner": "vitest",
+        "assert": ["journalCode:\\s*\\\"JOURNAL_TIMEOUT\\\"", "payloadsOf\\(PREPARE\\)\\)\\.toEqual\\(\\[\\]\\)", "getTimerCount\\(\\)\\)\\.toBe\\(0\\)"]
+      },
+      {
+        "row": "a budget spent after the dispatch ends JOURNAL_TIMEOUT, uncertain, and abandons the original payload",
+        "wi": "WI-AL2.2g",
+        "file": "src/services/agentJournal/__tests__/journalRequest.test.ts",
+        "title": "budget_expiry_abandon_sends_original_payload when the budget ends between prepared and apply",
+        "runner": "vitest",
+        "assert": ["journalCode:\\s*\\\"JOURNAL_TIMEOUT\\\",\\s*uncertain:\\s*true", "abandons\\(\\)\\)\\.toEqual\\(prepares\\(\\)\\)"]
+      },
+      {
+        "row": "native: a reload during a held prepare leaves the held txn uncommitted, and the new page's first write succeeds",
+        "wi": "WI-AL2.2g",
+        "file": "e2e/journeys/49-journal-reload-held-prepare.mjs",
+        "title": "journal-reload-held-prepare",
+        "runner": "e2e",
+        "assert": ["agent_journal_commit", "location\\.reload\\(", "journalOf\\(", "\\.uncommitted\\.length\\s*!==\\s*1", "durable"]
+      },
+      {
+        "row": "native: a hash change and a pushState keep the page's registration live",
+        "wi": "WI-AL2.2g",
+        "file": "e2e/journeys/50-journal-same-document-navigation.mjs",
+        "title": "journal-same-document-navigation",
+        "runner": "e2e",
+        "assert": ["location\\.hash\\s*=", "history\\.pushState\\(", "agent_journal_register_page", "durable"]
+      },
+      {
+        "row": "native: an iframe load keeps the page's registration live",
+        "wi": "WI-AL2.2g",
+        "file": "e2e/journeys/51-journal-iframe-load.mjs",
+        "title": "journal-iframe-load",
+        "runner": "e2e",
+        "assert": ["createElement\\(\\s*[\\\"']iframe[\\\"']\\s*\\)", "agent_journal_register_page", "durable"]
+      },
+      {
+        "row": "native: five rapid reloads, each followed by an agent write that succeeds",
+        "wi": "WI-AL2.2g",
+        "file": "e2e/journeys/52-journal-rapid-reloads.mjs",
+        "title": "journal-rapid-reloads",
+        "runner": "e2e",
+        "assert": ["location\\.reload\\(", "\\b5\\b", "durable"]
+      },
+      {
+        "row": "writer-bound certificate: a dirty-buffer write is certified and reverts an unaffected hunk exactly",
+        "wi": "WI-AL2.1c",
+        "file": "src-tauri/src/agent_journal/certificate_parent.test.rs",
+        "title": "a_dirty_buffer_write_is_certified_and_reverts_an_unaffected_hunk_exactly",
+        "runner": "cargo",
+        "assert": ["dirty|unsaved", "certified:\\s*true|assert!\\([^;]*\\.certified\\b", "\\brevert\\w*\\(", "assert_eq!\\([^;]*\""]
+      }
+    ],
+    "3": [
+      {
+        "row": "duplicated passage → ambiguous",
+        "wi": "WI-AL3.1a",
+        "file": "src-tauri/src/agent_journal/comment_anchor.test.rs",
+        "title": "a_duplicated_passage_resolves_ambiguous",
+        "runner": "cargo",
+        "assert": ["\\bresolve\\w*\\(", "assert(?:_eq)?!\\([^;]*\\bAmbiguous\\b"]
+      },
+      {
+        "row": "deleted passage → orphaned",
+        "wi": "WI-AL3.1a",
+        "file": "src-tauri/src/agent_journal/comment_anchor.test.rs",
+        "title": "a_deleted_passage_resolves_orphaned",
+        "runner": "cargo",
+        "assert": ["\\bresolve\\w*\\(", "assert(?:_eq)?!\\([^;]*\\bOrphaned\\b"]
+      },
+      {
+        "row": "heading rename still resolves by context",
+        "wi": "WI-AL3.1a",
+        "file": "src-tauri/src/agent_journal/comment_anchor.test.rs",
+        "title": "a_renamed_heading_still_resolves_by_context",
+        "runner": "cargo",
+        "assert": ["\"#{1,6} [^\"]*\"", "\\bresolve\\w*\\(", "assert(?:_eq)?!\\([^;]*\\b(?:Exact|Resolved)\\b"]
+      },
+      {
+        "row": "selection across headings maps exactly or widens visibly",
+        "wi": "WI-AL3.1a",
+        "file": "src-tauri/src/agent_journal/comment_anchor.test.rs",
+        "title": "a_selection_across_headings_maps_exactly_or_widens_visibly",
+        "runner": "cargo",
+        "assert": ["\"[^\"]*#{1,6} [^\"]*#{1,6} [^\"]*\"", "\\bresolve\\w*\\(", "assert(?:_eq)?!\\([^;]*\\b(?:Exact|Widened)\\b"]
+      },
+      {
+        "row": "CJK, emoji and RTL offsets equal the expected UTF-16 numbers",
+        "wi": "WI-AL3.1a",
+        "file": "src-tauri/src/agent_journal/comment_anchor.test.rs",
+        "title": "cjk_emoji_and_rtl_offsets_are_exact_utf16_units",
+        "runner": "cargo",
+        "assert": ["[\\u4e00-\\u9fff]", "[\\ud83c-\\ud83e][\\udc00-\\udfff]", "[\\u0590-\\u08ff]", "assert_eq!\\([^;]*,\\s*\\d+\\s*\\)"]
+      },
+      {
+        "row": "anchor quote bound: 4096 bytes accepted, 4097 refused",
+        "wi": "WI-AL3.1a",
+        "file": "src-tauri/src/agent_journal/comment_anchor.test.rs",
+        "title": "a_4096_byte_quote_is_accepted_and_4097_is_refused",
+        "runner": "cargo",
+        "assert": ["\\b4_?096\\b", "\\b4_?097\\b", "COMMENT_ANCHOR_TOO_LONG|AnchorTooLong"]
+      },
+      {
+        "row": "reply body bound: 16,384 bytes accepted, 16,385 refused",
+        "wi": "WI-AL3.1b",
+        "file": "src-tauri/src/agent_journal/comment_bounds.test.rs",
+        "title": "a_16384_byte_body_is_accepted_and_16385_is_refused",
+        "runner": "cargo",
+        "assert": ["\\b16_?384\\b", "\\b16_?385\\b", "\\.is_err\\(\\)|\\.unwrap_err\\(\\)"]
+      },
+      {
+        "row": "replies per comment: 200 accepted, 201 refused",
+        "wi": "WI-AL3.1b",
+        "file": "src-tauri/src/agent_journal/comment_bounds.test.rs",
+        "title": "the_200th_reply_is_accepted_and_the_201st_is_refused",
+        "runner": "cargo",
+        "assert": ["\\b200\\b", "\\b201\\b", "\\.is_err\\(\\)|\\.unwrap_err\\(\\)"]
+      },
+      {
+        "row": "comments: 1,000 accepted, 1,001 refused",
+        "wi": "WI-AL3.1b",
+        "file": "src-tauri/src/agent_journal/comment_bounds.test.rs",
+        "title": "the_1000th_comment_is_accepted_and_the_1001st_is_refused",
+        "runner": "cargo",
+        "assert": ["\\b1_?000\\b", "\\b1_?001\\b", "\\.is_err\\(\\)|\\.unwrap_err\\(\\)"]
+      },
+      {
+        "row": "logical byte limits at the boundary: thread 256 KiB, document 4 MiB, global 64 MiB",
+        "wi": "WI-AL3.1b",
+        "file": "src-tauri/src/agent_journal/comment_bounds.test.rs",
+        "title": "thread_document_and_global_byte_limits_hold_at_the_boundary",
+        "runner": "cargo",
+        "assert": ["\\b256\\s*\\*\\s*1024\\b|\\b262_?144\\b|\\b256\\s*\\*\\s*KIB\\b", "\\b4\\s*\\*\\s*1024\\s*\\*\\s*1024\\b|\\b4_?194_?304\\b|\\b4\\s*\\*\\s*MIB\\b", "\\b64\\s*\\*\\s*1024\\s*\\*\\s*1024\\b|\\b67_?108_?864\\b|\\b64\\s*\\*\\s*MIB\\b", "\\.is_err\\(\\)|\\.unwrap_err\\(\\)", "\\.is_ok\\(\\)"]
+      },
+      {
+        "row": "physical cap: 128 MiB of retained records refuses with COMMENT_STORAGE_FULL",
+        "wi": "WI-AL3.1b",
+        "file": "src-tauri/src/agent_journal/comment_storage.test.rs",
+        "title": "physical_bytes_stop_at_128_mib_with_comment_storage_full",
+        "runner": "cargo",
+        "assert": ["\\b128\\s*\\*\\s*1024\\s*\\*\\s*1024\\b|\\b134_?217_?728\\b|\\b128\\s*\\*\\s*MIB\\b", "COMMENT_STORAGE_FULL|CommentStorageFull"]
+      },
+      {
+        "row": "terminal reserve: resolve and delete succeed with the budget full",
+        "wi": "WI-AL3.1b",
+        "file": "src-tauri/src/agent_journal/comment_storage.test.rs",
+        "title": "resolve_and_delete_succeed_with_the_logical_budget_full",
+        "runner": "cargo",
+        "assert": ["\\bfill\\w*\\(", "\\bresolve\\w*\\(", "\\bdelete\\w*\\(", "assert!\\([^;]*\\.is_ok\\(\\)"]
+      },
+      {
+        "row": "a comment id is never reused after delete and restart",
+        "wi": "WI-AL3.1b",
+        "file": "src-tauri/src/agent_journal/comment_storage.test.rs",
+        "title": "a_deleted_comment_id_is_never_reused_after_restart",
+        "runner": "cargo",
+        "assert": ["\\bdelete\\w*\\(", "Writer::open(?:_with_max_schema)?\\(", "assert_ne!\\("]
+      },
+      {
+        "row": "agent resolve refused, with nothing appended",
+        "wi": "WI-AL3.3",
+        "file": "src/services/mcpBridge/__tests__/commentTools.test.ts",
+        "title": "an agent cannot resolve a comment, and nothing is appended",
+        "runner": "vitest",
+        "assert": ["[\"']resolve[\"']", "isError|\\.rejects\\.|\\.toThrow\\(", "\\.not\\.toHaveBeenCalled\\(\\)"]
+      },
+      {
+        "row": "comment HTML renders as text only",
+        "wi": "WI-AL3.2",
+        "file": "src/components/Comments/__tests__/commentBodyText.test.tsx",
+        "title": "a comment body with HTML renders as text, with no element from the body",
+        "runner": "vitest",
+        "assert": ["<(?:script|img)\\b", "\\.querySelector\\([\"'](?:script|img)[\"']\\)\\)\\.toBeNull\\(\\)", "\\.toHaveTextContent\\(|\\.textContent\\)\\.toBe\\("]
+      },
+      {
+        "row": "every WI-AL0.9 fixture maps exactly or widens visibly, through the production resolver",
+        "wi": "WI-AL3.1a",
+        "file": "src-tauri/src/agent_journal/comment_anchor.test.rs",
+        "title": "every_spike_fixture_maps_exactly_or_widens_visibly",
+        "runner": "cargo",
+        "assert": ["include_str!\\([^)]*\\.json", "\\bExact\\b", "\\bWidened\\b", "assert(?:_eq)?!\\([^;]*\\.len\\(\\)[^;]*\\b(?:4[5-9]|[5-9]\\d|\\d{3,})\\b"]
+      },
+      {
+        "row": "heading goldens come from the production parser, with no drift",
+        "wi": "WI-AL3.1a",
+        "file": "src/services/agentJournal/comments/__tests__/anchorGoldens.test.ts",
+        "title": "the heading goldens equal what the production parser generates",
+        "runner": "vitest",
+        "assert": ["\\bparseMarkdownToMdast\\b", "readFileSync\\([^)]*(?:golden|GOLDEN)", "expect\\([^;]*\\)\\.toEqual\\("]
+      },
+      {
+        "row": "a future record stops before repair, the file's bytes unchanged",
+        "wi": "WI-AL2.0s",
+        "file": "src-tauri/src/agent_journal/future_format.test.rs",
+        "title": "future_format_before_a_torn_tail_truncates_nothing",
+        "runner": "cargo",
+        "assert": ["FUTURE_FORMAT|FutureFormat", "Sha256::digest\\(", "assert_eq!\\(\\s*hashes\\(", "torn_frame\\(", "Writer::open_with_max_schema\\("]
+      }
+    ]
+  }
+}

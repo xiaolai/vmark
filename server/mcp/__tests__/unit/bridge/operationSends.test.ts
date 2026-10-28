@@ -28,6 +28,7 @@ import { registerWorkspaceTool } from '../../../src/tools/workspace.js';
 import { registerDocumentTool } from '../../../src/tools/document.js';
 import { registerWorkflowTool } from '../../../src/tools/workflow.js';
 import { registerSelectionTool } from '../../../src/tools/selection.js';
+import { registerCommentsTool } from '../../../src/tools/comments.js';
 import { registerBrowserTool } from '../../../src/tools/browser.js';
 import { registerBrowserReadTool } from '../../../src/tools/browserRead.js';
 import { registerCoherenceTool } from '../../../src/tools/coherence.js';
@@ -48,14 +49,18 @@ const CALLS: ReadonlyArray<readonly [tool: string, args: Record<string, unknown>
   ['workspace', { action: 'focus_window', windowLabel: 'doc-1' }],
 
   ['document', { action: 'read', tabId: 't1' }],
-  ['document', { action: 'write', tabId: 't1', content: '# x', expected_revision: 'r1', save: false }],
-  ['document', { action: 'transform', tabId: 't1', kind: 'cjk-format', expected_revision: 'r1' }],
+  ['document', { action: 'write', tabId: 't1', content: '# x', expected_revision: 'r1', save: false, addresses: ['c1'] }],
+  ['document', { action: 'transform', tabId: 't1', kind: 'cjk-format', expected_revision: 'r1', addresses: ['c1'] }],
 
-  ['workflow', { action: 'apply_patch', tabId: 't1', patches: [{ op: 'noop' }], expected_revision: 'r1' }],
+  ['workflow', { action: 'apply_patch', tabId: 't1', patches: [{ op: 'noop' }], expected_revision: 'r1', addresses: ['c1'] }],
   ['workflow', { action: 'validate', tabId: 't1' }],
 
   ['selection', { action: 'get', tabId: 't1' }],
-  ['selection', { action: 'set', tabId: 't1', content: 'x', expected_revision: 'r1' }],
+  ['selection', { action: 'set', tabId: 't1', content: 'x', expected_revision: 'r1', addresses: ['c1'] }],
+
+  ['comments', { action: 'list', tabId: 't1' }],
+  ['comments', { action: 'reply', tabId: 't1', commentId: 'c1', body: 'x', expectedCommentGen: '1' }],
+  ['comments', { action: 'mark_addressed', tabId: 't1', commentId: 'c1', expectedCommentGen: '1' }],
 
   ['browser_read', { action: 'read', tabId: 'b1' }],
   ['browser_read', { action: 'query', tabId: 'b1', selector: '.a', fields: { text: true } }],
@@ -112,6 +117,9 @@ function answer(request: BridgeRequest): BridgeResponse {
   if (request.type === 'vmark.browser.screenshot') {
     return { success: true, data: { url: 'https://e.test', image: 'aGk=' } };
   }
+  if (request.type === 'vmark.comments.list') {
+    return { success: true, data: { doc: null, generation: '0', threads: [] } };
+  }
   return { success: true, data: {} };
 }
 
@@ -124,6 +132,7 @@ async function recordEverySend(): Promise<Map<string, Set<string>>> {
   registerDocumentTool(server);
   registerWorkflowTool(server);
   registerSelectionTool(server);
+  registerCommentsTool(server);
   registerBrowserTool(server);
   registerBrowserReadTool(server);
   registerCoherenceTool(server);

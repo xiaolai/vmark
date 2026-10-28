@@ -25,7 +25,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { parse } from "yaml";
 
@@ -35,7 +35,8 @@ const CRATE = "src-tauri";
 const tracked = new Set(
   execFileSync("git", ["ls-files", "-z"], { cwd: REPO, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 })
     .split("\u0000")
-    .filter(Boolean),
+    // A file deleted in the working tree but not yet in the index has nothing to read.
+    .filter((f) => f && existsSync(path.join(REPO, f))),
 );
 
 /** Repo-relative POSIX path for `relative` resolved against `fromDir`. */

@@ -44,6 +44,7 @@ export const es = {
           "ai-providers": "Proveedores de IA",
           "mcp-setup": "Configuración de MCP",
           "mcp-tools": "Referencia de herramientas MCP",
+          "edit-history-git": "Historial de edición en Git",
           "lint": "Lint de Markdown",
           "link-check": "Verificación de enlaces",
           "settings": "Ajustes",

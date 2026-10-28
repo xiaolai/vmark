@@ -13,9 +13,17 @@
       "module": "vite",
       "reason": "Dev-server path traversal in the website's VitePress toolchain. Same non-shipped dev-server surface as GHSA-fx2h-pf6j-xcff."
     },
+    "GHSA-587h-7wmj-h5pm": {
+      "module": "vite",
+      "reason": "Windows existsSync bypass in launch-editor, reachable only from Vite's dev-server error overlay. vite@7 and vite@8 are pinned to patched lines by package.json overrides; the remaining instance is vite@5 under website>vitepress, whose 1.x line requires vite 5 and has no patched 5.x release. Website dev server only; the desktop app bundles built assets and never runs a Vite dev server."
+    },
     "GHSA-67mh-4wv8-2f99": {
       "module": "esbuild",
       "reason": "esbuild dev server, reached through website>vitepress>vite. Build-time only; no esbuild server runs in the app or in CI's built output."
+    },
+    "GHSA-698v-4r3x-3vcv": {
+      "module": "vite",
+      "reason": "Windows % escaping in launch-editor, reachable only from Vite's dev-server error overlay. vite@7 and vite@8 are pinned to patched lines by package.json overrides; the remaining instance is vite@5 under website>vitepress, whose 1.x line requires vite 5 and has no patched 5.x release. Website dev server only; the desktop app bundles built assets and never runs a Vite dev server."
     },
     "GHSA-fx2h-pf6j-xcff": {
       "module": "vite",
@@ -25,17 +33,21 @@
       "module": "esbuild",
       "reason": "Windows-only file read through esbuild's own development server (servedir). esbuild 0.27.7 is reached only through build and test tooling: Vitest's browser mode (.>@vitest/coverage-v8>@vitest/browser>@vitest/mocker>vite>esbuild, the path pnpm audit reports), plus server__content's tsup bundler and Slidev's Vite. None of them starts esbuild's server: Vite serves with its own, tsup only bundles, and the shipped app contains no esbuild."
     },
-    "GHSA-hp3w-g68c-fv3c": {
-      "module": "sprintf-js",
-      "reason": "No patched version exists (affected <=1.1.3, the latest; advisory lists <0.0.0). Reached only via server__content>@slidev/cli>...>gray-matter>js-yaml@3>argparse@1>sprintf-js, and js-yaml@3 requires argparse only from its own CLI (bin/js-yaml.js); gray-matter uses the library entry, which never loads argparse. Re-check when sprintf-js ships a fix or Slidev drops js-yaml@3."
+    "GHSA-mrhx-c7xc-m3w5": {
+      "module": "zod",
+      "reason": "Memory exhaustion validating oversized constrained collections. zod@4 is pinned to the patched line (>=4.6.6) by a package.json override; the remaining instance is zod@3.25.76, pinned exactly by @hypothesi/tauri-mcp-server, the devDependency that serves Tauri MCP to the E2E harness against debug builds. No patched 3.x release exists. Not shipped, and its input comes only from the local test client. Re-check when the harness moves to zod 4."
+    },
+    "GHSA-r825-w8mm-5pxw": {
+      "module": "vite",
+      "reason": "Editor CLI flag handling in launch-editor, reachable only from Vite's dev-server error overlay. vite@7 and vite@8 are pinned to patched lines by package.json overrides; the remaining instance is vite@5 under website>vitepress, whose 1.x line requires vite 5 and has no patched 5.x release. Website dev server only; the desktop app bundles built assets and never runs a Vite dev server."
+    },
+    "GHSA-rq7h-c2jc-7f22": {
+      "module": "vite",
+      "reason": "Dev-server server.fs.allow bypass when project paths match system paths. vite@7 and vite@8 are pinned to patched lines by package.json overrides; the remaining instance is vite@5 under website>vitepress, whose 1.x line requires vite 5 and has no patched 5.x release. Website dev server only; the desktop app bundles built assets and never runs a Vite dev server."
     },
     "GHSA-v6wh-96g9-6wx3": {
       "module": "vite",
       "reason": "launch-editor UNC handling reachable only from Vite's dev-server error overlay in the website toolchain. Not shipped."
-    },
-    "GHSA-vfj7-8cjw-p6xm": {
-      "module": "braces",
-      "reason": "No patched version exists (affected <=3.0.3, the latest; advisory lists <0.0.0). Shipped only via server__content>@slidev/cli (vite-plugin-static-copy>chokidar@3, fast-glob>micromatch), whose glob patterns are Slidev's own; the content server's watcher is chokidar@5, which has no braces. Other paths (globby, markdownlint-cli2) are dev tooling. Worst case is a stack-overflow crash of the local Slidev preview for a deck the user opened. Re-check when braces ships a fix or Slidev drops chokidar@3."
     }
   }
 }

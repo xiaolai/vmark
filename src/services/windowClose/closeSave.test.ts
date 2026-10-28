@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { message, save, open } from "@tauri-apps/plugin-dialog";
-import { saveToPath } from "@/services/persistence/saveToPath";
+import { saveToPathForClose } from "@/services/persistence/saveToPath";
 import {
   promptSaveForDirtyDocument,
   promptSaveForMultipleDocuments,
@@ -9,7 +9,7 @@ import {
 import { saveAllDocuments } from "./closeSaveBatch";
 
 vi.mock("@/services/persistence/saveToPath", () => ({
-  saveToPath: vi.fn(),
+  saveToPathForClose: vi.fn(),
 }));
 
 // Destination reservation is a collaborator with its own suite
@@ -77,7 +77,7 @@ describe("promptSaveForDirtyDocument", () => {
   it("saves to existing path when user chooses Save (Yes)", async () => {
     // message() returns 'Yes' when user clicks "Save"
     vi.mocked(message).mockResolvedValueOnce("Yes");
-    vi.mocked(saveToPath).mockResolvedValueOnce(true);
+    vi.mocked(saveToPathForClose).mockResolvedValueOnce(true);
 
     const result = await promptSaveForDirtyDocument({
       windowLabel: WINDOW_LABEL,
@@ -87,7 +87,7 @@ describe("promptSaveForDirtyDocument", () => {
       content: "content",
     });
 
-    expect(saveToPath).toHaveBeenCalledWith("tab-1", "/tmp/test.md", "content", "manual");
+    expect(saveToPathForClose).toHaveBeenCalledWith("tab-1", "/tmp/test.md", "content");
     expect(result.action).toBe("saved");
     if (result.action === "saved") {
       expect(result.path).toBe("/tmp/test.md");
@@ -96,7 +96,7 @@ describe("promptSaveForDirtyDocument", () => {
 
   it("saves to existing path when dialog returns custom button label (Save)", async () => {
     vi.mocked(message).mockResolvedValueOnce("Save");
-    vi.mocked(saveToPath).mockResolvedValueOnce(true);
+    vi.mocked(saveToPathForClose).mockResolvedValueOnce(true);
 
     const result = await promptSaveForDirtyDocument({
       windowLabel: WINDOW_LABEL,
@@ -106,7 +106,7 @@ describe("promptSaveForDirtyDocument", () => {
       content: "content",
     });
 
-    expect(saveToPath).toHaveBeenCalledWith("tab-1", "/tmp/test.md", "content", "manual");
+    expect(saveToPathForClose).toHaveBeenCalledWith("tab-1", "/tmp/test.md", "content");
     expect(result.action).toBe("saved");
     if (result.action === "saved") {
       expect(result.path).toBe("/tmp/test.md");
@@ -128,10 +128,10 @@ describe("promptSaveForDirtyDocument", () => {
     expect(result.action).toBe("cancelled");
   });
 
-  it("returns cancelled when saveToPath fails", async () => {
+  it("returns cancelled when saveToPathForClose fails", async () => {
     vi.mocked(message).mockResolvedValueOnce("Yes");
     vi.mocked(save).mockResolvedValueOnce("/tmp/new.md");
-    vi.mocked(saveToPath).mockResolvedValueOnce(false);
+    vi.mocked(saveToPathForClose).mockResolvedValueOnce(false);
 
     const result = await promptSaveForDirtyDocument({
       windowLabel: WINDOW_LABEL,
@@ -141,7 +141,7 @@ describe("promptSaveForDirtyDocument", () => {
       content: "content",
     });
 
-    expect(saveToPath).toHaveBeenCalledWith("tab-1", "/tmp/new.md", "content", "manual");
+    expect(saveToPathForClose).toHaveBeenCalledWith("tab-1", "/tmp/new.md", "content");
     expect(result.action).toBe("cancelled");
   });
 });
@@ -189,30 +189,30 @@ describe("promptSaveForMultipleDocuments", () => {
 
   it("saves all documents with existing paths when user clicks Save All", async () => {
     vi.mocked(message).mockResolvedValueOnce("Save All");
-    vi.mocked(saveToPath).mockResolvedValue(true);
+    vi.mocked(saveToPathForClose).mockResolvedValue(true);
 
     const result = await promptSaveForMultipleDocuments([
       createContext("1", "/tmp/doc1.md"),
       createContext("2", "/tmp/doc2.md"),
     ]);
 
-    expect(saveToPath).toHaveBeenCalledTimes(2);
-    expect(saveToPath).toHaveBeenCalledWith("1", "/tmp/doc1.md", "content 1", "manual");
-    expect(saveToPath).toHaveBeenCalledWith("2", "/tmp/doc2.md", "content 2", "manual");
+    expect(saveToPathForClose).toHaveBeenCalledTimes(2);
+    expect(saveToPathForClose).toHaveBeenCalledWith("1", "/tmp/doc1.md", "content 1");
+    expect(saveToPathForClose).toHaveBeenCalledWith("2", "/tmp/doc2.md", "content 2");
     expect(result.action).toBe("saved-all");
   });
 
   it("prompts Save As for untitled documents", async () => {
     vi.mocked(message).mockResolvedValueOnce("Save All");
     vi.mocked(save).mockResolvedValueOnce("/tmp/saved.md");
-    vi.mocked(saveToPath).mockResolvedValue(true);
+    vi.mocked(saveToPathForClose).mockResolvedValue(true);
 
     const result = await promptSaveForMultipleDocuments([
       createContext("1", null), // Untitled
     ]);
 
     expect(save).toHaveBeenCalled();
-    expect(saveToPath).toHaveBeenCalledWith("1", "/tmp/saved.md", "content 1", "manual");
+    expect(saveToPathForClose).toHaveBeenCalledWith("1", "/tmp/saved.md", "content 1");
     expect(result.action).toBe("saved-all");
   });
 
@@ -225,12 +225,12 @@ describe("promptSaveForMultipleDocuments", () => {
     ]);
 
     expect(result.action).toBe("cancelled");
-    expect(saveToPath).not.toHaveBeenCalled();
+    expect(saveToPathForClose).not.toHaveBeenCalled();
   });
 
   it("returns cancelled if any save fails", async () => {
     vi.mocked(message).mockResolvedValueOnce("Save All");
-    vi.mocked(saveToPath)
+    vi.mocked(saveToPathForClose)
       .mockResolvedValueOnce(true)
       .mockResolvedValueOnce(false); // Second save fails
 
@@ -245,7 +245,7 @@ describe("promptSaveForMultipleDocuments", () => {
   it("uses batch folder picker for multiple untitled documents", async () => {
     vi.mocked(message).mockResolvedValueOnce("Save All");
     vi.mocked(open).mockResolvedValueOnce("/tmp/chosen-folder");
-    vi.mocked(saveToPath).mockResolvedValue(true);
+    vi.mocked(saveToPathForClose).mockResolvedValue(true);
 
     const result = await promptSaveForMultipleDocuments([
       createContext("1", null), // Untitled 1
@@ -258,9 +258,9 @@ describe("promptSaveForMultipleDocuments", () => {
       multiple: false,
     }));
     expect(save).not.toHaveBeenCalled();
-    expect(saveToPath).toHaveBeenCalledTimes(2);
-    expect(saveToPath).toHaveBeenCalledWith("1", "/tmp/chosen-folder/Untitled 1.md", "content 1", "manual");
-    expect(saveToPath).toHaveBeenCalledWith("2", "/tmp/chosen-folder/Untitled 2.md", "content 2", "manual");
+    expect(saveToPathForClose).toHaveBeenCalledTimes(2);
+    expect(saveToPathForClose).toHaveBeenCalledWith("1", "/tmp/chosen-folder/Untitled 1.md", "content 1");
+    expect(saveToPathForClose).toHaveBeenCalledWith("2", "/tmp/chosen-folder/Untitled 2.md", "content 2");
     expect(result.action).toBe("saved-all");
   });
 
@@ -274,7 +274,7 @@ describe("promptSaveForMultipleDocuments", () => {
     ]);
 
     expect(result.action).toBe("cancelled");
-    expect(saveToPath).not.toHaveBeenCalled();
+    expect(saveToPathForClose).not.toHaveBeenCalled();
   });
 
   it("shows path info in dialog message", async () => {
@@ -310,11 +310,11 @@ describe("saveAllDocuments", () => {
     const result = await saveAllDocuments([]);
     expect(result.action).toBe("saved-all");
     expect(message).not.toHaveBeenCalled();
-    expect(saveToPath).not.toHaveBeenCalled();
+    expect(saveToPathForClose).not.toHaveBeenCalled();
   });
 
   it("saves all documents with paths without prompting", async () => {
-    vi.mocked(saveToPath).mockResolvedValue(true);
+    vi.mocked(saveToPathForClose).mockResolvedValue(true);
 
     const result = await saveAllDocuments([
       createContext("1", "/tmp/doc1.md"),
@@ -322,13 +322,13 @@ describe("saveAllDocuments", () => {
     ]);
 
     expect(message).not.toHaveBeenCalled();
-    expect(saveToPath).toHaveBeenCalledTimes(2);
+    expect(saveToPathForClose).toHaveBeenCalledTimes(2);
     expect(result.action).toBe("saved-all");
   });
 
   it("uses batch folder picker for multiple untitled", async () => {
     vi.mocked(open).mockResolvedValueOnce("/tmp/folder");
-    vi.mocked(saveToPath).mockResolvedValue(true);
+    vi.mocked(saveToPathForClose).mockResolvedValue(true);
 
     const result = await saveAllDocuments([
       createContext("1", null),
@@ -341,7 +341,7 @@ describe("saveAllDocuments", () => {
   });
 
   it("calls progress callback", async () => {
-    vi.mocked(saveToPath).mockResolvedValue(true);
+    vi.mocked(saveToPathForClose).mockResolvedValue(true);
     const onProgress = vi.fn();
 
     await saveAllDocuments(
@@ -355,7 +355,7 @@ describe("saveAllDocuments", () => {
   });
 
   it("returns cancelled when save fails for a doc with path", async () => {
-    vi.mocked(saveToPath).mockResolvedValueOnce(false);
+    vi.mocked(saveToPathForClose).mockResolvedValueOnce(false);
 
     const result = await saveAllDocuments([
       createContext("1", "/tmp/doc1.md"),
@@ -366,14 +366,14 @@ describe("saveAllDocuments", () => {
 
   it("saves single untitled doc via Save As dialog", async () => {
     vi.mocked(save).mockResolvedValueOnce("/tmp/new-file.md");
-    vi.mocked(saveToPath).mockResolvedValue(true);
+    vi.mocked(saveToPathForClose).mockResolvedValue(true);
 
     const result = await saveAllDocuments([
       createContext("1", null),
     ]);
 
     expect(save).toHaveBeenCalled();
-    expect(saveToPath).toHaveBeenCalledWith("1", "/tmp/new-file.md", "content 1", "manual");
+    expect(saveToPathForClose).toHaveBeenCalledWith("1", "/tmp/new-file.md", "content 1");
     expect(result.action).toBe("saved-all");
   });
 
@@ -387,9 +387,9 @@ describe("saveAllDocuments", () => {
     expect(result.action).toBe("cancelled");
   });
 
-  it("returns cancelled when single untitled saveToPath fails", async () => {
+  it("returns cancelled when single untitled saveToPathForClose fails", async () => {
     vi.mocked(save).mockResolvedValueOnce("/tmp/new-file.md");
-    vi.mocked(saveToPath).mockResolvedValueOnce(false);
+    vi.mocked(saveToPathForClose).mockResolvedValueOnce(false);
 
     const result = await saveAllDocuments([
       createContext("1", null),
@@ -400,7 +400,7 @@ describe("saveAllDocuments", () => {
 
   it("returns cancelled when batch save fails for untitled doc", async () => {
     vi.mocked(open).mockResolvedValueOnce("/tmp/folder");
-    vi.mocked(saveToPath).mockResolvedValueOnce(false);
+    vi.mocked(saveToPathForClose).mockResolvedValueOnce(false);
 
     const result = await saveAllDocuments([
       createContext("1", null),
@@ -423,7 +423,7 @@ describe("saveAllDocuments", () => {
 
   it("calls progress callback for untitled docs", async () => {
     vi.mocked(save).mockResolvedValueOnce("/tmp/saved.md");
-    vi.mocked(saveToPath).mockResolvedValue(true);
+    vi.mocked(saveToPathForClose).mockResolvedValue(true);
     const onProgress = vi.fn();
 
     await saveAllDocuments(
@@ -454,9 +454,9 @@ describe("promptSaveForDirtyDocument — edge cases", () => {
     expect(result.action).toBe("cancelled");
   });
 
-  it("returns cancelled when saveToPath fails for saved doc", async () => {
+  it("returns cancelled when saveToPathForClose fails for saved doc", async () => {
     vi.mocked(message).mockResolvedValueOnce("Yes");
-    vi.mocked(saveToPath).mockResolvedValueOnce(false);
+    vi.mocked(saveToPathForClose).mockResolvedValueOnce(false);
 
     const result = await promptSaveForDirtyDocument({
       windowLabel: "main",
@@ -472,7 +472,7 @@ describe("promptSaveForDirtyDocument — edge cases", () => {
   it("sanitizes title with invalid filename characters for Save As", async () => {
     vi.mocked(message).mockResolvedValueOnce("Yes");
     vi.mocked(save).mockResolvedValueOnce("/tmp/new.md");
-    vi.mocked(saveToPath).mockResolvedValue(true);
+    vi.mocked(saveToPathForClose).mockResolvedValue(true);
 
     await promptSaveForDirtyDocument({
       windowLabel: "main",
@@ -500,7 +500,7 @@ describe("closeSave — toSafeFilename and ensureMarkdownExtension (lines 73, 80
   it("uses 'Untitled' when title is empty string (line 80 fallback)", async () => {
     vi.mocked(message).mockResolvedValueOnce("Yes");
     vi.mocked(save).mockResolvedValueOnce("/tmp/Untitled.md");
-    vi.mocked(saveToPath).mockResolvedValue(true);
+    vi.mocked(saveToPathForClose).mockResolvedValue(true);
 
     await promptSaveForDirtyDocument({
       windowLabel: "main",
@@ -519,7 +519,7 @@ describe("closeSave — toSafeFilename and ensureMarkdownExtension (lines 73, 80
   it("uses 'Untitled' when title is only invalid chars that sanitize to empty (line 80 fallback)", async () => {
     vi.mocked(message).mockResolvedValueOnce("Yes");
     vi.mocked(save).mockResolvedValueOnce("/tmp/Untitled.md");
-    vi.mocked(saveToPath).mockResolvedValue(true);
+    vi.mocked(saveToPathForClose).mockResolvedValue(true);
 
     await promptSaveForDirtyDocument({
       windowLabel: "main",
@@ -538,7 +538,7 @@ describe("closeSave — toSafeFilename and ensureMarkdownExtension (lines 73, 80
   it("does not double-add .md when title already ends with .md (line 73 true branch)", async () => {
     vi.mocked(message).mockResolvedValueOnce("Yes");
     vi.mocked(save).mockResolvedValueOnce("/tmp/MyDoc.md");
-    vi.mocked(saveToPath).mockResolvedValue(true);
+    vi.mocked(saveToPathForClose).mockResolvedValue(true);
 
     await promptSaveForDirtyDocument({
       windowLabel: "main",
@@ -581,7 +581,7 @@ describe("promptSaveForMultipleDocuments — additional edge cases", () => {
 
   it("calls progress callback for saved docs", async () => {
     vi.mocked(message).mockResolvedValueOnce("Save All");
-    vi.mocked(saveToPath).mockResolvedValue(true);
+    vi.mocked(saveToPathForClose).mockResolvedValue(true);
     const onProgress = vi.fn();
 
     await promptSaveForMultipleDocuments(
@@ -595,7 +595,7 @@ describe("promptSaveForMultipleDocuments — additional edge cases", () => {
   it("calls progress callback for single untitled doc", async () => {
     vi.mocked(message).mockResolvedValueOnce("Save All");
     vi.mocked(save).mockResolvedValueOnce("/tmp/saved.md");
-    vi.mocked(saveToPath).mockResolvedValue(true);
+    vi.mocked(saveToPathForClose).mockResolvedValue(true);
     const onProgress = vi.fn();
 
     await promptSaveForMultipleDocuments(
@@ -606,10 +606,10 @@ describe("promptSaveForMultipleDocuments — additional edge cases", () => {
     expect(onProgress).toHaveBeenCalledWith(1, 1, "Untitled 1");
   });
 
-  it("returns cancelled when single untitled saveToPath fails", async () => {
+  it("returns cancelled when single untitled saveToPathForClose fails", async () => {
     vi.mocked(message).mockResolvedValueOnce("Save All");
     vi.mocked(save).mockResolvedValueOnce("/tmp/saved.md");
-    vi.mocked(saveToPath).mockResolvedValueOnce(false);
+    vi.mocked(saveToPathForClose).mockResolvedValueOnce(false);
 
     const result = await promptSaveForMultipleDocuments([
       createContext("1", null),
@@ -618,10 +618,10 @@ describe("promptSaveForMultipleDocuments — additional edge cases", () => {
     expect(result.action).toBe("cancelled");
   });
 
-  it("returns cancelled when batch untitled saveToPath fails", async () => {
+  it("returns cancelled when batch untitled saveToPathForClose fails", async () => {
     vi.mocked(message).mockResolvedValueOnce("Save All");
     vi.mocked(open).mockResolvedValueOnce("/tmp/folder");
-    vi.mocked(saveToPath).mockResolvedValueOnce(false);
+    vi.mocked(saveToPathForClose).mockResolvedValueOnce(false);
 
     const result = await promptSaveForMultipleDocuments([
       createContext("1", null),
@@ -634,7 +634,7 @@ describe("promptSaveForMultipleDocuments — additional edge cases", () => {
   it("calls progress callback for batch untitled docs", async () => {
     vi.mocked(message).mockResolvedValueOnce("Save All");
     vi.mocked(open).mockResolvedValueOnce("/tmp/folder");
-    vi.mocked(saveToPath).mockResolvedValue(true);
+    vi.mocked(saveToPathForClose).mockResolvedValue(true);
     const onProgress = vi.fn();
 
     await promptSaveForMultipleDocuments(

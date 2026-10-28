@@ -1,0 +1,15 @@
+{
+  "rule": "R107 rule 4, R64: a comment receipt is stored and replayed byte for byte; digest = SHA-256 of the exact framed payload bytes; generation and commentGen past 2^53 are decimal strings",
+  "receipts": [
+    {
+      "name": "commentCreated",
+      "payload": "{\"docKey\":\"path:/notes/comment — 稿.md\",\"parent\":\"0190d3c4-0000-7000-8000-000000000011\",\"text\":\"# 標題 — Title\\n\\nhéllo 世界 👋\\n\",\"selection\":{\"start\":14,\"end\":25,\"precision\":\"exact\"},\"body\":\"注释 — please check 👀\",\"author\":\"Reviewer 審稿\",\"requestId\":\"7a2d3c9f-4e5b-4c6d-8e7f-9a0b1c2d3e4f\",\"incarnation\":\"00000000000000000000000000000001\",\"webviewGeneration\":\"18446744073709551615\",\"pageIdentity\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}",
+      "receipt": "{\"requestId\":\"7a2d3c9f-4e5b-4c6d-8e7f-9a0b1c2d3e4f\",\"digest\":\"3b21e7b6a25e405aab6f0c78aa9368d3ca2c6b54ff8b9345ff06744be1657160\",\"outcome\":{\"kind\":\"commentCreated\",\"response\":{\"doc\":\"0190d3c4-0000-7000-8000-0000000000d1\",\"comment\":\"c18446744073709551614\",\"revision\":\"0190d3c4-0000-7000-8000-000000000011\",\"textHash\":\"sha256-15463d6cdfb35623daab92119d64e0a6d93763b794567376eaacee6f58ef2329\",\"generation\":\"18446744073709551614\",\"commentGen\":\"0\"}}}"
+    },
+    {
+      "name": "commentReplied",
+      "payload": "{\"docKey\":\"path:/notes/comment — 稿.md\",\"comment\":\"c42\",\"body\":\"回复 — done ✅\",\"author\":\"Agent 🤖\",\"expectedCommentGen\":\"18446744073709551612\",\"requestId\":\"8b3e4d0a-5f6c-4d7e-9f80-0b1c2d3e4f50\",\"incarnation\":\"00000000000000000000000000000001\",\"webviewGeneration\":\"18446744073709551615\",\"pageIdentity\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}",
+      "receipt": "{\"requestId\":\"8b3e4d0a-5f6c-4d7e-9f80-0b1c2d3e4f50\",\"digest\":\"1455518bc6bde7371c3307c25e4e07a6fce6f30a6516a3ee49b82554c9ad3d29\",\"outcome\":{\"kind\":\"commentReplied\",\"response\":{\"doc\":\"0190d3c4-0000-7000-8000-0000000000d1\",\"comment\":\"c42\",\"reply\":\"r9007199254740993\",\"generation\":\"9007199254740993\",\"commentGen\":\"18446744073709551613\"}}}"
+    }
+  ]
+}

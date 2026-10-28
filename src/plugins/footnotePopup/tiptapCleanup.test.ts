@@ -2,7 +2,7 @@
 /**
  * Footnote Cleanup and Renumbering Tests
  *
- * Tests for getReferenceLabels, getDefinitionInfo,
+ * Tests for collectFootnoteNodes, getDefinitionInfo,
  * createRenumberTransaction, and createCleanupAndRenumberTransaction.
  */
 
@@ -11,7 +11,6 @@ import { Schema } from "@tiptap/pm/model";
 import { EditorState } from "@tiptap/pm/state";
 import {
   collectFootnoteNodes,
-  getReferenceLabels,
   getDefinitionInfo,
   createRenumberTransaction,
   createCleanupAndRenumberTransaction,
@@ -61,10 +60,10 @@ function stateFrom(doc: ReturnType<typeof createDoc>) {
   return EditorState.create({ doc, schema });
 }
 
-describe("getReferenceLabels", () => {
+describe("collectFootnoteNodes refLabels", () => {
   it("returns empty set for doc without footnote references", () => {
     const doc = createDoc([p("Hello world")]);
-    expect(getReferenceLabels(doc)).toEqual(new Set());
+    expect(collectFootnoteNodes(doc).refLabels).toEqual(new Set());
   });
 
   it("collects all reference labels", () => {
@@ -72,7 +71,7 @@ describe("getReferenceLabels", () => {
       pWithRef("Text", "1"),
       pWithRef("More", "2"),
     ]);
-    expect(getReferenceLabels(doc)).toEqual(new Set(["1", "2"]));
+    expect(collectFootnoteNodes(doc).refLabels).toEqual(new Set(["1", "2"]));
   });
 
   it("deduplicates labels", () => {
@@ -80,7 +79,7 @@ describe("getReferenceLabels", () => {
       pWithRef("Text", "1"),
       pWithRef("More", "1"),
     ]);
-    expect(getReferenceLabels(doc)).toEqual(new Set(["1"]));
+    expect(collectFootnoteNodes(doc).refLabels).toEqual(new Set(["1"]));
   });
 
   it("handles label attribute being null/undefined gracefully", () => {
@@ -89,7 +88,7 @@ describe("getReferenceLabels", () => {
         schema.node("footnote_reference", { label: null }),
       ]),
     ]);
-    const labels = getReferenceLabels(doc);
+    const labels = collectFootnoteNodes(doc).refLabels;
     // null coerced to "" via String(null ?? "")
     expect(labels).toEqual(new Set([""]));
   });
@@ -175,7 +174,7 @@ describe("createRenumberTransaction", () => {
 
     // Apply and verify
     const newDoc = tr!.doc;
-    const newRefLabels = getReferenceLabels(newDoc);
+    const newRefLabels = collectFootnoteNodes(newDoc).refLabels;
     expect(newRefLabels).toEqual(new Set(["1", "2"]));
 
     const newDefs = getDefinitionInfo(newDoc);
@@ -213,7 +212,7 @@ describe("createRenumberTransaction", () => {
     const tr = createRenumberTransaction(state, refType, defType);
     expect(tr).not.toBeNull();
 
-    const newRefLabels = getReferenceLabels(tr!.doc);
+    const newRefLabels = collectFootnoteNodes(tr!.doc).refLabels;
     expect(newRefLabels).toEqual(new Set(["1"]));
   });
 });
@@ -236,7 +235,7 @@ describe("createRenumberTransaction — additional branch coverage", () => {
     );
     const tr = createRenumberTransaction(state, refType, defType);
     expect(tr).not.toBeNull();
-    const newRefs = getReferenceLabels(tr!.doc);
+    const newRefs = collectFootnoteNodes(tr!.doc).refLabels;
     expect(newRefs).toEqual(new Set(["1", "2"]));
   });
 
@@ -254,7 +253,7 @@ describe("createRenumberTransaction — additional branch coverage", () => {
     );
     const tr = createRenumberTransaction(state, refType, defType);
     expect(tr).not.toBeNull();
-    const newRefs = getReferenceLabels(tr!.doc);
+    const newRefs = collectFootnoteNodes(tr!.doc).refLabels;
     expect(newRefs).toEqual(new Set(["1", "2"]));
     // Def content should be preserved
     const newDefs = getDefinitionInfo(tr!.doc);
@@ -462,7 +461,7 @@ describe("createCleanupAndRenumberTransaction", () => {
     expect(tr).not.toBeNull();
 
     const newDoc = tr!.doc;
-    const newRefLabels = getReferenceLabels(newDoc);
+    const newRefLabels = collectFootnoteNodes(newDoc).refLabels;
     expect(newRefLabels).toEqual(new Set(["1", "2"]));
 
     const newDefs = getDefinitionInfo(newDoc);
@@ -539,7 +538,7 @@ describe("createCleanupAndRenumberTransaction", () => {
     const remainingRefLabels = new Set(["1"]);
     const tr = createCleanupAndRenumberTransaction(state, remainingRefLabels, refType, defType);
     expect(tr).not.toBeNull();
-    const refs = getReferenceLabels(tr!.doc);
+    const refs = collectFootnoteNodes(tr!.doc).refLabels;
     expect(refs.has("1")).toBe(true);
   });
 
@@ -594,7 +593,7 @@ describe("createCleanupAndRenumberTransaction", () => {
     const tr = createCleanupAndRenumberTransaction(state, remainingRefLabels, refType, defType);
     expect(tr).not.toBeNull();
     // Label "" gets renumbered to "1"
-    const newRefs = getReferenceLabels(tr!.doc);
+    const newRefs = collectFootnoteNodes(tr!.doc).refLabels;
     expect(newRefs.has("1")).toBe(true);
   });
 
@@ -614,6 +613,43 @@ describe("createCleanupAndRenumberTransaction", () => {
     const newDefs = getDefinitionInfo(newDoc);
     // No refs means no definitions should be re-created
     expect(newDefs).toHaveLength(0);
+  });
+});
+
+describe("duplicate definitions of one label — the first wins, as navigation resolves it", () => {
+  const refType = schema.nodes.footnote_reference;
+  const defType = schema.nodes.footnote_definition;
+  const defTexts = (doc: ReturnType<typeof createDoc>) =>
+    getDefinitionInfo(doc).map((d) => [d.label, doc.nodeAt(d.pos)?.textContent]);
+
+  it("renumbering keeps the first definition's content, not the last duplicate's", () => {
+    const state = stateFrom(
+      createDoc([pWithRef("A", "5"), fnDef("5", "first text"), fnDef("5", "later duplicate")]),
+    );
+    const tr = createRenumberTransaction(state, refType, defType);
+    expect(tr).not.toBeNull();
+    expect(defTexts(tr!.doc)).toEqual([["1", "first text"]]);
+  });
+
+  it("cleanup after a deletion keeps the first definition's content", () => {
+    const state = stateFrom(
+      createDoc([
+        pWithRef("A", "2"),
+        fnDef("1", "orphan"),
+        fnDef("2", "first text"),
+        fnDef("2", "later duplicate"),
+      ]),
+    );
+    const tr = createCleanupAndRenumberTransaction(state, new Set(["2"]), refType, defType);
+    expect(defTexts(tr!.doc)).toEqual([["1", "first text"]]);
+  });
+
+  it("CJK and emoji content survives as the first definition", () => {
+    const state = stateFrom(
+      createDoc([pWithRef("A", "x"), fnDef("x", "脚注 😀"), fnDef("x", "")]),
+    );
+    const tr = createRenumberTransaction(state, refType, defType);
+    expect(defTexts(tr!.doc)).toEqual([["1", "脚注 😀"]]);
   });
 });
 

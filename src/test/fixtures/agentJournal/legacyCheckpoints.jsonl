@@ -1,0 +1,8 @@
+{"id":"cp-file","tabId":"tab-1","filePath":"/Users/someone/notes/plan.md","timestamp":1760000000000,"tool":"document.write","description":"first","contentBefore":"# Plan\n\nold text\n","revisionBefore":"rev-a","revisionAfter":"rev-b","byteSize":20}
+{"id":"cp-untitled","tabId":"tab-2","filePath":null,"timestamp":1760000001000,"tool":"selection.set","description":"中文与emoji","contentBefore":"标题\n\n段落 🙂 é\n","revisionBefore":"rev-c","revisionAfter":"rev-d","byteSize":30}
+{"id":"cp-file","tabId":"tab-1","filePath":"/Users/someone/notes/plan.md","timestamp":1760000002000,"tool":"document.write","description":"newest line wins","contentBefore":"# Plan\n\nold text\n","revisionBefore":"rev-a","revisionAfter":"rev-b","byteSize":20}
+{"id":"cp-torn","tabId":"tab-1","filePath":
+
+{"id":"cp-surrogate","tabId":"tab-3","filePath":null,"timestamp":1760000003000,"tool":"document.write","description":"","contentBefore":"\ud800","revisionBefore":"r","revisionAfter":"s","byteSize":3}
+{"id":"cp-empty","tabId":"tab-4","filePath":"/Users/someone/empty.md","timestamp":1760000004000,"tool":"document.transform","contentBefore":"","revisionBefore":"r","revisionAfter":"s","byteSize":0}
+{"id":"cp-no-content","tabId":"tab-5","filePath":null,"timestamp":1760000005000,"tool":"document.write","description":"missing contentBefore"}

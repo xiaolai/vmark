@@ -13,12 +13,25 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import type { McpResponse } from "@/services/mcpBridge/types";
+import type { McpRequestEvent } from "@/services/mcpBridge/types";
+import { withAttribution } from "@/test/mcpAttributionFixture";
+import { createMcpWriteContext } from "@/services/mcpBridge/writeContext";
 import {
   BROWSER_ROUTED_OPERATIONS,
   ROUTED_OPERATIONS,
   SUPPORTED_TOOL_PREFIXES,
   dispatchV2,
 } from "@/services/mcpBridge/v2/dispatch";
+
+/** The write context the last `dispatch` passed, to check handlers receive it. */
+let lastContext: ReturnType<typeof createMcpWriteContext> | null = null;
+
+/** Dispatch as the router does: the event plus its write context. */
+function dispatch(event: Omit<McpRequestEvent, "attribution">): Promise<boolean> {
+  const attributed = withAttribution(event);
+  lastContext = createMcpWriteContext(attributed);
+  return dispatchV2(attributed, lastContext);
+}
 
 vi.mock("@/services/mcpBridge/v2/workspace", () => ({
   handleWorkspaceNew: vi.fn(async () => undefined),
@@ -172,6 +185,9 @@ const ROUTES: Array<{
   { type: "vmark.workflow.validate", args: {} },
   { type: "vmark.selection.get", args: {} },
   { type: "vmark.selection.set", args: { content: "x" } },
+  { type: "vmark.comments.list", args: {} },
+  { type: "vmark.comments.reply", args: {} },
+  { type: "vmark.comments.mark_addressed", args: {} },
   {
     type: "vmark.browser.read",
     handler: handleBrowserRead as unknown as ReturnType<typeof vi.fn>,
@@ -225,7 +241,7 @@ describe("dispatchV2 — routing", () => {
   it.each(["constructor", "__proto__", "toString", "hasOwnProperty"])(
     "does not route the prototype key %j the untrusted client could send",
     async (type) => {
-      expect(await dispatchV2({ id: "proto", type, args: {} })).toBe(false);
+      expect(await dispatch({ id: "proto", type, args: {} })).toBe(false);
     },
   );
 
@@ -233,13 +249,19 @@ describe("dispatchV2 — routing", () => {
     const id = `req-${route.type}`;
     if (route.handler) {
       const args = route.args ?? {};
-      expect(await dispatchV2({ id, type: route.type, args })).toBe(true);
+      expect(await dispatch({ id, type: route.type, args })).toBe(true);
       expect(route.handler).toHaveBeenCalledTimes(1);
-      expect(route.handler).toHaveBeenCalledWith(id, args);
+      // Eager handlers get the request's write context; browser ones change
+      // no document and are called without it.
+      if (route.type.startsWith("vmark.browser.")) {
+        expect(route.handler).toHaveBeenCalledWith(id, args);
+      } else {
+        expect(route.handler).toHaveBeenCalledWith(id, args, lastContext);
+      }
       return;
     }
     const args = { ...route.args, [PROBE]: true };
-    expect(await dispatchV2({ id, type: route.type, args })).toBe(true);
+    expect(await dispatch({ id, type: route.type, args })).toBe(true);
     // The handler that parsed THIS operation saw these args, once…
     expect(operationsParsed()).toEqual([route.type]);
     // …and answered this request, once.
@@ -247,7 +269,7 @@ describe("dispatchV2 — routing", () => {
   });
 
   it("session.get_state carries the app version into the answer", async () => {
-    await dispatchV2({ id: "req-version", type: "vmark.session.get_state", args: {} });
+    await dispatch({ id: "req-version", type: "vmark.session.get_state", args: {} });
     expect(responses()).toEqual([
       expect.objectContaining({
         id: "req-version",
@@ -260,7 +282,7 @@ describe("dispatchV2 — routing", () => {
   });
 
   it("returns false for unrecognized request types", async () => {
-    const matched = await dispatchV2({
+    const matched = await dispatch({
       id: "req-unknown",
       type: "vmark.bogus.action",
       args: { [PROBE]: true },
@@ -274,7 +296,7 @@ describe("dispatchV2 — routing", () => {
   });
 
   it("does not forward to other handlers when one matches", async () => {
-    await dispatchV2({
+    await dispatch({
       id: "req-iso",
       type: "vmark.selection.get",
       args: { [PROBE]: true },
@@ -310,6 +332,9 @@ describe("dispatchV2 — routing", () => {
         "vmark.browser.workflow_record",
         "vmark.browser.workflow_run",
         "vmark.browser.workflow_status",
+        "vmark.comments.list",
+        "vmark.comments.mark_addressed",
+        "vmark.comments.reply",
         "vmark.document.read",
         "vmark.document.transform",
         "vmark.document.write",

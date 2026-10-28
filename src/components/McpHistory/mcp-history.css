@@ -1,8 +1,9 @@
 /* ┌─────────────────────────────────────────────────────────────┐ */
 /* │ MCP History — StatusBar button + popover                    │ */
-/* │ Surfaces the per-tab MCP write checkpoint list with a       │ */
-/* │ one-click restore. Reuses popup-shared.css conventions for  │ */
-/* │ the popover surface; the button mirrors `.status-mcp`.      │ */
+/* │ The focused document's agent edit history (status, revisions│ */
+/* │ with their actors, blocked reverts) and the earlier         │ */
+/* │ checkpoints. Reuses popup-shared.css conventions for the    │ */
+/* │ popover surface; the button mirrors `.status-mcp`.          │ */
 /* └─────────────────────────────────────────────────────────────┘ */
 
 .status-mcp-history {
@@ -28,6 +29,11 @@
 
 .status-mcp-history.has-history {
   color: var(--accent-primary);
+}
+
+/* Recording is failing, behind or blocked: the glyph turns warning. */
+.status-mcp-history.has-warning {
+  color: var(--warning-color);
 }
 
 .status-mcp-history:focus-visible {
@@ -90,34 +96,13 @@
   color: var(--text-color);
 }
 
-.mcp-history-popover__clear {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--icon-size-sm);
-  height: var(--icon-size-sm);
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: background var(--duration-base), color var(--duration-base);
-}
 
-.mcp-history-popover__clear:not(:disabled):hover {
-  background: var(--hover-bg);
-  color: var(--error-color);
-}
 
-.mcp-history-popover__clear:disabled {
-  opacity: var(--opacity-disabled);
-  cursor: not-allowed;
-}
 
+/* The panel body scrolls; lists inside it do not. */
 .mcp-history-popover__list {
-  flex: 1 1 auto;
-  overflow-y: auto;
+  margin: 0;
+  list-style: none;
   padding: var(--space-1);
   display: flex;
   flex-direction: column;
@@ -127,14 +112,13 @@
 .mcp-history-popover__empty {
   padding: var(--space-4);
   text-align: center;
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   font-size: var(--font-size-sm);
 }
 
 .mcp-history-popover__row {
   display: grid;
   grid-template-columns: 1fr auto;
-  grid-template-rows: auto auto;
   align-items: center;
   column-gap: var(--space-2);
   padding: var(--space-1-5) var(--space-2);
@@ -146,9 +130,12 @@
   background: var(--hover-bg);
 }
 
-.mcp-history-popover__row-meta {
+.mcp-history-popover__row > * {
   grid-column: 1;
-  grid-row: 1;
+  min-width: 0;
+}
+
+.mcp-history-popover__row-meta {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
@@ -158,7 +145,7 @@
 }
 
 .mcp-history-popover__time {
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
 }
 
 .mcp-history-popover__tool {
@@ -171,8 +158,6 @@
 }
 
 .mcp-history-popover__description {
-  grid-column: 1;
-  grid-row: 2;
   font-size: var(--font-size-sm);
   color: var(--text-color);
   white-space: nowrap;
@@ -180,38 +165,9 @@
   text-overflow: ellipsis;
 }
 
-.mcp-history-popover__restore {
-  grid-column: 2;
-  grid-row: 1 / span 2;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--space-7);
-  height: var(--space-7);
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: background var(--duration-base), color var(--duration-base);
-}
 
-.mcp-history-popover__restore:hover {
-  background: var(--accent-bg);
-  color: var(--accent-primary);
-}
 
-.mcp-history-popover__restore:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 var(--border-medium) var(--accent-primary);
-}
 
-/* Visible keyboard focus (C10/rule 33 §4). */
-.mcp-history-popover__clear:focus-visible {
-  outline: 2px solid var(--accent-primary);
-  outline-offset: 1px;
-}
 
 /* ───── Store footer ───── */
 
@@ -232,4 +188,200 @@
   gap: var(--space-half);
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
+}
+
+/* Unrecorded (uncommitted) writes: above the checkpoint list. */
+.mcp-history-uncommitted {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-1-5) var(--space-2);
+  border-bottom: var(--border-thin) solid var(--border-color);
+}
+
+.mcp-history-uncommitted__title {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.mcp-history-uncommitted__hint {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.mcp-history-popover__row > .mcp-history-uncommitted__actions,
+.mcp-history-popover__row > .mcp-history-popover__actions {
+  grid-column: 2;
+  grid-row: 1 / span 3;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* ───── Panel body and sections ───── */
+
+.mcp-history-popover__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.mcp-history-section {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-1-5) var(--space-1) 0;
+  border-bottom: var(--border-thin) solid var(--border-color);
+}
+
+.mcp-history-section:last-child {
+  border-bottom: none;
+}
+
+.mcp-history-section__title {
+  padding: 0 var(--space-2);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.mcp-history-section .mcp-history-uncommitted__hint {
+  padding: 0 var(--space-2);
+}
+
+.mcp-history-popover__tag,
+.mcp-history-popover__file {
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mcp-history-popover__note {
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.mcp-history-popover__row > .mcp-history-popover__note {
+  padding: 0;
+}
+
+/* ───── Recording status ───── */
+
+.mcp-history-status {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-1-5) var(--space-2);
+  border-bottom: var(--border-thin) solid var(--border-color);
+}
+
+.mcp-history-status__line {
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  color: var(--text-color);
+}
+
+.mcp-history-status__line--error {
+  background: var(--error-bg);
+  box-shadow: inset var(--border-medium) 0 0 var(--error-color);
+}
+
+.mcp-history-status__line--warning {
+  background: var(--warning-bg);
+  box-shadow: inset var(--border-medium) 0 0 var(--warning-color);
+}
+
+/* ───── Who made a change: each principal state reads apart ───── */
+
+.mcp-history-actor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-1-5);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.mcp-history-actor__who {
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.mcp-history-actor[data-tone="anonymous"] .mcp-history-actor__who {
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+.mcp-history-actor[data-tone="unrecognized"] .mcp-history-actor__who {
+  color: var(--error-color);
+}
+
+.mcp-history-actor[data-tone="ambiguous"] .mcp-history-actor__who {
+  color: var(--warning-color);
+}
+
+.mcp-history-actor[data-tone="legacy"] .mcp-history-actor__who,
+.mcp-history-actor[data-tone="system"] .mcp-history-actor__who {
+  font-weight: 400;
+}
+
+/* ───── Blocked reverts ───── */
+
+.mcp-history-popover__row[data-blocked="true"] {
+  background: var(--warning-bg);
+  box-shadow: inset var(--border-medium) 0 0 var(--warning-color);
+}
+
+.mcp-history-blocked {
+  font-size: var(--font-size-xs);
+  color: var(--text-color);
+}
+
+.mcp-history-hunks {
+  margin: 0;
+  padding-left: var(--space-4);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.mcp-history-hunks-group {
+  margin: var(--space-1) 0;
+  font-size: var(--font-size-xs);
+}
+
+.mcp-history-hunks-group__title {
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.mcp-history-blocked-group {
+  margin: var(--space-1) 0;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--warning-bg);
+  font-size: var(--font-size-xs);
+}
+
+.mcp-history-blocked-group__title {
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.mcp-history-blocked-group ul {
+  margin: 0;
+  padding-left: var(--space-4);
+}
+
+/* A history part (review panel, pair view) whose chunk failed to load. */
+.mcp-history-part-error {
+  margin: 0;
+  padding: var(--spacing-1) 0;
+  font-size: var(--font-size-xs);
+  color: var(--error-color);
 }

@@ -13,13 +13,24 @@
  *   - Line ending and hard break normalization applied on save (not in-memory)
  *     to preserve the original editing experience while writing clean files
  *   - SERIALIZED PER PATH. Saves to one file run in submission order; saves to
- *     different files stay concurrent. Without this an older write could land
- *     second and be recorded as the saved snapshot — see serializeByPath.ts
+ *     different files stay concurrent. "One file" is its identity
+ *     (`fileIdentity.ts`), so two spellings of it share one queue. Without this an older write could land
+ *     second and be recorded as the saved snapshot — see serializeByPath.ts.
+ *     A symlink is not a spelling: Rust's per-file lock
+ *     (`files/write/target_lock.rs`) keeps writes through it and its target
+ *     from interleaving, and refuses a save older than one already published
+ *     there (`files/write/save_order.rs`), whichever document asked for it;
+ *     the close door (`saveToPathForClose`) reports that refusal as saved
+ *     when the save that refused it is the document's own and left nothing
+ *     to save — after waiting, a bounded time, for the document's newer
+ *     saves — so a close is not cancelled. One document's saves
+ *     to two paths are deliberately not queued together, so a stalled write
+ *     to the old path never blocks a Save As.
  *   - History snapshots live in saveHistorySnapshot.ts. Failures don't block
  *     save success, but the call is AWAITED: `saveToPath` does not resolve
- *     until it settles, which close flows need. A hung history backend
- *     therefore holds the save promise open after the file and stores are
- *     already updated; a bounded timeout is the fix if that ever bites
+ *     until it settles, which close flows need. It settles within
+ *     `SNAPSHOT_TIMEOUT_MS`, so a hung history backend delays a save and the
+ *     saves queued behind it on its path by that much, never forever
  *   - Auto-save skips recent files list AND skips error toasts to avoid spam on
  *     a flaky disk; the user didn't initiate the action and the next manual save
  *     will surface the error
@@ -30,18 +41,41 @@
  *     nowhere else: it never toasts (its caller reports the reason to the
  *     client — a toast on top would report one failure twice), it does not
  *     join the recent files, it never switches the visible workspace, and its
- *     provenance is captured as an MCP write naming the tool
+ *     provenance is captured as an MCP write naming the tool, with the reads
+ *     its client made before the save was submitted as its inputs
  *   - A failed save says WHY (`SaveOutcome`). `saveToPath` keeps its boolean
  *     for the human callers, which act on document state rather than a reason
+ *   - An MCP request may RESERVE its place in the document's save order when
+ *     it is ADMITTED and run its path guard at the save's turn in the
+ *     per-path queue, so no await before the queue can reorder it behind a
+ *     later save. The reservation is activated only once its bytes reach the
+ *     disk: a request refused by its path guard or its no-replace
+ *     publication, or whose write fails, never supersedes an earlier save
+ *   - The ownership check excludes the saving tab only while it still holds
+ *     the document the save was claimed for: a save that outlived its tab's
+ *     close is checked against the tab reopened under its id like any other
+ *   - The ownership check runs at the save's turn, synchronously before the
+ *     write, and is not held across the write's await. It refuses a write
+ *     over a copy with unsaved changes at that turn; a copy that gains them
+ *     while the write is in flight ends exactly as one that gains them just
+ *     after it lands, which the rule allows. Holding it across the write
+ *     would mean blocking edits in every other tab for a disk round trip
+ *   - A save counts as written the moment its bytes reach the disk: an MCP
+ *     save whose later bookkeeping throws still consumed its client's reads
  *
  * @coordinates-with pendingSaves.ts — content-based save tracking for watcher coordination
- * @coordinates-with linebreaks.ts — line ending and hard break normalization
+ * @coordinates-with saveNormalize.ts — line ending, hard break and BOM normalization
  * @coordinates-with documentStore.ts — markSaved/markAutoSaved state updates
  * @coordinates-with serializeByPath.ts — the per-path save queue
+ * @coordinates-with saveInFlight.ts — each document's saves in flight, for the close door
  * @coordinates-with saveTargetClaim.ts — per-DOCUMENT identity ordering, which
  *     the per-path queue cannot provide
  * @coordinates-with saveHistorySnapshot.ts — version history snapshots
+ * @coordinates-with services/agentJournal/saveJournal.ts — records the save in
+ *     the agent edit journal (awaited, never fails the save) before the
+ *     snapshot, so an "mcp" snapshot can name the journal revision
  * @coordinates-with saveOutcome.ts — who asked for a save and how it ended
+ * @coordinates-with saveWriteError.ts — a rejected write's failure and feedback
  * @coordinates-with saveCapture.ts — fire-and-forget provenance capture, one per
  *     write, human or MCP. `general.coherenceCaptureOnSave` (default OFF) is
  *     enforced by the capture funnel and the kernel for EVERY write path, not here
@@ -49,128 +83,48 @@
  * @module services/persistence/saveToPath
  */
 import { invoke } from "@tauri-apps/api/core";
-import { imeToast as toast } from "@/services/ime/imeToast";
-import i18n from "@/i18n";
-import { useDocumentStore } from "@/stores/documentStore";
-import { useSettingsStore } from "@/stores/settingsStore";
 import {
   resolveWritableFileOwnership,
   showFileOwnershipConflictToast,
 } from "@/services/workspaces/fileOwnership";
-import {
-  resolveHardBreakStyle,
-  resolveLineEndingOnSave,
-  normalizeHardBreaks,
-  normalizeLineEndings,
-} from "@/utils/linebreaks";
-import { registerPendingSave, clearPendingSave } from "@/utils/pendingSaves";
-import { normalizePath } from "@/utils/paths";
+import { registerPendingSave } from "@/utils/pendingSaves";
+import { handleWriteError, isDocumentAtRest } from "./saveWriteError";
+import { fileIdentityKey } from "@/utils/paths/fileIdentity";
+import { getRuntimePlatform } from "@/utils/platform";
 import { serializeByPath } from "./serializeByPath";
-import { claimSaveTarget, type SaveTargetClaim } from "./saveTargetClaim";
+import { claimInFlight, isOwnNewest, recordPublished, trackInFlight, waitForNewerSaves } from "./saveInFlight";
+import {
+  activateSaveTarget,
+  claimSaveTarget,
+  saveOrderOf,
+  isSameDocument,
+  type SaveTargetClaim,
+  type SaveTargetReservation,
+} from "./saveTargetClaim";
 import { applyPostSaveState } from "./applyPostSaveState";
-import type { NormalizedSaveContent } from "./normalizedSaveContent";
-import { recordHistorySnapshot, type SaveType } from "./saveHistorySnapshot";
-import type { SaveOrigin, SaveOutcome } from "./saveOutcome";
-import { captureSave } from "./saveCapture";
-import { saveError } from "@/utils/debug";
-import { commandErrorDetailString, isCommandErrorCode }
-  from "@/services/commands/commandError";
+import { documentSaveFormat, normalizeWithFormat, type SaveFormat } from "./saveNormalize";
+import { recordHistorySnapshot } from "./saveHistorySnapshot";
+import type { McpSaveAdmission, SaveOutcome } from "./saveOutcome";
+import type { McpAttribution } from "@/services/mcpBridge/types";
+import { captureSave, type CaptureOrigin } from "./saveCapture";
+import { detachMcpReads, restoreMcpReads } from "@/services/coherence/mcpCapture";
+import { beginJournalSave, type JournalSaveTicket } from "@/services/agentJournal/saveJournal";
 
-/** Pre-WI-14 sentinel prefix. Transitional only — delete with its tests once
- *  the CommandError ratchet (`scripts/check-command-error-ratchet.mjs`) is 0. */
-const PARENT_MISSING_PREFIX = "PARENT_MISSING:";
+export { normalizeSaveContent } from "./saveNormalize";
 
-/**
- * The vanished directory, or `null` if this failure is something else.
- *
- * Typed first (`code: "not-found"` + `detail.dir`), legacy prefix second. The
- * prefix match is what the typed path replaced: it could not tell a real
- * sentinel from an OS message starting with those characters, and any
- * rewording of the Rust error silently disabled the Save As recovery.
- */
-function parseParentMissingError(error: unknown): string | null {
-  if (isCommandErrorCode(error, "not-found")) return commandErrorDetailString(error, "dir");
-  const message =
-    error instanceof Error ? error.message : typeof error === "string" ? error : null;
-  if (!message || !message.startsWith(PARENT_MISSING_PREFIX)) return null;
-  return message.slice(PARENT_MISSING_PREFIX.length);
-}
-
-/** Normalized save payload plus the line-ending/hard-break styles applied. */
-
-/**
- * Resolve the on-save line-ending and hard-break styles from the document's
- * detected state plus user settings, and apply them to produce the bytes that
- * will be written to disk.
- *
- * @public — exported for the Phase 1 all-ingress matrix, which proves
- * round-trip fidelity against the REAL save pipeline rather than a re-implementation
- * that could drift from it.
- */
-export function normalizeSaveContent(tabId: string, content: string): NormalizedSaveContent {
-  const doc = useDocumentStore.getState().getDocument(tabId);
-  const settings = useSettingsStore.getState();
-  const targetLineEnding = resolveLineEndingOnSave(
-    doc?.lineEnding ?? "unknown",
-    settings.general.lineEndingsOnSave
-  );
-  const targetHardBreakStyle = resolveHardBreakStyle(
-    doc?.hardBreakStyle ?? "unknown",
-    settings.markdown.hardBreakStyleOnSave
-  );
-  const hardBreakNormalized = normalizeHardBreaks(content, targetHardBreakStyle);
-  const normalized = normalizeLineEndings(hardBreakNormalized, targetLineEnding);
-  // Decision D1: the editor buffer is BOM-free and `hasBom` remembers that the
-  // file began with U+FEFF. The save is the READER of that flag — without this
-  // line it had writers and no readers, and a BOM'd file lost its mark on the
-  // first save.
-  const output = doc?.hasBom ? `\u{FEFF}${normalized}` : normalized;
-  return { output, targetLineEnding, targetHardBreakStyle };
-}
-
-/**
- * Map a failed write to user feedback, document state and the failure the
- * caller propagates, clearing the pending save first. Only a manual save
- * toasts.
- */
-function handleWriteError(
-  tabId: string,
-  path: string,
-  saveToken: ReturnType<typeof registerPendingSave>,
-  saveType: SaveType,
-  error: unknown
-): SaveOutcome {
-  // CRITICAL: Always clear pending save on failure to prevent stale entries.
-  // Token ensures we only clear our own registration, not a newer save's.
-  clearPendingSave(path, saveToken);
-  saveError("Failed to save file:", error);
-
-  // Parent directory vanished (renamed/deleted externally). Mark the doc
-  // as missing so the calling Save handler routes through Save As — the
-  // user can pick a new location in one click instead of staring at a
-  // raw "No such file or directory" error.
-  const missingDir = parseParentMissingError(error);
-  if (missingDir !== null) {
-    useDocumentStore.getState().markMissing(tabId);
-    if (saveType === "manual") {
-      toast.error(
-        i18n.t("dialog:toast.failedToSaveParentMissing", { dir: missingDir }),
-        { pin: true },
-      );
-    }
-    return { ok: false, reason: "parent-missing", dir: missingDir };
-  }
-
-  // Manual saves toast; auto-saves stay quiet so a flaky disk doesn't pop
-  // a notification every interval. The next manual save (or an external
-  // signal like the file becoming missing) will surface the problem.
-  if (saveType === "manual") {
-    // Two-line toast: paths/permission details as the detail.
-    // Raw error — errorDetail owns the normalization (commandErrorMessage,
-    // so a typed rejection cannot render "[object Object]").
-    toast.errorDetail(i18n.t("dialog:toast.failedToSaveGeneric"), error);
-  }
-  return { ok: false, reason: "write-failed", error };
+/** What a save carries from its submission into its queued turn. */
+interface SaveTicket {
+  /** The save's claim; while `reservation` is set, only its reserved place. */
+  claim: SaveTargetClaim;
+  /** Activated when the write succeeds, so a refused or failed save supersedes nothing. */
+  reservation: SaveTargetReservation | undefined;
+  /** The document's conventions when the save was submitted. */
+  format: SaveFormat | undefined;
+  journal: JournalSaveTicket;
+  /** Set the moment the bytes reach the disk, before any bookkeeping. */
+  wrote: boolean;
+  /** Refuse, rather than replace, a file already at the path when it publishes. */
+  noReplace: boolean;
 }
 
 /**
@@ -182,15 +136,21 @@ async function performSave(
   tabId: string,
   path: string,
   content: string,
-  origin: SaveOrigin,
-  claim: SaveTargetClaim
+  origin: CaptureOrigin,
+  ticket: SaveTicket
 ): Promise<SaveOutcome> {
   const { saveType } = origin;
+  const { claim, journal } = ticket;
   // Normalized at RUN time, not submission time: a queued save must use the
   // document's convention as of its turn, not as of when it was requested.
-  const normalized = normalizeSaveContent(tabId, content);
+  // @edge-case: the document closed since submission (its tab id may name a
+  // new document now) — the conventions captured at submission still apply.
+  const format = isSameDocument(claim) ? documentSaveFormat(tabId) : ticket.format;
+  const normalized = normalizeWithFormat(format, content);
 
-  const ownership = resolveWritableFileOwnership(tabId, path);
+  // Checked synchronously before the write, with no await between. A save of
+  // a document closed since (its tab id may hold a newer one) excludes no tab.
+  const ownership = resolveWritableFileOwnership(tabId, path, { foreignTab: !isSameDocument(claim) });
   if (!ownership.ok) {
     if (saveType === "manual") showFileOwnershipConflictToast(path, ownership.conflicts);
     return { ok: false, reason: "ownership-conflict", conflicts: ownership.conflicts };
@@ -201,20 +161,28 @@ async function performSave(
   const saveToken = registerPendingSave(path, normalized.output);
 
   try {
-    await invoke("atomic_write_file", { path, content: normalized.output });
+    // `noReplace` only when asked, so an ordinary save's call is unchanged.
+    const exclusive = ticket.noReplace ? { noReplace: true } : {};
+    const order = saveOrderOf(claim);
+    await invoke("atomic_write_file", { path, content: normalized.output, order, ...exclusive });
   } catch (error) {
-    return handleWriteError(tabId, path, saveToken, saveType, error);
+    return handleWriteError(claim, path, saveToken, saveType, error);
   }
+  ticket.wrote = true;
+  recordPublished(claim);
 
+  if (ticket.reservation) activateSaveTarget(ticket.reservation);
   applyPostSaveState(tabId, path, content, normalized, saveToken, saveType, claim);
-  await recordHistorySnapshot(path, normalized.output, saveType);
+  const journaled = await journal.record();
+  await recordHistorySnapshot(path, normalized.output, saveType, journaled.revision);
   captureSave(path, normalized.output, origin);
 
-  return { ok: true, written: normalized.output };
+  return { ok: true, written: normalized.output, journaled: journaled.journaled };
 }
 
 /**
- * Submit one save: claim the document, then queue the write behind every
+ * Submit one save: claim the document (or carry the place its request
+ * reserved at admission), then queue the write behind every
  * earlier save to the same path. The single entry both public doors use, so
  * no writer can reach the disk without the claim and the queue.
  */
@@ -222,17 +190,42 @@ function submitSave(
   tabId: string,
   path: string,
   content: string,
-  origin: SaveOrigin
+  origin: CaptureOrigin,
+  admission: McpSaveAdmission = {}
 ): Promise<SaveOutcome> {
-  // Claimed HERE — at submission, outside the per-path queue. Path
-  // serialization orders writes to one file; it cannot order two saves of one
-  // DOCUMENT to different files, which is exactly the autosave-then-Save-As
-  // case. Claiming at submission also means the user's
-  // most recent choice wins even if its write finishes first.
-  const claim = claimSaveTarget(tabId);
-  return serializeByPath(normalizePath(path), () =>
-    performSave(tabId, path, content, origin, claim)
-  );
+  // Claimed HERE — at submission, outside the per-path queue — unless the
+  // caller reserved its place earlier, at admission. Path serialization orders writes to
+  // one file; it cannot order two saves of one DOCUMENT to different files,
+  // which is exactly the autosave-then-Save-As case. Claiming at submission
+  // also means the user's most recent choice wins even if its write finishes first.
+  const ticket: SaveTicket = {
+    claim: admission.reservation?.reserved ?? claimSaveTarget(tabId),
+    reservation: admission.reservation,
+    format: documentSaveFormat(tabId),
+    // The journal base is frozen here too: the text was built on it, and an
+    // agent commit during the write must not become its parent. A save that
+    // records nothing passes the base on, or the next save would wait forever.
+    // Cancelled inside the queued task, not on the returned promise: an extra
+    // hop there would let the next queued save run before this caller resumes.
+    journal: beginJournalSave(tabId, path, content, origin),
+    wrote: false,
+    noReplace: admission.noReplace === true,
+  };
+  // Keyed by file identity: two spellings of one file share one queue.
+  return trackInFlight(ticket.claim, serializeByPath(fileIdentityKey(path, getRuntimePlatform()), async () => {
+    try {
+      // The admission check runs at the save's turn, so its await cannot let
+      // a later save of this file reach the disk first.
+      const refusal = admission.admit ? await admission.admit() : null;
+      if (refusal) return { ok: false, ...refusal };
+      return await performSave(tabId, path, content, origin, ticket);
+    } finally {
+      ticket.journal.cancel();
+      // A save that wrote nothing consumed no reads: they precede the client's
+      // next write. A batch admitted with the request is its owner's to give back.
+      if (!ticket.wrote && origin.saveType === "mcp" && !admission.reads) restoreMcpReads(origin.reads);
+    }
+  }));
 }
 
 /**
@@ -255,19 +248,53 @@ export function saveToPath(
 }
 
 /**
+ * The same save, for a close or quit, which needs the document saved: true
+ * when this content was written for the document the tab still holds, or was
+ * refused as superseded by the document's own newest save while the document
+ * has nothing more to save. An edit that lands during the write stays dirty;
+ * the close and quit loops revalidate and save it again. Save As and Move
+ * keep `saveToPath`, whose path must be written.
+ */
+export async function saveToPathForClose(tabId: string, path: string, content: string): Promise<boolean> {
+  const save = submitSave(tabId, path, content, { saveType: "manual" });
+  const claim = claimInFlight(tabId, save);
+  const outcome = await save;
+  if (!claim) return false;
+  // Written; but if the tab now holds another document, that one is unsaved.
+  if (outcome.ok) return isSameDocument(claim);
+  if (outcome.reason !== "superseded") return false;
+  // Saved only when the file holds this document's own newer save, and the
+  // document has nothing more to save.
+  const savedByNewer = () => isOwnNewest(claim, outcome.newest) && isDocumentAtRest(tabId);
+  if (savedByNewer()) return true;
+  // That save is on disk, but its answer can reach this webview after the
+  // refusal did: let it finish recording itself (bounded), then look again.
+  await waitForNewerSaves(tabId, claim.seq);
+  return savedByNewer();
+}
+
+/**
  * The same save, for an AI client writing through the MCP bridge.
  *
  * `content` is editor-domain text (LF, BOM-free), exactly as for `saveToPath`.
  * The outcome says why a save wrote nothing, because the bridge has to tell
  * the client — and it is the bridge's only feedback channel: this door never
- * toasts. `toolName` (`document.write`, `workspace.save`, …) is recorded as
- * the write's provenance.
+ * toasts. `toolName` (`document.write`, `workspace.save`, …) and `actor`, the
+ * client whose request this is, are recorded as the write's provenance.
+ * `admission` carries the place reserved when the request was admitted, the
+ * check (the path guard) to run at the save's turn, and `noReplace` for a
+ * Save As that must not replace a file already at `path`.
  */
 export function saveToPathForMcp(
   tabId: string,
   path: string,
   content: string,
-  toolName: string
+  toolName: string,
+  actor: McpAttribution,
+  admission?: McpSaveAdmission
 ): Promise<SaveOutcome> {
-  return submitSave(tabId, path, content, { saveType: "mcp", toolName });
+  // Detached before any await, unless the request detached its batch at
+  // admission: a read made while this save is queued or writing is the next write's.
+  const reads = admission?.reads ?? detachMcpReads(actor.connectionId);
+  return submitSave(tabId, path, content, { saveType: "mcp", toolName, actor, reads }, admission);
 }

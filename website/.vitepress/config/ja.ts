@@ -44,6 +44,7 @@ export const ja = {
           "ai-providers": "AI プロバイダー",
           "mcp-setup": "MCP セットアップ",
           "mcp-tools": "MCP ツールリファレンス",
+          "edit-history-git": "編集履歴を Git へ",
           "lint": "Markdown Lint",
           "link-check": "リンクチェック",
           "settings": "設定",

@@ -158,6 +158,7 @@ Read by the gates, hooks and harnesses. None is needed for a normal build.
 | `VMARK_APP_IDENTIFIER` | the MCP sidecar, `e2e/lib/vmarkMcp.mjs` | Which app's `mcp-port` file to read. `app.vmark.dev` reaches a `tauri dev` build |
 | `VMARK_REAL_IME=1` | `e2e/run-ime.mjs` (`pnpm e2e:ime`) | Opt-in for the real-IME run, which injects keystrokes system-wide; it refuses without it. Dedicated, unattended macOS machine only |
 | `VMARK_IME_PROFILE` | `e2e/run-ime.mjs` | Path to the machine profile that run requires. Default `.vmark/ime-machine-profile.json` |
+| `VMARK_DEBUG_JOURNAL_REGISTER_PAUSE_MS` | `src-tauri/src/agent_journal/debug_pause.rs` (debug builds only) | Milliseconds to hold each successful page-registration reply after Rust has registered the page, so a native check can reload during the hold. Absent, zero or unparsable is no pause; capped at 30 s. A release build never calls the hook: its call site compiles only under `debug_assertions` |
 
 The E2E harnesses and the dev-app identity are described in
 [e2e/README.md](e2e/README.md).

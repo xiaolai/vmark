@@ -30,11 +30,16 @@ vi.mock("@tauri-apps/api/core", async () =>
   (await import("@/services/mcpBridge/v2/__tests__/bridgeWriteGate")).gatedCoreModule(),
 );
 vi.mock("@tauri-apps/api/event", () => ({
-  listen: vi.fn((event: string, handler: Listener) => {
-    bus.listeners.set(event, handler);
-    return Promise.resolve(() => bus.listeners.delete(event));
-  }),
   emit: vi.fn(() => Promise.resolve()),
+}));
+// The bridge listens on its own window: Rust sends each request to one window.
+vi.mock("@tauri-apps/api/webviewWindow", () => ({
+  getCurrentWebviewWindow: () => ({
+    listen: vi.fn((event: string, handler: Listener) => {
+      bus.listeners.set(event, handler);
+      return Promise.resolve(() => bus.listeners.delete(event));
+    }),
+  }),
 }));
 
 import { statefulFs } from "@/test/statefulFsFake";
@@ -46,6 +51,10 @@ import {
   structuredErrorOf,
 } from "@/services/mcpBridge/v2/__tests__/bridgeDiskHarness";
 import { ROOT, doc, editDoc, openDocInTab } from "./harness";
+import envelopeFixture from "@/test/fixtures/mcpRequestEnvelope.json";
+
+/** The attribution Rust attaches to every request (provider-state envelope). */
+const attribution = envelopeFixture.envelopes.provider.attribution;
 
 const DOC = `${ROOT}/notes.md`;
 const BOM = "\u{FEFF}";
@@ -68,7 +77,7 @@ let seq = 0;
 async function request(type: string, args: Record<string, unknown>, id = `req-${++seq}`) {
   const deliver = bus.listeners.get("mcp-bridge:request");
   if (!deliver) throw new Error("the MCP bridge listener was never registered");
-  deliver({ payload: { id, type, args_json: JSON.stringify(args) } });
+  deliver({ payload: { id, type, args_json: JSON.stringify(args), attribution } });
   return vi.waitFor(() => responseTo(id));
 }
 
@@ -152,7 +161,12 @@ describe("Tier-0 MCP document.write, from the wire to the disk", () => {
 
     const deliver = bus.listeners.get("mcp-bridge:request");
     deliver?.({
-      payload: { id: "req-redelivered", type: "vmark.document.write", args_json: JSON.stringify({ tabId, content: CLIENT_TEXT }) },
+      payload: {
+        id: "req-redelivered",
+        type: "vmark.document.write",
+        args_json: JSON.stringify({ tabId, content: CLIENT_TEXT }),
+        attribution,
+      },
     });
     await vi.waitFor(() => expect(() => responseTo("req-redelivered")).toThrow(/got 2/));
 
@@ -177,7 +191,9 @@ describe("Tier-0 MCP document.write, from the wire to the disk", () => {
     const tabId = await openDocInTab(DOC, ON_DISK_BEFORE);
     const deliver = bus.listeners.get("mcp-bridge:request");
 
-    deliver?.({ payload: { id: "req-bad-json", type: "vmark.document.write", args_json: "{not json" } });
+    deliver?.({
+      payload: { id: "req-bad-json", type: "vmark.document.write", args_json: "{not json", attribution },
+    });
     const reply = await vi.waitFor(() => responseTo("req-bad-json"));
 
     expect(reply.success).toBe(false);

@@ -38,6 +38,7 @@ describe('tool annotations and titles', () => {
       'browser_read',
       'coherence',
       'coherence_resolve',
+      'comments',
       'document',
       'selection',
       'session',
@@ -105,7 +106,7 @@ describe('tool annotations and titles', () => {
     }
     // The rest operate only on buffers VMark already owns.
     for (const name of [
-      'session', 'document', 'selection', 'workflow', 'coherence', 'coherence_resolve',
+      'session', 'document', 'selection', 'workflow', 'coherence', 'coherence_resolve', 'comments',
     ]) {
       expect(tool(name).annotations?.openWorldHint, name).toBe(false);
     }
@@ -310,7 +311,7 @@ describe('round-2 audit: schema-layer guards', () => {
     // The SDK validates input against this schema before the handler runs, so
     // the blank-id refusal has to live here as well as in the handler.
     for (const name of [
-      'document', 'selection', 'workflow', 'workspace', 'browser', 'browser_read',
+      'document', 'selection', 'workflow', 'workspace', 'browser', 'browser_read', 'comments',
     ]) {
       const schema = toolInputJsonSchema(tool(name)) as {
         properties: Record<string, { minLength?: number }>;

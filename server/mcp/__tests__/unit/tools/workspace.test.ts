@@ -222,24 +222,16 @@ describe('workspace — file and window lifecycle dispatch', () => {
     });
   });
 
-  it('close: coerces a truthy non-boolean force to false rather than discarding a buffer', async () => {
-    // `force` discards unsaved work. A string "true" from a sloppy client must
-    // NOT be read as consent.
-    const { server, bridge } = harness('vmark.workspace.close', () => ({
-      success: true,
-      data: { closed: false, reason: 'DIRTY' },
-    }));
+  it.each([['true'], [1], [null]])('close: refuses a non-boolean force (%j) without touching the bridge', async (force) => {
+    // `force` discards unsaved work: a supplied value that is not a boolean is
+    // neither consent nor its absence, so the request is refused, not guessed.
+    const { server, bridge } = harness('vmark.workspace.close', () => ({ success: true, data: {} }));
 
-    const result = await server.callTool('workspace', {
-      action: 'close',
-      tabId: 'tab-1',
-      force: 'true',
-    });
+    const result = await server.callTool('workspace', { action: 'close', tabId: 'tab-1', force });
 
-    expect(bridge.getRequestsOfType('vmark.workspace.close')[0].request).toMatchObject({
-      force: false,
-    });
-    expect(toolJson(result)).toEqual({ closed: false, reason: 'DIRTY' });
+    expect(result.isError).toBe(true);
+    expect(toolText(result)).toContain('force must be true or false');
+    expect(bridge.requests).toHaveLength(0);
   });
 
   it('close: refuses a missing tabId without touching the bridge', async () => {
@@ -291,7 +283,7 @@ describe('workspace — file and window lifecycle dispatch', () => {
     expect(bridge.getRequestsOfType('vmark.workspace.focus_window')).toHaveLength(1);
   });
 
-  it.each([undefined, 'rename', 12])('refuses action=%p', async (action) => {
+  it.each([undefined, 'rename', 12, 'toString', '__proto__', 'constructor'])('refuses action=%p', async (action) => {
     const { server, bridge } = harness('vmark.workspace.new', () => ({
       success: true,
       data: {},

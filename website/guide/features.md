@@ -489,7 +489,8 @@ The status bar runs along the bottom of the window (`F7` hides it). The left sid
 | Lint | ⊗ errors or ⚠ warnings found by the last [lint](#markdown-lint) run; hidden when there are none | Jumps to the next issue |
 | AI | While a genie runs, *Thinking…* with the elapsed seconds and a × to cancel; then *Done*, or the error with **Retry**, which runs the failed request again, and **Dismiss**; Retry is absent when the failure has nothing to re-run, such as a missing provider | — |
 | MCP | A satellite icon, tinted when an AI client is connected; the word *off*, *…* or *error* when it is not running normally. The tooltip names the connected clients | Opens **Settings → Integrations** |
-| MCP history | The AI writes to this tab, newest first, each with **Restore to before this write**; a trash button clears the tab's history without asking | Opens the list |
+| MCP listener | A warning, *MCP unavailable in this window*, when this window's request listener could not start after every retry: AI clients cannot reach this window, even while the MCP server runs. Restart VMark to try again | — |
+| MCP history | A history icon with the number of AI versions of the focused document, in a warning colour when its changes are not being recorded; the panel lists who made each version, with **Restore this version** and **Restore to before this change**, plus [Earlier checkpoints](/guide/mcp-setup#edit-checkpoints) | Opens the panel |
 | Terminal | — | Shows or hides the terminal |
 | Mode | The current mode — Source or WYSIWYG (hidden for GitHub Actions workflow files) | Switches mode |
 | Lock | Whether the document is read-only | Toggles read-only |

@@ -4,6 +4,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use super::attribution::McpAttribution;
+
 /// Message format for WebSocket communication with the sidecar.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct WsMessage {
@@ -65,6 +67,9 @@ pub struct McpRequestEvent {
     pub request_type: String,
     /// JSON-serialized args string (frontend must JSON.parse this)
     pub args_json: String,
+    /// Who sent the request. Wire shape pinned against the TypeScript twin by
+    /// `attribution.test.rs` through `src/test/fixtures/mcpRequestEnvelope.json`.
+    pub attribution: McpAttribution,
 }
 
 /// Response payload from frontend sent via the `mcp_bridge_respond` command.
@@ -84,13 +89,17 @@ pub struct ConnectedClientInfo {
 }
 
 /// Client identity information sent during handshake.
-#[derive(Clone, Debug, Default, serde::Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Deserialize)]
 pub(crate) struct ClientIdentity {
     /// Client name (e.g., "claude-code", "codex-cli", "cursor")
     pub name: String,
     /// Client version
     #[serde(default)]
     pub version: Option<String>,
+    /// A label the client gives its current session, for grouping its edits.
+    /// Untrusted; validated by `attribution::validate_session_label`.
+    #[serde(default, rename = "sessionLabel")]
+    pub session_label: Option<String>,
 }
 
 impl ClientIdentity {

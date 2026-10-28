@@ -41,6 +41,7 @@ menu:
   file.docHistory: "Dokumentverlauf"
   file.docHistory.clearWorkspace: "Arbeitsbereichsverlauf löschen..."
   file.docHistory.clearAll: "Gesamten Verlauf löschen..."
+  file.docHistory.exportToGit: "Bearbeitungsverlauf nach Git exportieren..."
   file.print: "Drucken..."
 
   # File menu — Windows/Linux extras
@@ -311,6 +312,9 @@ errors:
   save.parentMissing: "Der Ordner dieser Datei existiert nicht mehr: %{dir}"
   save.noParentDirectory: "Der Dateipfad hat keinen übergeordneten Ordner"
   save.symlinkLoop: "Der Alias dieser Datei verweist im Kreis, daher wurde die eigentliche Datei nicht gefunden"
+  save.targetExists: "Unter %{path} existiert bereits eine Datei, daher wurde sie nicht ersetzt"
+  save.superseded: "Eine nach dieser vorgenommene Speicherung hat %{path} bereits erreicht, daher wurde diese ältere nicht geschrieben"
+  save.noReplaceUnsupported: "Dieses Laufwerk kann nicht speichern, ohne eine vorhandene Datei zu ersetzen, daher wurde %{path} nicht gespeichert"
   save.writeFailed: "Datei konnte nicht gespeichert werden: %{detail}"
   window.pdfExportMenu: "Das Export-PDF-Fenster konnte keine leere Menüleiste erhalten: %{detail}"
   window.pdfExportCreate: "Das Export-PDF-Fenster konnte nicht geöffnet werden: %{detail}"
@@ -353,7 +357,7 @@ errors:
   hotExit.captureTimeout: "Erfassung abgelaufen: Keine Fenster haben geantwortet"
 
   # === Content search ===
-  search.queryTooShort: "Suchbegriff muss mindestens 3 Zeichen lang sein"
+  search.queryTooShort: "Suchbegriff muss mindestens %{min} Zeichen lang sein"
 
   # === CLI install ===
   cli.noFile: "Installation schien erfolgreich zu sein, aber die Datei wurde nicht erstellt."

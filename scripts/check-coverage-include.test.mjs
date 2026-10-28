@@ -26,10 +26,14 @@ const appConfig = (await import("../vitest.config.ts")).default;
  * Repo files matching `pattern` — files only. A glob also matches directories,
  * and vitest's browser mode writes failure screenshots into a gitignored
  * `__screenshots__/<test file name>/` directory, so a checkout that has run a
- * failing WebKit test holds a directory named like a `.tsx` file.
+ * failing WebKit test holds a directory named like a `.tsx` file. An entry
+ * gone by the time it is stated (a concurrent gates-tier test's own probe,
+ * e.g. gha-tdd-guard's `__guardspec_*` fixtures) is not a repo file: skipped.
  */
 function repoFiles(pattern) {
-  return globSync(pattern, { cwd: REPO }).filter((file) => statSync(path.join(REPO, file)).isFile());
+  return globSync(pattern, { cwd: REPO }).filter(
+    (file) => statSync(path.join(REPO, file), { throwIfNoEntry: false })?.isFile() === true,
+  );
 }
 const coverage = appConfig.test.coverage;
 

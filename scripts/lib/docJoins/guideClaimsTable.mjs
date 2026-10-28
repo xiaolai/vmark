@@ -4,11 +4,20 @@
  *
  * Add a claim when a guide page states something a pattern can read on both
  * sides: a number, a name, a list. Prose that needs judgment stays out.
+ * The code side is read through `codeOf(t, key)` (codeView.mjs): a declaration
+ * commented out or quoted inside a string never stands in for the real one.
  *
  * @coordinates-with scripts/lib/docJoins/guideClaims.mjs — the runner
  * @module scripts/lib/docJoins/guideClaimsTable
  */
-import { parseTables, stripMarkdown } from "./markdownTables.mjs";
+import { codeView } from "./codeView.mjs";
+import { stripMarkdown } from "./markdownTables.mjs";
+import {
+  arrayStrings, capture, captureCode, codeIndexOf, delimitedBody, displayChord, durationMs, equal, numberFromWord,
+  rustFnBodies, rustReachableFns, setDiff, spansAfter, tableUnder,
+} from "./guideClaimsHelpers.mjs";
+
+export { arrayStrings, capture, durationMs, numberFromWord, spansAfter };
 
 /** Every file a claim reads, by key. */
 export const CLAIM_PATHS = {
@@ -17,6 +26,7 @@ export const CLAIM_PATHS = {
   omnibox: "src/lib/browser/omnibox.ts",
   mcpSetupGuide: "website/guide/mcp-setup.md",
   tokenField: "src-tauri/src/mcp_config/client_token_field.rs",
+  sessionLabel: "server/mcp/src/utils/sessionLabel.ts",
   featuresGuide: "website/guide/features.md",
   imeGuard: "src/utils/imeGuard.ts",
   formatsGuide: "website/guide/formats.md",
@@ -39,70 +49,21 @@ export const CLAIM_PATHS = {
   shortcutsGuide: "website/guide/shortcuts.md",
   shortcutDefinitions: "src/stores/settingsStore/shortcutDefinitions.ts",
   textActions: "src/plugins/actions/actionDefinitionsText.ts",
+  gitExportGuide: "website/guide/edit-history-git.md",
+  gitExportNames: "src-tauri/src/agent_journal/git_export/names.rs",
+  gitExportPlan: "src-tauri/src/agent_journal/git_export/plan.rs",
 };
 
-/** The first capture of `re` in `text`; throws, naming `what`, when it does not match. */
-export function capture(text, re, what) {
-  const m = re.exec(text);
-  if (!m) throw new Error(`${what} not found (pattern ${re})`);
-  return m[1];
-}
+/** The source file `key` of the texts `t`, as code (comments blanked, literals located). */
+const codeOf = (t, key) => codeView(t[key], CLAIM_PATHS[key]);
 
-const NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"];
-
-/** "two" → 2, "12" → 12; throws on anything else. */
-export function numberFromWord(word) {
-  if (/^\d+$/.test(word)) return Number(word);
-  const n = NUMBER_WORDS.indexOf(word.toLowerCase());
-  if (n === -1) throw new Error(`"${word}" is not a number word this join knows`);
-  return n;
-}
-
-/** "a second" / "2 seconds" / "500 ms" → milliseconds. */
-export function durationMs(phrase) {
-  if (phrase === "a second") return 1000;
-  const m = /^(\w+) (seconds?|ms)$/.exec(phrase);
-  if (!m) throw new Error(`"${phrase}" is not a duration this join reads`);
-  return m[2] === "ms" ? numberFromWord(m[1]) : numberFromWord(m[1]) * 1000;
-}
-
-/** The string literals of the array literal a Rust or TS `const name` declares. */
-export function arrayStrings(source, name) {
-  const decl = new RegExp(`\\bconst\\s+${name}\\b[^=]*=`).exec(source);
-  if (!decl) throw new Error(`no \`const ${name}\` declaration`);
-  const open = source.indexOf("[", decl.index + decl[0].length);
-  const close = source.indexOf("];", open);
-  if (open === -1 || close === -1) throw new Error(`${name}: no array literal`);
-  return [...source.slice(open, close).replace(/\/\/[^\n]*/g, "").matchAll(/"([^"]*)"/g)].map((m) => m[1]);
-}
-
-/** Code spans in the parenthesis that follows `lead` in `text`. */
-export function spansAfter(text, lead, what) {
-  const at = text.indexOf(lead);
-  if (at === -1) throw new Error(`${what} not found ("${lead}")`);
-  const close = text.indexOf(")", at + lead.length);
-  return [...text.slice(at + lead.length, close).matchAll(/`([^`]+)`/g)].map((m) => m[1]);
-}
-
-/** `a` and `b` as sorted lists, with what each lacks. */
-function setDiff(a, b, aName, bName) {
-  const out = [];
-  for (const x of a) if (!b.includes(x)) out.push(`${aName} has \`${x}\`, ${bName} does not`);
-  for (const x of b) if (!a.includes(x)) out.push(`${bName} has \`${x}\`, ${aName} does not`);
-  return out;
-}
-
-const equal = (doc, code, what) => (String(doc) === String(code) ? [] : [`${what}: the guide says ${doc}, the code says ${code}`]);
-
-/** `Shift-F4` → `Shift + F4`, the guide's display form. */
-const displayChord = (key) => key.split("-").join(" + ");
-
-/** The rows of the first table under `heading` whose first header cell reads `firstHeader`. */
-function tableUnder(markdown, heading, firstHeader) {
-  const table = parseTables(markdown).find((t) => t.heading === heading && stripMarkdown(t.headers[0] ?? "") === firstHeader);
-  if (!table) throw new Error(`no "${firstHeader}" table under "${heading}"`);
-  return table.rows.map((r) => r.cells);
-}
+/**
+ * The plan.rs functions that build a commit's trailer list, and the entry
+ * that constructs the commits: a builder counts only while that entry still
+ * reaches it, so a builder left defined but no longer called is not emitted.
+ */
+const GIT_TRAILER_BUILDERS = ["common_trailers", "agent_trailers", "synthetic_commit"];
+const GIT_COMMIT_ENTRY = "plan";
 
 export const CLAIMS = [
   {
@@ -110,7 +71,7 @@ export const CLAIMS = [
     files: ["browserGuide", "browserCommands"],
     check: (t) => equal(
       capture(t.browserGuide, /A new browser tab opens on \w+ \(`([^`]+)`\)/, "browser.md start-page sentence"),
-      capture(t.browserCommands, /NEW_BROWSER_TAB_URL\s*=\s*"([^"]+)"/, "NEW_BROWSER_TAB_URL"),
+      captureCode(codeOf(t, "browserCommands"), /NEW_BROWSER_TAB_URL\s*=\s*"([^"]+)"/, "NEW_BROWSER_TAB_URL"),
       "start page"),
   },
   {
@@ -118,7 +79,7 @@ export const CLAIMS = [
     files: ["browserGuide", "omnibox"],
     check: (t) => {
       const named = capture(t.browserGuide, /the omnibox searches with (\w+)/, "browser.md search sentence").toLowerCase();
-      const host = new URL(capture(t.omnibox, /SEARCH_URL_BASE\s*=\s*"([^"]+)"/, "SEARCH_URL_BASE")).hostname;
+      const host = new URL(captureCode(codeOf(t, "omnibox"), /SEARCH_URL_BASE\s*=\s*"([^"]+)"/, "SEARCH_URL_BASE")).hostname;
       return host === `${named}.com` ? [] : [`the guide names ${named}, SEARCH_URL_BASE searches ${host}`];
     },
   },
@@ -126,10 +87,25 @@ export const CLAIMS = [
     name: "MCP client credential key",
     files: ["mcpSetupGuide", "tokenField"],
     check: (t) => {
-      const key = capture(t.tokenField, /TOKEN_ENV_KEY: &str = "([^"]+)"/, "TOKEN_ENV_KEY");
+      const key = captureCode(codeOf(t, "tokenField"), /TOKEN_ENV_KEY: &str = "([^"]+)"/, "TOKEN_ENV_KEY");
       return [`env.${key}`, `environment.${key}`]
         .filter((span) => !t.mcpSetupGuide.includes(`\`${span}\``))
         .map((span) => `mcp-setup.md does not name \`${span}\``);
+    },
+  },
+  {
+    name: "MCP session label",
+    files: ["mcpSetupGuide", "sessionLabel"],
+    check: (t) => {
+      const env = captureCode(codeOf(t, "sessionLabel"), /SESSION_LABEL_ENV = '([^']+)'/, "SESSION_LABEL_ENV");
+      const named = t.mcpSetupGuide.includes(`\`${env}\``) ? [] : [`mcp-setup.md does not name \`${env}\``];
+      return [
+        ...named,
+        ...equal(
+          capture(t.mcpSetupGuide, /The label is at most (\d+) UTF-8 bytes/, "mcp-setup.md session label sentence"),
+          captureCode(codeOf(t, "sessionLabel"), /MAX_SESSION_LABEL_BYTES = (\d+)/, "MAX_SESSION_LABEL_BYTES"),
+          "label bytes"),
+      ];
     },
   },
   {
@@ -137,14 +113,14 @@ export const CLAIMS = [
     files: ["featuresGuide", "imeGuard"],
     check: (t) => equal(
       capture(t.featuresGuide, /for (\d+) ms after the composition ends/, "features.md IME sentence"),
-      capture(t.imeGuard, /IME_GRACE_PERIOD_MS = (\d+)/, "IME_GRACE_PERIOD_MS"),
+      captureCode(codeOf(t, "imeGuard"), /IME_GRACE_PERIOD_MS = (\d+)/, "IME_GRACE_PERIOD_MS"),
       "grace period (ms)"),
   },
   {
     name: "nesting limit",
     files: ["formatsGuide", "largeFilesGuide", "nestingDepth"],
     check: (t) => {
-      const code = capture(t.nestingDepth, /MAX_NESTING_DEPTH = (\d+)/, "MAX_NESTING_DEPTH");
+      const code = captureCode(codeOf(t, "nestingDepth"), /MAX_NESTING_DEPTH = (\d+)/, "MAX_NESTING_DEPTH");
       return [
         ...equal(capture(t.formatsGuide, /nested up to (\d+) levels deep/, "formats.md nesting sentence"), code, "formats.md limit"),
         ...equal(capture(t.largeFilesGuide, /nested more than (\d+) levels deep/, "large-files.md nesting sentence"), code, "large-files.md limit"),
@@ -156,7 +132,7 @@ export const CLAIMS = [
     files: ["largeFilesGuide", "fileSizeThresholds"],
     check: (t) => equal(
       capture(t.largeFilesGuide, /fewer than ([\d,]+) estimated blocks/, "large-files.md block threshold").replace(/,/g, ""),
-      capture(t.fileSizeThresholds, /SOURCE_MODE_DEFAULT_BLOCKS:\s*([\d_]+)/, "SOURCE_MODE_DEFAULT_BLOCKS").replace(/_/g, ""),
+      captureCode(codeOf(t, "fileSizeThresholds"), /SOURCE_MODE_DEFAULT_BLOCKS:\s*([\d_]+)/, "SOURCE_MODE_DEFAULT_BLOCKS").replace(/_/g, ""),
       "block-density threshold (blocks)"),
   },
   {
@@ -164,10 +140,11 @@ export const CLAIMS = [
     files: ["largeFilesGuide", "windowReady"],
     check: (t) => {
       // The guide quotes the log line, so the line's wording is a claim too.
-      capture(t.windowReady, /(menu commands did not mount within \$\{MENU_COMMANDS_BUDGET_MS\}ms)/, "useWindowReady.ts readiness log line");
+      const view = codeOf(t, "windowReady");
+      captureCode(view, /(menu commands did not mount within \$\{MENU_COMMANDS_BUDGET_MS\}ms)/, "useWindowReady.ts readiness log line", { inLiteral: true });
       return equal(
         capture(t.largeFilesGuide, /\*menu commands did not mount within (\d+)ms\*/, "large-files.md readiness log line"),
-        Number(capture(t.windowReady, /MENU_COMMANDS_BUDGET_MS = ([\d_]+)/, "MENU_COMMANDS_BUDGET_MS").replace(/_/g, "")),
+        Number(captureCode(view, /MENU_COMMANDS_BUDGET_MS = ([\d_]+)/, "MENU_COMMANDS_BUDGET_MS").replace(/_/g, "")),
         "menu readiness budget (ms)",
       );
     },
@@ -177,7 +154,7 @@ export const CLAIMS = [
     files: ["aiGeniesGuide", "promptHistory"],
     check: (t) => equal(
       capture(t.aiGeniesGuide, /\(up to (\d+) prompts\)/, "ai-genies.md history size"),
-      capture(t.promptHistory, /const MAX_ENTRIES = (\d+)/, "MAX_ENTRIES"),
+      captureCode(codeOf(t, "promptHistory"), /const MAX_ENTRIES = (\d+)/, "MAX_ENTRIES"),
       "history size"),
   },
   {
@@ -185,7 +162,7 @@ export const CLAIMS = [
     files: ["terminalGuide", "ptyChild"],
     check: (t) => equal(
       durationMs(capture(t.terminalGuide, /waits up to (a second|\w+ seconds?|\d+ ms) for it to exit/, "terminal.md hangup sentence")),
-      Number(capture(t.ptyChild, /HANGUP_GRACE: Duration = Duration::from_millis\((\d+)\)/, "HANGUP_GRACE")),
+      Number(captureCode(codeOf(t, "ptyChild"), /HANGUP_GRACE: Duration = Duration::from_millis\((\d+)\)/, "HANGUP_GRACE")),
       "hangup grace (ms)"),
   },
   {
@@ -193,16 +170,16 @@ export const CLAIMS = [
     files: ["tabNavigationGuide", "quit"],
     check: (t) => equal(
       numberFromWord(capture(t.tabNavigationGuide, /press it again within (\w+) seconds/, "tab-navigation.md confirm-quit sentence")),
-      Number(capture(t.quit, /CONFIRM_QUIT_WINDOW: Duration = Duration::from_secs\((\d+)\)/, "CONFIRM_QUIT_WINDOW")),
+      Number(captureCode(codeOf(t, "quit"), /CONFIRM_QUIT_WINDOW: Duration = Duration::from_secs\((\d+)\)/, "CONFIRM_QUIT_WINDOW")),
       "confirm-quit window (s)"),
   },
   {
     name: "workspace.close refusal reasons",
     files: ["mcpToolsGuide", "workspaceBridge"],
     check: (t) => {
-      const start = t.workspaceBridge.indexOf("export async function handleWorkspaceClose");
-      if (start === -1) throw new Error("handleWorkspaceClose not found");
-      const body = t.workspaceBridge.slice(start, t.workspaceBridge.indexOf("\n}\n", start));
+      const view = codeOf(t, "workspaceBridge");
+      const start = codeIndexOf(view, "export async function handleWorkspaceClose", "handleWorkspaceClose");
+      const body = delimitedBody(view, start, "{", "handleWorkspaceClose");
       const code = [...new Set([...body.matchAll(/"([A-Z]+)"/g)].map((m) => m[1]))].sort();
       const doc = tableUnder(t.mcpToolsGuide, "close", "reason").map((cells) => stripMarkdown(cells[0])).sort();
       return setDiff(doc, code, "mcp-tools.md `close` table", "handleWorkspaceClose");
@@ -214,9 +191,10 @@ export const CLAIMS = [
     check: (t) => {
       const rows = tableUnder(t.shortcutsGuide, "F-Key Quick Reference", "Key");
       const out = [];
+      const [defs, actions] = [codeOf(t, "shortcutDefinitions"), codeOf(t, "textActions")];
       for (const actionId of ["sortLinesAsc", "sortLinesDesc"]) {
-        const key = capture(t.shortcutDefinitions, new RegExp(`id: "${actionId}"[^}]*defaultKey: "([^"]+)"`), `${actionId} default key`);
-        const wysiwyg = capture(t.textActions, new RegExp(`${actionId}: \\{[^}]*?supports: \\{ wysiwyg: (true|false)`), `${actionId} supports`);
+        const key = captureCode(defs, new RegExp(`id: "${actionId}"[^}]*defaultKey: "([^"]+)"`), `${actionId} default key`);
+        const wysiwyg = captureCode(actions, new RegExp(`${actionId}: \\{[^}]*?supports: \\{ wysiwyg: (true|false)`), `${actionId} supports`);
         const row = rows.find((cells) => stripMarkdown(cells[0]) === displayChord(key));
         if (!row) { out.push(`no F-Key Quick Reference row for ${displayChord(key)} (${actionId})`); continue; }
         const saysSourceOnly = /Source mode only/.test(row[1]);
@@ -243,8 +221,9 @@ export const CLAIMS = [
     name: "external-editor names",
     files: ["formatsGuide", "settingsGuide", "programNames"],
     check: (t) => {
-      const known = arrayStrings(t.programNames, "KNOWN_EDITORS");
-      const runs = arrayStrings(t.programNames, "RUNS_ITS_ARGUMENT");
+      const view = codeOf(t, "programNames");
+      const known = arrayStrings(view, "KNOWN_EDITORS");
+      const runs = arrayStrings(view, "RUNS_ITS_ARGUMENT");
       const out = [];
       const editors = [
         ...spansAfter(t.formatsGuide, "**name of a known editor** (", "formats.md known-editor list"),
@@ -263,14 +242,38 @@ export const CLAIMS = [
     name: "MCP tool count",
     files: ["mcpToolsGuide", "sidecarIndex"],
     check: (t) => {
-      const start = t.sidecarIndex.indexOf("export const TOOL_REGISTRY = [");
-      if (start === -1) throw new Error("TOOL_REGISTRY not found");
-      const body = t.sidecarIndex.slice(start, t.sidecarIndex.indexOf("\n];", start));
+      const view = codeOf(t, "sidecarIndex");
+      const start = codeIndexOf(view, "export const TOOL_REGISTRY = [", "TOOL_REGISTRY");
+      const body = delimitedBody(view, start, "[", "TOOL_REGISTRY");
       const count = [...body.matchAll(/^\s{4}name: \w+,$/gm)].length;
       return equal(
         numberFromWord(capture(t.mcpToolsGuide, /exposes \*\*(\w+) composite MCP tools\*\*/, "mcp-tools.md tool count")),
         count,
         "tool count");
+    },
+  },
+  {
+    name: "Git export branch",
+    files: ["gitExportGuide", "gitExportNames"],
+    check: (t) => equal(
+      capture(t.gitExportGuide, /goes to its own branch, `([^`<]+)<document-uuid>`/, "edit-history-git.md branch sentence"),
+      captureCode(codeOf(t, "gitExportNames"), /format!\("([^"{]+)\{doc\}"\)/, "branch name format"),
+      "branch prefix"),
+  },
+  {
+    name: "Git export trailers",
+    files: ["gitExportGuide", "gitExportPlan"],
+    check: (t) => {
+      const doc = tableUnder(t.gitExportGuide, "What the branch holds", "Trailer")
+        .flatMap((cells) => [...cells[0].matchAll(/`(VMark-[A-Za-z]+)`/g)].map((m) => m[1]));
+      // Only what the trailer builders emit: a tuple of the same shape elsewhere is not a trailer.
+      const reached = rustReachableFns(t.gitExportPlan, GIT_COMMIT_ENTRY);
+      const live = GIT_TRAILER_BUILDERS.filter((name) => reached.has(name));
+      const dead = GIT_TRAILER_BUILDERS.filter((name) => !reached.has(name))
+        .map((name) => `plan.rs: ${name} is not reachable from ${GIT_COMMIT_ENTRY}(), so its trailers are not emitted`);
+      const builders = live.length > 0 ? rustFnBodies(t.gitExportPlan, live) : "";
+      const code = [...new Set([...builders.matchAll(/\("(VMark-[A-Za-z]+)",/g)].map((m) => m[1]))];
+      return [...dead, ...setDiff(doc.sort(), code.sort(), "edit-history-git.md trailer table", "plan.rs")];
     },
   },
 ];

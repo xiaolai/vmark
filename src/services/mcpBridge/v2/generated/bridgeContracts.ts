@@ -138,15 +138,31 @@ export const BRIDGE_OPERATION_FIELDS = {
   "vmark.coherence.status": [
     { name: "workspace_root", optional: false, kind: "string" },
   ],
+  "vmark.comments.list": [
+    { name: "tabId", optional: true, kind: "string" },
+  ],
+  "vmark.comments.mark_addressed": [
+    { name: "commentId", optional: false, kind: "string" },
+    { name: "expectedCommentGen", optional: false, kind: "string" },
+    { name: "tabId", optional: true, kind: "string" },
+  ],
+  "vmark.comments.reply": [
+    { name: "body", optional: false, kind: "string" },
+    { name: "commentId", optional: false, kind: "string" },
+    { name: "expectedCommentGen", optional: false, kind: "string" },
+    { name: "tabId", optional: true, kind: "string" },
+  ],
   "vmark.document.read": [
     { name: "tabId", optional: true, kind: "string" },
   ],
   "vmark.document.transform": [
+    { name: "addresses", optional: true, kind: "array" },
     { name: "expected_revision", optional: true, kind: "string" },
     { name: "kind", optional: false, kind: "string" },
     { name: "tabId", optional: true, kind: "string" },
   ],
   "vmark.document.write": [
+    { name: "addresses", optional: true, kind: "array" },
     { name: "content", optional: false, kind: "string" },
     { name: "expected_revision", optional: true, kind: "string" },
     { name: "save", optional: true, kind: "boolean" },
@@ -156,6 +172,7 @@ export const BRIDGE_OPERATION_FIELDS = {
     { name: "tabId", optional: true, kind: "string" },
   ],
   "vmark.selection.set": [
+    { name: "addresses", optional: true, kind: "array" },
     { name: "content", optional: false, kind: "string" },
     { name: "expected_revision", optional: true, kind: "string" },
     { name: "tabId", optional: true, kind: "string" },
@@ -164,6 +181,7 @@ export const BRIDGE_OPERATION_FIELDS = {
     { name: "clientProtocol", optional: true, kind: "string" },
   ],
   "vmark.workflow.apply_patch": [
+    { name: "addresses", optional: true, kind: "array" },
     { name: "expected_revision", optional: true, kind: "string" },
     { name: "patches", optional: false, kind: "array" },
     { name: "tabId", optional: true, kind: "string" },
@@ -227,6 +245,9 @@ export const BRIDGE_OPERATION_POSTURE = {
   "vmark.coherence.edges": "reject",
   "vmark.coherence.resolve": "reject",
   "vmark.coherence.status": "reject",
+  "vmark.comments.list": "reject",
+  "vmark.comments.mark_addressed": "reject",
+  "vmark.comments.reply": "reject",
   "vmark.document.read": "reject",
   "vmark.document.transform": "reject",
   "vmark.document.write": "reject",
@@ -363,15 +384,31 @@ export interface BridgeOperationArgs {
   "vmark.coherence.status": {
     workspace_root: string;
   };
+  "vmark.comments.list": {
+    tabId?: string;
+  };
+  "vmark.comments.mark_addressed": {
+    commentId: string;
+    expectedCommentGen: string;
+    tabId?: string;
+  };
+  "vmark.comments.reply": {
+    body: string;
+    commentId: string;
+    expectedCommentGen: string;
+    tabId?: string;
+  };
   "vmark.document.read": {
     tabId?: string;
   };
   "vmark.document.transform": {
+    addresses?: string[];
     expected_revision?: string;
     kind: string;
     tabId?: string;
   };
   "vmark.document.write": {
+    addresses?: string[];
     content: string;
     expected_revision?: string;
     save?: boolean;
@@ -381,6 +418,7 @@ export interface BridgeOperationArgs {
     tabId?: string;
   };
   "vmark.selection.set": {
+    addresses?: string[];
     content: string;
     expected_revision?: string;
     tabId?: string;
@@ -389,6 +427,7 @@ export interface BridgeOperationArgs {
     clientProtocol?: string;
   };
   "vmark.workflow.apply_patch": {
+    addresses?: string[];
     expected_revision?: string;
     patches: unknown[];
     tabId?: string;

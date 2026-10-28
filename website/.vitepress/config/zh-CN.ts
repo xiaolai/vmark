@@ -44,6 +44,7 @@ export const zhCN = {
           "ai-providers": "AI 服务商",
           "mcp-setup": "MCP 设置",
           "mcp-tools": "MCP 工具参考",
+          "edit-history-git": "将编辑历史导出到 Git",
           "lint": "Markdown 检查",
           "link-check": "链接检查",
           "settings": "设置",

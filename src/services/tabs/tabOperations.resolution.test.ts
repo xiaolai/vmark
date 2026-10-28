@@ -9,11 +9,11 @@ import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { closeTabWithDirtyCheck } from "./tabOperations";
 import { message } from "@tauri-apps/plugin-dialog";
-import { saveToPath } from "@/services/persistence/saveToPath";
+import { saveToPathForClose } from "@/services/persistence/saveToPath";
 import { startTabStateCleanup } from "@/services/windowClose/tabCleanup";
 
 vi.mock("@/services/persistence/saveToPath", () => ({
-  saveToPath: vi.fn(),
+  saveToPathForClose: vi.fn(),
 }));
 
 vi.mock("@/services/media/orphanAssetCleanup", () => ({
@@ -64,7 +64,7 @@ describe("closeTabWithDirtyCheck — resolution", () => {
     useDocumentStore.getState().markDivergent(tabId);
 
     vi.mocked(message).mockResolvedValueOnce("Yes");
-    vi.mocked(saveToPath).mockImplementationOnce(async (id, _p, content) => {
+    vi.mocked(saveToPathForClose).mockImplementationOnce(async (id, _p, content) => {
       useDocumentStore.getState().markSaved(id, content);
       return true;
     });
@@ -72,7 +72,7 @@ describe("closeTabWithDirtyCheck — resolution", () => {
     const result = await closeTabWithDirtyCheck(WINDOW_LABEL, tabId);
 
     expect(result).toBe(true);
-    expect(saveToPath).toHaveBeenCalledWith(tabId, "/tmp/div.md", "local version", "manual");
+    expect(saveToPathForClose).toHaveBeenCalledWith(tabId, "/tmp/div.md", "local version");
     expect(useTabStore.getState().tabs[WINDOW_LABEL]).toEqual([]);
   });
 
@@ -85,7 +85,7 @@ describe("closeTabWithDirtyCheck — resolution", () => {
     const result = await closeTabWithDirtyCheck(WINDOW_LABEL, tabId);
 
     expect(result).toBe(true);
-    expect(saveToPath).not.toHaveBeenCalled();
+    expect(saveToPathForClose).not.toHaveBeenCalled();
     expect(useTabStore.getState().tabs[WINDOW_LABEL]).toEqual([]);
   });
 
@@ -97,7 +97,7 @@ describe("closeTabWithDirtyCheck — resolution", () => {
     useDocumentStore.getState().setEditorContent(tabId, "v2");
 
     vi.mocked(message).mockResolvedValue("Yes");
-    vi.mocked(saveToPath)
+    vi.mocked(saveToPathForClose)
       .mockImplementationOnce(async (id, _p, content) => {
         // The save lands — and so does a concurrent MCP write.
         useDocumentStore.getState().markSaved(id, content);
@@ -114,8 +114,8 @@ describe("closeTabWithDirtyCheck — resolution", () => {
     expect(result).toBe(true);
     expect(message).toHaveBeenCalledTimes(2);
     // The second save carried the concurrent edit — nothing was dropped.
-    expect(saveToPath).toHaveBeenLastCalledWith(
-      tabId, "/tmp/race.md", "v3 (concurrent)", "manual",
+    expect(saveToPathForClose).toHaveBeenLastCalledWith(
+      tabId, "/tmp/race.md", "v3 (concurrent)",
     );
   });
 
@@ -126,7 +126,7 @@ describe("closeTabWithDirtyCheck — resolution", () => {
 
     vi.mocked(message).mockResolvedValue("Yes");
     let n = 0;
-    vi.mocked(saveToPath).mockImplementation(async (id, _p, content) => {
+    vi.mocked(saveToPathForClose).mockImplementation(async (id, _p, content) => {
       useDocumentStore.getState().markSaved(id, content);
       useDocumentStore.getState().setEditorContent(id, `v${++n + 1} (writer keeps going)`);
       return true;
@@ -181,7 +181,7 @@ describe("closeTabWithDirtyCheck — resolution", () => {
     useDocumentStore.getState().setEditorContent(tabId, "line  \nnext");
 
     vi.mocked(message).mockResolvedValue("Yes");
-    vi.mocked(saveToPath).mockImplementation(async (id) => {
+    vi.mocked(saveToPathForClose).mockImplementation(async (id) => {
       // saveToPath normalizes trailing-double-space breaks to backslash form;
       // the saved bytes differ from the buffer, so isDirty SURVIVES the save.
       useDocumentStore.getState().markSaved(id, "line\\\nnext");
@@ -202,7 +202,7 @@ describe("closeTabWithDirtyCheck — resolution", () => {
     useDocumentStore.getState().setEditorContent(tabId, "line  \nnext");
 
     vi.mocked(message).mockResolvedValue("Yes");
-    vi.mocked(saveToPath)
+    vi.mocked(saveToPathForClose)
       .mockImplementationOnce(async (id) => {
         useDocumentStore.getState().markSaved(id, "line\\\nnext");
         // A concurrent MCP write lands during the save — the content CHANGED,
@@ -219,8 +219,8 @@ describe("closeTabWithDirtyCheck — resolution", () => {
 
     expect(result).toBe(true);
     expect(message).toHaveBeenCalledTimes(2);
-    expect(saveToPath).toHaveBeenLastCalledWith(
-      tabId, "/tmp/breaks.md", "line  \nnext plus more", "manual",
+    expect(saveToPathForClose).toHaveBeenLastCalledWith(
+      tabId, "/tmp/breaks.md", "line  \nnext plus more",
     );
   });
 });

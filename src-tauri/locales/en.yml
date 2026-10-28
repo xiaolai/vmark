@@ -41,6 +41,7 @@ menu:
   file.docHistory: "Document History"
   file.docHistory.clearWorkspace: "Clear Workspace History…"
   file.docHistory.clearAll: "Clear All History…"
+  file.docHistory.exportToGit: "Export Edit History to Git…"
   file.print: "Print…"
 
   # File menu — Windows/Linux extras
@@ -312,6 +313,9 @@ errors:
   save.parentMissing: "The folder for this file no longer exists: %{dir}"
   save.noParentDirectory: "The file path has no containing folder"
   save.symlinkLoop: "This file's alias points in a circle, so the real file could not be found"
+  save.targetExists: "A file already exists at %{path}, so it was not replaced"
+  save.superseded: "A save made after this one already reached %{path}, so this older one was not written"
+  save.noReplaceUnsupported: "This disk cannot save without replacing an existing file, so %{path} was not saved"
   save.writeFailed: "Could not save the file: %{detail}"
   window.pdfExportMenu: "The Export PDF window could not be given an empty menu bar: %{detail}"
   window.pdfExportCreate: "The Export PDF window could not be opened: %{detail}"
@@ -354,7 +358,7 @@ errors:
   hotExit.captureTimeout: "Capture timeout: no windows responded"
 
   # === Content search ===
-  search.queryTooShort: "Query must be at least 3 characters"
+  search.queryTooShort: "Query must be at least %{min} characters"
 
   # === CLI install ===
   cli.noFile: "Installation appeared to succeed but the file was not created."

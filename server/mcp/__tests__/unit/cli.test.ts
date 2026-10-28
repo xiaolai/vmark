@@ -61,6 +61,54 @@ describe('cli --port', () => {
 });
 
 /**
+ * Every argument the sidecar does not know is a usage error. An unknown one
+ * used to be skipped, so a mistyped override (`--prot 9223`) or an `=` form
+ * the parser does not read (`--port=9223`) fell back to port-file discovery —
+ * the instance the override was steering away from.
+ */
+describe('cli unknown arguments', () => {
+  it.each([
+    ['a mistyped flag', ['--prot', '9223'], '--prot'],
+    ['an =-joined override', ['--port=9223'], '--port=9223'],
+    ['a bare positional', ['9223'], '9223'],
+    ['a short flag nobody reads', ['-p', '9223'], '-p'],
+    ['an unknown flag after a valid override', ['--port', '9223', '--verbose'], '--verbose'],
+    ['an empty argument', [''], '""'],
+  ])('exits 64 on %s', (_label, args, named) => {
+    const r = run(...args);
+    expect(r.status, r.stderr).toBe(64);
+    expect(r.stderr).toContain('unknown argument');
+    expect(r.stderr).toContain(named);
+  });
+
+  it.each([
+    ['--version with a mistyped flag', ['--version', '--prot', '9223'], 'unknown argument'],
+    ['a mistyped flag before -v', ['--prot', '9223', '-v'], 'unknown argument'],
+    ['--health-check with an unknown flag', ['--health-check', '--verbose'], 'unknown argument'],
+    ['--version with an unparseable --port', ['--version', '--port', 'abc'], 'is not a port number'],
+    ['--health-check with a valueless --port', ['--health-check', '--port'], '--port requires a value'],
+  ])('validates every argument before a one-shot mode runs: exits 64 on %s', (_label, args, message) => {
+    const r = run(...args);
+    expect(r.status, r.stderr).toBe(64);
+    expect(r.stderr).toContain(message);
+    // The mode never ran: no version line, no health report.
+    expect(r.stdout.trim()).toBe('');
+  });
+
+  it('runs a one-shot mode alongside a valid --port', () => {
+    const r = run('--version', '--port', '9223');
+    expect(r.status, r.stderr).toBe(0);
+    expect(r.stdout.trim()).toBe(VERSION);
+  });
+
+  it('accepts a valid --port override (stdin closed, so it starts and shuts down cleanly)', () => {
+    const r = run('--port', '9223');
+    expect(r.status, r.stderr).not.toBe(64);
+    expect(r.stderr).not.toContain('unknown argument');
+  });
+});
+
+/**
  * `--version` and `--health-check` write to stdout and then finish. Both used
  * to call `process.exit()` immediately after a `console.log`, and stdout is
  * ASYNCHRONOUS when it is a pipe — which is how every real caller reads them,
@@ -88,7 +136,7 @@ describe('the one-shot modes finish before they exit', () => {
     // main() would connect a stdio transport and never return; the run above
     // terminating at all is the assertion, and this pins the guard that makes
     // it so now that neither mode calls process.exit().
-    expect(readFileSync(CLI, 'utf8')).toContain('if (!WANTS_VERSION && !WANTS_HEALTH_CHECK)');
+    expect(readFileSync(CLI, 'utf8')).toMatch(/case 'health-check':\s*void runHealthCheck\(VERSION\);\s*return;/);
   });
 });
 

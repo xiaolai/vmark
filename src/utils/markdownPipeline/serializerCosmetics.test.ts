@@ -12,11 +12,13 @@
  */
 import { describe, it, expect } from "vitest";
 import {
-  applyCosmeticPass,
+  applyCosmeticPassWithEdits,
   BLOCK_START_GUARD,
   COSMETIC_VERIFY_LIMIT,
   UNESCAPABLE_CHARS,
 } from "./serializerCosmetics";
+
+const applyCosmeticPass = (markdown: string): string => applyCosmeticPassWithEdits(markdown).text;
 
 describe("BLOCK_START_GUARD", () => {
   it("contains exactly the block-start characters the pass can emit", () => {

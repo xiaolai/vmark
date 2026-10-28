@@ -9,6 +9,9 @@
  * Save does — otherwise the reply says "saved" one frame before the document
  * turns dirty again.
  *
+ * The reply's `journaled` says whether the agent edit journal recorded the
+ * saved text ("yes" | "pending" | "no"); "no" is still a saved file.
+ *
  * @coordinates-with workspace.ts — sibling workspace handlers
  * @coordinates-with tabGuard.ts — tab resolution, the flush, INVALID_TAB
  * @coordinates-with bridgeSave.ts — the path guard and the save pipeline
@@ -16,6 +19,7 @@
  */
 
 import { useRevisionStore } from "@/stores/documentStore";
+import type { McpWriteContext } from "@/services/mcpBridge/writeContext";
 import { respond } from "@/services/mcpBridge/utils";
 import { wrapHandler } from "./wrapHandler";
 import { respondSaveFailed, saveTabForBridge } from "./bridgeSave";
@@ -24,10 +28,14 @@ import { requireTab, structuredError } from "./tabGuard";
 
 /**
  * Handle `vmark.workspace.save`. Args: `{tabId?: string}`.
+ *
+ * `context` names the client asking: the save's provenance is recorded as its
+ * write, with the documents it read on its connection as inputs.
  */
 export async function handleWorkspaceSave(
   id: string,
   args: Record<string, unknown>,
+  context: McpWriteContext,
 ): Promise<void> {
   return wrapHandler(id, async () => {
     const wire = readOperationArgs("vmark.workspace.save", args);
@@ -40,7 +48,7 @@ export async function handleWorkspaceSave(
       });
       return;
     }
-    const outcome = await saveTabForBridge(tab.tabId, tab.filePath, tab.content, "workspace.save");
+    const outcome = await saveTabForBridge(tab.tabId, tab.filePath, tab.content, "workspace.save", context);
     if (!outcome.saved) {
       await respondSaveFailed(id, outcome);
       return;
@@ -49,7 +57,7 @@ export async function handleWorkspaceSave(
     await respond({
       id,
       success: true,
-      data: { filePath: tab.filePath, revision },
+      data: { filePath: tab.filePath, revision, journaled: outcome.journaled },
     });
   });
 }

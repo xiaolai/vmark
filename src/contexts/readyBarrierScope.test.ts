@@ -57,7 +57,11 @@ describe("menu-commands barrier scope", () => {
   });
 
   it("keeps the signal on the bootstrap that mounts the listener", () => {
-    const bootstrap = readFileSync("src/hooks/useCommandBootstrap.ts", "utf8");
+    // The hook owns the order; the mount and its signal live in the module it
+    // delegates to, so pin the hook's call and the module's signal paths.
+    const hook = readFileSync("src/hooks/useCommandBootstrap.ts", "utf8");
+    expect(hook).toMatch(/^\s*const unmountMenu = mountMenuBridge\(/m);
+    const bootstrap = readFileSync("src/services/commands/commandBootstrap.ts", "utf8");
     expect(bootstrap).toContain("signalMenuCommandsMounted");
     // Every path out of the mount must signal, so a window that never reports
     // ready is impossible — that is worse than one with dead menus. It used to

@@ -85,10 +85,10 @@ describe("bridge operation manifest parity", () => {
     expect(answerArms).toEqual(manifestRust);
   });
 
-  it("routing's coherence write-guard matches the manifest's rust writes exactly", () => {
-    const routing = source("src-tauri/src/mcp_bridge/routing.rs");
+  it("the coherence dispatch's write-guard matches the manifest's rust writes exactly", () => {
+    const dispatch = source("src-tauri/src/mcp_bridge/coherence_dispatch.rs");
     const guarded = extract(
-      routing,
+      dispatch,
       /request_type\s*==\s*"(vmark\.coherence\.[^"]+)"/g
     );
     expect(guarded).toEqual(manifestRustWrites);

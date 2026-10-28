@@ -2,7 +2,7 @@
 
 ## Overview
 
-Tauri apps communicate between the frontend (JavaScript) and backend (Rust) via IPC (Inter-Process Communication). The `tauri_ipc_*` tools allow you to:
+Tauri apps communicate between the frontend (JavaScript) and backend (Rust) via IPC (Inter-Process Communication). The `ipc_*` tools allow you to:
 
 1. Execute Rust commands directly
 2. Monitor IPC traffic during tests
@@ -36,7 +36,7 @@ Tauri apps communicate between the frontend (JavaScript) and backend (Rust) via 
 
 ```typescript
 // Call Rust command directly
-tauri_ipc_execute_command({ command: 'greet', args: { name: 'World' } })
+ipc_execute_command({ command: 'greet', args: { name: 'World' } })
 ```
 
 ### Response
@@ -61,7 +61,7 @@ tauri_ipc_execute_command({ command: 'greet', args: { name: 'World' } })
 
 ```typescript
 // Nested objects
-tauri_ipc_execute_command({
+ipc_execute_command({
   command: 'save_document',
   args: {
     path: '/tmp/doc.md',
@@ -74,7 +74,7 @@ tauri_ipc_execute_command({
 })
 
 // Arrays
-tauri_ipc_execute_command({
+ipc_execute_command({
   command: 'batch_process',
   args: {
     files: ['/file1.md', '/file2.md', '/file3.md'],
@@ -89,7 +89,7 @@ tauri_ipc_execute_command({
 
 ```typescript
 // Start capturing all IPC calls
-tauri_ipc_monitor({ action: 'start' })
+ipc_monitor({ action: 'start' })
 ```
 
 ### Perform Actions
@@ -98,10 +98,10 @@ After starting the monitor, perform user actions that trigger IPC:
 
 ```typescript
 // User clicks save button
-tauri_webview_interact({ action: 'click', selector: '.save-button' })
+webview_interact({ action: 'click', selector: '.save-button' })
 
 // User types in editor (may trigger auto-save)
-tauri_webview_keyboard({
+webview_keyboard({
   action: 'type',
   selector: '.editor',
   text: 'New content'
@@ -112,10 +112,10 @@ tauri_webview_keyboard({
 
 ```typescript
 // Get all captured IPC calls
-tauri_ipc_get_captured()
+ipc_get_captured()
 
 // Filter by command name
-tauri_ipc_get_captured({ filter: 'save_file' })
+ipc_get_captured({ filter: 'save_file' })
 ```
 
 ### Captured Data Format
@@ -146,7 +146,7 @@ tauri_ipc_get_captured({ filter: 'save_file' })
 ### Stop Monitoring
 
 ```typescript
-tauri_ipc_monitor({ action: 'stop' })
+ipc_monitor({ action: 'stop' })
 ```
 
 ## Emit Events
@@ -155,7 +155,7 @@ tauri_ipc_monitor({ action: 'stop' })
 
 ```typescript
 // Emit event to test frontend handlers
-tauri_ipc_emit_event({
+ipc_emit_event({
   eventName: 'file-changed',
   payload: { path: '/test/file.md' }
 })
@@ -165,7 +165,7 @@ tauri_ipc_emit_event({
 
 ```typescript
 // Simulate external file change
-tauri_ipc_emit_event({
+ipc_emit_event({
   eventName: 'fs-watch',
   payload: {
     type: 'modify',
@@ -175,7 +175,7 @@ tauri_ipc_emit_event({
 })
 
 // Simulate update available
-tauri_ipc_emit_event({
+ipc_emit_event({
   eventName: 'update-available',
   payload: {
     version: '2.0.0',
@@ -189,7 +189,7 @@ tauri_ipc_emit_event({
 
 ```typescript
 // Query Tauri app metadata and state
-tauri_ipc_get_backend_state()
+ipc_get_backend_state()
 ```
 
 ### Response
@@ -213,37 +213,37 @@ tauri_ipc_get_backend_state()
 
 ```typescript
 // 1. Start monitoring
-tauri_ipc_monitor({ action: 'start' })
+ipc_monitor({ action: 'start' })
 
 // 2. Trigger save via UI
-tauri_webview_keyboard({ action: 'press', key: 's', modifiers: ['Control'] })
+webview_keyboard({ action: 'press', key: 's', modifiers: ['Control'] })
 
 // 3. Wait for save to complete
-tauri_webview_wait_for({ type: 'selector', value: '[data-saved="true"]' })
+webview_wait_for({ type: 'selector', value: '[data-saved="true"]' })
 
 // 4. Verify IPC call
-const captured = tauri_ipc_get_captured({ filter: 'save_file' })
+const captured = ipc_get_captured({ filter: 'save_file' })
 // Check: captured.commands[0].args.path === expected
 // Check: captured.commands[0].response.success === true
 
 // 5. Cleanup
-tauri_ipc_monitor({ action: 'stop' })
+ipc_monitor({ action: 'stop' })
 ```
 
 ### Pattern: Test Event Handlers
 
 ```typescript
 // 1. Prepare UI state
-tauri_webview_interact({ action: 'click', selector: '.open-file' })
+webview_interact({ action: 'click', selector: '.open-file' })
 
 // 2. Emit external change event
-tauri_ipc_emit_event({
+ipc_emit_event({
   eventName: 'file-changed',
   payload: { path: '/test.md', type: 'external-modify' }
 })
 
 // 3. Verify UI responds
-tauri_webview_wait_for({
+webview_wait_for({
   type: 'selector',
   value: '.reload-prompt',
   timeout: 3000
@@ -254,7 +254,7 @@ tauri_webview_wait_for({
 
 ```typescript
 // 1. Call command that will fail
-const result = tauri_ipc_execute_command({
+const result = ipc_execute_command({
   command: 'read_file',
   args: { path: '/nonexistent/file.md' }
 })
@@ -264,21 +264,21 @@ const result = tauri_ipc_execute_command({
 // Check: result.error contains "not found"
 
 // 3. Verify UI error state
-tauri_webview_find_element({ selector: '.error-toast' })
+webview_find_element({ selector: '.error-toast' })
 ```
 
 ### Pattern: State Verification
 
 ```typescript
 // 1. Perform action
-tauri_webview_keyboard({
+webview_keyboard({
   action: 'type',
   selector: '.editor',
   text: 'New content'
 })
 
 // 2. Query state directly
-const state = tauri_ipc_execute_command({
+const state = ipc_execute_command({
   command: 'get_document_state',
   args: {}
 })
@@ -292,15 +292,15 @@ const state = tauri_ipc_execute_command({
 
 ```typescript
 // 1. Monitor IPC
-tauri_ipc_monitor({ action: 'start' })
+ipc_monitor({ action: 'start' })
 
 // 2. Complex user flow
-tauri_webview_keyboard({ action: 'type', selector: '.editor', text: '# New Doc' })
-tauri_webview_keyboard({ action: 'press', key: 's', modifiers: ['Control'] })
-tauri_webview_wait_for({ type: 'selector', value: '.saved-indicator' })
+webview_keyboard({ action: 'type', selector: '.editor', text: '# New Doc' })
+webview_keyboard({ action: 'press', key: 's', modifiers: ['Control'] })
+webview_wait_for({ type: 'selector', value: '.saved-indicator' })
 
 // 3. Verify command sequence
-const captured = tauri_ipc_get_captured()
+const captured = ipc_get_captured()
 const commands = captured.commands.map(c => c.command)
 
 // Verify expected sequence: update_content -> save_file
@@ -324,7 +324,7 @@ fn save_document(file_path: String, auto_backup: bool) -> Result<(), String>
 
 ```typescript
 // JavaScript call
-tauri_ipc_execute_command({
+ipc_execute_command({
   command: 'save_document',
   args: {
     filePath: 'test.md',    // Note: camelCase
@@ -339,7 +339,7 @@ tauri_ipc_execute_command({
 
 ```typescript
 // Execute with invalid command to see error
-tauri_ipc_execute_command({ command: '__invalid__' })
+ipc_execute_command({ command: '__invalid__' })
 // Error message may list available commands
 ```
 
@@ -347,12 +347,12 @@ tauri_ipc_execute_command({ command: '__invalid__' })
 
 ```typescript
 // Monitor everything
-tauri_ipc_monitor({ action: 'start' })
+ipc_monitor({ action: 'start' })
 
 // ... perform actions ...
 
 // Get full log
-const all = tauri_ipc_get_captured()
+const all = ipc_get_captured()
 console.log(JSON.stringify(all, null, 2))
 ```
 
@@ -360,7 +360,7 @@ console.log(JSON.stringify(all, null, 2))
 
 ```typescript
 // Test with known good data
-tauri_ipc_execute_command({
+ipc_execute_command({
   command: 'echo',
   args: { data: { test: true, array: [1, 2, 3] } }
 })

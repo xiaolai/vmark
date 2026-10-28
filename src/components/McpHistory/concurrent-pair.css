@@ -1,0 +1,93 @@
+/* ┌─────────────────────────────────────────────────────────────┐ */
+/* │ Concurrent pair — "Show both changes" on a revision edited  │ */
+/* │ in two windows: the toggle and its two labelled diffs.      │ */
+/* │ Deleted text is struck through and inserted text underlined │ */
+/* │ so the difference never rests on colour alone.              │ */
+/* └─────────────────────────────────────────────────────────────┘ */
+
+.concurrent-pair {
+  --concurrent-pair-text-max-height: calc(var(--space-10) * 5);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+
+/* A history row lays its children in its first column; the pair takes the whole row. */
+.mcp-history-popover__row > .concurrent-pair {
+  grid-column: 1 / -1;
+}
+
+.concurrent-pair__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-self: stretch;
+}
+
+.concurrent-pair__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.concurrent-pair__title {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.concurrent-pair__text {
+  margin: 0;
+  max-height: var(--concurrent-pair-text-max-height);
+  overflow: auto;
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-thin) solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-color);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-normal);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* A focusable scroll box: the standalone focus outline. */
+.concurrent-pair__text:focus-visible {
+  outline: var(--border-medium) solid var(--primary-color);
+  outline-offset: var(--border-medium);
+}
+
+.concurrent-pair__delete {
+  background: color-mix(in srgb, var(--error-color) 14%, transparent);
+  color: var(--text-color);
+  text-decoration: line-through;
+}
+
+.concurrent-pair__insert {
+  background: color-mix(in srgb, var(--success-color) 16%, transparent);
+  color: var(--text-color);
+  text-decoration: underline;
+}
+
+.dark-theme .concurrent-pair__insert {
+  background: color-mix(in srgb, var(--success-color-dark) 18%, transparent);
+}
+
+.concurrent-pair__gap {
+  color: var(--text-secondary);
+}
+
+.concurrent-pair__note {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.concurrent-pair__error {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--error-color);
+}

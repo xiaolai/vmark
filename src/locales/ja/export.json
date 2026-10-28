@@ -49,5 +49,18 @@
   "pdf.pageNumbers.format.verbose": "12 ページ中 7 ページ目",
   "pdf.warning.outline-failed": "サイドバーの目次",
   "pdf.warning.page-numbers-failed": "ページ番号",
-  "pdf.pageNumbers.verboseTemplate": "{total} ページ中 {n} ページ目"
+  "pdf.pageNumbers.verboseTemplate": "{total} ページ中 {n} ページ目",
+  "gitJournal.pickTitle": "Git リポジトリのフォルダを選択",
+  "gitJournal.done_one": "{{count}} 件のコミットを {{branch}} にエクスポートしました",
+  "gitJournal.done_other": "{{count}} 件のコミットを {{branch}} にエクスポートしました",
+  "gitJournal.upToDate": "{{branch}} はすでに最新です",
+  "gitJournal.error.GIT_MISSING": "Git が見つかりません。Git をインストールしてからもう一度お試しください。",
+  "gitJournal.error.NO_HISTORY": "この文書にはまだエクスポートできる編集履歴がありません。",
+  "gitJournal.error.NOT_A_REPOSITORY": "選択したフォルダは Git リポジトリ内にありません。",
+  "gitJournal.error.INVALID_REQUEST": "エクスポート要求が無効です。",
+  "gitJournal.error.EXPORT_CONFLICT": "前回のエクスポート以降にエクスポート先のブランチが変更されています。ブランチを移動または削除してから、もう一度エクスポートしてください。",
+  "gitJournal.error.UNRELATED_BRANCH": "同じ名前のブランチがすでに存在し、この文書の VMark エクスポートではありません。",
+  "gitJournal.error.BRANCH_CHECKED_OUT": "エクスポート先のブランチがワークツリーでチェックアウトされています。先にそのワークツリーを別のブランチに切り替えてください。",
+  "gitJournal.error.GIT_FAILED": "エクスポート中に Git がエラーを報告しました。詳細はログを確認してください。",
+  "gitJournal.error.JOURNAL_ERROR": "エクスポート用の編集履歴を読み込めませんでした。"
 }

@@ -430,99 +430,91 @@ flowchart TB
 
 外掛只是故事的一半。另一半是隨之累積的知識基礎建設。
 
-### 13 條規則（1,950 行組織知識）
+### 14 條規則（組織知識）
 
 ```mermaid
 flowchart LR
     subgraph Engineering["Engineering (00-10)"]
-        R00["00 Principles\n11 lines"]
-        R10["10 TDD\n196 lines"]
+        R00["00 Principles"]
+        R10["10 TDD"]
     end
-    subgraph Docs["Documentation (20-22)"]
-        R20["20 Logging\n4 lines"]
-        R21["21 Website Docs\n65 lines"]
-        R22["22 Comments\n36 lines"]
+    subgraph Docs["Documentation (21-22)"]
+        R21["21 Website Docs"]
+        R22["22 Comments"]
     end
-    subgraph UI["UI Consistency (30-34)"]
-        R30["30 UI Core\n25 lines"]
-        R31["31 Design Tokens\n261 lines"]
-        R32["32 Components\n436 lines"]
-        R33["33 Focus A11y\n164 lines"]
-        R34["34 Dark Theme\n196 lines"]
+    subgraph UI["UI Consistency (30-35)"]
+        R30["30 UI Core"]
+        R31["31 Design Tokens"]
+        R32["32 Components"]
+        R33["33 Focus A11y"]
+        R34["34 Dark Theme"]
+        R35["35 Copy"]
     end
     subgraph Ops["Operations (40-41)"]
-        R40["40 Version Bump\n79 lines"]
-        R41["41 Shortcuts\n122 lines"]
+        R40["40 Version Bump"]
+        R41["41 Shortcuts"]
     end
-    subgraph Patterns["Patterns (50)"]
-        R50["50 Conventions\n211 lines"]
+    subgraph Patterns["Patterns (50-60)"]
+        R50["50 Conventions"]
+        R60["60 AI Governance"]
     end
 ```
 
-VMark 的 `.claude/rules/` 目錄包含 13 個規則檔案——不是模糊的指導方針，而是具體的、可執行的規範：
+VMark 的 `.claude/rules/` 目錄包含 14 個規則檔案——不是模糊的指導方針，而是具體的、可執行的規範：
 
-| 規則檔案 | 行數 | 編纂內容 |
-|-----------|-------|----------------|
-| `00-engineering-principles.md` | 11 | 核心規範（禁止 Zustand 解構、300 行限制） |
-| `10-tdd.md` | 196 | 5 個測試模式範本、反模式目錄、覆蓋率門控 |
-| `20-logging-and-docs.md` | 4 | 每個主題單一資訊來源 |
-| `21-website-docs.md` | 65 | 程式碼到文件的對映表（哪些程式碼變更需要更新哪些文件） |
-| `22-comment-maintenance.md` | 36 | 何時更新/不更新註解、防止註解腐化 |
-| `30-ui-consistency.md` | 25 | 核心 UI 原則、子規則交叉參照 |
-| `31-design-tokens.md` | 261 | 完整的 CSS Token 參考——每種色彩、間距、圓角、陰影 |
-| `32-component-patterns.md` | 436 | 彈出框、工具列、右鍵選單、表格、捲軸模式及程式碼 |
-| `33-focus-indicators.md` | 164 | 按元件類型分類的 6 種焦點模式（WCAG 合規） |
-| `34-dark-theme.md` | 196 | 佈景主題偵測、覆蓋模式、遷移清單 |
-| `40-version-bump.md` | 79 | 5 檔案版本同步流程及驗證腳本 |
-| `41-keyboard-shortcuts.md` | 122 | 3 檔案同步（Rust/前端/文件）、衝突檢查、規範 |
-| `50-codebase-conventions.md` | 211 | 開發過程中發現的 10 個未文件化模式 |
+| 規則檔案 | 編纂內容 |
+|-----------|----------------|
+| `00-engineering-principles.md` | 核心規範（禁止 Zustand 解構、300 行限制） |
+| `10-tdd.md` | 測試模式範本、反模式目錄、覆蓋率門控 |
+| `21-website-docs.md` | 程式碼到文件的對映表（哪些程式碼變更需要更新哪些文件） |
+| `22-comment-maintenance.md` | 檔案標頭約定、何時更新註解、註解可以引用什麼 |
+| `30-ui-consistency.md` | 核心 UI 原則、子規則交叉參照 |
+| `31-design-tokens.md` | CSS Token 參考——每種色彩、間距、圓角、陰影 Token 及其用途 |
+| `32-component-patterns.md` | 彈出框、工具列、右鍵選單、表格、捲軸模式及程式碼 |
+| `33-focus-indicators.md` | 按元件類型分類的焦點模式（WCAG 合規） |
+| `34-dark-theme.md` | 佈景主題偵測、覆蓋模式、遷移清單 |
+| `35-copy-conventions.md` | 介面文案：措辭、標點、絕不出現在面向使用者文字中的內容 |
+| `40-version-bump.md` | 5 檔案版本同步流程及驗證腳本 |
+| `41-keyboard-shortcuts.md` | 3 檔案同步（Rust/前端/文件）、衝突檢查、規範 |
+| `50-codebase-conventions.md` | 開發過程中發現的 Store、Hook、外掛、MCP 橋接和 Rust 命令模式 |
+| `60-ai-governance.md` | 計畫、工作項 ID、跨模型審查、受保護路徑 |
 
-這些規則在每次工作階段開始時被 Claude Code 讀取。正因如此，第 2,180 次提交與第 100 次遵循的是同樣的規範。
+當工作階段涉及某條規則所涵蓋的檔案時，Claude Code 會載入該規則；沒有路徑範圍的規則則在每次工作階段中載入。正因如此，第 2,180 次提交與第 100 次遵循的是同樣的規範。
 
 規則 `50-codebase-conventions.md` 尤為值得注意——它記錄的是*沒有人設計過*的模式。它們在開發過程中自然湧現，然後被編纂：Store 命名規範、Hook 清理模式、外掛結構、MCP 橋接處理器簽章、CSS 組織方式、錯誤處理慣用法。
 
-### 19 個專案技能（領域專業知識）
+### 10 個專案技能（領域專業知識）
 
 ```mermaid
 flowchart TB
     subgraph Platform["Platform Skills"]
         S1["rust-tauri-backend"]
-        S2["tauri-v2-integration"]
-        S3["tauri-app-dev"]
-        S4["tauri-mcp-testing"]
-        S5["tauri-mcp-test-runner"]
+        S2["tauri-mcp-testing"]
     end
     subgraph Editor["Editor Skills"]
-        S6["react-app-dev"]
-        S7["tiptap-dev"]
-        S8["tiptap-editor"]
+        S3["react-app-dev"]
+        S4["tiptap-dev"]
     end
     subgraph Quality["Quality Skills"]
-        S9["release-gate"]
-        S10["css-design-tdd"]
-        S11["shortcut-audit"]
-        S12["workflow-audit"]
-        S13["plan-audit"]
-        S14["plan-verify"]
+        S5["css-design-tdd"]
+        S6["workflow-audit"]
+        S7["plan-audit"]
     end
     subgraph Other["Other Skills"]
-        S15["translate-docs\n9 locales"]
-        S16["mcp-dev"]
-        S17["mcp-server-manager"]
-        S18["planning"]
-        S19["ai-coding-agents"]
+        S8["translate-docs\n9 locales"]
+        S9["mcp-dev"]
+        S10["planning"]
     end
 ```
 
 | 分類 | 技能 | 用途 |
 |----------|--------|-----------------|
-| **Tauri/Rust** | `rust-tauri-backend`、`tauri-v2-integration`、`tauri-app-dev`、`tauri-mcp-testing`、`tauri-mcp-test-runner` | 遵循 Tauri v2 規範的平台特定 Rust 開發 |
-| **React/編輯器** | `react-app-dev`、`tiptap-dev`、`tiptap-editor` | Tiptap/ProseMirror 編輯器模式、Zustand 選擇器規則 |
-| **品質** | `release-gate`、`css-design-tdd`、`shortcut-audit`、`workflow-audit`、`plan-audit`、`plan-verify` | 各層級的自動化品質驗證 |
+| **Tauri/Rust** | `rust-tauri-backend`、`tauri-mcp-testing` | 遵循 Tauri v2 規範的 Rust 後端與 IPC 開發，以及對執行中應用的端對端測試 |
+| **React/編輯器** | `react-app-dev`、`tiptap-dev` | Tiptap/ProseMirror 編輯器模式、Zustand 選擇器規則 |
+| **品質** | `css-design-tdd`、`workflow-audit`、`plan-audit` | 各層級的自動化品質驗證 |
 | **文件** | `translate-docs` | 子代理驅動稽核的 9 語系翻譯 |
-| **MCP** | `mcp-dev`、`mcp-server-manager` | MCP 伺服器開發與配置 |
+| **MCP** | `mcp-dev` | MCP 工具開發與伺服器註冊 |
 | **規劃** | `planning` | 附帶決策記錄的實作計畫產生 |
-| **AI 工具** | `ai-coding-agents` | 多代理編排（Codex CLI、Claude Code、Gemini CLI） |
 
 ### 7 個斜線命令（工作流程自動化）
 
@@ -554,7 +546,7 @@ flowchart TB
 
 規則 + 技能 + 外掛 + 命令構成了複合系統。當你執行 `/fix-issue` 時，它使用 `rust-tauri-backend` 技能處理 Rust 變更，遵循 `10-tdd.md` 規則滿足測試要求，呼叫 `cc-suite` 進行稽核，檢查 `31-design-tokens.md` 確保 CSS 合規，並根據 `41-keyboard-shortcuts.md` 驗證快捷鍵同步。
 
-沒有單獨哪一部分是革命性的。複合效應——13 條規則 x 19 個技能 x 7 個外掛 x 7 個命令，全部相互強化——才是系統運轉的原因。每一部分都是在發現缺口時新增的，在真實開發中測試，並透過使用來完善。
+沒有單獨哪一部分是革命性的。複合效應——14 條規則 x 10 個技能 x 7 個外掛 x 7 個命令，全部相互強化——才是系統運轉的原因。每一部分都是在發現缺口時新增的，在真實開發中測試，並透過使用來完善。
 
 ## 給外掛建構者的建議
 

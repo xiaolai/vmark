@@ -15,9 +15,10 @@
  */
 
 /**
- * WYSIWYG extensions, keyed by each extension's Tiptap `name`. `markdownLint` is
- * the one OPTIONAL entry (registered only with a tabId; it is terminal, so
- * nothing chains after it).
+ * WYSIWYG extensions, keyed by each extension's Tiptap `name`. `markdownLint`
+ * and `journalProvenance` are the OPTIONAL entries (registered only with a
+ * tabId, so they are absent together; they are terminal, so nothing else
+ * chains after them).
  */
 export const WYSIWYG_COMPOSITION_ORDER: readonly string[] = [
   "starterKit",
@@ -103,10 +104,11 @@ export const WYSIWYG_COMPOSITION_ORDER: readonly string[] = [
   "inactiveSelection",
   "showInvisibles",
   "markdownLint",
+  "journalProvenance",
 ];
 
-/** The only optional WYSIWYG entry — present only when a tabId is supplied. */
-export const WYSIWYG_OPTIONAL_IDS: readonly string[] = ["markdownLint"];
+/** The optional WYSIWYG entries — present only when a tabId is supplied. */
+export const WYSIWYG_OPTIONAL_IDS: readonly string[] = ["markdownLint", "journalProvenance"];
 
 /**
  * Source-editor (CodeMirror) extensions, keyed by their `source.*` id. Every

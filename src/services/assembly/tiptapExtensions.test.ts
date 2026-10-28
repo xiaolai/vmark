@@ -5,15 +5,22 @@
 // source array (done inside createTiptapExtensions) does not change the order.
 import { describe, it, expect } from "vitest";
 import { createTiptapExtensions } from "./createTiptapExtensions";
-import { WYSIWYG_COMPOSITION_ORDER } from "./compositionOrder";
+import { WYSIWYG_COMPOSITION_ORDER, WYSIWYG_OPTIONAL_IDS } from "./compositionOrder";
 
 describe("WI-3.4 — WYSIWYG composition order", () => {
   // 79 since audit 20260906 F5 added `safeBlockSplit` — Enter on a cross-block
   // selection, which StarterKit's splitBlock throws on. 80 since `undoIntegrity`
-  // stopped normalizers rewriting an undo (#1407 soak, fuzz seed 4).
-  it("has 80 unique canonical entries", () => {
-    expect(WYSIWYG_COMPOSITION_ORDER.length).toBe(80);
-    expect(new Set(WYSIWYG_COMPOSITION_ORDER).size).toBe(80);
+  // stopped normalizers rewriting an undo (#1407 soak, fuzz seed 4). 81 since
+  // the agent edit journal's WYSIWYG collector (`journalProvenance`, optional).
+  it("has 81 unique canonical entries", () => {
+    expect(WYSIWYG_COMPOSITION_ORDER.length).toBe(81);
+    expect(new Set(WYSIWYG_COMPOSITION_ORDER).size).toBe(81);
+  });
+
+  it("the provenance observer is optional, last, and registered only with a tab", () => {
+    expect(WYSIWYG_OPTIONAL_IDS).toEqual(["markdownLint", "journalProvenance"]);
+    expect(WYSIWYG_COMPOSITION_ORDER.at(-1)).toBe("journalProvenance");
+    expect(createTiptapExtensions({ tabId: "tab-1" }).map((e) => e.name)).toContain("journalProvenance");
   });
 
   it("resolves to exactly the canonical order when a tab is known (lint present)", () => {
@@ -21,9 +28,9 @@ describe("WI-3.4 — WYSIWYG composition order", () => {
     expect(names).toEqual([...WYSIWYG_COMPOSITION_ORDER]);
   });
 
-  it("omits the optional lint entry with no tab, order otherwise preserved", () => {
+  it("omits the optional entries with no tab, order otherwise preserved", () => {
     const names = createTiptapExtensions().map((e) => e.name);
-    expect(names).toEqual(WYSIWYG_COMPOSITION_ORDER.filter((n) => n !== "markdownLint"));
+    expect(names).toEqual(WYSIWYG_COMPOSITION_ORDER.filter((n) => !WYSIWYG_OPTIONAL_IDS.includes(n)));
   });
 
   it("composition throws nothing — every canonical id maps to a real extension", () => {

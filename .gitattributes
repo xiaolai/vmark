@@ -8,7 +8,7 @@
 # That broke every `bash scripts/*.sh` gate and all three git hooks for anyone
 # contributing from Windows, and it would ship CRLF in the terminal's shell
 # integration files. `eol=lf` overrides autocrlf per path, so these stay LF
-# whatever the local git config says. Everything else keeps git's defaults.
+# whatever the local git config says.
 #
 # scripts/shell-script-eol.test.mjs fails if a tracked shell script (found by
 # extension OR by shebang) is not covered here.
@@ -16,3 +16,10 @@
 *.bash text eol=lf
 *.zsh text eol=lf
 .githooks/* text eol=lf
+
+# Agent-journal golden fixtures are byte-exact: the Rust provenance suites
+# compare serialized layouts against them line by line, and a CRLF checkout
+# fails every comparison (CI's Windows leg did). `golden_text` in
+# src-tauri/src/agent_journal/test_golden_prov.test.rs asserts no CR survives.
+# Everything else keeps git's defaults.
+src/test/fixtures/agentJournal/** text eol=lf

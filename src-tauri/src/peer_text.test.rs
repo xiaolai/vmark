@@ -57,6 +57,25 @@ fn a_label_keeps_its_text_unquoted_but_loses_its_control_characters() {
 }
 
 #[test]
+fn a_label_loses_its_bidi_formatting_characters_too() {
+    // Shown in Settings → Integrations and composed into the display name an
+    // MCP edit is attributed to: an override or isolate would reorder it.
+    for c in [
+        '\u{061C}', '\u{200E}', '\u{200F}', '\u{202A}', '\u{202B}', '\u{202C}', '\u{202D}',
+        '\u{202E}', '\u{2066}', '\u{2067}', '\u{2068}', '\u{2069}',
+    ] {
+        assert_eq!(
+            peer_label(&format!("claude{c}edoc")),
+            "claudeedoc",
+            "U+{:04X}",
+            c as u32
+        );
+    }
+    // Right-to-left text itself is kept.
+    assert_eq!(peer_label("مراجعة"), "مراجعة");
+}
+
+#[test]
 fn a_multibyte_value_is_bounded_by_characters_not_by_bytes() {
     // A byte-wise cut inside a UTF-8 sequence panics; every field here can be
     // any Unicode the client sends.

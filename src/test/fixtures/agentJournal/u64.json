@@ -1,0 +1,64 @@
+{
+  "spec": "Counters that cross into JavaScript (reviewGen, journal generation) travel as JSON strings holding the canonical decimal form in both directions: ^(0|[1-9][0-9]*)$, value ≤ u64::MAX. A JSON number is refused (it silently loses precision past 2^53 in JavaScript).",
+  "values": [
+    {
+      "name": "zero",
+      "decimal": "0",
+      "wire": "{\"reviewGen\":\"0\"}"
+    },
+    {
+      "name": "one",
+      "decimal": "1",
+      "wire": "{\"reviewGen\":\"1\"}"
+    },
+    {
+      "name": "2^53",
+      "decimal": "9007199254740992",
+      "wire": "{\"reviewGen\":\"9007199254740992\"}"
+    },
+    {
+      "name": "2^53+1",
+      "decimal": "9007199254740993",
+      "wire": "{\"reviewGen\":\"9007199254740993\"}"
+    },
+    {
+      "name": "u64::MAX-2",
+      "decimal": "18446744073709551613",
+      "wire": "{\"reviewGen\":\"18446744073709551613\"}"
+    },
+    {
+      "name": "u64::MAX-1",
+      "decimal": "18446744073709551614",
+      "wire": "{\"reviewGen\":\"18446744073709551614\"}"
+    },
+    {
+      "name": "u64::MAX",
+      "decimal": "18446744073709551615",
+      "wire": "{\"reviewGen\":\"18446744073709551615\"}"
+    }
+  ],
+  "invalidDecimals": [
+    "",
+    "-1",
+    "+1",
+    "-0",
+    "01",
+    "00",
+    " 1",
+    "1 ",
+    "1.0",
+    "1e3",
+    "0x10",
+    "18446744073709551616",
+    "99999999999999999999",
+    "١",
+    "１"
+  ],
+  "invalidWire": [
+    "{\"reviewGen\":0}",
+    "{\"reviewGen\":9007199254740993}",
+    "{\"reviewGen\":null}",
+    "{\"reviewGen\":true}",
+    "{\"reviewGen\":[\"1\"]}"
+  ]
+}

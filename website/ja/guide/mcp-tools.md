@@ -1,8 +1,8 @@
 # MCP ツールリファレンス
 
-VMark は AI アシスタントに **9 つの複合 MCP ツール** を公開します：`session`、`workspace`、`document`、`workflow`、`selection`、`browser`、`browser_read`、`coherence`、`coherence_resolve`。これらは合わせて、エディタの読み書きのバックボーン、ファイル／ウィンドウのライフサイクル、CST セーフなワークフロー編集、選択範囲を対象とするピンポイント編集、制限付きのブラウザナビゲーション、そしてワークスペース整合性レイヤーのビューをカバーします。
+VMark は AI アシスタントに **10 個の複合 MCP ツール** を公開します：`session`、`workspace`、`document`、`workflow`、`selection`、`comments`、`browser`、`browser_read`、`coherence`、`coherence_resolve`。これらは合わせて、エディタの読み書きのバックボーン、ファイル／ウィンドウのライフサイクル、CST セーフなワークフロー編集、選択範囲を対象とするピンポイント編集、制限付きのブラウザナビゲーション、そしてワークスペース整合性レイヤーのビューをカバーします。
 
-9 つのうち 3 つ——`session`、`browser_read`、`coherence`——は `readOnlyHint: true` を宣言しているため、MCP クライアントはこれらを自動承認できます。`browser`／`browser_read` と `coherence`／`coherence_resolve` がそもそも別々のツールに分かれているのはこのためです：アノテーションはアクションごとではなく **ツールごと** に付くので、ARIA スナップショットと `execute_js` を 1 つにまとめたツールは、`execute_js` の危険性を表明せざるを得なくなります。「これは何かを変更するか？」という基準で分割することで、それぞれの半分が真実を表明でき、サーフェスの本当に破壊的なアクションをツールリスト内で目立たせられます。
+10 個のうち 3 つ——`session`、`browser_read`、`coherence`——は `readOnlyHint: true` を宣言しているため、MCP クライアントはこれらを自動承認できます。`browser`／`browser_read` と `coherence`／`coherence_resolve` がそもそも別々のツールに分かれているのはこのためです：アノテーションはアクションごとではなく **ツールごと** に付くので、ARIA スナップショットと `execute_js` を 1 つにまとめたツールは、`execute_js` の危険性を表明せざるを得なくなります。「これは何かを変更するか？」という基準で分割することで、それぞれの半分が真実を表明でき、サーフェスの本当に破壊的なアクションをツールリスト内で目立たせられます。
 
 以前の 12 ツール／76 アクションのサーフェスは整理されました——ドキュメント内のフォーマットツール（太字、見出し、テーブルなど）は、AI エージェントがすでに Markdown のラウンドトリップで簡単にこなせる作業を重複していたためです。`selection` は（プルーニングプランの ADR-7 に従い）残されました。ドキュメント全体のラウンドトリップは大きなファイルでは非効率だからです——編集のたびにドキュメント全体を入力トークンとして、ドキュメント全体を出力トークンとして（入力の約 5 倍の料金）支払い、さらに書き込みウィンドウが長くなって古いリビジョンによるリトライループが広がります。完全な根拠は [MCP プルーニングプラン](https://github.com/xiaolai/vmark/blob/main/.claude/adr/plans/20260504-mcp-pruning.md) を参照してください。
 
@@ -142,7 +142,7 @@ MCP 経由で AI を使用して Mermaid を生成する場合は、[mermaid-val
 |-----------|------|------|
 | `tabId` | string | いいえ（デフォルトはフォーカス中のタブ） |
 
-`{filePath, revision}` を返します。
+`{filePath, revision, journaled}` を返します。
 
 ### `save_as`
 
@@ -153,9 +153,15 @@ MCP 経由で AI を使用して Mermaid を生成する場合は、[mermaid-val
 | `tabId` | string | いいえ |
 | `filePath` | string | はい |
 
-`{revision}` を返します。
+`{revision, journaled}` を返します。
 
 タブ自身の現在のファイル以外のパスへの保存は、新規書き込みとして扱われます。**新しい場所への保存とジーニーの結果を自動承認**（設定 → インテグレーション）がオフのとき（デフォルト）、そのようなリクエストは `APPROVAL_REQUIRED` で拒否され、何がブロックされたかがトーストで通知されます。タブ自身のパスへの保存は常に許可されます。
+
+パスの確認は、そのファイルへの保存キューで保存の順番が来たときにもう一度行われます。その時点で範囲外になったパス（たとえば保存の待機中にワークスペースが閉じられた場合）は `INVALID_PATH` で拒否され、何も書き込まれません。
+
+`save_as` は、タブ自身のファイルではないファイルを置き換えることはありません。すでにファイルがある保存先は `APPROVAL_REQUIRED` で拒否されます。リクエストの確認後、保存の実行中に作成されたファイルも同様です。ファイルは、配置する瞬間にそのパスに何もない場合にだけ書き込まれ、そこにあったファイルは内容を保ちます。ディスクがこの方法で書き込めない場合は、上書きせずに保存を拒否します。
+
+`save` または `save_as` は、この保存より後に行われた保存——どのドキュメントやウィンドウからのものでも——がすでにそのファイルに到達している場合（たとえばシンボリックリンクとそのリンク先のファイルを経由した場合）、`STALE` で拒否されます。そのため、この古いほうの保存は何も書き込んでいません。再度書き込む前にドキュメントを読み取ってください。`document.write` は同じ場合を `saved: false` と `save_error` で報告します。
 
 ### `close`
 
@@ -217,23 +223,30 @@ MCP 経由で AI を使用して Mermaid を生成する場合は、[mermaid-val
 | `tabId` | string | いいえ | 対象タブ（デフォルトはフォーカス中） |
 | `content` | string | はい | 新しい全コンテンツ |
 | `expected_revision` | string | いいえ | 直近の読み取りからのリビジョントークン |
+| `addresses` | string[] | いいえ | この編集が対応する `comments.list` のコメント ID（最大 64 個） |
 | `save` | boolean | いいえ | ディスクにも保存する（デフォルト `true`）；`false` はタブだけを変更する |
 
 デフォルトでは書き込みは保存されます：レスポンスは `saved: true` を持つか、`saved: false` とともに `save_skipped`（`"untitled"`——タブにまだファイルがないので `save_as` を使う；`"opt_out"`——`save: false` を渡した）または `save_error`（ディスクへの書き込みが失敗した）を持ちます。対象が Markdown ドキュメントのアクティブな WYSIWYG タブの場合、テキストはライブのエディタに読み込まれ（1 回で取り消せるステップとして）、保存されるのはエディタによるそのシリアライズです——同じ Markdown ですが、正規化されることがあり、送信した文字そのままとは限りません。他のタブは、送信したテキストを改行コードだけ正規化して保存します。
 
+書き込みがタブを変更した後、保存が実行される前にタブが閉じられた場合、レスポンスは `saved: false` で、タブが閉じられたことを示す `save_error` が付きます。タブが持っていたパスには何も書き込まれません。
+
 AI クライアントによる保存は——`write`、`workspace.save`、`workspace.save_as` のいずれによるものでも——ドキュメントの履歴に `mcp` スナップショットとして記録され（履歴サイドバーでは *(mcp)* と表示されます）、AI が書いたバージョンをあなた自身のものと見分けられます。手動保存と同じく、隣接する自動保存に統合されることも、サイズを理由にスキップされることもありません。
+
+保存の応答には `journaled` も含まれます（`write` では保存を行った場合のみ）。`"yes"`：VMark のエージェント編集ジャーナルが保存されたテキストを記録しました。`"pending"`：記録済みで、記録中の書き込みが完了した時点でドキュメントの履歴に位置づけられます。`"no"`：ファイルは保存されましたが、ジャーナルには記録されていません。ジャーナルが原因で保存がエラーになることはありません。
 
 `expected_revision` が指定されていてその読み取り以降にドキュメントが変更されている場合、レスポンスは現在のリビジョンを含む `STALE` 構造化エラーエンベロープになります；再読み取りしてリトライしてください。
 
 ```json
 // success
-{ "revision": "rev-newAfterWrite", "saved": true }
+{ "revision": "rev-newAfterWrite", "applied": true, "durable": true, "saved": true }
 
 // stale
 { "error": "STALE", "message": "Document has changed since the last read", "current_revision": "rev-currentNow" }
 ```
 
 タブを表示している WYSIWYG エディタでユーザーが入力メソッド（IME）で変換している間、書き込みは `BUSY` で拒否され、何も変更されません：変換中のテキストは確定するまで入力メソッドのものだからです。少し待ってからリトライしてください。ソースモードでは書き込みは受け付けられ、変換が終わった時点でエディタに反映されます。
+
+すべての書き込みは、何かが変更される前に VMark のエージェント編集ジャーナルに記録されます。成功レスポンスには `applied: true` と `durable` が含まれます：`durable: false` は、内容は書き込まれたもののジャーナル記録をまだ保存できていないことを意味します。VMark はバックグラウンドで再試行し、それが完了するまで、その文書への次の書き込みは `JOURNAL_DEGRADED` で拒否されます。ジャーナルが記録そのものを拒否した場合、書き込みは適用されたまま記録なしとしてログに残り、次の書き込みはそのまま進みます。書き込みは何も変更せずに次の場合に拒否されます：同じ文書への別の書き込みを記録している間は `JOURNAL_BUSY`（同じファイルを表示している二つのウィンドウは一つの文書を共有します）、このタブが最後に書き込んだ後に別のウィンドウがその文書に書き込んだ場合は `STALE_PARENT`（読み直してから再試行してください）、ジャーナルが動作していないか時間内に応答しない場合は `JOURNAL_UNAVAILABLE`、`content` に単独の UTF-16 サロゲートが含まれる場合は `INVALID_TEXT`。書き込みを記録している間にユーザーが文書を編集した、タブを閉じた、入力メソッドで変換を始めた、または選択範囲を動かした（`tabId` を指定しなかった場合はタブを切り替えた）ときは、書き込みは `ABORTED` と `reason`（`edited`、`closed`、`composing`、`selection`）で拒否され、何も変更されません。読み直してから再試行してください。`applied: true` を含む `INTERNAL` エラーは別物です。書き込みが文書を変更した後でエディターが失敗し、その時点の文書のテキストが記録されています（`durable` は上記と同じ、`current_revision` は文書のリビジョン）。次に書き込む前に読み直してください。失敗した書き込みの後の `applied` を含まない `INTERNAL` エラーは、文書が部分的に変更されている可能性を意味します。この場合も読み直してください。
 
 ### `transform`
 
@@ -244,10 +257,11 @@ AI クライアントによる保存は——`write`、`workspace.save`、`works
 | `tabId` | string | いいえ | 対象タブ |
 | `kind` | string | はい | `"cjk-format"`、`"cjk-spacing"`、または `"cjk-punctuation"` |
 | `expected_revision` | string | いいえ | 並行制御トークン |
+| `addresses` | string[] | いいえ | この編集が対応する `comments.list` のコメント ID（最大 64 個） |
 
 `cjk-format` はユーザーの CJK フォーマット設定をエンドツーエンドで適用します。`cjk-spacing` は CJK 文字と隣接するラテン／数字の間に単一スペースを挿入します。`cjk-punctuation` は CJK 文字に隣接する ASCII 句読点を全角形式に変換します。
 
-`{revision}` を返します。`write` と同じく、タブを表示している WYSIWYG エディタでユーザーが入力メソッドで変換している間は、何も変更せずに `BUSY` で拒否されます。
+`{revision, applied, durable}` を返します。`write` と同じく、タブを表示している WYSIWYG エディタでユーザーが入力メソッドで変換している間は、何も変更せずに `BUSY` で拒否されます。 `write` と同じく、何かが変更される前に VMark のエージェント編集ジャーナルに記録されます。`applied`、`durable` とジャーナルによる拒否（`JOURNAL_BUSY`、`STALE_PARENT`、`JOURNAL_DEGRADED`、`JOURNAL_UNAVAILABLE`、`INVALID_TEXT`、`ABORTED`）の意味も同じです。何も変更しない呼び出しは記録されません。
 
 ---
 
@@ -274,6 +288,7 @@ GitHub Actions ワークフロー YAML 用の `actionlint` 検証と **CST セ�
 | `tabId` | string | いいえ |
 | `patches` | IRPatch[] | はい |
 | `expected_revision` | string | いいえ |
+| `addresses` | string[] | いいえ |
 
 `IRPatch` は判別共用体（`kind` フィールド）です。サポートされる種類：
 
@@ -287,7 +302,7 @@ GitHub Actions ワークフロー YAML 用の `actionlint` 検証と **CST セ�
 | `needs.add` ／ `needs.remove` | `needs:` からジョブ ID を追加または削除 |
 | `trigger.setFilters` | トリガーのフィルター配列を置き換え——branches、paths、types など（`{event, filter, value: string[]}`） |
 
-成功時は `{revision}`、失敗時は構造化された `STALE` ／ `INVALID_PATCH` ／ `NOT_WORKFLOW` エラーエンベロープを返します。
+成功時は `{revision, applied, durable}`、失敗時は構造化された `STALE` ／ `INVALID_PATCH` ／ `NOT_WORKFLOW` エラーエンベロープを返します。 `write` と同じく、何かが変更される前に VMark のエージェント編集ジャーナルに記録されます。`applied`、`durable` とジャーナルによる拒否（`JOURNAL_BUSY`、`STALE_PARENT`、`JOURNAL_DEGRADED`、`JOURNAL_UNAVAILABLE`、`INVALID_TEXT`、`ABORTED`）の意味も同じです。何も変更しない呼び出しは記録されません。
 
 ### `validate`
 
@@ -334,14 +349,57 @@ GitHub Actions ワークフロー YAML 用の `actionlint` 検証と **CST セ�
 | `tabId` | string | いいえ |
 | `content` | string | はい |
 | `expected_revision` | string | いいえ（推奨） |
+| `addresses` | string[] | いいえ |
 
 エディタが現在の選択範囲として報告するものを何であれ置き換えます。**WYSIWYG モードでは**、プレーンなインラインテキストはリテラルなテキストノードとして挿入されるため、先頭／末尾の空白が正確に往復します；markdown マーカーを含むコンテンツ（`**bold**`、`*italic*`、`` `code` ``、フェンス付きコード、ブロック引用、リストなど）は markdown として解析され、対応するノードとして挿入されます。**ソースモードでは**、`content` は常に生テキストとしてはめ込まれます——ソースサーフェスはすでに markdown バイト列だからです。空の `content` は選択範囲を削除します。選択範囲が折りたたまれている場合、`content` はカーソル位置に挿入されます。
 
-成功時は `{revision, replaced_chars}` を返します。`replaced_chars` は呼び出し前に選択されていたテキストの長さです——AI が意図したものを編集したかを確認するのに役立ちます。
+成功時は `{revision, replaced_chars, applied, durable}` を返します。`replaced_chars` は呼び出し前に選択されていたテキストの長さです——AI が意図したものを編集したかを確認するのに役立ちます。 `write` と同じく、何かが変更される前に VMark のエージェント編集ジャーナルに記録されます。`applied`、`durable` とジャーナルによる拒否（`JOURNAL_BUSY`、`STALE_PARENT`、`JOURNAL_DEGRADED`、`JOURNAL_UNAVAILABLE`、`INVALID_TEXT`、`ABORTED`）の意味も同じです。何も変更しない呼び出しは記録されません。
 
 `STALE` は `document.write` とまったく同じように `{error: "STALE", message, current_revision}` を返します。ドキュメントレベルのリビジョンが `get` と `set` の間のキーストロークを捕捉します。純粋なカーソル移動（キーストロークなし）はサーバーによる調停の対象外です——ユーザーが `get` と `set` の間でカーソルを移動した場合、編集は新しい位置に着地します。
 
 フォーカスされているエディタでユーザーが入力メソッドで変換している間、`set` は WYSIWYG モードでもソースモードでも何も変更せずに `BUSY` を返します；少し待ってからリトライしてください。`get` がこの理由で拒否されることはありません。
+
+---
+
+## `comments`
+
+ドキュメントに対するユーザーのレビューコメントを読み、返信します。コメントの解決・再オープン・削除はユーザーが決めることです。このツールにはそれらのアクションはなく、それを求める呼び出しは VMark に届く前に拒否されます。
+
+### `list`
+
+| パラメーター | タイプ | 必須 |
+|-----------|------|------|
+| `tabId` | string | いいえ |
+| `cursor` | string | いいえ |
+
+`{doc, generation, threads, nextCursor?}` を返します。スレッドは古い順です。各スレッドは `comment` id、`state`（`open`、`addressed`、`resolved`、`reopened` のいずれか）、`commentGen`、アンカーされた引用テキスト、返信を持ちます。
+
+長いリストはページに分けて返され、各ページは欠けずに届く大きさに収まります。`nextCursor` がある間は、`cursor` にその値を設定して `list` を再度呼び出してください。ページをまたいで分割されたスレッドは `repliesFrom` と `repliesTotal` を持ち、後続の部分は `comment`、`state`、`commentGen`、`continued: true` と続きの返信だけを持ちます。JSON テキストとしてどのページにも収まらない本文（大量のエスケープを含むテキストに限られます）は、`body` の代わりに `bodyBase64` として、UTF-8 バイト列を base64 にしたもので届きます。カーソルが指すスレッドが削除されている場合や、別のドキュメント向けに発行されたカーソルの場合は `STALE_COMMENT` で拒否されます。カーソルを指定せずに、もう一度 `list` を呼び出してください。
+
+### `reply`
+
+| パラメーター | タイプ | 必須 |
+|-----------|------|------|
+| `tabId` | string | いいえ |
+| `commentId` | string | はい |
+| `body` | string | はい |
+| `expectedCommentGen` | string | はい |
+
+スレッドに返信を追加します。返信 ID は VMark 自身が発行するため、再試行された呼び出しには最初の結果が返り、2 つ目の返信が追加されることはありません。
+
+### `mark_addressed`
+
+| パラメーター | タイプ | 必須 |
+|-----------|------|------|
+| `tabId` | string | いいえ |
+| `commentId` | string | はい |
+| `expectedCommentGen` | string | はい |
+
+スレッドを対応済みにします。解決するかどうかはユーザーが決めます。
+
+`comments.reply` と `comments.mark_addressed` はどちらも、`list` が返したスレッドの `commentGen` を指定します。次の場合は何も変更せずに拒否されます：その後スレッドが変わったか削除された場合は `STALE_COMMENT`（もう一度 list してください）、コメント ID が不正またはこのドキュメントのコメントを指していない場合は `INVALID_COMMENT`、スレッドが解決済みの場合は `COMMENT_NOT_ALLOWED`、返信が多すぎる、本文が長すぎる、またはスレッドがこれ以上変更できない場合は `COMMENT_LIMIT`、そしてジャーナルの拒否 `JOURNAL_BUSY`、`JOURNAL_DEGRADED`、`JOURNAL_UNAVAILABLE`、`INVALID_TEXT`。
+
+編集がコメントへの対応であることを示すには、それらの ID を `addresses` として `document.write`、`document.transform`、`workflow.apply_patch`、`selection.set` に渡します。このリンクはリビジョンとともに記録され、ドキュメントの履歴に表示されます（後で削除されたコメントは削除済みコメントとして表示されます）。スレッドの状態は変わりません。64 個を超える ID、重複した ID、未知・削除済み・解決済み・別ドキュメントの ID は `INVALID_ADDRESSES` で拒否され、何も変更されません。
 
 ---
 
@@ -574,12 +632,21 @@ Shared のポスチャは、一致する `navigate` の付与が存在しない�
 
 | コード | 表面化形式 | 意味 |
 |---|---|---|
-| `STALE` | エンベロープ | `expected_revision` が一致しなかった；再読み取りしてリトライ |
+| `STALE` | エンベロープ | `expected_revision` が一致しなかった；再読み取りしてリトライ。または `save` ／ `save_as`：この保存より後に行われた保存がすでにそのファイルに到達しているため、この保存は何も書き込まなかった；書き込む前に読み取ること |
 | `INVALID_PATCH` | エンベロープ | `workflow.apply_patch` が不正な `patches` 配列を受信 |
 | `INVALID_TAB` | エンベロープ | `tabId` を解決できなかった |
 | `INVALID_PATH` | エンベロープ | `filePath` を読み取れなかった、または開いているワークスペース／ドキュメントのスコープ外 |
-| `APPROVAL_REQUIRED` | エンベロープ | **新しい場所への保存とジーニーの結果を自動承認** がオフの状態で、新しい場所への `save_as`。または `open_workspace` がユーザーの承認、もしくは VMark のフォルダー選択ダイアログでのフォルダー選択を待っている |
+| `APPROVAL_REQUIRED` | エンベロープ | **新しい場所への保存とジーニーの結果を自動承認** がオフの状態で、新しい場所への `save_as`。タブ自身のもの以外のファイルがすでにあるパスへの `save_as`。または `open_workspace` がユーザーの承認、もしくは VMark のフォルダー選択ダイアログでのフォルダー選択を待っている |
 | `BUSY` | エンベロープ | `open_workspace` を続行できなかった：別のフォルダーダイアログが開いているか、そのウィンドウでワークスペースの切り替えが進行中。承認は保持される——再試行する。または、ユーザーが入力メソッドで変換している間に `document.write`、`document.transform`、`selection.set` が届いた。何も変更されていない——少し待って再試行する |
+| `JOURNAL_BUSY` | エンベロープ | 同じ文書への別の書き込みを記録している間に `document.write` / `document.transform` / `selection.set` / `workflow.apply_patch` が届いた。何も変更されていない——少し待って再試行する |
+| `WRITE_BUSY` | 文字列 | 書き込み系の呼び出し（`document.write` / `document.transform`、`selection.set`、`workflow.apply_patch`、`comments.reply` / `mark_addressed`、`coherence_resolve` など）が別の書き込みの後ろで 3 秒待っても順番が来なかった。適用されていない——再試行する |
+| `TIMEOUT` | 文字列 | `coherence` または `coherence_resolve` の呼び出しが 20 秒以内に終わりませんでした。書き込み（`edges`、`resolve`）の場合はまだ実行中で、結果は不明です。再試行する前に現在の状態を読み取ってください |
+| `STALE_PARENT` | エンベロープ | `document.write` / `document.transform` / `selection.set` / `workflow.apply_patch`：このタブが最後に書き込んだ後に別のウィンドウがその文書に書き込んだ。何も変更されていない——読み直して再試行する |
+| `JOURNAL_DEGRADED` | エンベロープ | `document.write` / `document.transform` / `selection.set` / `workflow.apply_patch`：この文書の以前のジャーナル記録がまだ保存待ち。何も変更されていない——数秒後に再試行する |
+| `JOURNAL_UNAVAILABLE` | エンベロープ | `document.write` / `document.transform` / `selection.set` / `workflow.apply_patch`：エージェント編集ジャーナルが動作していないか記録できない。何も変更されていない |
+| `INVALID_TEXT` | エンベロープ | `document.write` / `document.transform` / `selection.set` / `workflow.apply_patch`：`content` に単独の UTF-16 サロゲートが含まれる。何も変更されていない |
+| `REVIEW_BACKLOG_FULL` | エンベロープ | `document.write`：文書に未レビューの AI の変更が多すぎる。何も変更されていない |
+| `ABORTED` | エンベロープ | `document.write` / `document.transform` / `selection.set` / `workflow.apply_patch`：書き込みの記録中にユーザーが文書を編集した、閉じた、変換した、または選択範囲を動かした。どれかは `reason` が示す。何も変更されていない——読み直して再試行する |
 | `NOT_WORKFLOW` | エンベロープ | 非 YAML ワークフロータブで `workflow.*` が呼ばれた |
 | `READ_ONLY` | エンベロープ | 読み取り専用ドキュメントへのミューテーションが試行された |
 | `NO_EDITOR` | エンベロープ | `selection.*` が呼ばれたがフォーカス中のタブに生きているエディタがない |

@@ -1,5 +1,6 @@
 /**
- * Bridge-refusal handling for the two tools that can be refused as STALE.
+ * Bridge-refusal handling for the tools that can be refused as STALE
+ * (`document.write`, `selection.set`, `workflow.apply_patch`).
  *
  * Purpose: a STALE rejection is the one refusal an agent must BRANCH on rather
  * than read — it carries the `current_revision` needed to re-read and retry.
@@ -15,10 +16,10 @@
  *   - A refusal that is NOT STALE — or not JSON at all — passes through
  *     untouched. Guessing structure onto an arbitrary message would put
  *     invented fields in a channel the agent is supposed to trust.
- *   - `reread` names the action to retry with, because `document.write` and
- *     `selection.set` recover through different reads.
+ *   - `reread` names the action to retry with, because each tool recovers
+ *     through its own read.
  *
- * @coordinates-with tools/document.ts, tools/selection.ts
+ * @coordinates-with tools/document.ts, tools/selection.ts, tools/workflow.ts
  */
 
 import { VMarkMcpServer } from '../server.js';

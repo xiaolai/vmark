@@ -161,6 +161,7 @@ async fn fail_pending_releases_the_state_lock_before_it_escalates() {
             shutdown: Some(shutdown_tx),
             identity: None,
             principal: crate::mcp_bridge::principal::BridgePrincipal::Anonymous,
+            connection_id: uuid::Uuid::new_v4(),
         },
     );
     // Fill the outbound queue so the reply cannot be enqueued.

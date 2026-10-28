@@ -58,6 +58,7 @@
   "openFilter.markdown": "Markdown",
   "chooseFolderForDocs": "Choisir un dossier pour {{count}} nouveaux documents",
   "toast.mcpApprovalRequired": "Une demande d’IA d’enregistrement vers un nouvel emplacement a été bloquée : {{filename}}. Activez « Approuver automatiquement les modifications » dans Réglages → Intégrations pour l’autoriser.",
+  "toast.mcpOverwriteRefused": "Une demande d’IA visant à écraser un fichier existant a été bloquée : {{filename}}. Les demandes d’IA ne remplacent jamais un fichier existant ; demandez un autre nom, ou renommez ou supprimez d’abord ce fichier.",
   "toast.saveDialogFailed": "Échec de la boîte de dialogue d'enregistrement : {{error}}",
   "toast.failedToMoveToNewWindow": "Impossible de déplacer le fichier vers une nouvelle fenêtre",
   "toast.failedToSaveDocuments": "Impossible d'enregistrer les documents",

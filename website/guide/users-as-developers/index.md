@@ -88,7 +88,6 @@ Slash commands give the AI specialized capabilities:
 | `/codex-commit` | Smart commit messages from change analysis |
 | `/audit-fix` | Audit, fix all findings, verify — repeat until clean |
 | `/feature-workflow` | End-to-end gated workflow with specialized agents |
-| `/release-gate` | Run full quality gates and produce a report |
 | `/merge-prs` | Review and merge open PRs sequentially |
 | `/bump` | Version bump across all 5 files, commit, tag, push |
 

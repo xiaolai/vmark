@@ -4,9 +4,12 @@
 
 import { describe, expect, it, beforeEach } from "vitest";
 import {
+  activateSaveTarget,
   claimSaveTarget,
   forgetSaveTarget,
   isCurrentSaveTarget,
+  isSameDocument,
+  reserveSaveTarget,
   resetSaveTargetClaims,
 } from "./saveTargetClaim";
 
@@ -77,5 +80,90 @@ describe("saveTargetClaim", () => {
     forgetSaveTarget("tab-1");
 
     expect(isCurrentSaveTarget(claimSaveTarget("tab-1"))).toBe(true);
+  });
+
+  // A tab moved out of the window and back keeps its id: the reopened document
+  // must not inherit an equal claim from the closed one.
+  it("never lets a closed document's claim pass for a reopened one with the same tab id", () => {
+    const closed = claimSaveTarget("tab-1");
+    forgetSaveTarget("tab-1");
+    const reopened = claimSaveTarget("tab-1");
+
+    expect(isCurrentSaveTarget(closed)).toBe(false);
+    expect(isCurrentSaveTarget(reopened)).toBe(true);
+  });
+
+  it("tells a superseded save of the same document from a save of a closed one", () => {
+    const older = claimSaveTarget("tab-1");
+    claimSaveTarget("tab-1");
+    expect(isSameDocument(older)).toBe(true);
+
+    forgetSaveTarget("tab-1");
+    expect(isSameDocument(older)).toBe(false);
+    claimSaveTarget("tab-1");
+    expect(isSameDocument(older)).toBe(false);
+  });
+});
+
+// A Save As is ordered at admission but may still be refused (path guard,
+// approval, overwrite). A refused request must never become the newest claim:
+// it would suppress the post-save state of an earlier, successful Save As.
+describe("saveTargetClaim — reservation, then activation", () => {
+  it("a reservation that is never activated supersedes nothing", () => {
+    const accepted = claimSaveTarget("tab-1");
+    reserveSaveTarget("tab-1"); // refused before activation
+
+    expect(isCurrentSaveTarget(accepted)).toBe(true);
+  });
+
+  it("an activated reservation becomes current", () => {
+    const claim = activateSaveTarget(reserveSaveTarget("tab-1"));
+
+    expect(isCurrentSaveTarget(claim)).toBe(true);
+    expect(isSameDocument(claim)).toBe(true);
+  });
+
+  it("keeps ADMISSION order: a later-admitted request activated first is not overridden", () => {
+    const first = reserveSaveTarget("tab-1");
+    const second = reserveSaveTarget("tab-1");
+    const secondClaim = activateSaveTarget(second);
+    const firstClaim = activateSaveTarget(first);
+
+    expect(isCurrentSaveTarget(secondClaim)).toBe(true);
+    expect(isCurrentSaveTarget(firstClaim)).toBe(false);
+    expect(isSameDocument(firstClaim)).toBe(true);
+  });
+
+  it("an earlier-admitted request activated after a refused later one is current", () => {
+    const first = reserveSaveTarget("tab-1");
+    reserveSaveTarget("tab-1"); // admitted later, then refused
+
+    expect(isCurrentSaveTarget(activateSaveTarget(first))).toBe(true);
+  });
+
+  it("a save submitted after the reservation still supersedes it", () => {
+    const reserved = reserveSaveTarget("tab-1");
+    const autosave = claimSaveTarget("tab-1");
+    const late = activateSaveTarget(reserved);
+
+    expect(isCurrentSaveTarget(autosave)).toBe(true);
+    expect(isCurrentSaveTarget(late)).toBe(false);
+  });
+
+  it("a reservation whose document was closed activates as a closed document's claim", () => {
+    const reserved = reserveSaveTarget("tab-1");
+    forgetSaveTarget("tab-1");
+    claimSaveTarget("tab-1"); // the id reopened as another document
+    const claim = activateSaveTarget(reserved);
+
+    expect(isSameDocument(claim)).toBe(false);
+    expect(isCurrentSaveTarget(claim)).toBe(false);
+  });
+
+  it("reserving keeps the document's incarnation, so a later claim names the same document", () => {
+    const reserved = reserveSaveTarget("tab-1");
+    claimSaveTarget("tab-1");
+
+    expect(isSameDocument(activateSaveTarget(reserved))).toBe(true);
   });
 });

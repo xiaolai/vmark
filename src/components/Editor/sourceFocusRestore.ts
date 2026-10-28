@@ -28,11 +28,16 @@
  *     the focused pane may take DOM focus: the split tracks DOM focus as the
  *     focused pane, so a background pane focusing itself on mount moved the
  *     pane focus — the edge of the #1554 loop. It still gets its position back.
+ *   - Both paths schedule through `scheduleSourceFocusRestore`, which marks the
+ *     view restore-pending until the restore has run or been cancelled: the
+ *     caret before it is not the reader's, and the bridge must not read the
+ *     restore moving it as the reader moving the selection.
  *
  * @coordinates-with SourceEditor.tsx — mount + hidden→visible paths
  * @coordinates-with services/editor/scrollPosition.ts — the offset store
  * @coordinates-with services/editor/restoreChoice.ts — cursor or reading position
  * @coordinates-with utils/cursorSync/codemirror.ts — cursor restoration
+ * @coordinates-with services/editor/caretRestorePending.ts — the pending mark
  * @module components/Editor/sourceFocusRestore
  */
 
@@ -44,6 +49,7 @@ import {
   restoreEditorScroll,
 } from "@/services/editor/scrollPosition";
 import { chooseEditorRestore } from "@/services/editor/restoreChoice";
+import { beginCaretRestore } from "@/services/editor/caretRestorePending";
 import { consumeSourcePendingNav } from "./sourcePendingNav";
 
 /** Focus `view` (unless `takeFocus` is false) and put it back where this tab left off. */
@@ -61,4 +67,27 @@ export function focusAndRestoreSource(
     if (by === "cursor") return;
   }
   restoreEditorScroll(view.scrollDOM, getEditorScrollOffset(tabId, "source") ?? 0);
+}
+
+/** How long after a mount or show the Source restore runs: the view lays out first. */
+const SOURCE_RESTORE_DELAY_MS = 50;
+
+/**
+ * Run `restore` once the view has laid out after a mount or show, the view
+ * marked restore-pending until it has run (or thrown) or been cancelled.
+ * Returns the cancel, for an unmount that must drop it.
+ */
+export function scheduleSourceFocusRestore(view: EditorView, restore: () => void): () => void {
+  const settle = beginCaretRestore(view);
+  const id = setTimeout(() => {
+    try {
+      restore();
+    } finally {
+      settle();
+    }
+  }, SOURCE_RESTORE_DELAY_MS);
+  return () => {
+    clearTimeout(id);
+    settle();
+  };
 }

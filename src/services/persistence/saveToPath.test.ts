@@ -92,6 +92,9 @@ import { useRecentFilesStore } from "@/stores/workspaceStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { registerPendingSave, clearPendingSave, clearPendingSaveAfterGrace } from "@/utils/pendingSaves";
 
+/** Every save names its place in its document's order. */
+const ORDER = { seq: expect.any(Number) };
+
 /** Factory for settings store mock with overrides */
 function makeSettings(overrides?: {
   general?: Partial<Record<string, unknown>>;
@@ -136,6 +139,7 @@ describe("saveToPath", () => {
     const serializer = await import("./serializeByPath");
     serializer.__resetSerializer();
     vi.mocked(useDocumentStore.getState).mockReturnValue({
+      documents: {}, // the open documents the journal's recording report reads
       setFilePath: mockSetFilePath,
       markSaved: mockMarkSaved,
       markAutoSaved: mockMarkAutoSaved,
@@ -163,17 +167,18 @@ describe("saveToPath", () => {
     const result = await saveToPath("tab-1", "/tmp/doc.md", "Hello", "manual");
 
     expect(result).toBe(true);
-    expect(invoke).toHaveBeenCalledWith("atomic_write_file", { path: "/tmp/doc.md", content: "Hello" });
+    expect(invoke).toHaveBeenCalledWith("atomic_write_file", { path: "/tmp/doc.md", content: "Hello", order: ORDER });
     expect(mockSetFilePath).toHaveBeenCalledWith("tab-1", "/tmp/doc.md");
     expect(mockMarkSaved).toHaveBeenCalledWith("tab-1", { editorSnapshot: "Hello", diskSnapshot: "Hello" });
     expect(mockUpdateTabPath).toHaveBeenCalledWith("tab-1", "/tmp/doc.md");
     expect(mockAddFile).toHaveBeenCalledWith("/tmp/doc.md");
+    // A manual snapshot carries no journal link (only "mcp" snapshots do).
     expect(createSnapshot).toHaveBeenCalledWith("/tmp/doc.md", "Hello", "manual", {
       maxSnapshots: 5,
       maxAgeDays: 30,
       mergeWindowSeconds: 30,
       maxFileSizeKB: 512,
-    });
+    }, null);
   });
 
   // WI-LX1.4: the capture-on-save setting is enforced ONCE, in the coherence
@@ -251,7 +256,7 @@ describe("saveToPath", () => {
     const result = await saveToPath("tab-1", "/tmp/doc.md", "a\nb\n", "manual");
 
     expect(result).toBe(true);
-    expect(invoke).toHaveBeenCalledWith("atomic_write_file", { path: "/tmp/doc.md", content: "a\r\nb\r\n" });
+    expect(invoke).toHaveBeenCalledWith("atomic_write_file", { path: "/tmp/doc.md", content: "a\r\nb\r\n", order: ORDER });
     expect(mockSetLineMetadata).toHaveBeenCalledWith("tab-1", {
       lineEnding: "crlf",
       hardBreakStyle: "twoSpaces", // Default for unknown docs (wider compatibility)
@@ -268,7 +273,7 @@ describe("saveToPath", () => {
     const result = await saveToPath("tab-1", "/tmp/doc.md", "a\\\nb\n", "manual");
 
     expect(result).toBe(true);
-    expect(invoke).toHaveBeenCalledWith("atomic_write_file", { path: "/tmp/doc.md", content: "a  \nb\n" });
+    expect(invoke).toHaveBeenCalledWith("atomic_write_file", { path: "/tmp/doc.md", content: "a  \nb\n", order: ORDER });
     expect(mockSetLineMetadata).toHaveBeenCalledWith("tab-1", {
       lineEnding: "lf",
       hardBreakStyle: "twoSpaces",
@@ -445,17 +450,21 @@ describe("saveToPath", () => {
   });
 
   describe("parent directory missing (PARENT_MISSING sentinel)", () => {
+    beforeEach(() => {
+      // The vanished folder holds the document's OWN file; saveWriteError.test.ts covers the rest.
+      mockGetDocument.mockReturnValue({ lineEnding: "unknown", filePath: "/Users/test/gone-folder/note.md" });
+    });
     // Regression test for the case where the file's parent directory was
     // renamed/deleted externally between open and save. The Rust backend
     // returns "PARENT_MISSING:<dir>" so the frontend can route into Save As
     // instead of leaking a raw "No such file or directory (os error 2)".
     it("marks document as missing on PARENT_MISSING error (manual save)", async () => {
       vi.mocked(invoke).mockRejectedValue(
-        new Error("PARENT_MISSING:/Users/joker/gone-folder"),
+        new Error("PARENT_MISSING:/Users/test/gone-folder"),
       );
       const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
 
-      const result = await saveToPath("tab-1", "/Users/joker/gone-folder/note.md", "x", "manual");
+      const result = await saveToPath("tab-1", "/Users/test/gone-folder/note.md", "x", "manual");
 
       expect(result).toBe(false);
       expect(mockMarkMissing).toHaveBeenCalledWith("tab-1");
@@ -465,7 +474,7 @@ describe("saveToPath", () => {
       // Toast should use the parent-missing key (not the generic key) and
       // include the missing directory so the user knows which folder vanished.
       expect(toastMocks.error.mock.calls[0][0]).toContain("dialog:toast.failedToSaveParentMissing");
-      expect(toastMocks.error.mock.calls[0][0]).toContain("/Users/joker/gone-folder");
+      expect(toastMocks.error.mock.calls[0][0]).toContain("/Users/test/gone-folder");
       expect(toastMocks.error.mock.calls[0][1]).toEqual(
         expect.objectContaining({ pin: true }),
       );
@@ -474,11 +483,11 @@ describe("saveToPath", () => {
 
     it("still marks missing on auto-save but skips toast (no spam)", async () => {
       vi.mocked(invoke).mockRejectedValue(
-        new Error("PARENT_MISSING:/Users/joker/gone-folder"),
+        new Error("PARENT_MISSING:/Users/test/gone-folder"),
       );
       const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
 
-      const result = await saveToPath("tab-1", "/Users/joker/gone-folder/note.md", "x", "auto");
+      const result = await saveToPath("tab-1", "/Users/test/gone-folder/note.md", "x", "auto");
 
       expect(result).toBe(false);
       expect(mockMarkMissing).toHaveBeenCalledWith("tab-1");
@@ -515,6 +524,10 @@ describe("saveToPath", () => {
   });
 
   describe("parent directory missing (WI-14 typed CommandError)", () => {
+    beforeEach(() => {
+      // The vanished folder holds the document's OWN file; saveWriteError.test.ts covers the rest.
+      mockGetDocument.mockReturnValue({ lineEnding: "unknown", filePath: "/Users/test/gone-folder/note.md" });
+    });
     // `atomic_write_file` now rejects with `{code, message, i18nKey?, detail?}`.
     // The rejection values come from `commandErrorWire.json`, which the Rust
     // test GENERATES by invoking the real command core — so this suite cannot
@@ -522,20 +535,20 @@ describe("saveToPath", () => {
     // until the ratchet reaches zero: both shapes are live during the migration.
     const typedParentMissing = {
       ...wire.saveParentMissing,
-      detail: { dir: "/Users/joker/gone-folder" },
+      detail: { dir: "/Users/test/gone-folder" },
     };
 
     it("routes a typed not-found into Save As, reading detail.dir not the message", async () => {
       vi.mocked(invoke).mockRejectedValue(typedParentMissing);
       const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
 
-      const result = await saveToPath("tab-1", "/Users/joker/gone-folder/note.md", "x", "manual");
+      const result = await saveToPath("tab-1", "/Users/test/gone-folder/note.md", "x", "manual");
 
       expect(result).toBe(false);
       expect(mockMarkMissing).toHaveBeenCalledWith("tab-1");
       expect(mockMarkSaved).not.toHaveBeenCalled();
       expect(toastMocks.error.mock.calls[0][0]).toContain("dialog:toast.failedToSaveParentMissing");
-      expect(toastMocks.error.mock.calls[0][0]).toContain("/Users/joker/gone-folder");
+      expect(toastMocks.error.mock.calls[0][0]).toContain("/Users/test/gone-folder");
       consoleError.mockRestore();
     });
 
@@ -543,7 +556,7 @@ describe("saveToPath", () => {
       vi.mocked(invoke).mockRejectedValue(typedParentMissing);
       const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
 
-      const result = await saveToPath("tab-1", "/Users/joker/gone-folder/note.md", "x", "auto");
+      const result = await saveToPath("tab-1", "/Users/test/gone-folder/note.md", "x", "auto");
 
       expect(result).toBe(false);
       expect(mockMarkMissing).toHaveBeenCalledWith("tab-1");
@@ -596,10 +609,10 @@ describe("saveToPath", () => {
       vi.mocked(invoke).mockRejectedValue(typedParentMissing);
       const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
 
-      await saveToPath("tab-1", "/Users/joker/gone-folder/note.md", "x", "manual");
+      await saveToPath("tab-1", "/Users/test/gone-folder/note.md", "x", "manual");
 
       expect(clearPendingSave).toHaveBeenCalledWith(
-        "/Users/joker/gone-folder/note.md",
+        "/Users/test/gone-folder/note.md",
         expect.any(Number),
       );
       consoleError.mockRestore();
@@ -677,6 +690,7 @@ describe("saveToPath", () => {
       expect(invoke).toHaveBeenCalledWith("atomic_write_file", {
         path: "/tmp/doc.md",
         content: "﻿a\nb",
+        order: ORDER,
       });
     });
 
@@ -689,6 +703,7 @@ describe("saveToPath", () => {
       expect(invoke).toHaveBeenCalledWith("atomic_write_file", {
         path: "/tmp/doc.md",
         content: "a\nb",
+        order: ORDER,
       });
     });
 
@@ -701,6 +716,7 @@ describe("saveToPath", () => {
       expect(invoke).toHaveBeenCalledWith("atomic_write_file", {
         path: "/tmp/doc.md",
         content: "﻿a\r\nb\r\n",
+        order: ORDER,
       });
     });
   });

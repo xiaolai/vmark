@@ -24,7 +24,6 @@
 import { statefulFs } from "@/test/statefulFsFake";
 import { resetTier0 } from "@/test/tier0/harness";
 import { useRevisionStore } from "@/stores/documentStore";
-import { useMcpStore } from "@/stores/mcpStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { __resetSerializer } from "@/services/persistence/serializeByPath";
 import { resetSaveTargetClaims } from "@/services/persistence/saveTargetClaim";
@@ -73,9 +72,6 @@ export function resetBridge(): void {
   __resetSerializer();
   resetSaveTargetClaims();
   useRevisionStore.setState({ revisions: {} });
-  useMcpStore.setState((s) => ({
-    checkpoint: { ...s.checkpoint, checkpoints: [], hydrated: false },
-  }));
   setAutoApproveEdits(true);
   statefulFs.stubCommand("mcp_bridge_respond", (args) => {
     responses.push(args.payload as McpResponse);

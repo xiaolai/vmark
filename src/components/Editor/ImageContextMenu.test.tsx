@@ -93,9 +93,12 @@ describe("ImageContextMenu", () => {
     expect(separators.length).toBe(1);
   });
 
-  it("uses the context-menu class on the container", () => {
+  it("composes the canonical .vm-menu shell", () => {
+    // .vm-menu carries `position: fixed`; .context-menu alone is the item
+    // vocabulary and leaves the panel in normal flow (see EditorContextMenu's
+    // matching test).
     const { container } = render(<ImageContextMenu onAction={onAction} />);
-    expect(container.querySelector(".context-menu")).toBeInTheDocument();
+    expect(container.querySelector(".context-menu")).toHaveClass("vm-menu");
   });
 
   it("positions the menu at the given coordinates", () => {

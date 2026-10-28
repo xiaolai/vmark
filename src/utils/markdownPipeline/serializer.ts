@@ -45,6 +45,7 @@
  * @coordinates-with serializerBreakBeforeHtml.ts — the line ending between a break and inline HTML
  * @coordinates-with serializerBlockFinalBreak.ts — a break that ends its block
  * @coordinates-with serializerHeadingForm.ts — a heading whose only line endings are in spans
+ * @coordinates-with serializerSpans.ts — the same processor and steps, recording each block's span
  * @module utils/markdownPipeline/serializer
  */
 
@@ -62,7 +63,7 @@ import { listInterruptJoin } from "./listInterruptJoin";
 import { listItemGapJoin } from "./listItemGapJoin";
 import type { MarkdownPipelineOptions } from "./types";
 import { parseMarkdownToMdast } from "./parser";
-import { applyCosmeticPass } from "./serializerCosmetics";
+import { applyCosmeticPassWithEdits, type CosmeticEdit } from "./serializerCosmetics";
 import { createBreakHandler, type HardBreakSpelling } from "./serializerBreak";
 import {
   HTML_AFTER_BREAK,
@@ -75,6 +76,9 @@ import { flattenHeadingSpanLineEndings } from "./serializerHeadingForm";
 /**
  * Build the unified processor configured for VMark markdown serialization.
  *
+ * `root` replaces the root handler; only serializerSpans.ts passes one, and
+ * builds its own processors.
+ *
  * Plugins (must match parser configuration):
  * - remark-stringify: Base CommonMark serializer
  * - remark-gfm: GitHub Flavored Markdown output
@@ -86,7 +90,7 @@ import { flattenHeadingSpanLineEndings } from "./serializerHeadingForm";
  * option-dependent part is the `break` handler, so getSerializer() builds one
  * processor per hard-break spelling and reuses it across every serialize call.
  */
-function buildSerializer(hardBreak: HardBreakSpelling) {
+export function createSerializerProcessor(hardBreak: HardBreakSpelling, root?: unknown) {
   // Cast inline: `join` is forwarded to mdast-util-to-markdown at runtime but
   // absent from remark-stringify's published Options type.
   return unified()
@@ -119,6 +123,8 @@ function buildSerializer(hardBreak: HardBreakSpelling) {
         break: createBreakHandler(hardBreak),
         [HTML_AFTER_BREAK]: handleHtmlAfterBreak,
         ...tocToMarkdown.handlers,
+        // Only the span serializer passes one (serializerSpans.ts).
+        ...(root ? { root } : {}),
       } as Record<string, unknown>,
       // Joins are consulted last-first: listInterruptJoin can raise a captured
       // blank-line run (ADR-1a) that CommonMark would read as paragraph text.
@@ -135,13 +141,13 @@ function buildSerializer(hardBreak: HardBreakSpelling) {
     .use(remarkCustomInline);
 }
 
-const cachedSerializers = new Map<HardBreakSpelling, ReturnType<typeof buildSerializer>>();
+const cachedSerializers = new Map<HardBreakSpelling, ReturnType<typeof createSerializerProcessor>>();
 
 /** Return the shared processor for one hard-break spelling, building it on first use. */
 function getSerializer(hardBreak: HardBreakSpelling) {
   let serializer = cachedSerializers.get(hardBreak);
   if (!serializer) {
-    serializer = buildSerializer(hardBreak);
+    serializer = createSerializerProcessor(hardBreak);
     cachedSerializers.set(hardBreak, serializer);
   }
   return serializer;
@@ -169,9 +175,25 @@ export function serializeMdastToMarkdown(
   options: MarkdownPipelineOptions = {}
 ): string {
   const processor = getSerializer(options.hardBreakStyle ?? "backslash");
-  let result = processor.stringify(
-    keepLineEndingsBeforeHtml(flattenHeadingSpanLineEndings(dropBlockFinalBreaks(mdast))),
-  );
+  const raw = processor.stringify(prepareMdastForStringify(mdast));
+  return finishSerialization(mdast.children[0]?.type === "thematicBreak", raw).text;
+}
+
+/** The tree transforms applied before stringifying; the tree passed in is not changed. */
+export function prepareMdastForStringify(mdast: Root): Root {
+  return keepLineEndingsBeforeHtml(flattenHeadingSpanLineEndings(dropBlockFinalBreaks(mdast)));
+}
+
+/**
+ * From the stringified tree to the final Markdown. `edits` are the cosmetic
+ * pass's replacements on the string before it; the leading-rule swap keeps
+ * every offset, so they also apply to `raw`.
+ */
+export function finishSerialization(
+  firstIsRule: boolean,
+  raw: string,
+): { text: string; edits: readonly CosmeticEdit[] } {
+  let result = raw;
   // No split-surrogate repair pass: attention neighbours are encoded as whole
   // code points when they are encoded (serializerAttention.ts and the
   // mdast-util-to-markdown patch), which a string repair afterwards could not
@@ -185,7 +207,7 @@ export function serializeMdastToMarkdown(
   // never either of those. So VERIFY rather than assume: keep `---` only when
   // it reads back exactly as `***` in its place does. Assuming cost real
   // fidelity — typing `---` in an empty document came back as `***`.
-  if (mdast.children[0]?.type === "thematicBreak" && result.startsWith("---")) {
+  if (firstIsRule && result.startsWith("---")) {
     const withAsterisks = `***${result.slice(3)}`;
     if (treeWithoutPositions(result) !== treeWithoutPositions(withAsterisks)) {
       result = withAsterisks;
@@ -195,5 +217,5 @@ export function serializeMdastToMarkdown(
   // Verified cosmetic pass: restore serializer-emitted &#x20; entities and
   // strip defensive escapes, accepted only when the cleaned string re-parses
   // identically to the conservative one.
-  return applyCosmeticPass(result);
+  return applyCosmeticPassWithEdits(result);
 }

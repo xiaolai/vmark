@@ -21,7 +21,7 @@
 import { message, save } from "@tauri-apps/plugin-dialog";
 import i18n from "@/i18n";
 import { getDefaultSaveFolderWithFallback } from "@/services/files/defaultSaveFolder";
-import { saveToPath } from "@/services/persistence/saveToPath";
+import { saveToPathForClose } from "@/services/persistence/saveToPath";
 import { joinPath, getDirectory, getFileName } from "@/utils/pathUtils";
 import { persistDocumentBatch } from "./closeSaveBatch";
 
@@ -100,7 +100,7 @@ export async function promptSaveForDirtyDocument(
     path = newPath;
   }
 
-  const saved = await saveToPath(tabId, path, content, "manual");
+  const saved = await saveToPathForClose(tabId, path, content);
   if (!saved) {
     return { action: "cancelled" };
   }

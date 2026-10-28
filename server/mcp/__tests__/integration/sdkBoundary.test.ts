@@ -73,7 +73,7 @@ suite('MCP SDK boundary (spawned dist/cli.js)', () => {
   });
 
   it(
-    'lists the full 9-tool surface with titles, annotations, and honest schemas',
+    'lists the full 10-tool surface with titles, annotations, and honest schemas',
     async () => {
       const tools = await connect();
 
@@ -82,6 +82,7 @@ suite('MCP SDK boundary (spawned dist/cli.js)', () => {
         'browser_read',
         'coherence',
         'coherence_resolve',
+        'comments',
         'document',
         'selection',
         'session',

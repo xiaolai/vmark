@@ -43,7 +43,8 @@ export type OperationClass =
   | 'workflow'
   | 'selection'
   | 'browser'
-  | 'coherence';
+  | 'coherence'
+  | 'comments';
 
 /**
  * Unknown-field posture per class, with the reason it is what it is.
@@ -70,6 +71,7 @@ export const OPERATION_CLASS_POSTURE: Readonly<Record<OperationClass, UnknownFie
     selection: 'reject',
     browser: 'reject',
     coherence: 'reject',
+    comments: 'reject',
   });
 
 /** The class an operation belongs to (`vmark.<class>.<action>`). */
@@ -89,6 +91,8 @@ export function postureFor(operation: string): UnknownFieldPosture {
 // `id` / `optionalTabId` come from the primitives module (shared with the
 // browser map); `revision` is used by this map alone, so it lives here.
 const revision = z.string().optional();
+/** The comment ids a write says it addresses: checked by the journal, never a state change. */
+const addresses = z.array(z.string()).optional();
 
 /**
  * Every `vmark.*` operation and the fields its payload carries.
@@ -129,11 +133,13 @@ export const BRIDGE_OPERATION_SCHEMAS = {
     content: z.string(),
     expected_revision: revision,
     save: z.boolean().optional(),
+    addresses,
   }),
   'vmark.document.transform': z.object({
     tabId: optionalTabId,
     kind: z.string(),
     expected_revision: revision,
+    addresses,
   }),
 
   // ── Workflow ──
@@ -144,6 +150,7 @@ export const BRIDGE_OPERATION_SCHEMAS = {
     tabId: optionalTabId,
     patches: z.array(z.unknown()),
     expected_revision: revision,
+    addresses,
   }),
   'vmark.workflow.validate': z.object({ tabId: optionalTabId }),
 
@@ -153,6 +160,21 @@ export const BRIDGE_OPERATION_SCHEMAS = {
     tabId: optionalTabId,
     content: z.string(),
     expected_revision: revision,
+    addresses,
+  }),
+
+  // ── Comments (the agent's family: no resolve, reopen or delete) ──
+  'vmark.comments.list': z.object({ tabId: optionalTabId }),
+  'vmark.comments.reply': z.object({
+    tabId: optionalTabId,
+    commentId: id,
+    body: z.string(),
+    expectedCommentGen: id,
+  }),
+  'vmark.comments.mark_addressed': z.object({
+    tabId: optionalTabId,
+    commentId: id,
+    expectedCommentGen: id,
   }),
 
   // ── Browser (split for the file-size gate) ──

@@ -1,6 +1,6 @@
 {
   "name": "@vmark/mcp-server",
-  "version": "0.9.103",
+  "version": "0.9.105",
   "description": "MCP server for VMark — the plain-text workspace where humans and AI collaborate",
   "type": "module",
   "main": "dist/index.js",
@@ -33,16 +33,16 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",
     "ws": "^8.22.0",
-    "zod": "^4.6.5"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",
     "@types/ws": "^8.18.2",
-    "@vitest/coverage-v8": "^4.1.11",
+    "@vitest/coverage-v8": "^4.1.12",
     "@yao-pkg/pkg": "^6.23.0",
     "esbuild": "^0.28.2",
     "typescript": "~7.0.2",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.12"
   },
   "engines": {
     "node": ">=18"

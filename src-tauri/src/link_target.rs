@@ -7,6 +7,7 @@
 //!
 //! @coordinates-with atomic_replace.rs — the replacement core, which re-exports this
 //! @coordinates-with files/write.rs — resolves a document before saving it
+//! @coordinates-with files/entry_spelling.rs — keys a document by the referent
 //! @coordinates-with terminal_transcript/config.rs — resolves a CLI settings file before rewriting it
 
 use std::fs;
@@ -46,12 +47,22 @@ pub(crate) enum LinkResolveError {
 /// the referent — the alias keeps pointing somewhere real. A path that does not
 /// exist at all resolves to itself, which is the ordinary Save As case.
 pub(crate) fn resolve_link_target(path: &Path) -> Result<PathBuf, LinkResolveError> {
+    normalize_parent(&follow_links(path)?.0)
+}
+
+/// The final referent of `path`'s chain of links, as the links spell it:
+/// `path` itself when it is not a link (or does not exist yet), with what
+/// its last check saw there (`None`: nothing), so a caller can tell whether
+/// it was replaced since.
+pub(crate) fn follow_links(
+    path: &Path,
+) -> Result<(PathBuf, Option<fs::Metadata>), LinkResolveError> {
     let mut current = path.to_path_buf();
 
     for _ in 0..MAX_LINK_DEPTH {
         match fs::symlink_metadata(&current) {
             // Not a link (or does not exist yet): this is the referent.
-            Ok(meta) if !meta.file_type().is_symlink() => return normalize_parent(&current),
+            Ok(meta) if !meta.file_type().is_symlink() => return Ok((current, Some(meta))),
             // NotFound is the ordinary Save-As-to-a-new-name case.
             // NotADirectory means a component of the path is a FILE — also not
             // a link, and the caller's own parent check reports it with the
@@ -62,7 +73,7 @@ pub(crate) fn resolve_link_target(path: &Path) -> Result<PathBuf, LinkResolveErr
                 if e.kind() == std::io::ErrorKind::NotFound
                     || e.kind() == std::io::ErrorKind::NotADirectory =>
             {
-                return normalize_parent(&current)
+                return Ok((current, None))
             }
             Err(e) => return Err(LinkResolveError::ReadLink(e)),
             Ok(_) => {}
@@ -90,7 +101,7 @@ pub(crate) fn resolve_link_target(path: &Path) -> Result<PathBuf, LinkResolveErr
 /// intermediate links in it correctly — which lexical normalization cannot do
 /// across symlinks. The file name is left alone because the referent itself may
 /// not exist yet (a dangling link, or a fresh Save As).
-fn normalize_parent(path: &Path) -> Result<PathBuf, LinkResolveError> {
+pub(crate) fn normalize_parent(path: &Path) -> Result<PathBuf, LinkResolveError> {
     let (Some(parent), Some(name)) = (path.parent(), path.file_name()) else {
         return Ok(path.to_path_buf());
     };

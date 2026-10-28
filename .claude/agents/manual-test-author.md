@@ -2,7 +2,6 @@
 name: manual-test-author
 description: Writes and maintains comprehensive manual testing guides (incremental + final).
 tools: Read, Edit, Grep
-skills: tauri-mcp-testing
 ---
 
 You are responsible for manual testing documentation.

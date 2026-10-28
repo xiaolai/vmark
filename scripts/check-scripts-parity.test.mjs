@@ -189,10 +189,11 @@ describe("test tiers partition the test files on disk", () => {
    * are excluded from git via `.git/info/exclude`. The first repo-wide run of
    * this check found them immediately, which is the point: the previous
    * three-root version could not see them, or anything else outside the roots
-   * it happened to name.
+   * it happened to name. `.worktrees` is the same thing at the repo root: the
+   * root `.gitignore` reserves it for linked worktrees of other branches.
    */
   const INFRA_DIRS = new Set([
-    "node_modules", "dist", "coverage", "target", "tmp", "reports", "worktrees",
+    "node_modules", "dist", "coverage", "target", "tmp", "reports", "worktrees", ".worktrees",
     ".git", ".vitest-reports", ".vitest-attachments", ".playwright-mcp",
     // Stryker's sandbox: a copy of a fixture that another test creates and
     // deletes while this walk runs, so reading it races (ENOENT).

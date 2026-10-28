@@ -5,6 +5,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { Editor } from "@tiptap/core";
+import { markContentApplied } from "@/services/editor/contentApplied";
 import StarterKit from "@tiptap/starter-kit";
 import { EditorState as CMState } from "@codemirror/state";
 import { EditorView as CMView } from "@codemirror/view";
@@ -14,7 +15,7 @@ import { useDocumentStore } from "@/stores/documentStore";
 import { useRevisionStore, generateRevisionId } from "@/stores/documentStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useEditorStore } from "@/stores/editorStore";
-import { useMcpStore } from "@/stores/mcpStore";
+import { agentJournalFake } from "@/test/agentJournalFake";
 import { handleSelectionGet, handleSelectionSet } from "@/services/mcpBridge/v2/selection";
 
 vi.mock("@/services/mcpBridge/utils", () => ({
@@ -25,11 +26,8 @@ vi.mock("@/services/persistence/workspaceStorage", () => ({
   getCurrentWindowLabel: () => "main",
 }));
 
-vi.mock("@/stores/mcpCheckpointPersistence", () => ({
-  appendCheckpoint: vi.fn(async () => undefined),
-}));
-
 import { respond } from "@/services/mcpBridge/utils";
+import { TEST_WRITE_CONTEXT } from "@/test/mcpAttributionFixture";
 
 // Track resources for teardown.
 const cmViews: CMView[] = [];
@@ -44,7 +42,6 @@ function resetStores() {
     closedTabs: {},
   });
   useDocumentStore.setState({ documents: {} });
-  useMcpStore.setState((s) => ({ checkpoint: { ...s.checkpoint, checkpoints: [], hydrated: false } }));
   useUIStore.setState({ sourceMode: false });
   useEditorStore.setState({
     activeWysiwygEditor: null,
@@ -72,6 +69,7 @@ function makeTiptap(
     extensions: [StarterKit],
     content: initialContent,
   });
+  markContentApplied(tiptapEditor); // its initial load has run
   tiptapEditor.commands.setTextSelection({ from, to });
   useEditorStore
     .getState()
@@ -236,7 +234,7 @@ describe("vmark.selection.set — WYSIWYG mode", () => {
     seedTab("t-set", "Hello world", "/notes.md");
     makeTiptap("<p>Hello world</p>", 7, 12); // Selects "world".
 
-    await handleSelectionSet("req-set", { content: "everyone" });
+    await handleSelectionSet("req-set", { content: "everyone" }, TEST_WRITE_CONTEXT);
 
     const r = lastRespond();
     expect(r.success).toBe(true);
@@ -257,7 +255,7 @@ describe("vmark.selection.set — WYSIWYG mode", () => {
     await handleSelectionSet("req-stale", {
       content: "x",
       expected_revision: stale,
-    });
+    }, TEST_WRITE_CONTEXT);
 
     const r = lastRespond();
     expect(r.success).toBe(false);
@@ -278,7 +276,7 @@ describe("vmark.selection.set — WYSIWYG mode", () => {
     await handleSelectionSet("req-ok", {
       content: "ok",
       expected_revision: current,
-    });
+    }, TEST_WRITE_CONTEXT);
 
     const r = lastRespond();
     expect(r.success).toBe(true);
@@ -291,7 +289,7 @@ describe("vmark.selection.set — WYSIWYG mode", () => {
     seedTab("t-blind", "Hello world", null);
     makeTiptap("<p>Hello world</p>", 7, 12);
 
-    await handleSelectionSet("req-blind", { content: "blind" });
+    await handleSelectionSet("req-blind", { content: "blind" }, TEST_WRITE_CONTEXT);
 
     const r = lastRespond();
     expect(r.success).toBe(true);
@@ -304,7 +302,7 @@ describe("vmark.selection.set — WYSIWYG mode", () => {
     seedTab("t-bad", "x", null);
     makeTiptap("<p>x</p>", 1, 2);
 
-    await handleSelectionSet("req-bad", { content: 42 });
+    await handleSelectionSet("req-bad", { content: 42 }, TEST_WRITE_CONTEXT);
 
     const r = lastRespond();
     expect(r.success).toBe(false);
@@ -314,7 +312,7 @@ describe("vmark.selection.set — WYSIWYG mode", () => {
   it("returns NO_EDITOR when no active editor", async () => {
     seedTab("t-no-ed", "x", null);
 
-    await handleSelectionSet("req-noed", { content: "y" });
+    await handleSelectionSet("req-noed", { content: "y" }, TEST_WRITE_CONTEXT);
 
     const r = lastRespond();
     expect(r.success).toBe(false);
@@ -328,7 +326,7 @@ describe("vmark.selection.set — WYSIWYG mode", () => {
     // Cursor between "Hello " and "world" (PM pos 7).
     makeTiptap("<p>Hello world</p>", 7, 7);
 
-    await handleSelectionSet("req-collapsed", { content: "BIG " });
+    await handleSelectionSet("req-collapsed", { content: "BIG " }, TEST_WRITE_CONTEXT);
 
     const r = lastRespond();
     expect(r.success).toBe(true);
@@ -338,25 +336,18 @@ describe("vmark.selection.set — WYSIWYG mode", () => {
     expect((r.data as { replaced_chars: number }).replaced_chars).toBe(0);
   });
 
-  it("pushes a checkpoint after a successful set", async () => {
+  it("records a set in the agent edit journal, with the text it replaced", async () => {
     seedTab("t-cp", "Hello world", "/notes.md");
     makeTiptap("<p>Hello world</p>", 7, 12);
 
-    await handleSelectionSet("req-cp", { content: "xiaolai" });
+    await handleSelectionSet("req-cp", { content: "xiaolai" }, TEST_WRITE_CONTEXT);
 
-    const cps = useMcpStore
-      .getState()
-      .checkpointList({ filePath: "/notes.md" });
-    expect(cps).toHaveLength(1);
-    expect(cps[0]).toMatchObject({
-      tabId: "t-cp",
-      filePath: "/notes.md",
-      tool: "selection.set",
-    });
-    // contentBefore is captured from a fresh serialize of the live
-    // editor (not the documentStore string), so it has the canonical
-    // trailing newline the markdown serializer produces.
-    expect(cps[0].contentBefore).toBe("Hello world\n");
+    // The preimage is the store's text when it holds the tab, the live
+    // editor's serialization otherwise.
+    expect(agentJournalFake.prepareControlledWrite).toHaveBeenCalledWith(
+      expect.objectContaining({ docKey: "path:/notes.md", tool: "selection.set" }),
+    );
+    expect(agentJournalFake.doc("path:/notes.md").text).toContain("xiaolai");
   });
 });
 
@@ -365,7 +356,7 @@ describe("vmark.selection.set — source mode", () => {
     seedTab("t-src-set", "Hello world", null);
     makeCm("Hello world", 6, 11); // Selects "world".
 
-    await handleSelectionSet("req-src-set", { content: "code" });
+    await handleSelectionSet("req-src-set", { content: "code" }, TEST_WRITE_CONTEXT);
 
     const r = lastRespond();
     expect(r.success).toBe(true);
@@ -381,7 +372,7 @@ describe("vmark.selection.set — source mode", () => {
     await handleSelectionSet("req-src-stale", {
       content: "x",
       expected_revision: "rev-OLDOLDOL",
-    });
+    }, TEST_WRITE_CONTEXT);
     const r = lastRespond();
     expect(r.success).toBe(false);
     expect(parseStructuredError(r.error)).toMatchObject({ error: "STALE" });
@@ -392,7 +383,7 @@ describe("vmark.selection.set — source mode", () => {
     useUIStore.setState({ sourceMode: true });
     // No source view injected.
 
-    await handleSelectionSet("req-src-noed", { content: "y" });
+    await handleSelectionSet("req-src-noed", { content: "y" }, TEST_WRITE_CONTEXT);
     const r = lastRespond();
     expect(r.success).toBe(false);
     expect(parseStructuredError(r.error)).toMatchObject({
@@ -449,7 +440,7 @@ describe("vmark.selection — branch coverage", () => {
     seedTab("t-del", "Hello world", null);
     makeTiptap("<p>Hello world</p>", 7, 12); // "world"
 
-    await handleSelectionSet("req-del", { content: "" });
+    await handleSelectionSet("req-del", { content: "" }, TEST_WRITE_CONTEXT);
     const r = lastRespond();
     expect(r.success).toBe(true);
     // Trailing space remains: "Hello "
@@ -462,7 +453,7 @@ describe("vmark.selection — branch coverage", () => {
     seedTab("t-md", "Hello world", null);
     makeTiptap("<p>Hello world</p>", 7, 12);
 
-    await handleSelectionSet("req-md", { content: "**brave**" });
+    await handleSelectionSet("req-md", { content: "**brave**" }, TEST_WRITE_CONTEXT);
     const r = lastRespond();
     expect(r.success).toBe(true);
     expect(useDocumentStore.getState().documents["t-md"].content).toContain(
@@ -478,7 +469,7 @@ describe("vmark.selection — branch coverage", () => {
 
     await handleSelectionSet("req-blocks", {
       content: "# Heading\n\nNew paragraph",
-    });
+    }, TEST_WRITE_CONTEXT);
     const r = lastRespond();
     expect(r.success).toBe(true);
     const content = useDocumentStore.getState().documents["t-blocks"].content;
@@ -526,7 +517,7 @@ describe("vmark.selection — branch coverage", () => {
     seedTab("t-src-collapsed", "abcdef", null);
     makeCm("abcdef", 3, 3); // Cursor between "abc" and "def".
 
-    await handleSelectionSet("req-src-collapsed", { content: "X" });
+    await handleSelectionSet("req-src-collapsed", { content: "X" }, TEST_WRITE_CONTEXT);
     const r = lastRespond();
     expect(r.success).toBe(true);
     expect(useDocumentStore.getState().documents["t-src-collapsed"].content).toBe(
@@ -540,7 +531,7 @@ describe("vmark.selection — branch coverage", () => {
     makeTiptap("<p>Hello world</p>", 7, 12);
 
     // A heading-prefixed string forces the block-marker regex branch.
-    await handleSelectionSet("req-heading", { content: "# Title\n\nbody" });
+    await handleSelectionSet("req-heading", { content: "# Title\n\nbody" }, TEST_WRITE_CONTEXT);
     const r = lastRespond();
     expect(r.success).toBe(true);
     const content = useDocumentStore.getState().documents["t-heading"].content;
@@ -553,7 +544,7 @@ describe("vmark.selection — branch coverage", () => {
 
     // "- item" has no blank line; only the second block-marker regex
     // (line 129 of selection.ts) flags it as markdown.
-    await handleSelectionSet("req-list", { content: "- item" });
+    await handleSelectionSet("req-list", { content: "- item" }, TEST_WRITE_CONTEXT);
     const r = lastRespond();
     expect(r.success).toBe(true);
   });
@@ -565,7 +556,7 @@ describe("vmark.selection — branch coverage", () => {
     await handleSelectionSet("req-explicit", {
       tabId: "t-explicit",
       content: "everyone",
-    });
+    }, TEST_WRITE_CONTEXT);
     const r = lastRespond();
     expect(r.success).toBe(true);
     expect(useDocumentStore.getState().documents["t-explicit"].content).toContain(
@@ -580,7 +571,7 @@ describe("vmark.selection — branch coverage", () => {
     await handleSelectionSet("req-set-mismatch", {
       tabId: "t-other",
       content: "y",
-    });
+    }, TEST_WRITE_CONTEXT);
     const r = lastRespond();
     expect(r.success).toBe(false);
     expect(parseStructuredError(r.error)).toMatchObject({
@@ -594,7 +585,7 @@ describe("vmark.selection — branch coverage", () => {
 
     // *brave* should be parsed as italic, not inserted as literal text
     // with surrounding asterisks. The em mark serializes back to *brave*.
-    await handleSelectionSet("req-em", { content: "*brave*" });
+    await handleSelectionSet("req-em", { content: "*brave*" }, TEST_WRITE_CONTEXT);
     const r = lastRespond();
     expect(r.success).toBe(true);
     const content = useDocumentStore.getState().documents["t-em"].content;
@@ -607,7 +598,7 @@ describe("vmark.selection — branch coverage", () => {
 
     // A single unpaired asterisk in plain text should NOT be treated as
     // markdown — the heuristic only matches paired *foo*.
-    await handleSelectionSet("req-star", { content: "5*4 result" });
+    await handleSelectionSet("req-star", { content: "5*4 result" }, TEST_WRITE_CONTEXT);
     const r = lastRespond();
     expect(r.success).toBe(true);
     const content = useDocumentStore.getState().documents["t-star"].content;
@@ -622,7 +613,7 @@ describe("vmark.selection — branch coverage", () => {
     // handler must reject it rather than crashing on a torn-down view.
     tiptapEditor = null; // prevent the afterEach from double-destroying
 
-    await handleSelectionSet("req-destroyed", { content: "y" });
+    await handleSelectionSet("req-destroyed", { content: "y" }, TEST_WRITE_CONTEXT);
     const r = lastRespond();
     expect(r.success).toBe(false);
     expect(parseStructuredError(r.error)).toMatchObject({
@@ -652,7 +643,7 @@ describe("vmark.selection — branch coverage", () => {
     seedTab("t-current", "Hello world", null);
     makeTiptap("<p>Hello world</p>", 7, 12, "t-stale");
 
-    await handleSelectionSet("req-cross-tab", { content: "x" });
+    await handleSelectionSet("req-cross-tab", { content: "x" }, TEST_WRITE_CONTEXT);
     const r = lastRespond();
     expect(r.success).toBe(false);
     expect(parseStructuredError(r.error)).toMatchObject({

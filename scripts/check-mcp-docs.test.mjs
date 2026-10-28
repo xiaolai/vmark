@@ -201,6 +201,6 @@ describe("the shipped surface", () => {
     expect(names.length).toBeGreaterThan(10);
     expect(actions.find((a) => a.action === "act")?.tool).toBe("browser");
     expect(actions.find((a) => a.action === "workflow_status")?.tool).toBe("browser_read");
-    expect(new Set(actions.map((a) => a.tool)).size).toBe(9);
+    expect(new Set(actions.map((a) => a.tool)).size).toBe(10);
   });
 });

@@ -150,17 +150,36 @@ export type BridgeRequest =
       workspace_root: string;
     }
   | {
+      type: 'vmark.comments.list';
+      tabId?: string;
+    }
+  | {
+      type: 'vmark.comments.mark_addressed';
+      commentId: string;
+      expectedCommentGen: string;
+      tabId?: string;
+    }
+  | {
+      type: 'vmark.comments.reply';
+      body: string;
+      commentId: string;
+      expectedCommentGen: string;
+      tabId?: string;
+    }
+  | {
       type: 'vmark.document.read';
       tabId?: string;
     }
   | {
       type: 'vmark.document.transform';
+      addresses?: string[];
       expected_revision?: string;
       kind: string;
       tabId?: string;
     }
   | {
       type: 'vmark.document.write';
+      addresses?: string[];
       content: string;
       expected_revision?: string;
       save?: boolean;
@@ -172,6 +191,7 @@ export type BridgeRequest =
     }
   | {
       type: 'vmark.selection.set';
+      addresses?: string[];
       content: string;
       expected_revision?: string;
       tabId?: string;
@@ -182,6 +202,7 @@ export type BridgeRequest =
     }
   | {
       type: 'vmark.workflow.apply_patch';
+      addresses?: string[];
       expected_revision?: string;
       patches: unknown[];
       tabId?: string;

@@ -49,5 +49,18 @@
   "pdf.pageNumbers.format.verbose": "Page 7 sur 12",
   "pdf.warning.outline-failed": "le sommaire latéral",
   "pdf.warning.page-numbers-failed": "les numéros de page",
-  "pdf.pageNumbers.verboseTemplate": "Page {n} sur {total}"
+  "pdf.pageNumbers.verboseTemplate": "Page {n} sur {total}",
+  "gitJournal.pickTitle": "Choisir le dossier du dépôt Git",
+  "gitJournal.done_one": "{{count}} commit exporté vers {{branch}}",
+  "gitJournal.done_other": "{{count}} commits exportés vers {{branch}}",
+  "gitJournal.upToDate": "{{branch}} est déjà à jour",
+  "gitJournal.error.GIT_MISSING": "Git est introuvable. Installez Git puis réessayez.",
+  "gitJournal.error.NO_HISTORY": "Ce document n’a pas encore d’historique des modifications à exporter.",
+  "gitJournal.error.NOT_A_REPOSITORY": "Le dossier choisi ne se trouve dans aucun dépôt Git.",
+  "gitJournal.error.INVALID_REQUEST": "La demande d’exportation n’était pas valide.",
+  "gitJournal.error.EXPORT_CONFLICT": "La branche d’exportation a changé depuis la dernière exportation. Déplacez-la ou supprimez-la, puis exportez à nouveau.",
+  "gitJournal.error.UNRELATED_BRANCH": "Une branche de ce nom existe déjà et n’est pas l’export VMark de ce document.",
+  "gitJournal.error.BRANCH_CHECKED_OUT": "La branche d’exportation est extraite dans un worktree. Basculez d’abord ce worktree sur une autre branche.",
+  "gitJournal.error.GIT_FAILED": "Git a signalé une erreur pendant l’exportation. Consultez le journal pour les détails.",
+  "gitJournal.error.JOURNAL_ERROR": "L’historique des modifications n’a pas pu être lu pour l’exportation."
 }

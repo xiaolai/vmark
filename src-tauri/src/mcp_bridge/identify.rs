@@ -16,6 +16,11 @@
 //!     written to the log (`peer_text.rs` is the rule);
 //!   - a name that is empty once sanitized is refused: it names nothing, and
 //!     storing it would blank the client's row;
+//!   - an optional `sessionLabel` names the client's current session for
+//!     grouping its edits. It is validated, not sanitized: one over the byte
+//!     limit or holding control characters refuses the WHOLE identify with a
+//!     structured error reply, and the stored identity is left as it was
+//!     (`attribution.rs` is the rule);
 //!   - `clients-changed` is emitted only after the stored identity actually
 //!     CHANGED. It used to fire for an identify naming an unknown client id,
 //!     and again for every repeat of an identity already stored — the frontend
@@ -23,12 +28,16 @@
 //!
 //! @coordinates-with mcp_bridge/server.rs — the envelope dispatcher
 //! @coordinates-with peer_text.rs — the bound and the escaping
+//! @coordinates-with mcp_bridge/attribution.rs — the session-label rule
 //! @module mcp_bridge::identify
 
 use tauri::AppHandle;
 use tauri::Emitter;
 
+use super::attribution::validate_session_label;
+use super::delivery::send_error_response;
 use super::managed::bridge;
+use super::server::client_sender;
 use super::types::ClientIdentity;
 use crate::peer_text::{peer_label, peer_text};
 
@@ -36,7 +45,10 @@ use crate::peer_text::{peer_label, peer_text};
 const CLIENTS_CHANGED: &str = "mcp-bridge:clients-changed";
 
 /// Handle the `identify` message a client sends after connecting.
+///
+/// `msg_id` is the envelope id, used only to correlate a refusal reply.
 pub(super) async fn handle_identify<R: tauri::Runtime>(
+    msg_id: &str,
     payload: serde_json::Value,
     client_id: u64,
     app: &AppHandle<R>,
@@ -48,7 +60,18 @@ pub(super) async fn handle_identify<R: tauri::Runtime>(
             return;
         }
     };
-    let Some(identity) = sanitize(identity) else {
+    let session_label = match validate_session_label(identity.session_label.as_deref()) {
+        Ok(label) => label,
+        Err(refusal) => {
+            log::warn!("[MCP Bridge] Client {client_id} identify refused: {refusal}");
+            refuse(app, client_id, msg_id, &refusal).await;
+            return;
+        }
+    };
+    let Some(identity) = sanitize(ClientIdentity {
+        session_label,
+        ..identity
+    }) else {
         log::warn!("[MCP Bridge] Client {client_id} sent an identify with no usable name");
         return;
     };
@@ -59,8 +82,21 @@ pub(super) async fn handle_identify<R: tauri::Runtime>(
     }
 }
 
-/// Bound and strip the client-supplied fields; `None` when nothing usable is
-/// left of the name.
+/// Answer a refused identify on the client's own channel. Before session
+/// labels an identify was never answered; a refusal must be, or the client
+/// cannot learn its label was not applied.
+async fn refuse<R: tauri::Runtime>(app: &AppHandle<R>, client_id: u64, msg_id: &str, error: &str) {
+    let bridge = bridge(app);
+    // One lookup for every envelope handler (`server::client_sender`); an
+    // identify whose client has gone is dropped, as other envelopes are.
+    if let Some(tx) = client_sender(bridge, client_id).await {
+        send_error_response(bridge, client_id, &tx, msg_id, error).await;
+    }
+}
+
+/// Bound and strip the client-supplied name and version; `None` when nothing
+/// usable is left of the name. The session label passes through unchanged —
+/// it was validated, not sanitized, before this.
 fn sanitize(identity: ClientIdentity) -> Option<ClientIdentity> {
     let name = peer_label(&identity.name);
     if name.trim().is_empty() {
@@ -73,6 +109,7 @@ fn sanitize(identity: ClientIdentity) -> Option<ClientIdentity> {
             .as_deref()
             .map(peer_label)
             .filter(|v| !v.trim().is_empty()),
+        session_label: identity.session_label,
     })
 }
 
@@ -88,13 +125,12 @@ async fn store<R: tauri::Runtime>(
         log::debug!("[MCP Bridge] identify for client {client_id}, which is not connected");
         return false;
     };
-    let shown = identity.display_name();
-    if client.identity.as_ref().map(ClientIdentity::display_name) == Some(shown.clone()) {
+    if client.identity.as_ref() == Some(&identity) {
         return false;
     }
     log::debug!(
         "[MCP Bridge] Client {client_id} identified as {}",
-        peer_text(&shown)
+        peer_text(&identity.display_name())
     );
     client.identity = Some(identity);
     true
@@ -103,3 +139,8 @@ async fn store<R: tauri::Runtime>(
 #[cfg(test)]
 #[path = "identify.test.rs"]
 mod tests;
+
+// Mock-runtime tests: `tauri::test` does not exist on Windows.
+#[cfg(all(test, not(target_os = "windows")))]
+#[path = "identify_attribution.test.rs"]
+mod attribution_tests;

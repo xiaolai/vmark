@@ -1,6 +1,10 @@
 // Behavior coverage for the MCP bridge entry hook. Specifically:
 //   - listener registration on mount, teardown on unmount (unlisten + heartbeat)
+//   - the listener is scoped to this webview window, never the global
+//     target-Any listen that hears requests routed to other windows
 //   - Strict Mode guard: unmount before listen() resolves still cleans up
+//   - a refused registration is retried with bounded backoff; after the last
+//     attempt the failure is logged and the heartbeat stops claiming liveness
 //   - heartbeat cadence (5s) and swallowed heartbeat failures
 //   - event dispatch: args_json / argsJson / missing-args parsing into handleRequest
 //   - malformed payloads dropped loudly, never dispatched, never responded to
@@ -9,6 +13,8 @@
 //     get the cached response re-sent (real requestDedup + real respond —
 //     assertions land on the outbound `mcp_bridge_respond` invoke payload)
 //   - handler rejections contained (logged, no unhandled rejection)
+//   - attribution: forwarded validated and frozen; a missing or malformed one
+//     is refused with success:false and never dispatched under a default
 
 import { renderHook } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -17,9 +23,9 @@ type BridgeHandler = (event: { payload: unknown }) => void;
 
 const {
   mockListen,
+  mockGlobalListen,
   mockInvoke,
   mockHandleRequest,
-  mockHydrateCheckpoints,
   mockBridgeLog,
   mockBridgeError,
   handlerBox,
@@ -29,17 +35,24 @@ const {
   };
   return {
     mockListen: vi.fn(),
-    mockInvoke: vi.fn(async () => undefined),
-    mockHandleRequest: vi.fn(async () => undefined),
-    mockHydrateCheckpoints: vi.fn(async () => undefined),
+    mockGlobalListen: vi.fn((..._args: unknown[]) => Promise.resolve(() => {})),
+    mockInvoke: vi.fn<(...args: unknown[]) => Promise<unknown>>(async () => undefined),
+    mockHandleRequest: vi.fn<(...args: unknown[]) => Promise<void>>(async () => undefined),
     mockBridgeLog: vi.fn(),
     mockBridgeError: vi.fn(),
     handlerBox,
   };
 });
 
+vi.mock("@tauri-apps/api/webviewWindow", () => ({
+  getCurrentWebviewWindow: () => ({
+    label: "doc-0",
+    listen: (...args: unknown[]) => mockListen(...args),
+  }),
+}));
+
 vi.mock("@tauri-apps/api/event", () => ({
-  listen: (...args: unknown[]) => mockListen(...args),
+  listen: (...args: unknown[]) => mockGlobalListen(...args),
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({
@@ -50,18 +63,18 @@ vi.mock("@/services/mcpBridge/handleRequest", () => ({
   handleRequest: (...args: unknown[]) => mockHandleRequest(...args),
 }));
 
-vi.mock("@/stores/mcpCheckpointPersistence", () => ({
-  hydrateCheckpoints: (...args: unknown[]) => mockHydrateCheckpoints(...args),
-}));
-
 vi.mock("@/utils/debug", () => ({
   mcpBridgeLog: (...args: unknown[]) => mockBridgeLog(...args),
   mcpBridgeError: (...args: unknown[]) => mockBridgeError(...args),
 }));
 
-import { useMcpBridge } from "./useMcpBridge";
+import { LISTEN_ATTEMPTS, LISTEN_RETRY_MS, useMcpBridge } from "./useMcpBridge";
 import { respond } from "@/services/mcpBridge/utils";
 import { resetRequestDedup } from "@/services/mcpBridge/requestDedup";
+import envelopeFixture from "@/test/fixtures/mcpRequestEnvelope.json";
+
+/** A valid attribution, as Rust generates it (the provider-state envelope). */
+const ATTRIBUTION = envelopeFixture.envelopes.provider.attribution;
 
 const defaultUnlisten = vi.fn();
 
@@ -79,11 +92,21 @@ async function mountBridge() {
   return utils;
 }
 
-/** Deliver an event to the captured `mcp-bridge:request` handler. */
-function deliver(payload: unknown): void {
+/** Deliver an event to the captured `mcp-bridge:request` handler, exactly as given. */
+function deliverRaw(payload: unknown): void {
   const handler = handlerBox.current;
   if (!handler) throw new Error("No mcp-bridge:request handler captured");
   handler({ payload });
+}
+
+/**
+ * Deliver an event; an object payload without an `attribution` key gets the
+ * Rust-generated one, because the real bridge never emits a request without it.
+ */
+function deliver(payload: unknown): void {
+  const needsAttribution =
+    typeof payload === "object" && payload !== null && !("attribution" in payload);
+  deliverRaw(needsAttribution ? { ...payload, attribution: ATTRIBUTION } : payload);
 }
 
 /** All outbound `mcp_bridge_respond` payloads, in call order. */
@@ -113,7 +136,6 @@ beforeEach(() => {
   handlerBox.current = null;
   mockInvoke.mockResolvedValue(undefined);
   mockHandleRequest.mockResolvedValue(undefined);
-  mockHydrateCheckpoints.mockResolvedValue(undefined);
   mockListen.mockImplementation((_event: unknown, handler: unknown) => {
     handlerBox.current = handler as BridgeHandler;
     return Promise.resolve(defaultUnlisten);
@@ -125,12 +147,14 @@ afterEach(() => {
 });
 
 describe("useMcpBridge — registration and teardown", () => {
-  it("registers a single mcp-bridge:request listener and hydrates checkpoints on mount", async () => {
+  it("registers a single mcp-bridge:request listener on mount", async () => {
     await mountBridge();
 
     expect(mockListen).toHaveBeenCalledTimes(1);
     expect(mockListen).toHaveBeenCalledWith("mcp-bridge:request", expect.any(Function));
-    expect(mockHydrateCheckpoints).toHaveBeenCalledTimes(1);
+    // A global listen matches every emit target, so this window would also
+    // run requests Rust routed to another window.
+    expect(mockGlobalListen).not.toHaveBeenCalled();
   });
 
   it("calls unlisten on unmount", async () => {
@@ -168,6 +192,70 @@ describe("useMcpBridge — registration and teardown", () => {
       expect.any(Error),
     );
     expect(() => unmount()).not.toThrow(); // unlisten stayed undefined
+  });
+});
+
+describe("useMcpBridge — listener registration retry", () => {
+  const refuse = () => Promise.reject(new Error("no ipc"));
+  const accept = (_event: unknown, handler: unknown) => {
+    handlerBox.current = handler as BridgeHandler;
+    return Promise.resolve(defaultUnlisten);
+  };
+
+  it("retries a refused registration and serves requests once it registers", async () => {
+    vi.useFakeTimers();
+    mockListen.mockImplementationOnce(refuse).mockImplementationOnce(refuse).mockImplementation(accept);
+    renderHook(() => useMcpBridge());
+    await vi.advanceTimersByTimeAsync(0);
+    expect(handlerBox.current).toBeNull();
+    await vi.advanceTimersByTimeAsync(LISTEN_RETRY_MS);
+    expect(mockListen).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(LISTEN_RETRY_MS); // backed off: twice as long
+    expect(mockListen).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(LISTEN_RETRY_MS);
+    expect(mockListen).toHaveBeenCalledTimes(3);
+    deliver({ id: "req-late", type: "vmark.document.read", args_json: "{}" });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(mockHandleRequest).toHaveBeenCalledTimes(1);
+  });
+
+  it("gives up after a bounded number of attempts, says so, and stops claiming the webview is alive", async () => {
+    vi.useFakeTimers();
+    mockListen.mockImplementation(refuse);
+    renderHook(() => useMcpBridge());
+    await vi.advanceTimersByTimeAsync(10 * 60_000);
+    expect(mockListen).toHaveBeenCalledTimes(LISTEN_ATTEMPTS);
+    expect(mockBridgeError).toHaveBeenCalledWith(
+      expect.stringMatching(/cannot serve requests/i),
+      expect.any(Error),
+    );
+    const beats = mockInvoke.mock.calls.filter(([cmd]) => cmd === "mcp_bridge_heartbeat").length;
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(mockInvoke.mock.calls.filter(([cmd]) => cmd === "mcp_bridge_heartbeat").length).toBe(beats);
+  });
+
+  it("an unmount during the backoff makes no further attempt", async () => {
+    vi.useFakeTimers();
+    mockListen.mockImplementation(refuse);
+    const { unmount } = renderHook(() => useMcpBridge());
+    await vi.advanceTimersByTimeAsync(0);
+    unmount();
+    await vi.advanceTimersByTimeAsync(10 * 60_000);
+    expect(mockListen).toHaveBeenCalledTimes(1);
+  });
+
+  it("a registration that lands after unmount is released at once", async () => {
+    vi.useFakeTimers();
+    let land: (fn: () => void) => void = () => undefined;
+    mockListen.mockImplementationOnce(refuse).mockImplementationOnce(() => new Promise((r) => (land = r)));
+    const { unmount } = renderHook(() => useMcpBridge());
+    await vi.advanceTimersByTimeAsync(LISTEN_RETRY_MS);
+    expect(mockListen).toHaveBeenCalledTimes(2);
+    unmount();
+    const late = vi.fn();
+    land(late);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(late).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -223,6 +311,7 @@ describe("useMcpBridge — request dispatch", () => {
       id: "req-1",
       type: "vmark.document.read",
       args: { path: "a.md", limit: 2 },
+      attribution: ATTRIBUTION,
     });
   });
 
@@ -236,6 +325,7 @@ describe("useMcpBridge — request dispatch", () => {
       id: "req-2",
       type: "vmark.selection.get",
       args: { mode: "apply" },
+      attribution: ATTRIBUTION,
     });
   });
 
@@ -265,16 +355,17 @@ describe("useMcpBridge — request dispatch", () => {
       id: "req-4",
       type: "vmark.session.get_state",
       args: {},
+      attribution: ATTRIBUTION,
     });
   });
 
   it("drops malformed payloads loudly — no dispatch, no response", async () => {
     await mountBridge();
 
-    deliver(null);
-    deliver("not an object");
-    deliver({ id: "no-type" });
-    deliver({ id: 42, type: "vmark.document.read" });
+    deliverRaw(null);
+    deliverRaw("not an object");
+    deliverRaw({ id: "no-type" });
+    deliverRaw({ id: 42, type: "vmark.document.read" });
     await flushMicrotasks();
 
     expect(mockHandleRequest).not.toHaveBeenCalled();
@@ -296,6 +387,40 @@ describe("useMcpBridge — request dispatch", () => {
     expect(respondPayloads()).toEqual([
       { id: "req-bad-json", success: false, error: "Invalid JSON in request args" },
     ]);
+  });
+
+  it("forwards the attribution frozen, as its own copy", async () => {
+    await mountBridge();
+
+    deliver({ id: "req-attr", type: "vmark.document.read", args_json: "{}" });
+    await flushMicrotasks();
+
+    const forwarded = (mockHandleRequest.mock.calls[0] as unknown[])[0] as {
+      attribution: unknown;
+    };
+    expect(forwarded.attribution).toEqual(ATTRIBUTION);
+    expect(forwarded.attribution).not.toBe(ATTRIBUTION);
+    expect(Object.isFrozen(forwarded.attribution)).toBe(true);
+  });
+
+  it.each([
+    ["missing", undefined],
+    ["a collapsed 'unknown' principal", { ...ATTRIBUTION, principal: { kind: "unknown" } }],
+    ["keyed by the client counter", { ...ATTRIBUTION, connectionId: "7" }],
+  ])("refuses a request whose attribution is %s — never dispatched under a default", async (_l, attribution) => {
+    await mountBridge();
+
+    deliverRaw({ id: "req-no-attr", type: "vmark.document.write", args_json: "{}", attribution });
+    await flushMicrotasks();
+
+    expect(mockHandleRequest).not.toHaveBeenCalled();
+    expect(respondPayloads()).toEqual([
+      { id: "req-no-attr", success: false, error: "Invalid request attribution" },
+    ]);
+    expect(mockBridgeError).toHaveBeenCalledWith(
+      "Refusing MCP request with invalid attribution:",
+      "req-no-attr",
+    );
   });
 
   it("contains a failing respond() on the invalid-JSON path (fire-and-forget, logged)", async () => {

@@ -18,6 +18,14 @@
  *     store, or a newer load may have been queued behind it; running it then
  *     would leave the editor showing a document the store no longer holds,
  *     with nothing left to sync them. A load applied at once is not asked.
+ *   - Every load attempt advances the editor's load generation — a sync the
+ *     parser refuses included — and a waiting load runs only if none came
+ *     after it. A refused sync loads nothing, but the store has moved past
+ *     the waiting load's text all the same.
+ *   - A load that waits remembers what the editor held before it (the
+ *     tracking value the caller had). When a refused sync drops it unrun,
+ *     the tracking ref goes back to that value: left naming the dropped
+ *     text, it would make a later sync of the same text look already loaded.
  *   - The transaction carries `preventUpdate`: a load, not a user edit.
  *   - The write marks the editor as holding its document (`contentApplied`)
  *     when it dispatches, not when it is asked for: until then a flush would
@@ -28,7 +36,8 @@
  * @coordinates-with TiptapEditor.tsx — the initial load
  * @coordinates-with useTiptapContentSync.ts — the store→editor sync
  * @coordinates-with useTiptapFlush.ts — the flush that can supersede a waiting load
- * @coordinates-with contentApplied.ts — records that a load has been written
+ * @coordinates-with services/editor/contentApplied.ts — records that a load has been written
+ * @coordinates-with services/agentJournal/collectors/wysiwyg/wysiwygCollector.ts — told of each load once written
  * @module components/Editor/tiptapContentLoad
  */
 import type { MutableRefObject } from "react";
@@ -38,7 +47,46 @@ import { parseMarkdown } from "@/utils/markdownPipeline";
 import { getTiptapEditorView } from "@/services/editor/tiptapView";
 import { reportUnparseableDocument } from "@/services/editor/unparseableDocument";
 import { type GatedWrite, writeWhenCompositionSettles } from "@/services/ime/compositionWriteGate";
-import { markContentApplied } from "./contentApplied";
+import { noteWysiwygLoaded } from "@/services/agentJournal/collectors/wysiwyg/wysiwygCollector";
+import { markContentApplied } from "@/services/editor/contentApplied";
+
+/** Load attempts per editor; a waiting load runs only if it is the latest. */
+const loadGenerations = new WeakMap<TiptapEditor, number>();
+
+/**
+ * The load waiting behind a composition on each editor: its attempt, the text
+ * it loads, and the tracking value naming what the editor held before it
+ * (`undefined` when the caller did not say).
+ */
+interface WaitingLoad {
+  generation: number;
+  markdown: string | undefined;
+  previous: string | undefined;
+}
+const waitingLoads = new WeakMap<TiptapEditor, WaitingLoad>();
+
+/** The waiting load on `editor` if it is still the latest attempt (so has not run or been dropped). */
+function latestWaitingLoad(editor: TiptapEditor): WaitingLoad | undefined {
+  const waiting = waitingLoads.get(editor);
+  return waiting && waiting.generation === loadGenerations.get(editor) ? waiting : undefined;
+}
+
+/**
+ * What the editor holds, as a tracking value: `tracked`, unless that names a
+ * load still waiting, which the editor does not hold yet — then what it held
+ * before that load.
+ */
+function heldBefore(editor: TiptapEditor, tracked: string | undefined): string | undefined {
+  const waiting = latestWaitingLoad(editor);
+  return waiting && tracked !== undefined && tracked === waiting.markdown ? waiting.previous : tracked;
+}
+
+/** Start a load attempt on `editor`, superseding any still waiting. */
+function nextLoadGeneration(editor: TiptapEditor): number {
+  const generation = (loadGenerations.get(editor) ?? 0) + 1;
+  loadGenerations.set(editor, generation);
+  return generation;
+}
 
 /**
  * Set editor content without adding to undo history.
@@ -46,33 +94,50 @@ import { markContentApplied } from "./contentApplied";
  * so we use a direct ProseMirror transaction with addToHistory: false.
  *
  * Returns `"deferred"` when an IME composition made the load wait; it then
- * runs once the composition has settled, if `stillWanted()` still says so.
+ * runs once the composition has settled, if no later load was attempted and
+ * `stillWanted()` still says so.
+ *
+ * `markdown`, when given, is the text `doc` was parsed from: once the editor
+ * holds the load, the agent edit journal's collector anchors there.
+ *
+ * `previous`, when given, is the caller's tracking value before this load: a
+ * refused sync that drops the load unrun restores it (see syncMarkdownToEditor).
  */
 export function setContentWithoutHistory(
   editor: TiptapEditor,
   doc: PMNode,
   stillWanted: () => boolean = () => true,
+  markdown?: string,
+  previous?: string,
 ): GatedWrite {
+  const applied = () => {
+    markContentApplied(editor);
+    if (markdown !== undefined) noteWysiwygLoaded(editor, markdown);
+  };
   const view = getTiptapEditorView(editor);
   if (!view) {
     // Fallback to standard setContent if view not available
     editor.commands.setContent(doc, { emitUpdate: false });
-    markContentApplied(editor);
+    applied();
     return "applied";
   }
 
+  const held = heldBefore(editor, previous);
+  const generation = nextLoadGeneration(editor);
   let waited = false;
   const outcome = writeWhenCompositionSettles(view, () => {
-    if (waited && !stillWanted()) return;
+    if (waitingLoads.get(editor)?.generation === generation) waitingLoads.delete(editor);
+    if (waited && (loadGenerations.get(editor) !== generation || !stillWanted())) return;
     const { state } = view;
     const tr = state.tr
       .replaceWith(0, state.doc.content.size, doc.content)
       .setMeta("addToHistory", false)
       .setMeta("preventUpdate", true); // Don't emit update event
     view.dispatch(tr);
-    markContentApplied(editor);
+    applied();
   });
   waited = outcome === "deferred";
+  if (waited) waitingLoads.set(editor, { generation, markdown, previous: held });
   return outcome;
 }
 
@@ -87,7 +152,9 @@ export function setContentWithoutHistory(
  *
  * A document that cannot be parsed is reported for `tabId`: the editor
  * keeps its old content, and an edit there would overwrite the new text on
- * the next flush, so it goes to Source mode with a message instead.
+ * the next flush, so it goes to Source mode with a message instead. It still
+ * supersedes any load waiting behind a composition; if the tracking ref names
+ * that dropped load, it goes back to what the editor held before it.
  */
 export function syncMarkdownToEditor(
   editor: TiptapEditor,
@@ -103,10 +170,18 @@ export function syncMarkdownToEditor(
       editor,
       doc,
       () => lastExternalContent.current === markdown,
+      markdown,
+      lastExternalContent.current,
     );
     lastExternalContent.current = markdown;
     return outcome === "applied";
   } catch (error) {
+    const dropped = latestWaitingLoad(editor);
+    if (dropped?.previous !== undefined && lastExternalContent.current === dropped.markdown) {
+      lastExternalContent.current = dropped.previous;
+    }
+    waitingLoads.delete(editor);
+    nextLoadGeneration(editor);
     reportUnparseableDocument(tabId, error);
     return false;
   }

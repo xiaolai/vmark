@@ -88,7 +88,6 @@ VMark 採用跨模型驗證 — Claude 撰寫程式碼，然後 Codex（OpenAI �
 | `/codex-commit` | 從變更分析智能生成提交訊息 |
 | `/audit-fix` | 稽核、修復所有發現、驗證 — 重複至乾淨為止 |
 | `/feature-workflow` | 端對端帶關卡工作流程，搭配專業代理 |
-| `/release-gate` | 執行完整品質關卡並產生報告 |
 | `/merge-prs` | 依序審閱並合併開放中的 PR |
 | `/bump` | 在所有 5 個檔案中升級版本、提交、標記、推送 |
 

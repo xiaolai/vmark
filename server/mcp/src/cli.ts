@@ -23,7 +23,7 @@
  * lockstep with the app is the five-file `sed` in the bump procedure
  * (`.claude/rules/40-version-bump.md`). Edit it only through that procedure.
  */
-const VERSION = '0.9.103';
+const VERSION = '0.9.105';
 
 /**
  * WHY `process.exitCode` AND NOT `process.exit()` ON THESE PATHS.
@@ -37,16 +37,6 @@ const VERSION = '0.9.103';
  * write complete; nothing on either path holds a handle open, and
  * `__tests__/unit/cli.test.ts` asserts both terminate with the full payload.
  */
-const WANTS_VERSION = process.argv.includes('--version') || process.argv.includes('-v');
-const WANTS_HEALTH_CHECK = process.argv.includes('--health-check');
-
-if (WANTS_VERSION) {
-  console.log(VERSION);
-  process.exitCode = 0;
-} else if (WANTS_HEALTH_CHECK) {
-  void runHealthCheck(VERSION);
-}
-
 import { createVMarkMcpServer } from './index.js';
 import { runHealthCheck } from './utils/healthCheck.js';
 import { SERVER_INSTRUCTIONS } from './instructions.js';
@@ -54,6 +44,7 @@ import { WebSocketBridge } from './bridge/websocket.js';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { detectClientIdentity, readClientToken } from './utils/clientIdentity.js';
+import { withSessionLabel } from './utils/sessionLabel.js';
 import { createToolHandler } from './utils/mcpAdapters.js';
 import { readPortFromFile, createAuthTokenResolver, parsePort } from './utils/portFile.js';
 import { createShutdownHandler, registerShutdownTriggers } from './utils/shutdown.js';
@@ -61,7 +52,9 @@ import { createShutdownHandler, registerShutdownTriggers } from './utils/shutdow
 /**
  * Parse command line arguments.
  *
- * Returns only the explicit --port override (undefined otherwise). Port-file
+ * Returns the mode the invocation asks for — `--version`/`-v` wins over
+ * `--health-check`, and neither starts the server — and the explicit --port
+ * override (undefined otherwise). Port-file
  * discovery is deliberately NOT folded in here: the bridge re-reads the port
  * file on every connection attempt via its portResolver, so a VMark restart
  * (new OS-assigned port + new auth token) is picked up automatically. A
@@ -71,12 +64,26 @@ import { createShutdownHandler, registerShutdownTriggers } from './utils/shutdow
  * used to be dropped silently, and the bridge then fell back to port-file
  * DISCOVERY — connecting to whichever instance published the port file, i.e.
  * the one the override was steering away from.
+ *
+ * Every other argument is a usage error too, for the same reason: a mistyped
+ * override (`--prot 9223`, `--port=9223`) was skipped and the bridge fell back
+ * to discovery. The whole argv is validated BEFORE any mode runs, the one-shot
+ * modes included: `--version --prot 9223` is the same typo, and answering it
+ * with exit 0 tells the caller its override was understood.
  */
-function parseArgs(argv: string[] = process.argv.slice(2)): { port: number | undefined } {
+function parseArgs(argv: string[] = process.argv.slice(2)): { mode: Mode; port: number | undefined } {
   let cliPort: number | undefined;
+  let mode: Mode = 'serve';
 
   for (let i = 0; i < argv.length; i++) {
-    if (argv[i] !== '--port') continue;
+    const oneShot = ONE_SHOT_FLAGS.get(argv[i]);
+    if (oneShot !== undefined) {
+      if (mode !== 'version') mode = oneShot;
+      continue;
+    }
+    if (argv[i] !== '--port') {
+      throw new UsageError(`unknown argument ${JSON.stringify(argv[i])} (usage: vmark-mcp-server [--port <1-65535>])`);
+    }
     const raw = argv[i + 1];
     if (raw === undefined || raw.startsWith('--')) {
       throw new UsageError('--port requires a value (1-65535)');
@@ -94,8 +101,18 @@ function parseArgs(argv: string[] = process.argv.slice(2)): { port: number | und
     i++;
   }
 
-  return { port: cliPort };
+  return { mode, port: cliPort };
 }
+
+/** What one invocation does: serve MCP over stdio, or answer once and exit. */
+type Mode = 'serve' | 'version' | 'health-check';
+
+/** The one-shot mode flags and the mode each selects. */
+const ONE_SHOT_FLAGS: ReadonlyMap<string, Mode> = new Map([
+  ['--version', 'version'],
+  ['-v', 'version'],
+  ['--health-check', 'health-check'],
+]);
 
 /** A bad invocation, not a runtime failure: the caller exits 64. */
 class UsageError extends Error {}
@@ -119,16 +136,9 @@ const logger = {
 /**
  * Main entry point.
  */
-async function main(): Promise<void> {
-  let port: number | undefined;
-  try {
-    ({ port } = parseArgs());
-  } catch (error) {
-    if (!(error instanceof UsageError)) throw error;
-    console.error(`[VMark MCP] ${error.message}`);
-    process.exit(64);
-  }
-  const clientIdentity = detectClientIdentity();
+async function main(port: number | undefined): Promise<void> {
+  // The guessed display name plus the user's VMARK_SESSION_LABEL, if valid.
+  const clientIdentity = withSessionLabel(detectClientIdentity(), process.env, logger.warn);
 
   // Create WebSocket bridge to connect to VMark.
   // Port and auth token are re-resolved from the port file on each connection
@@ -229,13 +239,36 @@ process.on('uncaughtException', (error) => {
   process.exit(1);
 });
 
-// The server runs only when neither one-shot mode was asked for. Both of those
-// now set `process.exitCode` and return rather than calling `process.exit()`
-// (see the note beside them), so this guard — not an immediate exit — is what
-// keeps main() from starting underneath them.
-if (!WANTS_VERSION && !WANTS_HEALTH_CHECK) {
-  main().catch((error) => {
-    console.error('[VMark MCP Server] Fatal error:', error);
-    process.exit(1);
-  });
+/**
+ * Dispatch on the parsed invocation. A usage error exits 64 before any mode
+ * runs. The one-shot modes set `process.exitCode` and return rather than
+ * calling `process.exit()` (see the note beside VERSION), so this switch — not
+ * an immediate exit — is what keeps main() from starting underneath them.
+ */
+function dispatch(): void {
+  let args: ReturnType<typeof parseArgs>;
+  try {
+    args = parseArgs();
+  } catch (error) {
+    if (!(error instanceof UsageError)) throw error;
+    console.error(`[VMark MCP] ${error.message}`);
+    process.exitCode = 64;
+    return;
+  }
+  switch (args.mode) {
+    case 'version':
+      console.log(VERSION);
+      process.exitCode = 0;
+      return;
+    case 'health-check':
+      void runHealthCheck(VERSION);
+      return;
+    case 'serve':
+      main(args.port).catch((error) => {
+        console.error('[VMark MCP Server] Fatal error:', error);
+        process.exit(1);
+      });
+  }
 }
+
+dispatch();

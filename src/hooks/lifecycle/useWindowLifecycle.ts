@@ -2,16 +2,14 @@
  * useWindowLifecycle — per-window window-chrome + resilience composite (T03).
  *
  * Bundles the window-level concerns: close handler, title sync, file
- * watcher, hot-exit capture/restore, crash-recovery writer/cleanup,
- * MCP bridge. After T07 lands, the four crash/hot-exit hooks merge
- * into `useDocumentResilience` and this composite stays as the single
- * window-lifecycle entry point.
+ * watcher, document resilience (hot-exit capture/restore plus the
+ * crash-recovery writer and cleanup, composed by `useDocumentResilience`),
+ * the MCP bridge and its connection reads, and the live-docs responder.
  *
- * Order contract (preserved from pre-T03 DocumentWindowHooks):
+ * Order contract (the calls below, in this order):
  *   useWindowClose → useWindowTitle → useWindowFileWatcher
- *   → useHotExitCapture → useHotExitRestore
- *   → useCrashRecoveryWriter → useCrashRecoveryCleanup
- *   → useMcpBridge
+ *   → useDocumentResilience → useMcpBridge → useMcpConnectionReads
+ *   → useLiveDocsResponder
  *
  * Mount conditionally — same constraint as `useDocumentLifecycle`:
  * call from a child component that mounts only when `isDocumentWindow`
@@ -25,6 +23,7 @@ import { useWindowTitle } from "@/hooks/useWindowTitle";
 import { useWindowFileWatcher } from "@/hooks/useWindowFileWatcher";
 import { useDocumentResilience } from "@/hooks/resilience";
 import { useMcpBridge } from "@/hooks/useMcpBridge";
+import { useMcpConnectionReads } from "@/hooks/useMcpConnectionReads";
 import { useLiveDocsResponder } from "@/hooks/useLiveDocsResponder";
 
 export function useWindowLifecycle(): void {
@@ -33,5 +32,6 @@ export function useWindowLifecycle(): void {
   useWindowFileWatcher();
   useDocumentResilience(); // T07: capture + restore + snapshot writer + cleanup
   useMcpBridge();
+  useMcpConnectionReads(); // drop a closed MCP client's tracked reads
   useLiveDocsResponder(); // answer other windows' cleanup queries
 }

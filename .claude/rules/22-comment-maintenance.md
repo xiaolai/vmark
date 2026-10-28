@@ -48,12 +48,6 @@ Rust files carry `//!` module docs. Files with a `Purpose:` line or `//!` docs a
 | Add a new edge case handler | Add `@edge-case` inline comment |
 | Rename a file | Update `@module` path and any `@coordinates-with` references in other files |
 
-## When NOT to Update Comments
-
-- Drive-by comment updates in files you didn't modify — don't touch unrelated files
-- Whitespace-only or import-order changes — no doc change needed
-- Test file changes — test files don't have maintenance comments
-
 ## Citations in Comments (enforced: `pnpm lint:provenance-ids`)
 
 A comment says why the code is the way it is, and the reason must be readable from a fresh clone at any later time. In production comments under `src/`, `src-tauri/src/`, `server/`, `e2e/`, `scripts/` and `.claude/hooks/`:
@@ -65,12 +59,4 @@ A comment says why the code is the way it is, and the reason must be readable fr
 
 A citation that wraps across consecutive `//` lines is read as one run, so wrapping does not hide it.
 
-## Comment Rot Prevention
-
-- Never write comments that reference line numbers, dates, or author names
-- Never leave `// TODO` without a concrete description of what needs doing
-- If you notice a stale comment while editing, fix it in the same commit
-
-## Quick Check
-
-Before committing, scan your changed files for `Purpose:` headers and verify they still accurately describe what the file does.
+Never reference line numbers or authors in a comment, and never leave a `TODO` without saying concretely what needs doing.

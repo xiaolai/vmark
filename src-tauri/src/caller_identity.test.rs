@@ -134,3 +134,50 @@ fn a_window_registers_only_its_own_workspace_with_the_bridge() {
     assert_eq!(registered.get("doc-1").map(String::as_str), Some("/ws"));
     assert_eq!(registered.get("doc-2"), None, "doc-1 registered for doc-2");
 }
+
+/// A window publishes ITS tabs to the bridge. Claiming another window's tab
+/// would route requests naming that tab to the caller; an oversized list is
+/// refused rather than stored.
+#[test]
+fn a_window_registers_only_its_own_tabs_with_the_bridge() {
+    let app = app_with(tauri::generate_handler![
+        crate::mcp_bridge::commands::mcp_bridge_set_window_tabs
+    ]);
+    app.manage(McpBridgeState::default());
+    let caller = window(&app, "doc-1");
+
+    let answer = invoke_from(
+        &caller,
+        "mcp_bridge_set_window_tabs",
+        json!({ "windowLabel": "doc-2", "tabIds": ["tab-a", "tab-b"] }),
+    );
+    assert!(answer.is_ok(), "{answer:?}");
+
+    let too_many: Vec<String> = (0..=crate::mcp_bridge::commands::MAX_WINDOW_TABS)
+        .map(|i| format!("tab-{i}"))
+        .collect();
+    let refused = invoke_from(
+        &caller,
+        "mcp_bridge_set_window_tabs",
+        json!({ "tabIds": too_many }),
+    );
+    assert!(refused.is_err(), "an oversized tab list was accepted");
+
+    let registered = tauri::async_runtime::block_on(async {
+        app.state::<McpBridgeState>()
+            .lock()
+            .await
+            .window_tabs
+            .clone()
+    });
+    assert_eq!(
+        registered.get("doc-1").cloned(),
+        Some(vec!["tab-a".to_string(), "tab-b".to_string()]),
+        "the refused list replaced the stored one, or the caller's list was not stored"
+    );
+    assert_eq!(
+        registered.get("doc-2"),
+        None,
+        "doc-1 registered tabs for doc-2"
+    );
+}

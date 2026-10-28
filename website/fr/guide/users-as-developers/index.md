@@ -88,7 +88,6 @@ Les commandes slash donnent à l'IA des capacités spécialisées :
 | `/codex-commit` | Messages de commit intelligents à partir de l'analyse des changements |
 | `/audit-fix` | Auditer, corriger tous les résultats, vérifier — répéter jusqu'à obtenir un résultat propre |
 | `/feature-workflow` | Flux de travail complet avec des agents spécialisés |
-| `/release-gate` | Exécuter les contrôles qualité complets et produire un rapport |
 | `/merge-prs` | Examiner et fusionner les PRs ouvertes séquentiellement |
 | `/bump` | Mise à jour de version dans les 5 fichiers, commit, tag, push |
 

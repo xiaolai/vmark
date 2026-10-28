@@ -10,7 +10,8 @@
  *    Frontend listeners (useUnifiedMenuCommands, services/commands/menuListener)
  *    filter on payload === windowLabel, and broadcast emit() reaches
  *    window-scoped listeners (verified live).
- *  - App automation surface: `emit("mcp-bridge:request", {id, type, args_json})`
+ *  - App automation surface: `emit("mcp-bridge:request", {id, type, args_json,
+ *    attribution})`
  *    drives the app's own v2 MCP tool handlers (src/hooks/mcpBridge/v2/) —
  *    workspace.new / workspace.close / workspace.switch_tab. Responses go to
  *    Rust (`__TAURI_INTERNALS__.invoke` is non-writable, so they cannot be
@@ -26,6 +27,7 @@
  *  - No native dialogs are ever triggered (they would block the app).
  */
 
+import { randomUUID } from "node:crypto";
 import { evalJs } from "./bridge.mjs";
 
 const DEFAULT_TIMEOUT_MS = 15000;
@@ -75,6 +77,19 @@ export function emitMenu(client, menuId, windowLabel = "main") {
 }
 
 let mcpSeq = 0;
+
+/**
+ * The attribution the Rust bridge attaches to every request, which the hook
+ * refuses a request without. A journey presents no credential, so it is the
+ * `anonymous` principal, on one connection id for the whole run.
+ */
+const JOURNEY_ATTRIBUTION = Object.freeze({
+  principal: { kind: "anonymous" },
+  connectionId: randomUUID(),
+  sessionLabel: null,
+  displayName: "e2e-journey",
+});
+
 /**
  * Fire a request at the app's own v2 MCP bridge surface. Fire-and-observe:
  * the response goes to Rust, so callers must assert effects via the DOM.
@@ -84,6 +99,7 @@ export function mcpFire(client, type, args) {
     id: `e2e-journey-${Date.now()}-${++mcpSeq}`,
     type,
     args_json: JSON.stringify(args ?? {}),
+    attribution: JOURNEY_ATTRIBUTION,
   };
   return emitEvent(client, "mcp-bridge:request", payload);
 }
@@ -273,6 +289,11 @@ export async function closeTabById(client, tabId, { force = false } = {}) {
  * force-closed (by id), and the originally active tab is re-activated.
  * Finally asserts the tab bar matches the initial snapshot and throws if the
  * journey leaked state.
+ *
+ * The final comparison runs whether or not the journey failed: a failing
+ * journey is exactly the one most likely to leak a tab, and its error alone
+ * would hide that. Every teardown problem is reported; when the journey also
+ * failed, its error leads the message and is kept as the `cause`.
  */
 export async function withTabRestore(client, fn) {
   const before = await getTabs(client);
@@ -290,6 +311,7 @@ export async function withTabRestore(client, fn) {
   } catch (err) {
     journeyError = err;
   }
+  const teardown = [];
 
   // Settle before closing: the WYSIWYG surface serializes editor → document
   // store on an adaptive debounce (>=100ms). Closing a tab with a pending
@@ -305,7 +327,7 @@ export async function withTabRestore(client, fn) {
     try {
       await closeTabById(client, tabId, { force: true });
     } catch (err) {
-      journeyError ??= new Error(`teardown failed for tab ${tabId}: ${err.message}`);
+      teardown.push(`teardown failed for tab ${tabId}: ${err.message}`);
     }
   }
   if (originalActive) {
@@ -315,18 +337,26 @@ export async function withTabRestore(client, fn) {
         await switchToTab(client, originalActive.id);
       }
     } catch (err) {
-      journeyError ??= new Error(`failed to restore active tab: ${err.message}`);
+      teardown.push(`failed to restore active tab: ${err.message}`);
     }
   }
 
-  if (journeyError) throw journeyError;
-
-  const after = await getTabs(client);
-  if (JSON.stringify(after) !== JSON.stringify(before)) {
-    throw new Error(
-      `journey leaked tab state.\n  before: ${JSON.stringify(before)}\n  after:  ${JSON.stringify(after)}`
-    );
+  try {
+    const after = await getTabs(client);
+    if (JSON.stringify(after) !== JSON.stringify(before)) {
+      teardown.push(`journey leaked tab state.\n  before: ${JSON.stringify(before)}\n  after:  ${JSON.stringify(after)}`);
+    }
+  } catch (err) {
+    teardown.push(`could not read the final tab bar: ${err.message}`);
   }
+
+  if (teardown.length === 0) {
+    if (journeyError) throw journeyError;
+    return;
+  }
+  if (!journeyError) throw new Error(teardown.join("\n"));
+  const lead = journeyError instanceof Error ? journeyError.message : String(journeyError);
+  throw new Error(`${lead}\nand teardown found:\n${teardown.join("\n")}`, { cause: journeyError });
 }
 
 // ---------------------------------------------------------------------------

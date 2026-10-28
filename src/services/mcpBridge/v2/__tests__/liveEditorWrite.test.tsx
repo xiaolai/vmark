@@ -30,7 +30,7 @@ import { statefulFs } from "@/test/statefulFsFake";
 import { ROOT, doc, openDocInTab } from "@/test/tier0/harness";
 import { useEditorStore } from "@/stores/editorStore";
 import { useRevisionStore } from "@/stores/documentStore";
-import { useMcpStore } from "@/stores/mcpStore";
+import { agentJournalFake } from "@/test/agentJournalFake";
 import { serializeMarkdown } from "@/utils/markdownPipeline";
 import { getSerializeOptions } from "@/plugins/toolbarActions/wysiwygAdapterUtils";
 import { TiptapEditorInner } from "@/components/Editor/TiptapEditor";
@@ -38,6 +38,7 @@ import { handleDocumentRead, handleDocumentWrite } from "@/services/mcpBridge/v2
 import { handleSelectionGet, handleSelectionSet } from "@/services/mcpBridge/v2/selection";
 import { handleWorkspaceSave } from "@/services/mcpBridge/v2/workspaceSave";
 import { resetBridge, responseTo, structuredErrorOf } from "./bridgeDiskHarness";
+import { TEST_WRITE_CONTEXT } from "@/test/mcpAttributionFixture";
 
 const DOC = `${ROOT}/notes.md`;
 /** Markdown the editor re-serializes differently: `*` bullets, `_`/`__` marks. */
@@ -135,7 +136,7 @@ describe("document.write into the live WYSIWYG tab", () => {
     const { tabId } = await openInLiveEditor(ORIGINAL);
 
     await act(async () => {
-      await handleDocumentWrite("req-w", { tabId, content: CLIENT_TEXT });
+      await handleDocumentWrite("req-w", { tabId, content: CLIENT_TEXT }, TEST_WRITE_CONTEXT);
     });
 
     expect(writeData("req-w").saved).toBe(true);
@@ -150,7 +151,7 @@ describe("document.write into the live WYSIWYG tab", () => {
     const { tabId } = await openInLiveEditor(ORIGINAL);
 
     await act(async () => {
-      await handleDocumentWrite("req-w", { tabId, content: CLIENT_TEXT });
+      await handleDocumentWrite("req-w", { tabId, content: CLIENT_TEXT }, TEST_WRITE_CONTEXT);
     });
 
     const { revision } = writeData("req-w");
@@ -164,7 +165,7 @@ describe("document.write into the live WYSIWYG tab", () => {
   it("accepts the next write that presents the returned revision", async () => {
     const { tabId } = await openInLiveEditor(ORIGINAL);
     await act(async () => {
-      await handleDocumentWrite("req-1", { tabId, content: CLIENT_TEXT });
+      await handleDocumentWrite("req-1", { tabId, content: CLIENT_TEXT }, TEST_WRITE_CONTEXT);
     });
     await settleEditor();
 
@@ -173,7 +174,7 @@ describe("document.write into the live WYSIWYG tab", () => {
         tabId,
         content: "# Second\n\nbody\n",
         expected_revision: writeData("req-1").revision,
-      });
+      }, TEST_WRITE_CONTEXT);
     });
 
     expect(structuredErrorOf(responseTo("req-2"))).toBeNull();
@@ -185,7 +186,7 @@ describe("document.write into the live WYSIWYG tab", () => {
     const { tabId, editor } = await openInLiveEditor(ORIGINAL);
 
     await act(async () => {
-      await handleDocumentWrite("req-w", { tabId, content: CLIENT_TEXT });
+      await handleDocumentWrite("req-w", { tabId, content: CLIENT_TEXT }, TEST_WRITE_CONTEXT);
     });
     await settleEditor();
 
@@ -202,7 +203,7 @@ describe("document.write into the live WYSIWYG tab", () => {
     const { tabId } = await openInLiveEditor("\u{FEFF}first\r\n\r\nsecond\r\n");
 
     await act(async () => {
-      await handleDocumentWrite("req-w", { tabId, content: "first\n\nsecond\n\nthird\n" });
+      await handleDocumentWrite("req-w", { tabId, content: "first\n\nsecond\n\nthird\n" }, TEST_WRITE_CONTEXT);
     });
     await settleEditor();
 
@@ -214,7 +215,7 @@ describe("document.write into the live WYSIWYG tab", () => {
     const { tabId } = await openInLiveEditor(ORIGINAL);
 
     await act(async () => {
-      await handleDocumentWrite("req-w", { tabId, content: CLIENT_TEXT, save: false });
+      await handleDocumentWrite("req-w", { tabId, content: CLIENT_TEXT, save: false }, TEST_WRITE_CONTEXT);
     });
     const data = writeData("req-w");
     await settleEditor();
@@ -230,7 +231,7 @@ describe("document.write into the live WYSIWYG tab", () => {
     const before = editorMarkdown(editor);
 
     await act(async () => {
-      await handleDocumentWrite("req-w", { tabId, content: CLIENT_TEXT });
+      await handleDocumentWrite("req-w", { tabId, content: CLIENT_TEXT }, TEST_WRITE_CONTEXT);
     });
     await settleEditor();
     expect(editorMarkdown(editor)).not.toBe(before);
@@ -258,7 +259,7 @@ describe("keystrokes the editor has not flushed yet", () => {
         tabId,
         content: "replaced\n",
         expected_revision: revisionBeforeTyping,
-      });
+      }, TEST_WRITE_CONTEXT);
     });
 
     expect(structuredErrorOf(responseTo("req-w"))?.error).toBe("STALE");
@@ -266,20 +267,20 @@ describe("keystrokes the editor has not flushed yet", () => {
     expect(doc(tabId).content).toBe("hello world\n");
   });
 
-  it("are in the checkpoint a blind write leaves behind, and do not re-dirty it", async () => {
+  it("are in the journaled preimage a blind write replaces, and do not re-dirty it", async () => {
     const { tabId, editor } = await openInLiveEditor("hello\n");
 
     typeAtEnd(editor, " world");
     await act(async () => {
-      await handleDocumentWrite("req-w", { tabId, content: "replaced\n" });
+      await handleDocumentWrite("req-w", { tabId, content: "replaced\n" }, TEST_WRITE_CONTEXT);
     });
     const { revision } = writeData("req-w");
     await settleEditor();
 
-    const checkpoints = useMcpStore.getState().checkpointList({ filePath: DOC });
-    expect(checkpoints).toHaveLength(1);
     // The user's unflushed typing is recoverable, not silently discarded.
-    expect(checkpoints[0].contentBefore).toBe("hello world\n");
+    expect(agentJournalFake.prepareControlledWrite).toHaveBeenCalledWith(
+      expect.objectContaining({ docKey: `path:${DOC}`, preimage: "hello world\n" }),
+    );
     expect(doc(tabId).content).toBe("replaced\n");
     expect(doc(tabId).isDirty).toBe(false);
     expect(currentRevision(tabId)).toBe(revision);
@@ -290,7 +291,7 @@ describe("keystrokes the editor has not flushed yet", () => {
 
     typeAtEnd(editor, " world");
     await act(async () => {
-      await handleDocumentRead("req-r", { tabId });
+      await handleDocumentRead("req-r", { tabId }, TEST_WRITE_CONTEXT);
     });
 
     const data = responseTo("req-r").data as { content: string; revision: string; dirty: boolean };
@@ -317,7 +318,7 @@ describe("keystrokes the editor has not flushed yet", () => {
 
     expect(currentRevision(tabId)).toBe(data.revision);
     await act(async () => {
-      await handleSelectionSet("req-s", { content: "!", expected_revision: data.revision });
+      await handleSelectionSet("req-s", { content: "!", expected_revision: data.revision }, TEST_WRITE_CONTEXT);
     });
     expect(structuredErrorOf(responseTo("req-s"))).toBeNull();
   });
@@ -327,7 +328,7 @@ describe("keystrokes the editor has not flushed yet", () => {
 
     typeAtEnd(editor, " world");
     await act(async () => {
-      await handleWorkspaceSave("req-s", { tabId });
+      await handleWorkspaceSave("req-s", { tabId }, TEST_WRITE_CONTEXT);
     });
     await settleEditor();
 
@@ -345,7 +346,7 @@ describe("selection.set into the live WYSIWYG tab", () => {
     });
 
     await act(async () => {
-      await handleSelectionSet("req-sel", { content: "HELLO" });
+      await handleSelectionSet("req-sel", { content: "HELLO" }, TEST_WRITE_CONTEXT);
     });
     const data = responseTo("req-sel").data as { revision: string; replaced_chars: number };
 
@@ -363,13 +364,13 @@ describe("selection.set into the live WYSIWYG tab", () => {
       editor.commands.setTextSelection({ from: 1, to: 6 });
     });
     await act(async () => {
-      await handleSelectionSet("req-sel", { content: "HELLO" });
+      await handleSelectionSet("req-sel", { content: "HELLO" }, TEST_WRITE_CONTEXT);
     });
     await settleEditor();
     const { revision } = responseTo("req-sel").data as { revision: string };
 
     await act(async () => {
-      await handleDocumentWrite("req-w", { tabId, content: "done\n", expected_revision: revision });
+      await handleDocumentWrite("req-w", { tabId, content: "done\n", expected_revision: revision }, TEST_WRITE_CONTEXT);
     });
 
     expect(structuredErrorOf(responseTo("req-w"))).toBeNull();

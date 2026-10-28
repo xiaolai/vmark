@@ -1,0 +1,121 @@
+/* ┌─────────────────────────────────────────────────────────────┐ */
+/* │ Review panel — the agent changes still to review, inside    │ */
+/* │ the MCP history popover. Section chrome and notes reuse     │ */
+/* │ mcp-history.css; buttons are the shared .popup-icon-btn and │ */
+/* │ .vm-btn, which carry their own focus bar.                   │ */
+/* └─────────────────────────────────────────────────────────────┘ */
+
+/* Full backlog: agent writes are refused until the person reviews. */
+.review-panel__banner {
+  margin: 0 var(--space-2) var(--space-1);
+  padding: var(--space-1-5) var(--space-2);
+  border: var(--border-thin) solid var(--warning-border);
+  border-radius: var(--radius-sm);
+  background: var(--warning-bg);
+  color: var(--text-color);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-snug);
+}
+
+/* The windowed list: a fixed-height viewport over a canvas as tall as
+   every row, rows placed absolutely at index × row height. */
+.review-list {
+  overflow-y: auto;
+  margin: 0 var(--space-1);
+}
+
+.review-list__canvas {
+  position: relative;
+}
+
+.review-list__row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.review-panel__group {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  height: 100%;
+  padding: var(--space-1) var(--space-2);
+  box-sizing: border-box;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.review-panel__group > .mcp-history-popover__note {
+  padding: 0;
+  font-weight: normal;
+}
+
+.review-hunk {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100%;
+  padding: var(--space-1) var(--space-2);
+  box-sizing: border-box;
+  border-radius: var(--radius-sm);
+  transition: background var(--duration-base);
+}
+
+.review-hunk:hover {
+  background: var(--hover-bg);
+}
+
+.review-hunk__main {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.review-hunk__label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-sm);
+  color: var(--text-color);
+}
+
+.review-hunk__actions {
+  display: inline-flex;
+  gap: var(--space-half);
+  flex-shrink: 0;
+}
+
+.review-hunk__note {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.review-hunk__note--warning {
+  color: var(--warning-color);
+}
+
+.review-panel__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+}
+
+.review-panel__counts {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  min-width: 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}

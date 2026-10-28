@@ -488,7 +488,8 @@ La barra di stato corre lungo il fondo della finestra (`F7` la nasconde). Il lat
 | Lint | ⊗ errori o ⚠ avvisi trovati dall'ultima esecuzione del [lint](#lint-markdown); nascosto quando non ce ne sono | Salta al problema successivo |
 | IA | Mentre un genie è in esecuzione, *In elaborazione...* con i secondi trascorsi e una × per annullare; poi *Fatto*, oppure l'errore con **Riprova**, che esegue di nuovo la richiesta fallita, e **Ignora**; Riprova non compare quando non c'è nulla da ripetere, per esempio senza provider | — |
 | MCP | Un'icona a forma di satellite, colorata quando un client IA è connesso; la parola *off*, *…* o *error* quando non è in esecuzione normalmente. Il tooltip indica i client connessi | Apre **Impostazioni → Integrazioni** |
-| Cronologia MCP | Le scritture dell'IA in questa scheda, dalla più recente, ciascuna con **Ripristina allo stato precedente a questa scrittura**; un pulsante cestino cancella la cronologia della scheda senza chiedere | Apre l'elenco |
+| Listener MCP | Un avviso, *MCP non disponibile in questa finestra*, quando il listener delle richieste di questa finestra non è riuscito ad avviarsi dopo tutti i tentativi: i client di IA non raggiungono questa finestra, anche se il server MCP è in esecuzione. Riavvia VMark per riprovare | — |
+| Cronologia MCP | Un'icona della cronologia con il numero di versioni IA del documento attivo, in colore di avviso quando le sue modifiche non vengono registrate; il pannello mostra chi ha fatto ogni versione, con **Ripristina questa versione** e **Ripristina lo stato precedente a questa modifica**, oltre ai [Checkpoint precedenti](/it/guide/mcp-setup#checkpoint-delle-modifiche) | Apre il pannello |
 | Terminale | — | Mostra o nasconde il terminale |
 | Modalità | La modalità corrente — Sorgente o WYSIWYG (nascosta per i file di workflow di GitHub Actions) | Cambia modalità |
 | Lucchetto | Se il documento è in sola lettura | Attiva/disattiva la sola lettura |

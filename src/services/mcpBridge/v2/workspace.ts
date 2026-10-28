@@ -139,7 +139,7 @@ export async function handleWorkspaceClose(
     }
     // Keystrokes the editor has not handed to the store yet are unsaved work:
     // without them the tab reads as clean and the close would drop them.
-    flushLiveEditors();
+    flushLiveEditors(tab.id);
     const doc = useDocumentStore.getState().documents[tab.id];
     const localContent = doc?.isDirty ? "DIRTY" : doc?.isDivergent ? "DIVERGENT" : null;
     if (localContent && wire.force !== true) {

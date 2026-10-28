@@ -70,6 +70,41 @@ describe("manualChunks — special pins (checked before node_modules dispatch)",
   });
 });
 
+describe("manualChunks — agentJournalProvenance (the provenance core, by exact basename)", () => {
+  const DIR = "/repo/src/services/agentJournal/provenance";
+
+  it.each(["session", "pieces", "accumulator", "payload", "codec", "window", "epochLease", "certificates", "intervals"])(
+    "pins the provenance core module %s.ts to agentJournalProvenance",
+    (base) => {
+      expect(manualChunks(`${DIR}/${base}.ts`)).toBe("agentJournalProvenance");
+    },
+  );
+
+  it.each([
+    // Tests and test helpers never ship, and must not match by accident.
+    `${DIR}/__tests__/session.test.ts`,
+    `${DIR}/__tests__/spanMapping.ts`,
+    `${DIR}/session.test.ts`,
+    // Type-only: erased at build, so pinning it would only widen the match.
+    `${DIR}/sessionTypes.ts`,
+    // Near-miss names: the match is the exact basename, not a prefix.
+    `${DIR}/sessionX.ts`,
+    `${DIR}/xsession.ts`,
+    `${DIR}/session.tsx`,
+    `${DIR}/session.ts?raw`,
+    // The sessions layer reaches stores, persistence and journal services —
+    // pinning it would drag that subtree into the chunk.
+    "/repo/src/services/agentJournal/provenanceSessions.ts",
+    "/repo/src/services/agentJournal/collectors/sourceCollector.ts",
+    // Same basename elsewhere in the tree.
+    "/repo/src/services/agentJournal/session.ts",
+    "/repo/src/services/other/provenance/session.ts",
+    pnpmId("provenance", "provenance/session.ts"),
+  ])("leaves %s out of agentJournalProvenance", (id) => {
+    expect(manualChunks(id)).not.toBe("agentJournalProvenance");
+  });
+});
+
 describe("manualChunks — CodeMirror core vs lazily-loaded grammars", () => {
   it.each([
     "@codemirror/state",

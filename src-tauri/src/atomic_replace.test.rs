@@ -299,3 +299,39 @@ fn a_transient_sharing_conflict_on_the_target_is_ridden_out() {
 
     assert_eq!(fs::read_to_string(&target).unwrap(), "NEW");
 }
+
+/// The Windows no-replace core (`files::write`, Save As to a distinct
+/// destination): a file already at the target when the rename runs is never
+/// replaced, its bytes are kept, and no temp file is left behind.
+#[test]
+fn atomic_create_refuses_an_existing_target_and_keeps_its_bytes() {
+    let dir = tempdir().unwrap();
+    let target = dir.path().join("taken.md");
+    fs::write(&target, "theirs").unwrap();
+
+    let err = atomic_create(&target, dir.path(), b"ours").expect_err("must not replace");
+
+    match err {
+        AtomicReplaceError::Persist(e) => {
+            assert_eq!(e.error.kind(), std::io::ErrorKind::AlreadyExists)
+        }
+        other => panic!("expected a refused publication, got {other:?}"),
+    }
+    assert_eq!(fs::read_to_string(&target).unwrap(), "theirs");
+    assert_eq!(
+        fs::read_dir(dir.path()).unwrap().count(),
+        1,
+        "no temp file left"
+    );
+}
+
+#[test]
+fn atomic_create_publishes_an_absent_target() {
+    let dir = tempdir().unwrap();
+    let target = dir.path().join("新しい.md");
+
+    atomic_create(&target, dir.path(), "内容".as_bytes()).unwrap();
+
+    assert_eq!(fs::read_to_string(&target).unwrap(), "内容");
+    assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 1);
+}

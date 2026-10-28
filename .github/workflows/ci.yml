@@ -454,9 +454,10 @@ jobs:
               - 'scripts/check-cargo-audit.mjs'
               - 'scripts/cargo-audit-baseline.json'
               # Files outside src-tauri that the crate reads. The first seven
-              # are compiled into the binary with include_str!; the last two
-              # are read by Rust tests that pin a frontend contract (the
-              # CommandError wire shape, the PDF export progress keys). A pull
+              # are compiled into the binary with include_str!; the rest are
+              # read by Rust tests that pin a frontend contract (the
+              # CommandError wire shape, the PDF export progress keys, the MCP
+              # request envelope, the agent-journal fixtures). A pull
               # request that edits only one of them changes what `cargo test`
               # does, so it must run. The list is derived from the Rust
               # sources by scripts/check-rust-filter-inputs.test.mjs, which
@@ -471,6 +472,11 @@ jobs:
               - 'src/lib/browser/agent/recorderShimSensitivity.src.js'
               - 'src/test/fixtures/commandErrorWire.json'
               - 'src/export/PdfExportDialog.tsx'
+              - 'src/test/fixtures/mcpRequestEnvelope.json'
+              - 'src/test/fixtures/agentJournal/commentAnchorGoldens.json'
+              - 'src/test/fixtures/agentJournal/legacyCheckpoints.jsonl'
+              - 'src/test/fixtures/agentJournal/provenance.json'
+              - 'src/test/fixtures/agentJournal/unicode.json'
             # True when any changed file is NOT prose — i.e. false only for a
             # docs-only PR. The exclusions are an explicit allowlist, not
             # `!**/*.md`, and that distinction is the whole safety argument:

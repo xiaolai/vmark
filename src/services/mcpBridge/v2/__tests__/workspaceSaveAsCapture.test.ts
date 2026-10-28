@@ -24,6 +24,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { hasPendingSave, matchesPendingSave } from "@/utils/pendingSaves";
 import { handleWorkspaceSaveAs } from "@/services/mcpBridge/v2/workspaceSaveAs";
 import { captures, resetBridge, responseTo, type CaptureCall } from "./bridgeDiskHarness";
+import { TEST_WRITE_CONTEXT } from "@/test/mcpAttributionFixture";
 
 const TARGET = `${ROOT}/story/new.md`;
 
@@ -53,7 +54,7 @@ describe("workspace.save_as follows the capture-on-save policy (#152)", () => {
     });
     untitledWith("body\n");
 
-    await handleWorkspaceSaveAs("req-1", { filePath: TARGET });
+    await handleWorkspaceSaveAs("req-1", { filePath: TARGET }, TEST_WRITE_CONTEXT);
 
     expect(responseTo("req-1").success).toBe(true);
     await vi.waitFor(() => expect(captures).toHaveLength(1));
@@ -76,7 +77,7 @@ describe("workspace.save_as follows the capture-on-save policy (#152)", () => {
     setCaptureOnSave(false);
     untitledWith("draft\n");
 
-    await handleWorkspaceSaveAs("req-2", { filePath: TARGET });
+    await handleWorkspaceSaveAs("req-2", { filePath: TARGET }, TEST_WRITE_CONTEXT);
 
     expect(responseTo("req-2").success).toBe(true);
     await vi.waitFor(() => expect(captures).toHaveLength(1));
@@ -95,7 +96,7 @@ describe("workspace.save_as follows the capture-on-save policy (#152)", () => {
     });
     const tabId = untitledWith("x\n");
 
-    await handleWorkspaceSaveAs("req-3", { tabId, filePath: TARGET });
+    await handleWorkspaceSaveAs("req-3", { tabId, filePath: TARGET }, TEST_WRITE_CONTEXT);
 
     expect(responseTo("req-3").success).toBe(true);
     expect(statefulFs.read(TARGET)).toBe("x\n");
@@ -105,7 +106,7 @@ describe("workspace.save_as follows the capture-on-save policy (#152)", () => {
     statefulFs.failWrites(new Error("EACCES"));
     untitledWith("x\n");
 
-    await handleWorkspaceSaveAs("req-4", { filePath: TARGET });
+    await handleWorkspaceSaveAs("req-4", { filePath: TARGET }, TEST_WRITE_CONTEXT);
     await settle();
 
     expect(responseTo("req-4").success).toBe(false);
@@ -116,7 +117,7 @@ describe("workspace.save_as follows the capture-on-save policy (#152)", () => {
   it("does not capture when the path guard refuses", async () => {
     untitledWith("x\n");
 
-    await handleWorkspaceSaveAs("req-5", { filePath: "/elsewhere/z.md" });
+    await handleWorkspaceSaveAs("req-5", { filePath: "/elsewhere/z.md" }, TEST_WRITE_CONTEXT);
     await settle();
 
     expect(responseTo("req-5").success).toBe(false);

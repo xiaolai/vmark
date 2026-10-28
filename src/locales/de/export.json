@@ -49,5 +49,18 @@
   "pdf.pageNumbers.format.verbose": "Seite 7 von 12",
   "pdf.warning.outline-failed": "die Seitenleisten-Gliederung",
   "pdf.warning.page-numbers-failed": "Seitenzahlen",
-  "pdf.pageNumbers.verboseTemplate": "Seite {n} von {total}"
+  "pdf.pageNumbers.verboseTemplate": "Seite {n} von {total}",
+  "gitJournal.pickTitle": "Ordner des Git-Repositorys wählen",
+  "gitJournal.done_one": "{{count}} Commit nach {{branch}} exportiert",
+  "gitJournal.done_other": "{{count}} Commits nach {{branch}} exportiert",
+  "gitJournal.upToDate": "{{branch}} ist bereits auf dem neuesten Stand",
+  "gitJournal.error.GIT_MISSING": "Git wurde nicht gefunden. Installieren Sie Git und versuchen Sie es erneut.",
+  "gitJournal.error.NO_HISTORY": "Dieses Dokument hat noch keinen Bearbeitungsverlauf zum Exportieren.",
+  "gitJournal.error.NOT_A_REPOSITORY": "Der gewählte Ordner liegt in keinem Git-Repository.",
+  "gitJournal.error.INVALID_REQUEST": "Die Exportanfrage war ungültig.",
+  "gitJournal.error.EXPORT_CONFLICT": "Der Export-Branch wurde seit dem letzten Export verändert. Verschieben oder löschen Sie ihn und exportieren Sie dann erneut.",
+  "gitJournal.error.UNRELATED_BRANCH": "Ein Branch mit diesem Namen existiert bereits und ist kein VMark-Export dieses Dokuments.",
+  "gitJournal.error.BRANCH_CHECKED_OUT": "Der Export-Branch ist in einem Worktree ausgecheckt. Wechseln Sie dort zuerst zu einem anderen Branch.",
+  "gitJournal.error.GIT_FAILED": "Git hat beim Export einen Fehler gemeldet. Details stehen im Protokoll.",
+  "gitJournal.error.JOURNAL_ERROR": "Der Bearbeitungsverlauf konnte für den Export nicht gelesen werden."
 }

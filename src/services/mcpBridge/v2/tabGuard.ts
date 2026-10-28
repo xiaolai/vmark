@@ -21,7 +21,10 @@
  *     redirected.
  *   - `require*` answer the request themselves on refusal and return a falsy
  *     value, so a handler's guard is two lines and cannot forget to reply.
- *   - An empty `tabId` reads as absent, as it always has.
+ *   - An empty `tabId` reads as absent, in both scopes.
+ *   - A resolved tab carries the window that holds it: an explicit `tabId`
+ *     may name a tab in another window, whose untitled document is keyed by
+ *     that window, not the focused one.
  *
  * @coordinates-with liveEditor.ts — the flush
  * @coordinates-with stores/documentStore/revision.ts — isCurrentRevision
@@ -40,9 +43,13 @@ import type { DocumentKind, V2Error } from "./types";
 /** A tab a request resolved to, with its document as the store holds it now. */
 export interface GuardedTab {
   tabId: string;
+  /** The window that holds the tab — the key of an untitled document (`docKeyFor`). */
+  windowLabel: string;
   filePath: string | null;
   content: string;
   dirty: boolean;
+  /** The tab's revision when it was resolved. */
+  revision: string;
   kind: DocumentKind;
 }
 
@@ -69,33 +76,41 @@ const invalidTab = (message: string): V2Error => ({ error: "INVALID_TAB", messag
 
 /** Resolve the tab a request targets, or the refusal saying why not. */
 export function resolveTab(tabIdArg: string | undefined, scope: TabScope = "any"): GuardedTab | V2Error {
-  flushLiveEditors();
   const tabState = useTabStore.getState();
-  const focusedTabId = tabState.activeTabId[getCurrentWindowLabel()];
+  const focusedWindow = getCurrentWindowLabel();
+  const focusedTabId = tabState.activeTabId[focusedWindow];
+  // An empty tabId reads as absent in either scope.
+  const named = tabIdArg || undefined;
 
   let tabId: string;
+  let windowLabel = focusedWindow;
   if (scope === "focused") {
     if (!focusedTabId) return invalidTab("No focused tab");
-    if (tabIdArg !== undefined && tabIdArg !== focusedTabId) {
+    if (named !== undefined && named !== focusedTabId) {
       return invalidTab("tabId is not the focused tab; a selection exists only in the focused editor");
     }
     tabId = focusedTabId;
-  } else if (tabIdArg) {
-    const open = Object.values(tabState.tabs).some((list) => list.some((t) => t.id === tabIdArg));
-    if (!open) return invalidTab("Unknown tabId");
-    tabId = tabIdArg;
+  } else if (named) {
+    const owner = Object.entries(tabState.tabs).find(([, list]) => list.some((t) => t.id === named));
+    if (!owner) return invalidTab("Unknown tabId");
+    tabId = named;
+    windowLabel = owner[0];
   } else {
     if (!focusedTabId) return invalidTab("No focused tab");
     tabId = focusedTabId;
   }
 
+  // Before its buffer is read; throws when its editor cannot hand it over.
+  flushLiveEditors(tabId);
   const doc = useDocumentStore.getState().documents[tabId];
   if (!doc) return invalidTab("No document for tab");
   return {
     tabId,
+    windowLabel,
     filePath: doc.filePath,
     content: doc.content,
     dirty: doc.isDirty,
+    revision: useRevisionStore.getState().getRevision(tabId),
     kind: resolveKind(doc.filePath, doc.content),
   };
 }
