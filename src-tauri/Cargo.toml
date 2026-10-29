@@ -257,7 +257,11 @@ windows = { version = "=0.62.2", features = [
 # Legal without a `trayIcon` entry in tauri.conf.json: tauri-build deliberately
 # filters `tray-icon` out of its manifest-vs-config check (tauri-build 2.6,
 # src/manifest.rs), which is what permits a programmatic, target-scoped tray.
-tauri = { version = "2", features = ["tray-icon"] }
+#
+# `protocol-asset` and `macos-private-api` repeat `[dependencies]` on purpose:
+# the Tauri CLI writes the config-derived features into every `tauri` entry
+# on `tauri dev`/`build`, so leaving them out here dirties the tree each run.
+tauri = { version = "2", features = ["protocol-asset", "macos-private-api", "tray-icon"] }
 
 # RW-16 (L8): Linux Secret Service backend (best-effort platform).
 [target.'cfg(target_os = "linux")'.dependencies]
