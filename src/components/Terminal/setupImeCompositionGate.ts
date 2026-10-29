@@ -138,11 +138,17 @@ export function setupImeCompositionGate({ container, textarea }: GateOptions): I
     );
   };
 
+  // Observes keys only to tell a press-and-hold accent pick from a fresh
+  // insert (#1608); insert ownership stays write-derived.
+  const onKeydown = (e: KeyboardEvent) => machine.keydown({ key: e.key, repeat: e.repeat });
+
+  container.addEventListener("keydown", onKeydown, true);
   container.addEventListener("compositionstart", onCompositionStart, true);
   container.addEventListener("compositionend", onCompositionEnd, true);
   container.addEventListener("input", onInput, true);
 
   const cleanup = () => {
+    container.removeEventListener("keydown", onKeydown, true);
     container.removeEventListener("compositionstart", onCompositionStart, true);
     container.removeEventListener("compositionend", onCompositionEnd, true);
     container.removeEventListener("input", onInput, true);

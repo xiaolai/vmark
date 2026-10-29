@@ -11,6 +11,12 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Press-and-hold accents work in the terminal on macOS.** Holding a letter
+  and picking an accent from the popup now types just the accented letter
+  (`ü`) instead of the letter followed by the accent (`uü`) (#1608).
+
 ## [0.9.106] - 2026-10-28
 
 ### Added

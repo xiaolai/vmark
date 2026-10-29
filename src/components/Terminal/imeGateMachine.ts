@@ -31,13 +31,28 @@
  *     single-character term.paste(), whose native insert xterm preventDefaults
  *     — must not linger and swallow the next gate-owned insert. A generation
  *     token keeps a stale timer from clearing a FRESH write's claim.
+ *   - heldBase — the single letter xterm last wrote to the PTY, kept while only
+ *     press-and-hold keys follow (a repeat of that key, the picker's digits,
+ *     arrows, Enter, Escape, Shift). macOS's accent picker REPLACES the letter
+ *     before the caret, but the gate already emptied the textarea, so WebKit
+ *     has nothing to select and delivers the accent as a fresh insert (#1608).
+ *     An accented variant of heldBase is therefore committed as DEL + accent;
+ *     a picker cancelled back to the letter itself commits nothing. Any other
+ *     key, write or commit clears it, falling back to a plain commit.
  *
  * @coordinates-with setupImeCompositionGate.ts — DOM wiring, sole consumer
  * @coordinates-with resolveCommit.ts — the compositionend decision helper
  * @module components/Terminal/imeGateMachine
  */
 
+import { isAccentVariantOf } from "./accentVariant";
 import { resolveCommit } from "./resolveCommit";
+
+/** The byte xterm sends for Backspace: erases the letter the picker replaces. */
+const DEL = "\x7f";
+
+/** Keys the press-and-hold picker consumes without ending the hold. */
+const PICKER_KEY_RE = /^(?:[1-9]|Arrow(?:Left|Right|Up|Down)|Enter|Escape|Shift)$/;
 
 /** What the wiring must do in response to an event. */
 export interface GateAction {
@@ -87,6 +102,8 @@ export interface ImeGateMachine {
   expireExternalWrite(gen: number): void;
   /** Next-macrotask callback: the echo window is over. */
   clearEcho(): void;
+  /** A keydown reached the terminal; only press-and-hold keys keep heldBase. */
+  keydown(ev: { key: string; repeat: boolean }): void;
 }
 
 export function createImeGateMachine(): ImeGateMachine {
@@ -96,13 +113,17 @@ export function createImeGateMachine(): ImeGateMachine {
   let echoText: string | null = null;
   let externalWrote = false;
   let writeGeneration = 0;
+  let heldBase: string | null = null;
 
   const isEcho = (text: string) => text === echoText;
 
-  /** A decided commit: record the echo token and ask the host to clear it. */
+  /** A decided commit: record the echo token and ask the host to clear it.
+   *  An accented variant of the held letter first erases that letter. */
   const committed = (text: string, base: Omit<GateAction, "commit" | "scheduleEchoClear">) => {
+    const replacesHeld = heldBase !== null && isAccentVariantOf(heldBase, text);
+    heldBase = null;
     echoText = text;
-    return { ...base, commit: text, scheduleEchoClear: true };
+    return { ...base, commit: replacesHeld ? DEL + text : text, scheduleEchoClear: true };
   };
 
   return {
@@ -139,6 +160,12 @@ export function createImeGateMachine(): ImeGateMachine {
       // keystroke. The claim is read, not spent, so a paired insert that is
       // still coming stays dropped too.
       if (!text && eventData && (wasStarted || !externalWrote)) text = eventData;
+      // A press-and-hold picker cancelled back to the held letter: the PTY
+      // already has it.
+      if (wasStarted && text !== null && text === heldBase) {
+        heldBase = null;
+        return { ...NOTHING, clearTextarea: true };
+      }
       // T3: always clear so xterm's setTimeout(0) finalizer reads "".
       if (text && !isEcho(text)) {
         return committed(text, { clearTextarea: true, stopEvent: false });
@@ -172,6 +199,7 @@ export function createImeGateMachine(): ImeGateMachine {
 
     externalWrite(data) {
       externalWrote = isPrintableWrite(data);
+      heldBase = externalWrote ? data : null;
       return ++writeGeneration;
     },
 
@@ -181,6 +209,12 @@ export function createImeGateMachine(): ImeGateMachine {
 
     clearEcho() {
       echoText = null;
+    },
+
+    keydown({ key, repeat }) {
+      if (heldBase === null) return;
+      if (key === heldBase ? repeat : PICKER_KEY_RE.test(key)) return;
+      heldBase = null;
     },
   };
 }
