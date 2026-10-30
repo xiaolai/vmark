@@ -85,6 +85,8 @@ A tab can exist, be addressable, and still not be showing. Three fields say so:
 
 `window.focused` is the window the **user** is looking at, read from the operating system. It is not "the window that answered this request" — VMark routes a request to whichever window owns the relevant workspace, which in a multi-window session is often a different one.
 
+`windows` lists every document window — `main` and each window opened from Finder or the command line — because VMark asks all of them. When you are typing in your AI client, no VMark window holds focus and every `focused` is `false`; a request without a `tabId` or a workspace path then goes to the document window you used last, not to `main`.
+
 Treat these as the confirmation step: after `workspace.switch_tab`, a follow-up `get_state` tells you whether the tab is really in front of the user. `switch_tab` itself re-reads the stores before answering, so it reports `activated: false` when an activation did not land rather than echoing the request back.
 
 The `kind` discriminator tells you whether to use `document.write` (for markdown) or `workflow.apply_patch` (for yaml-workflow) on that tab.

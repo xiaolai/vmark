@@ -201,7 +201,7 @@ including its ADR-7, which is why `selection` came back.
 
 | Action | Purpose |
 |---|---|
-| `get_state` | One-shot discovery: `{windows, capabilities}`. Document tabs carry `{id, filePath, title, dirty, revision, kind}`; browser tabs carry `{id, kind:"browser", title, url, active, loading, automationMode}`. Replaces the legacy `get_capabilities`/`tabs.list`/`workspace.get_focused`/`workspace.list_windows`/`workspace.get_document_info` chain. |
+| `get_state` | One-shot discovery: `{windows, capabilities}`, with every document window (VMark asks each one). Document tabs carry `{id, filePath, title, dirty, revision, kind}`; browser tabs carry `{id, kind:"browser", title, url, active, loading, automationMode}`. Replaces the legacy `get_capabilities`/`tabs.list`/`workspace.get_focused`/`workspace.list_windows`/`workspace.get_document_info` chain. |
 
 ### `workspace` — file and window lifecycle (8 actions)
 

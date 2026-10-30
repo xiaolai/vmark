@@ -14,6 +14,7 @@
 //! nothing is re-sent, and stop's own "Bridge stopped" is the answer.
 //!
 //! @coordinates-with mcp_bridge/live_emit.rs — the re-send, checked under the tables lock
+//! @coordinates-with mcp_bridge/session_fanout.rs — the per-window retry of a fan-out
 //! @module mcp_bridge::wake_retry
 
 use super::delivery::fail_pending;
@@ -71,6 +72,68 @@ async fn retry_after_wake<R: tauri::Runtime>(
     response_rx: &mut oneshot::Receiver<McpResponse>,
     wake: impl std::future::Future<Output = ()>,
 ) -> Option<McpResponse> {
+    match retry_window(
+        app,
+        target_label,
+        event,
+        client_id,
+        request_type_for_log,
+        response_rx,
+        wake,
+    )
+    .await
+    {
+        Ok(response) => Some(response),
+        Err(error) => {
+            fail_pending(
+                bridge(app),
+                request_id,
+                client_id,
+                client_tx,
+                msg_id,
+                &error,
+            )
+            .await;
+            None
+        }
+    }
+}
+
+/// The wake-and-retry for one window of a fan-out (`session_fanout`): the
+/// same wake, re-send and second wait, but the failure goes back to the
+/// caller, which owns the pending entry and answers the client once for
+/// every window together.
+pub(super) async fn retry_window_after_timeout<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    target_label: &str,
+    event: &McpRequestEvent,
+    client_id: u64,
+    request_type_for_log: &str,
+    response_rx: &mut oneshot::Receiver<McpResponse>,
+) -> Result<McpResponse, String> {
+    retry_window(
+        app,
+        target_label,
+        event,
+        client_id,
+        request_type_for_log,
+        response_rx,
+        wake_webview(app, target_label),
+    )
+    .await
+}
+
+/// Wake, re-send while live, wait once more. `Err` is the message the client
+/// should be told; the pending entry is the caller's to remove.
+async fn retry_window<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    target_label: &str,
+    event: &McpRequestEvent,
+    client_id: u64,
+    request_type_for_log: &str,
+    response_rx: &mut oneshot::Receiver<McpResponse>,
+    wake: impl std::future::Future<Output = ()>,
+) -> Result<McpResponse, String> {
     // macOS App Nap or display sleep can suspend JS execution, causing the
     // frontend to miss emitted events.
     let bridge = bridge(app);
@@ -104,8 +167,7 @@ async fn retry_after_wake<R: tauri::Runtime>(
         }
     };
     if let Some(error) = refused {
-        fail_pending(bridge, request_id, client_id, client_tx, msg_id, &error).await;
-        return None;
+        return Err(error);
     }
 
     // Wait one more attempt's worth.
@@ -116,7 +178,7 @@ async fn retry_after_wake<R: tauri::Runtime>(
                 client_id,
                 crate::peer_text::peer_text(request_type_for_log)
             );
-            return Some(response);
+            return Ok(response);
         }
         Ok(Err(_)) => {
             log::warn!(
@@ -139,8 +201,7 @@ async fn retry_after_wake<R: tauri::Runtime>(
             )
         }
     };
-    fail_pending(bridge, request_id, client_id, client_tx, msg_id, &failure).await;
-    None
+    Err(failure)
 }
 
 #[cfg(all(test, not(target_os = "windows")))]

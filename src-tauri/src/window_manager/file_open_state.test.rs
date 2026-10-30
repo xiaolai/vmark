@@ -253,6 +253,21 @@ fn finder_target_retains_last_focused_document_after_focus_loss() {
     );
 }
 
+/// #1612: MCP routing reads the same focus history, and it must survive the
+/// user switching to another app (the MCP client's terminal).
+#[test]
+fn last_focused_document_window_survives_focus_loss_and_window_removal_clears_it() {
+    let mut state = FileOpenState::new();
+    assert_eq!(state.last_focused_document_window(), None);
+    state.record_window_focus("main", true, true);
+    state.record_window_focus("doc-8", true, true);
+    state.record_window_focus("doc-8", false, true);
+    state.record_window_focus("settings", true, true);
+    assert_eq!(state.last_focused_document_window(), Some("doc-8"));
+    state.remove_window("doc-8");
+    assert_eq!(state.last_focused_document_window(), None);
+}
+
 #[test]
 fn finder_target_ignores_non_document_window_focus() {
     let mut state = FileOpenState::new();

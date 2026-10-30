@@ -81,6 +81,8 @@ VMark 向 AI 助手暴露 **十个复合 MCP 工具**：`session`、`workspace`�
 
 `window.focused` 是**用户**正在注视的那个窗口，取自操作系统。它并不是“应答本次请求的那个窗口”——VMark 会把请求路由到拥有相关工作区的那个窗口，在多窗口会话中，那往往是另一个窗口。
 
+`windows` 会列出每一个文档窗口——`main`，以及每个从访达或命令行打开的窗口——因为 VMark 会逐一询问它们。当你在 AI 客户端里打字时，没有任何 VMark 窗口持有焦点，所有 `focused` 都是 `false`；此时既没有 `tabId` 也没有工作区路径的请求，会发往你最后使用的那个文档窗口，而不是 `main`。
+
 把这些字段当作确认步骤：在 `workspace.switch_tab` 之后，再跟一次 `get_state` 就能告诉你标签页是否真的呈现在用户面前。`switch_tab` 自身在应答前会重新读取各个 store，因此当激活没有落实时，它会报告 `activated: false`，而不是把请求原样回显。
 
 `kind` 判别字段告诉你应该对该标签页使用 `document.write`（对应 markdown）还是 `workflow.apply_patch`（对应 yaml-workflow）。

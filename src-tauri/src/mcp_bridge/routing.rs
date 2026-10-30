@@ -75,9 +75,9 @@ pub(super) async fn emit_to_window_or_reply<R: Runtime>(
 }
 
 /// F5: resolve the target window for a frontend-routed request from a
-/// snapshot of every window's workspace and tabs (`window_routing.rs` decides:
-/// the window holding an explicit `tabId`, else workspace scoping, else
-/// focus). On a routing refusal (ambiguity) it removes the pending entry,
+/// snapshot of every window's workspace, tabs and focus history
+/// (`window_routing.rs` decides: the window holding an explicit `tabId`, else
+/// workspace scoping, else focus, else the last focused window). On a routing refusal (ambiguity) it removes the pending entry,
 /// replies to the client with the error, and returns `None` — the caller returns.
 pub(super) async fn route_target_or_reply<R: Runtime>(
     request: &McpRequest,
@@ -91,6 +91,10 @@ pub(super) async fn route_target_or_reply<R: Runtime>(
         let guard = bridge(app).lock().await;
         (guard.window_workspaces.clone(), guard.window_tabs.clone())
     };
+    let last_focused = crate::window_manager::file_open_state(app)
+        .lock()
+        .last_focused_document_window()
+        .map(str::to_string);
     let candidates: Vec<super::window_routing::WindowCandidate> = app
         .webview_windows()
         .values()
@@ -100,6 +104,7 @@ pub(super) async fn route_target_or_reply<R: Runtime>(
                 workspace: workspaces.get(&label).cloned(),
                 tabs: tabs.get(&label).cloned().unwrap_or_default(),
                 focused: w.is_focused().unwrap_or(false),
+                last_focused: last_focused.as_deref() == Some(label.as_str()),
                 is_document: label == "main" || label.starts_with("doc-"),
                 label,
             }

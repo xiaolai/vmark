@@ -32,6 +32,7 @@ mod principal;
 mod routed_request;
 mod routing;
 mod server;
+mod session_fanout;
 /// The sidecar `--health-check` probe, split out of `control` at the
 /// file-size limit: it spawns a child and drains its pipes, which shares
 /// nothing with the bridge lifecycle beyond living behind the same Settings

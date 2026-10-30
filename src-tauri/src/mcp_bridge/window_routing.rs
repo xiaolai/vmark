@@ -5,7 +5,10 @@
 //! webview holds only its own tabs, so any other window would answer
 //! INVALID_TAB or act on the wrong one), then canonical workspace containment
 //! (deepest wins; a tie between two windows is an ambiguity error), then
-//! focused/main. Workspace scope overrides focus; a workspace request never
+//! focused, then last focused, then main. The last-focused step matters
+//! because the user is usually typing in their AI client, so no VMark window
+//! holds focus; `main` alone sent such a request to a window the user was
+//! not working in (#1612). Workspace scope overrides focus; a workspace request never
 //! silently lands on an unrelated window.
 //!
 //! There is deliberately NO explicit-window pin here. One existed:
@@ -26,6 +29,9 @@ pub struct WindowCandidate {
     /// Canonical open-workspace root, if this window is in workspace mode.
     pub workspace: Option<String>,
     pub focused: bool,
+    /// The document window that held focus most recently (Finder's
+    /// hot-open history, `FileOpenState::last_focused_document_window`).
+    pub last_focused: bool,
     /// `main` or `doc-*` — the document windows requests may target.
     pub is_document: bool,
     /// The tab ids this window published (`mcp_bridge_set_window_tabs`).
@@ -123,10 +129,12 @@ pub fn pick_target_window(
         // fail loud in whichever window answers.
     }
 
-    // (3) Workspace-less request: focused document window, then main.
+    // (3) Workspace-less request: focused document window, then the one the
+    // user last worked in, then main.
     if let Some(focused) = candidates
         .iter()
         .find(|c| c.focused && c.is_document)
+        .or_else(|| candidates.iter().find(|c| c.last_focused && c.is_document))
         .map(|c| c.label.clone())
     {
         return Ok(focused);

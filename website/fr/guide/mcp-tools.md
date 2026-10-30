@@ -81,6 +81,8 @@ Un onglet peut exister, être adressable et ne toujours pas être affiché. Troi
 
 `window.focused` est la fenêtre que l'**utilisateur** regarde, lue depuis le système d'exploitation. Ce n'est pas «&nbsp;la fenêtre qui a répondu à cette requête&nbsp;» — VMark achemine une requête vers la fenêtre qui possède l'espace de travail concerné, ce qui, dans une session multifenêtre, est souvent une autre fenêtre.
 
+`windows` énumère toutes les fenêtres de document — `main` et chaque fenêtre ouverte depuis le Finder ou la ligne de commande —, car VMark les interroge toutes. Pendant que vous tapez dans votre client IA, aucune fenêtre de VMark n'a le focus et chaque `focused` vaut `false`&nbsp;; une requête sans `tabId` ni chemin d'espace de travail va alors à la dernière fenêtre de document utilisée, et non à `main`.
+
 Considérez ces champs comme l'étape de confirmation&nbsp;: après `workspace.switch_tab`, un `get_state` de suivi vous indique si l'onglet est réellement devant l'utilisateur. `switch_tab` relit lui-même les stores avant de répondre&nbsp;; il rapporte donc `activated: false` quand une activation n'a pas abouti, au lieu de renvoyer la requête en écho.
 
 Le discriminant `kind` vous indique s'il faut utiliser `document.write` (pour markdown) ou `workflow.apply_patch` (pour yaml-workflow) sur cet onglet.
