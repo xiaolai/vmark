@@ -11,6 +11,20 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 ## [Unreleased]
 
+## [0.9.108] - 2026-10-30
+
+### Fixed
+
+- **AI clients now see every VMark window.** When you have more than one
+  window open, such as a file opened from Finder beside the main window,
+  `session.get_state` used to report only the main window, so its tabs were
+  invisible to your AI client. It now lists every document window with its
+  tabs (#1612).
+- **AI requests go to the window you were using.** While you type in your AI
+  client, no VMark window has focus; a request that names no tab used to land
+  in the main window. It now goes to the document window you used last
+  (#1612).
+
 ## [0.9.107] - 2026-10-29
 
 ### Added
@@ -471,7 +485,8 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 - Raised the `markdown-it` version floor past GHSA-253c-mchw-3w2r.
 
-[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.107...HEAD
+[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.108...HEAD
+[0.9.108]: https://github.com/xiaolai/vmark/releases/tag/v0.9.108
 [0.9.107]: https://github.com/xiaolai/vmark/releases/tag/v0.9.107
 [0.9.106]: https://github.com/xiaolai/vmark/releases/tag/v0.9.106
 [0.9.105]: https://github.com/xiaolai/vmark/releases/tag/v0.9.105
