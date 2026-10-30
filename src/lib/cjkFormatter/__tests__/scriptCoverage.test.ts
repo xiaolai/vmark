@@ -107,8 +107,8 @@ describe("CJK letters beyond the two BMP Han blocks", () => {
     });
 
     it("makes a quotation next to it a CJK-context quotation", () => {
-      expect(fmt(`${han}"abc"`)).toBe(`${han}“abc”`);
-      expect(fmt(`"abc"${han}`)).toBe(`“abc”${han}`);
+      expect(fmt(`${han}"abc"`)).toBe(`${han} “abc”`);
+      expect(fmt(`"abc"${han}`)).toBe(`“abc” ${han}`);
     });
 
     it("survives formatting intact and idempotently", () => {

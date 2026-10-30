@@ -116,11 +116,11 @@ O VMark usa um **algoritmo de emparelhamento de aspas baseado em pilha** que tra
 
 | Antes | Depois |
 |-------|--------|
-| 他说"hello" | 他说“hello” |
+| 他说"hello" | 他说 “hello” |
 | "don't worry" | “don't worry” |
 | 5'10" tall | 5'10" tall |
 
-Nenhum espaço é inserido entre um caractere CJK e um glifo de aspas. `“ ”`, `‘ ’`, `「 」` e `『 』` são de largura total em contexto CJK — tanto a GB/T 15834 quanto a JLREQ lhes dão seu próprio espaçamento lateral — e por isso `他说“你好”然后走了` fica exatamente como foi escrito. Texto latino ainda recebe espaço: `word“text”` vira `word “text”`.
+As aspas curvas recebem um espaço ao lado do texto CJK: `他说"hello"` vira `他说 “hello”`. Aspas angulares (`「 」`, `『 』`) e pontuação final nunca recebem. Para manter as aspas curvas justas, desative **Corrigir espaçamento de aspas duplas** ou **Corrigir espaçamento de aspas simples** em Configurações → Idioma → Formatação CJK: `“ ”` e `‘ ’` são de largura total em contexto CJK, e GB/T 15834 e JLREQ tratam o espaço como parte do glifo — é exatamente para isso que esses controles existem.
 
 Com a opção de colchetes de canto habilitada:
 
@@ -425,7 +425,7 @@ Após a formatação, o texto ficará assim:
 
 学习过程中遇到的最大挑战是 —— 状态管理。Redux 的概念……说实话有点难理解。后来换成了 Zustand，简单多了！
 
-老师说“don't give up”然后继续讲“写代码要注重可读性”，我觉得很有道理。
+老师说 “don't give up” 然后继续讲 “写代码要注重可读性”，我觉得很有道理。
 
 访问 https://example.com/docs 获取 v2.0.0 版本文档，价格 $99.99，时间 12:30 开始。
 
@@ -445,7 +445,7 @@ Após a formatação, o texto ficará assim:
 - Números de largura total normalizados (３→3, １０００→1000, ２００→200)
 - Hífens duplos convertidos em travessões (是--状态 → 是 —— 状态)
 - Reticências normalizadas para a forma chinesa, sem espaço depois (. . . → ……)
-- Aspas inteligentes aplicadas sem espaço ao lado do texto CJK, apóstrofo preservado (don't)
+- Aspas inteligentes aplicadas com espaço ao lado do texto CJK, apóstrofo preservado (don't)
 - Construtos técnicos protegidos (https://example.com/docs, v2.0.0, $99.99, 12:30)
 
 **E o que _não_ muda:** o `--` em `**Frontend**--React` continua sendo um hífen

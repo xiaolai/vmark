@@ -116,11 +116,11 @@ VMark usa un **algoritmo de emparejamiento de comillas basado en pila** que gest
 
 | Antes | Después |
 |-------|---------|
-| 他说"hello" | 他说“hello” |
+| 他说"hello" | 他说 “hello” |
 | "don't worry" | “don't worry” |
 | 5'10" tall | 5'10" tall |
 
-No se inserta ningún espacio entre un carácter CJK y un glifo de comilla. `“ ”`, `‘ ’`, `「 」` y `『 』` son de ancho completo en contexto CJK — tanto GB/T 15834 como JLREQ les dan su propio margen lateral —, así que `他说“你好”然后走了` se queda exactamente como está escrito. El texto latino sí recibe un espacio: `word“text”` se convierte en `word “text”`.
+Las comillas curvas llevan un espacio junto al texto CJK: `他说"hello"` se convierte en `他说 “hello”`. Las comillas angulares (`「 」`, `『 』`) y la puntuación final nunca lo llevan. Para mantener las comillas curvas ajustadas, desactiva **Corregir espaciado de comillas dobles** o **Corregir espaciado de comillas simples** en Ajustes → Idioma → Formato CJK: `“ ”` y `‘ ’` son de ancho completo en contexto CJK, y GB/T 15834 y JLREQ consideran el hueco parte del glifo — precisamente para eso existen estos interruptores.
 
 Con la opción de corchetes angulares activada:
 
@@ -425,7 +425,7 @@ Después del formato, el texto tendrá este aspecto:
 
 学习过程中遇到的最大挑战是 —— 状态管理。Redux 的概念……说实话有点难理解。后来换成了 Zustand，简单多了！
 
-老师说“don't give up”然后继续讲“写代码要注重可读性”，我觉得很有道理。
+老师说 “don't give up” 然后继续讲 “写代码要注重可读性”，我觉得很有道理。
 
 访问 https://example.com/docs 获取 v2.0.0 版本文档，价格 $99.99，时间 12:30 开始。
 
@@ -445,7 +445,7 @@ Después del formato, el texto tendrá este aspecto:
 - Números de ancho completo normalizados (３→3, １０００→1000, ２００→200)
 - Guiones dobles convertidos en rayas largas (是--状态 → 是 —— 状态)
 - Puntos suspensivos normalizados a la forma china, sin espacio después (. . . → ……)
-- Comillas tipográficas aplicadas sin espacio junto al texto CJK, apóstrofo conservado (don't)
+- Comillas tipográficas aplicadas con espacio junto al texto CJK, apóstrofo conservado (don't)
 - Construcciones técnicas protegidas (https://example.com/docs, v2.0.0, $99.99, 12:30)
 
 **Y lo que _no_ cambia:** el `--` de `**Frontend**--React` se queda como guion
