@@ -1,20 +1,18 @@
 // @vitest-environment node
 /**
- * WI-CJKF3.3 / WI-CJKF3.4 — two spacing rules that produced typography no CJK
- * style guide accepts.
+ * Quote and slash spacing — the two rules a run of formatter work redefined.
  *
- * 3.3 — a space was inserted between a CJK character and a curly quote:
+ * Quote spacing honours the settings (`quoteSpacing`, `singleQuoteSpacing`)
+ * beside CJK text as well as Latin text. The glyph-only argument — `“ ”` are
+ * fullwidth in CJK context, and GB/T 15834, JLREQ and the W3C's *Spacing
+ * between scripts inline* treat the gap as part of the glyph — is why the
+ * switches exist: turning them off restores that typography. A switch that
+ * left CJK text untouched was the reported bug; users read "Spacing around “”"
+ * and got nothing.
  *
- *     他说"你好"然后走了  ->  他说 “你好” 然后走了
- *
- * `“ ”` are fullwidth in CJK context. GB/T 15834 (zh) and JLREQ (ja) both
- * treat them as carrying their own sidebearing, and the W3C's *Spacing between
- * scripts inline* makes the same point structurally: the gap belongs to the
- * glyph, not to a character in the content. The rule's `noSpaceBefore` set
- * listed closing brackets and terminal punctuation but not CJK letters.
- *
- * 3.4 — `fixSlashSpacing` removed horizontal whitespace on BOTH sides of every
- * slash, so a path lost the space in front of it:
+ * The slash rule is still WI-CJKF3.4: `fixSlashSpacing` removed horizontal
+ * whitespace on BOTH sides of every slash, so a path lost the space in front
+ * of it:
  *
  *     路径 /usr/local/bin 目录  ->  路径/usr/local/bin 目录
  *
@@ -32,28 +30,28 @@ import { formatMarkdown } from "../formatter";
 import { DEFAULT_CJK_FORMATTING } from "../types";
 
 const C = DEFAULT_CJK_FORMATTING;
-const fmt = (s: string) => formatMarkdown(s, C, { preserveTwoSpaceHardBreaks: true });
+const fmt = (s: string, config = C) => formatMarkdown(s, config, { preserveTwoSpaceHardBreaks: true });
 const OQ = "“";
 const CQ = "”";
 const OS = "‘";
 const CS = "’";
 
-describe("WI-CJKF3.3 — no space between a CJK character and a curly quote", () => {
-  it("does not space an opening quote after CJK", () => {
-    expect(fixDoubleQuoteSpacing(`中文${OQ}text${CQ}`)).toBe(`中文${OQ}text${CQ}`);
+describe("quote spacing beside CJK follows the setting", () => {
+  it("spaces an opening quote after CJK", () => {
+    expect(fixDoubleQuoteSpacing(`中文${OQ}text${CQ}`)).toBe(`中文 ${OQ}text${CQ}`);
   });
 
-  it("does not space a closing quote before CJK", () => {
-    expect(fixDoubleQuoteSpacing(`${OQ}text${CQ}中文`)).toBe(`${OQ}text${CQ}中文`);
+  it("spaces a closing quote before CJK", () => {
+    expect(fixDoubleQuoteSpacing(`${OQ}text${CQ}中文`)).toBe(`${OQ}text${CQ} 中文`);
   });
 
-  it("does not space Japanese either", () => {
-    expect(fixDoubleQuoteSpacing(`日本語${OQ}text${CQ}`)).toBe(`日本語${OQ}text${CQ}`);
+  it("spaces Japanese too", () => {
+    expect(fixDoubleQuoteSpacing(`日本語${OQ}text${CQ}`)).toBe(`日本語 ${OQ}text${CQ}`);
   });
 
-  it("applies to single quotes too", () => {
-    expect(fixSingleQuoteSpacing(`中文${OS}text${CS}`)).toBe(`中文${OS}text${CS}`);
-    expect(fixSingleQuoteSpacing(`${OS}text${CS}中文`)).toBe(`${OS}text${CS}中文`);
+  it("applies to single quotes", () => {
+    expect(fixSingleQuoteSpacing(`中文${OS}text${CS}`)).toBe(`中文 ${OS}text${CS}`);
+    expect(fixSingleQuoteSpacing(`${OS}text${CS}中文`)).toBe(`${OS}text${CS} 中文`);
   });
 
   it("still spaces a Latin word from a quote", () => {
@@ -69,7 +67,7 @@ describe("WI-CJKF3.3 — no space between a CJK character and a curly quote", ()
     expect(fixDoubleQuoteSpacing(`——${OQ}text${CQ}`)).toBe(`—— ${OQ}text${CQ}`);
   });
 
-  it("keeps the existing no-space rules for brackets and terminal punctuation", () => {
+  it("keeps the no-space rules for brackets and terminal punctuation", () => {
     expect(fixDoubleQuoteSpacing(`」${OQ}text${CQ}`)).toBe(`」${OQ}text${CQ}`);
     expect(fixDoubleQuoteSpacing(`，${OQ}text${CQ}`)).toBe(`，${OQ}text${CQ}`);
   });
@@ -78,13 +76,17 @@ describe("WI-CJKF3.3 — no space between a CJK character and a curly quote", ()
     expect(fixDoubleQuoteSpacing(`한글${OQ}text${CQ}`)).toBe(`한글${OQ}text${CQ}`);
   });
 
-  it("end to end: a quoted Chinese phrase gains no spaces", () => {
-    expect(fmt('他说"你好"然后走了')).toBe(`他说${OQ}你好${CQ}然后走了`);
+  it("end to end: a quoted Chinese phrase gains spaces", () => {
+    expect(fmt('他说"你好"然后走了')).toBe(`他说 ${OQ}你好${CQ} 然后走了`);
+  });
+
+  it("off: the setting keeps a quoted phrase tight", () => {
+    expect(fmt('他说"你好"然后走了', { ...C, quoteSpacing: false })).toBe(
+      `他说${OQ}你好${CQ}然后走了`
+    );
   });
 
   it("does NOT remove a space the author typed", () => {
-    // This rule only stops the formatter ADDING one. Deleting authored
-    // whitespace is a different decision and is deliberately out of scope.
     expect(fmt(`中文 ${OQ}你好${CQ} 结束`)).toBe(`中文 ${OQ}你好${CQ} 结束`);
   });
 

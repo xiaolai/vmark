@@ -115,11 +115,11 @@ VMark utilise un **algorithme d'appariement de guillemets basé sur une pile** q
 
 | Avant | Après |
 |-------|-------|
-| 他说"hello" | 他说“hello” |
+| 他说"hello" | 他说 “hello” |
 | "don't worry" | “don't worry” |
 | 5'10" tall | 5'10" tall |
 
-Aucune espace n'est insérée entre un caractère CJK et un glyphe de guillemet. `“ ”`, `‘ ’`, `「 」` et `『 』` sont pleine largeur en contexte CJK — GB/T 15834 et JLREQ leur attribuent tous deux leur propre approche latérale — donc `他说“你好”然后走了` reste exactement tel qu'écrit. Le texte latin reçoit toujours une espace : `word“text”` devient `word “text”`.
+Les guillemets courbes prennent une espace à côté du texte CJK : `他说"hello"` devient `他说 “hello”`. Les guillemets-crochets (`「 」`, `『 』`) et la ponctuation finale n'en prennent jamais. Pour garder les guillemets courbes serrés, désactivez **Corriger l'espacement des guillemets doubles** ou **Corriger l'espacement des guillemets simples** dans Réglages → Langue → Mise en forme CJK : `“ ”` et `‘ ’` sont pleine largeur en contexte CJK, et GB/T 15834 comme JLREQ considèrent l'écart comme faisant partie du glyphe — c'est la raison d'être de ces interrupteurs.
 
 Avec l'option de crochets d'angle activée :
 
@@ -424,7 +424,7 @@ Après la mise en forme, le texte ressemblera à ceci :
 
 学习过程中遇到的最大挑战是 —— 状态管理。Redux 的概念……说实话有点难理解。后来换成了 Zustand，简单多了！
 
-老师说“don't give up”然后继续讲“写代码要注重可读性”，我觉得很有道理。
+老师说 “don't give up” 然后继续讲 “写代码要注重可读性”，我觉得很有道理。
 
 访问 https://example.com/docs 获取 v2.0.0 版本文档，价格 $99.99，时间 12:30 开始。
 
@@ -445,7 +445,7 @@ Après la mise en forme, le texte ressemblera à ceci :
 - Chiffres pleine largeur normalisés (３→3, １０００→1000, ２００→200)
 - Doubles tirets convertis en tirets cadratin (是--状态 → 是 —— 状态)
 - Points de suspension normalisés sous la forme chinoise, sans espace après (. . . → ……)
-- Guillemets intelligents appliqués sans espace à côté du texte CJK, apostrophe préservée (don't)
+- Guillemets intelligents appliqués avec une espace à côté du texte CJK, apostrophe préservée (don't)
 - Constructions techniques protégées (https://example.com/docs, v2.0.0, $99.99, 12:30)
 
 **Et ce qui ne change _pas_ :** le `--` de `**Frontend**--React` reste un double

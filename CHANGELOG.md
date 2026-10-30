@@ -11,6 +11,17 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 ## [Unreleased]
 
+### Changed
+
+- **CJK quote spacing now follows the switch that names it.** "Fix double
+  quote spacing" and "Fix single quote spacing" (Settings → Language → CJK
+  Formatting) now put a space beside CJK text as well as beside Latin text.
+  The switches used to leave CJK text untouched, so a selection containing
+  `那些“自己也不会解魔方”的家长` came back unchanged with both switches on.
+  Turn either switch off to keep curly quotes tight against CJK text, the
+  GB/T 15834 and JLREQ treatment. Bracket quotes (`「」`, `『』`) and terminal
+  punctuation still take no space.
+
 ## [0.9.108] - 2026-10-30
 
 ### Fixed

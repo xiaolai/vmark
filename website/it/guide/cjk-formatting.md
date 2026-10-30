@@ -117,11 +117,11 @@ VMark usa un **algoritmo di abbinamento virgolette basato su stack** che gestisc
 
 | Prima | Dopo |
 |-------|------|
-| 他说"hello" | 他说“hello” |
+| 他说"hello" | 他说 “hello” |
 | "don't worry" | “don't worry” |
 | 5'10" tall | 5'10" tall |
 
-Non viene inserito alcuno spazio tra un carattere CJK e un glifo di virgoletta. `“ ”`, `‘ ’`, `「 」` e `『 』` sono a larghezza intera nel contesto CJK — GB/T 15834 e JLREQ prevedono entrambi per essi un proprio margine laterale — quindi `他说“你好”然后走了` resta esattamente com'è scritto. Il testo latino riceve comunque uno spazio: `word“text”` diventa `word “text”`.
+Le virgolette curve prendono uno spazio accanto al testo CJK: `他说"hello"` diventa `他说 “hello”`. Le virgolette angolari (`「 」`, `『 』`) e la punteggiatura finale non ne prendono mai. Per mantenere le virgolette curve strette, disattiva **Correggi spaziatura virgolette doppie** o **Correggi spaziatura virgolette singole** in Impostazioni → Lingua → Formattazione CJK: `“ ”` e `‘ ’` sono a larghezza intera nel contesto CJK, e GB/T 15834 e JLREQ considerano il margine parte del glifo — è proprio per questo che esistono questi interruttori.
 
 Con l'opzione parentesi a forcella abilitata:
 
@@ -426,7 +426,7 @@ Dopo la formattazione, il testo apparirà così:
 
 学习过程中遇到的最大挑战是 —— 状态管理。Redux 的概念……说实话有点难理解。后来换成了 Zustand，简单多了！
 
-老师说“don't give up”然后继续讲“写代码要注重可读性”，我觉得很有道理。
+老师说 “don't give up” 然后继续讲 “写代码要注重可读性”，我觉得很有道理。
 
 访问 https://example.com/docs 获取 v2.0.0 版本文档，价格 $99.99，时间 12:30 开始。
 
@@ -446,7 +446,7 @@ Dopo la formattazione, il testo apparirà così:
 - Numeri a larghezza intera normalizzati (３→3, １０００→1000, ２００→200)
 - Doppi trattini convertiti in em-dash (是--状态 → 是 —— 状态)
 - Puntini di sospensione normalizzati nella forma cinese, senza spazio dopo (. . . → ……)
-- Virgolette tipografiche applicate senza spazio accanto al testo CJK, apostrofo preservato (don't)
+- Virgolette tipografiche applicate con spazio accanto al testo CJK, apostrofo preservato (don't)
 - Costrutti tecnici protetti (https://example.com/docs, v2.0.0, $99.99, 12:30)
 
 **E cosa _non_ cambia:** il `--` in `**Frontend**--React` resta un doppio

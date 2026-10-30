@@ -82,19 +82,32 @@ export function fixEmdashSpacing(text: string): string {
 /**
  * Fix spacing around quotation marks (generic).
  *
- * A CJK letter is in BOTH no-space sets. `“ ”` are fullwidth in
- * CJK context — GB/T 15834 and JLREQ both give them their own sidebearing, and
- * the W3C's *Spacing between scripts inline* makes the same point structurally:
- * the gap belongs to the glyph, not to a character in the content. Without
- * this, `他说"你好"然后走了` came back as `他说 “你好” 然后走了`.
+ * A CJK letter beside a curly quote IS spaced, as is a Latin one. The two
+ * settings that call this (`quoteSpacing`, `singleQuoteSpacing`) are labelled
+ * as spacing "around “”"; a rule that exempted CJK left the switch on and the
+ * text unchanged, which is the defect this shape avoids — the setting, not the
+ * rule, decides.
  *
- * Latin↔quote spacing is unaffected, which is the whole point of the rule.
- * Korean is not in `CJK_LETTER_CLASS` and so was never spaced.
+ * The typographic argument for the exemption still holds for anyone who wants
+ * it: `“ ”` are fullwidth in CJK context, and GB/T 15834, JLREQ and the W3C's
+ * *Spacing between scripts inline* all treat the gap as part of the glyph.
+ * That argument is now the OFF position of the setting rather than a hard-coded
+ * exemption.
+ *
+ * Brackets and terminal punctuation still take no space (the glyph supplies
+ * it), and corner quotes `「」` are never spaced — `applyRules` does not call
+ * them for that. Korean is outside `CJK_LETTER_CLASS`, so it is unchanged.
  */
 function fixQuoteSpacing(
   text: string,
   openingQuote: string,
-  closingQuote: string
+  closingQuote: string,
+  /**
+   * Whether a CJK letter beside the quote takes a space. True for the curly
+   * quotes the two settings govern; false for `「」`, which are fullwidth
+   * brackets that `applyRules` never asks this rule about.
+   */
+  spaceBesideCJK: boolean
 ): string {
   const noSpaceBefore = CJK_CLOSING_BRACKETS + CJK_TERMINAL_PUNCTUATION;
   const noSpaceAfter = CJK_OPENING_BRACKETS + CJK_TERMINAL_PUNCTUATION;
@@ -106,7 +119,7 @@ function fixQuoteSpacing(
       "gu"
     ),
     (_, before) => {
-      if (noSpaceBefore.includes(before) || isCJKLetter(before)) {
+      if (noSpaceBefore.includes(before) || (!spaceBesideCJK && isCJKLetter(before))) {
         return `${before}${openingQuote}`;
       }
       return `${before} ${openingQuote}`;
@@ -120,7 +133,7 @@ function fixQuoteSpacing(
       "gu"
     ),
     (_, after) => {
-      if (noSpaceAfter.includes(after) || isCJKLetter(after)) {
+      if (noSpaceAfter.includes(after) || (!spaceBesideCJK && isCJKLetter(after))) {
         return `${closingQuote}${after}`;
       }
       return `${closingQuote} ${after}`;
@@ -132,22 +145,22 @@ function fixQuoteSpacing(
 
 /** Fix spacing around double quotes "". */
 export function fixDoubleQuoteSpacing(text: string): string {
-  return fixQuoteSpacing(text, "\u201c", "\u201d");
+  return fixQuoteSpacing(text, "\u201c", "\u201d", true);
 }
 
 /** Fix spacing around single quotes ''. */
 export function fixSingleQuoteSpacing(text: string): string {
-  return fixQuoteSpacing(text, "\u2018", "\u2019");
+  return fixQuoteSpacing(text, "\u2018", "\u2019", true);
 }
 
 /** Fix spacing around CJK corner quotes 「」. */
 export function fixCornerQuoteSpacing(text: string): string {
-  return fixQuoteSpacing(text, "「", "」");
+  return fixQuoteSpacing(text, "「", "」", false);
 }
 
 /** Fix spacing around CJK double corner quotes 『』. */
 export function fixDoubleCornerQuoteSpacing(text: string): string {
-  return fixQuoteSpacing(text, "『", "』");
+  return fixQuoteSpacing(text, "『", "』", false);
 }
 
 // Quote style definitions

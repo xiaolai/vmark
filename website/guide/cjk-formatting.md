@@ -115,11 +115,11 @@ VMark uses a **stack-based quote pairing algorithm** that correctly handles:
 
 | Before | After |
 |--------|-------|
-| 他说"hello" | 他说“hello” |
+| 他说"hello" | 他说 “hello” |
 | "don't worry" | “don't worry” |
 | 5'10" tall | 5'10" tall |
 
-No space is inserted between a CJK character and a quote glyph. `“ ”`, `‘ ’`, `「 」` and `『 』` are fullwidth in CJK context — GB/T 15834 and JLREQ both give them their own sidebearing — so `他说“你好”然后走了` stays exactly as written. Latin text still gets a space: `word“text”` becomes `word “text”`.
+Curly quotes take a space beside CJK text: `他说"hello"` becomes `他说 “hello”`. Bracket quotes (`「 」`, `『 』`) and terminal punctuation never take one. To keep curly quotes tight instead, turn off **Fix double quote spacing** or **Fix single quote spacing** under Settings → Language → CJK Formatting: `“ ”` and `‘ ’` are fullwidth in CJK context, and GB/T 15834 and JLREQ treat the gap as part of the glyph, which is the reason those switches exist.
 
 With corner bracket option enabled:
 
@@ -424,7 +424,7 @@ After formatting, the text will look like this:
 
 学习过程中遇到的最大挑战是 —— 状态管理。Redux 的概念……说实话有点难理解。后来换成了 Zustand，简单多了！
 
-老师说“don't give up”然后继续讲“写代码要注重可读性”，我觉得很有道理。
+老师说 “don't give up” 然后继续讲 “写代码要注重可读性”，我觉得很有道理。
 
 访问 https://example.com/docs 获取 v2.0.0 版本文档，价格 $99.99，时间 12:30 开始。
 
@@ -444,7 +444,7 @@ After formatting, the text will look like this:
 - Fullwidth numbers normalized (３→3, １０００→1000, ２００→200)
 - Double hyphens converted to em-dashes (是--状态 → 是 —— 状态)
 - Ellipsis normalized to the Chinese form, with no space after it (. . . → ……)
-- Smart quotes applied with no space beside the CJK text, apostrophe preserved (don't)
+- Smart quotes applied with a space beside the CJK text, apostrophe preserved (don't)
 - Technical constructs protected (https://example.com/docs, v2.0.0, $99.99, 12:30)
 
 **And what does _not_ change:** the `--` in `**Frontend**--React` stays a double

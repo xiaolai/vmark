@@ -115,11 +115,11 @@ VMark verwendet einen **stapelbasierten Anführungszeichen-Paarungsalgorithmus**
 
 | Vorher | Nachher |
 |--------|---------|
-| 他说"hello" | 他说“hello” |
+| 他说"hello" | 他说 “hello” |
 | "don't worry" | “don't worry” |
 | 5'10" tall | 5'10" tall |
 
-Zwischen einem CJK-Zeichen und einem Anführungszeichen wird kein Leerzeichen eingefügt. `“ ”`, `‘ ’`, `「 」` und `『 』` sind im CJK-Kontext vollbreit — GB/T 15834 und JLREQ geben ihnen beide einen eigenen Seitenabstand —, daher bleibt `他说“你好”然后走了` genau wie geschrieben. Lateinischer Text erhält weiterhin ein Leerzeichen: `word“text”` wird zu `word “text”`.
+Geschweifte Anführungszeichen erhalten neben CJK-Text ein Leerzeichen: `他说"hello"` wird zu `他说 “hello”`. Eckige Anführungszeichen (`「 」`, `『 』`) und Schlusszeichen erhalten keines. Wer geschweifte Anführungszeichen lieber eng setzt, schaltet **Anführungszeichen-Abstand korrigieren** oder **Einfache Anführungszeichen-Abstand korrigieren** unter Einstellungen → Sprache → CJK-Formatierung ab: `“ ”` und `‘ ’` sind im CJK-Kontext vollbreit, und GB/T 15834 wie JLREQ betrachten die Lücke als Teil der Glyphe — genau dafür gibt es diese Schalter.
 
 Mit aktivierter Eckklammern-Option:
 
@@ -424,7 +424,7 @@ Nach der Formatierung sieht der Text folgendermaßen aus:
 
 学习过程中遇到的最大挑战是 —— 状态管理。Redux 的概念……说实话有点难理解。后来换成了 Zustand，简单多了！
 
-老师说“don't give up”然后继续讲“写代码要注重可读性”，我觉得很有道理。
+老师说 “don't give up” 然后继续讲 “写代码要注重可读性”，我觉得很有道理。
 
 访问 https://example.com/docs 获取 v2.0.0 版本文档，价格 $99.99，时间 12:30 开始。
 
@@ -444,7 +444,7 @@ Nach der Formatierung sieht der Text folgendermaßen aus:
 - Vollbreite Zahlen normalisiert (３→3, １０００→1000, ２００→200)
 - Doppelte Bindestriche in Gedankenstriche konvertiert (是--状态 → 是 —— 状态)
 - Auslassungszeichen in die chinesische Form normalisiert, ohne Leerzeichen danach (. . . → ……)
-- Typografische Anführungszeichen ohne Leerzeichen neben dem CJK-Text angewendet, Apostroph beibehalten (don't)
+- Typografische Anführungszeichen mit Leerzeichen neben dem CJK-Text angewendet, Apostroph beibehalten (don't)
 - Technische Konstrukte geschützt (https://example.com/docs, v2.0.0, $99.99, 12:30)
 
 **Und was sich _nicht_ ändert:** Das `--` in `**Frontend**--React` bleibt ein doppelter
