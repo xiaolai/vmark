@@ -81,6 +81,8 @@ Una scheda può esistere, essere indirizzabile e comunque non essere mostrata. T
 
 `window.focused` è la finestra che l'**utente** sta guardando, letta dal sistema operativo. Non è «la finestra che ha risposto a questa richiesta» — VMark instrada una richiesta alla finestra che possiede il workspace pertinente, che in una sessione multi-finestra è spesso una finestra diversa.
 
+`windows` elenca ogni finestra di documento — `main` e ogni finestra aperta dal Finder o dalla riga di comando —, perché VMark le interroga tutte. Mentre scrivi nel tuo client IA nessuna finestra di VMark ha il focus e ogni `focused` è `false`; una richiesta senza `tabId` né percorso di workspace va allora all'ultima finestra di documento che hai usato, non a `main`.
+
 Considerali come il passo di conferma: dopo `workspace.switch_tab`, un `get_state` successivo ti dice se la scheda è davvero davanti all'utente. `switch_tab` stesso rilegge gli store prima di rispondere, quindi riporta `activated: false` quando un'attivazione non è andata a buon fine invece di limitarsi a restituire la richiesta.
 
 Il discriminatore `kind` ti dice se usare `document.write` (per markdown) o `workflow.apply_patch` (per yaml-workflow) su quella scheda.

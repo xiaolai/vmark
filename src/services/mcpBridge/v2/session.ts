@@ -8,6 +8,10 @@
  * Origin: MCP pruning plan (retired) ADR-6.
  *
  * Key decisions:
+ *   - Each webview answers for its own window only: its tab store holds no
+ *     other window's tabs. The Rust bridge sends this request to every
+ *     document window and keeps, from each answer, the record carrying that
+ *     window's label (#1612) — so the payload built here is one window's part.
  *   - The per-tab and per-window serialization, the human-tab privacy rule and
  *     the protocol gate live in `sessionSerializers.ts`; this
  *     module composes them into the payload and answers the request.
@@ -28,12 +32,11 @@
  * @coordinates-with services/mcpBridge/v2/sessionSerializers.ts — tab + window records
  * @coordinates-with services/mcpBridge/v2/liveEditor.ts — the flush
  * @coordinates-with services/mcpBridge/v2/readOperationArgs.ts — the one payload parse
- * @coordinates-with stores/tabStore.ts — the windows to enumerate
  * @coordinates-with services/mcpBridge/focusedWindow.ts — real focused window
+ * @coordinates-with src-tauri/src/mcp_bridge/session_fanout.rs — asks every window, merges
  * @module services/mcpBridge/v2/session
  */
 
-import { useTabStore } from "@/stores/tabStore";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { resolveFocusedWindowLabel } from "@/services/mcpBridge/focusedWindow";
 import { respond } from "@/services/mcpBridge/utils";
@@ -66,13 +69,13 @@ export function buildSessionState(
   // behaviour, so an unresolvable focus degrades rather than blinding a
   // single-window client. `null` is a RESOLVED answer meaning no VMark window
   // holds focus, and must not be flattened into that fallback.
-  const focusedLabel =
-    osFocusedLabel === undefined ? getCurrentWindowLabel() : osFocusedLabel;
-  const windows = Object.keys(useTabStore.getState().tabs).map((label) =>
-    serializeWindow(label, focusedLabel, includeBrowserTabs),
-  );
+  const ownLabel = getCurrentWindowLabel();
+  const focusedLabel = osFocusedLabel === undefined ? ownLabel : osFocusedLabel;
   return {
-    windows,
+    // Exactly this webview's own window — present even with no tabs (a fresh
+    // Welcome window), never another window's leftover store entry. The
+    // bridge merges every window's answer (#1612).
+    windows: [serializeWindow(ownLabel, focusedLabel, includeBrowserTabs)],
     capabilities: {
       version: appVersion,
       supportedKinds: ["markdown", "yaml-workflow"],

@@ -81,6 +81,8 @@ Una pestaña puede existir, ser direccionable y aun así no estar mostrándose. 
 
 `window.focused` es la ventana que el **usuario** está mirando, leída del sistema operativo. No es «la ventana que respondió a esta solicitud» — VMark enruta una solicitud a la ventana que posee el espacio de trabajo pertinente, que en una sesión con varias ventanas suele ser otra distinta.
 
+`windows` enumera todas las ventanas de documento — `main` y cada ventana abierta desde el Finder o la línea de comandos —, porque VMark se lo pregunta a todas. Mientras escribe en su cliente de IA, ninguna ventana de VMark tiene el foco y todos los `focused` son `false`; una solicitud sin `tabId` ni ruta de espacio de trabajo va entonces a la última ventana de documento que usó, no a `main`.
+
 Trata esto como el paso de confirmación: tras `workspace.switch_tab`, un `get_state` de seguimiento te dice si la pestaña está realmente delante del usuario. El propio `switch_tab` vuelve a leer los stores antes de responder, por lo que informa `activated: false` cuando una activación no se concretó, en lugar de limitarse a repetir la solicitud.
 
 El discriminador `kind` te indica si debes usar `document.write` (para markdown) o `workflow.apply_patch` (para yaml-workflow) en esa pestaña.

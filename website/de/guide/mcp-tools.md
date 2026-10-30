@@ -81,6 +81,8 @@ Ein Tab kann existieren, adressierbar sein und trotzdem nicht angezeigt werden. 
 
 `window.focused` ist das Fenster, auf das der **Benutzer** blickt, ausgelesen aus dem Betriebssystem. Es ist nicht „das Fenster, das diese Anfrage beantwortet hat“ — VMark leitet eine Anfrage an dasjenige Fenster, dem der betreffende Arbeitsbereich gehört, was in einer Sitzung mit mehreren Fenstern oft ein anderes ist.
 
+`windows` listet jedes Dokumentfenster auf — `main` und jedes aus dem Finder oder über die Befehlszeile geöffnete Fenster —, denn VMark fragt sie alle ab. Während Sie in Ihrem KI-Client tippen, hat kein VMark-Fenster den Fokus, und jedes `focused` ist `false`; eine Anfrage ohne `tabId` und ohne Arbeitsbereichspfad geht dann an das zuletzt verwendete Dokumentfenster, nicht an `main`.
+
 Behandeln Sie diese als Bestätigungsschritt: Nach `workspace.switch_tab` sagt Ihnen ein anschließendes `get_state`, ob der Tab wirklich vor dem Benutzer ist. `switch_tab` selbst liest die Stores erneut, bevor es antwortet, sodass es `activated: false` meldet, wenn eine Aktivierung nicht angekommen ist, statt die Anfrage einfach zurückzuspiegeln.
 
 Der `kind`-Diskriminator zeigt Ihnen, ob für diesen Tab `document.write` (für Markdown) oder `workflow.apply_patch` (für yaml-workflow) zu verwenden ist.

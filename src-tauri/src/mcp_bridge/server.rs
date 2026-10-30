@@ -273,6 +273,12 @@ pub(super) async fn handle_message<R: tauri::Runtime>(
         .await;
     }
 
+    // Session state spans every window, and each webview knows only its own
+    // tabs, so it is asked of all of them rather than routed to one (#1612).
+    if request.request_type == super::session_fanout::SESSION_GET_STATE {
+        return super::session_fanout::run(app, client_id, msg.id, request, &client_tx).await;
+    }
+
     super::routed_request::run(app, client_id, msg.id, request, &client_tx).await
 }
 

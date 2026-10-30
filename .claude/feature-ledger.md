@@ -3243,9 +3243,9 @@ Three processes meet here. The Rust bridge (`src-tauri/src/mcp_bridge/`, driven 
 - gate: always on
 - surfaces: MCP tool `session`
 - code: `server/mcp/src/tools/session.ts`, `src/services/mcpBridge/v2/session.ts`, `src/services/mcpBridge/v2/sessionSerializers.ts`, `src/services/mcpBridge/focusedWindow.ts`
-- rust: routed to the focused webview; read-class
+- rust: `src-tauri/src/mcp_bridge/session_fanout.rs` asks every document window (`main`, `doc-*`) and merges each one's own window record, failing loud when any window refuses or times out; read-class
 - docs: `website/guide/mcp-tools.md` §`session`
-- tests: `server/mcp/__tests__/unit/tools/session.test.ts`, `src/services/mcpBridge/v2/__tests__/session.test.ts`, `src/services/mcpBridge/v2/__tests__/sessionSerializers.test.ts`, `src/services/mcpBridge/v2/__tests__/sessionVisibility.test.ts`
+- tests: `server/mcp/__tests__/unit/tools/session.test.ts`, `src/services/mcpBridge/v2/__tests__/session.test.ts`, `src/services/mcpBridge/v2/__tests__/sessionSerializers.test.ts`, `src/services/mcpBridge/v2/__tests__/sessionVisibility.test.ts`, `src-tauri/src/mcp_bridge/session_fanout.test.rs`
 - notes: `MCP_PROTOCOL_VERSION = '0.3.0'` (`server/mcp/src/bridge/core-types.ts`) must move in lockstep with the app's constant.
 
 ### Tool: `workspace`

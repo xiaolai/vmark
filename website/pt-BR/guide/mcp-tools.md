@@ -81,6 +81,8 @@ Uma aba pode existir, ser endereçável e ainda assim não estar visível. Três
 
 `window.focused` é a janela para a qual o **usuário** está olhando, lida a partir do sistema operacional. Não é "a janela que respondeu a esta requisição" — o VMark encaminha uma requisição para a janela que detém o workspace relevante, que em uma sessão com várias janelas frequentemente é outra.
 
+`windows` lista todas as janelas de documento — `main` e cada janela aberta pelo Finder ou pela linha de comando —, porque o VMark consulta todas elas. Enquanto você digita no seu cliente de IA, nenhuma janela do VMark tem o foco e todo `focused` é `false`; uma requisição sem `tabId` nem caminho de workspace vai então para a última janela de documento que você usou, não para `main`.
+
 Trate esses campos como a etapa de confirmação: depois de `workspace.switch_tab`, um `get_state` de acompanhamento diz se a aba está mesmo à frente do usuário. O próprio `switch_tab` relê os stores antes de responder, então relata `activated: false` quando uma ativação não ocorreu, em vez de apenas repetir a requisição.
 
 O discriminador `kind` informa se você deve usar `document.write` (para markdown) ou `workflow.apply_patch` (para yaml-workflow) na aba correspondente.

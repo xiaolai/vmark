@@ -23,14 +23,15 @@ import { buildSessionState, handleSessionGetState } from "@/services/mcpBridge/v
 import type { DocumentSessionTab } from "@/services/mcpBridge/v2/types";
 import { createWorkspaceInstance, createWorkspaceRootIdentity } from "@/utils/workspaceIdentity";
 
-const { respond, resolveFocusedWindowLabel } = vi.hoisted(() => ({
+const { respond, resolveFocusedWindowLabel, currentWindowLabel } = vi.hoisted(() => ({
   respond: vi.fn(),
   resolveFocusedWindowLabel: vi.fn(),
+  currentWindowLabel: vi.fn(() => "main"),
 }));
 vi.mock("@/services/mcpBridge/utils", () => ({ respond }));
 vi.mock("@/services/mcpBridge/focusedWindow", () => ({ resolveFocusedWindowLabel }));
 vi.mock("@/services/persistence/workspaceStorage", () => ({
-  getCurrentWindowLabel: () => "main",
+  getCurrentWindowLabel: currentWindowLabel,
 }));
 
 function docTabs(label: string, state = buildSessionState("0.0.0")): DocumentSessionTab[] {
@@ -69,6 +70,7 @@ function seedTab(windowLabel: string, id: string, filePath: string | null): void
 
 beforeEach(() => {
   vi.clearAllMocks();
+  currentWindowLabel.mockReturnValue("main");
   useTabStore.setState({ tabs: {}, activeTabId: {}, untitledCounter: 0, closedTabs: {} });
   useDocumentStore.setState({ documents: {} });
   useWorkspaceInstancesStore.getState().resetWorkspaceInstances();
@@ -135,12 +137,19 @@ describe("visibility under the workspace rail", () => {
 
 describe("focused reflects the real focused window, not the responding one", () => {
   it("marks the window the caller says is focused", () => {
+    // Each webview answers for its own window (the bridge merges them, #1612):
+    // `main` answering while `doc-1` holds focus is not focused, and `doc-1`
+    // answering is.
     seedTab("main", "t1", "/a.md");
-    seedTab("doc-1", "t2", "/b.md");
+    expect(buildSessionState("0.0.0", undefined, "doc-1").windows).toEqual([
+      expect.objectContaining({ label: "main", focused: false }),
+    ]);
 
-    const state = buildSessionState("0.0.0", undefined, "doc-1");
-    expect(state.windows.find((w) => w.label === "doc-1")?.focused).toBe(true);
-    expect(state.windows.find((w) => w.label === "main")?.focused).toBe(false);
+    currentWindowLabel.mockReturnValue("doc-1");
+    seedTab("doc-1", "t2", "/b.md");
+    expect(buildSessionState("0.0.0", undefined, "doc-1").windows).toEqual([
+      expect.objectContaining({ label: "doc-1", focused: true }),
+    ]);
   });
 
   it("marks NO window focused when the real focused window is not one of ours", () => {
@@ -174,7 +183,7 @@ describe("the handler asks the platform, not itself", () => {
     // The whole fix hinges on this one wiring: if the handler stops consulting
     // the resolver, `focused` silently reverts to "the window that answered".
     resolveFocusedWindowLabel.mockResolvedValue("doc-1");
-    seedTab("main", "t1", "/a.md");
+    currentWindowLabel.mockReturnValue("doc-1");
     seedTab("doc-1", "t2", "/b.md");
 
     await handleSessionGetState("req-1", "0.0.0");
@@ -182,8 +191,7 @@ describe("the handler asks the platform, not itself", () => {
     const data = vi.mocked(respond).mock.calls.at(-1)?.[0]?.data as
       | { windows: { label: string; focused: boolean }[] }
       | undefined;
-    expect(data?.windows.find((w) => w.label === "doc-1")?.focused).toBe(true);
-    expect(data?.windows.find((w) => w.label === "main")?.focused).toBe(false);
+    expect(data?.windows).toEqual([expect.objectContaining({ label: "doc-1", focused: true })]);
   });
 
   it("degrades to the responding window when the platform cannot answer", async () => {

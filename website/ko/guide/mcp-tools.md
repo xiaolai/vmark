@@ -81,6 +81,8 @@ MCP를 통해 AI로 Mermaid 다이어그램을 생성할 때 [mermaid-validator 
 
 `window.focused`는 운영 체제에서 읽은, **사용자** 가 보고 있는 창입니다. 이는 "이 요청에 응답한 창"이 아닙니다 — VMark는 요청을 해당 워크스페이스를 소유한 창으로 라우팅하며, 다중 창 세션에서는 종종 다른 창입니다.
 
+`windows`에는 모든 문서 창(`main`, 그리고 Finder나 명령줄에서 연 각 창)이 나열됩니다. VMark가 모든 창에 묻기 때문입니다. AI 클라이언트에서 입력하는 동안에는 어떤 VMark 창에도 포커스가 없어 모든 `focused`가 `false`입니다. 이때 `tabId`도 워크스페이스 경로도 없는 요청은 `main`이 아니라 마지막으로 사용한 문서 창으로 갑니다.
+
 이들을 확인 단계로 취급하세요: `workspace.switch_tab` 이후, 후속 `get_state`가 탭이 실제로 사용자 앞에 있는지 알려줍니다. `switch_tab` 자체는 응답하기 전에 스토어를 다시 읽으므로, 활성화가 이루어지지 않았을 때 요청을 그대로 되돌려주는 대신 `activated: false`를 보고합니다.
 
 `kind` 판별자는 해당 탭에 `document.write` (마크다운용)를 사용해야 하는지 `workflow.apply_patch` (yaml-workflow용)를 사용해야 하는지 알려줍니다.

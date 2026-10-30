@@ -35,15 +35,31 @@ describe("vmark.session.get_state", () => {
     resetStores();
   });
 
-  it("returns a session state with empty windows when no tabs are open", () => {
+  it("reports its own window even when it has no tabs (a fresh Welcome window)", () => {
+    // The bridge asks every window and requires each to report itself
+    // (#1612); an empty window that reported nothing would fail the session.
     const state = buildSessionState("0.7.0");
-    expect(state.windows).toEqual([]);
+    expect(state.windows).toEqual([
+      { label: "main", focused: true, activeWorkspaceInstanceId: null, tabs: [] },
+    ]);
     expect(state.capabilities.version).toBe("0.7.0");
     expect(state.capabilities.supportedKinds).toEqual([
       "markdown",
       "yaml-workflow",
     ]);
     expect(state.capabilities.mcpProtocol).toBe("0.3.0");
+  });
+
+  it("never reports another window's entry in this webview's store", () => {
+    // Another window's tabs are that window's to report; a leftover key here
+    // (e.g. after a tab moved out) must not be presented as that window.
+    useTabStore.setState({
+      tabs: {
+        "doc-8": [{ id: "stale", kind: "document", filePath: "/x.md", title: "x", isPinned: false } as never],
+      },
+      activeTabId: {},
+    });
+    expect(buildSessionState("0.7.0").windows.map((w) => w.label)).toEqual(["main"]);
   });
 
   it("classifies a markdown tab as kind=markdown", () => {

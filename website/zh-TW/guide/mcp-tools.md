@@ -81,6 +81,8 @@ VMark 對 AI 助理開放**十個複合 MCP 工具**：`session`、`workspace`�
 
 `window.focused` 是**使用者**正在注視的視窗，取自作業系統。它並不是「回應這個請求的視窗」——VMark 會把請求路由到擁有相關工作區的那個視窗，在多視窗工作階段中，那往往是另一個視窗。
 
+`windows` 會列出每一個文件視窗——`main`，以及每個從 Finder 或命令列開啟的視窗——因為 VMark 會逐一詢問它們。當你在 AI 用戶端裡打字時，沒有任何 VMark 視窗持有焦點，所有 `focused` 都是 `false`；此時既沒有 `tabId` 也沒有工作區路徑的請求，會送往你最後使用的那個文件視窗，而不是 `main`。
+
 請把這些欄位當成確認步驟：在 `workspace.switch_tab` 之後，再呼叫一次 `get_state` 就能告訴你該分頁是否真的出現在使用者眼前。`switch_tab` 本身在回應前會重新讀取 store，因此當啟用並未生效時它會回報 `activated: false`，而不是把請求原封不動地回傳。
 
 `kind` 這個判別欄位告訴你某個分頁應使用 `document.write`（適用於 markdown）還是 `workflow.apply_patch`（適用於 yaml-workflow）。
