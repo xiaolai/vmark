@@ -17,8 +17,9 @@
 //!     Nap wake-and-retry a routed request gets) fails the whole request,
 //!     naming the window. A session missing a window looks complete to the
 //!     client, which is the defect this module exists to remove.
-//!   - A window closed between the snapshot and the send is skipped: it is no
-//!     longer part of the session.
+//!   - A window closed at any point before it answers is skipped: it is no
+//!     longer part of the session. Closing does not drop its pending entry,
+//!     so this is noticed when its wait times out.
 //!   - Read-only, so no write lock; the per-window entries count against the
 //!     pending cap like any other request.
 //!
@@ -141,6 +142,7 @@ async fn ask_window<R: Runtime>(
 }
 
 /// Wait for one window, with the routed path's App Nap wake-and-retry.
+/// `None` when the window closed before it answered.
 async fn await_window<R: Runtime>(
     app: &AppHandle<R>,
     label: &str,
@@ -151,9 +153,22 @@ async fn await_window<R: Runtime>(
     let response = match tokio::time::timeout(REQUEST_TIMEOUT, &mut *response_rx).await {
         Ok(Ok(response)) => response,
         Ok(Err(_)) => return Err("Response channel closed".to_string()),
+        Err(_) if window_closed(app, label) => return Ok(None),
         Err(_) => {
-            retry_window_after_timeout(app, label, event, client_id, SESSION_GET_STATE, response_rx)
-                .await?
+            match retry_window_after_timeout(
+                app,
+                label,
+                event,
+                client_id,
+                SESSION_GET_STATE,
+                response_rx,
+            )
+            .await
+            {
+                Ok(response) => response,
+                Err(_) if window_closed(app, label) => return Ok(None),
+                Err(error) => return Err(error),
+            }
         }
     };
     if !response.success {
@@ -162,6 +177,10 @@ async fn await_window<R: Runtime>(
             .unwrap_or_else(|| "request failed without an error message".to_string()));
     }
     Ok(Some(response.data.unwrap_or(Value::Null)))
+}
+
+fn window_closed<R: Runtime>(app: &AppHandle<R>, label: &str) -> bool {
+    app.get_webview_window(label).is_none()
 }
 
 /// Merge each window's answer into one session: its own window record, and

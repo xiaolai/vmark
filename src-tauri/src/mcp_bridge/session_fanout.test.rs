@@ -6,7 +6,8 @@
 //! case); a webview listing a stale record for another window, which must not
 //! shadow that window's own answer; a utility window, which is never asked;
 //! no document window at all; one window refusing; one window never
-//! answering (App Nap), which must not leave a pending entry behind.
+//! answering (App Nap), which must not leave a pending entry behind; a window
+//! closed while awaited.
 
 use crate::mcp_bridge::managed::{bridge, McpBridgeState};
 use crate::mcp_bridge::principal::BridgePrincipal;
@@ -330,4 +331,32 @@ async fn an_empty_window_is_reported_beside_a_populated_one() {
         response.data.expect("data")["windows"],
         json!([empty_main, window_record("doc-3", "t")])
     );
+}
+
+/// A window closed after it was asked never answers: when its wait runs out
+/// it has left the session, so it is skipped rather than reported as a
+/// timeout, and no wake-retry is sent to it. The mock runtime cannot destroy
+/// a window without its event loop, so the window here is already gone.
+#[tokio::test(start_paused = true)]
+async fn a_window_closed_while_awaited_is_skipped() {
+    let app = mock_app(&["main"]);
+    let _client = connect(&app, 1).await;
+    let mut requests = requests_by_window(&app, &["main"]);
+    let (_never_answered, mut response_rx) = tokio::sync::oneshot::channel::<McpResponse>();
+    let event = crate::mcp_bridge::types::McpRequestEvent {
+        id: "gs-doc-3".to_string(),
+        request_type: super::SESSION_GET_STATE.to_string(),
+        args_json: "{}".to_string(),
+        attribution: crate::mcp_bridge::attribution::McpAttribution {
+            principal: crate::mcp_bridge::attribution::PrincipalWire::Anonymous,
+            connection_id: uuid::Uuid::nil().to_string(),
+            session_label: None,
+            display_name: None,
+        },
+    };
+
+    let answer = super::await_window(app.handle(), "doc-3", &event, 1, &mut response_rx).await;
+
+    assert_eq!(answer, Ok(None));
+    assert!(requests.try_recv().is_err(), "nothing re-sent");
 }
