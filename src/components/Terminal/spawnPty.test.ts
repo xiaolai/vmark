@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
-  resolveTerminalCwd,
+  resolveActiveFileCwd,
   spawnPty,
   wirePtyFlowControl,
   CALLBACK_BYTE_LIMIT,
@@ -65,20 +65,12 @@ function setPlatform(value: string) {
 const originalPlatform = navigator.platform;
 afterEach(() => setPlatform(originalPlatform));
 
-describe("resolveTerminalCwd", () => {
+describe("resolveActiveFileCwd", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("returns workspace root when available", () => {
-    vi.mocked(useWorkspaceStore.getState).mockReturnValue({
-      rootPath: "/workspace/root",
-    } as ReturnType<typeof useWorkspaceStore.getState>);
-
-    expect(resolveTerminalCwd()).toBe("/workspace/root");
-  });
-
-  it("returns active file parent dir when no workspace", () => {
+  it("returns the active file's parent dir", () => {
     vi.mocked(useWorkspaceStore.getState).mockReturnValue({
       rootPath: null,
     } as ReturnType<typeof useWorkspaceStore.getState>);
@@ -89,10 +81,10 @@ describe("resolveTerminalCwd", () => {
       getDocument: () => ({ filePath: "/Users/test/docs/file.md" }),
     } as unknown as ReturnType<typeof useDocumentStore.getState>);
 
-    expect(resolveTerminalCwd()).toBe("/Users/test/docs");
+    expect(resolveActiveFileCwd("main")).toBe("/Users/test/docs");
   });
 
-  it("returns undefined when no workspace and no active file", () => {
+  it("returns undefined when there is no active file", () => {
     vi.mocked(useWorkspaceStore.getState).mockReturnValue({
       rootPath: null,
     } as ReturnType<typeof useWorkspaceStore.getState>);
@@ -100,7 +92,7 @@ describe("resolveTerminalCwd", () => {
       activeTabId: {},
     } as unknown as ReturnType<typeof useTabStore.getState>);
 
-    expect(resolveTerminalCwd()).toBeUndefined();
+    expect(resolveActiveFileCwd("main")).toBeUndefined();
   });
 
   it("returns undefined when active file has no path", () => {
@@ -114,7 +106,7 @@ describe("resolveTerminalCwd", () => {
       getDocument: () => ({ filePath: null }),
     } as unknown as ReturnType<typeof useDocumentStore.getState>);
 
-    expect(resolveTerminalCwd()).toBeUndefined();
+    expect(resolveActiveFileCwd("main")).toBeUndefined();
   });
 
   it("returns active file parent dir on Windows (backslash-separated paths)", () => {
@@ -134,7 +126,7 @@ describe("resolveTerminalCwd", () => {
 
     // Drive letter is lowercased by normalizePath; backslashes converted
     // to forward slashes. Windows shells accept forward-slash CWDs.
-    expect(resolveTerminalCwd()).toBe("c:/Users/test/docs");
+    expect(resolveActiveFileCwd("main")).toBe("c:/Users/test/docs");
   });
 
   it("returns / for a file at POSIX filesystem root", () => {
@@ -148,7 +140,7 @@ describe("resolveTerminalCwd", () => {
       getDocument: () => ({ filePath: "/scratch.md" }),
     } as unknown as ReturnType<typeof useDocumentStore.getState>);
 
-    expect(resolveTerminalCwd()).toBe("/");
+    expect(resolveActiveFileCwd("main")).toBe("/");
   });
 
   it("returns the drive root for a file at a Windows drive root", () => {
@@ -167,7 +159,7 @@ describe("resolveTerminalCwd", () => {
       getDocument: () => ({ filePath: "C:\\file.md" }),
     } as unknown as ReturnType<typeof useDocumentStore.getState>);
 
-    expect(resolveTerminalCwd()).toBe("c:/");
+    expect(resolveActiveFileCwd("main")).toBe("c:/");
   });
 
   it("returns the drive root for a forward-slash drive-root file", () => {
@@ -181,7 +173,7 @@ describe("resolveTerminalCwd", () => {
       getDocument: () => ({ filePath: "D:/notes.md" }),
     } as unknown as ReturnType<typeof useDocumentStore.getState>);
 
-    expect(resolveTerminalCwd()).toBe("d:/");
+    expect(resolveActiveFileCwd("main")).toBe("d:/");
   });
 });
 

@@ -1,10 +1,10 @@
 /**
  * Purpose: the live editor views the host has mounted.
  *
- * The sixth seam, and the only one about the editors THEMSELVES rather than
- * what is configured, which document is open, or what chrome to show.
+ * The only seam about the editors THEMSELVES rather than what is configured,
+ * which document is open, or what chrome to show.
  *
- * It exists for `toolbarActions`, whose whole job is to act on whichever
+ * It exists first for `toolbarActions`, whose whole job is to act on whichever
  * surface the user is looking at. That is ambient by nature: the toolbar is
  * app chrome mounted outside either editor, so it cannot be handed a view as
  * a parameter the way a ProseMirror plugin can.
@@ -15,7 +15,9 @@
  * rather than one that crashes.
  *
  * @coordinates-with services/assembly/bindHostSettings.ts — the app's binding
- * @coordinates-with plugins/toolbarActions/dispatch.ts — the only consumer
+ * @coordinates-with plugins/toolbarActions/dispatch.ts — acts on the active WYSIWYG / Source view
+ * @coordinates-with plugins/codemirror/sourceLint.ts — reads the active Source view to lint it
+ * @coordinates-with plugins/codemirror/sourceCursorContext.ts — reports Source cursor context for the active view
  * @module plugins/shared/hostEditors
  */
 

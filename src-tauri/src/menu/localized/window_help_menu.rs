@@ -17,8 +17,8 @@ pub(super) fn build_window_menu(app: &tauri::AppHandle) -> tauri::Result<Submenu
         &t!("menu.window"),
         true,
         &[
-            &PredefinedMenuItem::minimize(app, None)?,
-            &PredefinedMenuItem::maximize(app, None)?,
+            &PredefinedMenuItem::minimize(app, Some(&t!("menu.window.minimize")))?,
+            &PredefinedMenuItem::maximize(app, Some(&t!("menu.window.zoom")))?,
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(
                 app,

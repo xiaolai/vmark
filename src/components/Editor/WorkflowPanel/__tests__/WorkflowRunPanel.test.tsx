@@ -70,7 +70,7 @@ beforeEach(() => {
 const DOC = "name: demo\nsteps:\n  - uses: action/notify\n";
 
 function runButton() {
-  return screen.getByRole("button", { name: "workflow:run.start" });
+  return screen.getByRole("button", { name: "Run workflow" });
 }
 
 describe("WorkflowRunPanel", () => {
@@ -84,15 +84,15 @@ describe("WorkflowRunPanel", () => {
         expect.objectContaining({ workspaceRoot: "/work" }),
       ),
     );
-    expect(await screen.findByRole("button", { name: "workflow:run.cancel" })).toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent("workflow:run.status.running");
+    expect(await screen.findByRole("button", { name: "Cancel workflow" })).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Running…");
   });
 
   it("disables Run and SAYS why when no folder is open", () => {
     useWorkspaceStore.setState({ rootPath: null } as never);
     render(<WorkflowRunPanel tabId="tab-1" graph={GRAPH} parseError={null} />);
     expect(runButton()).toBeDisabled();
-    expect(screen.getByRole("status")).toHaveTextContent("workflow:run.needsWorkspace");
+    expect(screen.getByRole("status")).toHaveTextContent("Open a folder to run this workflow");
   });
 
   it("disables Run while another surface's run is live, and paints none of its statuses", () => {
@@ -100,7 +100,7 @@ describe("WorkflowRunPanel", () => {
     useWorkflowStore.getState().setStepStatus("x", { status: "running" });
     render(<WorkflowRunPanel tabId="tab-1" graph={GRAPH} parseError={null} />);
     expect(runButton()).toBeDisabled();
-    expect(screen.getByRole("status")).toHaveTextContent("workflow:run.busy");
+    expect(screen.getByRole("status")).toHaveTextContent("Another workflow is running");
     expect(previewProps.last?.stepStatuses).toBeUndefined();
   });
 
@@ -128,14 +128,14 @@ describe("WorkflowRunPanel", () => {
       useWorkflowStore.getState().finishExecution("r1", "completed");
     });
     render(<WorkflowRunPanel tabId="tab-1" graph={GRAPH} parseError={null} />);
-    expect(screen.getByRole("status")).toHaveTextContent("workflow:run.status.completed");
-    const restore = await screen.findByRole("button", { name: "workflow:restore.button" });
+    expect(screen.getByRole("status")).toHaveTextContent("Completed");
+    const restore = await screen.findByRole("button", { name: "Restore Files" });
     await userEvent.click(restore);
     await waitFor(() =>
       expect(invoke).toHaveBeenCalledWith("restore_workflow_snapshot", { snapshotId: "snap-r1" }),
     );
     await waitFor(() =>
-      expect(screen.queryByRole("button", { name: "workflow:restore.button" })).toBeNull(),
+      expect(screen.queryByRole("button", { name: "Restore Files" })).toBeNull(),
     );
   });
 
@@ -151,7 +151,7 @@ describe("WorkflowRunPanel", () => {
     });
     render(<WorkflowRunPanel tabId="tab-1" graph={GRAPH} parseError={null} />);
     await Promise.resolve();
-    expect(screen.queryByRole("button", { name: "workflow:restore.button" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Restore Files" })).toBeNull();
     expect(screen.queryByRole("status")).toBeNull();
   });
 
@@ -200,15 +200,15 @@ describe("WorkflowRunPanel", () => {
     retainWorkflowEvents(); // subscription in flight: a start waits before registering
     render(<WorkflowRunPanel tabId="tab-1" graph={GRAPH} parseError={null} />);
     await userEvent.click(runButton());
-    const cancel = screen.getByRole("button", { name: "workflow:run.cancel" });
+    const cancel = screen.getByRole("button", { name: "Cancel workflow" });
     expect(cancel).toBeDisabled();
-    expect(screen.getByRole("status")).toHaveTextContent("workflow:run.status.starting");
+    expect(screen.getByRole("status")).toHaveTextContent("Starting…");
 
     await act(async () => release());
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "workflow:run.cancel" })).toBeEnabled(),
+      expect(screen.getByRole("button", { name: "Cancel workflow" })).toBeEnabled(),
     );
-    expect(screen.getByRole("status")).toHaveTextContent("workflow:run.status.running");
+    expect(screen.getByRole("status")).toHaveTextContent("Running…");
   });
 
   // Audit fix-round #103: Restore stayed enabled while its confirmation was
@@ -226,7 +226,7 @@ describe("WorkflowRunPanel", () => {
       useWorkflowStore.getState().finishExecution("r1", "completed");
     });
     render(<WorkflowRunPanel tabId="tab-1" graph={GRAPH} parseError={null} />);
-    const restore = await screen.findByRole("button", { name: "workflow:restore.button" });
+    const restore = await screen.findByRole("button", { name: "Restore Files" });
     await userEvent.click(restore);
     expect(restore).toBeDisabled();
     await userEvent.click(restore);

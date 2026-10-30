@@ -169,6 +169,20 @@ describe("aiProviderStore", () => {
   // ── detectProviders ─────────────────────────────────────────────────
 
   describe("detectProviders", () => {
+    it("reuses Rust's cached scan by default and asks for a fresh one on refresh", async () => {
+      vi.mocked(invoke).mockImplementation(async (cmd: string) => {
+        if (cmd === "detect_ai_providers") return [];
+        if (cmd === "read_env_api_keys") return {};
+        return undefined;
+      });
+
+      await useAiProviderStore.getState().detectProviders();
+      await useAiProviderStore.getState().detectProviders({ refresh: true });
+
+      const detectCalls = vi.mocked(invoke).mock.calls.filter(([cmd]) => cmd === "detect_ai_providers");
+      expect(detectCalls.map(([, args]) => args)).toEqual([{ refresh: false }, { refresh: true }]);
+    });
+
     it("populates cliProviders from Rust detection", async () => {
       vi.mocked(invoke).mockImplementation(async (cmd: string) => {
         if (cmd === "detect_ai_providers") {

@@ -63,4 +63,34 @@ describe("exportCanvas", () => {
 
     document.body.removeChild(el);
   });
+
+  it("captures the viewport inside `scope`, not the first one in the document", async () => {
+    const first = document.createElement("div");
+    first.className = "react-flow__viewport";
+    const wrapper = document.createElement("section");
+    const own = document.createElement("div");
+    own.className = "react-flow__viewport";
+    wrapper.appendChild(own);
+    document.body.append(first, wrapper);
+
+    await exportCanvas("svg", { scope: wrapper });
+    const callArgs = (toSvg as unknown as { mock: { calls: unknown[][] } })
+      .mock.calls.at(-1);
+    expect(callArgs?.[0]).toBe(own);
+
+    first.remove();
+    wrapper.remove();
+  });
+
+  it("refuses when `scope` holds no viewport, even if another canvas exists", async () => {
+    const other = document.createElement("div");
+    other.className = "react-flow__viewport";
+    const emptyScope = document.createElement("section");
+    document.body.append(other, emptyScope);
+
+    await expect(exportCanvas("svg", { scope: emptyScope })).rejects.toThrow(/viewport/i);
+
+    other.remove();
+    emptyScope.remove();
+  });
 });

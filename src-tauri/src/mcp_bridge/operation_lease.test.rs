@@ -4,7 +4,7 @@
 //! operation it could not refuse, or at its bound.
 //!
 //! Edge cases: a client drained before the operation starts (synchronous
-//! `windows.list` and a write-class coherence request, which first waits for
+//! webview-bound request and a write-class coherence request, which first waits for
 //! the write lock), a stop racing an admitted operation, an operation
 //! admitted for a client that never connected.
 
@@ -59,7 +59,7 @@ async fn a_rust_side_operation_for_a_drained_client_never_runs() {
     connect(&app, 1).await;
     crate::mcp_bridge::server::stop_bridge(app.handle()).await;
 
-    for request_type in ["windows.list", "vmark.coherence.resolve"] {
+    for request_type in ["vmark.document.read", "vmark.coherence.resolve"] {
         let response = answer_rust_side(
             &request(request_type),
             app.handle(),

@@ -65,6 +65,17 @@ pub(crate) fn filter_supported_args(args: impl IntoIterator<Item = String>) -> V
         .collect()
 }
 
+/// The launch arguments that name an existing folder, in order.
+///
+/// A folder on a Windows/Linux command line asks for a workspace, as a folder
+/// dropped on the Dock icon does on macOS (`RunEvent::Opened`); the file
+/// filter above drops it, so the launch paths read both.
+pub(crate) fn launch_dirs(args: impl IntoIterator<Item = String>) -> Vec<String> {
+    args.into_iter()
+        .filter(|arg| std::path::Path::new(arg).is_dir())
+        .collect()
+}
+
 #[cfg(test)]
 #[path = "supported_files.test.rs"]
 mod tests;

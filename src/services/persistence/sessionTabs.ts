@@ -14,8 +14,10 @@
  *     field to an object would instead make the old binary's `Vec<String>`
  *     serde choke on a JSON object.
  *   - A NEW, additive `sessionTabs` field (this module's `SessionTabsV1`) carries
- *     the full ordered list including browser tabs. New builds prefer it and
- *     fall back to migrating `lastOpenTabs` when it is absent (legacy configs).
+ *     the ordered document tabs. New builds prefer it and fall back to migrating
+ *     `lastOpenTabs` when it is absent (legacy configs). Browser tabs are not
+ *     written to it: they persist per window (`windowBrowserSession.ts`), which
+ *     reuses this module's browser-record schema and validation.
  *
  * Forward tolerance: records with an unknown `kind`, a malformed shape, or an
  * unknown top-level `version` are skipped (or the whole record ignored) rather
@@ -29,7 +31,7 @@
 
 import type { Tab } from "@/stores/tabStoreTypes";
 import { workspaceWarn } from "@/utils/debug";
-import { canonicalizeBrowserUrl, urlForPersistence } from "@/lib/browser/url";
+import { canonicalizeBrowserUrl } from "@/lib/browser/url";
 
 /** A persisted document tab: only the path is restorable; content is re-read. */
 interface PersistedDocumentTab {
@@ -179,26 +181,21 @@ export function migratePersistedTabs(
     .map((path) => ({ kind: "document", path }));
 }
 
-/** Serialize the live tab list into the versioned `sessionTabs` payload. */
+/**
+ * Serialize the live tab list into the versioned `sessionTabs` payload.
+ *
+ * Document tabs only. Browser pages are window-global and persist per window
+ * (`windowBrowserSession.ts`); no reader of this workspace field restores
+ * them, so writing their URLs here would only leave browsing history in the
+ * workspace config. The record format still admits browser records, which
+ * configs written by earlier builds contain and readers skip.
+ */
 export function serializeSessionTabs(tabs: readonly Tab[]): SessionTabsV1 {
   return {
     version: SESSION_TABS_VERSION,
-    tabs: tabs.flatMap((tab): PersistedTab[] => {
-      if (tab.kind === "browser") {
-        if ((tab.automationMode ?? "human") !== "human") return [];
-        // The URL goes to a cleartext file on disk that outlives this session, so an
-        // embedded password does not go with it (audit, High). The username stays — it is
-        // part of the destination, not a credential.
-        const rec: PersistedBrowserTab = {
-          kind: "browser",
-          url: urlForPersistence(tab.url),
-          title: tab.title,
-        };
-        if (isValidScrollY(tab.scrollY)) rec.scrollY = tab.scrollY;
-        return [rec];
-      }
-      return [{ kind: "document", path: tab.filePath }];
-    }),
+    tabs: tabs.flatMap((tab): PersistedTab[] =>
+      tab.kind === "document" ? [{ kind: "document", path: tab.filePath }] : [],
+    ),
   };
 }
 
@@ -207,11 +204,10 @@ export function serializeSessionTabs(tabs: readonly Tab[]): SessionTabsV1 {
  * `sessionTabs` field when present (falling back to legacy `lastOpenTabs`), and
  * returns only non-null document paths.
  *
- * Browser records are intentionally skipped here (`browserSupported: false`) —
- * browser-tab restore is wired together with the live browser surface
- * and its feature flag; until then restoring a browser record would
- * create a tab with no surface. Document restore is unchanged: when `sessionTabs`
- * is present its document paths equal `lastOpenTabs` (both are written together).
+ * Browser records (written by earlier builds) are skipped here
+ * (`browserSupported: false`): browser pages restore per window through
+ * `windowBrowserSession.ts`. When `sessionTabs` is present its document paths
+ * equal `lastOpenTabs` (both are written together).
  */
 export function documentPathsForRestore(config: {
   sessionTabs?: unknown;

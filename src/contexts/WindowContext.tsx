@@ -37,7 +37,7 @@
  * @coordinates-with workspaceStorage.ts — per-window localStorage key scoping + findActiveWorkspaceLabel
  * @coordinates-with useWorkspaceSync.ts — cross-window workspace config rehydration
  * @coordinates-with openPolicy.ts — resolves workspace root for external files
- * @coordinates-with lib.rs (Rust) — listens for "ready" event per window
+ * @coordinates-with app_setup.rs (Rust) — listens for the "ready" event per window
  * @module contexts/WindowContext
  */
 import { createContext, useContext, useEffect, useState, useRef, type ReactNode } from "react";

@@ -338,7 +338,87 @@ describe("prompt-swap protection and display hardening (audit 2026-09-03)", () =
     const dlg = screen.getByRole("alertdialog");
     expect(dlg).toHaveTextContent('Text: "hello"');
     expect(dlg).toHaveTextContent("Type into");
-    expect(dlg.querySelector("pre")).toBeNull();
+    expect(dlg).not.toHaveTextContent("return 1");
+  });
+
+  it("shows a long type summary whole, with bidi controls made visible", () => {
+    const summary = `Text: "${"A".repeat(1000)}\u202ETAIL"`;
+    useBrowserApprovalStore
+      .getState()
+      .requestApproval("t2", URL, "type", { role: "textbox", name: "Message" }, TAB, 1, "return 1", undefined, summary);
+    render(<BrowserApprovalDialog />);
+    const shown = screen.getByRole("alertdialog").querySelector(".browser-approval-summary");
+    expect(shown).not.toBeNull();
+    expect(shown!.textContent).toBe(`Text: "${"A".repeat(1000)}\\u{202E}TAIL"`);
+  });
+
+  it.each([
+    ["zero-width space", "​", "200B"],
+    ["zero-width non-joiner", "‌", "200C"],
+    ["zero-width joiner", "‍", "200D"],
+    ["word joiner", "⁠", "2060"],
+    ["byte-order mark", "﻿", "FEFF"],
+    ["soft hyphen", "­", "AD"],
+  ])("makes a hidden %s visible in the type summary and the target name", (_label, ch, hex) => {
+    const summary = `Text: "wire 10${ch}000"`;
+    useBrowserApprovalStore
+      .getState()
+      .requestApproval("t3", URL, "type", { role: "textbox", name: `Amo${ch}unt` }, TAB, 1, "return 1", undefined, summary);
+    render(<BrowserApprovalDialog />);
+    const dlg = screen.getByRole("alertdialog");
+    expect(dlg.querySelector(".browser-approval-summary")!.textContent).toBe(`Text: "wire 10\\u{${hex}}000"`);
+    expect(dlg.querySelector(".browser-approval-name bdi")!.textContent).toBe(`Amo\\u{${hex}}unt`);
+  });
+
+  // Invisible yet outside category Cf: variation selectors and the combining
+  // grapheme joiner are Mn and draw nothing; the Hangul and Braille fillers are Lo/So
+  // and draw only a blank. Each still reaches the page.
+  it.each([
+    ["variation selector 16", "\uFE0F", "FE0F"],
+    ["ideographic variation selector", "\u{E0100}", "E0100"],
+    ["combining grapheme joiner", "\u034F", "34F"],
+    ["Hangul choseong filler", "\u115F", "115F"],
+    ["Hangul jungseong filler", "\u1160", "1160"],
+    ["Hangul filler", "\u3164", "3164"],
+    ["halfwidth Hangul filler", "\uFFA0", "FFA0"],
+    ["Braille blank", "\u2800", "2800"],
+  ])("makes a hidden %s visible too", (_label, ch, hex) => {
+    const summary = `Text: "wire 10${ch}000"`;
+    useBrowserApprovalStore
+      .getState()
+      .requestApproval("t5", URL, "type", { role: "textbox", name: `Amo${ch}unt` }, TAB, 1, "return 1", undefined, summary);
+    render(<BrowserApprovalDialog />);
+    const dlg = screen.getByRole("alertdialog");
+    expect(dlg.querySelector(".browser-approval-summary")!.textContent).toBe(`Text: "wire 10\\u{${hex}}000"`);
+    expect(dlg.querySelector(".browser-approval-name bdi")!.textContent).toBe(`Amo\\u{${hex}}unt`);
+  });
+
+  it("leaves a visible combining accent alone", () => {
+    const summary = 'Text: "he\u0301llo"';
+    useBrowserApprovalStore
+      .getState()
+      .requestApproval("t6", URL, "type", { role: "textbox", name: "Message" }, TAB, 1, "return 1", undefined, summary);
+    render(<BrowserApprovalDialog />);
+    expect(screen.getByRole("alertdialog").querySelector(".browser-approval-summary")!.textContent).toBe(summary);
+  });
+
+  // Trojan Source: a bidi override reorders how code DISPLAYS without changing what
+  // runs, so the script the user approves must show its controls like every other field.
+  it("shows bidi and zero-width characters in an eval script as escapes", () => {
+    raisePayload("e2", "eval", "fetch('/ok')\u202E;\u200Bdrain()");
+    render(<BrowserApprovalDialog />);
+    expect(screen.getByRole("alertdialog").querySelector(".browser-approval-script")!.textContent).toBe(
+      "fetch('/ok')\\u{202E};\\u{200B}drain()",
+    );
+  });
+
+  it("leaves visible text, CJK and emoji untouched", () => {
+    const summary = 'Text: "héllo 你好 👍🏽"';
+    useBrowserApprovalStore
+      .getState()
+      .requestApproval("t4", URL, "type", { role: "textbox", name: "Message" }, TAB, 1, "return 1", undefined, summary);
+    render(<BrowserApprovalDialog />);
+    expect(screen.getByRole("alertdialog").querySelector(".browser-approval-summary")!.textContent).toBe(summary);
   });
 
   it("clips an absurd name, isolates it for bidi, and keeps the buttons reachable", () => {

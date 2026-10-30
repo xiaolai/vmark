@@ -19,7 +19,8 @@
  *     shown at all for the version the user chose to skip.
  *   - Transient states (checking/downloading/installing) are silent. The
  *     stall detector covers the case where silence would strand the user:
- *     a stalled flow raises a sticky warning with a Reset action (#1270).
+ *     a stalled flow raises a sticky warning whose Retry action runs the
+ *     recover operation (#1270).
  *   - Priority mirrors the old inline badges: while auto-save is paused the
  *     divergent toast stays quiet — one story at a time about the same file.
  *   - Toasts go through imeToast (never raw sonner) so a CJK composition is

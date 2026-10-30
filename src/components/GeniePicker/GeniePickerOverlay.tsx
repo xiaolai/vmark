@@ -2,10 +2,11 @@
  * GeniePickerOverlay — app-level mount for the genie picker, carrying its occlusion
  * policy.
  *
- * The picker itself is a large component that is already at its file-size baseline, and
- * occlusion is a shell concern rather than a picker concern: it is about the native
+ * Occlusion is a shell concern rather than a picker concern: it is about the native
  * browser view painting over whatever the app draws, not about genies. So the freeze
- * lives here, in the thin thing App mounts, and `GeniePicker` stays untouched.
+ * lives here, in the thin thing App mounts, and `GeniePicker` (whose logic lives in
+ * `useGeniePickerState`, `useGeniePickerActions` and `useGeniePickerFocus`) knows
+ * nothing about browser views.
  *
  * @coordinates-with hooks/useBrowserOccluder — freezes mounted browser tabs while open
  * @coordinates-with services/browser/__tests__/overlayPolicies — declares this overlay's policy

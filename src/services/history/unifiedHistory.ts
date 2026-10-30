@@ -188,7 +188,7 @@ export function doNativeRedo(): boolean {
 
 /**
  * Restore document from a checkpoint.
- * Handles content restoration, cursor position, and mode switching.
+ * Restores content and cursor position; never switches the view mode.
  */
 export function restoreFromCheckpoint(
   tabId: string,

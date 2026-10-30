@@ -119,62 +119,18 @@ pub(super) async fn route_target_or_reply<R: Runtime>(
     }
 }
 
-/// Handle requests directly in Rust without involving the webview.
-/// Returns `Some(response)` if handled, `None` to fall through to webview.
+/// Handle requests directly in Rust without involving the webview — today
+/// only the `vmark.coherence.*` operations. Returns `Some(response)` if
+/// handled, `None` to fall through to the webview.
 ///
-/// This avoids timeouts when the webview is suspended by macOS (App Nap,
-/// display sleep) for simple window queries that Tauri can answer natively.
+/// Answering in Rust avoids timeouts when the webview is suspended by macOS
+/// (App Nap, display sleep).
 pub(super) fn handle_rust_side<R: Runtime>(
     request: &McpRequest,
     app: &AppHandle<R>,
     principal: &BridgePrincipal,
 ) -> Option<McpResponse> {
     match request.request_type.as_str() {
-        "windows.list" => {
-            let windows: Vec<serde_json::Value> = app
-                .webview_windows()
-                .iter()
-                .filter(|(label, _)| {
-                    // Only expose document windows (main, doc-*)
-                    *label == "main" || label.starts_with("doc-")
-                })
-                .map(|(label, window)| {
-                    serde_json::json!({
-                        "label": label,
-                        "title": window.title().unwrap_or_default(),
-                        "filePath": null,
-                        "isFocused": window.is_focused().unwrap_or(false),
-                        "isAiExposed": true,
-                    })
-                })
-                .collect();
-
-            Some(McpResponse {
-                success: true,
-                data: Some(serde_json::to_value(&windows).unwrap_or_default()),
-                error: None,
-            })
-        }
-        "windows.getFocused" => {
-            // Only consider document windows (main, doc-*), not settings/utility windows
-            let focused = app
-                .webview_windows()
-                .iter()
-                .find(|(label, w)| {
-                    w.is_focused().unwrap_or(false)
-                        && (*label == "main" || label.starts_with("doc-"))
-                })
-                .map(|(label, _)| label.clone());
-
-            Some(McpResponse {
-                success: true,
-                data: Some(match focused {
-                    Some(label) => serde_json::Value::String(label),
-                    None => serde_json::Value::Null,
-                }),
-                error: None,
-            })
-        }
         // Coherence layer: read-only views plus the one
         // delegated mutating action (`resolve`), answered entirely
         // in Rust from the managed kernel — no webview hop, so they work
@@ -220,11 +176,12 @@ pub(super) fn handle_rust_side<R: Runtime>(
 pub(super) use super::coherence_answers::answer_coherence;
 
 /// The server's single Rust-terminal entry: coherence requests take the
-/// off-loop path below; everything else stays the synchronous
-/// `handle_rust_side` dispatch. Either runs only under an operation lease
-/// for a still-connected `client_id` (`McpBridgeState::admit_operation`),
-/// taken at the moment it would start, so a stop that drained the client
-/// first refuses it and a later stop waits for it.
+/// off-loop path below (under an operation lease for a still-connected
+/// `client_id`, `McpBridgeState::admit_operation`, taken at the moment it
+/// would start, so a stop that drained the client first refuses it and a
+/// later stop waits for it). Every other request is answered by the webview:
+/// it is refused "Bridge stopped" here when a stop already drained its client,
+/// and otherwise falls through (`None`).
 pub(super) async fn answer_rust_side<R: Runtime>(
     request: &McpRequest,
     app: &tauri::AppHandle<R>,
@@ -237,10 +194,10 @@ pub(super) async fn answer_rust_side<R: Runtime>(
                 .await,
         );
     }
-    let Some(_lease) = bridge(app).admit_operation(client_id).await else {
+    if bridge(app).admit_operation(client_id).await.is_none() {
         return Some(bridge_stopped());
-    };
-    handle_rust_side(request, app, &principal)
+    }
+    None
 }
 
 /// The answer to an operation a stop got to first.

@@ -265,12 +265,15 @@ fn handle_rust_side_without_managed_state_errors_instead_of_panicking() {
 #[test]
 fn handle_rust_side_falls_through_for_unrelated_types() {
     let app = mock_app_with_coherence();
-    let request = McpRequest {
-        request_type: "vmark.document.read".to_string(),
-        args: serde_json::json!({}),
-    };
-
-    assert!(handle_rust_side(&request, app.handle(), &BridgePrincipal::Anonymous).is_none());
+    // The old `windows.*` queries are no longer answered in Rust: no tool sends them.
+    for request_type in ["vmark.document.read", "windows.list", "windows.getFocused"] {
+        let request = McpRequest {
+            request_type: request_type.to_string(),
+            args: serde_json::json!({}),
+        };
+        let answered = handle_rust_side(&request, app.handle(), &BridgePrincipal::Anonymous);
+        assert!(answered.is_none(), "{request_type}");
+    }
 }
 
 // WI-2b.8 — the read-only semantic-layer views over MCP.

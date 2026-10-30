@@ -84,7 +84,9 @@ fn no_coherence_command_touches_a_kernel_on_the_async_worker() {
             }
         }
     }
-    assert!(commands >= 30, "found only {commands} coherence commands");
+    // The floor is the real command count, so a scanner that silently stops
+    // seeing commands fails here. Deleting a command lowers it by one.
+    assert!(commands >= 25, "found only {commands} coherence commands");
     assert!(
         offenders.is_empty(),
         "commands doing kernel work on the async worker: {offenders:?}"

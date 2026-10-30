@@ -18,23 +18,37 @@ use super::types::CliProviderEntry;
 // CLI Provider Detection
 // ============================================================================
 
-/// Session-stable cache. Installed CLIs don't appear/disappear mid-session, so
-/// the first detection result is reused — repeated `detect_ai_providers` calls
-/// otherwise re-spawn `which`/`where` ×3 (subprocesses) every time (O2).
+/// Detection cache. Startup, the picker and the Settings page all detect, and
+/// each call would otherwise re-spawn `which`/`where` ×3 (subprocesses), so a
+/// result is reused — except when the user clicks Detect (`refresh`), which
+/// must find a CLI installed since the last scan.
 static DETECTION_CACHE: Mutex<Option<Vec<CliProviderEntry>>> = Mutex::new(None);
+
+/// The cached result, unless `refresh` asks for a fresh scan.
+fn cached_detection(
+    cache: &Mutex<Option<Vec<CliProviderEntry>>>,
+    refresh: bool,
+) -> Option<Vec<CliProviderEntry>> {
+    if refresh {
+        return None;
+    }
+    cache.lock().unwrap_or_else(|p| p.into_inner()).clone()
+}
+
+/// Record a scan's result as the one later calls reuse.
+fn store_detection(cache: &Mutex<Option<Vec<CliProviderEntry>>>, detected: Vec<CliProviderEntry>) {
+    *cache.lock().unwrap_or_else(|p| p.into_inner()) = Some(detected);
+}
 
 /// Detect which CLI AI providers are available on the system.
 ///
 /// `async` + `spawn_blocking` so the subprocess (`which`/`where`) lookups run
-/// off the IPC thread instead of stalling it; the result is memoized for the
-/// process lifetime.
+/// off the IPC thread instead of stalling it. The result is reused until a
+/// call passes `refresh: true` (the Settings Detect button), which rescans
+/// and replaces it.
 #[command]
-pub async fn detect_ai_providers() -> Vec<CliProviderEntry> {
-    if let Some(cached) = DETECTION_CACHE
-        .lock()
-        .unwrap_or_else(|p| p.into_inner())
-        .clone()
-    {
+pub async fn detect_ai_providers(refresh: Option<bool>) -> Vec<CliProviderEntry> {
+    if let Some(cached) = cached_detection(&DETECTION_CACHE, refresh.unwrap_or(false)) {
         return cached;
     }
 
@@ -42,7 +56,7 @@ pub async fn detect_ai_providers() -> Vec<CliProviderEntry> {
         .await
         .unwrap_or_default();
 
-    *DETECTION_CACHE.lock().unwrap_or_else(|p| p.into_inner()) = Some(detected.clone());
+    store_detection(&DETECTION_CACHE, detected.clone());
     detected
 }
 

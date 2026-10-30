@@ -239,6 +239,7 @@ export {
   CATEGORY_LABELS,
   CATEGORY_ORDER,
   flushMenuShortcutsSync,
+  onMenuShortcutSyncFailure,
   formatKeyForDisplay,
   prosemirrorToTauri,
   type ShortcutCategory,

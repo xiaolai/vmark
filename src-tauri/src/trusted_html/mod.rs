@@ -19,29 +19,27 @@
 //! Nothing is persisted: grants live in memory and die with the process, so a
 //! document trusted today is untrusted the next time VMark starts.
 //!
-//! **Lifetime, precisely.** A grant ends in exactly two ways: the user revokes
-//! it, or the process exits. That is the whole list.
+//! **Lifetime, precisely.** A grant ends in exactly three ways: the user
+//! revokes it, the window that requested it is destroyed
+//! (`window_manager/window_events.rs` calls `TrustedHtmlState::revoke_window`
+//! with that window's label on `WindowEvent::Destroyed`), or the process exits.
+//! That is the whole list. The teardown is scoped to the destroyed window's
+//! label: a process-global sweep would revoke every other window's trusted
+//! previews.
 //!
 //! An earlier version of this note also claimed revocation on preview unmount
 //! and on `beforeunload`. Neither was ever implemented — the claim outlived a
 //! decision not to build them, which is the failure mode this repository's
 //! documentation rules exist to prevent, so it is recorded here rather than
-//! quietly deleted.
+//! quietly deleted. A preview that unmounts while its window lives keeps its
+//! grant until one of the three ends above (the window's trust store still
+//! maps the path to its token), and `MAX_GRANTS` bounds the total.
 //!
 //! There is deliberately no quit-time hook: quit goes through
 //! `std::process::exit`, and this registry holds no child process, socket or
 //! file, so a teardown call there would be a no-op wearing the costume of a
 //! safeguard (`quit::shutdown_child_process_subsystems` is for things that
 //! genuinely outlive the app).
-//!
-//! **Known bound, accepted deliberately.** A webview destroyed while the
-//! process lives leaves that window's grants resident until quit. They are
-//! unreachable — the only frame that knew the token is gone, the token is 32
-//! bytes of CSPRNG entropy, and `MAX_GRANTS` bounds the total — so this is a
-//! memory cost, not an access-control hole. Closing it properly means keying
-//! grants by window label and revoking from `WindowEvent::Destroyed`; a
-//! process-global sweep is NOT the fix, because one window's teardown would
-//! then revoke every other window's trusted previews.
 
 pub mod commands;
 pub mod protocol;

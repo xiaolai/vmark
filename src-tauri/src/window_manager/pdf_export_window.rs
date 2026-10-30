@@ -38,7 +38,9 @@
 //! @coordinates-with services/navigation/pdfExportWindow.ts — the caller
 //! @coordinates-with pdf_export/renderer/progress.rs — PROGRESS_WINDOW is this label
 //! @coordinates-with window_creation.rs — check-and-build as one step
+//! @coordinates-with temp_html.rs — the HTML hand-off, discarded on `Destroyed`
 
+use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::time::Duration;
 
@@ -47,6 +49,7 @@ use tauri::{AppHandle, Manager, Runtime, WebviewUrl, WebviewWindow, WebviewWindo
 use super::{ensure_window, Ensured};
 use crate::command_error::{CommandError, ErrorCode};
 use crate::localized_error;
+use crate::temp_html::{discard_temp_html, temp_html_dir};
 
 /// The window label. `pdf_export::renderer::progress` emits to this same name,
 /// and `app_plugins.rs` denylists it from window-state persistence.
@@ -83,7 +86,22 @@ pub fn open_pdf_export_window(
     y: Option<f64>,
 ) -> Result<String, CommandError> {
     let url = pdf_export_url(&html_path, default_name.as_deref());
-    open_export_window(&app, url, x.zip(y), PREVIOUS_WINDOW_CLOSE_LIMIT)
+    let label = open_export_window(&app, url, x.zip(y), PREVIOUS_WINDOW_CLOSE_LIMIT)?;
+    if let (Some(window), Ok(dir)) = (app.get_webview_window(&label), temp_html_dir(&app)) {
+        let path = PathBuf::from(html_path);
+        window.on_window_event(move |event| discard_html_when_destroyed(event, &dir, &path));
+    }
+    Ok(label)
+}
+
+/// The window's HTML is a one-reader hand-off: once the window is gone,
+/// nothing reads the file again, so it is removed then rather than left for
+/// the hour-old sweep in `temp_html`. Waiting for `Destroyed` (not deleting
+/// after the page's first read) keeps a page reload able to read it again.
+fn discard_html_when_destroyed(event: &tauri::WindowEvent, dir: &Path, path: &Path) {
+    if matches!(event, tauri::WindowEvent::Destroyed) {
+        discard_temp_html(dir, path);
+    }
 }
 
 /// How long the previous export window may take to go away. Destruction takes

@@ -4,6 +4,7 @@
 //! Uses stdin piping to avoid temp files. Runs blocking I/O on a dedicated
 //! thread with a timeout to avoid stalling the async runtime.
 //!
+//! @coordinates-with export_target/mod.rs — the save-panel choice `export_via_pandoc` may write to
 //! @coordinates-with pandoc/run.rs — run_pandoc() blocking subprocess execution
 //! @coordinates-with ai_provider/spawn.rs — build_command() for cross-platform spawn
 //! @coordinates-with ai_provider/detection.rs — login_shell_path(), which_command() for PATH resolution
@@ -132,12 +133,20 @@ fn detect_pandoc_blocking() -> PandocInfo {
 /// Pipes markdown through stdin to avoid temp files.
 /// Output format is inferred from the output file extension by Pandoc.
 /// Runs on a blocking thread with a timeout to avoid stalling the async runtime.
+///
+/// `output_path` must be the calling webview's save-panel choice
+/// (`export_target`); any other path is refused before Pandoc runs.
 #[command]
 pub async fn export_via_pandoc(
+    app: tauri::AppHandle,
+    webview: tauri::Webview,
     markdown: String,
     output_path: String,
     source_dir: Option<String>,
 ) -> Result<(), String> {
+    crate::export_target::claim(&app, webview.label(), &output_path)
+        .map_err(|e| e.message().to_owned())?;
+
     // Validate extension against strict allowlist
     validate_extension(&output_path)?;
 

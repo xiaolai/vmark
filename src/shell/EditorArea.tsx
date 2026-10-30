@@ -16,7 +16,7 @@
  * no reading sequence depends on that order.
  *
  * The editor + bottom-bar are siblings inside a flex column so the
- * 40px bottom bar always hugs the editor. The panel arranges around
+ * bottom bar (at least 40px, growing with the FindBar) always hugs the editor. The panel arranges around
  * that column based on panelPosition.
  *
  * The `main` ARIA landmark wraps only the editor (not the bottom bar) so

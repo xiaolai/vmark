@@ -80,10 +80,17 @@ module.exports = [
     // and previews load the parser on first use (formats/adapters/
     // tomlParser.ts) into its own chunk, budgeted below, and re-run once it
     // arrives. 133.7 -> 123.3 kB.
+    //
+    // The lint engine (lintEngine/*, 11.8 kB) then moved IN from the eager
+    // documentStore chunk: the lint store stopped importing the engine and
+    // reaches it only through the format adapters' `lint`, which the entry
+    // registers. documentStore shrank 29.9 -> 17.9 kB, and the cold-start
+    // closure is unchanged (3.14 MB both builds, held by MAX_EAGER_BYTES).
+    // 123.3 -> 136.4 kB.
     name: "EAGER: entry",
     path: "dist/assets/entry-*.js",
-    // Ratcheted 145 kB -> 130 kB (re-measured to its size plus 5%): actual 123.3 kB.
-    limit: "130 kB",
+    // Re-measured 130 kB -> 144 kB (its size plus 5%, rounded up): actual 136.4 kB.
+    limit: "144 kB",
     brotli: false,
   },
 
@@ -487,7 +494,10 @@ module.exports = [
     ["IntegrationsSettings", "33.5 kB"],
     ["LanguageSettings", "8.7 kB"],
     ["MarkdownSettings", "5.1 kB"],
-    ["ShortcutsSettings", "8.7 kB"],
+    // Re-measured 8.7 -> 9.4 kB: Remove Shortcut, Reassign on conflict and
+    // the menu-sync notice are new behaviour in this panel (ShortcutRow.tsx,
+    // KeyCapture.tsx); actual 8.88 kB.
+    ["ShortcutsSettings", "9.4 kB"],
     ["TerminalSettings", "7.4 kB"],
   ].map(([chunk, limit]) => ({
     name: `LAZY: Settings panel ${chunk}`,

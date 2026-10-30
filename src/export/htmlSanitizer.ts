@@ -7,6 +7,7 @@
  *
  * @module export/htmlSanitizer
  * @coordinates-with htmlExport.ts — called before resource resolution
+ * @coordinates-with printDocument.ts — strips editor artifacts before printing
  */
 
 /**

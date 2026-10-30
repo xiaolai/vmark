@@ -56,6 +56,7 @@
 //! `WM_COPYDATA`), which is where #1330 was actually reported.
 //!
 //! @coordinates-with files/open.rs — `route_file_opens`, the shared destination
+//! @coordinates-with single_instance/argv.rs — resolves and filters the forwarded argv
 //! @coordinates-with session_bus.rs — the Linux gate's rules and probes
 //! @coordinates-with app_setup.rs — handles the FIRST launch's argv, logs the skipped guard
 //! @coordinates-with lib.rs — registers the plugin only when `session_bus_present()`
@@ -68,6 +69,9 @@
 use tauri::{Manager, Runtime};
 
 use crate::{files, quit, supported_files, window_manager};
+
+mod argv;
+pub(crate) use argv::{openable_files_from_argv, resolve_against_launch_cwd};
 
 /// Linux: is there a session bus for the plugin to connect to? The rules
 /// live in `session_bus.rs`.
@@ -100,7 +104,7 @@ pub(crate) fn warn_if_unguarded() {
 }
 
 /// Handle a second launch: route any openable files in `argv` to this
-/// instance, and surface a window either way.
+/// instance, open any folders in it as workspaces, and surface a window either way.
 ///
 /// Dispatched OFF the callback thread. The plugin documents this
 /// callback as running on the main event loop, and the decision it makes needs
@@ -115,45 +119,47 @@ pub(crate) fn warn_if_unguarded() {
 /// is safe from a worker — Tauri's builder posts to the event loop, which is
 /// the same reason a window-creating command must be `async` (`window_manager/
 /// mod.rs`).
-pub(crate) fn handle_second_launch(app: &tauri::AppHandle, argv: Vec<String>) {
+pub(crate) fn handle_second_launch(app: &tauri::AppHandle, argv: Vec<String>, cwd: String) {
     let app = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        second_launch_with(&app, argv, files::open::route_file_opens);
+        second_launch_with(&app, argv, &cwd, files::open::route_file_opens);
     });
 }
 
 /// The second-launch decision, with the forwarder injected: a launch
 /// that carries openable files hands EXACTLY those files to `forward` and
 /// touches no window itself — `route_file_opens` focuses the window it
-/// delivers to — while a bare launch surfaces a window and forwards nothing.
+/// delivers to. Each folder in argv opens as a workspace window, as a folder
+/// handed over by Finder does on macOS. A launch with neither surfaces a
+/// window and forwards nothing.
 ///
 /// `argv[0]` is the program path, exactly as `std::env::args()` yields it, so
-/// it is skipped for the same reason `app_setup` skips it.
+/// it is skipped for the same reason `app_setup` skips it. `cwd` is the
+/// SECOND launch's working directory; relative arguments are resolved against
+/// it before anything is checked (`resolve_against_launch_cwd`).
 pub(crate) fn second_launch_with<R: Runtime>(
     app: &tauri::AppHandle<R>,
     argv: Vec<String>,
+    cwd: &str,
     forward: impl FnOnce(&tauri::AppHandle<R>, Vec<String>),
 ) {
+    let argv = resolve_against_launch_cwd(argv, cwd);
+    let dirs = supported_files::launch_dirs(argv.iter().skip(1).cloned());
     let files = openable_files_from_argv(argv);
     log::info!(
-        "[SingleInstance] second launch with {} file(s)",
-        files.len()
+        "[SingleInstance] second launch with {} file(s), {} folder(s)",
+        files.len(),
+        dirs.len()
     );
 
-    if files.is_empty() {
-        surface_a_window(app);
-        return;
+    for dir in &dirs {
+        files::open::open_finder_directory(app, dir);
     }
-    forward(app, files);
-}
-
-/// The openable files a second launch is asking for.
-///
-/// `argv[0]` is dropped before the gate, not after: it is the program path,
-/// and a build whose own name ends in a registered extension would otherwise
-/// open the executable as a document.
-pub(crate) fn openable_files_from_argv(argv: Vec<String>) -> Vec<String> {
-    supported_files::filter_supported_args(argv.into_iter().skip(1))
+    if !files.is_empty() {
+        forward(app, files);
+    } else if dirs.is_empty() {
+        surface_a_window(app);
+    }
 }
 
 /// Bring an existing document window forward, or create one when none is left.

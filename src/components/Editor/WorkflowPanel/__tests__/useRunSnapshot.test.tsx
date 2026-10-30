@@ -104,7 +104,7 @@ describe("useRunSnapshot — finding the snapshot", () => {
         await vi.advanceTimersByTimeAsync(5_000);
       });
       expect(invoke).toHaveBeenCalledTimes(2);
-      expect(errorDetail).toHaveBeenCalledWith("workflow:restore.listFailed", failure);
+      expect(errorDetail).toHaveBeenCalledWith("Could not look up the files this run can restore", failure);
     });
 
     it("does not retry for a panel that has gone", async () => {
@@ -136,13 +136,13 @@ describe("useRunSnapshot — restoring", () => {
       await result.current.restore();
     });
     const [message, options] = ask.mock.calls[0] as [string, Record<string, unknown>];
-    expect(message).toContain("workflow:restore.confirmChanged");
-    expect(message).toContain("workflow:restore.confirmCreated");
-    expect(message).toContain("workflow:restore.confirmLoss");
+    expect(message).toContain("2 files will be put back as they were before the run.");
+    expect(message).toContain("1 file the run created will be deleted.");
+    expect(message).toContain("Edits made to these files since the run will be lost.");
     expect(options.kind).toBe("warning");
-    expect(options.okLabel).toBe("workflow:restore.action");
+    expect(options.okLabel).toBe("Restore");
     expect(invoke).toHaveBeenCalledWith("restore_workflow_snapshot", { snapshotId: "snap-r1" });
-    expect(success).toHaveBeenCalledWith("workflow:restore.done");
+    expect(success).toHaveBeenCalledWith("Files restored to their state before the run");
     // Offered once: a second click would clobber edits made since.
     expect(result.current.snapshot).toBeNull();
   });
@@ -166,7 +166,7 @@ describe("useRunSnapshot — restoring", () => {
     await act(async () => {
       await result.current.restore();
     });
-    expect(warning).toHaveBeenCalledWith("workflow:restore.partial");
+    expect(warning).toHaveBeenCalledWith("2 files could not be restored and were left as they are");
     // Audit fix-round #110: the skipped files are still unrecovered, so the
     // offer stays — a retry after fixing the cause is the only way back.
     expect(result.current.snapshot).toEqual(SNAPSHOT);
@@ -222,7 +222,7 @@ describe("useRunSnapshot — restoring", () => {
     await act(async () => {
       await expect(result.current.restore()).resolves.toBeUndefined();
     });
-    expect(errorDetail).toHaveBeenCalledWith("workflow:restore.failed", failure);
+    expect(errorDetail).toHaveBeenCalledWith("Could not restore the files", failure);
     expect(result.current.restoring).toBe(false);
     expect(result.current.snapshot).toEqual(SNAPSHOT);
   });
@@ -247,7 +247,7 @@ describe("useRunSnapshot — restoring", () => {
       await pending;
     });
     expect(invoke).not.toHaveBeenCalledWith("restore_workflow_snapshot", expect.anything());
-    expect(warning).toHaveBeenCalledWith("workflow:restore.superseded");
+    expect(warning).toHaveBeenCalledWith("Another workflow ran since, so these files were not restored");
   });
 
   it("shows a refused restore with its typed message, and keeps the offer", async () => {
@@ -261,7 +261,7 @@ describe("useRunSnapshot — restoring", () => {
     await act(async () => {
       await result.current.restore();
     });
-    expect(errorDetail).toHaveBeenCalledWith("workflow:restore.failed", refusal);
+    expect(errorDetail).toHaveBeenCalledWith("Could not restore the files", refusal);
     expect(result.current.snapshot).toEqual(SNAPSHOT);
     expect(result.current.restoring).toBe(false);
   });

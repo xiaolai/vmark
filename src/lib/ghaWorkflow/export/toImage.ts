@@ -18,10 +18,18 @@ export type ExportFormat = "svg" | "png";
 
 export interface ExportCanvasOptions {
   /**
-   * Override the element to capture. Default is `document.querySelector(".react-flow__viewport")`.
+   * Override the element to capture. Default is the `.react-flow__viewport`
+   * inside `scope`.
    * Useful when exporting from an off-screen mount or a custom canvas.
    */
   element?: HTMLElement | null;
+  /**
+   * Where to look for the viewport when no `element` is given. Default is the
+   * whole document. Pass the canvas wrapper so a document with several
+   * workflow canvases exports the one the user asked for; a scope with no
+   * viewport throws rather than falling back to another canvas.
+   */
+  scope?: ParentNode;
   /** Background color for transparent regions. Defaults to white. */
   backgroundColor?: string;
   /** PNG only: output resolution multiplier. Default 2 (retina). */
@@ -43,7 +51,7 @@ export async function exportCanvas(
   format: ExportFormat,
   options: ExportCanvasOptions = {},
 ): Promise<string> {
-  const target = resolveTarget(options.element);
+  const target = resolveTarget(options.element, options.scope ?? document);
 
   const commonOpts = {
     cacheBust: options.cacheBust ?? true,
@@ -59,9 +67,12 @@ export async function exportCanvas(
   });
 }
 
-function resolveTarget(override: HTMLElement | null | undefined): HTMLElement {
+function resolveTarget(
+  override: HTMLElement | null | undefined,
+  scope: ParentNode,
+): HTMLElement {
   if (override) return override;
-  const el = document.querySelector(".react-flow__viewport");
+  const el = scope.querySelector(".react-flow__viewport");
   if (!el) {
     throw new Error(
       "exportCanvas: no .react-flow__viewport element found. " +

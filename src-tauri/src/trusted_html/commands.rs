@@ -10,7 +10,7 @@
 //! controls. That is what makes `revoke_window` on window teardown correct.
 //!
 //! @coordinates-with state.rs — the registry these delegate to
-//! @coordinates-with ../app_setup.rs — window teardown calls `revoke_window`
+//! @coordinates-with ../window_manager/window_events.rs — window teardown calls `revoke_window`
 //! @coordinates-with ../../../src/services/trustedHtml/trustedHtmlBridge.ts — the caller
 
 use tauri::State;

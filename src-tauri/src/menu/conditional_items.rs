@@ -238,40 +238,6 @@ fn submenu_index_of(sub: &Submenu<Wry>, id: &str) -> Result<Option<usize>, Strin
     Ok(None)
 }
 
-/// Menu item ids in the submenu holding `anchor_id` (debug builds only).
-///
-/// Exists because the hide/show above is otherwise unverifiable from outside the
-/// process — a claim that an item is gone could not be checked. It earned itself
-/// immediately: the first run showed the browser item hiding correctly and never
-/// coming back, which is how the parent-lookup bug above was found.
-#[cfg(debug_assertions)]
-#[tauri::command]
-pub fn debug_submenu_item_ids(
-    app: AppHandle,
-    anchor_id: String,
-) -> Result<Vec<String>, CommandError> {
-    let menu = app
-        .menu()
-        .ok_or_else(|| CommandError::internal("No menu"))?;
-    for kind in menu
-        .items()
-        .map_err(|e| CommandError::internal(e.to_string()))?
-    {
-        if let MenuItemKind::Submenu(sub) = kind {
-            let ids: Vec<String> = sub
-                .items()
-                .map_err(|e| CommandError::internal(e.to_string()))?
-                .iter()
-                .map(|k| k.id().as_ref().to_string())
-                .collect();
-            if ids.contains(&anchor_id) {
-                return Ok(ids);
-            }
-        }
-    }
-    Ok(Vec::new())
-}
-
 #[cfg(test)]
 #[path = "conditional_items.test.rs"]
 mod tests;

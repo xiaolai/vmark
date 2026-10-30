@@ -12,6 +12,7 @@
  * @coordinates-with PdfSettingsSidebar.tsx — settings panel component
  * @coordinates-with pdfHtmlTemplate.ts — builds the HTML for export
  * @coordinates-with pdf_export/commands.rs — Rust backend for PDF generation
+ * @coordinates-with export_target/commands.rs — the save panel; `export_pdf` writes only its answer
  * @coordinates-with PdfExportPage.tsx — page wrapper that hosts this component
  */
 
@@ -20,7 +21,6 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { safeUnlistenAsync } from "@/utils/safeUnlisten";
-import { save } from "@tauri-apps/plugin-dialog";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import { useTranslation } from "react-i18next";
 import { buildPdfExportHtml, type PdfOptions } from "./pdfHtmlTemplate";
@@ -61,10 +61,9 @@ export function PdfExportContent({
   // would clobber dot-containing titles like "2026.04.27 Notes" → "2026.04".
   const baseName = defaultName || t("pdf.defaultTitle");
 
-  // Idempotent ".pdf" suffix: avoid `report.pdf.pdf` when the title already
-  // ends in `.pdf`, and guarantee the saved file is `.pdf` even when the
-  // user typed a name without an extension (the save panel no longer
-  // appends one because we dropped `filters` for macOS Tahoe parity).
+  // Idempotent ".pdf" suffix for the name the save panel opens with: avoid
+  // `report.pdf.pdf` when the title already ends in `.pdf`. A bare name the
+  // user TYPES is suffixed by Rust, where the choice is recorded.
   const ensurePdfExtension = (path: string): string =>
     /\.pdf$/i.test(path) ? path : `${path}.pdf`;
 
@@ -77,7 +76,9 @@ export function PdfExportContent({
     marginLeft: 25.4,
     fontSize: 11,
     lineHeight: 1.6,
-    cjkLetterSpacing: "0.05em",
+    // Seeded from Appearance, like the fonts below; "0" (the default) is off.
+    cjkLetterSpacing:
+      appearance.cjkLetterSpacing === "0" ? "0" : `${appearance.cjkLetterSpacing}em`,
     latinFont: appearance.latinFont,
     cjkFont: appearance.cjkFont,
     useEditorTheme: false,
@@ -130,22 +131,21 @@ export function PdfExportContent({
     try {
       setExporting(true);
       setExportStage(t("pdf.progress.preparing"));
-      // Strip filters per macOS Tahoe parity rule (see saveDialogWithFallback).
-      // setAllowedFileTypes was deprecated in macOS 26; keeping the filter
-      // makes the save panel reject pasted text and silently delete typed
-      // input on Tahoe. The default filename already carries .pdf.
-      const chosenPath = await save({
+      // The save panel is shown by Rust, which records the answer as this
+      // window's export target: `export_pdf` writes that path and no other,
+      // so the answer is passed on unchanged (it already carries `.pdf`).
+      // No file-type filter — on macOS 26 one makes the panel reject pasted
+      // text and delete typed input.
+      const outputPath = await invoke<string | null>("pick_export_target", {
+        kind: "pdf",
         defaultPath: ensurePdfExtension(baseName),
         title: t("pdf.saveDialog.title"),
       });
-      if (!chosenPath) {
+      if (!outputPath) {
         setExporting(false);
         setExportStage("");
         return;
       }
-      // Without `filters`, the macOS save panel won't auto-append `.pdf` if
-      // the user typed a bare name. Guarantee the suffix server-side.
-      const outputPath = ensurePdfExtension(chosenPath);
 
       const html = buildPdfExportHtml(
         renderedHtml,

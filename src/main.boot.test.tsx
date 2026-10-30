@@ -25,7 +25,7 @@ const boot = vi.hoisted(() => {
 });
 
 vi.mock("@tauri-apps/plugin-store", () => ({
-  load: vi.fn(() =>
+  getStore: vi.fn(() =>
     Promise.resolve({
       get: vi.fn(async (key: string) => {
         boot.storeReads.push(key);

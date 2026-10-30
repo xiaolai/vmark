@@ -201,16 +201,16 @@ fn log_skipped_opens(skipped: &[String]) {
     }
 }
 
-/// Open a folder handed over by Finder as a workspace window (WI-LX1.1).
+/// Open a folder handed over by the OS as a workspace window (WI-LX1.1):
+/// from Finder on macOS, as a launch argument on Windows and Linux (the first
+/// launch in `app_setup`, a later one through `single_instance`).
 ///
-/// Opening a folder in VMark from Finder IS the user choosing it, so it is
+/// Opening a folder in VMark this way IS the user choosing it, so it is
 /// granted recursively and recorded like a folder-picker choice before the
 /// window can read it — without that, a folder outside the static scope opened
 /// a window that could read nothing in it. The window gets the canonical root
 /// the grant judged; a folder that vanished since the partition opens
-/// nothing. Compiled where it runs: the macOS Opened handler, and the tests
-/// (which need MockRuntime, and so skip Windows).
-#[cfg(any(target_os = "macos", all(test, not(target_os = "windows"))))]
+/// nothing.
 pub(crate) fn open_finder_directory<R: tauri::Runtime>(app: &tauri::AppHandle<R>, dir: &str) {
     use crate::peer_text::peer_message;
 
@@ -219,14 +219,14 @@ pub(crate) fn open_finder_directory<R: tauri::Runtime>(app: &tauri::AppHandle<R>
         Err(e) => {
             // The error text quotes the path it refused, so both go escaped.
             let (dir, why) = (peer_message(dir), peer_message(e.message()));
-            log::error!("[Finder] Not opening directory {dir}: {why}");
+            log::error!("[FileOpen] Not opening directory {dir}: {why}");
             return;
         }
     };
     let shown = peer_message(&root);
-    log::info!("[Finder] Opening directory: {shown}");
+    log::info!("[FileOpen] Opening directory: {shown}");
     if let Err(e) = window_manager::create_document_window(app, None, Some(&root)) {
-        log::error!("[Finder] Failed to create window for directory {shown}: {e}");
+        log::error!("[FileOpen] Failed to create window for directory {shown}: {e}");
     }
 }
 

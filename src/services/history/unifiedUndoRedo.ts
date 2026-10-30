@@ -20,7 +20,8 @@ import { doNativeRedo, doNativeUndo, restoreFromCheckpoint } from "./unifiedHist
  * Perform unified undo (can be called from any context).
  * 1. Try native undo first
  * 2. If native history exhausted, restore from checkpoint
- * 3. May trigger mode switch if checkpoint is from different mode
+ * 3. The view mode never changes, even when the checkpoint was taken in
+ *    the other mode — only content and cursor are restored
  *
  * Returns true if any undo action was performed.
  */

@@ -16,6 +16,7 @@ import aiEn from "../locales/en/ai.json";
 import editorEn from "../locales/en/editor.json";
 import dialogEn from "../locales/en/dialog.json";
 import exportEn from "../locales/en/export.json";
+import workflowEn from "../locales/en/workflow.json";
 import workflowEditorEn from "../locales/en/workflowEditor.json";
 import breakdownEn from "../locales/en/breakdown.json";
 import claimsEn from "../locales/en/claims.json";
@@ -31,6 +32,7 @@ export const localeMap: Record<string, Record<string, unknown>> = {
   editor: editorEn as Record<string, unknown>,
   dialog: dialogEn as Record<string, unknown>,
   export: exportEn as Record<string, unknown>,
+  workflow: workflowEn as Record<string, unknown>,
   workflowEditor: workflowEditorEn as Record<string, unknown>,
   breakdown: breakdownEn as Record<string, unknown>,
   claims: claimsEn as Record<string, unknown>,

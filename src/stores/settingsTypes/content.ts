@@ -55,7 +55,7 @@ export interface MarkdownSettings {
   preserveLineBreaks: boolean;
   /**
    * Preserve runs of more than one blank line between blocks across the WYSIWYG
-   * round trip (default off). v1 preserves runs present in the loaded document;
+   * round trip (default on, `settingsStore/defaults.ts`). v1 preserves runs present in the loaded document;
    * see .claude/adr/plans/20260721-blank-line-preservation.md.
    */
   preserveBlankLines: boolean;

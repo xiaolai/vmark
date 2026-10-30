@@ -1,8 +1,9 @@
 /**
  * MCP Bridge — top-level request router.
  *
- * Routes every MCP bridge request to the pruned 5-tool dispatcher
- * (vmark.session/workspace/document/workflow/selection). Unrecognized
+ * Routes every MCP bridge request to `dispatchV2`, whose routed namespaces
+ * are `SUPPORTED_TOOL_PREFIXES` (session, workspace, document, workflow,
+ * selection, comments, browser). Unrecognized
  * request types respond with a diagnostic `Unknown request type` that
  * names the supported tool prefixes — so a sidecar/app version mismatch
  * (issue #900) is identifiable from the error string alone, without
@@ -80,7 +81,8 @@ export async function handleRequest(event: McpRequestEvent): Promise<void> {
     // Gate on the tab the mutation TARGETS, not the active one. These
     // request types accept a `tabId`, so an active-tab check let writes to
     // read-only background tabs through and refused writes to writable ones.
-    // `selection.set` carries no tabId and correctly falls back to the active tab.
+    // `selection.set` may name a tabId too (its handler then requires it to be
+    // the focused tab); without one the check falls back to the active tab.
     if (READ_ONLY_BLOCKED.has(type) && isTargetDocReadOnly(event.args?.tabId)) {
       await respond({
         id,

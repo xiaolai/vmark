@@ -2,7 +2,7 @@
  * Content-server store (Phase 5).
  *
  * Tracks the local knowledge-base / Slidev content server's lifecycle for the
- * UI: provisioning progress, running URL/port, the active Slidev deck preview,
+ * UI: starting/running status, running URL/port, the active Slidev deck preview,
  * and errors. The Rust `content_server` commands drive these transitions; the
  * KB panel + Slidev preview panel read them via selectors.
  *
@@ -12,24 +12,8 @@
 import { create } from "zustand";
 import { publishDevGlobal } from "@/utils/devDebugHandle";
 
-/** Phases of installing a content-server runtime. Nothing produces them today: no Rust code provisions one. */
-type ProvisionPhase =
-  | "missing"
-  | "downloading"
-  | "verifying"
-  | "extracting"
-  | "ready"
-  | "failed";
-
-export interface ProvisionProgress {
-  phase: ProvisionPhase;
-  received?: number;
-  total?: number;
-  version?: string;
-  reason?: string;
-}
-
-export type ServerStatus = "stopped" | "provisioning" | "starting" | "running" | "error";
+/** Nothing installs a runtime on demand, so there is no provisioning status. */
+export type ServerStatus = "stopped" | "starting" | "running" | "error";
 /** In-app KB view: the served site (iframe) or the native relationship graph. */
 export type KbViewMode = "site" | "graph";
 
@@ -37,7 +21,6 @@ interface ContentServerState {
   status: ServerStatus;
   url: string | null;
   port: number | null;
-  provision: ProvisionProgress | null;
   error: string | null;
   /** Absolute path of the deck currently previewed in the Slidev panel, if any. */
   slidevDeckPath: string | null;
@@ -54,7 +37,6 @@ interface ContentServerState {
 }
 
 interface ContentServerActions {
-  setProvision: (progress: ProvisionProgress) => void;
   setStarting: () => void;
   setRunning: (url: string, port: number) => void;
   setError: (message: string) => void;
@@ -73,7 +55,6 @@ const initialState: ContentServerState = {
   status: "stopped",
   url: null,
   port: null,
-  provision: null,
   error: null,
   slidevDeckPath: null,
   panelOpen: false,
@@ -83,13 +64,6 @@ const initialState: ContentServerState = {
 
 export const useContentServerStore = create<ContentServerStore>((set) => ({
   ...initialState,
-
-  setProvision: (progress) =>
-    set({
-      status: progress.phase === "failed" ? "error" : "provisioning",
-      provision: progress,
-      error: progress.phase === "failed" ? (progress.reason ?? "provisioning failed") : null,
-    }),
 
   // The previous run's `/__auth?t=<nonce>` link dies with its child, so a new
   // start drops it here. Left in place, the KB panel kept a URL
@@ -125,7 +99,6 @@ publishDevGlobal("__contentServerStore", useContentServerStore);
 /* Selectors — components MUST use these (no store destructuring). */
 export const selectServerStatus = (s: ContentServerStore): ServerStatus => s.status;
 export const selectServerUrl = (s: ContentServerStore): string | null => s.url;
-export const selectProvision = (s: ContentServerStore): ProvisionProgress | null => s.provision;
 export const selectSlidevDeck = (s: ContentServerStore): string | null => s.slidevDeckPath;
 export const selectIsRunning = (s: ContentServerStore): boolean => s.status === "running";
 export const selectError = (s: ContentServerStore): string | null => s.error;

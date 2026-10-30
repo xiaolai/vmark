@@ -18,9 +18,10 @@
 /// writes `content-server-dist/cli.js` into the bundle (verified against the
 /// v0.9.65 DMG), and `server/content/tsup.config.ts` keeps the server's npm
 /// dependencies external, so a lone `cli.js` could not run even if it were copied.
-/// A pending maintainer decision settles whether this becomes
-/// `Some("content-server-dist/cli.js")` together with a real build step, or the
-/// feature stays developer-only. Flipping it is gated in both directions by the
+/// The maintainer decision is that the feature stays developer-only
+/// (Knowledge Base behind Developer Mode, `services/contentServer/availability.ts`);
+/// shipping it would mean `Some("content-server-dist/cli.js")` together with a
+/// real build step. Flipping it is gated in both directions by the
 /// test: `Some(rel)` requires a `bundle.resources` entry that
 /// bundles `rel` AND the source file on disk; `None` forbids a stale entry that
 /// mentions the content server.

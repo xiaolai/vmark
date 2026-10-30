@@ -241,9 +241,7 @@ pub(crate) fn generate_auth_token() -> String {
 /// else — including the pre-pruning legacy names (`document.getContent`,
 /// `tabs.list`, …) — falls through to write-class (fail closed): the
 /// frontend dispatcher only accepts `vmark.*` and rejects the rest as
-/// unknown, and the Rust-answered ops (`windows.list`, `windows.getFocused`)
-/// are answered in routing BEFORE this classifier runs, so legacy entries
-/// here were unreachable dead weight.
+/// unknown, so legacy entries here were unreachable dead weight.
 pub(crate) fn is_read_only_operation(request_type: &str) -> bool {
     matches!(
         request_type,

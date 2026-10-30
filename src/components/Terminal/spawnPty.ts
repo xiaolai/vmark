@@ -2,11 +2,16 @@
  * spawnPty
  *
  * Purpose: Spawns a PTY (pseudo-terminal) process connected to an xterm instance.
- * Resolves the working directory, gets the default shell from Rust, and wires
- * up bidirectional data streams.
+ * Starts the shell in the working directory it is handed, gets the default
+ * shell from Rust, and wires up bidirectional data streams.
  *
  * Key decisions:
- *   - CWD priority: workspace root > active file's parent directory > shell default ($HOME).
+ *   - The cwd and VMARK_WORKSPACE are resolved by the caller, once, through
+ *     resolveTerminalSpawnContext.ts (requested cwd > a same-scope sibling's
+ *     live cwd > the owning workspace's root > the active file's parent);
+ *     with none, the shell starts in its default directory ($HOME). The
+ *     helpers that rule uses live here (resolveTerminalWorkspaceRoot,
+ *     resolveActiveFileCwd).
  *   - Shell priority: user-configured shell in settings > Rust backend default
  *     (get_default_shell: getpwuid → $SHELL → /bin/sh). Only absolute paths
  *     are accepted; relative paths are rejected to prevent PATH/CWD hijack.
@@ -53,22 +58,8 @@ import {
   type ShellSpawnConfig,
 } from "./terminalSpawnEnv";
 
-/**
- * Resolve terminal working directory:
- * 1. Workspace root (if open)
- * 2. Active file's parent directory (if saved)
- * 3. undefined — lets the shell start in its default ($HOME)
- */
-export function resolveTerminalCwd(): string | undefined {
-  const windowLabel = getCurrentWindowLabel();
-  return (
-    resolveTerminalWorkspaceRoot(windowLabel) ?? resolveActiveFileCwd(windowLabel)
-  );
-}
-
-/** The active saved file's parent directory (CWD priority #2), or undefined.
- *  Split out of resolveTerminalCwd so the spawn-context contract (WI-TS4.1)
- *  can reach the file fallback without the active-scope root. */
+/** The active saved file's parent directory — the last cwd fallback in
+ *  resolveTerminalSpawnContext (WI-TS4.1) — or undefined. */
 export function resolveActiveFileCwd(windowLabel: string): string | undefined {
   const activeTabId = useTabStore.getState().activeTabId[windowLabel];
   if (!activeTabId) return undefined;

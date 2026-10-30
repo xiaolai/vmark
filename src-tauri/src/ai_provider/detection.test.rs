@@ -346,3 +346,35 @@ fn a_poisoned_zdotdir_cache_still_answers_from_the_cache() {
         "the second spawn must be answered from the cache"
     );
 }
+
+fn entry(provider_type: &str, available: bool) -> CliProviderEntry {
+    detect_with(|_| (available, None))
+        .into_iter()
+        .find(|e| e.provider_type == provider_type)
+        .expect("provider in table")
+}
+
+#[test]
+fn cached_detection_is_reused_until_a_refresh_is_asked_for() {
+    let cache: Mutex<Option<Vec<CliProviderEntry>>> = Mutex::new(None);
+    assert!(
+        cached_detection(&cache, false).is_none(),
+        "an empty cache has nothing to reuse"
+    );
+
+    store_detection(&cache, vec![entry("claude", false)]);
+    let reused = cached_detection(&cache, false).expect("cache reused without refresh");
+    assert!(!reused[0].available);
+
+    // The Detect button: a CLI installed since the first scan must be found,
+    // so a refresh never answers from the cache.
+    assert!(cached_detection(&cache, true).is_none());
+}
+
+#[test]
+fn a_refreshed_detection_replaces_the_cached_one() {
+    let cache: Mutex<Option<Vec<CliProviderEntry>>> = Mutex::new(None);
+    store_detection(&cache, vec![entry("claude", false)]);
+    store_detection(&cache, vec![entry("claude", true)]);
+    assert!(cached_detection(&cache, false).unwrap()[0].available);
+}

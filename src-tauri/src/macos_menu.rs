@@ -100,11 +100,12 @@ fn icon_for_id(id: &str) -> Option<&'static str> {
         .filter(|s| !s.is_empty())
 }
 
-/// Look up the SF Symbol name for a PredefinedMenuItem by its title text.
-fn icon_for_predefined_title(title: &str) -> Option<&'static str> {
+/// Look up the SF Symbol name for a PredefinedMenuItem by its title text,
+/// as translated into `locale` (the locale the menu was built in).
+fn icon_for_predefined_title(title: &str, locale: &str) -> Option<&'static str> {
     PREDEFINED_ICONS
         .iter()
-        .find(|(t, _)| *t == title)
+        .find(|(key, _)| rust_i18n::t!(*key, locale = locale) == title)
         .map(|(_, icon)| *icon)
 }
 
@@ -165,7 +166,7 @@ fn collect_icons_from_item(
         MenuItemKind::Predefined(pi) => {
             // PredefinedMenuItems (Cut, Copy, etc.) match by title text.
             if let Ok(title) = pi.text() {
-                if let Some(icon) = icon_for_predefined_title(&title) {
+                if let Some(icon) = icon_for_predefined_title(&title, &rust_i18n::locale()) {
                     map.insert(title, icon);
                 }
             }
@@ -196,7 +197,7 @@ fn collect_icons_from_item_in_submenu(
         MenuItemKind::Check(ci) => record_leaf_icon(map, ci.id().0.as_str(), ci.text(), fallback),
         MenuItemKind::Predefined(pi) => {
             if let Ok(title) = pi.text() {
-                if let Some(icon) = icon_for_predefined_title(&title) {
+                if let Some(icon) = icon_for_predefined_title(&title, &rust_i18n::locale()) {
                     map.insert(title, icon);
                 }
             }

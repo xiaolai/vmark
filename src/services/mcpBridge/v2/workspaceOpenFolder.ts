@@ -34,11 +34,16 @@
  * so the granted tree and the one-shot binding are the REAL target (Codex F-06).
  * Keeping raw fs out of the bridge surface also satisfies the fs-guard invariant.
  *
- * Security seam still owed (scoped in the plan): Codex F-10 — the authenticated
- * client id must come from the bridge event; until it does the one-shot binds
- * to a single session id (see `ONE_SHOT_CLIENT_ID`), so it binds per-session.
+ * The one-shot binds to the requesting CONNECTION (Codex F-10): the client key
+ * is the request's validated `attribution.connectionId` (writeContext.ts),
+ * minted by Rust per authenticated connection — never a field the client
+ * sends. A grant one connection asked for cannot be spent by another; a
+ * client that reconnects gets a new id and must be approved again (fail
+ * closed). The prompt, the one-shot and the open all target the window the
+ * request runs in; choosing another window is not offered.
  *
  * @coordinates-with stores/workspaceApprovalStore.ts — the one-shot store
+ * @coordinates-with services/mcpBridge/writeContext.ts — the request's connection id
  * @coordinates-with services/workspaces/openWorkspaceByPath.ts — the shared open sequence
  * @coordinates-with services/workspaces/workspaceAccess.ts — Rust access check + picker
  * @coordinates-with src-tauri/src/workspace/validation.rs — validate_workspace_dir command
@@ -66,23 +71,7 @@ import { structuredError } from "./tabGuard";
 import { v2ErrorString } from "./types";
 import type { V2Error } from "./types";
 import { commandErrorMessage } from "@/services/commands/commandError";
-
-/**
- * Client id the one-shot approval binds to.
- *
- * There is exactly one, deliberately. This used to read `args.clientId` and
- * fall back to a constant — but the bridge event carries no principal, and the
- * wire contract declares `clientId` on no operation, so the read could never
- * fire and the fallback was the only behaviour that ever ran (the
- * `windowId` class again: code shaped like a feature that nothing can reach).
- *
- * The constant is honest: the one-shot binds per SESSION, not per client, so
- * one approved client's grant is spendable by another connected client. That
- * is the security seam Codex F-10 still owes — a per-principal binding needs
- * Rust to carry the authenticated principal on the request, and cannot be
- * faked from a field no one sends.
- */
-const ONE_SHOT_CLIENT_ID = "mcp-session";
+import type { McpWriteContext } from "@/services/mcpBridge/writeContext";
 
 /** Canonicalize + is-dir validate via Rust (resolves symlinks, returns the
  *  canonical path). Never touches the webview fs surface.
@@ -192,6 +181,7 @@ function outcomeRefusal(canonicalPath: string, outcome: Exclude<ApprovedOutcome,
 export async function handleWorkspaceOpenWorkspace(
   id: string,
   args: Record<string, unknown>,
+  context: McpWriteContext,
 ): Promise<void> {
   return wrapHandler(id, async () => {
     // The contract declares `folderPath` and nothing else: a `windowLabel` a
@@ -216,9 +206,9 @@ export async function handleWorkspaceOpenWorkspace(
     // client-supplied label. Rust does not route by windowLabel, so a forged
     // label could deliver the prompt to one window and mutate another; using
     // the delivering window keeps the prompt, one-shot, and open consistent.
-    // Multi-window targeting is deferred (Codex F-10/H3).
     const windowLabel = getCurrentWindowLabel();
-    const clientId = ONE_SHOT_CLIENT_ID;
+    // The connection Rust authenticated for THIS request (Codex F-10).
+    const clientId = context.attribution.connectionId;
     const approvals = useWorkspaceApprovalStore.getState();
 
     // Retry path: a matching one-shot authorizes this open — once access is

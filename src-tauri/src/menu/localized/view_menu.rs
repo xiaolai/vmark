@@ -248,7 +248,7 @@ pub(super) fn build(app: &tauri::AppHandle, accel: &AccelFn) -> tauri::Result<Su
                 accel("lint-prev", "Shift+F2"),
             )?,
             &PredefinedMenuItem::separator(app)?,
-            &PredefinedMenuItem::fullscreen(app, None)?,
+            &PredefinedMenuItem::fullscreen(app, Some(&t!("menu.view.toggleFullScreen")))?,
         ],
     )
 }

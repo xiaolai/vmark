@@ -11,11 +11,13 @@
  * grant to open any folder would defeat the approval (ADR-2).
  *
  * @coordinates-with stores/workspaceApprovalStore — pending queue + resolveApproval
+ * @coordinates-with utils/revealInvisibleChars — the shown path is escaped through it
  * @module components/Workspace/WorkspaceApprovalDialog
  */
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useWorkspaceApprovalStore } from "@/stores/workspaceApprovalStore";
+import { revealInvisibleChars } from "@/utils/revealInvisibleChars";
 import { OCCLUDER } from "@/services/browser/browserOcclusion";
 import { useBrowserOccluder } from "@/hooks/useBrowserOccluder";
 import "./workspace-approval-dialog.css";
@@ -62,7 +64,7 @@ export function WorkspaceApprovalDialog() {
           {t("openWorkspace.approval.title")}
         </h2>
         <p className="workspace-approval-body">{t("openWorkspace.approval.body")}</p>
-        <code className="workspace-approval-path">{pending.canonicalPath}</code>
+        <code className="workspace-approval-path">{revealInvisibleChars(pending.canonicalPath)}</code>
         <div className="workspace-approval-actions">
           <button ref={denyRef} type="button" className="vm-btn" onClick={deny}>
             {t("openWorkspace.approval.deny")}

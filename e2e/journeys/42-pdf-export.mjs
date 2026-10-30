@@ -21,7 +21,10 @@
  * path, composes the print document, and invokes `export_pdf`. The panel is the
  * OS's own (an NSSavePanel on macOS) — outside every webview, unreachable from
  * `execute_js`, with no harness seam. So this journey performs the ONE step the
- * panel would have performed — choosing the path — and calls the same functions
+ * panel would have performed — choosing the path, recorded through the
+ * debug-build-only `debug_grant_export_target` exactly as the panel's answer is
+ * recorded (src-tauri/src/export_target), since `export_pdf` writes no path the
+ * calling webview did not choose — and calls the same functions
  * the two halves call, imported from the dev module graph: `renderPrintableHtml`, then
  * `buildPdfExportHtml` / `buildPageSpec` / `buildPageNumberSpec` over the same
  * theme and content CSS, then the real `export_pdf` command. The options are
@@ -205,9 +208,13 @@ export default {
                    bottom: effectiveBottomMarginMm(options), left: options.marginLeft,
                  });
                  const pageNumbers = buildPageNumberSpec(options, "Page {n} of {total}", isDark);
+                 window[slot] = { done: false, stage: "recording the chosen path" };
+                 const outputPath = await window.__TAURI__.core.invoke("debug_grant_export_target", {
+                   kind: "pdf", path: ${JSON.stringify(outputPath)},
+                 });
                  window[slot] = { done: false, stage: "native render" };
                  const outcome = await window.__TAURI__.core.invoke("export_pdf", {
-                   html, outputPath: ${JSON.stringify(outputPath)}, headings, page, pageNumbers,
+                   html, outputPath, headings, page, pageNumbers,
                  });
                  window[slot] = {
                    done: true, ok: true, renderedLength: rendered.length, htmlLength: html.length,

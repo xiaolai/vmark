@@ -2,7 +2,7 @@
 // WI-12 — the graph view is behind React.lazy; the boundary is exercised here
 // with the REAL lazy component resolving through vitest's dynamic import.
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, cleanup, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { readFileSync } from "node:fs";
 import { KnowledgeBasePanel } from "./KnowledgeBasePanel";
@@ -65,29 +65,10 @@ describe("KnowledgeBasePanel", () => {
     expect(onStart).toHaveBeenCalledOnce();
   });
 
-  it("shows download progress while provisioning", () => {
-    useContentServerStore.getState().setProvision({ phase: "downloading", received: 50, total: 200 });
+  it("shows the starting line while the server starts", () => {
+    useContentServerStore.getState().setStarting();
     renderPanel();
-    expect(screen.getByRole("status")).toHaveTextContent(/25%/);
-  });
-
-  // Audit 20260907 (#319): the percentage trusted `received` and `total` as
-  // sent, so a stream that over-reported showed 150%, and a negative total was
-  // a "valid" divisor.
-  it("clamps a download percentage to 100 when received exceeds total", () => {
-    useContentServerStore.getState().setProvision({ phase: "downloading", received: 300, total: 200 });
-    renderPanel();
-    expect(screen.getByRole("status")).toHaveTextContent(/100%/);
-  });
-
-  it("shows 0% for a non-positive or non-finite total instead of dividing by it", () => {
-    useContentServerStore.getState().setProvision({ phase: "downloading", received: 50, total: -200 });
-    renderPanel();
-    expect(screen.getByRole("status")).toHaveTextContent(/\b0%/);
-    cleanup();
-    useContentServerStore.getState().setProvision({ phase: "downloading", received: 50, total: Number.NaN });
-    renderPanel();
-    expect(screen.getByRole("status")).toHaveTextContent(/\b0%/);
+    expect(screen.getByRole("status")).toHaveTextContent(/starting/i);
   });
 
   it("shows an error with a Retry that restarts", async () => {
@@ -194,18 +175,12 @@ describe("KnowledgeBasePanel", () => {
   });
 });
 
-// Audit 20260907 round 3 (#625): the body was five independent `&&` branches,
-// two of which carried a second condition (`provision`, `url`). A status whose
+// Audit 20260907 round 3 (#625): the body was independent `&&` branches,
+// one of which carried a second condition (`url`). A status whose
 // companion value was absent matched no branch at all, so the panel rendered a
-// header saying "Provisioning" or "Running" over an empty body — a dead surface
+// header saying "Running" over an empty body — a dead surface
 // with no way forward and nothing said about why.
 describe("KnowledgeBasePanel — no status renders an empty body", () => {
-  it("shows progress while provisioning even before the first progress event", () => {
-    useContentServerStore.setState({ status: "provisioning", provision: null });
-    renderPanel();
-    expect(screen.getByRole("status")).toBeInTheDocument();
-  });
-
   it("says something when running without a URL rather than showing a blank pane", () => {
     useContentServerStore.setState({ status: "running", url: null });
     renderPanel();

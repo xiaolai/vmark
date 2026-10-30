@@ -22,10 +22,10 @@
  * Read the store on every call, never a captured value: the toggle must take
  * effect without a reload.
  *
- * Hiding the entry points does NOT stop a running server or close an open
- * panel — turning the setting off mid-session would otherwise strand a server
- * with no control to stop it. This mirrors the browser, where hiding "New
- * Browser Tab" leaves existing tabs alone.
+ * Hiding the entry points does NOT stop a running server — turning the
+ * setting off mid-session leaves it running, and turning Developer Mode back
+ * on reaches its Stop button again. An open panel DOES close, because it has
+ * no close button of its own (`KnowledgeBaseOverlay.tsx`).
  *
  * @coordinates-with services/commands/viewCommands — the `when` predicate
  * @coordinates-with services/menu/conditionalMenuItemSync — the native item

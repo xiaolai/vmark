@@ -1,7 +1,8 @@
 /**
  * FindBar
  *
- * Purpose: Inline search-and-replace bar that appears at the top of the editor area.
+ * Purpose: Inline search-and-replace bar that appears in the bottom lane below the
+ * editor (mounted by components/BottomBar/BottomBar.tsx).
  * Supports case-sensitive, whole-word, and regex search modes with match navigation.
  *
  * User interactions:

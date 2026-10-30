@@ -1,12 +1,10 @@
 //! Shared coherence read-model (Phase 6; `design-projection-framework.md`).
 //! The **minimal shared interface** every coherence surface produces — one
-//! `CoherenceRow` and one `Projection` trait — so a new surface (operator
-//! preview, canon view, merge audit) becomes a *registration*, not a bespoke
+//! `CoherenceRow` and one `Projection` trait — so a new surface (a canon
+//! view, say) becomes a *registration*, not a bespoke
 //! panel (Theme E: defined before more panels accrue). This is additive: the
 //! shipped `breakdown` is untouched; `BreakdownProjection` *wraps* it as the
 //! reference implementation; the other surfaces port onto the same trait.
-
-use std::path::PathBuf;
 
 use super::dag::ContextView;
 use super::edge_kind::OriginEdgeKind;
@@ -19,9 +17,8 @@ use super::types::{ObjectId, RevisionId};
 const DEFAULT_CTX: &str = "00000000-0000-0000-0000-000000000000";
 const EMPTY_FP: &str = "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
-/// One row of a coherence read model — the shared shape breakdown, preview,
-/// merge audit, and the canon view all reduce to (validated against those four
-/// in the design pass). Physical-edge identity + the projected state + display
+/// One row of a coherence read model — the shared shape every coherence
+/// surface reduces to. Physical-edge identity + the projected state + display
 /// metadata; nothing surface-specific.
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -104,18 +101,6 @@ impl CoherenceIndex {
     }
 }
 
-/// The edges a completed git merge touched (Phase 5) as a projection.
-pub struct MergeAuditProjection {
-    pub root: PathBuf,
-}
-
-impl Projection for MergeAuditProjection {
-    fn rows(&self, index: &CoherenceIndex, now: &str) -> Result<Vec<CoherenceRow>, String> {
-        let edges = super::merge_audit::merge_affected_edges(index, &self.root)?;
-        index.rows_for_edges(&edges, now)
-    }
-}
-
 /// The edges incident to one object (Phase 3.0 read-view) as a projection.
 pub struct IncidentProjection {
     pub object: ObjectId,
@@ -129,7 +114,7 @@ impl Projection for IncidentProjection {
 }
 
 /// Build a `CoherenceRow` from raw projection parts — the helper the other
-/// surfaces (preview delta, merge audit, incident) use so they all emit
+/// surfaces (the incident projection today) use so they all emit
 /// the identical shape without duplicating field assembly.
 #[allow(clippy::too_many_arguments)]
 pub fn row_from(

@@ -4,13 +4,17 @@
  * Purpose: Intercepts paste events with HTML content and converts to clean Markdown
  * before inserting — handles content from Word, web pages, and rich text sources.
  *
- * Pipeline: paste event → imageHandler → smartPaste → markdownPaste → THIS
- *         → check for substantial HTML → htmlToMarkdown → insert as markdown
+ * Pipeline: paste event → smartPaste → markdownPaste → THIS → codePaste
+ *         → imageHandler → mediaHandler (`WYSIWYG_COMPOSITION_ORDER` in
+ *         services/assembly/compositionOrder.ts); in smart mode here: check for
+ *         substantial HTML → htmlToMarkdown → insert as markdown
  *
  * Key decisions:
- *   - Only fires if no earlier handler claimed the paste (lower priority in chain)
+ *   - Only fires if no earlier handler claimed the paste
+ *   - Owns two of the three pasteMode values: "plain" inserts the clipboard's
+ *     text/plain verbatim, "smart" converts HTML to Markdown; "rich" returns
+ *     early and leaves the paste to Tiptap's native handling
  *   - Uses isSubstantialHtml to filter out trivial HTML (plain text wrapped in `<p>`)
- *   - Gated by the pasteMode setting (only active in "smart" mode)
  *   - Skips when cursor is inside a code block or with multi-cursor
  *
  * @coordinates-with utils/htmlToMarkdown.ts — HTML-to-Markdown conversion

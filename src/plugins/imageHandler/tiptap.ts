@@ -10,7 +10,12 @@
  *   - Registered AFTER smartPaste, markdownPaste, htmlPaste and codePaste. They
  *     pass on a clipboard with no text, so a bare image (a screenshot) reaches
  *     this handler; in smart mode htmlPaste takes an image copied WITH HTML
- *   - Images are always copied to the `.assets/` folder next to the document for portability
+ *   - Image BYTES (a clipboard screenshot, a dropped file with no path) are
+ *     always saved to the `.assets/` folder next to the document. An image that
+ *     has a file path (pasted path, Finder drop) is copied there only when
+ *     `image.copyToAssets` is on (`hostSettings.copyImagesToAssets()`); when it
+ *     is off the document links the image where it is
+ *     (`plugins/shared/imagePasteResolve.ts`)
  *   - Multiple images (e.g., multi-select from Finder) are handled via parseMultiplePaths
  *   - Uses reentryGuard to prevent double-processing of clipboard events
  *   - Supports both inline images (in paragraph context) and block images (at block boundary)

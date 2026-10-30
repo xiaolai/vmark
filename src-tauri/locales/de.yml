@@ -9,6 +9,10 @@ menu:
   app.settings: "Einstellungen..."
   app.saveAllQuit: "Alle speichern und beenden"
   app.quit: "VMark beenden"
+  app.services: "Dienste"
+  app.hide: "VMark ausblenden"
+  app.hideOthers: "Andere ausblenden"
+  app.showAll: "Alle einblenden"
 
   # === File menu ===
   file: "Datei"
@@ -198,9 +202,12 @@ menu:
   view.checkMarkdown: "Markdown prüfen"
   view.lintNext: "Nächstes Problem"
   view.lintPrev: "Vorheriges Problem"
+  view.toggleFullScreen: "Vollbildmodus ein/aus"
   # === Window menu ===
   window: "Fenster"
   window.bringAllToFront: "Alle nach vorne bringen"
+  window.minimize: "Im Dock ablegen"
+  window.zoom: "Zoomen"
   window.breakdown: "Kohärenz-Aufschlüsselung"
 
   # === Help menu ===
@@ -273,6 +280,7 @@ errors:
   pdf.invalidExtension: "Ausgabepfad muss die Endung .pdf haben"
   pdf.dirNotFound: "Ausgabeverzeichnis existiert nicht"
   pdf.parentNotDirectory: "Das übergeordnete Element des Ausgabepfads existiert, ist aber kein Verzeichnis"
+  exportTarget.notChosen: "Export nur an den im Speicherdialog gewählten Ort. Exportiere erneut und wähle den Speicherort."
   pdf.publishFailed: "Das erzeugte PDF konnte nicht an den Ausgabepfad verschoben werden: %{detail}"
   pdf.outputUnreadable: "Das erzeugte PDF konnte zur Prüfung nicht geöffnet werden: %{detail}"
   pdf.pathNotAbsolute: "Der Ausgabepfad muss absolut sein"

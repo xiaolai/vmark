@@ -259,7 +259,9 @@ jobs:
         if: matrix.platform == 'macos-latest' && matrix.sidecar_target == 'darwin-x64'
         run: rustup target add x86_64-apple-darwin
 
-      # macOS: Import code signing certificate (signing enabled, notarization disabled)
+      # macOS: Import the Developer ID certificate. Notarization is separate:
+      # tauri-action notarizes the app from the APPLE_* env, and the DMG is
+      # notarized and stapled in its own step below.
       - name: Import Apple certificate
         if: matrix.platform == 'macos-latest'
         env:

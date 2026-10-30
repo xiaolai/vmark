@@ -2,7 +2,7 @@
  * KnowledgeBasePanel (Phase 5) — in-app surface for the content server.
  *
  * Pure presentation: reads lifecycle state from `contentServerStore` via
- * selectors and renders the matching view (empty/provisioning/starting/running/
+ * selectors and renders the matching view (empty/starting/running/
  * error). When running, it embeds the KB site (served on loopback) in an
  * iframe and offers "open in browser". Actions are injected so the panel stays
  * free of store/service wiring (the `useContentServer` hook supplies them).
@@ -38,7 +38,7 @@
  * user could simply have retried. `RetryableLazy` catches it here and mounts a
  * FRESH lazy per attempt, because React.lazy caches its rejection forever.
  *
- * The lifecycle views (provisioning/starting, error, running) are one component
+ * The lifecycle views (starting, error, running) are one component
  * each in `KnowledgeBasePanelViews.tsx`; this file dispatches on `status` — as a
  * SWITCH, so every status has exactly one answer and none can fall through to
  * an empty body.
@@ -54,7 +54,6 @@ import {
   useContentServerStore,
   selectServerStatus,
   selectServerUrl,
-  selectProvision,
   selectError,
   selectIframeUrl,
   selectViewMode,
@@ -90,14 +89,13 @@ export function KnowledgeBasePanel({
   const { probe, recheck } = useContentServerRuntime();
   const status = useContentServerStore(selectServerStatus);
   const url = useContentServerStore(selectServerUrl);
-  const provision = useContentServerStore(selectProvision);
   const error = useContentServerStore(selectError);
   const iframeUrl = useContentServerStore(selectIframeUrl);
   const viewMode = useContentServerStore(selectViewMode);
 
   // The probe answers "what would a start find on this machine", and a run
-  // CHANGES that answer: provisioning installs the very CLI a mount-time probe
-  // may have found missing. Returning to the stopped view with that stale
+  // can CHANGE that answer: the CLI a mount-time probe found missing may have
+  // been installed (or an override set) since. Returning to the stopped view with that stale
   // answer hides Start behind an alert about a runtime that now exists.
   // Re-asked on the way INTO stopped only — the arrival at mount is
   // the hook's own probe, and re-running it there would double every open.
@@ -111,8 +109,8 @@ export function KnowledgeBasePanel({
   /**
    * The body for `status` — a SWITCH, so every status has exactly one answer.
    *
-   * It was five independent `&&` branches, and two of them carried a second
-   * condition: `provisioning && provision` and `running && url`. A status whose
+   * It was independent `&&` branches, and one carried a second
+   * condition: `running && url`. A status whose
    * companion value had not arrived (or had been cleared) therefore matched
    * NOTHING, and the panel rendered its header over an empty body — a dead
    * surface saying "Running" with no frame, no message and no way out.
@@ -133,10 +131,8 @@ export function KnowledgeBasePanel({
             />
           </div>
         );
-      case "provisioning":
-        return <KnowledgeBaseProgress provision={provision} />;
       case "starting":
-        return <KnowledgeBaseProgress provision={null} />;
+        return <KnowledgeBaseProgress />;
       case "error":
         return <KnowledgeBaseError error={error} onRetry={onStart} />;
       case "running":
@@ -151,12 +147,12 @@ export function KnowledgeBasePanel({
             onExportSlides={onExportSlides}
           />
         ) : (
-          <KnowledgeBaseProgress provision={null} />
+          <KnowledgeBaseProgress />
         );
       default:
         // Unreachable while `status` is the store's union — and if that union
         // grows, this is a visible state rather than a blank pane.
-        return <KnowledgeBaseProgress provision={null} />;
+        return <KnowledgeBaseProgress />;
     }
   }
 

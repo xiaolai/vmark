@@ -90,6 +90,17 @@ describe("ApprovalDialog", () => {
       expect(screen.getByText("gpt-5")).toBeInTheDocument();
     });
 
+    // A workflow file can be agent-authored and its params interpolate document
+    // text, so a bidi override or zero-width character could make the step read as
+    // something other than what runs. Every field shows them as escapes.
+    it("shows invisible characters in the step, model and preview as escapes", () => {
+      enqueue({ summary: "genie/sum\u202Emarize", model: "op\u200Bus", preview: "Send 10\uFE0F000" });
+      render(<ApprovalDialog />);
+      expect(screen.getByText("genie/sum\\u{202E}marize")).toBeInTheDocument();
+      expect(screen.getByText("op\\u{200B}us")).toBeInTheDocument();
+      expect(screen.getByText("Send 10\\u{FE0F}000")).toBeInTheDocument();
+    });
+
     it("omits the model row and shows a placeholder preview when fields are empty", () => {
       enqueue({ model: null, preview: "" });
       render(<ApprovalDialog />);

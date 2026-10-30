@@ -53,7 +53,7 @@ interface AiProviderState {
 }
 
 interface AiProviderActions {
-  detectProviders(): Promise<void>;
+  detectProviders(options?: { refresh?: boolean }): Promise<void>; // refresh: rescan, skip Rust's cache
   /** Ensure a provider is selected (auto-detecting a CLI or keyed REST one); false when none is set up. */
   ensureProvider(): Promise<boolean>;
   /** Activate a provider — sets it as active and syncs REST `enabled` flags. */
@@ -104,7 +104,7 @@ export const useAiProviderStore = create<AiProviderState & AiProviderActions>()(
       detecting: false,
       credentialsRevision: 0,
 
-      detectProviders: async () => {
+      detectProviders: async (options) => {
         const thisDetectId = ++_detectId;
         set({ detecting: true });
         try {
@@ -115,7 +115,7 @@ export const useAiProviderStore = create<AiProviderState & AiProviderActions>()(
             available: boolean;
             path?: string;
           };
-          const raw: RawEntry[] = await invoke("detect_ai_providers");
+          const raw: RawEntry[] = await invoke("detect_ai_providers", { refresh: options?.refresh ?? false });
 
           // Stale check
           if (thisDetectId !== _detectId) return;

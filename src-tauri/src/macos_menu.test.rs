@@ -49,6 +49,9 @@ const LOCALIZED_ROOT: &str = include_str!("menu/localized.rs");
 /// structural items carry literal IDs; per-entry items are built at runtime
 /// and rely on `fallback_for_submenu_id`.
 const DYNAMIC: &str = include_str!("menu/dynamic.rs");
+/// The recent submenus' placeholder and Clear ids are declared here, as
+/// `RecentMenu` fields, and built by `dynamic.rs`.
+const DYNAMIC_LAYOUT: &str = include_str!("menu/dynamic_layout.rs");
 
 /// Leaf items with no table row ON PURPOSE: the "(No recent …)" placeholders
 /// are inserted INTO the recent-files / recent-workspaces submenus, so they
@@ -157,6 +160,26 @@ fn static_leaf_ids(source: &str) -> BTreeSet<String> {
     ids
 }
 
+/// The `placeholder_id` / `clear_id` literals of the `RecentMenu` constants.
+fn recent_row_ids(source: &str) -> BTreeSet<String> {
+    ["placeholder_id: \"", "clear_id: \""]
+        .iter()
+        .flat_map(|field| {
+            source
+                .match_indices(field)
+                .map(move |(pos, _)| pos + field.len())
+        })
+        .filter_map(|start| source[start..].split('"').next().map(str::to_owned))
+        .collect()
+}
+
+/// The leaf ids of the dynamic submenus' fixed rows.
+fn dynamic_leaf_ids() -> BTreeSet<String> {
+    let mut ids = static_leaf_ids(DYNAMIC);
+    ids.extend(recent_row_ids(DYNAMIC_LAYOUT));
+    ids
+}
+
 /// Every literal submenu ID (`Submenu::with_id_and_items`) in `source`.
 fn submenu_ids(source: &str) -> BTreeSet<String> {
     source
@@ -170,7 +193,7 @@ fn all_leaf_ids() -> BTreeSet<String> {
         .iter()
         .flat_map(|(_, source)| static_leaf_ids(source))
         .collect();
-    ids.extend(static_leaf_ids(DYNAMIC));
+    ids.extend(dynamic_leaf_ids());
     ids
 }
 
@@ -249,14 +272,58 @@ fn fallback_icons_cover_exactly_the_three_dynamic_submenus() {
 }
 
 #[test]
-fn predefined_items_resolve_by_their_english_title_only() {
-    assert_eq!(icon_for_predefined_title("Cut"), Some("scissors"));
+fn predefined_items_resolve_by_their_title_in_every_shipped_locale() {
+    // VMark builds every predefined item with a translated title, so the icon
+    // pass must recognise that title in whichever locale the menu was built in.
+    for locale in rust_i18n::available_locales!() {
+        for (key, symbol) in PREDEFINED_ICONS {
+            let title = rust_i18n::t!(*key, locale = locale);
+            assert_ne!(title, *key, "`{key}` has no value in `{locale}`");
+            assert_eq!(
+                icon_for_predefined_title(&title, &locale),
+                Some(*symbol),
+                "`{key}` (`{title}`) gets no icon in `{locale}`"
+            );
+        }
+    }
+    assert_eq!(icon_for_predefined_title("Cut", "en"), Some("scissors"));
+    assert_eq!(icon_for_predefined_title("cut", "en"), None, "exact match");
+    assert_eq!(icon_for_predefined_title("剪切", "zh-CN"), Some("scissors"));
+    assert_eq!(icon_for_predefined_title("Bring All to Front", "en"), None);
+}
+
+#[test]
+fn every_predefined_item_is_built_with_a_translated_title() {
+    // muda's default titles are English in every locale. A `None` title would
+    // leave the item untranslated AND outside the key-based icon lookup.
+    let mut titled = BTreeSet::new();
+    for (name, source) in LOCALIZED_SOURCES {
+        for (at, _) in source.match_indices("PredefinedMenuItem::") {
+            let call = &source[at..];
+            let ctor = &call["PredefinedMenuItem::".len()..call.find('(').unwrap()];
+            if ctor == "separator" {
+                continue;
+            }
+            let args = &call[..call.find('?').unwrap()];
+            assert!(
+                !args.contains("None"),
+                "`{name}`: `PredefinedMenuItem::{ctor}` is built with muda's English default title"
+            );
+            let key_at = args.find("t!(\"").unwrap_or_else(|| {
+                panic!("`{name}`: `PredefinedMenuItem::{ctor}` has no `t!` title")
+            }) + 4;
+            let key = &args[key_at..key_at + args[key_at..].find('"').unwrap()];
+            titled.insert(key.to_string());
+        }
+    }
+    let table: BTreeSet<String> = PREDEFINED_ICONS
+        .iter()
+        .map(|(k, _)| k.to_string())
+        .collect();
     assert_eq!(
-        icon_for_predefined_title("cut"),
-        None,
-        "best-effort English match, exact"
+        titled, table,
+        "PREDEFINED_ICONS must list exactly the keys the builders title predefined items with"
     );
-    assert_eq!(icon_for_predefined_title("剪切"), None);
 }
 
 // ── the table itself ────────────────────────────────────────────────────────
@@ -280,13 +347,10 @@ fn the_icon_tables_have_no_duplicate_keys_and_no_empty_symbols() {
             "`{id}` → `{symbol}` is not a well-formed SF Symbol name"
         );
     }
-    let mut titles = BTreeSet::new();
-    for (title, symbol) in PREDEFINED_ICONS {
-        assert!(
-            titles.insert(*title),
-            "predefined title `{title}` is listed twice"
-        );
-        assert!(!symbol.is_empty(), "`{title}` maps to an empty symbol");
+    let mut keys = BTreeSet::new();
+    for (key, symbol) in PREDEFINED_ICONS {
+        assert!(keys.insert(*key), "predefined key `{key}` is listed twice");
+        assert!(!symbol.is_empty(), "`{key}` maps to an empty symbol");
     }
 }
 
@@ -369,7 +433,7 @@ fn every_static_leaf_item_in_the_macos_menu_has_an_icon() {
         "menu items without an SF Symbol in MENU_ICONS (AGENTS.md: every item MUST have one): {missing:?}"
     );
     // The documented exceptions must still exist, or the list has gone stale.
-    let dynamic = static_leaf_ids(DYNAMIC);
+    let dynamic = dynamic_leaf_ids();
     for id in FALLBACK_COVERED {
         assert!(
             dynamic.contains(*id),

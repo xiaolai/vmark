@@ -19,7 +19,7 @@
  */
 import type { Node as PMNode } from "@tiptap/pm/model";
 import { hostSettings } from "@/plugins/shared/hostSettings";
-import { collapseNewlines, formatMarkdownChecked, removeTrailingSpaces } from "@/lib/cjkFormatter";
+import { cleanBlankLines, cleanTrailingSpaces, formatMarkdownChecked } from "@/lib/cjkFormatter";
 import { notifyCjkFormatRefused } from "./cjkFormatFeedback";
 import { setDocumentLineEnding } from "@/services/formats/lineEndingMetadata";
 import { wysiwygAdapterError } from "@/utils/debug";
@@ -121,21 +121,21 @@ export function handleFormatCJKFile(context: WysiwygToolbarContext): boolean {
 }
 
 /**
- * Remove trailing whitespace from all lines in the document.
+ * Remove trailing spaces from every line of the document outside fenced code.
  */
 export function handleRemoveTrailingSpaces(context: WysiwygToolbarContext): boolean {
   const preserveTwoSpaceHardBreaks = shouldPreserveTwoSpaceBreaks();
 
   return applyFullDocumentTransform(context, (markdown) =>
-    removeTrailingSpaces(markdown, { preserveTwoSpaceHardBreaks })
+    cleanTrailingSpaces(markdown, { preserveTwoSpaceHardBreaks })
   );
 }
 
 /**
- * Collapse consecutive blank lines into single blank lines.
+ * Collapse consecutive blank lines into single blank lines, outside fenced code.
  */
 export function handleCollapseBlankLines(context: WysiwygToolbarContext): boolean {
-  return applyFullDocumentTransform(context, collapseNewlines);
+  return applyFullDocumentTransform(context, cleanBlankLines);
 }
 
 /**

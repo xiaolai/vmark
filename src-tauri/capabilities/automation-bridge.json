@@ -1,7 +1,0 @@
-{
-  "$schema": "../gen/schemas/desktop-schema.json",
-  "identifier": "automation-bridge",
-  "description": "[capability-version: 0.9.98] The debug-only Tauri MCP automation bridge (tauri-plugin-mcp-bridge, registered in src-tauri/src/app_plugins.rs). Kept apart from default.json because it is a dev driver surface, not a product permission. Every platform carries the plugin again since 0.13.1, the first release built on the webview2-com 0.39 / windows 0.62 that tauri 2.12 uses (see its entry in Cargo.toml).",
-  "windows": ["main", "doc-*"],
-  "permissions": ["mcp-bridge:default"]
-}

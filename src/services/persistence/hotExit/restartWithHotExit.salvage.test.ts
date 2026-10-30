@@ -274,6 +274,26 @@ describe("checkAndRestoreSession — corrupt payloads (WI-3)", () => {
       expect(clearCalls).toEqual([]);
     });
 
+    it("preserves the session file when Rust repaired the main file lossily", async () => {
+      // `lossy_repair`: Rust's own per-item salvage DROPPED content before the
+      // payload reached this boundary, so it arrives clean and nothing is
+      // quarantined here — the original bytes on disk are the only record.
+      const payload = {
+        ...sessionWithTabs([validTab("t1")]),
+        lossy_repair: true,
+        repair_summary: "dropped 1 tab",
+      };
+      fakeFs.set(SESSION_PATH, JSON.stringify(payload));
+
+      await expect(restoreToCompletion()).resolves.toBe(true);
+
+      expect(fakeFs.get(SESSION_PATH)).toBe(JSON.stringify(payload));
+      const clearCalls = (invoke as Mock).mock.calls.filter(
+        (c) => c[0] === "hot_exit_clear_session",
+      );
+      expect(clearCalls).toEqual([]);
+    });
+
     it("still clears when the flag is present but false", async () => {
       const payload = { ...sessionWithTabs([validTab("t1")]), recovered_from_backup: false };
       fakeFs.set(SESSION_PATH, JSON.stringify(payload));

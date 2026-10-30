@@ -19,7 +19,7 @@ pub struct ScanReport {
     ///
     /// The scan still RETURNS rather than erroring, and that is the point: the
     /// READ surfaces run a scan first — `perform_breakdown_in` sits behind both
-    /// `coherence_breakdown` and `coherence_status` — so propagating the
+    /// `coherence_breakdown` and the MCP `status` answer — so propagating the
     /// refusal turned "the breakdown is missing whatever the newer build wrote"
     /// into "the breakdown panel is dead". The remedy (upgrade VMark) has to
     /// stay reachable from an app that still opens.

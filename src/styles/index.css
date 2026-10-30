@@ -543,7 +543,7 @@ body {
    macOS chrome follows the Apple HIG: arrow on buttons and controls.
    Windows/Linux users of a webview app expect pointer feedback, so the
    interactive-chrome primitives consume this token instead of a literal.
-   The root platform class is applied at bootstrap (main.tsx) from
+   The root platform class is applied at startup (bootstrap.tsx) from
    getRuntimePlatform(). `pointer` stays for links inside content. */
 :root {
   --cursor-interactive: default;

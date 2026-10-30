@@ -133,7 +133,7 @@ export const LintExtension = Extension.create<LintExtensionOptions>({
             });
           };
 
-          // Only react when diagnostics are ADDED (runLint), not cleared.
+          // Only react when diagnostics are ADDED (runLintForFormat), not cleared.
           // Clears are handled by apply() returning DecorationSet.empty on docChanged.
           let prevDiagnostics = source.get(tabId);
           const unsubscribe = source.subscribe((changedTabId, nextDiagnostics) => {
@@ -185,7 +185,7 @@ export const LintExtension = Extension.create<LintExtensionOptions>({
             // Clear decorations on doc edit — stale results should disappear.
             // We only clear the DECORATIONS here, not the store — clearing the
             // store from apply() causes an infinite loop via subscribe → dispatch.
-            // The store is cleared naturally by the next runLint or tab close.
+            // The store is cleared naturally by the next runLintForFormat or tab close.
             if (tr.docChanged) {
               // Record the change so an async lint completion that started
               // BEFORE this edit is recognized as stale when it arrives.

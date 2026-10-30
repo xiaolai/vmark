@@ -23,10 +23,25 @@ fn main() {
 /// initializes — hence here in `main`, ahead of `run()`. No-op off Linux.
 #[cfg(target_os = "linux")]
 fn apply_linux_webkit_workarounds() {
-    if std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none() {
-        std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+    let current = std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER");
+    if let Some(value) = dmabuf_renderer_override(current.as_deref()) {
+        std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", value);
+    }
+}
+
+/// The value to give `WEBKIT_DISABLE_DMABUF_RENDERER`, or `None` to leave the
+/// user's own choice (any value, `0` included) untouched.
+#[cfg(any(target_os = "linux", test))]
+fn dmabuf_renderer_override(current: Option<&std::ffi::OsStr>) -> Option<&'static str> {
+    match current {
+        None => Some("1"),
+        Some(_) => None,
     }
 }
 
 #[cfg(not(target_os = "linux"))]
 fn apply_linux_webkit_workarounds() {}
+
+#[cfg(test)]
+#[path = "main.test.rs"]
+mod tests;

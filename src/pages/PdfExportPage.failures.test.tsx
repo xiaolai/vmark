@@ -19,7 +19,6 @@ vi.mock("@tauri-apps/plugin-fs", async () => (await import("@/test/statefulFsFak
 vi.mock("@tauri-apps/api/core", async () => (await import("@/test/statefulFsFake")).statefulFs.coreModule());
 vi.mock("@tauri-apps/api/webviewWindow", () => ({ getCurrentWebviewWindow: () => ({ close: tauri.close }) }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: () => Promise.resolve(() => undefined) }));
-vi.mock("@tauri-apps/plugin-dialog", () => ({ save: vi.fn(() => Promise.resolve("/Users/test/out.pdf")) }));
 vi.mock("@tauri-apps/plugin-opener", () => ({ openPath: vi.fn(() => Promise.resolve()) }));
 vi.mock("sonner", () => ({
   toast: Object.assign(vi.fn(), { success: vi.fn(), warning: vi.fn(), error: vi.fn(), dismiss: vi.fn() }),
@@ -38,6 +37,8 @@ function openPage(): void {
 beforeEach(() => {
   statefulFs.reset();
   statefulFs.stubCommand("set_native_theme", () => undefined);
+  // The save panel is Rust's; it answers with the path `export_pdf` will accept.
+  statefulFs.stubCommand("pick_export_target", () => "/Users/test/out.pdf");
   statefulFs.stubCommand("export_pdf", () => ({ warnings: [] }));
   tauri.close.mockReset().mockResolvedValue(undefined);
 });

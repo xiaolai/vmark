@@ -23,10 +23,10 @@ vi.mock("@/utils/imeGuard", () => ({
   runOrQueueProseMirrorAction: vi.fn((_view, action) => action()),
 }));
 
-// Mock uiStore (T09: searchStore merged in as the .search slice).
-// Tests mutate mockSearchState's fields in setup; the mock returns the
-// same object as state.search so the production code's read of
-// useUIStore.getState().search picks up the mutations.
+// The find-bar state the plugin reads through the hostSearch seam (in the
+// app it is the uiStore search slice). Tests mutate mockSearchState's fields
+// in setup; hostSearch.current() returns this same object, so the plugin's
+// reads pick up the mutations.
 const mockSearchState = {
   isOpen: false,
   query: "",
@@ -1048,7 +1048,7 @@ describe("search plugin view lifecycle", () => {
     mockSearchSubscribers.length = 0;
   });
 
-  it("view subscribes to searchStore and adds event listeners", () => {
+  it("view subscribes to the hostSearch seam and adds event listeners", () => {
     const plugin = getPlugin();
     const addSpy = vi.spyOn(window, "addEventListener");
 
@@ -1064,7 +1064,7 @@ describe("search plugin view lifecycle", () => {
     expect(viewResult).toBeDefined();
     expect(viewResult.destroy).toBeTypeOf("function");
 
-    // Should have subscribed to the store
+    // Should have subscribed through hostSearch.onChange
     expect(mockSearchSubscribers.length).toBe(1);
 
     // Should have added event listeners

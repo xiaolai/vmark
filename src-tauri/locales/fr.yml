@@ -9,6 +9,10 @@ menu:
   app.settings: "Paramètres..."
   app.saveAllQuit: "Tout enregistrer et quitter"
   app.quit: "Quitter VMark"
+  app.services: "Services"
+  app.hide: "Masquer VMark"
+  app.hideOthers: "Masquer les autres"
+  app.showAll: "Tout afficher"
 
   # === File menu ===
   file: "Fichier"
@@ -198,9 +202,12 @@ menu:
   view.checkMarkdown: "Vérifier Markdown"
   view.lintNext: "Problème suivant"
   view.lintPrev: "Problème précédent"
+  view.toggleFullScreen: "Activer/désactiver le plein écran"
   # === Window menu ===
   window: "Fenêtre"
   window.bringAllToFront: "Tout mettre au premier plan"
+  window.minimize: "Placer dans le Dock"
+  window.zoom: "Réduire/agrandir"
   window.breakdown: "Détail de cohérence"
 
   # === Help menu ===
@@ -273,6 +280,7 @@ errors:
   pdf.invalidExtension: "Le chemin de sortie doit avoir l'extension .pdf"
   pdf.dirNotFound: "Le répertoire de sortie n'existe pas"
   pdf.parentNotDirectory: "Le parent du chemin de sortie existe mais n’est pas un répertoire"
+  exportTarget.notChosen: "L’export ne peut cibler que l’emplacement choisi dans la boîte d’enregistrement. Exportez de nouveau et choisissez l’emplacement."
   pdf.publishFailed: "Le PDF généré n’a pas pu être déplacé vers le chemin de sortie : %{detail}"
   pdf.outputUnreadable: "Le PDF généré n’a pas pu être ouvert pour vérification : %{detail}"
   pdf.pathNotAbsolute: "Le chemin de sortie doit être absolu"

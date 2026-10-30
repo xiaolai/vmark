@@ -11,10 +11,11 @@
 //!   - A file this build cannot interpret grants NOTHING. A half-read list that
 //!     is then trusted is worse than an empty one: the cost of empty is one
 //!     folder-picker confirmation.
-//!   - The file is a top-level JSON ARRAY led by [`FORMAT_MARKER`]. The store
-//!     plugin (`store:default`) can write any path, app data included, but only
-//!     ever a JSON OBJECT (its cache, through `serde_json::to_vec_pretty`), so
-//!     nothing it writes parses as a list.
+//!   - The file is a top-level JSON ARRAY led by [`FORMAT_MARKER`]. The
+//!     webview is not granted `store:allow-load` (it reaches only the store
+//!     `app_plugins.rs` opens), and a store plugin ever does write only a JSON
+//!     OBJECT (its cache, through `serde_json::to_vec_pretty`), so nothing it
+//!     writes parses as a list even if that grant came back.
 //!   - Bounded at [`MAX_ROOTS`], oldest dropped, so a long-lived install does
 //!     not re-grant every folder it was ever shown. [`MAX_FILE_BYTES`] bounds
 //!     the PARSE: `MAX_ROOTS` caps what is kept only after serde has built

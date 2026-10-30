@@ -17,12 +17,12 @@
  *     multi-cursor uses nodeAfter.marks directly (storedMarks is per-state, not per-cursor).
  *     Both escape to pos - 1 to avoid re-triggering inlineCodeBoundary.
  *   - Multi-cursor support: each cursor processed independently
- *   - Shares ESCAPABLE_MARKS set with tabEscape.ts
+ *   - Imports the ESCAPABLE_MARKS set from tabEscape.ts, so Tab and Shift+Tab escape the same marks
  *   - Mark boundary uses `<=` (cursor at mark end still has mark active)
  *   - Link boundary uses `<` (cursor at link end is at boundary where link may not be active;
  *     falls back to returning current pos for stored-mark clearing)
  *
- * @coordinates-with tabEscape.ts — shares ESCAPABLE_MARKS, mirrors structure
+ * @coordinates-with tabEscape.ts — owns ESCAPABLE_MARKS, mirrors structure
  * @coordinates-with tiptap.ts — wired into Shift+Tab handler chain
  * @module plugins/tabIndent/shiftTabEscape
  */
@@ -31,9 +31,7 @@ import type { EditorState } from "@tiptap/pm/state";
 import type { Node as PMNode, MarkType, ResolvedPos } from "@tiptap/pm/model";
 import { SelectionRange } from "@tiptap/pm/state";
 import { MultiSelection } from "@/plugins/shared/MultiSelection";
-
-/** Mark types that Shift+Tab can escape from (shared with tabEscape.ts) */
-const ESCAPABLE_MARKS = new Set(["bold", "italic", "code", "strike"]);
+import { ESCAPABLE_MARKS } from "./tabEscape";
 
 export interface ShiftTabEscapeResult {
   type: "mark" | "link";

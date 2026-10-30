@@ -6,8 +6,8 @@
 // guard, and hiding Advanced while it is the section on screen switches the
 // page to Appearance during render.
 //
-// The in-file comment in Settings.tsx still says "Cmd+Shift+D"; that chord is
-// asserted here NOT to toggle, so the stale comment cannot become the spec.
+// An earlier comment in Settings.tsx named "Cmd+Shift+D"; that chord is
+// asserted here NOT to toggle, so the old chord cannot creep back as the spec.
 //
 // Renders the real page against the real store and the global Tauri mocks.
 // Only the active panel mounts, so each test starts on `?section=editor`, a

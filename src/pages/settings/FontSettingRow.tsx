@@ -24,7 +24,7 @@
  *     the setting changes when a usable name exists, never before, so there
  *     is no intermediate state in which the user's font has been taken away.
  *
- * @coordinates-with utils/fontStacks.ts — the encoding and the one validator
+ * @coordinates-with utils/customFont.ts — the encoding and the one validator
  * @coordinates-with hooks/useSystemFontFamilies.ts — the installed list
  * @module pages/settings/FontSettingRow
  */

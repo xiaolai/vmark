@@ -2,11 +2,10 @@
  * Multi-file "changed on disk" batch resolutions.
  *
  * Purpose: the three ways to resolve a batch of external file changes —
- * reload all, keep all local, or review each — extracted from
- * `useExternalFileChanges.processBatchedChanges` so that function stays a flat
- * dispatch instead of three nested loops.
+ * reload all, keep all local, or review each — kept apart from the dialog so
+ * the batch dispatch stays flat instead of three nested loops.
  *
- * @coordinates-with useExternalFileChanges.ts — sole caller
+ * @coordinates-with resolveDirtyBatch.ts — sole caller
  * @module services/files/fileChangeBatch
  */
 

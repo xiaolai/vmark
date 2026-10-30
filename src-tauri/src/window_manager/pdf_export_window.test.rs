@@ -207,3 +207,36 @@ fn listeners_dropped_without_the_event_end_the_wait_for_the_label_check_to_decid
     drop(destroyed);
     assert!(await_destroyed(&gone, std::time::Duration::from_secs(3600)).is_ok());
 }
+
+// The HTML hand-off ends with the window that read it.
+
+#[test]
+fn the_hand_off_file_is_discarded_when_the_window_is_destroyed_and_not_before() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = crate::temp_html::write_temp_html_to_dir(dir.path(), "<p>doc</p>").expect("write");
+
+    // Still open (a reload may read it again): the file stays.
+    discard_html_when_destroyed(&tauri::WindowEvent::Focused(false), dir.path(), &path);
+    assert!(path.exists(), "only Destroyed ends the hand-off");
+
+    discard_html_when_destroyed(&tauri::WindowEvent::Destroyed, dir.path(), &path);
+    assert!(!path.exists(), "a destroyed window's HTML is removed");
+}
+
+#[test]
+fn the_command_registers_the_discard_on_the_window_it_opened() {
+    // The mock runtime never delivers `Destroyed`, so the registration itself
+    // cannot be driven; without it the hand-off file waits for the hour-old
+    // sweep. Pinned at the source, like the menu decision above.
+    let command = SOURCE
+        .split("pub fn open_pdf_export_window(")
+        .nth(1)
+        .and_then(|rest| rest.split("\n}\n").next())
+        .expect("open_pdf_export_window body");
+    assert!(
+        command.contains(
+            "on_window_event(move |event| discard_html_when_destroyed(event, &dir, &path))"
+        ),
+        "the export window must discard its HTML when destroyed:\n{command}"
+    );
+}

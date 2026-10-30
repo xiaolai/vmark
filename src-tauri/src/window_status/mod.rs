@@ -1,7 +1,7 @@
 //! # Window status registry (#1057)
 //!
 //! Purpose: a cross-window registry of per-window "Claude Code" status so a
-//! single panel (under the Window menu, opened in any window) can list every
+//! single panel (under the View menu, opened in any window) can list every
 //! open VMark window with its live status and jump to it. Windows are isolated
 //! webviews, so each reports its own status via `invoke`; this module keeps the
 //! aggregate in managed state and broadcasts `window-status:changed` (global
@@ -19,7 +19,9 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Mutex;
-use tauri::{AppHandle, Emitter, Manager, Window};
+use tauri::{AppHandle, Emitter, Manager, Runtime, Window};
+
+use crate::command_error::CommandError;
 
 /// One window's current status. Serialized to the frontend in camelCase.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -96,7 +98,7 @@ fn snapshot(map: &HashMap<String, WindowStatus>) -> Vec<WindowStatus> {
     v
 }
 
-fn broadcast(app: &AppHandle) {
+fn broadcast<R: Runtime>(app: &AppHandle<R>) {
     let snap = {
         let registry = app.state::<WindowStatusRegistry>();
         let map = registry.0.lock().unwrap_or_else(|p| p.into_inner());
@@ -109,7 +111,12 @@ fn broadcast(app: &AppHandle) {
 
 /// Upsert the calling window's AI status + active-document name.
 #[tauri::command]
-pub fn report_window_status(window: Window, doc_name: String, ai: String, elapsed_seconds: u32) {
+pub fn report_window_status<R: Runtime>(
+    window: Window<R>,
+    doc_name: String,
+    ai: String,
+    elapsed_seconds: u32,
+) {
     let app = window.app_handle().clone();
     let label = window.label().to_string();
     {
@@ -122,7 +129,7 @@ pub fn report_window_status(window: Window, doc_name: String, ai: String, elapse
 
 /// Flag the calling window as needing attention (unfocused terminal bell).
 #[tauri::command]
-pub fn set_window_attention(window: Window) {
+pub fn set_window_attention<R: Runtime>(window: Window<R>) {
     let app = window.app_handle().clone();
     let label = window.label().to_string();
     let changed = {
@@ -137,7 +144,7 @@ pub fn set_window_attention(window: Window) {
 
 /// Clear the calling window's attention flag (it just gained focus).
 #[tauri::command]
-pub fn clear_window_attention(window: Window) {
+pub fn clear_window_attention<R: Runtime>(window: Window<R>) {
     let app = window.app_handle().clone();
     let label = window.label().to_string();
     let changed = {
@@ -152,24 +159,29 @@ pub fn clear_window_attention(window: Window) {
 
 /// Current snapshot of all window statuses (for a panel that just opened).
 #[tauri::command]
-pub fn get_window_statuses(app: AppHandle) -> Vec<WindowStatus> {
+pub fn get_window_statuses<R: Runtime>(app: AppHandle<R>) -> Vec<WindowStatus> {
     let registry = app.state::<WindowStatusRegistry>();
     let map = registry.0.lock().unwrap_or_else(|p| p.into_inner());
     snapshot(&map)
 }
 
 /// Focus (and unminimize) the window with the given label.
+///
+/// An unknown label is `not-found`: the panel's row went stale, and the panel
+/// refreshes its list on any rejection.
 #[tauri::command]
-pub fn focus_window(app: AppHandle, label: String) -> Result<(), String> {
+pub fn focus_window<R: Runtime>(app: AppHandle<R>, label: String) -> Result<(), CommandError> {
     let window = app
         .get_webview_window(&label)
-        .ok_or_else(|| format!("window not found: {label}"))?;
+        .ok_or_else(|| CommandError::not_found(format!("window not found: {label}")))?;
     let _ = window.unminimize();
-    window.set_focus().map_err(|e| e.to_string())
+    window
+        .set_focus()
+        .map_err(|e| CommandError::internal(e.to_string()))
 }
 
 /// Remove a destroyed window from the registry and broadcast the change.
-pub fn prune(app: &AppHandle, label: &str) {
+pub fn prune<R: Runtime>(app: &AppHandle<R>, label: &str) {
     {
         let registry = app.state::<WindowStatusRegistry>();
         let mut map = registry.0.lock().unwrap_or_else(|p| p.into_inner());
@@ -177,6 +189,10 @@ pub fn prune(app: &AppHandle, label: &str) {
     }
     broadcast(app);
 }
+
+#[cfg(test)]
+#[path = "commands.test.rs"]
+mod commands_tests;
 
 #[cfg(test)]
 mod tests {

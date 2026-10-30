@@ -24,7 +24,7 @@ use sha2::{Digest, Sha256};
 use tauri::{Listener, Manager};
 
 use crate::peer_text::peer_message;
-use crate::{menu, pty, quit, tab_transfer, window_status, workspace};
+use crate::{menu, pty, quit};
 
 /// Compute a stable, anonymous machine identifier hash.
 ///
@@ -108,10 +108,14 @@ pub(crate) fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::
         log::warn!("[Tauri] Failed to install default genies: {}", e);
     }
 
-    // Windows/Linux: handle files passed as CLI arguments
-    // (macOS uses RunEvent::Opened from Finder instead)
+    // Windows/Linux: handle files and folders passed as CLI arguments
+    // (macOS uses RunEvent::Opened from Finder instead). A folder opens as a
+    // workspace window, as a Finder folder does.
     #[cfg(not(target_os = "macos"))]
     {
+        for dir in crate::supported_files::launch_dirs(std::env::args().skip(1)) {
+            crate::files::open::open_finder_directory(app.handle(), &dir);
+        }
         let file_args = crate::supported_files::filter_supported_args(std::env::args().skip(1));
         // Grant before queueing, and outside the state lock: the frontend can
         // only drain the queue after setup returns, so every queued path is
@@ -196,31 +200,8 @@ pub(crate) fn handle_run_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
             event: tauri::WindowEvent::Destroyed,
             ..
         } => {
-            crate::files::open::remove_document_window(app, &label);
+            window_destroyed::release_destroyed_window(app, &label);
             quit::handle_window_destroyed(app, &label);
-            menu::events::clear_window_ready(&label);
-            tab_transfer::clear_unclaimed_transfer(&label);
-            workspace::transfer::clear_unclaimed_transfer(&label);
-            window_status::prune(app, &label);
-            // Drop the window's filesystem watcher. The frontend's own
-            // `stop_watching` invoke runs in the dying webview and can race
-            // its teardown, so without this each closed window would leak a
-            // recursive watcher (idempotent).
-            if let Err(e) = crate::watcher::stop_watching(label.clone()) {
-                log::warn!("[Tauri] Failed to stop watcher for {:?}: {}", label, e);
-            }
-            // Same race for the window's terminals: its `pty_close` calls die
-            // with the webview, so an idle shell would outlive the window.
-            crate::pty::close_window_sessions(app, &label);
-            // And its agent-journal base roots (a stale pin would outlive it).
-            crate::agent_journal::service::release_window_label(app, &label);
-            // And its MCP workspace registration, cleared by the same webview.
-            let app = app.clone();
-            tauri::async_runtime::spawn(async move {
-                crate::mcp_bridge::managed::bridge(&app)
-                    .forget_window(&label)
-                    .await;
-            });
         }
         tauri::RunEvent::WindowEvent {
             label,
@@ -290,6 +271,8 @@ pub fn window_close_log(message: String) {
 pub fn update_log(message: String) {
     log::info!("[Update] {}", peer_message(&message));
 }
+
+mod window_destroyed;
 
 #[cfg(test)]
 #[path = "app_setup.test.rs"]

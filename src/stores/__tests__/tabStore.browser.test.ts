@@ -178,7 +178,7 @@ describe("browser + document tabs coexist", () => {
     expect(browser).not.toBe(doc);
   });
 
-  it("shared lifecycle (close, reorder, pin) works on browser tabs", () => {
+  it("shared lifecycle (close, reorder, pin) works on browser tabs", async () => {
     const a = useTabStore.getState().createBrowserTab(W, "https://a.example/");
     const b = useTabStore.getState().createBrowserTab(W, "https://b.example/");
     // pin b → moves left
@@ -188,7 +188,7 @@ describe("browser + document tabs coexist", () => {
     useTabStore.getState().closeTab(W, a);
     expect(useTabStore.getState().getTabsByWindow(W).map((t) => t.id)).toEqual([b]);
     // reopen (browser history is window-global — WI-11.1/11.2)
-    const reopened = reopenClosedTabForActiveContext(W);
+    const reopened = await reopenClosedTabForActiveContext(W);
     expect(reopened?.id).toBe(a);
   });
 

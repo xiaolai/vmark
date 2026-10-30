@@ -168,7 +168,7 @@ describe("useWorkflowRunControls — starting a run", () => {
     await act(async () => {
       result.current.cancel();
     });
-    await waitFor(() => expect(errorDetail).toHaveBeenCalledWith("workflow:run.cancelFailed", lost));
+    await waitFor(() => expect(errorDetail).toHaveBeenCalledWith("The workflow could not be cancelled", lost));
 
     errorDetail.mockClear();
     invoke.mockImplementation(async (cmd: string) => {
@@ -279,7 +279,7 @@ describe("useWorkflowRunControls — a start the backend refuses", () => {
     });
     // The test i18n map does not load the `workflow` namespace, so the key
     // itself is what renders here; the English text lives in workflow.json.
-    expect(errorDetail).toHaveBeenCalledWith("workflow:run.failedToStart", refusal);
+    expect(errorDetail).toHaveBeenCalledWith("The workflow could not start", refusal);
     await waitFor(() => expect(result.current.running).toBe(false));
     expect(useWorkflowStore.getState().preview.executionId).toBeNull();
     expect(result.current.owned).toBe(false);

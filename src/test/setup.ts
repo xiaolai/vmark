@@ -164,7 +164,7 @@ vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({
 }));
 
 vi.mock("@tauri-apps/plugin-store", () => ({
-  load: vi.fn(() =>
+  getStore: vi.fn(() =>
     Promise.resolve({
       get: vi.fn(() => Promise.resolve(null)),
       set: vi.fn(() => Promise.resolve()),

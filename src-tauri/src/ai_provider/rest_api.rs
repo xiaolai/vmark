@@ -125,3 +125,7 @@ pub async fn validate_model(
     .await?;
     Ok("Model OK".to_string())
 }
+
+#[cfg(test)]
+#[path = "rest_api.test.rs"]
+mod tests;

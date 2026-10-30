@@ -48,3 +48,32 @@ fn status_not_installed_when_path_missing() {
     assert!(status.is_ok());
     // We can't assert installed/foreign since the file may or may not exist
 }
+
+/// The script tells whoever reads it how to remove it, so it must name the
+/// menu item that actually ships (choosing it again uninstalls).
+#[test]
+fn script_names_the_shipped_menu_item() {
+    let label = rust_i18n::t!("menu.help.installCli", locale = "en").to_string();
+    assert!(
+        SCRIPT_CONTENT.contains(&format!("Help > {label}")),
+        "script does not name {label:?}: {SCRIPT_CONTENT}"
+    );
+}
+
+/// A script an earlier version installed is still VMark's: changing the
+/// script's wording must not turn existing installs into "foreign" files the
+/// toggle refuses to remove.
+#[test]
+fn a_script_installed_by_an_earlier_version_is_still_ours() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    for (i, previous) in PREVIOUS_SCRIPT_CONTENTS.iter().enumerate() {
+        let target = dir.path().join(format!("vmark-{i}"));
+        std::fs::write(&target, previous).unwrap();
+        let status = status_at(&target);
+        assert!(
+            status.installed && !status.foreign,
+            "previous script {i} read as foreign"
+        );
+    }
+    assert!(!PREVIOUS_SCRIPT_CONTENTS.contains(&SCRIPT_CONTENT));
+}

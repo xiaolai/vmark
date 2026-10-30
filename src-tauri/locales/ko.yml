@@ -9,6 +9,10 @@ menu:
   app.settings: "설정..."
   app.saveAllQuit: "모두 저장하고 종료"
   app.quit: "VMark 종료"
+  app.services: "서비스"
+  app.hide: "VMark 가리기"
+  app.hideOthers: "기타 가리기"
+  app.showAll: "모두 보기"
 
   # === 파일 메뉴 ===
   file: "파일"
@@ -198,9 +202,12 @@ menu:
   view.checkMarkdown: "Markdown 검사"
   view.lintNext: "다음 문제"
   view.lintPrev: "이전 문제"
+  view.toggleFullScreen: "전체 화면 전환"
   # === 창 메뉴 ===
   window: "창"
   window.bringAllToFront: "모든 창 앞으로 가져오기"
+  window.minimize: "최소화"
+  window.zoom: "확대/축소"
   window.breakdown: "정합성 내역"
 
   # === 도움말 메뉴 ===
@@ -273,6 +280,7 @@ errors:
   pdf.invalidExtension: "출력 경로는 .pdf 확장자를 사용해야 합니다"
   pdf.dirNotFound: "출력 디렉터리가 존재하지 않습니다"
   pdf.parentNotDirectory: "출력 경로의 상위 항목이 존재하지만 디렉터리가 아닙니다"
+  exportTarget.notChosen: "저장 대화 상자에서 선택한 위치로만 내보낼 수 있습니다. 다시 내보내고 저장할 위치를 선택하세요."
   pdf.publishFailed: "생성된 PDF를 출력 경로로 옮기지 못했습니다: %{detail}"
   pdf.outputUnreadable: "생성된 PDF를 확인하려고 열지 못했습니다: %{detail}"
   pdf.pathNotAbsolute: "출력 경로는 절대 경로여야 합니다"

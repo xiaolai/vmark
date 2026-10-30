@@ -3,6 +3,11 @@
 //! App Nap suspends the webview when VMark is backgrounded, causing MCP
 //! bridge timeouts because `app.emit()` events are never handled by the
 //! frozen frontend JavaScript. Disabling App Nap keeps the webview alive.
+//!
+//! Known limitation: no automated test. The only effect is a process activity
+//! held with the OS, and `NSProcessInfo` has no call that reports whether a
+//! process is napping, so a unit test has nothing to observe. Check it by hand: with
+//! VMark in the background, Activity Monitor's "App Nap" column reads "No".
 
 use objc2_foundation::{NSActivityOptions, NSProcessInfo, NSString};
 use std::sync::Once;

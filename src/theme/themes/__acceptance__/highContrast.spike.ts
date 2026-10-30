@@ -11,10 +11,10 @@ import { sharedPrimitives, lightShadows, subtleLight, hoverLight } from "../../t
 /**
  * High-contrast theme — Phase-5 acceptance spike.
  *
- * Proves the architecture promise: adding a 6th vmark theme requires
- * ONE new ThemeTokens file (this one) plus appending the ID to
- * src/theme/themes/index.ts and settingsTypes.ts. No other file needs
- * editing.
+ * Proves the architecture promise: adding a theme to the six that ship
+ * requires ONE new ThemeTokens file (this one) plus appending it to the
+ * `themes` map in src/theme/themes/index.ts. `ThemeId` is derived from
+ * that map, so no other file needs editing.
  *
  * Marked .spike to indicate this is a verification artifact, not a
  * shipping theme.

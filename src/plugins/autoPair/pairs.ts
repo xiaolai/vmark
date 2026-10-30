@@ -5,7 +5,11 @@
  * and provides lookup functions that respect the user's configuration.
  *
  * Key decisions:
- *   - CJK curly quotes are opt-in because they conflict with Chinese IME smart-quote features
+ *   - Curly-quote pairing ships ON (`markdown.autoPairCurlyQuotes` defaults to
+ *     true) and applies only while CJK auto-pairing is on; users who hit
+ *     Chinese IME smart-quote conflicts can turn it off in settings. While it
+ *     is on, a typed straight `"` / `'` is converted to its curly pair
+ *     (straightToCurlyOpening)
  *   - Pair lookup functions accept a PairConfig to centralize the include/exclude logic
  *
  * @coordinates-with handlers.ts — uses getClosingChar/getOpeningChar for auto-pair decisions
@@ -34,7 +38,7 @@ export const CJK_BRACKET_PAIRS: Record<string, string> = {
 
 /** CJK curly quote pairs
  * NOTE: May conflict with Chinese IME "smart quote" features.
- * Disabled by default - users can enable in settings.
+ * Enabled by default (`markdown.autoPairCurlyQuotes`); users can disable it in settings.
  */
 export const CJK_CURLY_QUOTE_PAIRS: Record<string, string> = {
   "\u201C": "\u201D", // Curly double quotes " "

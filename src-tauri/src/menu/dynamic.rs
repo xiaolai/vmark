@@ -15,7 +15,10 @@ use tauri::AppHandle;
 
 #[path = "dynamic_layout.rs"]
 mod layout;
-use layout::{genie_layout, recent_entries, search_genies_accelerator, GenieLayout};
+use layout::{
+    genie_layout, recent_submenu, search_genies_accelerator, GenieLayout, RecentMenu, RecentRow,
+    RECENT_FILES_MENU, RECENT_WORKSPACES_MENU,
+};
 
 use super::{
     replace_snapshot, GENIES_SNAPSHOT, GENIES_SUBMENU_ID, RECENT_FILES_SNAPSHOT,
@@ -26,51 +29,7 @@ use super::{
 pub fn update_recent_files_menu(app: &AppHandle, files: Vec<String>) -> tauri::Result<()> {
     // Store snapshot of files for lookup when menu items are clicked
     replace_snapshot(&RECENT_FILES_SNAPSHOT, files.clone());
-
-    let Some(menu) = app.menu() else {
-        return Ok(());
-    };
-
-    let Some(submenu) = find_nested_submenu(&menu, RECENT_FILES_SUBMENU_ID)? else {
-        return Ok(());
-    };
-
-    // Remove all existing items
-    while let Some(item) = submenu.items()?.first() {
-        submenu.remove(item)?;
-    }
-
-    // Add file items
-    if files.is_empty() {
-        let no_recent = MenuItem::with_id(
-            app,
-            "no-recent",
-            &t!("menu.recentFiles.empty"),
-            false,
-            None::<&str>,
-        )?;
-        submenu.append(&no_recent)?;
-    } else {
-        for (item_id, filename) in recent_entries("recent-file", &files) {
-            let item = MenuItem::with_id(app, &item_id, filename, true, None::<&str>)?;
-            submenu.append(&item)?;
-        }
-    }
-
-    // Add separator and clear option
-    let separator = PredefinedMenuItem::separator(app)?;
-    submenu.append(&separator)?;
-
-    let clear_item = MenuItem::with_id(
-        app,
-        "clear-recent",
-        &t!("menu.recentFiles.clear"),
-        !files.is_empty(),
-        None::<&str>,
-    )?;
-    submenu.append(&clear_item)?;
-
-    Ok(())
+    fill_recent_submenu(app, RECENT_FILES_SUBMENU_ID, &RECENT_FILES_MENU, &files)
 }
 
 /// Update the Open Recent Workspace submenu with the given list of workspace paths.
@@ -79,47 +38,40 @@ pub fn update_recent_workspaces_menu(
     workspaces: Vec<String>,
 ) -> tauri::Result<()> {
     replace_snapshot(&RECENT_WORKSPACES_SNAPSHOT, workspaces.clone());
+    fill_recent_submenu(
+        app,
+        RECENT_WORKSPACES_SUBMENU_ID,
+        &RECENT_WORKSPACES_MENU,
+        &workspaces,
+    )
+}
 
+/// Replace the items of recent submenu `submenu_id` with the rows
+/// `recent_submenu` lays out. No menu yet, or no such submenu, is not an error:
+/// the snapshot is already stored and the next build reads it.
+fn fill_recent_submenu(
+    app: &AppHandle,
+    submenu_id: &str,
+    kind: &RecentMenu,
+    paths: &[String],
+) -> tauri::Result<()> {
     let Some(menu) = app.menu() else {
         return Ok(());
     };
-
-    let Some(submenu) = find_nested_submenu(&menu, RECENT_WORKSPACES_SUBMENU_ID)? else {
+    let Some(submenu) = find_nested_submenu(&menu, submenu_id)? else {
         return Ok(());
     };
-
     while let Some(item) = submenu.items()?.first() {
         submenu.remove(item)?;
     }
-
-    if workspaces.is_empty() {
-        let no_recent = MenuItem::with_id(
-            app,
-            "no-recent-workspace",
-            &t!("menu.recentWorkspaces.empty"),
-            false,
-            None::<&str>,
-        )?;
-        submenu.append(&no_recent)?;
-    } else {
-        for (item_id, foldername) in recent_entries("recent-workspace", &workspaces) {
-            let item = MenuItem::with_id(app, &item_id, foldername, true, None::<&str>)?;
-            submenu.append(&item)?;
+    for row in recent_submenu(kind, paths) {
+        match row {
+            RecentRow::Item { id, label, enabled } => {
+                submenu.append(&MenuItem::with_id(app, &id, label, enabled, None::<&str>)?)?;
+            }
+            RecentRow::Separator => submenu.append(&PredefinedMenuItem::separator(app)?)?,
         }
     }
-
-    let separator = PredefinedMenuItem::separator(app)?;
-    submenu.append(&separator)?;
-
-    let clear_item = MenuItem::with_id(
-        app,
-        "clear-recent-workspaces",
-        &t!("menu.recentWorkspaces.clear"),
-        !workspaces.is_empty(),
-        None::<&str>,
-    )?;
-    submenu.append(&clear_item)?;
-
     Ok(())
 }
 

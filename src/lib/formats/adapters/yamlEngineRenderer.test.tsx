@@ -80,7 +80,7 @@ describe("the vmark-workflow schema renderer", () => {
       "2 steps",
     );
     expect(screen.getByRole("toolbar")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "workflow:run.start" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Run workflow" })).toBeEnabled();
   });
 
   it("engine ON: a workflow that does not validate shows why, and Run stays off", async () => {
@@ -89,7 +89,7 @@ describe("the vmark-workflow schema renderer", () => {
     expect(
       await screen.findByText("Workflow must have a 'name' field", {}, { timeout: 15_000 }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "workflow:run.start" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Run workflow" })).toBeDisabled();
   });
 
   it("engine OFF: the file is plain YAML to VMark — the generic tree, no Run button", async () => {
@@ -109,7 +109,7 @@ describe("the vmark-workflow schema renderer", () => {
 // whose run is LIVE keeps its panel — and a working Cancel — until the run
 // ends, which is also what the backend does on acknowledging the disable.
 describe("a live run outlives the panel's reasons to go (#124)", () => {
-  const cancelButton = () => screen.findByRole("button", { name: "workflow:run.cancel" }, { timeout: 15_000 });
+  const cancelButton = () => screen.findByRole("button", { name: "Cancel workflow" }, { timeout: 15_000 });
 
   it("engine switched OFF mid-run: the owning tab keeps Cancel, and it still cancels", async () => {
     setEngine(true);
@@ -128,7 +128,7 @@ describe("a live run outlives the panel's reasons to go (#124)", () => {
     await waitFor(() =>
       expect(container.querySelector('.json-tree-preview[data-format="yaml"]')).not.toBeNull(),
     );
-    expect(screen.queryByRole("button", { name: "workflow:run.cancel" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Cancel workflow" })).toBeNull();
   });
 
   it("the owning tab's YAML stops parsing mid-run: the generic preview keeps Cancel", async () => {

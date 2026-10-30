@@ -7,10 +7,21 @@
  *   flow through the CommandBus / keybinding registry (genies.togglePicker /
  *   genies.openPicker) — see genieCommands.ts.
  *
- * Every async step here is UNMOUNT-AWARE. The cleanup hides the
- * native Genies submenu, and a menu refresh still in flight when it ran used to
- * land afterwards and put the submenu back — for a feature the user had just
- * switched off. Loading genies reads from disk, so that window is real.
+ * Two hooks, two mounts:
+ *   - `useGenieShortcuts` (main window only) owns the load, the native menu
+ *     and "Reload Genies" — the menu is app-wide, so one window drives it.
+ *   - `useGenieMenuInvocation` (every document window) runs a genie picked
+ *     from the menu. Rust broadcasts `menu:invoke-genie` to every window with
+ *     the focused window's label in the payload (menu/events/dispatch.rs), so
+ *     each window runs only the clicks that name it — otherwise a genie picked
+ *     in a secondary window ran against the main window's editor.
+ *
+ * Every async step here is UNMOUNT-AWARE. The hook is mounted only by the main
+ * window's runners (hooks/lifecycle/MainWindowRunners.tsx) and unmounts with
+ * them; no setting turns genies off. The cleanup hides the native Genies
+ * submenu, and a menu refresh still in flight when it ran used to land
+ * afterwards and put the submenu back for a hook that was gone. Loading genies
+ * reads from disk, so that window is real.
  *
  * Residual, stated rather than hidden: a REMOUNT still issues its refresh with
  * the old mount's hide already on the wire, and nothing on this side orders two
@@ -20,6 +31,7 @@
  * @coordinates-with stores/aiStore/genies.ts — loads genie definitions
  * @coordinates-with genieCommands.ts — picker toggle/open commands
  * @coordinates-with useGenieInvocation.ts — invokeGenie for menu:invoke-genie
+ * @coordinates-with hooks/lifecycle/DocumentWindowMount.tsx — mounts useGenieMenuInvocation
  * @module hooks/useGenieShortcuts
  */
 
@@ -32,6 +44,7 @@ import { useGeniesStore } from "@/stores/aiStore";
 import { useTabStore } from "@/stores/tabStore";
 import { initSuggestionTabWatcher } from "@/stores/aiStore";
 import { useGenieInvocation } from "@/hooks/useGenieInvocation";
+import { useWindowLabel } from "@/contexts/WindowContext";
 import type { GenieDefinition, GenieMetadata } from "@/types/aiGenies";
 import { genieWarn, genieError } from "@/utils/debug";
 import { commandErrorMessage } from "@/services/commands/commandError";
@@ -84,13 +97,11 @@ function registerOrWarn(
   });
 }
 
-/** Hook that loads genie definitions, syncs the native menu, and handles the payload-carrying genie menu events. */
+/** Main-window hook: loads genie definitions, syncs the native menu, and handles "Reload Genies". */
 export function useGenieShortcuts() {
-  const { invokeGenie } = useGenieInvocation();
-
   // Load genies + sync menu on mount; init tab watcher.
   // Env API keys are loaded by aiProviderStore's onRehydrateStorage.
-  // On unmount (feature disabled), remove the Genies submenu from the native menu
+  // On unmount (the main window's runners going away), remove the Genies submenu from the native menu
   useEffect(() => {
     let disposed = false;
     loadAndSyncMenu(() => disposed).catch((e) =>
@@ -105,6 +116,32 @@ export function useGenieShortcuts() {
     };
   }, []);
 
+  // "Reload Genies" menu item re-scans the genies folder
+  useEffect(() => {
+    let disposed = false;
+    const unlisten = registerOrWarn(
+      listen("menu:reload-genies", () => {
+        loadAndSyncMenu(() => disposed).catch((e) =>
+          genieError("Failed to reload genies:", e)
+        );
+      }),
+      "menu:reload-genies",
+    );
+    return () => {
+      disposed = true;
+      safeUnlistenAsync(unlisten);
+    };
+  }, []);
+}
+
+/**
+ * Every-document-window hook: runs a genie picked from the native Genies menu
+ * when the click names THIS window (payload `[path, windowLabel]`).
+ */
+export function useGenieMenuInvocation() {
+  const { invokeGenie } = useGenieInvocation();
+  const windowLabel = useWindowLabel();
+
   // Direct genie invocation from Genies menu — reads from disk directly
   // to avoid name-collision issues with the deduplicated store.
   useEffect(() => {
@@ -117,7 +154,9 @@ export function useGenieShortcuts() {
     const unlisten = registerOrWarn(listen<[string, string]>(
       "menu:invoke-genie",
       voidAsync(async (event) => {
-        const [geniePath] = event.payload;
+        const [geniePath, targetLabel] = event.payload;
+        // Broadcast to every window; only the one the menu was used in acts.
+        if (targetLabel !== windowLabel) return;
         try {
           const result = await invoke<{ metadata: GenieMetadata; template: string }>(
             "read_genie",
@@ -145,22 +184,5 @@ export function useGenieShortcuts() {
     ), "menu:invoke-genie");
 
     return () => safeUnlistenAsync(unlisten);
-  }, [invokeGenie]);
-
-  // "Reload Genies" menu item re-scans the genies folder
-  useEffect(() => {
-    let disposed = false;
-    const unlisten = registerOrWarn(
-      listen("menu:reload-genies", () => {
-        loadAndSyncMenu(() => disposed).catch((e) =>
-          genieError("Failed to reload genies:", e)
-        );
-      }),
-      "menu:reload-genies",
-    );
-    return () => {
-      disposed = true;
-      safeUnlistenAsync(unlisten);
-    };
-  }, []);
+  }, [invokeGenie, windowLabel]);
 }

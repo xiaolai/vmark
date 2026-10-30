@@ -2,7 +2,7 @@
 
 use super::*;
 
-/// 32 bytes hex-encoded. The length is public (it is fixed in source), which
+/// 64 hex characters (two simple-form v4 UUIDs). The length is public (it is fixed in source), which
 /// is what lets `handshake::token_matches` settle length before hashing.
 #[test]
 fn secret_is_64_hex_characters() {

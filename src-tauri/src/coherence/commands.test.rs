@@ -541,7 +541,7 @@ fn unchanged_is_the_only_suppressing_anchor_label() {
 /// It must not take the READ surfaces down with it.
 ///
 /// `perform_breakdown_in` — behind both `coherence_breakdown` and
-/// `coherence_status` — begins with `scan_workspace`, which acquires the write
+/// `perform_status` — begins with `scan_workspace`, which acquires the write
 /// lock. So the gate turned "the breakdown is missing whatever the newer build
 /// wrote" into "the breakdown panel is dead", which is strictly worse for the
 /// user and contradicts the guarantee the gate was introduced with: the remedy
@@ -579,7 +579,7 @@ fn a_future_format_ledger_still_serves_the_breakdown() {
 /// Audit round 2, finding #4 (PARTIAL) — restoring availability must not make
 /// an INCOMPLETE projection look authoritative.
 ///
-/// `perform_breakdown_in` discarded the scan report, so `coherence_status`
+/// `perform_breakdown_in` discarded the scan report, so `perform_status`
 /// reported `open_items` from a projection missing whatever the newer build
 /// wrote. Zero open items on a workspace full of them is worse than an error:
 /// the user has no way to know the number is meaningless.

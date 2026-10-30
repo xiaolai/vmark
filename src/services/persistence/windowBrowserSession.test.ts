@@ -4,7 +4,9 @@
 // never steals activation, and never duplicates open URLs.
 import { beforeEach, describe, expect, it } from "vitest";
 import { useTabStore } from "@/stores/tabStore";
+import type { Tab } from "@/stores/tabStoreTypes";
 import {
+  browserSessionRecordsOf,
   loadWindowBrowserSession,
   restoreWindowBrowserSession,
   resetWindowBrowserSessionRestores,
@@ -92,5 +94,33 @@ describe("windowBrowserSession (WI-8.2)", () => {
     useTabStore.getState().createBrowserPage(W, "https://x.example/", "X", "ai-shared");
     saveWindowBrowserSession(W, useTabStore.getState().getTabsByWindow(W));
     expect(localStorage.getItem("vmark-window-browser-session:main")).toBeNull();
+  });
+});
+
+// A password never reaches disk: the window session is the only store that
+// persists a browser URL, so the redaction is pinned at its serializer.
+describe("browserSessionRecordsOf — what is written", () => {
+  it("strips an embedded password and credential parameters from the url", () => {
+    useTabStore
+      .getState()
+      .createBrowserPage(W, "https://alice:hunter2@example.com/inbox?token=abc", "Inbox", "human");
+    const [rec] = browserSessionRecordsOf(useTabStore.getState().getTabsByWindow(W));
+    expect(rec.url).toBe("https://alice@example.com/inbox");
+  });
+
+  it("omits a non-finite or negative scrollY rather than persisting null", () => {
+    const tabs = (["a", "b"] as const).map((name, i) => ({
+      kind: "browser" as const,
+      id: name,
+      url: `https://${name}.test/`,
+      title: name,
+      isPinned: false,
+      persistPolicy: "restore-human" as const,
+      scrollY: i === 0 ? Number.NaN : -1,
+    })) as unknown as Tab[];
+    expect(browserSessionRecordsOf(tabs)).toEqual([
+      { kind: "browser", url: "https://a.test/", title: "a" },
+      { kind: "browser", url: "https://b.test/", title: "b" },
+    ]);
   });
 });

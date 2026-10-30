@@ -9,6 +9,10 @@ menu:
   app.settings: "設定..."
   app.saveAllQuit: "全部儲存並結束"
   app.quit: "結束 VMark"
+  app.services: "服務"
+  app.hide: "隱藏 VMark"
+  app.hideOthers: "隱藏其他"
+  app.showAll: "顯示全部"
 
   # === 檔案選單 ===
   file: "檔案"
@@ -198,9 +202,12 @@ menu:
   view.checkMarkdown: "檢查 Markdown"
   view.lintNext: "下一個問題"
   view.lintPrev: "上一個問題"
+  view.toggleFullScreen: "切換全螢幕"
   # === 視窗選單 ===
   window: "視窗"
   window.bringAllToFront: "將全部移至最前"
+  window.minimize: "縮到最小"
+  window.zoom: "縮放"
   window.breakdown: "一致性明細"
 
   # === 輔助說明選單 ===
@@ -273,6 +280,7 @@ errors:
   pdf.invalidExtension: "輸出路徑必須使用 .pdf 副檔名"
   pdf.dirNotFound: "輸出目錄不存在"
   pdf.parentNotDirectory: "輸出路徑的上層已存在，但不是目錄"
+  exportTarget.notChosen: "只能匯出到儲存對話框中選擇的位置。請重新匯出並選擇儲存位置。"
   pdf.publishFailed: "無法將產生的 PDF 移到輸出路徑：%{detail}"
   pdf.outputUnreadable: "無法開啟產生的 PDF 以進行驗證：%{detail}"
   pdf.pathNotAbsolute: "輸出路徑必須是絕對路徑"

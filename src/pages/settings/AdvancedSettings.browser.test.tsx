@@ -14,8 +14,8 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 // toggle there would enable nothing. jsdom reports a non-Mac platform, so the group
 // would not render and every assertion below would pass vacuously by finding
 // nothing. Mocking this is what makes the tests actually exercise the group.
-vi.mock("@/utils/shortcutMatch", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/utils/shortcutMatch")>()),
+vi.mock("@/utils/platform", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/platform")>()),
   isMacPlatform: () => true,
 }));
 import { render, screen } from "@testing-library/react";

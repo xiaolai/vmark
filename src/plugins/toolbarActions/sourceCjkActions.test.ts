@@ -197,6 +197,22 @@ describe("handleCollapseBlankLines", () => {
   });
 });
 
+describe("Text Cleanup leaves fenced code alone", () => {
+  it("removes trailing spaces in prose only", () => {
+    const view = createView("text \n```\ncode \n```\n", 0);
+    handleRemoveTrailingSpaces(view);
+    expect(view.state.doc.toString()).toBe("text\n```\ncode \n```\n");
+    view.destroy();
+  });
+
+  it("collapses blank lines in prose only", () => {
+    const view = createView("a\n\n\n```\n1\n\n\n2\n```", 0);
+    handleCollapseBlankLines(view);
+    expect(view.state.doc.toString()).toBe("a\n\n```\n1\n\n\n2\n```");
+    view.destroy();
+  });
+});
+
 describe("handleLineEndings is METADATA-ONLY (WI-1.7)", () => {
   // Line endings are METADATA in this app — the buffer is LF-canonical and the
   // convention is applied at save time. The old implementation round-tripped

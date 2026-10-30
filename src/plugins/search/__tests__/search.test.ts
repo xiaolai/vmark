@@ -1,70 +1,15 @@
 // @vitest-environment node
 /**
- * Tests for search plugin — escapeRegExp contract and findMatchesInDoc.
+ * Tests for search plugin — findMatchesInDoc, including the literal-query
+ * escaping contract (module-private `escapeRegExp`), asserted through the real
+ * implementation: a non-regex query containing regex metacharacters must match
+ * itself literally.
  *
- * findMatchesInDoc is imported from findMatches.ts (the real implementation).
- * escapeRegExp stays module-private, so its escaping contract is asserted on
- * a replica of the one-line regex.
+ * findMatches.ts imports no stores and no IME guard, so nothing is mocked.
  */
 
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { Schema } from "@tiptap/pm/model";
-
-// Mock dependencies before imports
-vi.mock("@/stores/searchStore", () => {
-  const state = {
-    query: "",
-    caseSensitive: false,
-    wholeWord: false,
-    useRegex: false,
-    isOpen: false,
-    replaceText: "",
-    currentIndex: -1,
-    matchCount: 0,
-    setMatches: vi.fn(),
-    findNext: vi.fn(),
-  };
-  return {
-    useUIStore: {
-      getState: () => state,
-      subscribe: vi.fn(() => vi.fn()),
-      setState: (partial: Record<string, unknown>) => Object.assign(state, partial),
-    },
-  };
-});
-
-vi.mock("@/utils/imeGuard", () => ({
-  runOrQueueProseMirrorAction: vi.fn((_view, fn) => fn()),
-}));
-
-// ---------------------------------------------------------------------------
-// Test the escapeRegExp logic directly (replicated from source)
-// ---------------------------------------------------------------------------
-
-function escapeRegExp(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-describe("escapeRegExp", () => {
-  it.each([
-    { input: "hello", expected: "hello" },
-    { input: "hello.world", expected: "hello\\.world" },
-    { input: "a+b*c?", expected: "a\\+b\\*c\\?" },
-    { input: "foo[bar]", expected: "foo\\[bar\\]" },
-    { input: "(a|b)", expected: "\\(a\\|b\\)" },
-    { input: "price: $10", expected: "price: \\$10" },
-    { input: "a{2}", expected: "a\\{2\\}" },
-    { input: "back\\slash", expected: "back\\\\slash" },
-    { input: "^start", expected: "\\^start" },
-    { input: "", expected: "" },
-  ])("escapes '$input' to '$expected'", ({ input, expected }) => {
-    expect(escapeRegExp(input)).toBe(expected);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Test findMatchesInDoc (real implementation) via schema + doc
-// ---------------------------------------------------------------------------
 
 import { findMatchesInDoc } from "../findMatches";
 
@@ -82,6 +27,32 @@ function createDoc(texts: string[]) {
   );
   return schema.node("doc", null, paragraphs);
 }
+
+describe("findMatchesInDoc — a non-regex query is matched literally", () => {
+  it.each([
+    "hello.world",
+    "a+b*c?",
+    "foo[bar]",
+    "(a|b)",
+    "price: $10",
+    "a{2}",
+    "back\\slash",
+    "^start",
+  ])("finds '%s' only as literal text", (query) => {
+    // The decoy would match if the metacharacters were left unescaped.
+    const decoy = query === "^start" ? "xstart" : "zzz";
+    const doc = createDoc([`${decoy} ${query} tail`]);
+    const matches = findMatchesInDoc(doc, query, true, false, false);
+    expect(matches).toHaveLength(1);
+    expect(matches[0].to - matches[0].from).toBe(query.length);
+  });
+
+  it("treats the same metacharacters as a pattern when regex mode is on", () => {
+    const doc = createDoc(["helloXworld"]);
+    expect(findMatchesInDoc(doc, "hello.world", true, false, true)).toHaveLength(1);
+    expect(findMatchesInDoc(doc, "hello.world", true, false, false)).toHaveLength(0);
+  });
+});
 
 describe("findMatchesInDoc", () => {
   it("returns empty for empty query", () => {

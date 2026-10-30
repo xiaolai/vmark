@@ -302,6 +302,18 @@ describe("action steps — approval required (P-1)", () => {
     await expect(run).rejects.toBeInstanceOf(Error);
   });
 
+  it("a type step's prompt shows the whole text, however long", async () => {
+    const controller = new AbortController();
+    const long = `${"x".repeat(300)}END`;
+    const exec = makeRunExecutor(ctx({ signal: controller.signal, inputs: { title: long } }));
+    const run = exec(step("action", 'type {title} into "Title" (textbox)'), 0);
+    await new Promise((r) => setTimeout(r, 5));
+    const prompt = useBrowserApprovalStore.getState().pending.find((p) => p.runId === "run-1");
+    expect(prompt?.payloadSummary).toBe(`Text: ${JSON.stringify(long)}`);
+    controller.abort();
+    await expect(run).rejects.toBeInstanceOf(Error);
+  });
+
   it("an already-aborted run raises no prompt and acts on nothing", async () => {
     const controller = new AbortController();
     controller.abort();

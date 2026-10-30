@@ -2,7 +2,7 @@
  * macOS Quarantine Auto-Strip Notice
  *
  * Purpose: Best-effort strip of `com.apple.quarantine` from a workspace root
- *   and its direct .md children. Without this, files saved by apps like
+ *   and every direct child file with a registered VMark extension. Without this, files saved by apps like
  *   Mixin Messenger fail to open in a running VMark via Finder double-click —
  *   macOS Launch Services routes them through CoreServicesUIAgent, which
  *   silently drops the openURLs delivery to running Tauri apps.
@@ -79,8 +79,8 @@ function markNoticeShown(): void {
 }
 
 /**
- * Best-effort strip of macOS quarantine on the workspace root and its direct
- * `.md` children. Safe to call on any platform — non-macOS bails immediately.
+ * Best-effort strip of macOS quarantine on the workspace root and every direct
+ * child file with a registered VMark extension. Safe to call on any platform — non-macOS bails immediately.
  *
  * Does not throw — for ANY outcome of the IPC, including a payload that is not
  * the stats object (null, undefined, a shape from an older or mocked backend).

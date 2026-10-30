@@ -1,7 +1,7 @@
 //! What the dynamic submenus contain, decided apart from building them.
 //!
-//! Purpose: the item ids, labels, accelerator and grouping of the Open Recent,
-//! Open Recent Workspace and Genies submenus. `dynamic.rs` turns these into
+//! Purpose: the item ids, labels, enabled state, accelerator and grouping of
+//! the Open Recent, Open Recent Workspace and Genies submenus. `dynamic.rs` turns these into
 //! native menu items, which can only be created on the main thread; keeping
 //! the decisions here leaves them plain functions a test can call.
 //!
@@ -12,7 +12,10 @@
 //! @coordinates-with dynamic.rs — builds the native items from these
 //! @module menu/dynamic_layout
 
+use std::borrow::Cow;
 use std::collections::{BTreeMap, HashMap};
+
+use rust_i18n::t;
 
 use crate::genies::GenieMenuEntry;
 
@@ -32,6 +35,71 @@ pub(super) fn recent_entries<'a>(prefix: &str, paths: &'a [String]) -> Vec<(Stri
             (format!("{prefix}-{index}"), label)
         })
         .collect()
+}
+
+/// The fixed rows of one recent submenu: its entry-id prefix, the placeholder
+/// shown when the list is empty, and the Clear item.
+pub(super) struct RecentMenu {
+    prefix: &'static str,
+    placeholder_id: &'static str,
+    placeholder_key: &'static str,
+    clear_id: &'static str,
+    clear_key: &'static str,
+}
+
+pub(super) const RECENT_FILES_MENU: RecentMenu = RecentMenu {
+    prefix: "recent-file",
+    placeholder_id: "no-recent",
+    placeholder_key: "menu.recentFiles.empty",
+    clear_id: "clear-recent",
+    clear_key: "menu.recentFiles.clear",
+};
+
+pub(super) const RECENT_WORKSPACES_MENU: RecentMenu = RecentMenu {
+    prefix: "recent-workspace",
+    placeholder_id: "no-recent-workspace",
+    placeholder_key: "menu.recentWorkspaces.empty",
+    clear_id: "clear-recent-workspaces",
+    clear_key: "menu.recentWorkspaces.clear",
+};
+
+/// One row of a recent submenu.
+pub(super) enum RecentRow<'a> {
+    Item {
+        id: String,
+        label: Cow<'a, str>,
+        enabled: bool,
+    },
+    Separator,
+}
+
+/// Every row of a recent submenu, in order: one enabled entry per path (or a
+/// disabled placeholder when there are none), a separator, then Clear —
+/// enabled only when there is something to clear.
+pub(super) fn recent_submenu<'a>(menu: &RecentMenu, paths: &'a [String]) -> Vec<RecentRow<'a>> {
+    let mut rows: Vec<RecentRow<'a>> = if paths.is_empty() {
+        vec![RecentRow::Item {
+            id: menu.placeholder_id.to_string(),
+            label: Cow::Owned(t!(menu.placeholder_key).into_owned()),
+            enabled: false,
+        }]
+    } else {
+        recent_entries(menu.prefix, paths)
+            .into_iter()
+            .map(|(id, label)| RecentRow::Item {
+                id,
+                label: Cow::Borrowed(label),
+                enabled: true,
+            })
+            .collect()
+    };
+    rows.push(RecentRow::Separator);
+    rows.push(RecentRow::Item {
+        id: menu.clear_id.to_string(),
+        label: Cow::Owned(t!(menu.clear_key).into_owned()),
+        enabled: !paths.is_empty(),
+    });
+    rows
 }
 
 /// The "Search Genies…" accelerator. A shortcuts map overrides the default:

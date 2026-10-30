@@ -15,8 +15,8 @@ import { render, screen } from "@testing-library/react";
 import { AdvancedSettings } from "./AdvancedSettings";
 import { useSettingsStore } from "@/stores/settingsStore";
 
-vi.mock("@/utils/shortcutMatch", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/utils/shortcutMatch")>()),
+vi.mock("@/utils/platform", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/platform")>()),
   isMacPlatform: () => false,
 }));
 

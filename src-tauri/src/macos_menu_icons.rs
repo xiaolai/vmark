@@ -204,22 +204,24 @@ pub(crate) const MENU_ICONS: &[(&str, &str)] = &[
     ("open-genies-folder", "folder"),
 ];
 
-/// Icons for PredefinedMenuItems (Cut, Copy, etc.) which don't have custom IDs.
-/// Mapped by the muda default title text (after mnemonic stripping).
-/// When `None` is passed to PredefinedMenuItem constructors, muda generates these
-/// titles automatically. This is a best-effort match for English locale.
+/// Icons for PredefinedMenuItems (Cut, Copy, etc.), which carry no custom ID.
+/// Keyed by the locale key each builder passes as the item's title: muda's own
+/// default titles are English in every locale, so VMark always supplies a
+/// translated one, and the icon pass matches the title against that key's
+/// value in the locale the menu was built in.
 pub(crate) const PREDEFINED_ICONS: &[(&str, &str)] = &[
-    ("Cut", "scissors"),
-    ("Copy", "doc.on.doc"),
-    ("Paste", "doc.on.clipboard"),
-    ("Select All", "checkmark.square"),
-    ("Services", "gear"),
-    ("Hide VMark", "eye.slash"),
-    ("Hide Others", "eye.slash.circle"),
-    ("Show All", "eye"),
-    ("Minimize", "minus.square"),
-    ("Zoom", "arrow.up.left.and.arrow.down.right"),
-    ("Maximize", "arrow.up.left.and.arrow.down.right"),
-    ("Toggle Full Screen", "arrow.up.left.and.arrow.down.right"),
-    ("Close Window", "xmark.square"),
+    ("menu.edit.cut", "scissors"),
+    ("menu.edit.copy", "doc.on.doc"),
+    ("menu.edit.paste", "doc.on.clipboard"),
+    ("menu.edit.selectAll", "checkmark.square"),
+    ("menu.app.services", "gear"),
+    ("menu.app.hide", "eye.slash"),
+    ("menu.app.hideOthers", "eye.slash.circle"),
+    ("menu.app.showAll", "eye"),
+    ("menu.window.minimize", "minus.square"),
+    ("menu.window.zoom", "arrow.up.left.and.arrow.down.right"),
+    (
+        "menu.view.toggleFullScreen",
+        "arrow.up.left.and.arrow.down.right",
+    ),
 ];

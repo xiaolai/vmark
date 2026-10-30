@@ -1,6 +1,6 @@
 /**
- * Shortcuts engine — user-customization store, conflict detection, and
- * native-menu accelerator sync.
+ * Shortcuts engine — user-customization store, conflict detection and
+ * reassignment; native-menu accelerator sync lives in `./shortcutMenuSync.ts`.
  *
  * Persists user customizations under `vmark-shortcuts`. The default
  * registry lives in `./shortcutDefinitions.ts` (DEFAULT_SHORTCUTS is the
@@ -18,17 +18,15 @@
 
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import { invoke } from "@tauri-apps/api/core";
 import { createSafeStorage } from "@/services/persistence/safeStorage";
 import { createSectionMergingStorage } from "@/stores/persistedSectionMerge";
 import { isMacPlatform } from "@/utils/shortcutMatch";
-import { shortcutsWarn } from "@/utils/debug";
 import { errorMessage } from "@/utils/errorMessage";
 import {
   DEFAULT_SHORTCUTS,
   type ShortcutDefinition,
 } from "./shortcutDefinitions";
-import { prosemirrorToTauri } from "./keyFormatting";
+import { syncMenuShortcuts } from "./shortcutMenuSync";
 
 export {
   DEFAULT_SHORTCUTS,
@@ -38,6 +36,7 @@ export {
   type ShortcutDefinition,
 } from "./shortcutDefinitions";
 export { prosemirrorToTauri, formatKeyForDisplay } from "./keyFormatting";
+export { flushMenuShortcutsSync, onMenuShortcutSyncFailure } from "./shortcutMenuSync";
 
 // Build lookup map for quick access
 const shortcutMap = new Map(DEFAULT_SHORTCUTS.map(s => [s.id, s]));
@@ -79,6 +78,12 @@ interface ShortcutsActions {
   getAllShortcuts: () => Record<string, string>;
   /** Set custom shortcut */
   setShortcut: (id: string, key: string) => void;
+  /**
+   * Bind `key` to `id` and unassign every other shortcut whose effective
+   * chord is the same — the conflict modal's confirm. Two items on one chord
+   * never both work (the menu fires one, the router refuses the tie).
+   */
+  reassignShortcut: (id: string, key: string) => void;
   /** Reset single shortcut to default */
   resetShortcut: (id: string) => void;
   /** Reset all shortcuts to defaults */
@@ -131,6 +136,21 @@ export const useShortcutsStore = create<ShortcutsState & ShortcutsActions>()(
         set((state) => ({
           customBindings: { ...state.customBindings, [id]: key },
         }));
+        syncMenuShortcuts(get().getAllShortcuts());
+      },
+
+      reassignShortcut: (id, key) => {
+        const { customBindings } = get();
+        const next = { ...customBindings, [id]: key };
+        if (key) {
+          const target = normalizeKey(key);
+          for (const def of DEFAULT_SHORTCUTS) {
+            if (def.id === id) continue;
+            const effective = customBindings[def.id] ?? resolveDefaultKey(def);
+            if (effective && normalizeKey(effective) === target) next[def.id] = "";
+          }
+        }
+        set({ customBindings: next });
         syncMenuShortcuts(get().getAllShortcuts());
       },
 
@@ -239,62 +259,6 @@ function normalizeKey(key: string): string {
   const modifiers = parts.slice(0, -1).sort();
   const mainKey = parts[parts.length - 1];
   return [...modifiers, mainKey].join("-");
-}
-
-/** Trailing-debounce window for shortcut edits. Batches rapid changes
- *  (e.g. Reset All, Import) into one native menu update. */
-const SYNC_DEBOUNCE_MS = 100;
-
-let syncTimer: ReturnType<typeof setTimeout> | null = null;
-let pendingShortcuts: Record<string, string> | null = null;
-let inFlightSync: Promise<void> = Promise.resolve();
-
-function syncMenuShortcuts(shortcuts: Record<string, string>) {
-  pendingShortcuts = shortcuts;
-  if (syncTimer) clearTimeout(syncTimer);
-  syncTimer = setTimeout(() => {
-    syncTimer = null;
-    const next = pendingShortcuts;
-    pendingShortcuts = null;
-    if (next) queueSyncMenuShortcuts(next);
-  }, SYNC_DEBOUNCE_MS);
-}
-
-/** Flush any pending debounced sync immediately. Exported for tests. */
-export function flushMenuShortcutsSync(): Promise<void> {
-  if (syncTimer) {
-    clearTimeout(syncTimer);
-    syncTimer = null;
-    const next = pendingShortcuts;
-    pendingShortcuts = null;
-    if (next) queueSyncMenuShortcuts(next);
-  }
-  return inFlightSync;
-}
-
-function queueSyncMenuShortcuts(shortcuts: Record<string, string>) {
-  inFlightSync = inFlightSync
-    .catch(() => {})
-    .then(() => syncMenuShortcutsNow(shortcuts));
-}
-
-async function syncMenuShortcutsNow(shortcuts: Record<string, string>) {
-  try {
-    const menuShortcuts: Record<string, string> = {};
-    for (const def of DEFAULT_SHORTCUTS) {
-      if (def.menuId) {
-        /* v8 ignore start -- shortcuts from getAllShortcuts() always has all keys; ?? fallback is defensive */
-        const key = shortcuts[def.id] ?? resolveDefaultKey(def);
-        /* v8 ignore stop */
-        menuShortcuts[def.menuId] = prosemirrorToTauri(key);
-      }
-    }
-    await invoke("update_menu_accelerators", { shortcuts: menuShortcuts });
-  } catch (e) {
-    /* v8 ignore start -- @preserve invoke failure only occurs if Tauri command is unavailable; mocked in tests */
-    shortcutsWarn("Failed to sync menu shortcuts:", e);
-    /* v8 ignore stop */
-  }
 }
 
 // getCategoryLabel / getShortcutLabel live in `../settingsShortcutLabels.ts` (avoids a settingsStore ⇄ i18n circular import).

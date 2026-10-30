@@ -1,10 +1,12 @@
 ; VMark NSIS installer hooks.
 ;
-; Both repairs below run from NSIS_HOOK_POSTUNINSTALL, which Tauri inserts at
-; the END of the uninstall section — after the APP_UNASSOCIATE loop that undoes
-; the file associations. That ordering is what makes a repair possible; see
+; Three sections below. Sections 1 and 2 are uninstall repairs and run from
+; NSIS_HOOK_POSTUNINSTALL, which Tauri inserts at the END of the uninstall
+; section — after the APP_UNASSOCIATE loop that undoes the file associations.
+; That ordering is what makes a repair possible; see
 ; crates/tauri-bundler/src/bundle/windows/nsis/installer.nsi (the unassociate
-; loop, then the hook a few dozen lines later).
+; loop, then the hook a few dozen lines later). Section 3 runs from
+; NSIS_HOOK_POSTINSTALL, after the install's APP_ASSOCIATE loop.
 ;
 ; ---------------------------------------------------------------------------
 ; 1. Re-create HKCR\.txt\ShellNew — issue #1142

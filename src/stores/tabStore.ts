@@ -14,7 +14,7 @@
  *   - Tab activation after close prefers the tab to the right, then left.
  *   - Tab IDs use timestamp + random suffix — unique but not globally sortable.
  *   - No persistence middleware: tab state is restored from workspace config
- *     on startup via workspaceStore.lastOpenTabs, not via localStorage.
+ *     on startup (`sessionTabs`, else legacy `lastOpenTabs`), not localStorage.
  *   - Tab.formatId is computed via dispatchEditor() and recomputed in
  *     updateTabPath; kind changes fire a one-time toast (ADR-10).
  *
@@ -25,7 +25,7 @@
  *     multiple windows.
  *
  * @coordinates-with documentStore.ts — each tab ID maps to a document entry
- * @coordinates-with workspaceStore.ts — lastOpenTabs for session restore
+ * @coordinates-with workspaceStore.ts — sessionTabs (and legacy lastOpenTabs) for session restore
  * @coordinates-with lib/formats/registry.ts — dispatchEditor() drives formatId derivation
  * @coordinates-with tabRemovalBus.ts — closeTab/detachTab/removeWindow notify on tab removal (#1081)
  * @coordinates-with tabActivationBus.ts — every activation is announced so paneStore converges a split (ADR-1)

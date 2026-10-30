@@ -1,11 +1,13 @@
 /**
- * BottomBar — the 40px bottom-lane mux: StatusBar (tab strip + counts + "+"),
- * the editor formatting UniversalToolbar, and FindBar.
+ * BottomBar — the bottom-lane mux (a lane at least 40px high that grows with
+ * the FindBar): StatusBar (tab strip + counts + "+"), the editor formatting
+ * UniversalToolbar, and FindBar.
  *
  * Owns the "is a document open?" check so the empty-workspace window (Welcome
- * screen) doesn't sit under the editor formatting toolbar. StatusBar and
- * FindBar always render — StatusBar carries the tab strip and "+" button, the
- * in-window way to start a new document.
+ * screen) doesn't sit under the editor formatting toolbar. StatusBar always
+ * renders — it carries the tab strip and "+" button, the in-window way to
+ * start a new document. FindBar renders unless the active tab is a browser
+ * tab; the formatting toolbar needs an active document tab.
  *
  * Owning the active-tab gate here (rather than in App.tsx's MainLayout) keeps
  * per-tab-switch re-renders off the whole shell composition and makes the gate

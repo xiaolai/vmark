@@ -12,7 +12,12 @@
 // `pdf_export_window.rs` does.
 // NOT HERE: the native render (hidden WKWebView / WebView2 / WebKitGTK → PDF
 // bytes, then the outline and page-number stamp) and the native save panel are
-// outside jsdom — `e2e/journeys/42-pdf-export.mjs` covers them.
+// outside jsdom — `e2e/journeys/42-pdf-export.mjs` covers the render. The panel
+// is Rust's (`pick_export_target`), which records its answer as the one path
+// `export_pdf` will write; the stubs below keep that contract, so a page that
+// rewrote the answer would be refused here as it is in the app. The `.pdf`
+// suffix a bare typed name gains is Rust's, pinned in
+// `src-tauri/src/export_target/mod.test.rs`.
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from "vitest";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent, { type UserEvent } from "@testing-library/user-event";
@@ -26,6 +31,10 @@ const tauri = vi.hoisted(() => ({
     outerSize: () => Promise.resolve({ width: 2000, height: 1600 }),
     close: vi.fn(() => Promise.resolve()),
   },
+  /** The save panel's answer to each `pick_export_target`. */
+  savePanel: vi.fn<(args: Record<string, unknown>) => string | null>(),
+  /** The answer Rust recorded — the only path `export_pdf` accepts. */
+  chosen: null as string | null,
 }));
 
 vi.mock("@tauri-apps/plugin-fs", async () => (await import("@/test/statefulFsFake")).statefulFs.fsModule());
@@ -43,7 +52,6 @@ vi.mock("@tauri-apps/api/event", () => ({
     return Promise.resolve(() => void set.delete(handler));
   },
 }));
-vi.mock("@tauri-apps/plugin-dialog", () => ({ save: vi.fn() }));
 vi.mock("@tauri-apps/plugin-opener", () => ({ openPath: vi.fn(() => Promise.resolve()) }));
 vi.mock("sonner", () => {
   const record = (kind: string) => (message: unknown, opts?: { description?: unknown }) =>
@@ -51,7 +59,6 @@ vi.mock("sonner", () => {
   return { toast: { error: record("error"), success: record("success"), warning: record("warning") } };
 });
 
-import { save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { statefulFs } from "@/test/statefulFsFake";
 import { executeCommand, _resetCommandBus } from "@/services/commands/CommandBus";
@@ -139,13 +146,24 @@ beforeEach(() => {
   tauri.toasts.length = 0;
   tauri.listeners.clear();
   tauri.window.close.mockClear();
-  vi.mocked(saveDialog).mockReset().mockResolvedValue("/Users/test/Documents/report.pdf");
+  tauri.savePanel.mockReset().mockReturnValue("/Users/test/Documents/report.pdf");
+  tauri.chosen = null;
   vi.mocked(openPath).mockClear();
   useSettingsStore.setState((s) => ({ appearance: { ...s.appearance, theme: "paper", followSystemAppearance: false } }));
   statefulFs.stubCommand("set_native_theme", () => undefined); // OS chrome only
   statefulFs.stubCommand("write_temp_html", ({ html }) => (statefulFs.seed(TEMP_HTML, String(html)), TEMP_HTML));
   statefulFs.stubCommand("open_pdf_export_window", (args) => (windowsOpened.push(args as unknown as WindowArgs), "pdf-export"));
-  statefulFs.stubCommand("export_pdf", (args) => (exportsStarted.push(args as unknown as ExportArgs), exportReply()));
+  statefulFs.stubCommand("pick_export_target", (args) => (tauri.chosen = tauri.savePanel(args)));
+  statefulFs.stubCommand("export_pdf", (args) => {
+    // Rust spends the recorded choice: one export per answer, that path only.
+    const chosen = tauri.chosen;
+    tauri.chosen = null;
+    if (args.outputPath !== chosen) {
+      return Promise.reject({ code: "permission-denied", message: "Export only to the location chosen in the save dialog." });
+    }
+    exportsStarted.push(args as unknown as ExportArgs);
+    return exportReply();
+  });
 });
 
 afterEach(() => {
@@ -156,7 +174,7 @@ afterEach(() => {
 
 describe("PDF export — from the document to the renderer", () => {
   it("hands the renderer the document as rendered markup, with the chosen path and default geometry", async () => {
-    vi.mocked(saveDialog).mockResolvedValue("/Users/test/Documents/季度报告");
+    tauri.savePanel.mockReturnValue("/Users/test/Documents/季度报告.pdf");
     await requestExport();
     // Centred over the calling window, in LOGICAL pixels (scale factor 2).
     expect(windowsOpened).toEqual([{ htmlPath: TEMP_HTML, defaultName: "季度报告 Q3", x: 380, y: 130 }]);
@@ -164,7 +182,7 @@ describe("PDF export — from the document to the renderer", () => {
     const sent = await exportOnce();
     await waitFor(() => expect(tauri.window.close).toHaveBeenCalledTimes(1));
 
-    expect(vi.mocked(saveDialog).mock.calls[0]?.[0]).toMatchObject({ defaultPath: "季度报告 Q3.pdf" });
+    expect(tauri.savePanel.mock.calls[0]?.[0]).toMatchObject({ kind: "pdf", defaultPath: "季度报告 Q3.pdf" });
     const doc = parse(sent.html);
     expect(texts(doc, ".export-surface-editor h1")).toEqual(["季度报告 Q3"]);
     expect(texts(doc, ".export-surface-editor > p")).toContain("第一段：中文正文。");
@@ -256,12 +274,12 @@ describe("PDF export — from the document to the renderer", () => {
 
 describe("PDF export — refusals and failures", () => {
   it("a cancelled save panel starts nothing and leaves the page ready", async () => {
-    vi.mocked(saveDialog).mockResolvedValueOnce(null);
+    tauri.savePanel.mockReturnValueOnce(null);
     await requestExport();
     const { user, exportButton } = await openExportWindow();
 
     await user.click(exportButton);
-    await waitFor(() => expect(saveDialog).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(tauri.savePanel).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(exportButton).toBeEnabled());
     expect(exportsStarted).toEqual([]);
     expect(tauri.toasts).toEqual([]);
@@ -311,7 +329,7 @@ describe("PDF export — refusals and failures", () => {
 
     await user.click(exportButton);
     expect(exportsStarted).toHaveLength(1);
-    expect(saveDialog).toHaveBeenCalledTimes(1);
+    expect(tauri.savePanel).toHaveBeenCalledTimes(1);
 
     await act(async () => finish({ warnings: [] }));
     await waitFor(() => expect(tauri.window.close).toHaveBeenCalledTimes(1));

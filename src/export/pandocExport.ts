@@ -4,16 +4,17 @@
  * Purpose: Export markdown to various formats (DOCX, EPUB, LaTeX, ODT, RTF,
  *   plain text) via the Pandoc CLI tool. Pandoc must be installed separately.
  *
- * Pipeline: menu:export-pandoc-{fmt} → detect_pandoc → save dialog → export_via_pandoc
+ * Pipeline: menu:export-pandoc-{fmt} → detect_pandoc → pick_export_target
+ *   (Rust's save panel, which records the answer) → export_via_pandoc
  *
  * @coordinates-with services/commands/exportCommands.ts — the export.pandoc* commands call this on menu:export-pandoc-{fmt}
  * @coordinates-with pandoc/commands.rs — Rust backend for Pandoc execution
+ * @coordinates-with export_target/commands.rs — the save panel; `export_via_pandoc` writes only its answer
  * @coordinates-with export/pandocFormats.ts — the format keys, readable without this module
  * @module export/pandocExport
  */
 
 import { invoke } from "@tauri-apps/api/core";
-import { save } from "@tauri-apps/plugin-dialog";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
 import { joinPath } from "@/utils/pathUtils";
@@ -41,7 +42,7 @@ const FORMAT_META: Record<PandocFormatKey, { name: string; ext: string }> = {
  * Export markdown via Pandoc in a specific format.
  *
  * 1. Checks if Pandoc is installed.
- * 2. Shows a save dialog for the chosen format.
+ * 2. Asks Rust to show the save panel for the chosen format.
  * 3. Invokes the Rust command to pipe markdown through Pandoc.
  */
 export async function exportViaPandoc(options: {
@@ -80,9 +81,12 @@ export async function exportViaPandoc(options: {
       ? joinPath(defaultDirectory, fileName)
       : fileName;
 
-    // Strip filters per macOS Tahoe parity rule (saveDialogWithFallback).
-    // The default filename already carries the right extension.
-    const selectedPath = await save({
+    // Rust shows the panel and records the answer as this window's export
+    // target; `export_via_pandoc` writes that path and no other. No file-type
+    // filter (macOS 26 rejects typed input under one); the default filename
+    // already carries the right extension.
+    const selectedPath = await invoke<string | null>("pick_export_target", {
+      kind: "pandoc",
       defaultPath,
       title: i18n.t("dialog:toast.exportFormatDialogTitle", { name: meta.name }),
     });

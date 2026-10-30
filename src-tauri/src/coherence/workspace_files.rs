@@ -23,7 +23,8 @@ use super::types::WriterId;
 /// decides whether creating it is allowed — `open` must not, per spec §1). The
 /// lock is held for the returned File's lifetime, released on fd close. The lock
 /// path is a permanently-ignored runtime file, so a checkout can't swap its inode
-/// while held. Non-Unix skips the OS lock (macOS/Linux are the gated platforms).
+/// while held. Non-Unix skips the OS lock (macOS/Linux are the gated platforms),
+/// so on Windows nothing stops two processes writing one workspace's group at once.
 pub(super) fn flock_exclusive(vmark: &Path) -> Result<fs::File, String> {
     let file = fs::OpenOptions::new()
         .create(true)

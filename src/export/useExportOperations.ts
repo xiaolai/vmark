@@ -190,13 +190,3 @@ export async function copyAsHtml(markdown: string, sourceFilePath: string | null
     return false;
   }
 }
-
-/**
- * Get rendered HTML from markdown (for programmatic use).
- */
-export async function getRenderedHtml(
-  markdown: string,
-  lightTheme: boolean = true
-): Promise<string> {
-  return renderMarkdownToHtml(markdown, lightTheme);
-}

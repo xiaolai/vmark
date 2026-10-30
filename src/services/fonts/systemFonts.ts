@@ -18,7 +18,7 @@
  *     than being trusted for having come from the backend.
  *
  * @coordinates-with src-tauri/src/system_fonts.rs — the command
- * @coordinates-with utils/fontStacks.ts — `sanitizeCustomFontFamily`, the shared validator
+ * @coordinates-with utils/customFont.ts — `sanitizeCustomFontFamily`, the shared validator
  * @module services/fonts/systemFonts
  */
 import { invoke } from "@tauri-apps/api/core";

@@ -13,7 +13,7 @@ import { hostDocument } from "@/plugins/shared/hostDocument";
 import { hostSettings } from "@/plugins/shared/hostSettings";
 import type { CJKFormattingSettings } from "@/lib/cjkFormatter/types";
 import { getWindowLabel } from "@/services/navigation/windowFocus";
-import { collapseNewlines, formatMarkdownChecked, removeTrailingSpaces } from "@/lib/cjkFormatter";
+import { cleanBlankLines, cleanTrailingSpaces, formatMarkdownChecked } from "@/lib/cjkFormatter";
 import { notifyCjkFormatRefused } from "./cjkFormatFeedback";
 import { selectionBlockSpan } from "@/plugins/shared/blockSpan";
 import { setDocumentLineEnding } from "@/services/formats/lineEndingMetadata";
@@ -152,17 +152,17 @@ function applyFullDocumentTransform(
   return true;
 }
 
-/** Removes trailing whitespace from all lines, respecting two-space hard break settings. */
+/** Removes trailing spaces from every line outside fenced code, respecting two-space hard break settings. */
 export function handleRemoveTrailingSpaces(view: EditorView): boolean {
   const preserveTwoSpaceHardBreaks = shouldPreserveTwoSpaceBreaks();
   return applyFullDocumentTransform(view, (content) =>
-    removeTrailingSpaces(content, { preserveTwoSpaceHardBreaks })
+    cleanTrailingSpaces(content, { preserveTwoSpaceHardBreaks })
   );
 }
 
-/** Collapses consecutive blank lines into a single blank line across the document. */
+/** Collapses consecutive blank lines into a single blank line, outside fenced code. */
 export function handleCollapseBlankLines(view: EditorView): boolean {
-  return applyFullDocumentTransform(view, collapseNewlines);
+  return applyFullDocumentTransform(view, cleanBlankLines);
 }
 
 /**

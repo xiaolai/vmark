@@ -5,11 +5,15 @@
  * wraps it in a code block with language detection, improving the paste experience
  * for developers.
  *
- * Pipeline: paste event → imageHandler → smartPaste → markdownPaste → htmlPaste → THIS
- *         → code detection scoring → wrap in code block if score exceeds threshold
+ * Pipeline: paste event → smartPaste → markdownPaste → htmlPaste → THIS
+ *         → imageHandler → mediaHandler (the order `WYSIWYG_COMPOSITION_ORDER`
+ *         in services/assembly/compositionOrder.ts declares); here: code
+ *         detection scoring → wrap in code block if score exceeds threshold
  *
  * Key decisions:
- *   - Lowest priority in the paste chain — only fires if no other handler claims the paste
+ *   - Runs after the text paste handlers, so it only sees a paste none of them
+ *     claimed; the image and media handlers after it still get any paste it
+ *     declines
  *   - Gated by the pasteMode setting (only active in "smart" mode)
  *   - Skips detection if already inside a code block or if content looks like markdown
  *   - Uses scoring heuristics from codeDetection utils (indentation, braces, keywords, etc.)

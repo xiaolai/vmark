@@ -16,6 +16,7 @@
 // useGenieShortcuts.test.ts.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createElement, type ReactNode } from "react";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { Editor } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
@@ -30,7 +31,8 @@ import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useWorkflowStore } from "@/stores/workflowStore";
 import { setCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { resetWorkflowEvents, retainWorkflowEvents } from "@/services/workflow/workflowRunEvents";
-import { useGenieShortcuts } from "./useGenieShortcuts";
+import { WindowContext } from "@/contexts/WindowContext";
+import { useGenieMenuInvocation, useGenieShortcuts } from "./useGenieShortcuts";
 
 type EventHandler = (event: { payload: unknown }) => void | Promise<void>;
 
@@ -86,13 +88,25 @@ function callsOf(command: string): Array<Record<string, unknown>> {
     .map(([, args]) => (args ?? {}) as Record<string, unknown>);
 }
 
-/** Mount the hook and fire menu:invoke-genie with the given payload. */
-async function invokeFromMenu(path: string, title: string): Promise<void> {
-  renderHook(() => useGenieShortcuts());
+/** Render inside the document window `label`, as App.tsx's WindowProvider does. */
+function inWindow(label: string) {
+  return ({ children }: { children: ReactNode }) =>
+    createElement(WindowContext.Provider, { value: { windowLabel: label, isDocumentWindow: true } }, children);
+}
+
+/** The registered menu:invoke-genie listener (the latest mount's). */
+function invokeGenieHandler(): EventHandler {
   const handler = bridge.handlers.get("menu:invoke-genie");
   if (!handler) throw new Error("menu:invoke-genie listener was never registered");
+  return handler;
+}
+
+/** Mount the hook in "main" and fire a menu click aimed at "main" — Rust's `[path, focusedLabel]`. */
+async function invokeFromMenu(path: string): Promise<void> {
+  renderHook(() => useGenieMenuInvocation(), { wrapper: inWindow("main") });
+  const handler = invokeGenieHandler();
   await act(async () => {
-    await handler({ payload: [path, title] });
+    await handler({ payload: [path, "main"] });
   });
   // The invocation is fire-and-forget from the handler; let it reach Rust.
   await vi.waitFor(() => {
@@ -138,7 +152,7 @@ afterEach(() => {
 
 describe("menu:invoke-genie — a workflow genie runs as a workflow", () => {
   it("a .yml genie reaches run_workflow with its YAML and the workspace root, never run_ai_prompt", async () => {
-    await invokeFromMenu("/genies/review.yml", "review");
+    await invokeFromMenu("/genies/review.yml");
 
     await vi.waitFor(() => expect(callsOf("run_workflow")).toHaveLength(1));
     const [run] = callsOf("run_workflow");
@@ -151,7 +165,7 @@ describe("menu:invoke-genie — a workflow genie runs as a workflow", () => {
   });
 
   it("the extension match is case-insensitive (.YAML)", async () => {
-    await invokeFromMenu("/genies/review.YAML", "review");
+    await invokeFromMenu("/genies/review.YAML");
 
     await vi.waitFor(() => expect(callsOf("run_workflow")).toHaveLength(1));
     expect(callsOf("run_workflow")[0].yaml).toBe(WORKFLOW_YAML);
@@ -162,7 +176,7 @@ describe("menu:invoke-genie — a workflow genie runs as a workflow", () => {
     mountEditor();
     readGenie = () => Promise.resolve({ metadata: MARKDOWN_METADATA, template: "Improve: {{content}}" });
 
-    await invokeFromMenu("/genies/notes.yml.md", "notes.yml");
+    await invokeFromMenu("/genies/notes.yml.md");
 
     await vi.waitFor(() => expect(callsOf("run_ai_prompt")).toHaveLength(1));
     expect(callsOf("run_workflow")).toHaveLength(0);
@@ -174,7 +188,7 @@ describe("menu:invoke-genie — a markdown genie runs as a prompt", () => {
     mountEditor();
     readGenie = () => Promise.resolve({ metadata: MARKDOWN_METADATA, template: "Improve: {{content}}" });
 
-    await invokeFromMenu("/genies/improve.md", "improve");
+    await invokeFromMenu("/genies/improve.md");
 
     await vi.waitFor(() => expect(callsOf("run_ai_prompt")).toHaveLength(1));
     const [run] = callsOf("run_ai_prompt");
@@ -190,7 +204,7 @@ describe("menu:invoke-genie — refusals", () => {
   it("a genie that cannot be read starts nothing and is not recorded as run", async () => {
     readGenie = () => Promise.reject(new Error("not found"));
 
-    await invokeFromMenu("/genies/gone.md", "gone");
+    await invokeFromMenu("/genies/gone.md");
     await act(async () => {
       await Promise.resolve();
     });
@@ -204,7 +218,7 @@ describe("menu:invoke-genie — refusals", () => {
   it("a workflow genie with no workspace open tells the user and starts nothing", async () => {
     useWorkspaceStore.setState({ rootPath: null });
 
-    await invokeFromMenu("/genies/review.yml", "review");
+    await invokeFromMenu("/genies/review.yml");
 
     await vi.waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
     expect(callsOf("run_workflow")).toHaveLength(0);
@@ -235,5 +249,42 @@ describe("genie menu lifecycle at the boundary", () => {
 
     await vi.waitFor(() => expect(callsOf("refresh_genies_menu")).toHaveLength(2));
     expect(callsOf("load_genies")).toHaveLength(2);
+  });
+});
+
+describe("menu:invoke-genie — only the window the menu was used in runs the genie", () => {
+  it("a window ignores a click whose payload names another window", async () => {
+    mountEditor();
+    readGenie = () => Promise.resolve({ metadata: MARKDOWN_METADATA, template: "Improve: {{content}}" });
+    renderHook(() => useGenieMenuInvocation(), { wrapper: inWindow("main") });
+
+    await act(async () => {
+      await invokeGenieHandler()({ payload: ["/genies/improve.md", "doc-2"] });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(callsOf("read_genie")).toHaveLength(0);
+    expect(callsOf("run_ai_prompt")).toHaveLength(0);
+  });
+
+  it("a secondary window runs a click that names it", async () => {
+    setCurrentWindowLabel("doc-2");
+    useTabStore.setState({ activeTabId: { "doc-2": TAB } });
+    mountEditor();
+    readGenie = () => Promise.resolve({ metadata: MARKDOWN_METADATA, template: "Improve: {{content}}" });
+    renderHook(() => useGenieMenuInvocation(), { wrapper: inWindow("doc-2") });
+
+    await act(async () => {
+      await invokeGenieHandler()({ payload: ["/genies/improve.md", "doc-2"] });
+    });
+
+    await vi.waitFor(() => expect(callsOf("run_ai_prompt")).toHaveLength(1));
+    expect(callsOf("read_genie")).toEqual([{ path: "/genies/improve.md" }]);
+  });
+
+  it("the main-window lifecycle hook no longer listens for menu clicks", () => {
+    renderHook(() => useGenieShortcuts());
+    expect(bridge.handlers.has("menu:invoke-genie")).toBe(false);
+    expect(bridge.handlers.has("menu:reload-genies")).toBe(true);
   });
 });

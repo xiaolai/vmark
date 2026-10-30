@@ -8,8 +8,15 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 vi.mock("sonner", () => ({
   toast: { info: vi.fn(), success: vi.fn(), error: vi.fn() },
 }));
+// The reopened document is read back from disk: "/file1.md" holds "# one".
+vi.mock("@tauri-apps/plugin-fs", () => ({
+  readFile: vi.fn((path: string) =>
+    Promise.resolve(new TextEncoder().encode(path === "/file1.md" ? "# one" : "")),
+  ),
+}));
 
 import { useTabStore, type Tab } from "@/stores/tabStore";
+import { useDocumentStore } from "@/stores/documentStore";
 import { useClosedTabScopesStore } from "@/stores/tabStoreClosedScopes";
 import { __resetRegistry } from "@/lib/formats/registry";
 import { registerMarkdownFormat } from "@/lib/formats/adapters/markdown";
@@ -47,6 +54,10 @@ describe("tab.reopenClosed (WI-FL3.3)", () => {
 
     expect(pathsIn("main")).toContain("/file1.md");
     expect(pathOf(useTabStore.getState().getActiveTab("main"))).toBe("/file1.md");
+    // ...with its content: the command does not leave a tab with no document.
+    await vi.waitFor(() =>
+      expect(useDocumentStore.getState().getDocument(id1)?.content).toBe("# one"),
+    );
   });
 
   it("reopens in LIFO order across repeated invocations", async () => {

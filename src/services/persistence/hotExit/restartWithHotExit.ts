@@ -52,7 +52,8 @@ function formatTimestamp(timestamp: number): string {
 }
 
 /**
- * Did Rust serve the BACKUP because the main session file was unusable?
+ * Did Rust serve the BACKUP, or repair the main file lossily, because the
+ * main session file was not wholly usable?
  *
  * `hot_exit_inspect_session` reports `recovered_from_backup: bool` alongside
  * the session's own fields (src-tauri/src/hot_exit/commands.rs
@@ -62,16 +63,20 @@ function formatTimestamp(timestamp: number): string {
  * valid, nothing is quarantined, and a successful restore clears BOTH files —
  * destroying the corrupt main bytes unread.
  *
- * Absence still reads as `false`: Rust omits the field when it is false (the
+ * `lossy_repair` is the same hazard one step later: Rust's own per-item
+ * salvage dropped content from the main file, so the payload arrives clean
+ * while the original bytes on disk are the only record of what was lost.
+ *
+ * Absence still reads as `false`: Rust omits each field when it is false (the
  * crate's "absent optionals are ABSENT" wire convention), so a clean read has
  * no key at all.
  */
 function wasRecoveredFromBackup(raw: unknown): boolean {
-  return (
-    typeof raw === 'object' &&
-    raw !== null &&
-    (raw as { recovered_from_backup?: unknown }).recovered_from_backup === true
-  );
+  return rustFlag(raw, 'recovered_from_backup') || rustFlag(raw, 'lossy_repair');
+}
+
+function rustFlag(raw: unknown, key: 'recovered_from_backup' | 'lossy_repair'): boolean {
+  return typeof raw === 'object' && raw !== null && (raw as Record<string, unknown>)[key] === true;
 }
 
 /**
@@ -253,12 +258,13 @@ export async function checkAndRestoreSession(
       // readable. Two triggers:
       //   - salvage rejected material: something in that file failed schema
       //     validation, and the quarantine artifact is a DERIVED copy. Keeping
-      //     the original costs one stale file (the next quit overwrites it);
+      //     the original costs one stale file (the next hot-exit capture — an
+      //     update restart — overwrites it; an ordinary quit does not capture);
       //     deleting it costs the only pristine evidence of the corruption.
       //   - Rust served the backup: the corrupt main file was never seen by
       //     the salvage boundary at all, so clearing would erase it unread.
-      //     Rust reports the substitution; see `wasRecoveredFromBackup`
-      //     above.
+      //     Rust reports the substitution, and a lossy repair of the main
+      //     file, which is the same case; see `wasRecoveredFromBackup` above.
       if (salvage.quarantined.length > 0 || recoveredFromBackup) {
         hotExitLog(
           'Restore succeeded, but the payload was not wholly readable — session file preserved',

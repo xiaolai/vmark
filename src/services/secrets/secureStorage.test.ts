@@ -9,8 +9,11 @@ const mockStore = {
   delete: vi.fn(),
 };
 
+// `load` is the path-taking command the webview is no longer granted; the
+// backend opens the store and the webview only looks it up (`getStore`).
 vi.mock("@tauri-apps/plugin-store", () => ({
-  load: vi.fn().mockResolvedValue(mockStore),
+  getStore: vi.fn().mockResolvedValue(mockStore),
+  load: vi.fn().mockRejectedValue(new Error("store:allow-load is not granted")),
 }));
 
 // Must import after mocks
@@ -53,8 +56,8 @@ describe("secureStorage", () => {
     });
 
     it("falls back to localStorage when Tauri store fails", async () => {
-      const { load } = await import("@tauri-apps/plugin-store");
-      (load as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("not available"));
+      const { getStore } = await import("@tauri-apps/plugin-store");
+      (getStore as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("not available"));
       _resetForTesting();
       localStorage.setItem("fallback-key", '{"data":"value"}');
 
@@ -66,9 +69,28 @@ describe("secureStorage", () => {
       expect(localStorage.getItem("fallback-key")).toBe('{"data":"value"}');
     });
 
+    it("looks up the backend-opened store and never loads a path itself", async () => {
+      const mod = await import("@tauri-apps/plugin-store");
+      await initSecureStorage([]);
+      expect(mod.getStore).toHaveBeenCalledWith(".vmark-secure.json");
+      expect(mod.load).not.toHaveBeenCalled();
+    });
+
+    it("falls back to localStorage when the backend has not opened the store", async () => {
+      const { getStore } = await import("@tauri-apps/plugin-store");
+      (getStore as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
+      _resetForTesting();
+      localStorage.setItem("unopened-key", '{"data":"kept"}');
+
+      await initSecureStorage(["unopened-key"]);
+
+      expect(createSecureStorage().getItem("unopened-key")).toBe('{"data":"kept"}');
+      expect(localStorage.getItem("unopened-key")).toBe('{"data":"kept"}');
+    });
+
     it("writes to localStorage in fallback mode", async () => {
-      const { load } = await import("@tauri-apps/plugin-store");
-      (load as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("not available"));
+      const { getStore } = await import("@tauri-apps/plugin-store");
+      (getStore as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("not available"));
       _resetForTesting();
 
       await initSecureStorage([]);
@@ -82,8 +104,8 @@ describe("secureStorage", () => {
       // Plugin API drift / broken mock: `load` resolves to an object missing
       // the methods we rely on. The shape guard must reject it loudly so we
       // fall back rather than later invoking `undefined()`.
-      const { load } = await import("@tauri-apps/plugin-store");
-      (load as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ wat: true });
+      const { getStore } = await import("@tauri-apps/plugin-store");
+      (getStore as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ wat: true });
       _resetForTesting();
       localStorage.setItem("shape-key", '{"data":"v"}');
 

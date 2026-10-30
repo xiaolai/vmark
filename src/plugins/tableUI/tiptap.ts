@@ -11,7 +11,8 @@
  * Key decisions:
  *   - Context menu is imperative DOM (not React) for performance in large documents
  *   - Column resize uses CSS widths only (not persisted to markdown)
- *   - Enter in table adds row below instead of splitting paragraph
+ *   - Mod-Enter adds a row below and Mod-Shift-Enter a row above; plain Enter
+ *     is not bound here and keeps the editor's default behaviour in a cell
  *
  * @coordinates-with tableActions.tiptap.ts — row/column CRUD commands
  * @coordinates-with TiptapTableContextMenu.ts — right-click context menu

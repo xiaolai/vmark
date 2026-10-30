@@ -10,10 +10,12 @@
  *
  * Visible only when:
  *   - The active tab is in `useLargeFileSessionStore.forcedSourceTabs`.
- *   - The active tab's file is NOT YAML — switching a YAML workflow to
- *     WYSIWYG would corrupt indentation through Tiptap's markdown round-
- *     trip, and the toggle handler refuses for YAML anyway. Showing the
- *     offer for YAML would be misleading.
+ *   - The active tab's file is NOT YAML (any `.yml` / `.yaml` name) —
+ *     switching YAML to WYSIWYG would corrupt indentation through Tiptap's
+ *     markdown round-trip. The toggle handler in
+ *     `services/history/unifiedHistory.ts` refuses only for GitHub workflow
+ *     paths (`looksLikeWorkflowPath`), so this hide is the guard for every
+ *     other YAML file.
  *   - The editor is currently in Source mode (sanity gate — if the user
  *     already toggled back to WYSIWYG manually, suppress the offer).
  *
@@ -68,8 +70,8 @@ export function SourceModeUpgrade() {
   if (!isForcedSource) return null;
   // YAML files are forced-source for correctness, not size. Switching
   // to WYSIWYG would route through Tiptap's markdown pipeline and
-  // corrupt YAML indentation. Hide the offer; the toggle handler in
-  // useUnifiedHistory.ts refuses for YAML anyway.
+  // corrupt YAML indentation. Hide the offer for every YAML name; the toggle
+  // handler in services/history/unifiedHistory.ts refuses only workflow paths.
   if (isYamlFile) return null;
 
   return (

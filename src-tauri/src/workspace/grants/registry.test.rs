@@ -161,9 +161,10 @@ fn parse_refuses_what_it_cannot_interpret() {
     }
 }
 
-/// The store plugin (`store:default`, document windows) resolves its file name
-/// against the app data directory — `load("workspace-grants.json")` lands on
-/// this list — and absolute names anywhere. It can only ever write its cache,
+/// The store plugin resolves a `load` file name against the app data directory
+/// — `load("workspace-grants.json")` would land on this list. The webview is
+/// no longer granted `load` (`app_plugins.rs`); this pins the second line of
+/// defence should that grant return. The plugin can only ever write its cache,
 /// a `HashMap<String, JsonValue>`, through `serde_json::to_vec_pretty`: a JSON
 /// OBJECT. The list is a top-level ARRAY so that nothing the store can write
 /// parses as one. This replays the plugin's own serializer with the payload a

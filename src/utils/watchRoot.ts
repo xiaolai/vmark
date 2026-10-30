@@ -3,8 +3,8 @@
  *
  * Purpose: One pure decision shared by the watcher lifecycle
  *   (useWindowFileWatcher, which starts `start_watching` on this path) and the
- *   workspace event source (useWorkspaceEventBus, which scopes normalized events
- *   to it). Keeping both on this one function guarantees the *watched* root and
+ *   workspace event source (services/workspaceEvents/subscribeWorkspaceEvents.ts,
+ *   which scopes the bus's normalized events to it). Keeping both on this one function guarantees the *watched* root and
  *   the *scoped* root never drift — a drift would silently drop (or leak) events.
  *
  * Rule: workspace mode watches the workspace root; otherwise the active

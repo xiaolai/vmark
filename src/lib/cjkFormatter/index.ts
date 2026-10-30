@@ -15,6 +15,7 @@
  *   latinSpanScanner.ts — identifies Latin spans within CJK text
  *   quotePairing.ts — matches and converts quote pairs to fullwidth
  *   integrity.ts — post-format structural integrity verification
+ *   textCleanup.ts — Text Cleanup's line rules, applied outside fenced code
  *
  * @coordinates-with settingsStore.ts — CJKFormattingSettings controls which rules are active
  * @coordinates-with src-tauri/src/menu/events.rs — "format-cjk" menu item triggers formatMarkdown
@@ -22,4 +23,4 @@
  */
 
 export { formatMarkdown, formatMarkdownChecked } from "./formatter";
-export { removeTrailingSpaces, collapseNewlines } from "./rules";
+export { cleanTrailingSpaces, cleanBlankLines } from "./textCleanup";

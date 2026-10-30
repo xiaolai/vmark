@@ -3,16 +3,22 @@
  *
  * UI for viewing and customizing keyboard shortcuts.
  *
+ * Key decisions:
+ *   - Capturing a chord another shortcut owns reassigns it (the owner becomes
+ *     unassigned); the capture modal can also unassign the row.
+ *   - A native-menu refusal of the new map is toasted, not only logged.
+ *
  * @module pages/settings/ShortcutsSettings
  */
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
   useShortcutsStore,
   DEFAULT_SHORTCUTS,
   CATEGORY_ORDER,
   formatKeyForDisplay,
+  onMenuShortcutSyncFailure,
   type ShortcutDefinition,
   type ShortcutCategory,
 } from "@/stores/settingsStore";
@@ -21,7 +27,9 @@ import {
   getShortcutLabel,
   getShortcutDescription,
 } from "@/stores/settingsShortcutLabels";
+import { commandErrorMessage } from "@/services/commands/commandError";
 import { KeyCapture } from "./KeyCapture";
+import { ShortcutRow } from "./ShortcutRow";
 import { describeShortcutImportError } from "./shortcutImportErrors";
 import { Button, SearchInput } from "./components";
 import { confirmAction } from "@/services/dialogs/confirmAction";
@@ -42,6 +50,7 @@ export function ShortcutsSettings() {
   const {
     getShortcut,
     setShortcut,
+    reassignShortcut,
     resetShortcut,
     resetAllShortcuts,
     getConflict,
@@ -77,9 +86,28 @@ export function ShortcutsSettings() {
       })
     : null;
 
+  // A refused native-menu update would otherwise leave a rebinding that looks
+  // applied but that the menu bar never took.
+  useEffect(
+    () =>
+      onMenuShortcutSyncFailure((e) => {
+        toast.error(t("shortcuts.menuSyncFailed"), { description: commandErrorMessage(e) });
+      }),
+    [t],
+  );
+
+  // A chord another shortcut owns MOVES to this one: two shortcuts sharing a
+  // chord means only one of them ever fires.
   const handleCapture = (key: string) => {
     if (capturing) {
-      setShortcut(capturing.id, key);
+      reassignShortcut(capturing.id, key);
+      setCapturing(null);
+    }
+  };
+
+  const handleClear = () => {
+    if (capturing) {
+      setShortcut(capturing.id, "");
       setCapturing(null);
     }
   };
@@ -116,72 +144,16 @@ export function ShortcutsSettings() {
     e.target.value = "";
   };
 
-  const renderShortcutRow = (shortcut: ShortcutDefinition) => {
-    const currentKey = getShortcut(shortcut.id);
-    const customized = isCustomized(shortcut.id);
-
-    return (
-      <div
-        key={shortcut.id}
-        className={`flex items-center justify-between py-2 px-2 -mx-2
-                   hover:bg-[var(--bg-secondary)]/50 rounded-sm transition-colors`}
-      >
-        <div className="flex-1 min-w-0">
-          <div className="text-sm text-[var(--text-color)]">
-            {getShortcutLabel(shortcut)}
-          </div>
-          {getShortcutDescription(shortcut) && (
-            <div className="text-xs text-[var(--text-secondary)] truncate">
-              {getShortcutDescription(shortcut)}
-            </div>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2 ml-4">
-          {/* Key display/edit button */}
-          <button
-            onClick={() => setCapturing(shortcut)}
-            className={`px-3 py-1 rounded-sm text-xs font-mono min-w-[90px] text-center
-                       ${customized
-                         ? "bg-[var(--accent-primary)]/20 text-[var(--accent-primary)] ring-1 ring-[var(--accent-primary)]/30"
-                         : "bg-[var(--bg-tertiary)] text-[var(--text-secondary)]"
-                       } hover:bg-[var(--bg-tertiary)] hover:ring-1 hover:ring-[var(--text-tertiary)]/30 transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent-primary)] focus-visible:outline-offset-2`}
-            title={t("shortcuts.clickToChange")}
-          >
-            {currentKey ? (
-              formatKeyForDisplay(currentKey)
-            ) : (
-              <span className="italic">{unassignedLabel}</span>
-            )}
-          </button>
-
-          {/* Reset button (only show if customized) */}
-          {customized && (
-            <button
-              onClick={() => resetShortcut(shortcut.id)}
-              className="vm-icon-btn vm-icon-btn--sm"
-              title={t("shortcuts.resetToDefault")}
-              aria-label={t("shortcuts.resetToDefault")}
-            >
-              <svg
-                className="w-3.5 h-3.5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                />
-              </svg>
-            </button>
-          )}
-        </div>
-      </div>
-    );
-  };
+  const renderShortcutRow = (shortcut: ShortcutDefinition) => (
+    <ShortcutRow
+      key={shortcut.id}
+      shortcut={shortcut}
+      currentKey={getShortcut(shortcut.id)}
+      customized={isCustomized(shortcut.id)}
+      onEdit={() => setCapturing(shortcut)}
+      onReset={() => resetShortcut(shortcut.id)}
+    />
+  );
 
   const renderCategorySection = (category: ShortcutCategory) => {
     const shortcuts = DEFAULT_SHORTCUTS.filter((s) => s.category === category);
@@ -290,7 +262,9 @@ export function ShortcutsSettings() {
         <KeyCapture
           shortcut={capturing}
           getConflict={(key) => getConflict(key, capturing.id)}
+          currentKey={getShortcut(capturing.id)}
           onCapture={handleCapture}
+          onClear={handleClear}
           onCancel={() => setCapturing(null)}
         />
       )}

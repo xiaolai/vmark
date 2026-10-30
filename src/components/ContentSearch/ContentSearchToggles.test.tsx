@@ -41,13 +41,13 @@ describe("ContentSearchToggles", () => {
   // a visible glyph. The accessible name comes from the aria-label, so query
   // by that stable key.
   const caseBtn = () =>
-    screen.getByRole("button", { name: "contentSearch.caseSensitive" });
+    screen.getByRole("button", { name: "Case Sensitive" });
   const wholeBtn = () =>
-    screen.getByRole("button", { name: "contentSearch.wholeWord" });
+    screen.getByRole("button", { name: "Whole Word" });
   const regexBtn = () =>
-    screen.getByRole("button", { name: "contentSearch.regex" });
+    screen.getByRole("button", { name: "Regular Expression" });
   const mdBtn = () =>
-    screen.getByRole("button", { name: "contentSearch.markdownOnly" });
+    screen.getByRole("button", { name: "Supported File Types Only" });
 
   it("reflects active state via aria-pressed", () => {
     setup({ caseSensitive: true, useRegex: true });

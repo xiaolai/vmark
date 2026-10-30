@@ -9,6 +9,10 @@ menu:
   app.settings: "Impostazioni..."
   app.saveAllQuit: "Salva tutto ed esci"
   app.quit: "Esci da VMark"
+  app.services: "Servizi"
+  app.hide: "Nascondi VMark"
+  app.hideOthers: "Nascondi altre"
+  app.showAll: "Mostra tutte"
 
   # === File menu ===
   file: "File"
@@ -198,9 +202,12 @@ menu:
   view.checkMarkdown: "Controlla Markdown"
   view.lintNext: "Problema successivo"
   view.lintPrev: "Problema precedente"
+  view.toggleFullScreen: "Attiva/disattiva modalità a tutto schermo"
   # === Window menu ===
   window: "Finestra"
   window.bringAllToFront: "Porta tutto in primo piano"
+  window.minimize: "Contrai"
+  window.zoom: "Ridimensiona"
   window.breakdown: "Dettaglio coerenza"
 
   # === Help menu ===
@@ -273,6 +280,7 @@ errors:
   pdf.invalidExtension: "Il percorso di output deve avere estensione .pdf"
   pdf.dirNotFound: "La directory di output non esiste"
   pdf.parentNotDirectory: "Il percorso superiore del file di output esiste ma non è una directory"
+  exportTarget.notChosen: "Si può esportare solo nella posizione scelta nella finestra di salvataggio. Esporta di nuovo e scegli dove salvare."
   pdf.publishFailed: "Impossibile spostare il PDF generato nel percorso di output: %{detail}"
   pdf.outputUnreadable: "Impossibile aprire il PDF generato per verificarlo: %{detail}"
   pdf.pathNotAbsolute: "Il percorso di output deve essere assoluto"

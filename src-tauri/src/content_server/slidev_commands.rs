@@ -123,14 +123,21 @@ pub async fn content_server_slidev_preview(
 }
 
 /// Export a Slidev deck via the content server (which shells out to `slidev export`).
+///
+/// `output_path` must be the calling webview's save-panel choice
+/// (`export_target`, kind `slidev`); any other path is refused with
+/// `PermissionDenied` before the content server is asked to write anything.
 #[tauri::command]
-pub async fn content_server_slidev_export(
+pub async fn content_server_slidev_export<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    webview: tauri::Webview<R>,
     mgr: State<'_, ContentServerManager>,
     workspace_root: String,
     deck_path: String,
     format: SlidevExportFormat,
     output_path: String,
 ) -> Result<String, CommandError> {
+    crate::export_target::claim(&app, webview.label(), &output_path)?;
     let client = ServerClient::connect(&mgr, &workspace_root, EXPORT_TIMEOUT)?;
     export_deck(&client, &deck_path, format, &output_path).await
 }
@@ -138,3 +145,8 @@ pub async fn content_server_slidev_export(
 #[cfg(test)]
 #[path = "slidev_commands.test.rs"]
 mod tests;
+
+// `tauri::test` does not exist on Windows.
+#[cfg(all(test, not(target_os = "windows")))]
+#[path = "slidev_export_target.test.rs"]
+mod export_target_tests;

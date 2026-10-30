@@ -34,6 +34,7 @@ pub mod coherence;
 pub mod command_error; // crate-wide typed command error ({code, message, i18nKey?, detail?})
 mod content_search;
 mod content_server;
+pub mod export_target;
 mod external_editor;
 mod files;
 mod fs_scope;
@@ -142,6 +143,9 @@ fn manage_state<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
         // One PDF export at a time: the output file and the
         // export dialog's progress stream each have exactly one producer.
         .manage(pdf_export::export_gate::ExportGate::default())
+        // The save-panel choice each webview may export to (`export_pdf`,
+        // `export_via_pandoc`). Memory only.
+        .manage(export_target::ExportTargets::default())
         // #1273: documents the user explicitly authorized to execute. Memory
         // only — a grant never survives the process.
         .manage(trusted_html::TrustedHtmlState::default())

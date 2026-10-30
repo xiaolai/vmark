@@ -132,3 +132,64 @@ fn write_does_not_remove_fresh_files_from_previous_exports() {
     assert!(first.exists());
     assert!(second.exists());
 }
+
+// -- discard_temp_html ----------------------------------------------------------
+
+#[test]
+fn discard_removes_the_hand_off_file_it_was_given() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = write_temp_html_to_dir(dir.path(), "<p>read once</p>").expect("write");
+
+    assert!(
+        discard_temp_html(dir.path(), &path),
+        "a hand-off file is removed"
+    );
+    assert!(!path.exists());
+}
+
+#[test]
+fn discard_refuses_a_file_outside_the_temp_directory() {
+    // The path arrives over IPC as a window parameter, so it is only trusted
+    // as far as the name and directory `write_temp_html` itself would give.
+    let temp = tempfile::tempdir().expect("temp");
+    let elsewhere = tempfile::tempdir().expect("elsewhere");
+    let outside = touch(elsewhere.path(), "vmark-export-abc.html");
+
+    assert!(!discard_temp_html(temp.path(), &outside));
+    assert!(
+        outside.exists(),
+        "a file outside the temp dir is never removed"
+    );
+}
+
+#[test]
+fn discard_refuses_a_name_write_temp_html_never_gives() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let other = touch(dir.path(), "notes.html");
+    let not_html = touch(dir.path(), "vmark-export-abc.txt");
+
+    assert!(!discard_temp_html(dir.path(), &other));
+    assert!(!discard_temp_html(dir.path(), &not_html));
+    assert!(other.exists() && not_html.exists());
+}
+
+#[test]
+fn discard_refuses_a_path_that_climbs_out_of_the_directory() {
+    let root = tempfile::tempdir().expect("root");
+    let temp = root.path().join("temp");
+    std::fs::create_dir_all(&temp).expect("temp dir");
+    let target = touch(root.path(), "vmark-export-escape.html");
+    let climbing = temp.join("..").join("vmark-export-escape.html");
+
+    assert!(!discard_temp_html(&temp, &climbing));
+    assert!(target.exists());
+}
+
+#[test]
+fn discard_of_an_already_removed_file_is_false_not_an_error() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = write_temp_html_to_dir(dir.path(), "x").expect("write");
+    std::fs::remove_file(&path).expect("remove");
+
+    assert!(!discard_temp_html(dir.path(), &path));
+}
