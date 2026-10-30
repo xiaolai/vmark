@@ -7,7 +7,7 @@
 //! shadow that window's own answer; a utility window, which is never asked;
 //! no document window at all; one window refusing; one window never
 //! answering (App Nap), which must not leave a pending entry behind; a window
-//! closed while awaited.
+//! closed while awaited; two answers that both claim focus.
 
 use crate::mcp_bridge::managed::{bridge, McpBridgeState};
 use crate::mcp_bridge::principal::BridgePrincipal;
@@ -359,4 +359,55 @@ async fn a_window_closed_while_awaited_is_skipped() {
 
     assert_eq!(answer, Ok(None));
     assert!(requests.try_recv().is_err(), "nothing re-sent");
+}
+
+/// Each webview reads focus on its own, at its own moment, so two answers can
+/// both claim it. The bridge stamps `focused` from one reading of its own; the
+/// mock runtime reports no window focused.
+#[tokio::test]
+async fn focused_is_stamped_from_one_reading_not_from_each_answer() {
+    let app = mock_app(&["main", "doc-3"]);
+    let mut rx = connect(&app, 1).await;
+    let mut requests = requests_by_window(&app, &["main", "doc-3"]);
+
+    let handle = app.handle().clone();
+    let task = tokio::spawn(async move { handle_message(&get_state_message(), 1, &handle).await });
+    for _ in 0..2 {
+        let (label, event) = next_request(&mut requests).await.expect("asked");
+        let mut record = window_record(&label, "t");
+        record["focused"] = json!(true);
+        answer(
+            &app,
+            event["id"].as_str().expect("id"),
+            state_from(vec![record]),
+        )
+        .await;
+    }
+    task.await.expect("task").expect("handled");
+
+    let data = reply(&mut rx).data.expect("data");
+    let focused: Vec<&Value> = data["windows"]
+        .as_array()
+        .expect("windows")
+        .iter()
+        .map(|w| &w["focused"])
+        .collect();
+    assert_eq!(focused, [&json!(false), &json!(false)]);
+}
+
+/// At most one window is focused, and it is the one the reading names.
+#[test]
+fn merge_marks_only_the_focused_window() {
+    let answer = |label: &str| {
+        let mut record = window_record(label, "t");
+        record["focused"] = json!(true);
+        Ok(Some(state_from(vec![record]).data.expect("data")))
+    };
+    let merged = super::merge(
+        [("main", answer("main")), ("doc-3", answer("doc-3"))],
+        Some("doc-3"),
+    )
+    .expect("merged");
+    assert_eq!(merged["windows"][0]["focused"], json!(false));
+    assert_eq!(merged["windows"][1]["focused"], json!(true));
 }

@@ -18,6 +18,8 @@
  *   - `focused` comes from the PLATFORM, not from this webview's own label.
  *     The bridge routes a request to whichever window owns the workspace, so
  *     the responding window is frequently not the one the user is looking at.
+ *     For `get_state` the bridge then re-stamps it from one reading of its
+ *     own, since windows answering at different moments can disagree.
  *   - Browser tabs are gated on the protocol the client declares (`clientProtocol`
  *     on the get_state request) and withheld from clients older than 0.3.0 —
  *     including any request that omits the field, which is how a pre-0.3 sidecar

@@ -20,6 +20,11 @@
 //!   - A window closed at any point before it answers is skipped: it is no
 //!     longer part of the session. Closing does not drop its pending entry,
 //!     so this is noticed when its wait times out.
+//!   - `focused` is stamped here from ONE reading, taken once every window has
+//!     answered. Each webview reads focus on its own, at its own moment, so
+//!     two answers can both claim it; the stamp keeps at most one window
+//!     focused. A window whose focus cannot be read counts as unfocused, as
+//!     in `routing.rs`.
 //!   - Read-only, so no write lock; the per-window entries count against the
 //!     pending cap like any other request.
 //!
@@ -63,7 +68,11 @@ pub(super) async fn run<R: Runtime>(
             .map(|label| ask_window(app, label, &request.request_type, &args_json, client_id)),
     )
     .await;
-    let response = match merge(labels.iter().map(String::as_str).zip(answers)) {
+    let focused = focused_window_label(app);
+    let response = match merge(
+        labels.iter().map(String::as_str).zip(answers),
+        focused.as_deref(),
+    ) {
         Ok(data) => McpResponse {
             success: true,
             data: Some(data),
@@ -104,6 +113,14 @@ fn document_window_labels<R: Runtime>(app: &AppHandle<R>) -> Vec<String> {
         (label != "main", number.is_none(), number, label.clone())
     });
     labels
+}
+
+/// The window holding focus right now, if any.
+fn focused_window_label<R: Runtime>(app: &AppHandle<R>) -> Option<String> {
+    app.webview_windows()
+        .into_iter()
+        .find(|(_, window)| window.is_focused().unwrap_or(false))
+        .map(|(label, _)| label)
 }
 
 /// One window's answer: its data, `None` when it closed before it could be
@@ -183,10 +200,12 @@ fn window_closed<R: Runtime>(app: &AppHandle<R>, label: &str) -> bool {
     app.get_webview_window(label).is_none()
 }
 
-/// Merge each window's answer into one session: its own window record, and
-/// the capabilities of the first window that answered.
+/// Merge each window's answer into one session: its own window record, with
+/// `focused` stamped from the bridge's one reading, and the capabilities of
+/// the first window that answered.
 fn merge<'a>(
     answers: impl IntoIterator<Item = (&'a str, Result<Option<Value>, String>)>,
+    focused: Option<&str>,
 ) -> Result<Value, String> {
     let mut windows = Vec::new();
     let mut capabilities = None;
@@ -201,7 +220,9 @@ fn merge<'a>(
                     .find(|record| record.get("label").and_then(Value::as_str) == Some(label))
             })
             .ok_or_else(|| format!("window '{label}' did not report its own window record"))?;
-        windows.push(own.clone());
+        let mut own = own.clone();
+        own["focused"] = Value::Bool(focused == Some(label));
+        windows.push(own);
         if capabilities.is_none() {
             capabilities = data.get("capabilities").cloned();
         }
