@@ -18,6 +18,7 @@
  *   then clears the localStorage entry.
  *
  * @coordinates-with @tauri-apps/plugin-store — Tauri store plugin
+ * @coordinates-with src-tauri/src/app_plugins.rs — opens the store; the webview is not granted `store:allow-load`
  * @coordinates-with src/stores/aiStore/provider.ts — primary consumer
  * @coordinates-with src/services/secrets/apiKeySecrets — keychain key store (secrets)
  * @module services/secrets/secureStorage
@@ -25,6 +26,9 @@
 
 import type { StateStorage } from "zustand/middleware";
 import { safeStorageError } from "@/utils/debug";
+
+/** The store file, relative to the app data directory; Rust opens it (`SECURE_STORE_PATH` in app_plugins.rs). */
+const SECURE_STORE_PATH = ".vmark-secure.json";
 
 /** In-memory cache for sync read/write. Background-synced to Tauri store. */
 const cache = new Map<string, string>();
@@ -76,7 +80,13 @@ function assertSecureStore(store: unknown): asserts store is SecureStore {
 async function getStore(): Promise<SecureStore> {
   if (!storePromise) {
     storePromise = import("@tauri-apps/plugin-store").then(async (mod) => {
-      const store = await mod.load(".vmark-secure.json");
+      // The backend opens this store at startup (`app_plugins.rs`); the
+      // webview may only look it up, because `store:allow-load` takes a path
+      // that an absolute value would carry outside the app data directory.
+      const store = await mod.getStore(SECURE_STORE_PATH);
+      if (store === null) {
+        throw new Error(`${SECURE_STORE_PATH} was not opened by the backend`);
+      }
       assertSecureStore(store);
       return store;
     });

@@ -68,6 +68,69 @@ fn no_recent_paths_means_no_entries() {
     assert!(recent_entries("recent-file", &[]).is_empty());
 }
 
+/// `(id, enabled)` per row of a recent submenu, `"-"` for the separator.
+fn rows(items: &[RecentRow<'_>]) -> Vec<(String, bool)> {
+    items
+        .iter()
+        .map(|row| match row {
+            RecentRow::Item { id, enabled, .. } => (id.to_string(), *enabled),
+            RecentRow::Separator => ("-".to_string(), true),
+        })
+        .collect()
+}
+
+fn expect(list: &[(&str, bool)]) -> Vec<(String, bool)> {
+    list.iter().map(|(id, on)| (id.to_string(), *on)).collect()
+}
+
+#[test]
+fn a_recent_submenu_lists_its_paths_then_an_enabled_clear() {
+    let paths = vec!["/a/one.md".to_string(), "/b/two.md".to_string()];
+    let layout = recent_submenu(&RECENT_FILES_MENU, &paths);
+    assert_eq!(
+        rows(&layout),
+        expect(&[
+            ("recent-file-0", true),
+            ("recent-file-1", true),
+            ("-", true),
+            ("clear-recent", true)
+        ])
+    );
+    let RecentRow::Item { label, .. } = &layout[1] else {
+        panic!("an item")
+    };
+    assert_eq!(label.as_ref(), "two.md");
+}
+
+#[test]
+fn an_empty_recent_submenu_shows_a_disabled_placeholder_and_a_disabled_clear() {
+    assert_eq!(
+        rows(&recent_submenu(&RECENT_FILES_MENU, &[])),
+        expect(&[("no-recent", false), ("-", true), ("clear-recent", false)])
+    );
+    assert_eq!(
+        rows(&recent_submenu(&RECENT_WORKSPACES_MENU, &[])),
+        expect(&[
+            ("no-recent-workspace", false),
+            ("-", true),
+            ("clear-recent-workspaces", false)
+        ])
+    );
+}
+
+#[test]
+fn recent_workspaces_use_their_own_ids() {
+    let paths = vec!["/work/site/".to_string()];
+    assert_eq!(
+        rows(&recent_submenu(&RECENT_WORKSPACES_MENU, &paths)),
+        expect(&[
+            ("recent-workspace-0", true),
+            ("-", true),
+            ("clear-recent-workspaces", true)
+        ])
+    );
+}
+
 #[test]
 fn search_genies_keeps_the_default_unless_the_map_says_otherwise() {
     let map = |value: Option<&str>| {

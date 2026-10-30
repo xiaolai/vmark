@@ -234,7 +234,7 @@ jobs:
     # WI-FL6.6. src-tauri/windows/installer-hooks.nsh re-creates the
     # `HKCR\.txt\ShellNew` key — the one behind "New > Text Document" for EVERY
     # application — after a VMark uninstall once removed it (#1142). It was
-    # authored on macOS and its own header says it had never run on Windows.
+    # authored on macOS and had never run on Windows before this job existed.
     # This job installs the published installer silently, uninstalls it, and
     # reads the registry back from the outside. Two cycles, because the current
     # Tauri uninstaller does not delete ShellNew by itself, so a plain cycle

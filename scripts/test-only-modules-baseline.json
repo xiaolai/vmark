@@ -6,8 +6,5 @@
     "leave; Phase 3 of the feature-ledger plan deletes or wires each one. Never add by hand:",
     "`node scripts/check-test-only-modules.mjs --update` records the measured set."
   ],
-  "entries": [
-    "src/services/coherence/mergeAuditService.ts",
-    "src/services/operators/operatorService.ts"
-  ]
+  "entries": []
 }

@@ -2,21 +2,21 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Use vi.hoisted() so mock variables are available before vi.mock() factories run
-const { mockInvoke, mockSave, mockToast } = vi.hoisted(() => ({
+const { mockInvoke, mockPick, mockToast } = vi.hoisted(() => ({
   mockInvoke: vi.fn(),
-  mockSave: vi.fn(),
+  mockPick: vi.fn(),
   mockToast: {
     error: vi.fn(),
     success: vi.fn(),
   },
 }));
 
+// The save panel is Rust's (`pick_export_target`, which records the answer as
+// the only path `export_via_pandoc` will write); every other command goes to
+// `mockInvoke`.
 vi.mock("@tauri-apps/api/core", () => ({
-  invoke: (...args: unknown[]) => mockInvoke(...args),
-}));
-
-vi.mock("@tauri-apps/plugin-dialog", () => ({
-  save: (...args: unknown[]) => mockSave(...args),
+  invoke: (cmd: string, args?: unknown) =>
+    cmd === "pick_export_target" ? mockPick(args) : mockInvoke(cmd, ...(args === undefined ? [] : [args])),
 }));
 
 vi.mock("sonner", () => ({
@@ -38,7 +38,7 @@ describe("PANDOC_FORMAT_KEYS", () => {
   it("all keys resolve to valid format metadata", async () => {
     for (const key of PANDOC_FORMAT_KEYS) {
       mockInvoke.mockResolvedValueOnce({ available: true, path: "/usr/local/bin/pandoc", version: "3.1.2" });
-      mockSave.mockResolvedValueOnce(null);
+      mockPick.mockResolvedValueOnce(null);
       // Should not throw "Unknown export format"
       await exportViaPandoc({ markdown: "content", format: key });
       expect(mockToast.error).not.toHaveBeenCalledWith(`Unknown export format: ${key}`);
@@ -87,17 +87,18 @@ describe("exportViaPandoc", () => {
       path: "/usr/local/bin/pandoc",
       version: "3.1.2",
     });
-    mockSave.mockResolvedValueOnce(null);
+    mockPick.mockResolvedValueOnce(null);
 
     const result = await exportViaPandoc({ markdown: "# Hello", format: "docx" });
     expect(result).toBe(false);
     // No filters — stripped per macOS Tahoe parity rule (E3)
-    expect(mockSave).toHaveBeenCalledWith(
+    expect(mockPick).toHaveBeenCalledWith(
       expect.objectContaining({
+        kind: "pandoc",
         title: "Export Word Document",
       })
     );
-    expect(mockSave).toHaveBeenCalledWith(
+    expect(mockPick).toHaveBeenCalledWith(
       expect.not.objectContaining({ filters: expect.anything() })
     );
   });
@@ -110,7 +111,7 @@ describe("exportViaPandoc", () => {
         version: "3.1.2",
       })
       .mockResolvedValueOnce(undefined);
-    mockSave.mockResolvedValueOnce("/tmp/output.docx");
+    mockPick.mockResolvedValueOnce("/tmp/output.docx");
 
     const result = await exportViaPandoc({ markdown: "# Hello World", format: "docx" });
     expect(result).toBe(true);
@@ -128,17 +129,17 @@ describe("exportViaPandoc", () => {
       path: "/usr/local/bin/pandoc",
       version: "3.1.2",
     });
-    mockSave.mockResolvedValueOnce(null);
+    mockPick.mockResolvedValueOnce(null);
 
     await exportViaPandoc({ markdown: "content", format: "latex" });
     // No filters — stripped per macOS Tahoe parity rule (E3)
-    expect(mockSave).toHaveBeenCalledWith(
+    expect(mockPick).toHaveBeenCalledWith(
       expect.objectContaining({
         title: "Export LaTeX",
         defaultPath: "document.tex",
       })
     );
-    expect(mockSave).toHaveBeenCalledWith(
+    expect(mockPick).toHaveBeenCalledWith(
       expect.not.objectContaining({ filters: expect.anything() })
     );
   });
@@ -151,7 +152,7 @@ describe("exportViaPandoc", () => {
         version: "3.1.2",
       })
       .mockRejectedValueOnce("Unknown output format");
-    mockSave.mockResolvedValueOnce("/tmp/output.xyz");
+    mockPick.mockResolvedValueOnce("/tmp/output.xyz");
 
     const result = await exportViaPandoc({ markdown: "# Hello", format: "docx" });
     expect(result).toBe(false);
@@ -180,7 +181,7 @@ describe("exportViaPandoc", () => {
         version: "3.1.2",
       })
       .mockResolvedValueOnce(undefined);
-    mockSave.mockResolvedValueOnce("/tmp/output.epub");
+    mockPick.mockResolvedValueOnce("/tmp/output.epub");
 
     await exportViaPandoc({
       markdown: "content",
@@ -201,7 +202,7 @@ describe("exportViaPandoc", () => {
       path: "/usr/local/bin/pandoc",
       version: "3.1.2",
     });
-    mockSave.mockResolvedValueOnce(null);
+    mockPick.mockResolvedValueOnce(null);
 
     await exportViaPandoc({
       markdown: "content",
@@ -210,7 +211,7 @@ describe("exportViaPandoc", () => {
       defaultDirectory: "/Users/test/docs",
     });
 
-    expect(mockSave).toHaveBeenCalledWith(
+    expect(mockPick).toHaveBeenCalledWith(
       expect.objectContaining({
         defaultPath: "/Users/test/docs/My Doc.docx",
       })

@@ -124,7 +124,7 @@ El Ancho del Editor se mide en `em`, así que la longitud de línea en *caracter
 | Abrir archivos en una pestaña nueva | Abre los archivos existentes en una pestaña nueva en lugar de reutilizar la pestaña vacía actual | Desactivado | Activado / Desactivado |
 | Habilitar emparejamiento automático | Inserta automáticamente los corchetes y comillas de cierre correspondientes al escribir uno de apertura | Activado | Activado / Desactivado |
 | Corchetes CJK | Empareja automáticamente corchetes específicos de CJK como `「」` `【】` `《》`. Solo disponible cuando el emparejamiento automático está habilitado | Auto | Desactivado, Auto |
-| Incluir comillas curvas | Empareja automáticamente los caracteres `""` y `''`. Puede entrar en conflicto con algunas funciones de comillas inteligentes del IME. Aparece cuando los corchetes CJK están en Auto | Activado | Activado / Desactivado |
+| Incluir comillas curvas | Empareja automáticamente `“”` y `‘’`, y convierte una `"` o `'` recta escrita en un par curvo. Puede entrar en conflicto con algunas funciones de comillas inteligentes del IME. Aparece cuando los corchetes CJK están en Auto | Activado | Activado / Desactivado |
 | También emparejar `"` | Al escribir la comilla doble de cierre `"` también inserta un par `""`. Útil cuando tu IME alterna entre comillas de apertura y cierre. Aparece cuando las comillas curvas están habilitadas | Desactivado | Activado / Desactivado |
 | Formato de copia | Qué formato usar para el portapapeles de texto sin formato al copiar desde el modo WYSIWYG | Texto sin formato | Texto sin formato, Markdown |
 | Copiar al seleccionar | Copia automáticamente el texto al portapapeles cuando lo seleccionas | Desactivado | Activado / Desactivado |
@@ -171,9 +171,9 @@ Comportamiento de pegado, diseño y configuración de renderizado HTML.
 |---------------|-------------|----------------|---------|
 | Dividir fuente/vista previa por defecto | Abre los archivos Markdown en la vista dividida con la fuente y una vista previa en vivo en paralelo (de lo contrario, en WYSIWYG). Alterna por sesión con `Shift + F6` o **Vista → Vista dividida de Markdown** | Desactivado | Activado / Desactivado |
 | Tamaño de fuente de elementos de bloque | Tamaño de fuente relativo para listas, citas, tablas, alertas y bloques de detalles | 100% | 100%, 95%, 90%, 85% |
-| Alineación de encabezados | Alineación de texto para los encabezados | Izquierda | Izquierda, Centro |
-| Bordes de imágenes y diagramas | Si mostrar un borde alrededor de imágenes, diagramas Mermaid y bloques matemáticos | Ninguno | Ninguno, Siempre, Al pasar el ratón |
-| Alineación de imágenes y tablas | Alineación horizontal para imágenes de bloque y tablas | Centro | Centro, Izquierda |
+| Alineación de encabezados | Alineación de texto para los encabezados. Solo en el editor — no se aplica a la exportación ni a la impresión | Izquierda | Izquierda, Centro |
+| Bordes de imágenes y diagramas | Si mostrar un borde alrededor de imágenes, diagramas Mermaid y bloques matemáticos. Solo en el editor — no se aplica a la exportación ni a la impresión | Ninguno | Ninguno, Siempre, Al pasar el ratón |
+| Alineación de imágenes y tablas | Alineación horizontal para imágenes de bloque y tablas. Solo en el editor — no se aplica a la exportación ni a la impresión | Centro | Centro, Izquierda |
 | Ajustar tablas al ancho | Restringe todas las tablas al ancho del editor en lugar de permitir el desplazamiento horizontal | Desactivado | Activado / Desactivado |
 | Números de línea en bloques de código | Muestra números de línea dentro de los bloques de código en el editor WYSIWYG. Independiente de **Números de línea** del menú Vista, que controla el margen del editor Fuente/Dividido | Desactivado | Activado / Desactivado |
 
@@ -288,7 +288,7 @@ El servidor MCP (Model Context Protocol) permite que los asistentes de IA extern
 |---------------|-------------|----------------|
 | Activar servidor MCP | Inicia o detiene el servidor MCP. Cuando está en ejecución, una insignia de estado muestra el puerto y los clientes conectados | Activado (alternador) |
 | Iniciar al arrancar | Inicia automáticamente el servidor MCP cuando se abre VMark | Activado |
-| Aprobar automáticamente guardados en una ubicación nueva y resultados de genios | Permite que un cliente MCP guarde un documento en una ubicación nueva sin preguntar, y que un genio aplique su resultado directamente en lugar de mostrar una vista previa. Cuando está desactivado, una solicitud MCP de guardar en una ruta nueva se rechaza y una notificación te avisa. Las escrituras de documentos por MCP nunca dependen de esto — cada una se guarda como punto de control y puede restaurarse desde el historial de la barra de estado | Desactivado |
+| Aprobar automáticamente guardados en una ubicación nueva y resultados de genios | Permite que un cliente MCP guarde un documento en una ubicación nueva sin preguntar, y que un genio aplique su resultado directamente en lugar de mostrar una vista previa. Cuando está desactivado, una solicitud MCP de guardar en una ruta nueva se rechaza y una notificación te avisa. Las escrituras de documentos por MCP nunca dependen de esto — cada una se registra en el historial de ediciones de agentes y puede restaurarse desde el historial de escrituras MCP de la barra de estado | Desactivado |
 
 Cuando el servidor está en ejecución, el panel también muestra:
 - **Puerto** — asignado automáticamente; los clientes de IA lo descubren a través del archivo de configuración
@@ -537,7 +537,7 @@ Configuración de desarrollador y del sistema.
 
 La lista hace dos cosas. Al insertar un enlace, una URL del portapapeles con uno de estos protocolos se reconoce como enlace, igual que `https://`. Y al abrir un enlace, VMark solo lo entrega a tu sistema si su protocolo es `http`, `https`, `mailto` o figura en esta lista — así los enlaces `obsidian://open?vault=...` y `vscode://file/...` se abren en sus aplicaciones, mientras que cualquier otro protocolo se rechaza. Algunos protocolos nunca pueden habilitarse de este modo, diga lo que diga la lista: `javascript:`, `data:`, `file:` y similares.
 
-Los cuatro valores predeterminados siempre se incluyen: quitar uno solo dura hasta que VMark se reinicia.
+Un valor predeterminado que quitas sigue quitado. Un protocolo predeterminado añadido en una versión posterior de VMark se añade a tu lista una sola vez, en el primer arranque de esa versión.
 
 ### Rendimiento
 

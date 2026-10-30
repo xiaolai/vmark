@@ -55,9 +55,11 @@ job 表单还会列出该 job 的所有 step。每一行都可以上移、下移
 
 对 `uses:` 类型的 step，action 引用本身是只读的 —— 想换成另一个 action，请直接在源码中改。
 
+在 step 表单中，**Alt + Left** / **Alt + Right** 可移到上一个 / 下一个 step。该快捷键在窗口内任何位置都有效，但在文本框、下拉选择框或代码编辑器中除外——在那里 Alt + 方向键保留其按单词移动的常规含义。
+
 ### Triggers
 
-以映射形式书写的触发器（`on: { push: { branches: [main] } }`）带有可编辑的过滤字段 —— branches、branches-ignore、tags、tags-ignore、paths、paths-ignore 和 types，每一项都是逗号分隔的列表。`schedule` 的 cron 会显示为一句英文描述，运行频率高于每 5 分钟一次时会给出警告（GitHub 会对这类任务限流），且为只读。只写了一个事件名、或写成事件名列表的触发器同样是只读的；请在源码中编辑它们。
+以映射形式书写的触发器（`on: { push: { branches: [main] } }`）带有可编辑的过滤字段 —— branches、branches-ignore、tags、tags-ignore、paths、paths-ignore 和 types，每一项都是逗号分隔的列表。`schedule` 的 cron 会显示为一句界面语言的描述（星期和月份名称仍保留为英文三字母缩写，如 `Mon`、`Jan`），运行频率高于每 5 分钟一次时会给出警告（GitHub 会对这类任务限流），且为只读。只写了一个事件名、或写成事件名列表的触发器同样是只读的；请在源码中编辑它们。
 
 ### Permissions 和 concurrency
 

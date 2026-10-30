@@ -308,7 +308,7 @@ Rendez du SVG brut en ligne via des blocs de code ` ```svg ` :
 
 ### Table des matières en ligne
 
-Tapez `[TOC]` seul sur une ligne, ou choisissez **Insertion → Table des matières**, pour insérer une table des matières dynamique (l'élément de menu n'a pas de raccourci par défaut ; attribuez-en un dans Paramètres → Raccourcis) :
+Choisissez **Insertion → Table des matières** pour insérer immédiatement une table des matières dynamique dans l'un ou l'autre mode (l'élément de menu n'a pas de raccourci par défaut ; attribuez-en un dans Paramètres → Raccourcis). Vous pouvez aussi écrire `[TOC]` seul sur une ligne : en mode Source, cette ligne est la table des matières, tandis qu'en WYSIWYG un `[TOC]` tapé reste du texte brut jusqu'à ce que le document soit analysé de nouveau — par exemple après être passé en mode Source puis revenu, ou après avoir rouvert le fichier. Un `[TOC]` au sein d'un autre texte n'est jamais converti :
 
 - Générée automatiquement à partir des titres du document, avec une imbrication correcte
 - Cliquez sur un titre pour y faire défiler directement le document
@@ -404,7 +404,7 @@ Faites un clic droit n'importe où dans l'éditeur (mode WYSIWYG ou Source) pour
 
 ## Palette de commandes
 
-Appuyez sur `Mod + Shift + P` pour ouvrir la palette de commandes. Avec une requête vide, elle liste toutes les commandes disponibles regroupées par catégorie — fichier, espace de travail, affichage, export, mise en forme, titres, listes, tableaux, lignes, sélection, transformation, CJK, lint, historique, IA et plus encore ; tapez pour filtrer et classer par correspondance. `↑`/`↓` se déplacent, `Entrée` exécute la commande, `Échap` (ou un clic sur l'arrière-plan) ferme. Seules les commandes applicables à l'instant sont affichées — une commande d'éditeur disparaît lorsqu'aucun document n'est ouvert, une commande d'espace de travail lorsqu'aucun espace de travail ne l'est — et la commande s'exécute dans la fenêtre depuis laquelle vous avez ouvert la palette. Les pages de ce guide nomment leurs commandes de palette entre guillemets (« Afficher/masquer la vue divisée Markdown », « Breakdown View », « État des fenêtres »). La palette n'a pas d'élément de menu ; son raccourci est personnalisable dans **Paramètres → Raccourcis**.
+Appuyez sur `Mod + Shift + P` pour ouvrir la palette de commandes. Avec une requête vide, elle liste toutes les commandes disponibles regroupées par catégorie — fichier, espace de travail, affichage, export, mise en forme, titres, listes, tableaux, lignes, sélection, transformation, CJK, lint, historique, IA et plus encore ; tapez pour filtrer et classer par correspondance. `↑`/`↓` se déplacent, `Entrée` exécute la commande, `Échap` (ou un clic sur l'arrière-plan) ferme. Seules les commandes applicables à l'instant sont affichées — une commande d'éditeur disparaît lorsqu'aucun document n'est ouvert, une commande d'espace de travail lorsqu'aucun espace de travail ne l'est — et la commande s'exécute dans la fenêtre depuis laquelle vous avez ouvert la palette. Les pages de ce guide nomment leurs commandes de palette entre guillemets (« Afficher/masquer la vue divisée Markdown », « Détail de cohérence », « État des fenêtres »). La palette n'a pas d'élément de menu ; son raccourci est personnalisable dans **Paramètres → Raccourcis**.
 
 ## Options d'exportation
 
@@ -456,7 +456,7 @@ VMark sauvegarde automatiquement des instantanés de vos documents afin que vous
 - **Supprimez** les instantanés individuels dont vous n'avez plus besoin avec le bouton corbeille
 - Le contenu actuel est sauvegardé comme nouvel instantané avant toute restauration, vous ne perdez donc jamais votre travail
 - L'historique nécessite que le document soit enregistré dans un fichier (les documents sans titre n'ont pas d'historique)
-- Activez ou désactivez le suivi de l'historique dans **Paramètres > Général**
+- Activez ou désactivez le suivi de l'historique dans **Paramètres → Fichiers et images → Enregistrement** (**Conserver l'historique du document**)
 
 ## Récupération de session (Hot Exit)
 
@@ -560,6 +560,8 @@ VMark inclut des utilitaires pour le nettoyage et la mise en forme du texte, dis
 - **Supprimer les espaces de fin** : Enlever les espaces en fin de ligne
 - **Réduire les lignes vides** : Réduire plusieurs lignes vides consécutives à une seule
 
+**Supprimer les espaces de fin** et **Réduire les lignes vides** laissent intacts les blocs de code délimités, y compris une clôture non refermée, qui s'étend jusqu'à la fin du document. Les blocs de code indentés ne sont pas protégés.
+
 ### Mise en forme CJK (Format → CJK)
 
 Outils de mise en forme de texte chinois/japonais/coréen intégrés. [En savoir plus →](/fr/guide/cjk-formatting)
@@ -593,7 +595,7 @@ VMark vérifie automatiquement les mises à jour et peut les télécharger et le
 
 ## Cohérence, base de connaissances et Slidev
 
-- **Cohérence et vue Détail** — un suivi de provenance optionnel enregistre les documents lus par chaque génération IA, signale les documents en aval lorsqu'un document en amont change, et ajoute par-dessus des vérifications sémantiques, des affirmations canoniques et des contextes. Ouvrez-la depuis **Fenêtre → Détail de cohérence**. [En savoir plus →](/fr/guide/coherence)
+- **Cohérence et panneau Détail de cohérence** — un suivi de provenance optionnel enregistre les documents lus par chaque génération IA, signale les documents en aval lorsqu'un document en amont change, et ajoute par-dessus des vérifications sémantiques, des affirmations canoniques et des contextes. Ouvrez-la depuis **Fenêtre → Détail de cohérence**. [En savoir plus →](/fr/guide/coherence)
 - **Base de connaissances** — sert un espace de travail ouvert sous forme de site interconnecté (liens wiki, rétroliens, graphe de relations, recherche plein texte) sur `127.0.0.1`, dans un panneau (`Ctrl + Shift + 4`) ou dans votre navigateur, et prévisualise et exporte des présentations Slidev. Aucune version publiée n'inclut encore l'environnement d'exécution du serveur de contenu dont elle a besoin ; le panneau, son élément de menu, sa commande de palette et son raccourci sont donc masqués tant que **Paramètres → Avancé → Outils de développement** n'est pas activé. [En savoir plus →](/fr/guide/knowledge-base)
 
 ## Personnalisation

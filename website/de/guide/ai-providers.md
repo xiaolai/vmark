@@ -25,7 +25,7 @@ CLI-Anbieter verwenden lokal installierte KI-Tools. VMark führt diese als Unter
 
 ### Wie CLI-Erkennung funktioniert
 
-Klicken Sie in Einstellungen > Integrationen auf **Erkennen**. VMark durchsucht Ihren `$PATH` nach jedem CLI-Befehl und meldet die Verfügbarkeit. Wenn ein CLI gefunden wird, wird sein Optionsfeld wählbar.
+Klicken Sie in Einstellungen > Integrationen auf **Erkennen**. VMark durchsucht Ihren `$PATH` nach jedem CLI-Befehl und meldet die Verfügbarkeit. Wenn ein CLI gefunden wird, wird sein Optionsfeld wählbar. **Erkennen** sucht bei jedem Klick neu; die automatische Erkennung (beim App-Start, beim Öffnen der Einstellungen und im Anbieterwechsler der Genie-Auswahl) verwendet das Ergebnis der letzten Suche. Die Suche verwendet den `$PATH`, den VMark beim Start aus Ihrer Login-Shell gelesen hat; ein CLI, das in ein neu zum `$PATH` hinzugefügtes Verzeichnis installiert wurde, findet **Erkennen** daher erst nach einem Neustart von VMark.
 
 ### Vorteile
 

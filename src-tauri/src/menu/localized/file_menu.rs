@@ -3,9 +3,10 @@
 //! Purpose: Builds the File menu section for `create_localized_menu`.
 //! Child submenus come from `file_submenus` (recent files/workspaces,
 //! document history) and `export_menu` (Export). The common item run is
-//! built once; platform differences are appended as a cfg-gated tail:
-//! non-macOS carries Settings and Exit here because there is no App menu,
-//! and omits Print (macOS-only `pdf_export` backend).
+//! built once; platform differences are appended as a cfg-gated tail.
+//! Print (`export-pdf`) and Document History follow Export on every
+//! platform; non-macOS also carries Settings and Exit here because there
+//! is no App menu.
 
 use rust_i18n::t;
 use tauri::menu::{IsMenuItem, MenuItem, PredefinedMenuItem, Submenu};

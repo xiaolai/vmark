@@ -21,9 +21,12 @@
  *     invariant updateConfig already clones for.
  *
  * Known limitations:
- *   - Config is stored in localStorage (via windowScopedStorage), not on
- *     disk — workspace settings don't transfer between machines.
- *   - No workspace indexing or search — only folder exclusion.
+ *   - The config's source of truth is on disk, in app data
+ *     (`<appData>/workspaces/<hash>.json`, written by `src-tauri/src/workspace/`
+ *     through `services/workspaces/workspaceConfig.ts`), not in the folder
+ *     itself, so workspace settings don't travel with the folder or between
+ *     machines. This store also keeps a per-window copy in localStorage
+ *     (via windowScopedStorage) for restore.
  *
  * @coordinates-with workspaceConfigDefaults.ts — config shape, defaults, normalizer
  * @coordinates-with tabStore.ts — lastOpenTabs drives session restore

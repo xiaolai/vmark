@@ -56,7 +56,6 @@ export interface ExportSurfaceRef {
  * />
  * ```
  */
-/* v8 ignore start -- @preserve reason: ExportSurface component and its anonymous callbacks (useImperativeHandle factory, checkStability, waitForStability, check, rAF callback, useEffect cleanup) are only exercised in Tauri E2E; jsdom cannot drive Tiptap rendering pipeline */
 export const ExportSurface = forwardRef<ExportSurfaceRef, ExportSurfaceProps>(
   function ExportSurface(
     { markdown, onReady, onError, lightTheme = true, className },
@@ -83,10 +82,10 @@ export const ExportSurface = forwardRef<ExportSurfaceRef, ExportSurfaceProps>(
     // Expose methods via ref
     useImperativeHandle(ref, () => ({
       getHTML: () => {
-        /* v8 ignore next -- @preserve reason: containerRef.current is null only before mount, not reachable in jsdom after render */
+        /* v8 ignore next -- @preserve reason: the handle exists only while mounted, and the ref is set on mount */
         if (!containerRef.current) return "";
         const editorEl = containerRef.current.querySelector(".ProseMirror");
-        /* v8 ignore next -- @preserve reason: optional chaining fallback; ProseMirror element always present after Tiptap init */
+        /* v8 ignore next -- @preserve reason: EditorContent always mounts a .ProseMirror element; the fallback is defensive */
         return editorEl?.innerHTML ?? "";
       },
       getContainer: () => containerRef.current,
@@ -94,21 +93,19 @@ export const ExportSurface = forwardRef<ExportSurfaceRef, ExportSurfaceProps>(
 
     // Check if all async content has rendered
     const checkStability = useCallback(async (): Promise<boolean> => {
-      /* v8 ignore next -- @preserve reason: containerRef.current is null only if component unmounts mid-async; timing-dependent guard not testable in jsdom */
+      /* v8 ignore next -- @preserve reason: an unmount clears the pending poll, so a check never runs without the container */
       if (!containerRef.current) return false;
 
       // Check for pending math renders (placeholder text)
       const mathPlaceholders = containerRef.current.querySelectorAll(
         ".code-block-preview-placeholder"
       );
-      /* v8 ignore next -- @preserve reason: placeholder DOM nodes only appear during async math render; not reproducible synchronously in jsdom */
       if (mathPlaceholders.length > 0) return false;
 
       // Check for pending mermaid renders
       const mermaidLoading = containerRef.current.querySelectorAll(
         ".mermaid-loading"
       );
-      /* v8 ignore next -- @preserve reason: mermaid-loading class only set during live mermaid render cycle, not available in jsdom */
       if (mermaidLoading.length > 0) return false;
 
       // Defer image readiness to the shared `isImageSettled` predicate so
@@ -118,7 +115,6 @@ export const ExportSurface = forwardRef<ExportSurfaceRef, ExportSurfaceProps>(
       // timeout. See issue #837.
       const images = containerRef.current.querySelectorAll("img");
       for (const img of images) {
-        /* v8 ignore next -- @preserve reason: NodeView lifecycle states require real Tiptap rendering, not exercisable in jsdom; predicate itself is unit-tested in waitForAssets.test.ts */
         if (!isImageSettled(img)) return false;
       }
 
@@ -134,7 +130,7 @@ export const ExportSurface = forwardRef<ExportSurfaceRef, ExportSurfaceProps>(
 
     // Poll for stability then call onReady
     const waitForStability = useCallback(async () => {
-      /* v8 ignore next -- @preserve reason: guard prevents double-call; ref is false on first invocation in all tests */
+      /* v8 ignore next -- @preserve reason: reached only when the markdown prop changes after onReady; every caller mounts one surface per render */
       if (onReadyCalledRef.current) return;
 
       const maxAttempts = 50; // 5 seconds max
@@ -144,11 +140,10 @@ export const ExportSurface = forwardRef<ExportSurfaceRef, ExportSurfaceProps>(
         attempts++;
         const isStable = await checkStability();
 
-        /* v8 ignore next -- @preserve reason: isStable true/false paths both require real DOM and timer execution; not reliably exercisable in jsdom */
         if (isStable) {
           // Extra frame for layout
           requestAnimationFrame(() => {
-            /* v8 ignore next -- @preserve reason: double-call guard inside rAF callback; not reachable in synchronous test execution */
+            /* v8 ignore next -- @preserve reason: a second poll chain exists only after a markdown change mid-poll, which no caller makes */
             if (!onReadyCalledRef.current) {
               onReadyCalledRef.current = true;
               onReady?.();
@@ -159,7 +154,6 @@ export const ExportSurface = forwardRef<ExportSurfaceRef, ExportSurfaceProps>(
         } else {
           // Timeout - call onReady anyway with warning
           exportWarn("Stability timeout reached, proceeding anyway");
-          /* v8 ignore next -- @preserve reason: timeout path requires 50 polling cycles (5s); not exercisable without fake timers */
           if (!onReadyCalledRef.current) {
             onReadyCalledRef.current = true;
             onReady?.();
@@ -173,7 +167,6 @@ export const ExportSurface = forwardRef<ExportSurfaceRef, ExportSurfaceProps>(
 
     // Load content when editor is ready
     useEffect(() => {
-      /* v8 ignore next -- @preserve reason: editor is null initially and markdown may be empty; both guard branches not reachable together in jsdom */
       if (!editor || !markdown) return;
 
       try {
@@ -184,7 +177,7 @@ export const ExportSurface = forwardRef<ExportSurfaceRef, ExportSurfaceProps>(
         void waitForStability().catch((e) => exportError("Export stability check failed:", e));
       } catch (error) {
         exportError("Failed to parse markdown for export surface:", error);
-        /* v8 ignore next -- @preserve catch block not triggered in tests; markdown parse errors require malformed input */
+        /* v8 ignore next -- @preserve reason: no known markdown makes the pipeline throw, so the failure cannot be produced without mocking it */
         onError?.(error instanceof Error ? error : new Error(String(error)));
       }
     }, [editor, markdown, waitForStability, onError]);
@@ -192,16 +185,13 @@ export const ExportSurface = forwardRef<ExportSurfaceRef, ExportSurfaceProps>(
     // Cleanup
     useEffect(() => {
       return () => {
-        /* v8 ignore next -- @preserve reason: cleanup fires only on unmount with a pending timer; timing-dependent, not reliably triggerable in jsdom */
         if (stabilityCheckRef.current) {
           clearTimeout(stabilityCheckRef.current);
         }
       };
     }, []);
 
-    /* v8 ignore next -- @preserve reason: dark-theme branch (lightTheme=false) not exercised in export tests; visual-only CSS class */
     const themeClass = lightTheme ? "" : "dark-theme";
-    /* v8 ignore next -- @preserve reason: className ?? "" fallback only when className is undefined; always provided in tests */
     const surfaceClass = `export-surface ${themeClass} ${className ?? ""}`;
 
     return (
@@ -214,4 +204,3 @@ export const ExportSurface = forwardRef<ExportSurfaceRef, ExportSurfaceProps>(
     );
   }
 );
-/* v8 ignore stop */

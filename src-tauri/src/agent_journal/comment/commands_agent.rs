@@ -1,12 +1,13 @@
-//! Tauri commands of an agent's comment threads: create, reply,
-//! `markAddressed` and the read-only list, nothing else. Every command reaches the agent handle
+//! Tauri commands of an agent's comment threads: reply, `markAddressed` and
+//! the read-only list, nothing else. Every command reaches the agent handle
 //! (`Controller::comments_agent`), so each record they write names the
-//! `agent` caller, and a create must name the MCP actor it acts for.
+//! `agent` caller.
 //!
 //! Key decisions:
-//!   - The family is exactly these four commands: there is no agent
-//!     resolve, reopen or delete to call, so the refusal is structural, not
-//!     a state check the caller could talk its way past.
+//!   - The family is exactly these three commands: there is no agent
+//!     create, resolve, reopen or delete to call, so the refusal is
+//!     structural, not a state check the caller could talk its way past.
+//!     (The MCP `comments` tool offers no create, so none is registered.)
 //!   - The list is the user's list, from the same code (`Controller::
 //!     comment_list`) and in the same reply shape; reading moves nothing.
 //!   - This module never names the user handle (pinned by the split test).
@@ -18,37 +19,15 @@ use crate::agent_journal::admission::bound::{bind_call, Bound, CallBind, Request
 use crate::agent_journal::commands::run;
 use crate::agent_journal::comment::commands_user::state_call;
 use crate::agent_journal::comment::list::CommentList;
-use crate::agent_journal::comment::replies::{
-    CommentCreatedReply, CommentRepliedReply, CommentStateReply,
-};
+use crate::agent_journal::comment::replies::{CommentRepliedReply, CommentStateReply};
 use crate::agent_journal::service::AgentJournalState;
 use crate::command_error::CommandError;
-
-/// Create a thread for an MCP actor from a frozen payload (the user
-/// create's fields plus `actor`); replies `{bind: {requestId, digest},
-/// reply}`.
-///
-/// # Errors
-/// A journal refusal (`detail.journalCode`), or the off refusal.
-#[tauri::command]
-pub async fn comment_agent_create<R: tauri::Runtime>(
-    webview: tauri::Webview<R>,
-    state: tauri::State<'_, AgentJournalState>,
-    payload: String,
-) -> Result<Bound<RequestBind, CommentCreatedReply>, CommandError> {
-    let pages = state.pages().clone();
-    let label = webview.label().to_owned();
-    run(&state, move |c| {
-        c.comments_agent().create(&pages, &label, &payload)
-    })
-    .await
-}
 
 /// Reply to a thread that is not resolved, from a frozen payload; replies
 /// `{bind: {requestId, digest}, reply}`.
 ///
 /// # Errors
-/// As `comment_agent_create`.
+/// A journal refusal (`detail.journalCode`), or the off refusal.
 #[tauri::command]
 pub async fn comment_agent_reply<R: tauri::Runtime>(
     webview: tauri::Webview<R>,

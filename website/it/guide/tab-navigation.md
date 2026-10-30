@@ -282,7 +282,7 @@ Il comportamento dell'escape con Tab può essere personalizzato in **Impostazion
 |-------------|---------|
 | **Auto-accoppia Parentesi** | Abilita/disabilita l'accoppiamento delle parentesi e l'escape con Tab |
 | **Parentesi CJK** | Includi le coppie di parentesi CJK |
-| **Virgolette Curve** | Includi le coppie di virgolette curve (`""` `''`) |
+| **Virgolette Curve** | Includi le coppie di virgolette curve (`“”` `‘’`); una virgoletta dritta digitata diventa una coppia curva |
 
 ::: tip
 Se l'escape con Tab è in conflitto con il tuo flusso di lavoro, puoi disabilitare completamente l'auto-accoppiamento delle parentesi. Tab inserirà quindi spazi (o indenterà negli elenchi/tabelle) normalmente.

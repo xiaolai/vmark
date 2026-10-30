@@ -145,7 +145,7 @@ richiede un instradamento delle richieste che ancora non esiste.
 **Flusso di approvazione.** La prima chiamata restituisce `{needsApproval: true}` e
 mostra una finestra di consenso che nomina il percorso *canonico* della cartella
 (symlink risolti). L'assistente dovrebbe chiedere all'utente, poi **riprovare la stessa
-chiamata**; una volta che l'utente approva, il nuovo tentativo apre la cartella. Una
+chiamata**; una volta che l'utente approva, il nuovo tentativo apre la cartella. L'approvazione appartiene alla connessione che l'ha richiesta: solo un nuovo tentativo dalla stessa connessione MCP può usarla. Un altro assistente connesso riceve una propria richiesta, e un client che si è riconnesso (una nuova connessione) deve essere approvato di nuovo. L'approvazione scade anche se non viene usata entro cinque minuti. Una
 richiesta negata continua a fallire finché non viene ri-approvata. Non c'è un'opzione
 «ricorda» — ogni apertura viene approvata individualmente.
 
@@ -268,7 +268,7 @@ Se viene fornito `expected_revision` e il documento è cambiato dopo quella lett
 { "error": "STALE", "message": "Document has changed since the last read", "current_revision": "rev-currentNow" }
 ```
 
-Mentre l'utente compone testo con un metodo di input (IME) nell'editor WYSIWYG che mostra la scheda, la scrittura viene rifiutata con `BUSY` e non cambia nulla: il testo in composizione appartiene al metodo di input finché non viene confermato. Riprova a breve. In modalità Sorgente la scrittura viene accettata, e l'editor la mostra appena la composizione termina.
+Mentre l'utente compone testo con un metodo di input (IME) nell'editor che mostra la scheda, in modalità WYSIWYG o Sorgente, la scrittura viene rifiutata con `BUSY` e non cambia nulla: il testo in composizione appartiene al metodo di input finché non viene confermato. Un editor Sorgente viene inoltre considerato in composizione per un breve periodo di tolleranza subito dopo la fine della composizione. Riprova a breve.
 
 Ogni scrittura viene registrata nel diario delle modifiche degli agenti di VMark prima che cambi qualcosa. La risposta di successo contiene `applied: true` e `durable`: `durable: false` significa che il contenuto è stato scritto ma la sua voce nel diario non è ancora stata salvata — VMark riprova in background e, finché non ci riesce, la scrittura successiva in quel documento viene rifiutata con `JOURNAL_DEGRADED`. Se il diario rifiuta la voce del tutto, la scrittura resta applicata, viene registrata nei log come non annotata e la scrittura successiva procede. Una scrittura viene rifiutata, senza cambiare nulla, con `JOURNAL_BUSY` mentre è in corso la registrazione di un'altra scrittura nello stesso documento (due finestre con lo stesso file condividono un documento), con `STALE_PARENT` quando un'altra finestra ha scritto il documento dopo l'ultima scrittura di questa scheda (rileggi e riprova), con `JOURNAL_UNAVAILABLE` quando il diario non è attivo o non risponde in tempo, e con `INVALID_TEXT` quando `content` contiene un surrogato UTF-16 isolato. Se l'utente modifica il documento, chiude la scheda, inizia a comporre con un metodo di input o sposta la selezione (o cambia scheda, se non è stato indicato `tabId`) durante la registrazione, la scrittura viene rifiutata con `ABORTED` e un `reason` (`edited`, `closed`, `composing`, `selection`) e non cambia nulla; rileggi e riprova. Un errore `INTERNAL` che riporta `applied: true` è diverso: l'editor ha avuto un errore dopo che la scrittura aveva già modificato il documento, e il testo che conteneva in quel momento è stato registrato (`durable` come sopra, `current_revision` è la revisione del documento); rileggi prima di scrivere di nuovo. Un errore `INTERNAL` senza `applied` dopo una scrittura fallita significa che il documento potrebbe essere cambiato in parte; rileggilo comunque.
 
@@ -285,7 +285,7 @@ Applica una riscrittura deterministica. Attualmente supporta trasformazioni spec
 
 `cjk-format` applica le impostazioni di formattazione CJK dell'utente end-to-end. `cjk-spacing` inserisce singoli spazi tra caratteri CJK e Latini/cifre adiacenti. `cjk-punctuation` converte la punteggiatura ASCII che si trova accanto ai caratteri CJK nella sua forma a larghezza intera.
 
-Restituisce `{revision, applied, durable}`. Come `write`, viene rifiutato con `BUSY`, senza cambiare nulla, mentre l'utente compone con un metodo di input nell'editor WYSIWYG che mostra la scheda. Come `write`, la chiamata viene registrata nel diario delle modifiche degli agenti di VMark prima che cambi qualcosa: `applied`, `durable` e i rifiuti del diario (`JOURNAL_BUSY`, `STALE_PARENT`, `JOURNAL_DEGRADED`, `JOURNAL_UNAVAILABLE`, `INVALID_TEXT`, `ABORTED`) hanno lo stesso significato; una chiamata che non cambia nulla non viene registrata.
+Restituisce `{revision, applied, durable}`. Come `write`, viene rifiutato con `BUSY`, senza cambiare nulla, mentre l'utente compone con un metodo di input nell'editor che mostra la scheda, in modalità WYSIWYG o Sorgente. Come `write`, la chiamata viene registrata nel diario delle modifiche degli agenti di VMark prima che cambi qualcosa: `applied`, `durable` e i rifiuti del diario (`JOURNAL_BUSY`, `STALE_PARENT`, `JOURNAL_DEGRADED`, `JOURNAL_UNAVAILABLE`, `INVALID_TEXT`, `ABORTED`) hanno lo stesso significato; una chiamata che non cambia nulla non viene registrata.
 
 ---
 
@@ -818,7 +818,7 @@ Il dettaglio: ogni arco di dipendenza vivo la cui sorgente si è mossa. Esegue p
 | `downstream` / `downstream_path` / `downstream_rev` | L'oggetto derivato, il suo percorso e la sua revisione corrente. |
 | `state` | `"version-stale"`, `"stale-valid"`, `"stale-contradicted"`, `"stale-unknown"`, `"waived"`, `"diverged"`, `"diverged-multi-head"` o `"unpinnable"`. |
 
-Risolvere un arco (accept-newer / waive) è normalmente un'azione umana eseguita nella vista di dettaglio di VMark. Un'IA può farlo solo tramite [`coherence_resolve`](#coherence-resolve), e solo quando il proprietario del workspace gliel'ha esplicitamente delegato.
+Risolvere un arco (accept-newer / waive) è normalmente un'azione umana eseguita nel pannello Dettaglio coerenza di VMark. Un'IA può farlo solo tramite [`coherence_resolve`](#coherence-resolve), e solo quando il proprietario del workspace gliel'ha esplicitamente delegato.
 
 ---
 
@@ -836,9 +836,10 @@ Argomenti: `{workspace_root, txf, input, resolution: "accept-newer" | "waive", r
 
 Risolvi un arco obsoleto attivo come agente esplicitamente delegato. L'autorizzazione è **fail-closed**:
 il proprietario del workspace deve aver concesso alla **tua identità di bridge autenticata** una delega
-attiva e non scaduta che copra il tipo di risoluzione (concessa nell'app, dalla vista di dettaglio), e
+attiva e non scaduta che copra il tipo di risoluzione (concessa nell'app, dal pannello Dettaglio coerenza), e
 l'arco deve essere ancora attivo. Ogni risoluzione delegata viene registrata nel log di audit a fronte
-della concessione, e la voce non può essere annullata.
+della concessione, e la voce non può essere annullata. `coherence_resolve` non può impostare una scadenza, quindi
+l'esenzione di un'IA non decade mai da sola.
 
 Un rifiuto significa che la concessione è mancante o scaduta — chiedi all'utente di concederla invece
 di riprovare. Separare questa da `coherence` non ha cambiato alcuna proprietà di sicurezza:

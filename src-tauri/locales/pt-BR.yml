@@ -9,6 +9,10 @@ menu:
   app.settings: "Configurações..."
   app.saveAllQuit: "Salvar tudo e sair"
   app.quit: "Sair do VMark"
+  app.services: "Serviços"
+  app.hide: "Ocultar VMark"
+  app.hideOthers: "Ocultar outros"
+  app.showAll: "Mostrar tudo"
 
   # === File menu ===
   file: "Arquivo"
@@ -198,9 +202,12 @@ menu:
   view.checkMarkdown: "Verificar Markdown"
   view.lintNext: "Próximo problema"
   view.lintPrev: "Problema anterior"
+  view.toggleFullScreen: "Alternar tela cheia"
   # === Window menu ===
   window: "Janela"
   window.bringAllToFront: "Trazer tudo para frente"
+  window.minimize: "Minimizar"
+  window.zoom: "Ampliar/reduzir"
   window.breakdown: "Detalhamento de coerência"
 
   # === Help menu ===
@@ -273,6 +280,7 @@ errors:
   pdf.invalidExtension: "O caminho de saída precisa ter a extensão .pdf"
   pdf.dirNotFound: "O diretório de saída não existe"
   pdf.parentNotDirectory: "O diretório pai do caminho de saída existe, mas não é um diretório"
+  exportTarget.notChosen: "Só é possível exportar para o local escolhido na caixa de salvar. Exporte novamente e escolha onde salvar."
   pdf.publishFailed: "Não foi possível mover o PDF gerado para o caminho de saída: %{detail}"
   pdf.outputUnreadable: "Não foi possível abrir o PDF gerado para verificá-lo: %{detail}"
   pdf.pathNotAbsolute: "O caminho de saída deve ser absoluto"

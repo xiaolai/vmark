@@ -90,9 +90,12 @@ const INTERACTIVE_SELECTOR_PREFIXES = [
   ".ProseMirror-focused",
   ".ProseMirror-hideselection",
   ".pm-selection-",
-  // Note: .media-border-*, .media-align-*, .heading-align- classes are NOT
-  // stripped — they control content layout and carry over to the export
-  // wrapper. (.table-fit-to-width is ephemeral, markdown-less editor state that
+  // Note: .media-border-*, .media-align-*, .heading-align- rules are NOT
+  // stripped, but they are inert in exports: those classes live on the
+  // editor container (lib/formats/adapters/markdownSurface.tsx), and the
+  // export wrappers (htmlTemplates.ts, pdfHtmlTemplate.ts, printDocument.ts)
+  // set only export-surface / export-surface-editor, so HTML, PDF and print
+  // ignore those three settings. (.table-fit-to-width is ephemeral, markdown-less editor state that
   // never survives the fresh export re-render; tables are instead fitted to the
   // page unconditionally by the export table CSS — see exportOverrides.ts.)
   // Interactive plugin elements

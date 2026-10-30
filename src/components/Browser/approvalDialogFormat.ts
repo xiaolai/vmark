@@ -3,9 +3,11 @@
  * renders with (split for the file-size gate).
  *
  * @coordinates-with components/Browser/BrowserApprovalDialog — the consumer
+ * @coordinates-with utils/revealInvisibleChars — the display escape every field goes through
  * @module components/Browser/approvalDialogFormat
  */
 import { canonicalizeOrigin } from "@/lib/browser/origin/originGuard";
+import { revealInvisibleChars } from "@/utils/revealInvisibleChars";
 
 /** An Allow that lands sooner than this after the prompt (re)rendered is ignored:
  *  a human cannot read and decide a security prompt in under half a second, so an
@@ -18,14 +20,8 @@ export const ACTIVATION_DELAY_MS = 500;
  *  and a clipped name is marked so the user knows it is clipped. */
 const MAX_DISPLAY_NAME = 200;
 
-/** Bidi controls a page can hide in an accessible name: embeddings, overrides, isolates,
- *  marks. Even inside `<bdi>` an override can visually reorder the security descriptor
- *  (the name the user believes they are authorizing), so for DISPLAY each becomes a
- *  visible `\u{…}` escape. The descriptor the gate binds is the original name. */
-const BIDI_CONTROL = /[\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]/gu;
-
 export function clipName(name: string): string {
-  const visible = name.replace(BIDI_CONTROL, (ch) => `\\u{${ch.codePointAt(0)?.toString(16).toUpperCase()}}`);
+  const visible = revealInvisibleChars(name);
   const points = Array.from(visible); // never split a surrogate pair at the cap
   return points.length > MAX_DISPLAY_NAME ? `${points.slice(0, MAX_DISPLAY_NAME).join("")}…` : visible;
 }

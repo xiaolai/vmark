@@ -167,6 +167,8 @@ On **Windows**, the installer does not take over a file type something else alre
 
 A registered file opens in VMark only if its format is enabled (see [Enabling formats](#enabling-formats)); otherwise it opens as plain text.
 
+On Windows and Linux, a folder passed on the command line (`vmark C:\notes` or `vmark ~/notes`) opens as a workspace in its own window, as dropping a folder on the Dock icon does on macOS. This also works when VMark is already running.
+
 ### Syntax highlighting for plain files
 
 Even when a file opens as plain text, VMark colorizes it when it recognizes the type — `.env`/`.ini`/`.conf` (properties), `.sh`/`.bash` (shell), `Dockerfile`, `.toml`, `.sql`, `.diff`, and the usual languages. This is purely cosmetic; it never changes which editor the file opened in, and it works regardless of whether the code-viewer category is enabled.
@@ -198,7 +200,7 @@ Per ADR-4 in the multi-format plan, HTML preview rests on three independent laye
 
 The validator surfaces script tags, `javascript:` URLs, and inline event handlers as warnings so you can see what's being blocked. Once you [trust the file](#trusted-html-preview-opt-in) they are shown as information instead, so nothing contradicts the trusted banner. Two messages say what the preview never allows, trusted or not: an external script (`<script src="…">`) is never loaded, since no script comes from a file or URL, and a `javascript:` link aimed at another window or the top page (`target="_top"`, `_blank`, or a `<base target>`) never navigates, since the preview cannot leave itself. Detection reads the page's tags approximately; it labels findings and never decides what runs — the sandbox does.
 
-The formal security sign-off for this preview is still pending, and the preview says so in a notice above the rendered page: **HTML preview is sandboxed but pending OWASP sign-off**. The three layers above are in place; the outstanding step is confirming them against the OWASP XSS payloads inside the running app's webview.
+The formal security sign-off for this preview is still pending, and the preview says so in a notice above the rendered page: **HTML preview is sandboxed. Its security review is still in progress.** The three layers above are in place; the outstanding step is confirming them against the OWASP XSS payloads inside the running app's webview.
 
 ### Trusted HTML preview (opt-in)
 

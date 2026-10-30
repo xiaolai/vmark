@@ -9,8 +9,8 @@ import type { EditorState } from "@tiptap/pm/state";
 import { SelectionRange } from "@tiptap/pm/state";
 import { MultiSelection } from "@/plugins/shared/MultiSelection";
 
-/** Mark types that Tab can escape from */
-const ESCAPABLE_MARKS = new Set(["bold", "italic", "code", "strike"]);
+/** Mark types that Tab and Shift+Tab can escape from (shiftTabEscape.ts imports it). */
+export const ESCAPABLE_MARKS: ReadonlySet<string> = new Set(["bold", "italic", "code", "strike"]);
 
 export interface TabEscapeResult {
   type: "mark" | "link";

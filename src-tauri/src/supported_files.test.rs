@@ -2,7 +2,8 @@
 //! `lib.rs`; included via `#[path]`).
 
 use super::{
-    filter_supported_args, has_supported_extension, is_openable_supported, SUPPORTED_EXTENSIONS,
+    filter_supported_args, has_supported_extension, is_openable_supported, launch_dirs,
+    SUPPORTED_EXTENSIONS,
 };
 use std::path::{Path, PathBuf};
 
@@ -181,6 +182,30 @@ fn cli_filter_drops_unregistered_and_missing_and_directory() {
 fn cli_filter_empty_input_returns_empty() {
     let kept = filter_supported_args(Vec::<String>::new());
     assert!(kept.is_empty());
+}
+
+// -- launch_dirs ----------------------------------------------------------
+// A folder on a Windows/Linux command line is a workspace to open, as a folder
+// dropped on the Dock icon is on macOS; the file filter above drops it.
+
+#[test]
+fn launch_dirs_keeps_existing_folders_only() {
+    let dir = tempfile::tempdir().expect("create tempdir");
+    let folder = dir.path().join("project");
+    std::fs::create_dir(&folder).expect("mkdir");
+    let md_named = dir.path().join("notes.md");
+    std::fs::create_dir(&md_named).expect("mkdir");
+    let file = dir.path().join("keep.md");
+    std::fs::write(&file, b"# hi").expect("write");
+    let missing = dir.path().join("vanished");
+
+    let inputs: Vec<String> = [&folder, &md_named, &file, &missing]
+        .iter()
+        .map(|p| p.to_string_lossy().into_owned())
+        .collect();
+
+    assert_eq!(launch_dirs(inputs.clone()), inputs[..2].to_vec());
+    assert!(launch_dirs(Vec::<String>::new()).is_empty());
 }
 
 // -- parity across entry points ------------------------------------------

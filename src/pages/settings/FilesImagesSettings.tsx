@@ -21,7 +21,7 @@ import { useSettingsStore, type ImageAutoResizeOption } from "@/stores/settingsS
 import { WorkspaceSettingsGroup } from "./WorkspaceSettingsGroup";
 import { FileBrowserSettingsGroup } from "./FileBrowserSettingsGroup";
 import { DocumentToolsSettings } from "./DocumentToolsSettings";
-import { isWindowsPlatform } from "@/utils/platform";
+import { isMacPlatform, isWindowsPlatform } from "@/utils/platform";
 
 export function FilesImagesSettings() {
   const { t } = useTranslation("settings");
@@ -33,7 +33,7 @@ export function FilesImagesSettings() {
   const cleanupOrphansOnClose = useSettingsStore((state) => state.image.cleanupOrphansOnClose);
   const updateImageSetting = useSettingsStore((state) => state.updateImageSetting);
 
-  const isMac = navigator.platform.includes("Mac");
+  const isMac = isMacPlatform();
   // #1419 — the tray exists only on Windows; Rust never acts on this elsewhere,
   // so offering the switch there would be a control that does nothing.
   const isWindows = isWindowsPlatform();

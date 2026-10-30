@@ -162,6 +162,7 @@ espaces réservés cassés.)
 ## Sécurité
 
 - Un chemin de média ne peut pas porter de schéma d'URI (`javascript:`, `file:` ou un schéma personnalisé) ; de telles sources sont refusées au lieu d'être chargées
-- Un chemin qui désigne un répertoire plutôt qu'un fichier est refusé
+- Un chemin relatif qui désigne un répertoire (`.`, `..`, `assets/`) n'est pas chargé. Les blocs vidéo/audio le refusent d'emblée. Les images en ligne le renvoient inchangé, et la webview le résout par rapport à l'origine de l'application, si bien qu'il n'atteint jamais le disque. Un chemin relatif au dossier personnel (`~/…`) est traité de la même façon
+- Les chemins absolus ne sont pas restreints par les règles de chemin. Tout chemin absolu situé dans le périmètre des ressources est affiché : votre dossier personnel, `/Volumes`, `/mnt` et `/media` (plus les lecteurs `C:`–`F:` sous Windows), ainsi que les dossiers accordés à l'exécution. Un document peut donc afficher n'importe quelle image lisible de ces emplacements en écrivant son chemin complet. Coller une image avec **Copier dans le dossier des ressources** désactivé écrit un tel chemin absolu. C'est aussi pourquoi un chemin relatif peut utiliser `..` : il n'atteint rien qu'un chemin absolu ne pourrait déjà atteindre
 - Les embeds vidéo ne se chargent que depuis trois hôtes : `www.youtube-nocookie.com` (le lecteur à confidentialité renforcée de YouTube), `player.vimeo.com` et `player.bilibili.com`. Un lien YouTube, ou un iframe écrit avec `youtube.com`, est intégré via l'hôte à confidentialité renforcée. La politique de sécurité du contenu de VMark autorise le chargement de cadres depuis ces hôtes et depuis aucun autre site
 - Les autres sources iframe sont supprimées par le désinfectant

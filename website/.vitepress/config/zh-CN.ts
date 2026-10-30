@@ -38,7 +38,7 @@ export const zhCN = {
           "workspace-rail": "工作区导轨",
           "cjk-formatting": "中日韩排版",
           "ai-genies": "AI 精灵",
-          "coherence": "一致性与明细视图",
+          "coherence": "一致性明细",
           "workflows": "Genie 工作流",
           "workflow-genies": "工作流精灵",
           "ai-providers": "AI 服务商",

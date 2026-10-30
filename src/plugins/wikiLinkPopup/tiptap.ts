@@ -1,9 +1,10 @@
 /**
  * Wiki Link Popup Extension
  *
- * Purpose: Shows an editing popup when the cursor enters a [[wiki link]] node in
- * WYSIWYG mode. Supports hover-to-preview (300ms delay) and click-to-edit.
- * Cmd+Click opens the target file/heading instead.
+ * Purpose: Shows an editing popup when the mouse hovers a [[wiki link]] node in
+ * WYSIWYG mode (300ms delay; it closes when the mouse leaves both the link and
+ * the popup). Hover is the only trigger: no click or Mod+Click handler for wiki
+ * links exists, so the popup's Open button is the only way to open the target.
  *
  * Key decisions:
  *   - Hover detection uses mouseover + timeout to avoid flicker on fast mouse movement

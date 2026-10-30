@@ -12,9 +12,17 @@ import {
   syncRecentWorkspacesMenu,
 } from "./workspaceStoreHelpers";
 
+const { isMac, warn } = vi.hoisted(() => ({ isMac: vi.fn(() => true), warn: vi.fn() }));
+vi.mock("@/utils/platform", () => ({ isMacPlatform: isMac }));
+vi.mock("@/utils/debug", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/utils/debug")>()),
+  recentWarn: warn,
+}));
+
 const invokeMock = vi.mocked(invoke);
 
 beforeEach(() => {
+  warn.mockClear();
   invokeMock.mockReset();
   invokeMock.mockResolvedValue(undefined);
 });
@@ -116,15 +124,27 @@ describe("syncRecentFilesMenu / syncRecentWorkspacesMenu", () => {
   });
 });
 
+// The command is registered only on macOS, so elsewhere it is never invoked;
+// on macOS a refusal is a real fault and is logged, not swallowed.
 describe("registerDockRecent", () => {
   it("registers the path with the macOS dock", () => {
+    isMac.mockReturnValue(true);
     registerDockRecent("/a.md");
     expect(invokeMock).toHaveBeenCalledWith("register_dock_recent", { path: "/a.md" });
   });
 
-  it("stays silent when the command is unavailable (non-macOS)", async () => {
-    invokeMock.mockRejectedValue(new Error("command not found"));
-    expect(() => registerDockRecent("/a.md")).not.toThrow();
-    await vi.waitFor(() => expect(invokeMock).toHaveBeenCalled());
+  it("does not invoke the command off macOS, where it does not exist", () => {
+    isMac.mockReturnValue(false);
+    registerDockRecent("/a.md");
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it("logs a refusal on macOS instead of swallowing it", async () => {
+    isMac.mockReturnValue(true);
+    const refusal = { code: "not-found", message: "no such file" };
+    invokeMock.mockRejectedValue(refusal);
+    expect(() => registerDockRecent("/gone.md")).not.toThrow();
+    await vi.waitFor(() => expect(warn).toHaveBeenCalled());
+    expect(warn.mock.calls[0]).toContain(refusal);
   });
 });

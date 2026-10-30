@@ -282,7 +282,7 @@ Le comportement d'échappement Tab peut être personnalisé dans **Paramètres �
 |-----------|-------|
 | **Appariement automatique de crochets** | Activer/désactiver l'appariement de crochets et l'échappement Tab |
 | **Crochets CJK** | Inclure les paires de crochets CJK |
-| **Guillemets courbes** | Inclure les paires de guillemets courbes (`""` `''`) |
+| **Guillemets courbes** | Inclure les paires de guillemets courbes (`“”` `‘’`) ; un guillemet droit tapé devient une paire courbe |
 
 ::: tip
 Si l'échappement Tab entre en conflit avec votre flux de travail, vous pouvez désactiver entièrement l'appariement automatique des crochets. Tab insérera alors des espaces (ou indentera dans les listes/tableaux) normalement.

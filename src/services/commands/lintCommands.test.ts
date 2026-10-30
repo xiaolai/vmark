@@ -7,14 +7,16 @@
 // assert the selection actually moves, including the wrap at each end.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { scrollToSelectedDiagnostic, runActiveLint, getActiveTabId } = vi.hoisted(() => ({
-  scrollToSelectedDiagnostic: vi.fn(),
-  runActiveLint: vi.fn(),
-  getActiveTabId: vi.fn(),
-}));
+const { scrollToSelectedDiagnostic, runActiveLint, activeTabHasLinter, getActiveTabId } =
+  vi.hoisted(() => ({
+    scrollToSelectedDiagnostic: vi.fn(),
+    runActiveLint: vi.fn(),
+    activeTabHasLinter: vi.fn(),
+    getActiveTabId: vi.fn(),
+  }));
 
 vi.mock("@/services/lint/lintNavigation", () => ({ scrollToSelectedDiagnostic }));
-vi.mock("@/services/lint/runActiveLint", () => ({ runActiveLint }));
+vi.mock("@/services/lint/runActiveLint", () => ({ runActiveLint, activeTabHasLinter }));
 vi.mock("@/services/navigation/activeDocument", () => ({ getActiveTabId }));
 
 import { registerLintCommands } from "./lintCommands";
@@ -49,6 +51,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   useLintStore.setState({ diagnosticsByTab: {}, selectedIndexByTab: {} });
   getActiveTabId.mockReturnValue(TAB);
+  activeTabHasLinter.mockReturnValue(true);
 });
 
 describe("registerLintCommands", () => {
@@ -72,6 +75,13 @@ describe("lint.check", () => {
   it("falls back to the main window when no label is supplied", async () => {
     await executeCommand("lint.check", undefined, {});
     expect(runActiveLint).toHaveBeenCalledWith("main");
+  });
+
+  it("is unavailable, and does not run, when the active format has no linter", async () => {
+    activeTabHasLinter.mockReturnValue(false);
+    expect(await executeCommand("lint.check", undefined, { windowLabel: "w2" })).toBe(false);
+    expect(activeTabHasLinter).toHaveBeenCalledWith("w2");
+    expect(runActiveLint).not.toHaveBeenCalled();
   });
 });
 

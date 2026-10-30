@@ -121,7 +121,7 @@ Editor Width is measured in `em`, so the line length in *characters* depends on 
 | Open files in a new tab | Open existing files in a new tab instead of reusing the current empty tab | Off | On / Off |
 | Enable auto-pairing | Automatically insert matching closing brackets and quotes when you type an opening one | On | On / Off |
 | CJK brackets | Auto-pair CJK-specific brackets like `「」` `【】` `《》`. Only available when auto-pairing is enabled | Auto | Off, Auto |
-| Include curly quotes | Auto-pair `""` and `''` characters. May conflict with some IME smart quote features. Appears when CJK brackets is set to Auto | On | On / Off |
+| Include curly quotes | Auto-pair `“”` and `‘’`, and turn a typed straight `"` or `'` into a curly pair. May conflict with some IME smart quote features. Appears when CJK brackets is set to Auto | On | On / Off |
 | Also pair `"` | Typing the right double quote `"` also inserts a `""` pair. Useful when your IME alternates between open and close quotes. Appears when curly quotes are enabled | Off | On / Off |
 | Copy format | What format to use for the plain text clipboard slot when copying from WYSIWYG mode | Plain text | Plain text, Markdown |
 | Copy on select | Automatically copy text to the clipboard whenever you select it | Off | On / Off |
@@ -168,9 +168,9 @@ Paste behavior, layout, and HTML rendering settings.
 |---------|-------------|---------|---------|
 | Split source/preview by default | Open Markdown files in the side-by-side source + live preview split (otherwise WYSIWYG). Toggle per session with `Shift + F6` or **View → Markdown Split View** | Off | On / Off |
 | Block element font size | Relative font size for lists, blockquotes, tables, alerts, and details blocks | 100% | 100%, 95%, 90%, 85% |
-| Heading alignment | Text alignment for headings | Left | Left, Center |
-| Image & diagram borders | Whether to show a border around images, Mermaid diagrams, and math blocks | None | None, Always, On hover |
-| Image & table alignment | Horizontal alignment for block images and tables | Center | Center, Left |
+| Heading alignment | Text alignment for headings. Editor only — not applied to export or print | Left | Left, Center |
+| Image & diagram borders | Whether to show a border around images, Mermaid diagrams, and math blocks. Editor only — not applied to export or print | None | None, Always, On hover |
+| Image & table alignment | Horizontal alignment for block images and tables. Editor only — not applied to export or print | Center | Center, Left |
 | Fit tables to width | Constrain all tables to the editor width instead of allowing horizontal scroll | Off | On / Off |
 | Code block line numbers | Show line numbers inside code blocks in the WYSIWYG editor. Independent of the View menu's **Line Numbers**, which controls the Source/Split editor's gutter | Off | On / Off |
 
@@ -285,7 +285,7 @@ The MCP (Model Context Protocol) server allows external AI assistants like Claud
 |---------|-------------|---------|
 | Enable MCP Server | Start or stop the MCP server. When running, a status badge shows the port and connected clients | On (toggle) |
 | Start on launch | Automatically start the MCP server when VMark opens | On |
-| Auto-approve saves to a new location and genie results | Let an MCP client save a document to a new location without asking, and let a genie apply its result directly instead of showing a preview. When off, an MCP request to save to a new path is refused and a toast notifies you. MCP document writes are never gated by this — each one is checkpointed and can be restored from the status bar history | Off |
+| Auto-approve saves to a new location and genie results | Let an MCP client save a document to a new location without asking, and let a genie apply its result directly instead of showing a preview. When off, an MCP request to save to a new path is refused and a toast notifies you. MCP document writes are never gated by this — each one is recorded in the agent edit history and can be restored from the MCP write history in the status bar | Off |
 
 When the server is running, the panel also displays:
 - **Port** — automatically assigned; AI clients discover it through the config file
@@ -534,7 +534,7 @@ Developer and system-level configuration.
 
 The list does two things. When you insert a link, a clipboard URL with one of these protocols is recognized as a link, just like `https://`. And when you open a link, VMark hands it to your system only if its protocol is `http`, `https`, `mailto`, or on this list — so `obsidian://open?vault=...` and `vscode://file/...` links open in their apps, while any other protocol is refused. A few protocols can never be enabled this way, whatever the list says: `javascript:`, `data:`, `file:` and similar.
 
-The four defaults are always included: removing one lasts only until VMark restarts.
+A default you remove stays removed. A default protocol added in a later VMark version is added to your list once, on the first launch of that version.
 
 ### Performance
 

@@ -112,7 +112,7 @@ describe("persistWorkspaceSession", () => {
     });
   });
 
-  it("persists a browser tab into sessionTabs but NOT into legacy lastOpenTabs", async () => {
+  it("writes a browser tab into neither workspace field (it persists per window)", async () => {
     const config: WorkspaceConfig = {
       version: 1,
       excludeFolders: [".git"],
@@ -133,13 +133,11 @@ describe("persistWorkspaceSession", () => {
         ...config,
         // Downgrade-safe: old binaries read this and restore only the document.
         lastOpenTabs: ["/project/a.md"],
-        // New builds read this and get the browser tab back too.
+        // The browser page is not here either: it restores per window
+        // (windowBrowserSession.ts), so its URL stays out of the config.
         sessionTabs: {
           version: 1,
-          tabs: [
-            { kind: "document", path: "/project/a.md" },
-            { kind: "browser", url: "https://example.com/", title: "Example" },
-          ],
+          tabs: [{ kind: "document", path: "/project/a.md" }],
         },
       },
     });

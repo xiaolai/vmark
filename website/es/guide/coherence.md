@@ -1,4 +1,4 @@
-# Coherencia y la vista de desglose
+# Coherencia y el Desglose de coherencia
 
 La capa de coherencia de VMark mantiene honestos los proyectos de escritura desarrollados recursivamente: registra **qué documentos leyó realmente cada generación de IA**, detecta cuando esos documentos fuente cambian después y te muestra — bajo demanda — exactamente qué artefactos derivados podrían haber quedado desactualizados. Nada se actualiza automáticamente; tú sigues siendo el editor jefe.
 
@@ -11,7 +11,7 @@ La capa de coherencia de VMark mantiene honestos los proyectos de escritura desa
 - Cuando un documento fuente avanza más allá de una revisión fijada, la arista pasa a estar **obsoleta**. Si dos revisiones evolucionaron en paralelo (p. ej., en ramas de git), la arista está **divergente** — se muestra, nunca se adivina.
 - Los archivos editados fuera de VMark (terminal, otros editores) se reconcilian al escanear como *ediciones externas observadas* — el historial permanece sin huecos, marcado honestamente como de procedencia desconocida.
 
-## La vista de desglose
+## El panel Desglose de coherencia
 
 Ábrela desde **Ventana → Desglose de coherencia** (o la paleta de comandos: "Desglose de coherencia"). Es estrictamente **bajo demanda** (pull): se actualiza cuando la abres o pulsas actualizar — nunca molesta en segundo plano.
 
@@ -31,7 +31,7 @@ Cada elemento ofrece tres acciones honestas — ninguna reescribe el historial:
 
 - **Aceptar más reciente** — registra que el artefacto sigue siendo compatible con la fuente más reciente (una *ratificación*). El elemento sale de la lista; si la fuente vuelve a cambiar, regresa.
 - **Revisar** — abre el artefacto para que puedas actualizarlo. Guardar una nueva versión retira la arista antigua.
-- **Eximir** — registra una divergencia intencional con un **motivo obligatorio** (los narradores poco fiables existen). En la v0, una exención es deliberadamente estrecha: se aplica solo a esta arista y a la revisión concreta de la fuente contra la que se resuelve. Los elementos eximidos permanecen visibles, marcados de forma distintiva, y se reabren si la fuente vuelve a moverse.
+- **Eximir** — registra una divergencia intencional con un **motivo obligatorio** (los narradores poco fiables existen). En la v0, una exención es deliberadamente estrecha: se aplica solo a esta arista y a la revisión concreta de la fuente contra la que se resuelve. Los elementos eximidos permanecen visibles, marcados de forma distintiva, y se reabren si la fuente vuelve a moverse. Una exención también puede llevar una caducidad opcional — una fecha (`YYYY-MM-DD`, que significa el final de ese día en UTC) o una marca de tiempo completa. Una vez pasada, la exención vence y el elemento se reabre; una caducidad mal formada vence de inmediato, así que el elemento nunca queda eximido en silencio.
 
 Aceptar más reciente y eximir se deshabilitan cuando la fuente tiene varias versiones actuales — no hay una única revisión contra la cual resolver; revisa (o reconcilia las versiones) primero.
 

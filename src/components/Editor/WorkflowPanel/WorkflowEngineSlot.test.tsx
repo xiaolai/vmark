@@ -95,7 +95,7 @@ describe("WorkflowEngineSlot", () => {
     render(<WorkflowEngineSlot tabId="tab-1" />);
     // The completed run belongs to tab-1, so tab-1's panel reports its outcome.
     await waitFor(() =>
-      expect(screen.getByRole("status")).toHaveTextContent("workflow:run.status.completed"),
+      expect(screen.getByRole("status")).toHaveTextContent("Completed"),
     );
   });
 });

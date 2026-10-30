@@ -114,7 +114,8 @@ L'esportazione PDF potrebbe bloccarsi o produrre un output incompleto.
 VMark potrebbe rifiutarsi di aprire un file o mostrare contenuto illeggibile.
 
 - Verifica che il file abbia i permessi di lettura per il tuo account utente.
-- VMark si aspetta Markdown codificato in UTF-8. I file in altre codifiche (ad esempio GB2312, Shift-JIS) potrebbero non essere visualizzati correttamente — convertili prima in UTF-8.
+- VMark apre solo file UTF-8. Un file contrassegnato come UTF-16 o UTF-32 (dal suo byte order mark) viene rifiutato all'apertura con un avviso: "*percorso* è codificato in *codifica*. VMark apre solo file UTF-8 — salvalo come UTF-8 in un altro editor, poi riaprilo." Le altre codifiche legacy (GB2312, Shift-JIS) non hanno alcun contrassegno; si aprono ma possono mostrare testo illeggibile — convertili prima in UTF-8.
+- Un file UTF-8 che inizia con un byte order mark lo conserva: VMark mantiene il BOM all'apertura e al salvataggio.
 - Se il file è bloccato da un altro processo (ad esempio un client di sincronizzazione o uno strumento di backup), chiudi quel processo e riprova.
 - **macOS: il doppio clic su un file scaricato non fa nulla mentre VMark è in esecuzione.** I file salvati da alcune app portano l'attributo di quarantena dei download (`com.apple.quarantine`), e macOS può scartare silenziosamente la richiesta di aprire un file del genere in un'app già in esecuzione. Quando apri uno spazio di lavoro, VMark rimuove l'attributo dalla cartella dello spazio di lavoro e dai file direttamente al suo interno che è in grado di aprire (le sottocartelle non vengono toccate) — è l'impostazione **Rimuovi la quarantena dei download all'apertura dello spazio di lavoro** in **Impostazioni → Avanzate → macOS**, attiva per impostazione predefinita. Per qualsiasi altro file, usa **File → Apri file...**, oppure esegui `xattr -d com.apple.quarantine <file>` nel Terminale.
 

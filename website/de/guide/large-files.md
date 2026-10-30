@@ -32,6 +32,7 @@ Auch was WYSIWYG beim Öffnen tut, bleibt im Verhältnis zum Dokument:
 - Bilder werden geladen, wenn sie in die Nähe des sichtbaren Bereichs kommen.
 - **CJK-Buchstabenabstand** (**Einstellungen → Editor → Typografie**) tut nichts, solange er ausgeschaltet ist (die Voreinstellung), und durchsucht das Dokument nur einmal, wenn er eingeschaltet ist.
 - Dekorationen wie Code-Hervorhebung, CJK-Abstand und Lint-Markierungen kosten ungefähr linear in der Länge des Dokuments. Sehr lange Dokumente kosteten früher quadratisch.
+- Ab 100.000 Zeichen schaltet WYSIWYG die Rechtschreibprüfung des Systems für dieses Dokument ab, weil die erneute Prüfung nach jeder Bearbeitung das Tippen verzögert. Sie schaltet sich wieder ein, wenn das Dokument unter diese Größe schrumpft. Der Quellmodus ist nicht betroffen.
 
 ## Hinweise in der Statusleiste
 

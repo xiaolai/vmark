@@ -178,7 +178,7 @@ Wenn Sie die Systemfunktionen auf F-Tasten bevorzugen, können Sie VMark-Tastatu
 | Verlauf umschalten | `Strg + Umschalt + 3` |
 | Wissensdatenbank umschalten | `Strg + Umschalt + 4` |
 | Fensterstatus umschalten | `Strg + Umschalt + 5` |
-| Zeilennummern umschalten (Codeblöcke) | `Alt + Mod + L` |
+| Zeilennummern umschalten (Rand im Quell-/Split-Editor) | `Alt + Mod + L` |
 | Terminal umschalten | Strg + `` ` `` |
 | Terminal oder Editor fokussieren | Strg + Umschalt + `` ` `` (Alt + Umschalt + `` ` `` unter Windows/Linux) |
 | Diagramm-Vorschau umschalten | `Alt + Mod + P` |

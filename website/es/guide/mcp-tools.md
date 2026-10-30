@@ -144,7 +144,7 @@ enrutamiento de solicitudes que aún no existe.
 **Flujo de aprobación.** La primera llamada devuelve `{needsApproval: true}` y muestra un
 diálogo de consentimiento que nombra la ruta *canónica* de la carpeta (con los enlaces simbólicos
 resueltos). El asistente debe preguntar al usuario y luego **reintentar la misma llamada**; una vez
-que el usuario aprueba, el reintento abre la carpeta. Una solicitud denegada seguirá fallando hasta
+que el usuario aprueba, el reintento abre la carpeta. La aprobación pertenece a la conexión que la pidió: solo un reintento desde la misma conexión MCP puede usarla. Otro asistente conectado recibe su propia solicitud, y un cliente que se reconectó (una conexión nueva) debe aprobarse de nuevo. La aprobación también caduca si no se usa en cinco minutos. Una solicitud denegada seguirá fallando hasta
 que se vuelva a aprobar. No hay opción de «recordar» — cada apertura se aprueba individualmente.
 
 **Acceso a carpetas.** Aprobar el diálogo no basta para que VMark lea una carpeta fuera de los lugares que siempre puede leer (tu carpeta de usuario y los volúmenes montados). Para una carpeta así, el reintento aprobado abre el selector de carpetas de VMark en esa carpeta y responde `APPROVAL_REQUIRED`, pidiendo al usuario que la elija allí; una vez hecho, el siguiente reintento la abre. Si ya hay otro diálogo de carpetas abierto, no se muestra nada y la respuesta es `BUSY` — la aprobación se conserva, así que reintenta cuando el usuario haya cerrado ese diálogo. `BUSY` también es la respuesta mientras ya hay un cambio de espacio de trabajo en curso en esa ventana.
@@ -264,7 +264,7 @@ Si se proporciona `expected_revision` y el documento ha cambiado desde esa lectu
 { "error": "STALE", "message": "Document has changed since the last read", "current_revision": "rev-currentNow" }
 ```
 
-Mientras el usuario compone texto con un método de entrada (IME) en el editor WYSIWYG que muestra la pestaña, la escritura se rechaza con `BUSY` y no cambia nada: el texto en composición pertenece al método de entrada hasta que se confirma. Reintenta en breve. En modo Fuente la escritura se acepta, y el editor la muestra en cuanto termina la composición.
+Mientras el usuario compone texto con un método de entrada (IME) en el editor que muestra la pestaña, en modo WYSIWYG o Fuente, la escritura se rechaza con `BUSY` y no cambia nada: el texto en composición pertenece al método de entrada hasta que se confirma. Un editor en modo Fuente también se considera en composición durante un breve margen justo después de que termine la composición. Reintenta en breve.
 
 Cada escritura se registra en el diario de ediciones de agentes de VMark antes de que cambie nada. La respuesta de éxito incluye `applied: true` y `durable`: `durable: false` significa que el contenido se escribió pero su registro en el diario aún no pudo guardarse — VMark lo reintenta en segundo plano y, hasta que lo consiga, la siguiente escritura en ese documento se rechaza con `JOURNAL_DEGRADED`. Si el diario rechaza el registro por completo, la escritura sigue aplicada, queda en el log como no registrada y la siguiente escritura sigue adelante. Una escritura se rechaza sin cambiar nada con `JOURNAL_BUSY` mientras se registra otra escritura en el mismo documento (dos ventanas con el mismo archivo comparten un documento), con `STALE_PARENT` cuando otra ventana escribió el documento después de la última escritura de esta pestaña (vuelve a leer y reintenta), con `JOURNAL_UNAVAILABLE` cuando el diario no está en marcha o no responde a tiempo, y con `INVALID_TEXT` cuando `content` contiene un sustituto UTF-16 suelto. Si el usuario edita el documento, cierra la pestaña, empieza a componer con un método de entrada o mueve la selección (o cambia de pestaña, si no se indicó `tabId`) mientras se registra la escritura, esta se rechaza con `ABORTED` y un `reason` (`edited`, `closed`, `composing`, `selection`) y no cambia nada; vuelve a leer y reintenta. Un error `INTERNAL` que lleva `applied: true` es distinto: el editor falló después de que la escritura ya hubiera cambiado el documento, y se registró el texto que contenía entonces (`durable` como arriba, `current_revision` es la revisión del documento); vuelve a leer antes de escribir de nuevo. Un error `INTERNAL` sin `applied` tras una escritura fallida significa que el documento puede haber cambiado en parte; vuelve a leerlo también.
 
@@ -281,7 +281,7 @@ Aplica una reescritura determinista. Actualmente admite transformaciones especí
 
 `cjk-format` aplica de extremo a extremo la configuración de formato CJK del usuario. `cjk-spacing` inserta un espacio único entre los caracteres CJK y los caracteres latinos o dígitos adyacentes. `cjk-punctuation` convierte la puntuación ASCII contigua a caracteres CJK a su forma de ancho completo.
 
-Devuelve `{revision, applied, durable}`. Igual que `write`, se rechaza con `BUSY`, sin cambiar nada, mientras el usuario compone con un método de entrada en el editor WYSIWYG que muestra la pestaña. Igual que `write`, se registra en el diario de ediciones de agentes de VMark antes de que cambie nada: `applied`, `durable` y los rechazos del diario (`JOURNAL_BUSY`, `STALE_PARENT`, `JOURNAL_DEGRADED`, `JOURNAL_UNAVAILABLE`, `INVALID_TEXT`, `ABORTED`) significan lo mismo; una llamada que no cambia nada no se registra.
+Devuelve `{revision, applied, durable}`. Igual que `write`, se rechaza con `BUSY`, sin cambiar nada, mientras el usuario compone con un método de entrada en el editor que muestra la pestaña, en modo WYSIWYG o Fuente. Igual que `write`, se registra en el diario de ediciones de agentes de VMark antes de que cambie nada: `applied`, `durable` y los rechazos del diario (`JOURNAL_BUSY`, `STALE_PARENT`, `JOURNAL_DEGRADED`, `JOURNAL_UNAVAILABLE`, `INVALID_TEXT`, `ABORTED`) significan lo mismo; una llamada que no cambia nada no se registra.
 
 ---
 
@@ -806,7 +806,7 @@ El desglose: cada arista de dependencia viva cuya fuente se ha movido. Ejecuta p
 | `downstream` / `downstream_path` / `downstream_rev` | El objeto derivado, su ruta y su revisión actual. |
 | `state` | `"version-stale"`, `"stale-valid"`, `"stale-contradicted"`, `"stale-unknown"`, `"waived"`, `"diverged"`, `"diverged-multi-head"` o `"unpinnable"`. |
 
-Resolver una arista (accept-newer / waive) es normalmente una acción humana que se realiza en la vista de desglose de VMark. Una IA solo puede hacerlo a través de [`coherence_resolve`](#coherence-resolve), y solo cuando el propietario del espacio de trabajo se lo ha delegado explícitamente.
+Resolver una arista (accept-newer / waive) es normalmente una acción humana que se realiza en el panel Desglose de coherencia de VMark. Una IA solo puede hacerlo a través de [`coherence_resolve`](#coherence-resolve), y solo cuando el propietario del espacio de trabajo se lo ha delegado explícitamente.
 
 ---
 
@@ -825,8 +825,9 @@ Argumentos: `{workspace_root, txf, input, resolution: "accept-newer" | "waive", 
 Resuelve una arista obsoleta activa como agente explícitamente delegado. La autorización es de tipo
 **fail-closed**: el propietario del espacio de trabajo debe haber otorgado a **tu identidad de puente
 autenticada** una delegación activa y no caducada que cubra el tipo de resolución (otorgada en la app,
-desde el Desglose), y la arista debe seguir activa. Cada resolución delegada se registra en el log de
-auditoría vinculada al otorgamiento, y la entrada no se puede deshacer.
+desde el panel Desglose de coherencia), y la arista debe seguir activa. Cada resolución delegada se registra en el log de
+auditoría vinculada al otorgamiento, y la entrada no se puede deshacer. `coherence_resolve` no puede fijar una caducidad,
+así que la exención de una IA nunca vence por sí sola.
 
 Un rechazo significa que el otorgamiento falta o ha caducado — pide al usuario que lo conceda en lugar
 de reintentar. Separar esto de `coherence` no cambió ninguna propiedad de seguridad: la autorización

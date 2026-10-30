@@ -127,7 +127,7 @@ VMark 向 AI 助手暴露 **十个复合 MCP 工具**：`session`、`workspace`�
 
 与 `new` 和 `open` 不同，这里**不**接受 `windowLabel`。文件夹总是在请求到达的那个窗口中打开。这是有意为之：批准对话框和打开操作必须落在同一个窗口，而客户端提供的标签可能会把提示弹在一个窗口面前、却去改动另一个窗口——批准的是一回事，得到的却是另一回事。多窗口定向需要一套目前尚不存在的请求路由机制。
 
-**批准流程。** 首次调用返回 `{needsApproval: true}`，并弹出一个命名了该文件夹*规范*路径（符号链接已解析）的同意对话框。助手应当询问用户，然后**重试同一次调用**；一旦用户批准，重试就会打开该文件夹。被拒绝的请求会持续失败，直到重新获得批准。没有“记住”选项——每次打开都要单独批准。
+**批准流程。** 首次调用返回 `{needsApproval: true}`，并弹出一个命名了该文件夹*规范*路径（符号链接已解析）的同意对话框。助手应当询问用户，然后**重试同一次调用**；一旦用户批准，重试就会打开该文件夹。批准归属于发起请求的那个连接：只有来自同一 MCP 连接的重试才能使用它。另一个已连接的助手会收到它自己的提示，而重新连接的客户端（即新的连接）必须再次获得批准。批准若在五分钟内未被使用也会失效。被拒绝的请求会持续失败，直到重新获得批准。没有“记住”选项——每次打开都要单独批准。
 
 **文件夹访问。** 仅在对话框中批准，并不能让 VMark 读取其始终可读位置（你的主文件夹和已挂载的卷）之外的文件夹。对于这样的文件夹，批准后的重试会在该文件夹处打开 VMark 的文件夹选择器，并返回 `APPROVAL_REQUIRED`，请用户在其中选择该文件夹；选择之后，下一次重试即可打开。如果已有另一个文件夹对话框打开，则不会显示任何内容，返回 `BUSY`——批准仍然保留，请在用户关闭该对话框后重试。该窗口中已有工作区切换正在进行时，也会返回 `BUSY`。
 
@@ -241,7 +241,7 @@ AI 客户端的每一次保存——无论通过 `write`、`workspace.save` 还�
 { "error": "STALE", "message": "Document has changed since the last read", "current_revision": "rev-currentNow" }
 ```
 
-当用户在显示该标签页的所见即所得编辑器中用输入法（IME）组字时，写入会以 `BUSY` 被拒绝，且不做任何改动：正在组字的文本在确认之前归输入法所有。请稍后重试。在源码模式下写入会被接受，并在组字结束后显示在编辑器中。
+当用户在显示该标签页的编辑器中用输入法（IME）组字时，无论是所见即所得还是源码模式，写入都会以 `BUSY` 被拒绝，且不做任何改动：正在组字的文本在确认之前归输入法所有。组字刚结束后的一小段宽限期内，源码编辑器也仍被视为正在组字。请稍后重试。
 
 每次写入在任何改动发生之前，都会先记入 VMark 的智能体编辑日志。成功响应包含 `applied: true` 和 `durable`：`durable: false` 表示内容已写入，但其日志记录尚未能保存——VMark 会在后台重试，在此之前对该文档的下一次写入会以 `JOURNAL_DEGRADED` 被拒绝。如果日志直接拒绝该记录，写入仍保持已应用，并作为未记录写入记入日志，下一次写入照常进行。以下情况写入会被拒绝且不做任何改动：同一文档的另一次写入正在记录时返回 `JOURNAL_BUSY`（显示同一文件的两个窗口共享一个文档）；另一个窗口在本标签页上次写入之后写过该文档时返回 `STALE_PARENT`（请重新读取后重试）；日志未运行或未能及时响应时返回 `JOURNAL_UNAVAILABLE`；`content` 含有孤立的 UTF-16 代理项时返回 `INVALID_TEXT`。如果在记录写入期间用户编辑了文档、关闭了标签页、开始用输入法组字，或移动了选区（未指定 `tabId` 时则是切换了标签页），写入会以 `ABORTED` 及 `reason`（`edited`、`closed`、`composing`、`selection`）被拒绝，且不做任何改动；请重新读取后重试。带有 `applied: true` 的 `INTERNAL` 错误则不同：写入已改动文档之后编辑器出错，此时文档中的文本已被记录（`durable` 含义同上，`current_revision` 为文档的修订版本）；再次写入前请重新读取。写入失败后不带 `applied` 的 `INTERNAL` 错误表示文档可能已被部分改动，同样请重新读取。
 
@@ -258,7 +258,7 @@ AI 客户端的每一次保存——无论通过 `write`、`workspace.save` 还�
 
 `cjk-format` 会按用户的 CJK 排版设置整篇执行一遍。`cjk-spacing` 在 CJK 字符与相邻拉丁字母 / 数字之间插入单个空格。`cjk-punctuation` 把贴在 CJK 字符旁边的 ASCII 标点转换为对应的全角形式。
 
-返回 `{revision, applied, durable}`。与 `write` 一样，当用户在显示该标签页的所见即所得编辑器中用输入法组字时，它会以 `BUSY` 被拒绝，不做任何改动。 与 `write` 一样，它会在任何改动发生之前先记入 VMark 的智能体编辑日志：`applied`、`durable` 及日志拒绝（`JOURNAL_BUSY`、`STALE_PARENT`、`JOURNAL_DEGRADED`、`JOURNAL_UNAVAILABLE`、`INVALID_TEXT`、`ABORTED`）的含义相同；未做任何改动的调用不会被记录。
+返回 `{revision, applied, durable}`。与 `write` 一样，当用户在显示该标签页的编辑器中（无论是所见即所得还是源码模式）用输入法组字时，它会以 `BUSY` 被拒绝，不做任何改动。 与 `write` 一样，它会在任何改动发生之前先记入 VMark 的智能体编辑日志：`applied`、`durable` 及日志拒绝（`JOURNAL_BUSY`、`STALE_PARENT`、`JOURNAL_DEGRADED`、`JOURNAL_UNAVAILABLE`、`INVALID_TEXT`、`ABORTED`）的含义相同；未做任何改动的调用不会被记录。
 
 ---
 
@@ -597,7 +597,7 @@ AI 客户端的每一次保存——无论通过 `write`、`workspace.save` 还�
 | `downstream` / `downstream_path` / `downstream_rev` | 派生对象、它的路径及其当前版本。 |
 | `state` | `"version-stale"`、`"stale-valid"`、`"stale-contradicted"`、`"stale-unknown"`、`"waived"`、`"diverged"`、`"diverged-multi-head"` 或 `"unpinnable"`。 |
 
-裁决一条边（接受新版 / 豁免）通常是在 VMark 的明细视图中由人完成的操作。AI 只能通过 [`coherence_resolve`](#coherence-resolve) 来做，且仅当工作区所有者已明确将该权限委托给它时才行。
+裁决一条边（接受新版 / 豁免）通常是在 VMark 的“一致性明细”面板中由人完成的操作。AI 只能通过 [`coherence_resolve`](#coherence-resolve) 来做，且仅当工作区所有者已明确将该权限委托给它时才行。
 
 ---
 
@@ -609,7 +609,7 @@ AI 客户端的每一次保存——无论通过 `write`、`workspace.save` 还�
 
 参数：`{workspace_root, txf, input, resolution: "accept-newer" | "waive", reason? (required for waive)}`。`txf` 和 `input` 来自 `coherence` → `edges` 的某一行。
 
-以获得明确委托的智能体身份，裁决一条活跃的过期边。授权采用 **fail-closed** 策略：工作区所有者必须已向**你经过身份验证的桥接身份**授予一份涵盖该裁决类型的、有效且未过期的委托（在应用内、从一致性明细授予），并且该边必须仍然活跃。每一次受委托的裁决都会针对该授予记入审计日志，且该条目无法撤销。
+以获得明确委托的智能体身份，裁决一条活跃的过期边。授权采用 **fail-closed** 策略：工作区所有者必须已向**你经过身份验证的桥接身份**授予一份涵盖该裁决类型的、有效且未过期的委托（在应用内、从“一致性明细”面板授予），并且该边必须仍然活跃。每一次受委托的裁决都会针对该授予记入审计日志，且该条目无法撤销。`coherence_resolve` 无法设置到期时间，因此 AI 做出的豁免永远不会自行失效。
 
 被拒绝意味着授予缺失或已过期——请让用户去授予，而不是重试。把它从 `coherence` 中拆出来并未改变任何安全性质：授权一直以经过身份验证的桥接主体为准，而从不取决于客户端所声称的任何内容。
 

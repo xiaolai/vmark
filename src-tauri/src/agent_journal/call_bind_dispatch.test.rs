@@ -345,7 +345,6 @@ fn every_journal_command_reply_is_bound() {
             | "agent_journal_revert_prepare"
             | "comment_user_create"
             | "comment_user_reply"
-            | "comment_agent_create"
             | "comment_agent_reply" => {
                 assert!(returns.contains("Bound<RequestBind"), "{name}: {sig}")
             }

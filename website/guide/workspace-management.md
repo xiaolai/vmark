@@ -19,6 +19,8 @@ The experimental [workspace rail](/guide/workspace-rail) lets a single window ho
 
 When you open a workspace, VMark shows the sidebar with the file explorer. If the workspace was opened before, previously open tabs are restored.
 
+On Windows and Linux, a folder passed on the command line (`vmark C:\notes` or `vmark ~/notes`) opens as a workspace in its own window, as dropping a folder on the Dock icon does on macOS. This also works when VMark is already running.
+
 ::: tip
 If the current window has unsaved changes, VMark offers to open the workspace in a new window instead of replacing your work.
 :::
@@ -131,7 +133,7 @@ Without a workspace, Quick Open still works — it shows recent files and open t
 
 ## Workspace Content Search
 
-When a workspace is open, VMark can search across **file contents** (not just filenames) for matches in markdown and text files.
+When a workspace is open, VMark can search across **file contents** (not just filenames). By default it searches the file types VMark opens (Markdown, plain text, YAML, and JSON/TOML/Mermaid/SVG/HTML when their format support is on). Turn off the **.md** toggle (**Supported File Types Only**) to search every text file (binaries are always skipped).
 
 | Action | Shortcut |
 |---|---|

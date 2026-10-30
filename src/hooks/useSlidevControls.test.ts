@@ -37,9 +37,18 @@ vi.mock("@/services/ime/imeToast", () => ({
 }));
 
 const openUrlMock = vi.fn();
+/** The save panel is Rust's `pick_export_target`: it records the choice the
+ *  export command must then spend. `saveMock` answers that one command. */
 const saveMock = vi.fn();
+const invokeMock = vi.fn((cmd: string, args?: unknown) =>
+  cmd === "pick_export_target" ? saveMock(args) : Promise.resolve(undefined),
+);
+const pluginSaveMock = vi.fn();
 vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: (...a: unknown[]) => openUrlMock(...a) }));
-vi.mock("@tauri-apps/plugin-dialog", () => ({ save: (...a: unknown[]) => saveMock(...a) }));
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: (cmd: string, args?: unknown) => invokeMock(cmd, args),
+}));
+vi.mock("@tauri-apps/plugin-dialog", () => ({ save: (...a: unknown[]) => pluginSaveMock(...a) }));
 
 /** Seed the REAL tab store — `lint:mock-boundaries` forbids mocking a store,
  *  and `findTabById`/`tabFilePath` are ordinary reads over seeded state. */
@@ -112,7 +121,10 @@ describe("useSlidevControls (through useContentServer)", () => {
     await act(async () => {
       await result.current.exportSlides();
     });
-    expect(saveMock).toHaveBeenCalled();
+    expect(saveMock).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "slidev", defaultPath: expect.any(String) }),
+    );
+    expect(pluginSaveMock).not.toHaveBeenCalled();
     expect(exportSlidev).toHaveBeenCalledWith("/ws", "/ws/deck.md", "pdf", "/out/deck.pdf");
   });
 

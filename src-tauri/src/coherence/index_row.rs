@@ -36,10 +36,8 @@ pub struct EdgeRow {
     /// Deliberately ORTHOGONAL to `state` rather than a state variant. `state`
     /// stays truthful: a frozen document's edge is still whatever it actually
     /// is, and collapsing that into a "frozen" state would both destroy that
-    /// information and force `structural_class` to invent a class for a display
-    /// concern — the accept precondition asks "did the affected set change
-    /// structurally?", which must not shift because someone marked a document
-    /// finished. The UI collapses rows where this is true; nothing is dropped.
+    /// information and force every reader of `state` to special-case a display
+    /// concern. The UI collapses rows where this is true; nothing is dropped.
     #[serde(default)]
     pub frozen_downstream: bool,
     /// How this edge's section anchor stands against the CURRENT upstream text

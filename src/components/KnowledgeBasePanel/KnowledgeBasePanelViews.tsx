@@ -3,8 +3,8 @@
  * per server state, so the panel itself is a dispatcher over `status` and
  * each view owns its own markup:
  *
- *   - `KnowledgeBaseProgress` — provisioning (with the download percentage)
- *     and starting;
+ *   - `KnowledgeBaseProgress` — starting (and any status whose detail has
+ *     not landed yet);
  *   - `KnowledgeBaseError` — the failure line and its Retry;
  *   - `KnowledgeBaseRunning` — the toolbar (site/graph, slides, open in
  *     browser, stop) over the graph view or the served iframe.
@@ -14,17 +14,13 @@
  * gives: React.lazy caches a chunk-load rejection forever.
  *
  * @coordinates-with ./KnowledgeBasePanel.tsx — the dispatcher
- * @coordinates-with src/stores/contentServerStore.ts — status, provision, url, view mode
+ * @coordinates-with src/stores/contentServerStore.ts — status, url, view mode
  * @module components/KnowledgeBasePanel/KnowledgeBasePanelViews
  */
 import { useEffect, useRef, type ComponentType } from "react";
 import { useTranslation } from "react-i18next";
 import { RetryableLazy } from "@/components/RetryableLazy";
-import {
-  useContentServerStore,
-  type ProvisionProgress,
-  type KbViewMode,
-} from "@/stores/contentServerStore";
+import { useContentServerStore, type KbViewMode } from "@/stores/contentServerStore";
 
 /** Loads the graph chunk; each call is a fresh attempt. */
 export type KbGraphLoader = () => Promise<{ default: ComponentType }>;
@@ -32,29 +28,12 @@ export type KbGraphLoader = () => Promise<{ default: ComponentType }>;
 const loadKbGraphView: KbGraphLoader = () =>
   import("./KbGraphView").then((m) => ({ default: m.KbGraphView }));
 
-/**
- * 0–100 from an untrusted byte-count pair: a non-positive or
- * non-finite total is 0%, and a stream that over-reports never shows >100%.
- */
-function downloadPercent({ received, total }: ProvisionProgress): number {
-  if (typeof total !== "number" || !Number.isFinite(total) || total <= 0) return 0;
-  const done = typeof received === "number" && Number.isFinite(received) ? received : 0;
-  return Math.min(100, Math.max(0, Math.floor((100 * done) / total)));
-}
-
-export function KnowledgeBaseProgress({ provision }: { provision: ProvisionProgress | null }) {
+/** The in-progress line: the server is starting, or its detail has not landed. */
+export function KnowledgeBaseProgress() {
   const { t } = useTranslation();
-  let label: string;
-  if (!provision) {
-    label = t("contentServer.status.starting");
-  } else if (provision.phase === "downloading") {
-    label = t("contentServer.provision.downloading", { percent: downloadPercent(provision) });
-  } else {
-    label = t(`contentServer.provision.${provision.phase}`);
-  }
   return (
     <div className="kb-panel__progress" role="status">
-      {label}
+      {t("contentServer.status.starting")}
     </div>
   );
 }

@@ -15,7 +15,7 @@
 //! `resolve_target_window` read `args.windowId` and this module honored it
 //! ahead of everything else. No shipped tool has ever sent that field — the
 //! wire contract (`server/mcp/src/bridge/operationSchemas.ts`) declares no
-//! `windowId` on any of the 34 operations — so the branch was unreachable by
+//! `windowId` on any operation — so the branch was unreachable by
 //! construction, and the ambiguity error below advertised a parameter no
 //! client could supply. Explicit window targeting DOES ship, as `windowLabel`
 //! on `workspace.new` / `open` / `focus_window`, resolved by the webview

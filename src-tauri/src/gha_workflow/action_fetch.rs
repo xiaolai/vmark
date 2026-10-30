@@ -280,7 +280,7 @@ fn build_url(action: &ActionRef, filename: &str) -> String {
 const MAX_ACTION_YML_BYTES: u64 = 1_048_576;
 
 /// Network fetch with action.yml → action.yaml fallback. Caps response
-/// body size before serde_yaml ever sees it.
+/// body size before the YAML parser (serde-saphyr, via `crate::yaml`) ever sees it.
 pub async fn fetch_action_yml(action: &ActionRef) -> Result<String, FetchResult> {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(10))

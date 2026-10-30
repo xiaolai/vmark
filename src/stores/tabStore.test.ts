@@ -6,9 +6,9 @@ import { __resetRegistry, registerFormat } from "@/lib/formats/registry";
 import { registerMarkdownFormat } from "@/lib/formats/adapters/markdown";
 import { toast } from "sonner";
 
-vi.mock("sonner", () => ({
-  toast: { info: vi.fn(), success: vi.fn(), error: vi.fn() },
-}));
+// Reopen reads the document back from disk; every file here is empty.
+vi.mock("@tauri-apps/plugin-fs", () => ({ readFile: vi.fn(() => Promise.resolve(new Uint8Array())) }));
+vi.mock("sonner", () => ({ toast: { info: vi.fn(), success: vi.fn(), error: vi.fn() } }));
 
 function registerInlineTxt(): void {
   registerFormat({
@@ -359,49 +359,49 @@ describe("tabStore", () => {
   });
 
   describe("reopenClosedTabForActiveContext (WI-11.2)", () => {
-    it("reopens most recently closed tab", () => {
+    it("reopens most recently closed tab", async () => {
       const store = useTabStore.getState();
 
       const id1 = store.createTab("main", "/file1.md");
       store.createTab("main", "/file2.md");
       store.closeTab("main", id1);
 
-      const reopened = reopenClosedTabForActiveContext("main");
+      const reopened = await reopenClosedTabForActiveContext("main");
 
       expect((reopened as { filePath: string | null } | null)?.filePath).toBe("/file1.md");
     });
 
-    it("removes the reopened entry from the scoped history", () => {
+    it("removes the reopened entry from the scoped history", async () => {
       const store = useTabStore.getState();
 
       const id1 = store.createTab("main", "/file1.md");
       store.createTab("main", "/file2.md");
       store.closeTab("main", id1);
 
-      reopenClosedTabForActiveContext("main");
+      await reopenClosedTabForActiveContext("main");
 
       expect(
         useClosedTabScopesStore.getState().closedIdsForScope("main", WINDOW_ALL_SCOPE),
       ).toHaveLength(0);
     });
 
-    it("returns null when history empty", () => {
-      expect(reopenClosedTabForActiveContext("main")).toBeNull();
+    it("returns null when history empty", async () => {
+      expect(await reopenClosedTabForActiveContext("main")).toBeNull();
     });
 
-    it("activates reopened tab", () => {
+    it("activates reopened tab", async () => {
       const store = useTabStore.getState();
 
       const id1 = store.createTab("main", "/file1.md");
       store.createTab("main", "/file2.md");
       store.closeTab("main", id1);
 
-      const reopened = reopenClosedTabForActiveContext("main");
+      const reopened = await reopenClosedTabForActiveContext("main");
 
       expect(store.getActiveTab("main")?.id).toBe(reopened?.id);
     });
 
-    it("reopens tabs in LIFO order", () => {
+    it("reopens tabs in LIFO order", async () => {
       const store = useTabStore.getState();
 
       const id1 = store.createTab("main", "/file1.md");
@@ -411,8 +411,8 @@ describe("tabStore", () => {
       store.closeTab("main", id1);
       store.closeTab("main", id2);
 
-      const first = reopenClosedTabForActiveContext("main");
-      const second = reopenClosedTabForActiveContext("main");
+      const first = await reopenClosedTabForActiveContext("main");
+      const second = await reopenClosedTabForActiveContext("main");
 
       expect((first as { filePath: string | null } | null)?.filePath).toBe("/file2.md");
       expect((second as { filePath: string | null } | null)?.filePath).toBe("/file1.md");

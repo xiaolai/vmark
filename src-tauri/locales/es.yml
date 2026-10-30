@@ -9,6 +9,10 @@ menu:
   app.settings: "Ajustes..."
   app.saveAllQuit: "Guardar todo y salir"
   app.quit: "Salir de VMark"
+  app.services: "Servicios"
+  app.hide: "Ocultar VMark"
+  app.hideOthers: "Ocultar otros"
+  app.showAll: "Mostrar todo"
 
   # === File menu ===
   file: "Archivo"
@@ -198,9 +202,12 @@ menu:
   view.checkMarkdown: "Comprobar Markdown"
   view.lintNext: "Problema siguiente"
   view.lintPrev: "Problema anterior"
+  view.toggleFullScreen: "Activar/desactivar pantalla completa"
   # === Window menu ===
   window: "Ventana"
   window.bringAllToFront: "Traer todo al frente"
+  window.minimize: "Minimizar"
+  window.zoom: "Ampliar/reducir"
   window.breakdown: "Desglose de coherencia"
 
   # === Help menu ===
@@ -273,6 +280,7 @@ errors:
   pdf.invalidExtension: "La ruta de salida debe tener la extensión .pdf"
   pdf.dirNotFound: "El directorio de salida no existe"
   pdf.parentNotDirectory: "El elemento superior de la ruta de salida existe pero no es un directorio"
+  exportTarget.notChosen: "Solo se puede exportar a la ubicación elegida en el diálogo de guardado. Exporta de nuevo y elige dónde guardar."
   pdf.publishFailed: "No se pudo mover el PDF generado a la ruta de salida: %{detail}"
   pdf.outputUnreadable: "No se pudo abrir el PDF generado para verificarlo: %{detail}"
   pdf.pathNotAbsolute: "La ruta de salida debe ser absoluta"

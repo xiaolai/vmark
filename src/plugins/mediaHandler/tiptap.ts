@@ -169,7 +169,7 @@ function handlePaste(view: EditorView, event: ClipboardEvent): boolean {
 /** Tiptap extension that handles pasting and dropping video/audio media files. */
 export const mediaHandlerExtension = Extension.create({
   name: "mediaHandler",
-  // Lower priority than imageHandler (100 is default, lower number = higher priority)
+  // Lower priority than imageHandler (100 is the default; Tiptap runs higher numbers first)
   priority: 90,
 
   addProseMirrorPlugins() {

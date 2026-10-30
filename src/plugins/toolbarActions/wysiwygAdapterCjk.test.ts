@@ -55,6 +55,8 @@ vi.mock("@/lib/cjkFormatter", () => ({
   formatMarkdown: vi.fn((s: string) => `formatted:${s}`),
   formatMarkdownChecked: vi.fn((s: string) => ({ text: `formatted:${s}`, refused: false })),
   removeTrailingSpaces: vi.fn((s: string) => s.replace(/ +$/gm, "")),
+  cleanTrailingSpaces: vi.fn((s: string) => s.replace(/ +$/gm, "")),
+  cleanBlankLines: vi.fn((s: string) => s.replace(/\n{3,}/g, "\n\n")),
 }));
 
 vi.mock("@/utils/linebreaks", () => ({
@@ -74,7 +76,7 @@ import {
   handleCollapseBlankLines,
   handleLineEndings,
 } from "./wysiwygAdapterCjk";
-import { formatMarkdownChecked } from "@/lib/cjkFormatter";
+import { cleanBlankLines, cleanTrailingSpaces, formatMarkdownChecked } from "@/lib/cjkFormatter";
 import { serializeMarkdown, parseMarkdown } from "@/utils/markdownPipeline";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
@@ -314,6 +316,8 @@ describe("handleRemoveTrailingSpaces", () => {
 
     const result = handleRemoveTrailingSpaces(ctx);
     expect(result).toBe(true);
+    // The fence-aware cleanup, not the bare line rule (textCleanup.test.ts).
+    expect(cleanTrailingSpaces).toHaveBeenCalledWith("hello   ", expect.anything());
   });
 });
 
@@ -335,6 +339,7 @@ describe("handleCollapseBlankLines", () => {
 
     const result = handleCollapseBlankLines(ctx);
     expect(result).toBe(true);
+    expect(cleanBlankLines).toHaveBeenCalledWith("a\n\n\nb");
   });
 });
 

@@ -5,7 +5,8 @@
 //! that file under the size gate. Used by CLI arg filtering, Finder
 //! `RunEvent::Opened` filtering, `validate_openable_path`, and the macOS
 //! quarantine strip. Mirrors the TS registry's `getSupportedExtensions()`;
-//! parity enforced by `scripts/check-ext-sync.sh` (ADR-12).
+//! parity enforced by `scripts/check-ext-sync.sh` (ADR-12). `launch_dirs`
+//! picks out the folder launch arguments that extension filter drops.
 
 /// Accepted file extensions (lowercased, no leading dot).
 pub(crate) const SUPPORTED_EXTENSIONS: &[&str] = &[
@@ -62,6 +63,17 @@ pub(crate) fn is_openable_supported(path: &std::path::Path) -> bool {
 pub(crate) fn filter_supported_args(args: impl IntoIterator<Item = String>) -> Vec<String> {
     args.into_iter()
         .filter(|arg| is_openable_supported(std::path::Path::new(arg)))
+        .collect()
+}
+
+/// The launch arguments that name an existing folder, in order.
+///
+/// A folder on a Windows/Linux command line asks for a workspace, as a folder
+/// dropped on the Dock icon does on macOS (`RunEvent::Opened`); the file
+/// filter above drops it, so the launch paths read both.
+pub(crate) fn launch_dirs(args: impl IntoIterator<Item = String>) -> Vec<String> {
+    args.into_iter()
+        .filter(|arg| std::path::Path::new(arg).is_dir())
         .collect()
 }
 

@@ -1,4 +1,4 @@
-# Kohärenz und die Aufschlüsselungsansicht
+# Kohärenz und die Kohärenz-Aufschlüsselung
 
 Die Kohärenzschicht von VMark hält rekursiv entwickelte Schreibprojekte ehrlich:
 Sie zeichnet auf, **welche Dokumente jede KI-Generierung tatsächlich
@@ -49,10 +49,10 @@ bleiben der Chefredakteur.
   abgeglichen — die Historie bleibt lückenlos und ist ehrlich als
   Herkunft-unbekannt markiert.
 
-## Die Aufschlüsselungsansicht
+## Das Panel Kohärenz-Aufschlüsselung
 
 Öffnen Sie sie über **Fenster → Kohärenz-Aufschlüsselung** (oder die
-Befehlspalette: „Breakdown View“). Sie ist strikt **pull-basiert**: Sie
+Befehlspalette: „Kohärenz-Aufschlüsselung“). Sie ist strikt **pull-basiert**: Sie
 aktualisiert sich, wenn Sie sie öffnen oder auf Aktualisieren drücken —
 sie nervt nie im Hintergrund.
 
@@ -85,7 +85,12 @@ Historie um:
   In v0 ist ein Aussetzen bewusst eng gefasst: Es gilt nur für diese
   Kante und die konkrete Upstream-Revision, gegen die es aufgelöst wird.
   Ausgesetzte Einträge bleiben sichtbar, deutlich markiert, und öffnen
-  sich erneut, wenn sich der Upstream wieder bewegt.
+  sich erneut, wenn sich der Upstream wieder bewegt. Ein Aussetzen kann
+  zusätzlich ein optionales Ablaufdatum erhalten — ein Datum (`YYYY-MM-DD`,
+  gemeint ist das Ende dieses Tages in UTC) oder einen vollständigen
+  Zeitstempel. Ist es überschritten, verfällt das Aussetzen und der Eintrag
+  öffnet sich erneut; ein fehlerhaftes Ablaufdatum verfällt sofort, sodass
+  der Eintrag nie stillschweigend ausgesetzt bleibt.
 
 Neuere übernehmen und Aussetzen sind deaktiviert, wenn der Upstream
 mehrere aktuelle Versionen hat — es gibt keine einzelne Revision, gegen

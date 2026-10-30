@@ -5,7 +5,6 @@ import {
   selectIsRunning,
   selectServerStatus,
   selectServerUrl,
-  selectProvision,
   selectSlidevDeck,
   selectError,
   selectPanelOpen,
@@ -20,20 +19,6 @@ beforeEach(() => {
 describe("contentServerStore", () => {
   it("starts stopped", () => {
     expect(selectServerStatus(useContentServerStore.getState())).toBe("stopped");
-  });
-
-  it("tracks provisioning progress", () => {
-    useContentServerStore.getState().setProvision({ phase: "downloading", received: 10, total: 100 });
-    const s = useContentServerStore.getState();
-    expect(s.status).toBe("provisioning");
-    expect(s.provision).toMatchObject({ phase: "downloading", received: 10, total: 100 });
-  });
-
-  it("enters error on a failed provision phase", () => {
-    useContentServerStore.getState().setProvision({ phase: "failed", reason: "checksum mismatch" });
-    const s = useContentServerStore.getState();
-    expect(s.status).toBe("error");
-    expect(s.error).toBe("checksum mismatch");
   });
 
   it("transitions starting → running and exposes url/port", () => {
@@ -64,11 +49,6 @@ describe("contentServerStore", () => {
 
 describe("contentServerStore — panel, iframe, view, errors", () => {
   const s = () => useContentServerStore.getState();
-
-  it("setProvision falls back to a default reason when none given", () => {
-    s().setProvision({ phase: "failed" });
-    expect(s().error).toBe("provisioning failed");
-  });
 
   it("setError records the message and error status", () => {
     s().setError("spawn failed");
@@ -113,7 +93,6 @@ describe("contentServerStore — panel, iframe, view, errors", () => {
     s().setPanelOpen(true);
     const st = s();
     expect(selectServerUrl(st)).toBe("http://127.0.0.1:9");
-    expect(selectProvision(st)).toBeNull();
     expect(selectSlidevDeck(st)).toBe("/d.md");
     expect(selectError(st)).toBeNull();
     expect(selectPanelOpen(st)).toBe(true);

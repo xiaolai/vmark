@@ -17,6 +17,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { recentWarn } from "@/utils/debug";
+import { isMacPlatform } from "@/utils/platform";
 
 /** In-flight tail per channel. Absent = idle. */
 const chains = new Map<string, Promise<void>>();
@@ -61,14 +62,16 @@ export function syncRecentWorkspacesMenu(paths: string[]): void {
   });
 }
 
-/** Register a path in the macOS dock's "Recent" list. Silent elsewhere — the
- *  command only exists on macOS, so a rejection here is expected, not a fault. */
+/** Register a path in the macOS dock's "Recent" list. A no-op elsewhere: the
+ *  command is registered only on macOS. On macOS a refusal (a path that is
+ *  gone, unreadable, not a file) is a real fault, so it is logged. */
 export function registerDockRecent(path: string): void {
+  if (!isMacPlatform()) return;
   void (async () => {
     try {
       await invoke("register_dock_recent", { path });
-    } catch {
-      /* not macOS (or no dock) — nothing to report */
+    } catch (e) {
+      recentWarn("Dock recent registration failed:", path, e);
     }
   })();
 }

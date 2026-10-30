@@ -15,7 +15,7 @@ La barra degli spazi di lavoro permette a una finestra di contenere **più works
 | Pannelli divisi | Ogni workspace ricorda il proprio layout diviso |
 | Struttura | Lo stato di compressione, filtro e scorrimento di ogni scheda segue il workspace |
 | Scheda successiva/precedente, menu contestuale delle schede, "schede aperte" di Apertura rapida | Limitati al workspace attivo |
-| Riapri scheda chiusa | Le schede chiuse vengono registrate per workspace (più un ambito condiviso per il browser) e riaperte dalla più recente con **File → Riapri scheda chiusa**, dalla palette dei comandi o da una scorciatoia che assegni in Impostazioni → Scorciatoie (non ne ha una predefinita: le combinazioni vicine sono già occupate) |
+| Riapri scheda chiusa | Le schede chiuse vengono registrate per workspace (più un ambito condiviso per il browser) e riaperte dalla più recente con **File → Riapri scheda chiusa**, dalla palette dei comandi o da una scorciatoia che assegni in Impostazioni → Scorciatoie (non ne ha una predefinita: le combinazioni vicine sono già occupate). Un documento riaperto viene riletto dal disco, quindi mostra il file com'è adesso; se il file è stato spostato o eliminato, la scheda non viene ripristinata e un avviso ne spiega il motivo. Una scheda senza titolo si riapre vuota. Le modifiche non salvate non vengono recuperate — chiudendo una scheda modificata è già stato chiesto se salvare |
 | **Pagine del browser** | **Globali per la finestra** — raggiungibili da ogni workspace |
 | Menu dei file recenti e degli spazi di lavoro recenti | Globali |
 | Salvataggio automatico, richieste di salvataggio, monitoraggio dei file | Coprono **ogni** scheda, nascosta o no |

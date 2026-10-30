@@ -30,10 +30,9 @@ async fn client_tx_overflow_returns_full_not_blocking() {
 #[test]
 fn legacy_operations_are_write_class_fail_closed() {
     // Audit 20260729 C4: the pre-pruning legacy names are unreachable here —
-    // the frontend dispatcher accepts only vmark.*, and windows.list /
-    // windows.getFocused are Rust-answered in routing BEFORE this classifier
-    // runs. They must fall through to write-class (fail closed), not carry a
-    // dead read-only allowlist.
+    // the frontend dispatcher accepts only vmark.*, and nothing answers the
+    // old `windows.*` names any more. They must fall through to write-class
+    // (fail closed), not carry a dead read-only allowlist.
     for legacy in [
         "document.getContent",
         "document.search",

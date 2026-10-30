@@ -11,7 +11,7 @@ import { registerCommands, type CommandDefinition } from "./CommandBus";
 import { useLintStore } from "@/stores/documentStore";
 import { getActiveTabId } from "@/services/navigation/activeDocument";
 import { scrollToSelectedDiagnostic } from "@/services/lint/lintNavigation";
-import { runActiveLint } from "@/services/lint/runActiveLint";
+import { activeTabHasLinter, runActiveLint } from "@/services/lint/runActiveLint";
 import i18n from "@/i18n";
 
 type Ctx = { windowLabel?: string };
@@ -38,6 +38,8 @@ function buildLintCommandSpecs(): CommandDefinition[] {
     id: "lint.check",
     title: () => i18n.t("commands:lint.check"),
     category: "lint",
+    // Offered only where the tab's format contributes a linter (markdown, YAML).
+    when: (ctx: Ctx) => activeTabHasLinter(ctx.windowLabel ?? "main"),
     run: (_args, ctx: Ctx) => {
       runActiveLint(ctx.windowLabel ?? "main");
     },

@@ -3,7 +3,7 @@
  *
  * Two failures that are invisible in ordinary use and leave no trace:
  *   - the menu refresh resolving AFTER the cleanup hid the menu, putting the
- *     Genies submenu back for a feature that was just switched off;
+ *     Genies submenu back after the main window's runners unmounted;
  *   - a `listen()` registration that rejects with nobody waiting on it: an
  *     unhandled rejection at mount, and no diagnostic anywhere. Asserted
  *     through the WARNING rather than through `process.on("unhandledRejection")`
@@ -36,8 +36,24 @@ vi.mock("@/utils/debug", async (importOriginal) => ({
   genieWarn: (...args: unknown[]) => genieWarn(...args),
 }));
 
+import type { ReactNode } from "react";
 import { act, renderHook } from "@testing-library/react";
-import { useGenieShortcuts } from "./useGenieShortcuts";
+import { WindowContext } from "@/contexts/WindowContext";
+import { useGenieMenuInvocation, useGenieShortcuts } from "./useGenieShortcuts";
+
+/** Both genie hooks, as the main window mounts them (runners + document mount). */
+function useBothGenieHooks(): void {
+  useGenieShortcuts();
+  useGenieMenuInvocation();
+}
+
+function MainWindow({ children }: { children: ReactNode }) {
+  return (
+    <WindowContext.Provider value={{ windowLabel: "main", isDocumentWindow: true }}>
+      {children}
+    </WindowContext.Provider>
+  );
+}
 
 /** A promise plus the lever that settles it. */
 function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
@@ -63,18 +79,25 @@ beforeEach(() => {
 
 describe("the menu load is unmount-aware (#736)", () => {
   it("does not refresh the native menu after the cleanup hid it", async () => {
+    // `load_genies` is the menu load's only disk read (stores/aiStore/genies.ts).
+    // Holding ITS reply back is what keeps the load in flight across unmount.
     const listing = deferred<unknown>();
     mockInvoke.mockImplementation((cmd) =>
-      cmd === "list_genies" ? listing.promise : Promise.resolve(),
+      cmd === "load_genies" ? listing.promise : Promise.resolve(),
     );
 
     const { unmount } = renderHook(() => useGenieShortcuts());
-    // The disk read is still in flight when the feature is switched off.
+    // The disk read is still in flight when the hook unmounts.
     unmount();
+
+    // The load really was held back at the boundary: without this, a rename of
+    // the command would let the load finish before unmount and the case below
+    // would pass without ever exercising the race.
+    expect(invokedCommands()).toContain("load_genies");
 
     await act(async () => {
       listing.resolve([]);
-      await Promise.resolve();
+      await new Promise((resolve) => setTimeout(resolve, 0));
     });
 
     expect(invokedCommands()).toContain("hide_genies_menu");
@@ -99,7 +122,7 @@ describe("listener registration failures are handled where they happen (#738)", 
         : Promise.resolve(() => {}),
     );
 
-    const { unmount } = renderHook(() => useGenieShortcuts());
+    const { unmount } = renderHook(() => useBothGenieHooks(), { wrapper: MainWindow });
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
@@ -117,7 +140,7 @@ describe("listener registration failures are handled where they happen (#738)", 
   it("unmount is safe when every registration failed", async () => {
     mockListen.mockRejectedValue(new Error("event channel gone"));
 
-    const { unmount } = renderHook(() => useGenieShortcuts());
+    const { unmount } = renderHook(() => useBothGenieHooks(), { wrapper: MainWindow });
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
     });

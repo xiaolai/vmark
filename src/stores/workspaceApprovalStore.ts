@@ -8,11 +8,12 @@
  * for human input (global write lock + 10/20s timeout, Codex F-04), so approval
  * is fail-now → approve → AI-retry: the handler requests approval and returns
  * needsApproval; the user's approval mints a ONE-SHOT bound to the CANONICAL
- * path, the target window, AND the authenticated client (Codex F-10); the AI
- * retries and the retry consumes it. No standing grants — a remembered grant to
- * open any folder would defeat the point (ADR-2).
+ * path, the target window, AND the requesting client — the handler passes the
+ * request's authenticated connection id (Codex F-10); the AI retries and the
+ * retry consumes it. No standing grants — a remembered grant to open any folder
+ * would defeat the point (ADR-2).
  *
- * @coordinates-with services/mcpBridge/v2/workspace.ts — the open_workspace handler
+ * @coordinates-with services/mcpBridge/v2/workspaceOpenFolder.ts — the open_workspace handler
  * @coordinates-with components (approval UI) — resolveApproval
  * @module stores/workspaceApprovalStore
  */

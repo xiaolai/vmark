@@ -12,7 +12,9 @@
 //!   - The stamp is size + modification time, plus on Unix the inode and the
 //!     status-change time. The ctime cannot be set from user space, so a tool
 //!     that restores an old mtime after rewriting a file still changes the
-//!     stamp; the inode catches a replace-by-rename.
+//!     stamp; the inode catches a replace-by-rename. Windows has neither, so
+//!     there a rewrite that keeps the size and restores the mtime is not
+//!     re-read or re-hashed.
 //!   - When in doubt, read. A file modified within `MTIME_SLACK` of the moment
 //!     it was stamped is never remembered: another write in the same
 //!     timestamp tick would leave the stamp unchanged (filesystems with 1-2 s

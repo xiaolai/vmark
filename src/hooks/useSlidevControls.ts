@@ -9,9 +9,13 @@
  * chosen path.
  *
  * Both are fire-and-forget from the UI's point of view, so every failure is
- * CAUGHT rather than rejecting into a click handler. The save dialog itself is
+ * CAUGHT rather than rejecting into a click handler. The save panel itself is
  * inside that boundary too: a permission denial or a platform dialog failure is
  * reported, not an unhandled rejection.
+ *
+ * The save panel is RUST's (`pick_export_target`, kind `slidev`), not the
+ * dialog plugin's: Rust records the chosen path for this webview, and
+ * `content_server_slidev_export` writes that path and no other.
  *
  * ONE envelope, written once. Preview and export had the same
  * five-line preamble and the same catch/finally copied out: in-flight guard,
@@ -40,7 +44,7 @@
 import { useCallback, useRef, type RefObject } from "react";
 import type { TFunction } from "i18next";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { save } from "@tauri-apps/plugin-dialog";
+import { invoke } from "@tauri-apps/api/core";
 import { commandErrorMessage } from "@/services/commands/commandError";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
@@ -102,13 +106,13 @@ async function promptAndExportDeck(
   // The dialog itself can throw (permission denied, platform dialog failure) —
   // it is inside `runDeckOperation`'s boundary so the failure becomes a toast
   // instead of rejecting this fire-and-forget control.
-  const output = await save({
+  // No file-type filter (macOS 26 rejects typed input under one); the
+  // default filename carries `.pdf`, and the extension check below refuses
+  // anything that is not a supported format.
+  const output = await invoke<string | null>("pick_export_target", {
+    kind: "slidev",
     defaultPath: deckExportDefaultPath(target.deck),
-    filters: [
-      { name: "PDF", extensions: ["pdf"] },
-      { name: "PNG", extensions: ["png"] },
-      { name: "PowerPoint", extensions: ["pptx"] },
-    ],
+    title: t("contentServer.slidev.export"),
   });
   if (!output) return; // user cancelled the save dialog
   const format = slidevFormatFromPath(output);

@@ -17,11 +17,11 @@
  *
  * @coordinates-with quotePairing.ts — analyzeQuotes for straight/curly pair detection
  * @coordinates-with paragraphBreaks.ts — corner and guillemet pairs stay inside one paragraph
- * @coordinates-with settingsStore.ts — QuoteStyle type, quoteToggleMode setting
+ * @coordinates-with types.ts — the QuoteStyle type (kept in lib/ so lib/ never imports a store)
  * @module lib/cjkFormatter/quoteToggle
  */
 
-import type { QuoteStyle } from "@/stores/settingsStore";
+import type { QuoteStyle } from "./types";
 import { analyzeQuotes } from "./quotePairing";
 import { paragraphCrossings } from "./paragraphBreaks";
 

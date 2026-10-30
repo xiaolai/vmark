@@ -1,6 +1,6 @@
 // @vitest-environment node
 // WI-UA15 — cursor policy D7 scopes per platform via a root class
-//           (audit 20260901): platformRootClass() names the class main.tsx
+//           (audit 20260901): platformRootClass() names the class bootstrap.tsx
 //           puts on <html>, which index.css maps to --cursor-interactive.
 import { describe, it, expect, afterEach } from "vitest";
 import {

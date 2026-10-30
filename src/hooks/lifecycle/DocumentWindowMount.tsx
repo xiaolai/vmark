@@ -5,7 +5,9 @@
  * composites (which only apply to actual document windows, not to
  * settings/pdf-export routes) live behind this component. Secondary
  * document windows also mount their Finder hot-open listener here; main keeps
- * its listener in `MainWindowRunners` after resilience startup.
+ * its listener in `MainWindowRunners` after resilience startup. Every document
+ * window runs genies picked from the native Genies menu for itself
+ * (`useGenieMenuInvocation`); the menu's load and sync stay main-only.
  *
  * MainLayout renders `<DocumentWindowMount />` when
  * `isDocumentWindow` is true.
@@ -16,6 +18,7 @@
 import { useDocumentLifecycle } from "./useDocumentLifecycle";
 import { useWindowLifecycle } from "./useWindowLifecycle";
 import { useFinderFileOpen } from "@/hooks/useFinderFileOpen";
+import { useGenieMenuInvocation } from "@/hooks/useGenieShortcuts";
 import { useWindowLabel } from "@/contexts/WindowContext";
 
 function SecondaryFinderFileOpenRunner(): null {
@@ -26,6 +29,7 @@ function SecondaryFinderFileOpenRunner(): null {
 export function DocumentWindowMount(): React.ReactElement | null {
   useDocumentLifecycle();
   useWindowLifecycle();
+  useGenieMenuInvocation();
   const windowLabel = useWindowLabel();
 
   return windowLabel.startsWith("doc-") ? <SecondaryFinderFileOpenRunner /> : null;

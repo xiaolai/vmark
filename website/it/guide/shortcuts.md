@@ -178,7 +178,7 @@ Se preferisci mantenere le funzioni di sistema sui tasti F, puoi personalizzare 
 | Attiva/disattiva cronologia | `Ctrl + Shift + 3` |
 | Mostra/Nascondi knowledge base | `Ctrl + Shift + 4` |
 | Mostra/Nascondi stato finestre | `Ctrl + Shift + 5` |
-| Attiva/disattiva numeri di riga (blocchi di codice) | `Alt + Mod + L` |
+| Attiva/disattiva numeri di riga (margine Sorgente/vista divisa) | `Alt + Mod + L` |
 | Attiva/disattiva terminale | Ctrl + `` ` `` |
 | Metti a fuoco terminale o editor | Ctrl + Shift + `` ` `` (Alt + Shift + `` ` `` su Windows/Linux) |
 | Attiva/disattiva anteprima diagramma | `Alt + Mod + P` |

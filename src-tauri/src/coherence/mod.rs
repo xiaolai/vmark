@@ -12,8 +12,6 @@
 //! append-only records (I5). No module exposes a mutating API over
 //! recorded history — the only writes are appends.
 
-pub mod accept;
-pub mod accept_precondition;
 pub mod adopt;
 pub mod adopt_duplicate;
 pub mod anchor_parse;
@@ -64,13 +62,8 @@ pub mod ledger_segments;
 pub mod lifecycle;
 pub mod logbook;
 pub mod logbook_commands;
-pub mod merge_audit;
 pub mod merge_surface;
-pub mod operator;
-pub mod operator_accept;
-pub mod operator_commands;
 pub mod paths;
-pub mod preview;
 pub mod project;
 pub mod provenance;
 pub mod provenance_commands;

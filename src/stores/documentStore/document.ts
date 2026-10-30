@@ -7,8 +7,7 @@
  * `import { useDocumentStore } from "@/stores/documentStore"`.
  *
  * Two doors in — `setEditorContent` (editor domain, asserts canonical input;
- * `setContent` survives only as a deprecated test alias, gated by
- * externalWriterGate.test) and the external door
+ * the old `setContent` alias is GONE, see storeContract.ts) and the external door
  * (`initDocument`/`ingestExternalContent`), both canonicalising via
  * `ingestExternalText`. `loadContent` is GONE: it duplicated the ingest
  * baseline branch and had drifted from it (see ingestState.ts). The field contract lives in `documentState.ts`.

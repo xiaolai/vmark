@@ -64,7 +64,7 @@ export function getRuntimePlatform(): RuntimePlatform {
 }
 
 /**
- * The root class main.tsx puts on `<html>` at bootstrap. CSS keys
+ * The root class `bootstrap.tsx` puts on `<html>` at startup. CSS keys
  * platform-scoped policy off it — today only the D7 cursor split:
  * `index.css` maps `.platform-windows` / `.platform-linux` to
  * `--cursor-interactive: pointer`, so interactive chrome keeps the Apple HIG

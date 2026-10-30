@@ -162,6 +162,7 @@ espaços reservados quebrados.)
 ## Segurança
 
 - Um caminho de mídia não pode conter um esquema de URI (`javascript:`, `file:` ou um personalizado); essas fontes são recusadas em vez de carregadas
-- Um caminho que aponta para um diretório em vez de um arquivo é recusado
+- Um caminho relativo que aponta para um diretório (`.`, `..`, `assets/`) não é carregado. Os blocos de vídeo/áudio o recusam de imediato. Imagens inline o devolvem inalterado, e a webview o resolve em relação à origem do aplicativo, então ele nunca chega ao disco. Um caminho relativo à pasta pessoal (`~/…`) é tratado da mesma forma
+- Caminhos absolutos não são restringidos pelas regras de caminho. Qualquer caminho absoluto dentro do escopo de assets é exibido: sua pasta pessoal, `/Volumes`, `/mnt` e `/media` (mais as unidades `C:`–`F:` no Windows) e pastas concedidas em tempo de execução. Por isso, um documento pode mostrar qualquer imagem legível nesses lugares escrevendo o caminho completo. Colar uma imagem com **Copiar para a pasta de ativos** desligado grava um caminho absoluto assim. É também por isso que um caminho relativo pode usar `..`: ele não alcança nada que um caminho absoluto já não alcançasse
 - Embeds de vídeo são carregados somente de três hosts: `www.youtube-nocookie.com` (o player com privacidade aprimorada do YouTube), `player.vimeo.com` e `player.bilibili.com`. Um link do YouTube, ou um iframe escrito com `youtube.com`, é incorporado pelo host com privacidade aprimorada. A política de segurança de conteúdo do VMark permite carregar frames desses hosts e de nenhum outro site
 - Outras fontes de iframe são removidas pelo sanitizador

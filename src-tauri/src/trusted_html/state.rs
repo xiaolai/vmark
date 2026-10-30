@@ -27,7 +27,7 @@
 //!
 //! @coordinates-with protocol.rs — reads `html()` to serve a response
 //! @coordinates-with commands.rs — the IPC surface over this registry
-//! @coordinates-with ../app_setup.rs — calls `revoke_window` on WindowEvent::Destroyed
+//! @coordinates-with ../window_manager/window_events.rs — calls `revoke_window` on WindowEvent::Destroyed
 
 use std::collections::HashMap;
 use std::sync::{Mutex, MutexGuard};
@@ -82,7 +82,7 @@ pub struct TrustedHtmlState {
 impl TrustedHtmlState {
     /// Authorize `html` for execution on behalf of `window`, returning its token.
     ///
-    /// The token is the app's standard 32-byte CSPRNG secret: it is the only
+    /// The token is the app's standard CSPRNG secret (244 random bits): it is the only
     /// thing standing between a live grant and any other frame that can name
     /// the scheme, so it must not be guessable.
     pub fn grant(&self, window: &str, html: String) -> Result<String, CommandError> {

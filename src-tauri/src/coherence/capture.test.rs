@@ -611,3 +611,103 @@ fn an_input_read_through_a_symlink_to_a_tracked_document_is_that_document_not_a_
         "the registry is not repointed at the alias"
     );
 }
+
+// Hard links and case variants reach `registered_alias` the same way a symlink
+// does: one file under two names. Alias detection compares file identity
+// (volume and file index), so neither needs Unix.
+
+/// A buffer capture leaves the file in place, so the link still names it.
+#[test]
+fn an_input_reaching_the_captures_own_file_through_a_hard_link_is_dropped() {
+    let (dir, mut kernel) = workspace();
+    write_file(dir.path(), "ch1.md", "v1\n");
+    capture(&mut kernel, human_save("ch1.md", "v1\n")).unwrap();
+    std::fs::hard_link(dir.path().join("ch1.md"), dir.path().join("alias.md")).unwrap();
+
+    let mut req = human_save("ch1.md", "v2\n");
+    req.rewrite_identity = false;
+    req.inputs = vec![path_input("alias.md")];
+    let r = capture(&mut kernel, req).unwrap();
+
+    assert!(recorded_inputs(&kernel, r.entry_id.unwrap()).is_empty());
+}
+
+/// An identity-rewriting save replaces the file atomically (a new file under
+/// the old name), which splits a hard link: the other name keeps the old file
+/// and the same `vmark.id`, so it is now a real duplicate, and the capture
+/// says so instead of recording the stale copy as an input.
+#[test]
+fn a_save_that_rewrites_the_file_turns_a_hard_link_into_a_refused_duplicate() {
+    let (dir, mut kernel) = workspace();
+    write_file(dir.path(), "ch1.md", "v1\n");
+    capture(&mut kernel, human_save("ch1.md", "v1\n")).unwrap();
+    std::fs::hard_link(dir.path().join("ch1.md"), dir.path().join("alias.md")).unwrap();
+
+    let mut req = human_save("ch1.md", "v2\n");
+    req.inputs = vec![path_input("alias.md")];
+    let err = capture(&mut kernel, req).unwrap_err();
+
+    assert!(err.contains("duplicate vmark.id"), "{err}");
+    assert!(err.contains("alias.md is a copy of ch1.md"), "{err}");
+}
+
+#[test]
+fn an_input_read_through_a_hard_link_to_a_tracked_document_is_that_document_not_a_copy() {
+    let (dir, mut kernel) = workspace();
+    write_file(dir.path(), "notes.md", "notes\n");
+    let notes = capture(&mut kernel, human_save("notes.md", "notes\n")).unwrap();
+    std::fs::hard_link(dir.path().join("notes.md"), dir.path().join("link.md")).unwrap();
+    write_file(dir.path(), "ch1.md", "v1\n");
+
+    let mut req = human_save("ch1.md", "v1\n");
+    req.inputs = vec![path_input("link.md")];
+    let r = capture(&mut kernel, req).unwrap();
+
+    let inputs = recorded_inputs(&kernel, r.entry_id.unwrap());
+    assert_eq!(inputs.len(), 1);
+    assert_eq!(inputs[0].object, notes.object);
+    assert!(
+        !kernel.index().is_held(&notes.object).unwrap(),
+        "a hard link is not a duplicate"
+    );
+    let registry = kernel.index().registry_state().unwrap();
+    assert_eq!(
+        registry.path_of.get(&notes.object).map(String::as_str),
+        Some("notes.md"),
+        "the registry is not repointed at the hard link"
+    );
+}
+
+/// macOS (APFS, HFS+) and Windows (NTFS) temp volumes are case-insensitive by
+/// default; the assertion makes a case-sensitive one fail loudly rather than
+/// pass without exercising the case-variant path.
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+#[test]
+fn an_input_spelled_in_another_case_is_that_document_not_a_copy() {
+    let (dir, mut kernel) = workspace();
+    write_file(dir.path(), "notes.md", "notes\n");
+    let notes = capture(&mut kernel, human_save("notes.md", "notes\n")).unwrap();
+    assert!(
+        dir.path().join("NOTES.md").exists(),
+        "this test needs a case-insensitive temp volume"
+    );
+    write_file(dir.path(), "ch1.md", "v1\n");
+
+    let mut req = human_save("ch1.md", "v1\n");
+    req.inputs = vec![path_input("NOTES.md")];
+    let r = capture(&mut kernel, req).unwrap();
+
+    let inputs = recorded_inputs(&kernel, r.entry_id.unwrap());
+    assert_eq!(inputs.len(), 1);
+    assert_eq!(inputs[0].object, notes.object);
+    assert!(
+        !kernel.index().is_held(&notes.object).unwrap(),
+        "a case variant is not a duplicate"
+    );
+    let registry = kernel.index().registry_state().unwrap();
+    assert_eq!(
+        registry.path_of.get(&notes.object).map(String::as_str),
+        Some("notes.md"),
+        "the registry keeps the registered spelling"
+    );
+}

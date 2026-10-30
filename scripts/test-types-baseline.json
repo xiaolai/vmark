@@ -263,7 +263,7 @@
   "src/services/persistence/hotExit/schemaMigration.v5.test.ts": 5,
   "src/services/persistence/hotExit/workspaceInstanceRestoreData.test.ts": 13,
   "src/services/persistence/resilience/_hotExitRestore.test.ts": 30,
-  "src/services/persistence/sessionTabs.test.ts": 6,
+  "src/services/persistence/sessionTabs.test.ts": 2,
   "src/services/tabs/replaceableTab.test.ts": 2,
   "src/services/tabs/tabOperations.resolution.test.ts": 7,
   "src/services/tabs/tabOperations.test.ts": 1,

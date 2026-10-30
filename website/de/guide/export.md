@@ -248,7 +248,7 @@ Beide Dateien lassen sich offline öffnen, mit einem Unterschied bei Dokumenten,
 - **`standalone.html`** ist vollständig in sich geschlossen — das KaTeX-Stylesheet und die Schriften werden beim Export eingebettet, sodass Mathematik ohne Verbindung dargestellt wird.
 - **`index.html`** lädt das KaTeX-Stylesheet von einem CDN (jsDelivr), sodass die Mathematik beim Öffnen der Seite eine Internetverbindung benötigt; der Reader, die Bilder und die Schriften unter `assets/` sind lokal.
 
-Schriften werden während des Exports heruntergeladen (KaTeX-Schriften sowie jede Webschrift, die Sie in den Einstellungen gewählt haben); exportieren Sie also auf einem Rechner mit Internetzugang, wenn Sie sie eingebettet haben möchten — ein Offline-Export fällt auf Systemschriften zurück.
+Schriften werden während des Exports heruntergeladen: KaTeX-Schriften, wenn das Dokument Mathematik enthält, und Ihre lateinische und Ihre Monospace-Schrift, wenn es Webschriften sind, die VMark kennt (Literata, JetBrains Mono, Fira Code, IBM Plex Mono). Die CJK-Schrifteinstellung wird nie eingebettet, ebenso wenig eine Systemschrift oder eine benutzerdefinierte Schriftfamilie — die exportierte Seite verwendet dafür den System-Schriftstapel des Lesers. Exportieren Sie auf einem Rechner mit Internetzugang, wenn Sie Schriften eingebettet haben möchten — ein Offline-Export fällt auf Systemschriften zurück.
 
 ### Welche Bilder eingebettet werden
 
@@ -259,6 +259,9 @@ daher begrenzt VMark, woher diese Bytes stammen dürfen:
 |---|---|
 | in einem geöffneten Arbeitsbereich | beliebigen Orten in diesem Arbeitsbereich |
 | für sich allein geöffnet | dem Ordner des Dokuments und seinen Unterordnern |
+| ungespeichert (nie auf die Festplatte gespeichert) | nirgendwoher — kein lokales Bild wird eingebettet, auch nicht bei geöffnetem Arbeitsbereich; entfernte Bilder sind nicht betroffen |
+
+Speichern Sie ein ungespeichertes Dokument zuerst und exportieren Sie es dann erneut. Das gilt für HTML, Drucken, PDF und Als HTML kopieren.
 
 Relative Pfade werden vom Ordner des Dokuments aus aufgelöst, genau wie im
 Editor — `../images/photo.png` funktioniert also, solange das Ziel innerhalb der

@@ -250,7 +250,7 @@ Les deux fichiers s'ouvrent hors ligne, avec une différence pour les documents 
 - **`standalone.html`** est entièrement autonome — la feuille de style et les polices KaTeX sont intégrées au moment de l'exportation, les mathématiques s'affichent donc sans connexion.
 - **`index.html`** charge la feuille de style KaTeX depuis un CDN (jsDelivr) ; ses mathématiques nécessitent donc une connexion internet à l'ouverture de la page ; le lecteur, les images et les polices sous `assets/` sont locaux.
 
-Les polices sont téléchargées pendant l'exportation (polices KaTeX et toute police web choisie dans les Paramètres) ; exportez donc depuis une machine disposant d'un accès à internet si vous souhaitez les intégrer — une exportation hors ligne se rabat sur les polices système.
+Les polices sont téléchargées pendant l'exportation : les polices KaTeX lorsque le document contient des mathématiques, et vos polices latine et à chasse fixe lorsqu'il s'agit de polices web que VMark connaît (Literata, JetBrains Mono, Fira Code, IBM Plex Mono). Le réglage de police CJK n'est jamais intégré, pas plus qu'une police système ou une famille de polices personnalisée — la page exportée utilise pour celles-ci la pile de polices système du lecteur. Exportez depuis une machine disposant d'un accès à internet si vous souhaitez intégrer les polices — une exportation hors ligne se rabat sur les polices système.
 
 ### Quelles images sont intégrées
 
@@ -261,6 +261,9 @@ sont partagées — VMark limite donc la provenance de ces octets :
 |---|---|
 | dans un espace de travail ouvert | n'importe où dans cet espace de travail |
 | ouvert seul | le dossier du document et ses sous-dossiers |
+| non enregistré (jamais enregistré sur le disque) | nulle part — aucune image locale n'est intégrée, même avec un espace de travail ouvert ; les images distantes ne sont pas concernées |
+
+Pour un document non enregistré, enregistrez-le d'abord, puis exportez-le à nouveau. Cela s'applique au HTML, à l'impression, au PDF et à Copier en HTML.
 
 Les chemins relatifs sont résolus à partir du dossier du document, exactement
 comme dans l'éditeur — `../images/photo.png` fonctionne donc tant que la cible

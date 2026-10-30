@@ -35,8 +35,8 @@ precisam estar presentes antes que ele possa iniciar:
   exista uma solução para as versões de lançamento, o recurso exige um ambiente
   de desenvolvimento — um checkout do VMark com o servidor de conteúdo
   compilado, disponibilizado pela variável de ambiente
-  `VMARK_CONTENT_SERVER_CLI` (ou um runtime `base-kb` provisionado nos dados de
-  aplicativo do VMark).
+  `VMARK_CONTENT_SERVER_CLI` (ou um runtime `base-kb` que você coloca à mão nos dados de
+  aplicativo do VMark; o VMark nunca baixa um).
 
 O painel verifica os dois ao abrir. Quando algum deles está faltando, ele diz
 qual é e o que o forneceria, em vez de tentar um início que não pode dar certo.
@@ -109,6 +109,10 @@ nem localiza um navegador para isso: se `playwright-chromium` não estiver
 instalado ao lado do Slidev no runtime do servidor de conteúdo, a exportação
 falha e mostra a mensagem de erro do Slidev. Uma exportação que dure mais de
 três minutos é interrompida.
+
+**Exportar slides** pergunta onde salvar com o painel de salvamento nativo do VMark,
+e a exportação grava somente no caminho escolhido ali; a extensão do arquivo precisa
+corresponder ao formato (`.pdf`, `.png`, `.pptx`).
 
 ## Privacidade e segurança
 

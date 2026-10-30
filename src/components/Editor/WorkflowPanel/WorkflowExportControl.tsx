@@ -11,9 +11,10 @@
  *   - Pure dispatch + UX. The clipboard / save-dialog / writeFile glue
  *     lives in lib/ghaWorkflow/export/saveExport.ts so it stays
  *     unit-testable without mounting xyflow.
- *   - exportCanvas reads the live `.react-flow__viewport` from the DOM;
- *     this control just names the format. It must therefore mount inside
- *     the same canvas wrapper as React Flow.
+ *   - exportCanvas reads the live `.react-flow__viewport` from the DOM,
+ *     scoped to this control's parent element (the canvas wrapper
+ *     WorkflowCanvas mounts it in beside React Flow), so with several
+ *     canvases in one document the user exports the one they clicked.
  *   - An in-flight guard prevents rapid repeated clicks from triggering
  *     duplicate clipboard writes, save dialogs, or toasts; the trigger and
  *     menu items disable while an export runs.
@@ -119,7 +120,11 @@ export function WorkflowExportControl({
       exportingRef.current = true;
       setExporting(true);
       try {
-        const result = await saveImage(format);
+        // Capture THIS control's canvas: the viewport inside the wrapper the
+        // control is mounted in, never the first canvas in the document.
+        const scope = rootRef.current?.parentElement;
+        if (!scope) throw new Error("export control is not mounted in a canvas wrapper");
+        const result = await saveImage(format, scope);
         if (result === "saved") {
           toast.success(
             format === "svg" ? t("panel.exportSvg") : t("panel.exportPng"),

@@ -19,6 +19,8 @@ Mit der experimentellen [Workspace-Leiste](/de/guide/workspace-rail) kann ein ei
 
 Wenn Sie einen Arbeitsbereich öffnen, zeigt VMark die Seitenleiste mit dem Datei-Explorer. Wenn der Arbeitsbereich zuvor geöffnet war, werden die vorherigen Tabs wiederhergestellt.
 
+Unter Windows und Linux öffnet sich ein auf der Befehlszeile übergebener Ordner (`vmark C:\notes` oder `vmark ~/notes`) als Arbeitsbereich in einem eigenen Fenster, so wie das Ablegen eines Ordners auf dem Dock-Symbol unter macOS. Das funktioniert auch, wenn VMark bereits läuft.
+
 ::: tip
 Wenn das aktuelle Fenster nicht gespeicherte Änderungen hat, bietet VMark an, den Arbeitsbereich in einem neuen Fenster zu öffnen, anstatt Ihre Arbeit zu ersetzen.
 :::
@@ -132,7 +134,7 @@ Ohne einen Arbeitsbereich funktioniert Quick Open weiterhin — es zeigt zuletzt
 
 ## Inhaltssuche im Arbeitsbereich
 
-Wenn ein Arbeitsbereich geöffnet ist, kann VMark **Dateiinhalte** (nicht nur Dateinamen) nach Übereinstimmungen in Markdown- und Textdateien durchsuchen.
+Wenn ein Arbeitsbereich geöffnet ist, kann VMark **Dateiinhalte** (nicht nur Dateinamen) durchsuchen. Standardmäßig durchsucht es die Dateitypen, die VMark öffnet (Markdown, Klartext, YAML sowie JSON/TOML/Mermaid/SVG/HTML, wenn deren Formatunterstützung eingeschaltet ist). Schalten Sie den Umschalter **.md** (**Nur unterstützte Dateitypen**) aus, um jede Textdatei zu durchsuchen (Binärdateien werden immer übersprungen).
 
 | Aktion | Kürzel |
 |---|---|

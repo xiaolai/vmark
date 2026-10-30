@@ -9,6 +9,10 @@ menu:
   app.settings: "設定..."
   app.saveAllQuit: "すべて保存して終了"
   app.quit: "VMark を終了"
+  app.services: "サービス"
+  app.hide: "VMark を非表示"
+  app.hideOthers: "ほかを非表示"
+  app.showAll: "すべてを表示"
 
   # === ファイルメニュー ===
   file: "ファイル"
@@ -198,9 +202,12 @@ menu:
   view.checkMarkdown: "Markdown をチェック"
   view.lintNext: "次の問題"
   view.lintPrev: "前の問題"
+  view.toggleFullScreen: "フルスクリーンの切り替え"
   # === ウィンドウメニュー ===
   window: "ウィンドウ"
   window.bringAllToFront: "すべてのウィンドウを前面へ"
+  window.minimize: "しまう"
+  window.zoom: "拡大/縮小"
   window.breakdown: "整合性の内訳"
 
   # === ヘルプメニュー ===
@@ -273,6 +280,7 @@ errors:
   pdf.invalidExtension: "出力パスは .pdf 拡張子である必要があります"
   pdf.dirNotFound: "出力ディレクトリが存在しません"
   pdf.parentNotDirectory: "出力先の親は存在しますが、ディレクトリではありません"
+  exportTarget.notChosen: "書き出し先は保存ダイアログで選んだ場所に限られます。もう一度書き出して保存先を選んでください。"
   pdf.publishFailed: "生成された PDF を出力先に移動できませんでした: %{detail}"
   pdf.outputUnreadable: "生成された PDF を検証のために開けませんでした: %{detail}"
   pdf.pathNotAbsolute: "出力パスは絶対パスである必要があります"

@@ -55,9 +55,11 @@ Job 表單也會列出該 job 的 steps。每一列都可以上移、下移或�
 
 對於 `uses:` 類型的 step，該 action 的引用本身為唯讀 —— 若想換用不同的 action，請直接在原始碼中修改。
 
+在 step 表單中，**Alt + Left** / **Alt + Right** 可移至上一個／下一個 step。此快捷鍵在視窗內任何位置都有效，但在文字欄位、下拉選單或程式碼編輯器中除外——在那裡 Alt + 方向鍵保有其以單字為單位移動的一般用途。
+
 ### 觸發器
 
-以對映(mapping)形式撰寫的觸發器(`on: { push: { branches: [main] } }`)具有可編輯的篩選欄位 —— branches、branches-ignore、tags、tags-ignore、paths、paths-ignore 與 types —— 每個欄位都是以逗號分隔的清單。`schedule` 的 cron 會以易讀的語句呈現，當執行頻率高於每 5 分鐘一次時會顯示警告(GitHub 會限制這類排程)，且為唯讀。以單一事件名稱或名稱清單撰寫的觸發器同樣為唯讀；請在原始碼中編輯它們。
+以對映(mapping)形式撰寫的觸發器(`on: { push: { branches: [main] } }`)具有可編輯的篩選欄位 —— branches、branches-ignore、tags、tags-ignore、paths、paths-ignore 與 types —— 每個欄位都是以逗號分隔的清單。`schedule` 的 cron 會以介面語言的語句呈現（星期與月份名稱仍保留為英文三字母縮寫，如 `Mon`、`Jan`），當執行頻率高於每 5 分鐘一次時會顯示警告(GitHub 會限制這類排程)，且為唯讀。以單一事件名稱或名稱清單撰寫的觸發器同樣為唯讀；請在原始碼中編輯它們。
 
 ### 權限與並行
 

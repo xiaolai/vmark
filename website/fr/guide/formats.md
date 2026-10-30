@@ -170,6 +170,8 @@ Sous **Windows**, le programme d'installation ne s'approprie pas un type de fich
 
 Un fichier enregistré ne s'ouvre dans VMark que si son format est activé (voir [Activer les formats](#activer-les-formats)) ; sinon, il s'ouvre en texte brut.
 
+Sous Windows et Linux, un dossier passé en ligne de commande (`vmark C:\notes` ou `vmark ~/notes`) s'ouvre comme espace de travail dans sa propre fenêtre, comme le fait le dépôt d'un dossier sur l'icône du Dock sous macOS. Cela fonctionne aussi lorsque VMark est déjà en cours d'exécution.
+
 ### Coloration syntaxique des fichiers en texte brut
 
 Même lorsqu'un fichier s'ouvre en texte brut, VMark le colore lorsqu'il en reconnaît le type — `.env`/`.ini`/`.conf` (propriétés), `.sh`/`.bash` (shell), `Dockerfile`, `.toml`, `.sql`, `.diff`, et les langages habituels. C'est purement cosmétique ; cela ne change jamais l'éditeur dans lequel le fichier s'est ouvert, et cela fonctionne que la catégorie des visionneuses de code soit activée ou non.
@@ -201,7 +203,7 @@ Conformément à l'ADR-4 du plan multi-format, l'aperçu HTML repose sur trois c
 
 Le validateur signale les balises script, les URLs `javascript:` et les gestionnaires d'événements en ligne comme avertissements afin que vous puissiez voir ce qui est bloqué. Une fois que vous avez [approuvé le fichier](#apercu-html-approuve-sur-activation), ils s'affichent plutôt comme informations, afin que rien ne contredise la bannière d'approbation. Deux messages indiquent ce que l'aperçu n'autorise jamais, approuvé ou non : un script externe (`<script src="…">`) n'est jamais chargé, car aucun script ne provient d'un fichier ou d'une URL, et un lien `javascript:` visant une autre fenêtre ou la page de premier niveau (`target="_top"`, `_blank`, ou un `<base target>`) ne navigue jamais, car l'aperçu ne peut pas sortir de lui-même. La détection lit les balises de la page de manière approximative ; elle étiquette les constats et ne décide jamais de ce qui s'exécute — c'est le sandbox qui le fait.
 
-La validation de sécurité formelle de cet aperçu est toujours en attente, et l'aperçu l'indique dans un avis au-dessus de la page rendue : **L'aperçu HTML est isolé mais en attente de validation OWASP.** Les trois couches ci-dessus sont en place ; l'étape restante consiste à les confirmer face aux charges XSS de l'OWASP dans la webview de l'application en cours d'exécution.
+La validation de sécurité formelle de cet aperçu est toujours en attente, et l'aperçu l'indique dans un avis au-dessus de la page rendue : **L'aperçu HTML est isolé. Son examen de sécurité est encore en cours.** Les trois couches ci-dessus sont en place ; l'étape restante consiste à les confirmer face aux charges XSS de l'OWASP dans la webview de l'application en cours d'exécution.
 
 ### Aperçu HTML approuvé (sur activation)
 

@@ -1,10 +1,16 @@
 /**
- * runActiveLint — shared "validate / run lint" command.
+ * runActiveLint — the "Check Markdown" (`lint.check`) flow for the active tab.
  *
- * Extracts the live-content extraction → lint dispatch → link-check → refresh →
- * toast flow that was duplicated between the command bus (`lint.check`) and the
- * keyboard-shortcut handler (`useViewShortcuts`). Both paths now call this so
- * they can't drift in YAML routing, link-check merging, or toast wording.
+ * Live-content extraction → the linter the tab's FORMAT contributes → for a
+ * markdown tab with a path, the async local-link check → refresh → toast.
+ *
+ * Key decisions:
+ *   - The format decides. A tab whose format contributes no linter (JSON,
+ *     TOML, CSV, plain text, …) is not linted at all, and `activeTabHasLinter`
+ *     is the `lint.check` availability predicate, so the command is offered
+ *     only where it does something.
+ *   - The local-link check is markdown-only: it reads markdown link syntax,
+ *     so running it over another format's raw text reports nonsense.
  *
  * @module services/lint/runActiveLint
  */
@@ -17,7 +23,8 @@ import { getActiveDocument, getActiveTabId } from "@/services/navigation/activeD
 import { serializeMarkdown } from "@/utils/markdownPipeline";
 import { triggerLintRefresh } from "@/plugins/codemirror/sourceLint";
 import { markLintRunStart } from "@/plugins/lint/docEpoch";
-import { isYamlFileName } from "@/utils/dropPaths";
+import { dispatchEditor } from "@/lib/formats/registry";
+import type { FormatConfig } from "@/lib/formats/types";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import { fileOpsError } from "@/utils/debug";
 import i18n from "@/i18n";
@@ -47,14 +54,37 @@ function resolveActiveContent(windowLabel: string): string | undefined {
   return content;
 }
 
+/** The id of the markdown format, the only one the local-link check reads. */
+const MARKDOWN_FORMAT_ID = "markdown";
+
+/** The active tab's format, or null when no tab/document is active. */
+function activeFormat(windowLabel: string): { format: FormatConfig; filePath: string | null } | null {
+  if (!getActiveTabId(windowLabel)) return null;
+  const doc = getActiveDocument(windowLabel);
+  if (!doc) return null;
+  const filePath = doc.filePath ?? null;
+  return { format: dispatchEditor(filePath), filePath };
+}
+
 /**
- * Run lint (and link-check for files with a path) for the active tab and show
- * the result toast. No-op when linting is disabled or no tab is active.
+ * Whether the active tab's format contributes a linter — the availability
+ * predicate of `lint.check`.
+ */
+export function activeTabHasLinter(windowLabel: string): boolean {
+  return activeFormat(windowLabel)?.format.lint !== undefined;
+}
+
+/**
+ * Run the active tab's format linter (and, for a markdown file with a path,
+ * the local-link check) and show the result toast. No-op when linting is
+ * disabled, no tab is active, or the tab's format contributes no linter.
  */
 export function runActiveLint(windowLabel: string): void {
   if (!useSettingsStore.getState().markdown.lintEnabled) return;
   const tabId = getActiveTabId(windowLabel);
   if (!tabId) return;
+  const target = activeFormat(windowLabel);
+  if (!target?.format.lint) return;
 
   const content = resolveActiveContent(windowLabel);
   if (content === undefined) return;
@@ -64,11 +94,7 @@ export function runActiveLint(windowLabel: string): void {
   // finish after the user edits again.
   markLintRunStart(tabId);
 
-  const filePath = getActiveDocument(windowLabel)?.filePath ?? null;
-  const isYaml = filePath
-    ? isYamlFileName(filePath.split(/[\\/]/).pop() ?? "")
-    : false;
-
+  const { filePath } = target;
   const finalize = (totalCount: number) => {
     triggerLintRefresh();
     if (totalCount === 0) {
@@ -78,34 +104,26 @@ export function runActiveLint(windowLabel: string): void {
     }
   };
 
-  if (isYaml) {
-    // Format-contributed linter — the store no longer needs a
-    // per-format action, and a third linted format is a registration.
-    const yamlDiags = useLintStore
-      .getState()
-      .runLintForFormat(tabId, content, filePath);
-    finalize(yamlDiags.length);
-    return;
-  }
-
   const syncDiagnostics = useLintStore
     .getState()
     .runLintForFormat(tabId, content, filePath);
+
+  if (!filePath || target.format.id !== MARKDOWN_FORMAT_ID) {
+    finalize(syncDiagnostics.length);
+    return;
+  }
+
   triggerLintRefresh();
   // Toast reflects the COMBINED (sync + async link-check) result.
-  if (filePath) {
-    // .catch(): a filesystem / link-check rejection must not become an
-    // unhandled promise rejection — log it and still finalize with the
-    // sync-only count so the user gets feedback.
-    void useLintStore
-      .getState()
-      .runLinkCheck(tabId, content, filePath)
-      .then((merged) => finalize(merged.length))
-      .catch((error) => {
-        fileOpsError("Link check failed during validate:", filePath, error);
-        finalize(syncDiagnostics.length);
-      });
-  } else {
-    finalize(syncDiagnostics.length);
-  }
+  // .catch(): a filesystem / link-check rejection must not become an
+  // unhandled promise rejection — log it and still finalize with the
+  // sync-only count so the user gets feedback.
+  void useLintStore
+    .getState()
+    .runLinkCheck(tabId, content, filePath)
+    .then((merged) => finalize(merged.length))
+    .catch((error) => {
+      fileOpsError("Link check failed during validate:", filePath, error);
+      finalize(syncDiagnostics.length);
+    });
 }

@@ -55,9 +55,11 @@ Le bloc `with:` se présente sous forme de lignes clé/valeur ajoutables, modifi
 
 Pour les étapes `uses:`, la référence d'action elle-même est en lecture seule — modifiez-la dans la source si vous avez besoin d'une autre action.
 
+Dans le formulaire d'étape, **Alt + Gauche** / **Alt + Droite** passent à l'étape précédente / suivante. Le raccourci fonctionne partout dans la fenêtre, sauf dans un champ de texte, une liste déroulante ou un éditeur de code, où Alt + Flèche garde son sens habituel de navigation par mot.
+
 ### Déclencheurs
 
-Un déclencheur écrit sous forme de mapping (`on: { push: { branches: [main] } }`) dispose de champs de filtre modifiables — branches, branches-ignore, tags, tags-ignore, paths, paths-ignore et types — chacun étant une liste séparée par des virgules. Un cron `schedule` est affiché sous forme de phrase en anglais, avec un avertissement lorsqu'il s'exécute plus souvent que toutes les 5 minutes (GitHub bride ces exécutions), et reste en lecture seule. Il en va de même pour un déclencheur écrit sous forme de simple nom d'événement ou de liste de noms&nbsp;; modifiez-les dans la source.
+Un déclencheur écrit sous forme de mapping (`on: { push: { branches: [main] } }`) dispose de champs de filtre modifiables — branches, branches-ignore, tags, tags-ignore, paths, paths-ignore et types — chacun étant une liste séparée par des virgules. Un cron `schedule` est affiché sous forme de phrase dans la langue de l'interface — les noms de jours et de mois restent des abréviations anglaises de trois lettres (`Mon`, `Jan`) —, avec un avertissement lorsqu'il s'exécute plus souvent que toutes les 5 minutes (GitHub bride ces exécutions), et reste en lecture seule. Il en va de même pour un déclencheur écrit sous forme de simple nom d'événement ou de liste de noms&nbsp;; modifiez-les dans la source.
 
 ### Permissions et concurrence
 

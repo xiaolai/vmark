@@ -9,6 +9,10 @@ menu:
   app.settings: "设置..."
   app.saveAllQuit: "全部保存并退出"
   app.quit: "退出 VMark"
+  app.services: "服务"
+  app.hide: "隐藏 VMark"
+  app.hideOthers: "隐藏其他"
+  app.showAll: "全部显示"
 
   # === 文件菜单 ===
   file: "文件"
@@ -198,9 +202,12 @@ menu:
   view.checkMarkdown: "检查 Markdown"
   view.lintNext: "下一个问题"
   view.lintPrev: "上一个问题"
+  view.toggleFullScreen: "切换全屏"
   # === 窗口菜单 ===
   window: "窗口"
   window.bringAllToFront: "将全部窗口置于前方"
+  window.minimize: "最小化"
+  window.zoom: "缩放"
   window.breakdown: "一致性明细"
 
   # === 帮助菜单 ===
@@ -273,6 +280,7 @@ errors:
   pdf.invalidExtension: "输出路径必须使用 .pdf 扩展名"
   pdf.dirNotFound: "输出目录不存在"
   pdf.parentNotDirectory: "输出路径的上级已存在，但不是目录"
+  exportTarget.notChosen: "只能导出到保存对话框中选择的位置。请重新导出并选择保存位置。"
   pdf.publishFailed: "无法将生成的 PDF 移到输出路径：%{detail}"
   pdf.outputUnreadable: "无法打开生成的 PDF 进行校验：%{detail}"
   pdf.pathNotAbsolute: "输出路径必须是绝对路径"

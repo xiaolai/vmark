@@ -25,8 +25,11 @@ Ways to decouple, in order of preference:
    from `src/services/assembly/`.
 2. **Seam under `plugins/shared/`** — for values read deep below the plugin
    boundary or in node views the host does not construct: interface + defaults
-   + `bindX()` called once in `main.tsx`. Existing: `hostSettings`,
-   `hostDocument`, `hostPopups`. A seam default must MATCH the app's default.
+   + `bindX()`, called once from `bindPluginHostSettings()` in
+   `src/services/assembly/bindHostSettings.ts` (run by `src/bootstrap.tsx`).
+   Existing: `hostSettings`, `hostDocument`, `hostPopups`, `hostShortcuts`,
+   `hostSearch`, `hostViewModes`, `hostEditors`, `hostLinks`, `hostNotify`.
+   A seam default must MATCH the app's default.
 3. **Port** for plugin-driven popup state: the plugin declares its own state
    type (`StoreApi<MathPopupState>`) and receives a store satisfying it. Never
    pass the app's store type. A port has no default — throw a named error at

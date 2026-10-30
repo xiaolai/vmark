@@ -16,8 +16,10 @@
  *   Dedupes by resolved absolute path so each path is checked at
  *   most once per invocation.
  *
- * @coordinates-with src/stores/documentStore/lint.ts — runs on save, merges
+ * @coordinates-with src/stores/documentStore/lint.ts — `runLinkCheck` merges
  *   results into the same diagnostic gutter as the sync lint engine.
+ * @coordinates-with src/services/lint/runActiveLint.ts — the only trigger: an
+ *   explicit Check Markdown run on a markdown tab that has a path.
  * @module lib/markdownLinkCheck/check
  */
 

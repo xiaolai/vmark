@@ -54,7 +54,7 @@ export const en = {
           "workspace-rail": "Workspace Rail",
           "cjk-formatting": "CJK Formatting",
           "ai-genies": "AI Genies",
-          "coherence": "Coherence & Breakdown View",
+          "coherence": "Coherence Breakdown",
           "workflows": "Genie Workflows",
           "workflow-genies": "Workflow Genies",
           "ai-providers": "AI Providers",

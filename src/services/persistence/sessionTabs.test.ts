@@ -147,50 +147,36 @@ describe("migratePersistedTabs", () => {
 });
 
 describe("serializeSessionTabs", () => {
-  it("serializes document and browser tabs to a versioned record", () => {
+  it("serializes document tabs, in order, to a versioned record", () => {
     const tabs: Tab[] = [
       { kind: "document", id: "t1", filePath: "/a.md", title: "a", isPinned: false, formatId: "markdown" },
       { kind: "document", id: "t2", filePath: null, title: "Untitled-1", isPinned: false, formatId: "markdown" },
-      { kind: "browser", id: "b1", url: "https://example.com/", title: "Example", isPinned: false, scrollY: 12 },
     ];
     expect(serializeSessionTabs(tabs)).toEqual({
       version: 1,
       tabs: [
         { kind: "document", path: "/a.md" },
         { kind: "document", path: null },
-        { kind: "browser", url: "https://example.com/", title: "Example", scrollY: 12 },
       ],
     });
   });
 
-  it("omits scrollY when absent", () => {
+  it("writes no browser record into the workspace config", () => {
+    // Browser pages are window-global and persist per window
+    // (`windowBrowserSession.ts`); no reader of the workspace field restores
+    // them, so writing their URLs there would only leave browsing history in
+    // the config file.
     const tabs: Tab[] = [
-      { kind: "browser", id: "b1", url: "https://x.test/", title: "x", isPinned: false },
+      { kind: "document", id: "t1", filePath: "/a.md", title: "a", isPinned: false, formatId: "markdown" },
+      { kind: "browser", id: "b1", url: "https://example.com/", title: "Example", isPinned: false, scrollY: 12 },
     ];
-    expect(serializeSessionTabs(tabs).tabs[0]).toEqual({
-      kind: "browser",
-      url: "https://x.test/",
-      title: "x",
-    });
-  });
-
-  it("omits a non-finite or negative live scrollY", () => {
-    const tabs: Tab[] = [
-      { kind: "browser", id: "b1", url: "https://x.test/", title: "x", isPinned: false, scrollY: Number.NaN },
-      { kind: "browser", id: "b2", url: "https://y.test/", title: "y", isPinned: false, scrollY: -1 },
-    ];
-    // JSON.stringify turns NaN/Infinity into null, so persisting them is a
-    // silent corruption of the record.
-    expect(serializeSessionTabs(tabs).tabs).toEqual([
-      { kind: "browser", url: "https://x.test/", title: "x" },
-      { kind: "browser", url: "https://y.test/", title: "y" },
-    ]);
+    expect(serializeSessionTabs(tabs).tabs).toEqual([{ kind: "document", path: "/a.md" }]);
   });
 
   it("round-trips through migratePersistedTabs", () => {
     const tabs: Tab[] = [
       { kind: "document", id: "t1", filePath: "/a.md", title: "a", isPinned: false, formatId: "markdown" },
-      { kind: "browser", id: "b1", url: "https://example.com/", title: "Example", isPinned: false, scrollY: 7 },
+      { kind: "document", id: "t2", filePath: "/b.md", title: "b", isPinned: false, formatId: "markdown" },
     ];
     const persisted = serializeSessionTabs(tabs);
     expect(migratePersistedTabs(persisted, [])).toEqual(persisted.tabs);
@@ -235,37 +221,6 @@ describe("documentPathsOf", () => {
       { kind: "browser", id: "b1", url: "https://example.com/", title: "Example", isPinned: false },
     ];
     expect(documentPathsOf(tabs)).toEqual(["/a.md"]);
-  });
-});
-
-// WI-S0.14 — a password never reaches the workspace config.
-//
-// Pinned here, at the boundary that actually writes the file, and not only in url.ts:
-// this is the guarantee ("nothing we persist carries a credential"), and a future refactor
-// that stops calling the redactor would leave url.ts's own tests green while quietly
-// putting secrets back on disk. (Audit, High.)
-describe("serializeSessionTabs — credentials do not go to disk", () => {
-  it("strips an embedded password from a browser tab's url", () => {
-    const out = serializeSessionTabs([
-      {
-        id: "t1",
-        kind: "browser",
-        title: "Example",
-        url: "https://alice:hunter2@example.com/inbox?token=abc",
-      } as Tab,
-    ]);
-    const rec = out.tabs[0] as { url: string };
-    expect(rec.url).not.toContain("hunter2");
-    // The password AND the credential-named parameter are gone (url.ts urlForPersistence);
-    // the username is an address and stays.
-    expect(rec.url).toBe("https://alice@example.com/inbox");
-  });
-
-  it("leaves a credential-free url untouched", () => {
-    const out = serializeSessionTabs([
-      { id: "t1", kind: "browser", title: "E", url: "https://example.com/a?b=1#c" } as Tab,
-    ]);
-    expect((out.tabs[0] as { url: string }).url).toBe("https://example.com/a?b=1#c");
   });
 });
 

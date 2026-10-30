@@ -22,7 +22,6 @@ import type { IPty } from "@/lib/pty";
 
 vi.mock("./spawnPty", () => ({
   spawnPty: vi.fn(),
-  resolveTerminalCwd: vi.fn(() => "/tmp"),
   resolveActiveFileCwd: vi.fn(() => undefined),
   resolveTerminalWorkspaceRoot: vi.fn(() => null),
 }));

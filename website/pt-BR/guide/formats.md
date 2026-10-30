@@ -167,6 +167,8 @@ No **Windows**, o instalador não assume um tipo de arquivo que outro programa j
 
 Um arquivo registrado só abre no VMark se o seu formato estiver habilitado (veja [Habilitando formatos](#habilitando-formatos)); caso contrário, ele abre como texto simples.
 
+No Windows e no Linux, uma pasta passada na linha de comando (`vmark C:\notes` ou `vmark ~/notes`) abre como espaço de trabalho em uma janela própria, como acontece no macOS ao soltar uma pasta sobre o ícone no Dock. Isso também funciona quando o VMark já está em execução.
+
 ### Realce de sintaxe para arquivos simples
 
 Mesmo quando um arquivo abre como texto simples, o VMark o colore quando reconhece o tipo — `.env`/`.ini`/`.conf` (properties), `.sh`/`.bash` (shell), `Dockerfile`, `.toml`, `.sql`, `.diff` e as linguagens habituais. Isso é puramente cosmético; nunca muda em qual editor o arquivo abriu e funciona independentemente de a categoria de visualizadores de código estar habilitada.
@@ -198,7 +200,7 @@ De acordo com o ADR-4 do plano multi-formato, a prévia HTML se apoia em três c
 
 O validador exibe tags de script, URLs `javascript:` e manipuladores de eventos inline como avisos para que você veja o que está sendo bloqueado. Depois que você [confia no arquivo](#previa-html-confiavel-opcional), eles passam a ser mostrados como informação, para que nada contradiga o banner de confiança. Duas mensagens dizem o que a prévia nunca permite, confiável ou não: um script externo (`<script src="…">`) nunca é carregado, já que nenhum script vem de um arquivo ou URL, e um link `javascript:` direcionado a outra janela ou à página de nível superior (`target="_top"`, `_blank` ou um `<base target>`) nunca navega, já que a prévia não pode sair de si mesma. A detecção lê as tags da página de forma aproximada; ela rotula as descobertas e nunca decide o que é executado — quem decide é o sandbox.
 
-A aprovação formal de segurança desta prévia ainda está pendente, e a prévia avisa isso em um aviso acima da página renderizada: **A prévia HTML é isolada, mas está aguardando a aprovação OWASP**. As três camadas acima estão em vigor; a etapa que falta é confirmá-las contra os payloads XSS do OWASP dentro da webview do aplicativo em execução.
+A aprovação formal de segurança desta prévia ainda está pendente, e a prévia avisa isso em um aviso acima da página renderizada: **A prévia HTML é isolada. A revisão de segurança ainda está em andamento.** As três camadas acima estão em vigor; a etapa que falta é confirmá-las contra os payloads XSS do OWASP dentro da webview do aplicativo em execução.
 
 ### Prévia HTML confiável (opcional)
 

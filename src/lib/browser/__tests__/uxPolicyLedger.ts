@@ -1,7 +1,6 @@
 /**
- * Shipped-dispositions ledger (WI-NB8.2) — the CONFORMANCE record that makes
- * `uxPolicy.ts` an enforced contract rather than a decision document nothing
- * reads at runtime.
+ * Shipped-dispositions ledger (WI-NB8.2) — the CONFORMANCE record that pairs
+ * every `uxPolicy.ts` decision with a stated claim about the shipped behaviour.
  *
  * `UX_POLICY` records the R12 DECISION for each browser UX surface. The native
  * delegates implement those dispositions independently, and nothing checked the
@@ -12,6 +11,12 @@
  * `UX_POLICY` but not here, or here but not in `UX_POLICY` — so a new surface, a
  * removed one, or a retint cannot land without a conformance decision. The
  * pending list is identity-ratcheted (shrink-only) by the test.
+ *
+ * Limit: each `conforms` here is a HANDWRITTEN claim. The test checks the
+ * inventory and the reasons, not the behaviour — nothing runs
+ * `browser/nav_delegate_macos.rs` or `browser/dialogs_macos.rs` against this
+ * ledger, so a native change that breaks a disposition is caught only by the
+ * macOS browser e2e journeys or by review.
  *
  * @coordinates-with lib/browser/uxPolicy.ts — the decision matrix
  * @module lib/browser/__tests__/uxPolicyLedger

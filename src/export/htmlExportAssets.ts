@@ -130,6 +130,12 @@ export async function resolveExportResources(
  * payload in standalone.html for documents with none. Each user family
  * contributes at most one file, and the document and monospace settings can
  * name the SAME family, so the list is deduplicated by filename.
+ *
+ * Known limitations: only the Latin and monospace settings are embedded, and
+ * only for families `getUserFontFile` maps to a web font (Literata, JetBrains
+ * Mono, Fira Code, IBM Plex Mono). The CJK setting is never passed — a CJK web
+ * font is served as many unicode-range slices, not one file — and a curated
+ * system family or a `custom:` font falls back to the reader's system stack.
  */
 function fontsForExport(hasMath: boolean, fontSettings?: FontSettings): FontFile[] {
   const fonts: FontFile[] = hasMath ? [...getKaTeXFontFiles()] : [];

@@ -1,8 +1,8 @@
 /**
  * Per-tab markdown / YAML lint diagnostics.
  *
- * Owns three lint flows: synchronous markdown rules, synchronous YAML
- * rules, and asynchronous local-link existence checking. The async path
+ * Owns two lint flows: the synchronous linter the tab's format contributes
+ * (`runLintForFormat`), and asynchronous local-link existence checking. The async path
  * is gated by per-tab monotonic tokens so a stale completion can't
  * overwrite a newer one.
  *
@@ -12,8 +12,7 @@
  */
 
 import { create } from "zustand";
-import { lintMarkdown, type LintDiagnostic } from "@/lib/lintEngine";
-import { lintYaml } from "@/lib/lintEngine/yaml";
+import type { LintDiagnostic } from "@/lib/lintEngine";
 import { checkLocalLinks } from "@/lib/markdownLinkCheck/check";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { dispatchEditor } from "@/lib/formats/registry";
@@ -41,19 +40,10 @@ const linkCheckTokens = {
 };
 
 interface LintActions {
-  /** Run markdown lint on source for a specific tab */
-  runLint: (tabId: string, source: string) => LintDiagnostic[];
   /**
-   * Run YAML lint on source for a specific tab. Replaces ALL prior
-   * diagnostics for the tab — YAML files are exclusive; they don't
-   * also run markdown rules.
-   */
-  runYamlLint: (tabId: string, source: string) => LintDiagnostic[];
-  /**
-   * Lint using the linter the FILE'S FORMAT contributes.
-   *
-   * Replaces choosing between `runLint` and `runYamlLint` at the call site,
-   * which hard-coded a two-format world into every caller.
+   * Lint using the linter the FILE'S FORMAT contributes (markdown, YAML, …),
+   * replacing ALL prior diagnostics for the tab. A format with no linter
+   * yields an empty set.
    */
   runLintForFormat: (
     tabId: string,
@@ -84,17 +74,6 @@ export const useLintStore = create<LintState & LintActions>((set, get) => ({
   diagnosticsByTab: {},
   selectedIndexByTab: {},
 
-  runLint: (tabId, source) => {
-    const diagnostics = lintMarkdown(source);
-
-    set((state) => ({
-      diagnosticsByTab: { ...state.diagnosticsByTab, [tabId]: diagnostics },
-      selectedIndexByTab: { ...state.selectedIndexByTab, [tabId]: 0 },
-    }));
-
-    return diagnostics;
-  },
-
   runLintForFormat: (tabId, source, filePath) => {
     const format = (() => {
       try {
@@ -109,25 +88,11 @@ export const useLintStore = create<LintState & LintActions>((set, get) => ({
     // markdown is exactly the failure-open behaviour Phase 4B removes.
     const diagnostics = format?.lint?.(source) ?? [];
 
-    // Same invalidation as the YAML path: a link-check started while this tab
-    // was treated as markdown must not later overwrite these diagnostics.
+    // A link-check started before this run (or while the tab was another
+    // format) must not later overwrite these diagnostics.
     linkCheckTokens.next++;
     delete linkCheckTokens.byTab[tabId];
 
-    set((state) => ({
-      diagnosticsByTab: { ...state.diagnosticsByTab, [tabId]: diagnostics },
-      selectedIndexByTab: { ...state.selectedIndexByTab, [tabId]: 0 },
-    }));
-    return diagnostics;
-  },
-
-  runYamlLint: (tabId, source) => {
-    // Bumping the link-check token here too: a runLinkCheck() that
-    // started while this tab was being treated as markdown should
-    // not later overwrite our YAML diagnostics. Uniform invalidation.
-    linkCheckTokens.next++;
-    delete linkCheckTokens.byTab[tabId];
-    const diagnostics = lintYaml(source);
     set((state) => ({
       diagnosticsByTab: { ...state.diagnosticsByTab, [tabId]: diagnostics },
       selectedIndexByTab: { ...state.selectedIndexByTab, [tabId]: 0 },

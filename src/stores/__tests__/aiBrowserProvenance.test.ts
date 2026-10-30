@@ -80,12 +80,8 @@ describe("browser automation provenance", () => {
       },
     ];
 
-    expect(serializeSessionTabs(tabs).tabs).toEqual([
-      {
-        kind: "browser",
-        url: "https://human.example/",
-        title: "Human",
-      },
-    ]);
+    // No browser tab goes there at all; human pages persist per window
+    // (`windowBrowserSession.test.ts` holds the AI exclusion for that store).
+    expect(serializeSessionTabs(tabs).tabs).toEqual([]);
   });
 });

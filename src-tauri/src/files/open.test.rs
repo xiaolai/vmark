@@ -269,7 +269,9 @@ mod finder_directory {
     fn a_refused_folder_whose_name_holds_a_newline_is_one_log_line() {
         let app = mock_app();
         let dir = tempfile::tempdir().expect("tempdir");
-        let gone = dir.path().join("gone\n[Finder] Opening directory: /etc\r");
+        let gone = dir
+            .path()
+            .join("gone\n[FileOpen] Opening directory: /etc\r");
 
         let lines = crate::peer_text::log_capture::captured_logs(|| {
             open_finder_directory(app.handle(), gone.to_str().expect("utf-8"));
@@ -285,7 +287,7 @@ mod finder_directory {
         let app = mock_app();
         let dir = tempfile::tempdir().expect("tempdir");
         // One path component: a `/` in it would name a nested directory.
-        let odd = dir.path().join("notes\n[Finder] Opening directory: etc");
+        let odd = dir.path().join("notes\n[FileOpen] Opening directory: etc");
         std::fs::create_dir(&odd).expect("mkdir");
 
         let lines = crate::peer_text::log_capture::captured_logs(|| {

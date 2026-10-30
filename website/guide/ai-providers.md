@@ -24,7 +24,7 @@ CLI providers use locally installed AI tools. VMark runs them as subprocesses an
 | Gemini | `gemini` | [Google Gemini CLI](https://github.com/google-gemini/gemini-cli) |
 ### How CLI Detection Works
 
-Click **Detect** in Settings > Integrations. VMark searches your `$PATH` for each CLI command and reports availability. If a CLI is found, its radio button becomes selectable.
+Click **Detect** in Settings > Integrations. VMark searches your `$PATH` for each CLI command and reports availability. If a CLI is found, its radio button becomes selectable. **Detect** rescans every time you click it; automatic detection (at app start, when Settings opens, and in the genie picker's provider switcher) reuses the last scan. The scan uses the `$PATH` VMark read from your login shell when it started, so a CLI installed into a directory newly added to `$PATH` needs a VMark restart before **Detect** can find it.
 
 ### Advantages
 

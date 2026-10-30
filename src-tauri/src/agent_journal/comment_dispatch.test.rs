@@ -31,7 +31,6 @@ fn app() -> App {
             commands_user::comment_user_reopen,
             commands_user::comment_user_delete,
             commands_user::comment_user_list,
-            commands_agent::comment_agent_create,
             commands_agent::comment_agent_reply,
             commands_agent::comment_agent_mark_addressed,
             commands_agent::comment_agent_list,
@@ -81,10 +80,14 @@ fn with_head(a: &App, mut b: Value) -> Value {
     b
 }
 
-fn create(a: &App, page: &Page, caller: CommentCaller) -> Result<Value, Value> {
-    let body = with_head(a, create_body(caller));
-    let cmd = format!("comment_{}_create", family(caller));
-    invoke_from(&page.win, &cmd, json!({ "payload": frame(page, body) }))
+/// A thread created through `comment_user_create`, the one create command.
+fn create(a: &App, page: &Page) -> Result<Value, Value> {
+    let body = with_head(a, create_body(CommentCaller::User));
+    invoke_from(
+        &page.win,
+        "comment_user_create",
+        json!({ "payload": frame(page, body) }),
+    )
 }
 
 /// `action` by `caller` on `comment` at `gen`, as the webview calls it.
@@ -114,7 +117,7 @@ fn attempt(
 
 /// A fresh user thread brought to `state` through the user commands.
 fn at(a: &App, page: &Page, state: ThreadState) -> (String, u64) {
-    let out = create(a, page, CommentCaller::User).expect("create");
+    let out = create(a, page).expect("create");
     let c = out["reply"]["comment"]
         .as_str()
         .expect("comment")
@@ -207,14 +210,12 @@ fn every_cell_of_the_r36_matrix_holds_through_the_command_families() {
 fn the_caller_is_the_family_and_a_forged_caller_or_actor_is_refused() {
     let a = app();
     let page = a.page("doc-a", 1);
-    let agent_made = create(&a, &page, CommentCaller::Agent).expect("agent create");
-    let user_made = create(&a, &page, CommentCaller::User).expect("user create");
+    let user_made = create(&a, &page).expect("user create");
     let listed = list(&page.win, TEXT);
     let caller_of = |out: &Value| {
         let c = out["reply"]["comment"].as_str().expect("comment");
         thread(&listed, c).expect("listed")["caller"].clone()
     };
-    assert_eq!(caller_of(&agent_made), json!("agent"));
     assert_eq!(caller_of(&user_made), json!("user"));
 
     let len = a.journal_len();
@@ -222,11 +223,9 @@ fn the_caller_is_the_family_and_a_forged_caller_or_actor_is_refused() {
     forged_caller["caller"] = json!("agent");
     let mut user_with_actor = with_head(&a, create_body(CommentCaller::Agent));
     user_with_actor["body"] = json!("forged");
-    let agent_without_actor = with_head(&a, create_body(CommentCaller::User));
     for (cmd, body) in [
         ("comment_user_create", forged_caller),
         ("comment_user_create", user_with_actor),
-        ("comment_agent_create", agent_without_actor),
     ] {
         let err =
             invoke_from(&page.win, cmd, json!({ "payload": frame(&page, body) })).expect_err(cmd);
@@ -239,7 +238,26 @@ fn the_caller_is_the_family_and_a_forged_caller_or_actor_is_refused() {
 }
 
 #[test]
-fn the_agent_family_is_exactly_create_reply_mark_addressed_and_list() {
+fn an_agent_cannot_create_a_thread_over_ipc() {
+    let a = app();
+    let page = a.page("doc-a", 1);
+    let len = a.journal_len();
+    let body = with_head(&a, create_body(CommentCaller::Agent));
+    let err = invoke_from(
+        &page.win,
+        "comment_agent_create",
+        json!({ "payload": frame(&page, body) }),
+    )
+    .expect_err("no agent create command");
+    assert!(
+        err.to_string().contains("comment_agent_create"),
+        "an unknown command, not a journal refusal: {err}"
+    );
+    assert_eq!(a.journal_len(), len, "nothing appended");
+}
+
+#[test]
+fn the_agent_family_is_exactly_reply_mark_addressed_and_list() {
     let registry = include_str!("../command_registry.rs");
     let registered = |prefix: &str| -> Vec<&str> {
         let mut names: Vec<&str> = registry
@@ -254,7 +272,6 @@ fn the_agent_family_is_exactly_create_reply_mark_addressed_and_list() {
     assert_eq!(
         registered("comment_agent_"),
         [
-            "comment_agent_create",
             "comment_agent_list",
             "comment_agent_mark_addressed",
             "comment_agent_reply"
@@ -288,9 +305,9 @@ fn the_agent_family_is_exactly_create_reply_mark_addressed_and_list() {
         !code(user_src).contains("comments_agent"),
         "the user family reaches the agent handle"
     );
-    assert_eq!(code(agent_src).matches("#[tauri::command]").count(), 4);
-    assert_eq!(code(agent_src).matches("comments_agent()").count(), 4);
-    for verb in ["resolve", "reopen", "delete"] {
+    assert_eq!(code(agent_src).matches("#[tauri::command]").count(), 3);
+    assert_eq!(code(agent_src).matches("comments_agent()").count(), 3);
+    for verb in ["create", "resolve", "reopen", "delete"] {
         let name = format!("comment_agent_{verb}");
         assert!(
             !code(agent_src).contains(&name),
@@ -333,7 +350,7 @@ fn a_journal_that_is_not_ready_refuses_every_comment_command() {
 fn the_agent_list_replies_as_the_user_list_does() {
     let a = app();
     let page = a.page("doc-a", 1);
-    create(&a, &page, CommentCaller::Agent).expect("agent create");
+    create(&a, &page).expect("create");
     let payload = json!({ "docKey": KEY, "text": TEXT }).to_string();
     let out = invoke_from(
         &page.win,

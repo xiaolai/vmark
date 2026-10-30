@@ -38,7 +38,7 @@ drift, and the typed catalog and `src/styles/index.css` are authoritative.
 | `--subtle-bg` | Very subtle background |
 | `--subtle-bg-hover` | Subtle background hover |
 | `--surface-raised` | Elevated control face — the `.vm-btn` base; white on light themes, lifted under `.dark-theme` |
-| `--cursor-interactive` | D7 cursor, platform-scoped: `default` on macOS, `pointer` under `.platform-windows`/`.platform-linux` (root class set by `main.tsx` from `platformRootClass()`) |
+| `--cursor-interactive` | D7 cursor, platform-scoped: `default` on macOS, `pointer` under `.platform-windows`/`.platform-linux` (root class set by `bootstrap.tsx` from `platformRootClass()`) |
 | `--text-color` | Primary text |
 | `--text-primary` | Alias for `--text-color` |
 | `--text-secondary` | Secondary text |

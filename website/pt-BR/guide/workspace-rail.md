@@ -15,7 +15,7 @@ A barra de espaços de trabalho permite que uma janela contenha **vários espaç
 | Painéis divididos | Cada espaço de trabalho lembra seu próprio layout de divisão |
 | Sumário | O estado de recolhimento/filtro/rolagem de cada aba acompanha o espaço de trabalho |
 | Aba seguinte/anterior, menu de contexto da aba, "abas abertas" da Abertura rápida | Restritos ao espaço de trabalho ativo |
-| Reabrir aba fechada | As abas fechadas são registradas por espaço de trabalho (mais um escopo compartilhado do navegador) e reabertas da mais recente para a mais antiga por **Arquivo → Reabrir aba fechada**, pela paleta de comandos ou por um atalho que você atribuir em Configurações → Atalhos (ele vem sem atalho: as combinações próximas já estão ocupadas) |
+| Reabrir aba fechada | As abas fechadas são registradas por espaço de trabalho (mais um escopo compartilhado do navegador) e reabertas da mais recente para a mais antiga por **Arquivo → Reabrir aba fechada**, pela paleta de comandos ou por um atalho que você atribuir em Configurações → Atalhos (ele vem sem atalho: as combinações próximas já estão ocupadas). Um documento reaberto é lido de novo do disco, então mostra o arquivo como ele está agora; se o arquivo foi movido ou excluído, a aba não é restaurada e um aviso explica o motivo. Uma aba sem título reabre vazia. Edições não salvas não são recuperadas — fechar uma aba modificada já perguntou se você queria salvar |
 | **Páginas do navegador** | **Globais na janela** — acessíveis a partir de todos os espaços de trabalho |
 | Menus de Arquivos recentes / Espaços de trabalho recentes | Globais |
 | Salvamento automático, pedidos de salvamento, monitoramento de arquivos | Cobrem **todas** as abas, ocultas ou não |

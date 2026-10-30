@@ -88,7 +88,10 @@ export function buildSourceKeymapEntries(): Parameters<typeof keymap.of>[0] {
         run: (view) => toggleTaskList(view),
         preventDefault: true,
       }),
-      // Cmd+D: select next occurrence (custom — CJK-aware, code fence boundary-aware)
+      // Cmd+D: select next occurrence (custom — CJK-aware, code fence boundary-aware).
+      // This chord and Cmd+Shift+L below are FIXED primitives, deliberately not
+      // shortcut-store rows, matching WYSIWYG (`plugins/multiCursor/keymap.ts`);
+      // the shortcuts guide lists them as not customizable.
       guardCodeMirrorKeyBinding({
         key: "Mod-d",
         run: (view) => {

@@ -38,7 +38,7 @@ export const de = {
           "workspace-rail": "Workspace-Leiste",
           "cjk-formatting": "CJK-Formatierung",
           "ai-genies": "AI Genies",
-          "coherence": "Kohärenz & Aufschlüsselungsansicht",
+          "coherence": "Kohärenz-Aufschlüsselung",
           "workflows": "Genie-Workflows",
           "workflow-genies": "Workflow-Genies",
           "ai-providers": "KI-Anbieter",

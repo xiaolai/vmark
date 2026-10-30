@@ -52,12 +52,6 @@ export interface RunExecutorContext {
   waitForNavigation?: NavigateStepContext["waitForNavigation"];
 }
 
-const SUMMARY_MAX = 120;
-const clip = (text: string): string => {
-  const points = Array.from(text); // never split a surrogate pair
-  return points.length > SUMMARY_MAX ? `${points.slice(0, SUMMARY_MAX).join("")}…` : text;
-};
-
 export function resolveValue(value: ActionValue, inputs: Record<string, string>): string {
   if (value.kind === "literal") return value.text;
   // Own properties only: `inputs["constructor"]` would otherwise read Object's.
@@ -267,7 +261,7 @@ export function makeExecutorEnv(ctx: RunExecutorContext): ExecutorEnv {
       // not cover it — the human sees the new target and approves it.
       ...(healed ? { requireFreshApproval: true } : {}),
       // A type binds the text it will enter by binding the built script (A-05).
-      ...(op === "type" ? { script, payloadSummary: `Text: ${JSON.stringify(clip(text ?? ""))}` } : {}),
+      ...(op === "type" ? { script, payloadSummary: `Text: ${JSON.stringify(text ?? "")}` } : {}),
     });
     throwIfAborted(ctx.signal);
     const raw = await invoke<string>("browser_eval", {

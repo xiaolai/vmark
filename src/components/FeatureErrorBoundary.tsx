@@ -2,7 +2,7 @@
  * Feature Error Boundary
  *
  * Purpose: Localized React error boundary for crash-prone subtrees
- *   (Editor, Terminal, PDF export route). Lets a single feature fail
+ *   (Editor, Terminal, the Settings route, the PDF export route). Lets a single feature fail
  *   without unmounting the surrounding application chrome — the user
  *   keeps their sidebar, tabs, status bar, and can save / switch tabs.
  *

@@ -13,6 +13,7 @@ const {
   toggleDocumentReadOnlyWithOwnership,
   scrollToSelectedDiagnostic,
   runActiveLint,
+  activeTabHasLinter,
 } = vi.hoisted(() => ({
   toggleSourceModeWithCheckpoint: vi.fn(),
   cleanupBeforeModeSwitch: vi.fn(),
@@ -21,6 +22,7 @@ const {
   toggleDocumentReadOnlyWithOwnership: vi.fn(),
   scrollToSelectedDiagnostic: vi.fn(),
   runActiveLint: vi.fn(),
+  activeTabHasLinter: vi.fn(() => true),
 }));
 
 vi.mock("@/services/history/unifiedHistory", () => ({ toggleSourceModeWithCheckpoint }));
@@ -28,7 +30,7 @@ vi.mock("@/services/assembly/modeSwitchCleanup", () => ({ cleanupBeforeModeSwitc
 vi.mock("@/services/terminal/terminalGate", () => ({ requestToggleTerminal, toggleTerminalFocus }));
 vi.mock("@/services/workspaces/fileOwnership", () => ({ toggleDocumentReadOnlyWithOwnership }));
 vi.mock("@/services/lint/lintNavigation", () => ({ scrollToSelectedDiagnostic }));
-vi.mock("@/services/lint/runActiveLint", () => ({ runActiveLint }));
+vi.mock("@/services/lint/runActiveLint", () => ({ runActiveLint, activeTabHasLinter }));
 
 import { registerViewCommands } from "./viewCommands";
 import {

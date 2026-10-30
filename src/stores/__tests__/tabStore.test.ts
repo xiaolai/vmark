@@ -2,11 +2,16 @@
 /**
  * Unit tests for tabStore — focused on path deduplication logic.
  */
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { useTabStore } from "../tabStore";
 import { WINDOW_ALL_SCOPE, useClosedTabScopesStore } from "../tabStoreClosedScopes";
 import { reopenClosedTabForActiveContext } from "@/services/workspaces/reopenClosedTab";
 import { onTabRemoved } from "../tabRemovalBus";
+
+// Reopen reads a document back from disk; every file here is empty.
+vi.mock("@tauri-apps/plugin-fs", () => ({
+  readFile: vi.fn(() => Promise.resolve(new Uint8Array())),
+}));
 
 const WINDOW = "main";
 
@@ -211,19 +216,19 @@ describe("tabStore", () => {
   });
 
   describe("reopenClosedTabForActiveContext (WI-11.2)", () => {
-    it("reopens the most recently closed tab", () => {
+    it("reopens the most recently closed tab", async () => {
       const id = useTabStore.getState().createTab(WINDOW, "/file.md");
       useTabStore.getState().closeTab(WINDOW, id);
 
-      const reopened = reopenClosedTabForActiveContext(WINDOW);
+      const reopened = await reopenClosedTabForActiveContext(WINDOW);
       expect(reopened).not.toBeNull();
       expect((reopened as { filePath: string | null }).filePath).toBe("/file.md");
       expect(useTabStore.getState().getTabsByWindow(WINDOW)).toHaveLength(1);
       expect(useTabStore.getState().activeTabId[WINDOW]).toBe(id);
     });
 
-    it("returns null when the history is empty", () => {
-      expect(reopenClosedTabForActiveContext(WINDOW)).toBeNull();
+    it("returns null when the history is empty", async () => {
+      expect(await reopenClosedTabForActiveContext(WINDOW)).toBeNull();
     });
   });
 
@@ -354,8 +359,8 @@ describe("tabStore", () => {
   });
 
   describe("fallback branches for non-existent windows", () => {
-    it("reopen falls back to null for a non-existent window (WI-11.2)", () => {
-      expect(reopenClosedTabForActiveContext("no-such-window")).toBeNull();
+    it("reopen falls back to null for a non-existent window (WI-11.2)", async () => {
+      expect(await reopenClosedTabForActiveContext("no-such-window")).toBeNull();
     });
 
     it("getTabsByWindow returns empty array for non-existent window (line 403)", () => {
@@ -384,7 +389,7 @@ describe("tabStore", () => {
       expect(useTabStore.getState().tabs).toEqual({});
     });
 
-    it("reopen creates the tabs entry for a window with no open tabs", () => {
+    it("reopen creates the tabs entry for a window with no open tabs", async () => {
       // Window has closed history but no open tabs array.
       useClosedTabScopesStore.getState().recordClosedTab("orphan", {
         id: "closed-1",
@@ -393,7 +398,7 @@ describe("tabStore", () => {
         title: "old",
         isPinned: false,
       } as never);
-      const result = reopenClosedTabForActiveContext("orphan");
+      const result = await reopenClosedTabForActiveContext("orphan");
       expect(result).not.toBeNull();
       expect(result!.id).toBe("closed-1");
       expect(useTabStore.getState().tabs["orphan"]).toHaveLength(1);

@@ -12,9 +12,12 @@
  * `TransformError: Inserted content deeper than insertion position`. The Enter
  * edit is aborted.
  *
- * Reproduced on the full VMark stack AND on vanilla StarterKit, and still
- * present in 3.31.3, so this is an upstream defect VMark works around rather
- * than one it caused.
+ * Reproduced on the full VMark stack AND on vanilla StarterKit through
+ * `@tiptap/core` 3.31.3, so it is an upstream defect VMark works around rather
+ * than one it caused. The pinned 3.31.4 computes `canSplit` against the
+ * post-deletion document and no longer throws on vanilla StarterKit
+ * (`tiptap.test.ts` beside this file pins that); the extension stays so the
+ * edit cannot regress with a dependency bump.
  *
  * The remedy is simply to use ProseMirror's own `splitBlock`
  * (`prosemirror-commands`), which does the same work in the correct ORDER —
@@ -31,6 +34,7 @@
  *
  * @coordinates-with plugins/listContinuation/tiptap.ts — higher-priority Enter
  * @coordinates-with src/test/splitBlockSelection.test.ts — the regression pins
+ * @coordinates-with plugins/safeBlockSplit/tiptap.test.ts — unit tests and the upstream pin
  * @module plugins/safeBlockSplit/tiptap
  */
 import { Extension } from "@tiptap/core";

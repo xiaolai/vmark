@@ -29,7 +29,7 @@ const boundary = vi.hoisted(() => ({
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: boundary.invoke }));
 vi.mock("@tauri-apps/plugin-store", () => ({
-  load: () =>
+  getStore: () =>
     Promise.resolve({
       get: (key: string) => Promise.resolve(boundary.appStore.get(key) ?? null),
       set: (key: string, value: string) => Promise.resolve(void boundary.appStore.set(key, value)),

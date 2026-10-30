@@ -246,7 +246,7 @@ Os dois arquivos abrem offline, com uma diferença para documentos que contêm m
 - **`standalone.html`** é totalmente autocontido — a folha de estilos e as fontes do KaTeX são embutidas no momento da exportação, então a matemática é renderizada sem conexão.
 - **`index.html`** carrega a folha de estilos do KaTeX de uma CDN (jsDelivr), então sua matemática precisa de conexão com a internet quando a página é aberta; o leitor, as imagens e as fontes em `assets/` são locais.
 
-As fontes são baixadas durante a exportação (as fontes do KaTeX e qualquer fonte web que você escolheu nas Configurações), então exporte em uma máquina com acesso à internet se quiser que elas sejam embutidas — uma exportação offline recorre às fontes do sistema.
+As fontes são baixadas durante a exportação: as fontes do KaTeX quando o documento tem matemática, e as suas fontes latina e monoespaçada quando forem fontes web que o VMark conhece (Literata, JetBrains Mono, Fira Code, IBM Plex Mono). A configuração de fonte CJK nunca é embutida, e uma fonte do sistema ou uma família de fontes personalizada também não — para essas, a página exportada usa a pilha de fontes do sistema de quem a lê. Exporte em uma máquina com acesso à internet se quiser as fontes embutidas — uma exportação offline recorre às fontes do sistema.
 
 ### Quais Imagens São Embutidas
 
@@ -257,6 +257,9 @@ compartilhadas — por isso o VMark limita de onde esses bytes podem vir:
 |---|---|
 | dentro de um espaço de trabalho aberto | qualquer lugar desse espaço de trabalho |
 | aberto sozinho | a própria pasta do documento e as subpastas |
+| não salvo (nunca gravado em disco) | lugar nenhum — nenhuma imagem local é embutida, mesmo com um espaço de trabalho aberto; imagens remotas não são afetadas |
+
+No caso de um documento não salvo, salve-o primeiro e exporte de novo. Isso vale para HTML, impressão, PDF e Copiar como HTML.
 
 Caminhos relativos são resolvidos a partir da pasta do documento, exatamente
 como no editor — então `../images/photo.png` funciona sempre que o destino

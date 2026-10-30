@@ -21,7 +21,8 @@
  *
  * Audit 2026-09-03: a `type`, `key` or `scroll` approval binds the BUILT script
  * (so the text, key+modifiers or delta the user approved is what runs — A-05)
- * and the prompt shows a one-line summary of it; the one-shot mint is awaited
+ * and the prompt shows a summary of it — for `type`, the WHOLE text, since the
+ * bound script embeds all of it; the one-shot mint is awaited
  * before acting (single mint path, A-04); a driver rejection propagates to
  * `wrapHandler` as its typed token instead of "did not affect the target"
  * (E-01/E-03); a popup the page tried to open during the act is reported (X-03);
@@ -53,14 +54,7 @@ import { resolveBrowserTarget } from "./browserAccess";
 import { requireHumanAttachment } from "./browserReadClass";
 import { approveAndAct, finishAct, refuseUngrantedRef } from "./browserActFlow";
 import { parseActAction, type ActAction } from "./browserActParse";
-import { truncateToLength } from "@/utils/truncateText";
 import { readOperationArgsChecked } from "./readOperationArgs";
-
-/** Clip a payload for the prompt's one-line summary, on a character boundary. */
-const SUMMARY_MAX = 120;
-function clip(text: string): string {
-  return text.length > SUMMARY_MAX ? `${truncateToLength(text, SUMMARY_MAX)}…` : text;
-}
 
 function describeKey(key: string, modifiers: KeyModifiers | undefined): string {
   const parts: string[] = [];
@@ -91,9 +85,10 @@ async function actType(id: string, tab: BrowserTarget, action: ActionOf<"type">)
     return;
   }
   const { role, name } = action.targeting;
-  // The built script embeds the text, so binding the script binds the text.
+  // The built script embeds the text, so binding the script binds the text —
+  // and the prompt shows all of it: a cut would approve the rest unseen.
   const script = buildTypeScript(role, name, action.text, tab.generation);
-  await approveAndAct(id, tab, "type", { role, name }, script, `Text: ${JSON.stringify(clip(action.text))}`);
+  await approveAndAct(id, tab, "type", { role, name }, script, `Text: ${JSON.stringify(action.text)}`);
 }
 
 async function actScroll(id: string, tab: BrowserTarget, action: ActionOf<"scroll">): Promise<void> {

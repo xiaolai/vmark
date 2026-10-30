@@ -67,7 +67,7 @@ export function createSourceLintExtension(tabId: string, diagnostics: LintDiagno
 
 /**
  * Force the active CodeMirror source view to re-run its linter immediately.
- * Call this after runLint() to surface new diagnostics without waiting for
+ * Call this after runLintForFormat() to surface new diagnostics without waiting for
  * the next document change event.
  * Guards against calling forceLinting on a destroyed view (dom not connected).
  */

@@ -82,7 +82,8 @@ async function mountPanel(content = YAML, { eventOwner = true } = {}): Promise<v
   await settle();
 }
 
-const button = (key: "start" | "cancel") => screen.getByRole("button", { name: `workflow:run.${key}` });
+const BUTTON_NAME = { start: "Run workflow", cancel: "Cancel workflow" } as const;
+const button = (key: "start" | "cancel") => screen.getByRole("button", { name: BUTTON_NAME[key] });
 const statusLine = () => screen.queryByRole("status")?.textContent ?? null;
 const preview = () => useWorkflowStore.getState().preview;
 const executionId = () => String(callsOf("run_workflow").at(-1)?.executionId);
@@ -148,7 +149,7 @@ describe("a workflow run from the panel", () => {
       capturePolicy: "tracked-only",
     }]);
     expect(executionId()).toMatch(/^[0-9a-f-]{36}$/);
-    expect(statusLine()).toBe("workflow:run.status.running");
+    expect(statusLine()).toBe("Running…");
 
     emit("step-update", { stepId: "greet", status: "running" });
     expect([shown("greet"), shown("save")]).toEqual(["running", "pending"]);
@@ -161,7 +162,7 @@ describe("a workflow run from the panel", () => {
 
     expect([shown("greet"), shown("save")]).toEqual(["success", "success"]);
     expect(screen.getByText("1.5s")).toBeInTheDocument();
-    expect(statusLine()).toBe("workflow:run.status.completed");
+    expect(statusLine()).toBe("Completed");
     expect(preview().executionId).toBeNull();
 
     // The slot is free: a second run starts under a NEW id, from a clean slate.
@@ -169,7 +170,7 @@ describe("a workflow run from the panel", () => {
     await click("start");
     expect(callsOf("run_workflow")).toHaveLength(2);
     expect(executionId()).not.toBe(first);
-    expect([shown("greet"), shown("save"), statusLine()]).toEqual(["pending", "pending", "workflow:run.status.running"]);
+    expect([shown("greet"), shown("save"), statusLine()]).toEqual(["pending", "pending", "Running…"]);
   });
 
   it("ignores frames that belong to a different execution", async () => {
@@ -179,7 +180,7 @@ describe("a workflow run from the panel", () => {
     emit("step-update", { executionId: "someone-else", stepId: "greet", status: "error", error: "not ours" });
     emit("complete", { executionId: "someone-else", status: "failed" });
 
-    expect([shown("greet"), statusLine()]).toEqual(["pending", "workflow:run.status.running"]);
+    expect([shown("greet"), statusLine()]).toEqual(["pending", "Running…"]);
     expect(preview().executionId).toBe(executionId());
   });
 
@@ -191,11 +192,11 @@ describe("a workflow run from the panel", () => {
 
     emit("step-update", { stepId: "greet", status: "success", duration: 2 });
     emit("complete", { status: "completed" });
-    expect([shown("greet"), statusLine()]).toEqual(["success", "workflow:run.status.starting"]);
+    expect([shown("greet"), statusLine()]).toEqual(["success", "Starting…"]);
     admit(null);
     await settle();
 
-    expect([shown("greet"), statusLine()]).toEqual(["success", "workflow:run.status.completed"]);
+    expect([shown("greet"), statusLine()]).toEqual(["success", "Completed"]);
     expect(preview().executionId).toBeNull();
   });
 
@@ -209,7 +210,7 @@ describe("a workflow run from the panel", () => {
 
     expect([shown("greet"), shown("save")]).toEqual(["success", "error"]);
     expect(screen.getByTitle("Failed to write 'out.md': 磁盘已满")).toHaveTextContent("✗");
-    expect(statusLine()).toBe("workflow:run.status.failed");
+    expect(statusLine()).toBe("Failed");
   });
 
   it("Cancel reaches cancel_workflow with the run's id, and the runner's verdict ends the run", async () => {
@@ -220,9 +221,9 @@ describe("a workflow run from the panel", () => {
     await click("cancel");
 
     expect(callsOf("cancel_workflow")).toEqual([{ executionId: id }]);
-    expect(statusLine()).toBe("workflow:run.status.running"); // still the runner's to end
+    expect(statusLine()).toBe("Running…"); // still the runner's to end
     emit("complete", { status: "cancelled" });
-    expect(statusLine()).toBe("workflow:run.status.cancelled");
+    expect(statusLine()).toBe("Cancelled");
     expect(button("start")).toBeEnabled();
   });
 });
@@ -235,7 +236,7 @@ describe("a workflow run that must not start", () => {
     await click("start");
 
     expect(toast.error).toHaveBeenCalledWith(
-      "workflow:run.failedToStart",
+      "The workflow could not start",
       expect.objectContaining({ description: "The workflow engine is turned off in Settings" }),
     );
     expect(preview().executionId).toBeNull();
@@ -243,7 +244,7 @@ describe("a workflow run that must not start", () => {
 
     stub("run_workflow", (args) => args.executionId);
     await click("start");
-    expect(statusLine()).toBe("workflow:run.status.running");
+    expect(statusLine()).toBe("Running…");
   });
 
   it("while one run is live a second dispatch is refused and never reaches Rust", async () => {
@@ -263,7 +264,7 @@ describe("a workflow run that must not start", () => {
     await click("start");
 
     expect(toast.error).toHaveBeenCalledWith(
-      "workflow:run.failedToStart",
+      "The workflow could not start",
       expect.objectContaining({ description: expect.stringContaining("No workflow event owner is mounted") }),
     );
     expect(calls).toEqual([]);
@@ -271,7 +272,7 @@ describe("a workflow run that must not start", () => {
   });
 
   it.each([
-    ["no workspace", YAML, null, "workflow:run.needsWorkspace"],
+    ["no workspace", YAML, null, "Open a folder to run this workflow"],
     ["an empty document", "", ROOT, null],
     ["a document that is not a workflow", "name: 流程\n", ROOT, null],
   ])("%s: Run is disabled and nothing is dispatched", async (_case, content, root, status) => {

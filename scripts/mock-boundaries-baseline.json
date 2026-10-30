@@ -754,11 +754,6 @@
       "target": "src/stores/mediaPopupStore"
     },
     {
-      "file": "src/plugins/search/__tests__/search.test.ts",
-      "api": "vi.mock",
-      "target": "src/stores/searchStore"
-    },
-    {
       "file": "src/plugins/sourceFootnotePopup/__tests__/SourceFootnotePopupView.test.ts",
       "api": "vi.mock",
       "target": "src/stores/footnotePopupStore"

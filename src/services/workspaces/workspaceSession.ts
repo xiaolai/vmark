@@ -179,8 +179,8 @@ export async function persistWorkspaceSession(windowLabel: string): Promise<void
     splitLayoutOf(usePaneStore.getState().byWindow[windowLabel] ?? null, tabs),
   );
 
-  // New field: full ordered tab list incl. browser tabs. New builds
-  // prefer this; old builds ignore the unknown field (serde default).
+  // New field: the ordered document tabs (browser pages persist per window,
+  // above). New builds prefer it; old builds ignore the unknown field.
   const updatedConfig = {
     ...config,
     lastOpenTabs: openPaths,

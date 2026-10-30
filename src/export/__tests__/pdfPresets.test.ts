@@ -71,6 +71,13 @@ describe("pdfPresets option builders", () => {
     expect(options[1]).toEqual({ value: "0.02", label: "0.02em" });
   });
 
+  it("buildCjkSpacingOptions keeps a current value the curated list lacks", () => {
+    const options = buildCjkSpacingOptions(mockT, "0.12");
+    expect(options.at(-1)).toEqual({ value: "0.12", label: "0.12em" });
+    expect(buildCjkSpacingOptions(mockT, "0.05")).toHaveLength(4);
+    expect(buildCjkSpacingOptions(mockT, "0")).toHaveLength(4);
+  });
+
   it("buildLatinFontOptions translates 'System Default' and keeps font names", () => {
     const options = buildLatinFontOptions(mockT);
     expect(options[0]).toEqual({ value: "system", label: "pdf.typography.font.systemDefault" });

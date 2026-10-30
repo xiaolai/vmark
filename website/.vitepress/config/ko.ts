@@ -38,7 +38,7 @@ export const ko = {
           "workspace-rail": "워크스페이스 레일",
           "cjk-formatting": "CJK 서식",
           "ai-genies": "AI 지니",
-          "coherence": "정합성 및 내역 뷰",
+          "coherence": "정합성 내역",
           "workflows": "지니 워크플로",
           "workflow-genies": "워크플로 지니",
           "ai-providers": "AI 제공업체",

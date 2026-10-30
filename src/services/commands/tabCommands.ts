@@ -83,7 +83,9 @@ function buildTabCommandSpecs(): CommandDefinition[] {
       // The trigger the File-menu item and the `reopenClosedTab`
       // shortcut (unbound by default) dispatch to. Empty history is a no-op —
       // the service returns null and nothing changes.
-      reopenClosedTabForActiveContext(wl(ctx));
+      void reopenClosedTabForActiveContext(wl(ctx)).catch((error: unknown) => {
+        fileOpsError("tab.reopenClosed failed:", error);
+      });
     },
   });
 

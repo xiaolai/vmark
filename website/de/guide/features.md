@@ -307,7 +307,7 @@ Rohes SVG inline über ` ```svg `-Codeblöcke rendern:
 
 ### Inline-Inhaltsverzeichnis
 
-Geben Sie `[TOC]` in einer eigenen Zeile ein oder wählen Sie **Einfügen → Inhaltsverzeichnis**, um ein live aktualisiertes Inhaltsverzeichnis einzufügen (der Menüpunkt hat kein Standard-Tastenkürzel; weisen Sie ihm eines unter Einstellungen → Tastenkürzel zu):
+Wählen Sie **Einfügen → Inhaltsverzeichnis**, um in beiden Modi sofort ein live aktualisiertes Inhaltsverzeichnis einzufügen (der Menüpunkt hat kein Standard-Tastenkürzel; weisen Sie ihm eines unter Einstellungen → Tastenkürzel zu). Sie können auch `[TOC]` in eine eigene Zeile schreiben: Im Quellmodus ist diese Zeile das Inhaltsverzeichnis, während ein in WYSIWYG getipptes `[TOC]` reiner Text bleibt, bis das Dokument erneut geparst wird — etwa nach einem Wechsel in den Quellmodus und zurück oder nach erneutem Öffnen der Datei. `[TOC]` innerhalb von anderem Text wird nie umgewandelt:
 
 - Automatisch aus den Überschriften des Dokuments erzeugt, korrekt verschachtelt
 - Klicken Sie auf eine Überschrift, um direkt dorthin zu scrollen
@@ -455,7 +455,7 @@ VMark speichert automatisch Schnappschüsse Ihrer Dokumente, damit Sie frühere 
 - **Löschen** einzelner Schnappschüsse, die Sie nicht mehr benötigen, mit dem Papierkorb-Symbol
 - Der aktuelle Inhalt wird als neuer Schnappschuss gespeichert, bevor eine Wiederherstellung erfolgt, sodass Sie nie Ihre Arbeit verlieren
 - Der Verlauf erfordert, dass das Dokument als Datei gespeichert ist (unbenannte Dokumente haben keinen Verlauf)
-- Verlaufsverfolgung in **Einstellungen > Allgemein** aktivieren oder deaktivieren
+- Verlaufsverfolgung in **Einstellungen → Dateien & Bilder → Speichern** (**Dokumentverlauf beibehalten**) aktivieren oder deaktivieren
 
 ## Sitzungswiederherstellung (Hot Exit)
 
@@ -559,6 +559,8 @@ VMark enthält Hilfsprogramme zur Textbereinigung und -formatierung, verfügbar 
 - **Abschließende Leerzeichen entfernen**: Leerzeichen am Zeilenende entfernen
 - **Leerzeilen reduzieren**: Mehrere Leerzeilen auf eine reduzieren
 
+**Abschließende Leerzeichen entfernen** und **Leerzeilen reduzieren** lassen umzäunte Codeblöcke unangetastet, auch einen nicht geschlossenen Fence, der bis zum Ende des Dokuments reicht. Eingerückte Codeblöcke sind nicht geschützt.
+
 ### CJK-Formatierung (Format → CJK)
 
 Integrierte Textformatierungswerkzeuge für Chinesisch/Japanisch/Koreanisch. [Mehr erfahren →](/de/guide/cjk-formatting)
@@ -592,7 +594,7 @@ VMark sucht automatisch nach Updates und kann diese in der App herunterladen und
 
 ## Kohärenz, Wissensdatenbank & Slidev
 
-- **Kohärenz- & Aufschlüsselungsansicht** — die optionale Herkunftsverfolgung zeichnet auf, welche Dokumente jede KI-Generierung gelesen hat, markiert nachgelagerte Dokumente, wenn sich ein vorgelagertes ändert, und ergänzt semantische Prüfungen, Kanon-Aussagen und Kontexte. Öffnen Sie sie über **Fenster → Kohärenz-Aufschlüsselung**. [Mehr erfahren →](/de/guide/coherence)
+- **Kohärenz und das Panel Kohärenz-Aufschlüsselung** — die optionale Herkunftsverfolgung zeichnet auf, welche Dokumente jede KI-Generierung gelesen hat, markiert nachgelagerte Dokumente, wenn sich ein vorgelagertes ändert, und ergänzt semantische Prüfungen, Kanon-Aussagen und Kontexte. Öffnen Sie sie über **Fenster → Kohärenz-Aufschlüsselung**. [Mehr erfahren →](/de/guide/coherence)
 - **Wissensdatenbank** — stellt einen geöffneten Arbeitsbereich als verlinkte Website bereit (Wiki-Links, Rückverweise, Beziehungsgraph, Volltextsuche) auf `127.0.0.1`, in einem Panel (`Ctrl + Shift + 4`) oder in Ihrem Browser, und zeigt Slidev-Präsentationen in der Vorschau an und exportiert sie. Noch kein Release-Build enthält die dafür nötige Content-Server-Laufzeit, daher sind das Panel, sein Menüpunkt, der Paletten-Befehl und das Tastenkürzel ausgeblendet, solange **Einstellungen → Erweitert → Entwickler-Tools** nicht eingeschaltet ist. [Mehr erfahren →](/de/guide/knowledge-base)
 
 ## Anpassung

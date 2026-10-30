@@ -145,7 +145,7 @@ janelas exige um roteamento de requisições que ainda não existe.
 **Fluxo de aprovação.** A primeira chamada retorna `{needsApproval: true}` e abre
 um diálogo de consentimento que nomeia o caminho *canônico* da pasta (com links
 simbólicos resolvidos). O assistente deve perguntar ao usuário e então **repetir a
-mesma chamada**; uma vez que o usuário aprove, a repetição abre a pasta. Uma
+mesma chamada**; uma vez que o usuário aprove, a repetição abre a pasta. A aprovação pertence à conexão que a pediu: só uma nova tentativa da mesma conexão MCP pode usá-la. Outro assistente conectado recebe o seu próprio pedido, e um cliente que se reconectou (uma nova conexão) precisa ser aprovado de novo. A aprovação também expira se não for usada em cinco minutos. Uma
 requisição negada continua falhando até ser reaprovada. Não há opção de
 "lembrar" — cada abertura é aprovada individualmente.
 
@@ -268,7 +268,7 @@ Se `expected_revision` for fornecido e o documento tiver mudado desde aquela lei
 { "error": "STALE", "message": "Document has changed since the last read", "current_revision": "rev-currentNow" }
 ```
 
-Enquanto o usuário compõe texto com um método de entrada (IME) no editor WYSIWYG que mostra a aba, a escrita é recusada com `BUSY` e nada muda: o texto em composição pertence ao método de entrada até ser confirmado. Tente de novo em instantes. No modo Fonte a escrita é aceita, e o editor a mostra assim que a composição termina.
+Enquanto o usuário compõe texto com um método de entrada (IME) no editor que mostra a aba, no modo WYSIWYG ou no modo Fonte, a escrita é recusada com `BUSY` e nada muda: o texto em composição pertence ao método de entrada até ser confirmado. Um editor do modo Fonte também é tratado como em composição durante um breve período de tolerância logo depois que a composição termina. Tente de novo em instantes.
 
 Toda escrita é registrada no diário de edições de agentes do VMark antes que algo mude. A resposta de sucesso traz `applied: true` e `durable`: `durable: false` significa que o conteúdo foi escrito, mas o registro dele no diário ainda não pôde ser gravado — o VMark tenta de novo em segundo plano e, até conseguir, a próxima escrita nesse documento é recusada com `JOURNAL_DEGRADED`. Se o diário recusar o registro de vez, a escrita continua aplicada, fica no log como não registrada e a próxima escrita segue normalmente. Uma escrita é recusada, sem mudar nada, com `JOURNAL_BUSY` enquanto outra escrita no mesmo documento está sendo registrada (duas janelas com o mesmo arquivo compartilham um documento), com `STALE_PARENT` quando outra janela escreveu o documento depois da última escrita desta aba (leia de novo e tente outra vez), com `JOURNAL_UNAVAILABLE` quando o diário não está em execução ou não responde a tempo, e com `INVALID_TEXT` quando `content` contém um substituto UTF-16 isolado. Se o usuário editar o documento, fechar a aba, começar a compor com um método de entrada ou mover a seleção (ou trocar de aba, quando nenhum `tabId` foi informado) enquanto a escrita está sendo registrada, ela é recusada com `ABORTED` e um `reason` (`edited`, `closed`, `composing`, `selection`) e nada muda; leia de novo e tente outra vez. Um erro `INTERNAL` que traz `applied: true` é diferente: o editor falhou depois que a escrita já havia alterado o documento, e o texto que ele continha naquele momento foi registrado (`durable` como acima, `current_revision` é a revisão do documento); leia de novo antes de escrever outra vez. Um erro `INTERNAL` sem `applied` após uma escrita que falhou significa que o documento pode ter sido alterado em parte; leia-o de novo também.
 
@@ -285,7 +285,7 @@ Aplica uma reescrita determinística. Atualmente suporta transformações espec�
 
 `cjk-format` aplica as configurações de formatação CJK do usuário de ponta a ponta. `cjk-spacing` insere um único espaço entre caracteres CJK e Latim/dígitos adjacentes. `cjk-punctuation` converte pontuação ASCII adjacente a caracteres CJK para sua forma de largura total.
 
-Retorna `{revision, applied, durable}`. Assim como `write`, é recusado com `BUSY`, sem mudar nada, enquanto o usuário compõe com um método de entrada no editor WYSIWYG que mostra a aba. Assim como `write`, a chamada é registrada no diário de edições de agentes do VMark antes que algo mude: `applied`, `durable` e as recusas do diário (`JOURNAL_BUSY`, `STALE_PARENT`, `JOURNAL_DEGRADED`, `JOURNAL_UNAVAILABLE`, `INVALID_TEXT`, `ABORTED`) significam o mesmo; uma chamada que não muda nada não é registrada.
+Retorna `{revision, applied, durable}`. Assim como `write`, é recusado com `BUSY`, sem mudar nada, enquanto o usuário compõe com um método de entrada no editor que mostra a aba, no modo WYSIWYG ou no modo Fonte. Assim como `write`, a chamada é registrada no diário de edições de agentes do VMark antes que algo mude: `applied`, `durable` e as recusas do diário (`JOURNAL_BUSY`, `STALE_PARENT`, `JOURNAL_DEGRADED`, `JOURNAL_UNAVAILABLE`, `INVALID_TEXT`, `ABORTED`) significam o mesmo; uma chamada que não muda nada não é registrada.
 
 ---
 
@@ -818,7 +818,7 @@ O detalhamento: cada aresta de dependência viva cuja origem se moveu. Executa p
 | `downstream` / `downstream_path` / `downstream_rev` | O objeto derivado, seu caminho e sua revisão atual. |
 | `state` | `"version-stale"`, `"stale-valid"`, `"stale-contradicted"`, `"stale-unknown"`, `"waived"`, `"diverged"`, `"diverged-multi-head"` ou `"unpinnable"`. |
 
-Resolver uma aresta (accept-newer / waive) é normalmente uma ação humana realizada na visão de detalhamento do VMark. Uma IA só pode fazê-lo por meio de [`coherence_resolve`](#coherence-resolve), e apenas quando o proprietário do workspace tiver delegado isso a ela explicitamente.
+Resolver uma aresta (accept-newer / waive) é normalmente uma ação humana realizada no painel Detalhamento de coerência do VMark. Uma IA só pode fazê-lo por meio de [`coherence_resolve`](#coherence-resolve), e apenas quando o proprietário do workspace tiver delegado isso a ela explicitamente.
 
 ---
 
@@ -837,9 +837,10 @@ Argumentos: `{workspace_root, txf, input, resolution: "accept-newer" | "waive", 
 Resolve uma aresta desatualizada ativa como um agente explicitamente delegado. A autorização é
 **fail-closed**: o proprietário do workspace precisa ter concedido à **sua identidade de ponte
 autenticada** uma delegação ativa e não expirada que cubra o tipo de resolução (concedida no
-aplicativo, a partir do Detalhamento), e a aresta precisa continuar ativa. Toda resolução
+aplicativo, a partir do painel Detalhamento de coerência), e a aresta precisa continuar ativa. Toda resolução
 delegada é registrada no log de auditoria vinculada à concessão, e a entrada não pode ser
-desfeita.
+desfeita. `coherence_resolve` não consegue definir uma expiração, então a isenção de uma IA nunca
+caduca sozinha.
 
 Uma recusa significa que a concessão está ausente ou expirada — peça ao usuário para concedê-la
 em vez de tentar de novo. Separar isto de `coherence` não mudou nenhuma propriedade de segurança:

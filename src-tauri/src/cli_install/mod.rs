@@ -34,10 +34,24 @@ pub const CLI_PATH: &str = "/usr/local/bin/vmark";
 /// Shell script content installed to /usr/local/bin/vmark.
 /// Uses bundle ID (`-b app.vmark`) instead of app name for stable targeting
 /// even when the .app is renamed or localized.
+/// The comment names the menu item that removes it: choosing the item again
+/// uninstalls.
 const SCRIPT_CONTENT: &str = "#!/bin/bash\n\
 # VMark CLI launcher — installed by VMark.app\n\
-# Toggle via: VMark > Help > Install/Uninstall 'vmark' Command\n\
+# Remove via: VMark > Help > Shell Command: Install 'vmark' in PATH… (choose it again)\n\
 open -b app.vmark \"$@\"\n";
+
+/// Scripts earlier versions installed. They are still VMark's, so a toggle
+/// from a newer version removes them instead of refusing a "foreign" file.
+const PREVIOUS_SCRIPT_CONTENTS: &[&str] = &["#!/bin/bash\n\
+# VMark CLI launcher — installed by VMark.app\n\
+# Toggle via: VMark > Help > Install/Uninstall 'vmark' Command\n\
+open -b app.vmark \"$@\"\n"];
+
+/// Whether `content` is a script VMark installed, this version or an earlier one.
+fn is_our_script(content: &str) -> bool {
+    content == SCRIPT_CONTENT || PREVIOUS_SCRIPT_CONTENTS.contains(&content)
+}
 
 /// Structured error variants for CLI install operations.
 /// Avoids brittle string matching between module boundaries.
@@ -105,7 +119,7 @@ fn status_at(target: &Path) -> CliStatus {
             foreign: false,
         };
     }
-    let ours = std::fs::read_to_string(target).unwrap_or_default() == SCRIPT_CONTENT;
+    let ours = std::fs::read_to_string(target).is_ok_and(|content| is_our_script(&content));
     CliStatus {
         installed: ours,
         path,

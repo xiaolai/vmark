@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "automation-bridge",
+  "description": "[capability-version: 0.9.98] The debug-only Tauri MCP automation bridge (tauri-plugin-mcp-bridge). It lives OUTSIDE capabilities/ so tauri-build never compiles it into the static ACL: attach_automation_bridge in src-tauri/src/app_plugins.rs adds it at runtime (Manager::add_capability) only in a debug build whose bridge actually started, so a release build grants no mcp-bridge permission at all. Every platform carries the plugin again since 0.13.1, the first release built on the webview2-com 0.39 / windows 0.62 that tauri 2.12 uses (see its entry in Cargo.toml).",
+  "windows": ["main", "doc-*"],
+  "permissions": ["mcp-bridge:default"]
+}

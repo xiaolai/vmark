@@ -75,7 +75,7 @@ describe("WorkflowExportControl", () => {
     render(<WorkflowExportControl workflow={ir()} />);
     await user.click(screen.getByRole("button", { name: /export/i }));
     await user.click(screen.getByRole("menuitem", { name: /svg/i }));
-    expect(mockSaveImage).toHaveBeenCalledWith("svg");
+    expect(mockSaveImage).toHaveBeenCalledWith("svg", expect.any(HTMLElement));
   });
 
   it("exports PNG when 'Export as PNG' is clicked", async () => {
@@ -83,7 +83,7 @@ describe("WorkflowExportControl", () => {
     render(<WorkflowExportControl workflow={ir()} />);
     await user.click(screen.getByRole("button", { name: /export/i }));
     await user.click(screen.getByRole("menuitem", { name: /png/i }));
-    expect(mockSaveImage).toHaveBeenCalledWith("png");
+    expect(mockSaveImage).toHaveBeenCalledWith("png", expect.any(HTMLElement));
   });
 
   // audit-fix — rapid repeated clicks must not trigger duplicate exports.
@@ -109,5 +109,21 @@ describe("WorkflowExportControl", () => {
     await waitFor(() => {
       expect(mockCopyMermaid).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it("exports its own canvas: the scope is the wrapper the control is mounted in", async () => {
+    const user = userEvent.setup();
+    // Two canvases in one document (inline panel + side panel, or two tabs).
+    const { container: first } = render(<WorkflowExportControl workflow={ir()} />);
+    const { container: second } = render(<WorkflowExportControl workflow={ir()} />);
+    const triggers = screen.getAllByRole("button", { name: /export/i });
+
+    await user.click(triggers[1]);
+    await user.click(screen.getByRole("menuitem", { name: /svg/i }));
+
+    expect(mockSaveImage).toHaveBeenCalledTimes(1);
+    const scope = mockSaveImage.mock.calls[0][1];
+    expect(scope).toBe(second);
+    expect(scope).not.toBe(first);
   });
 });

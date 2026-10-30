@@ -68,6 +68,8 @@ La navigazione tra i prompt (`Mod + ↑` / `Mod + ↓`) richiede l'integrazione 
 
 **Linux:** `Ctrl` + una lettera va alla shell, quindi i tasti readline come `Ctrl + A`, `Ctrl + E`, `Ctrl + K`, `Ctrl + F`, `Ctrl + U` e `Ctrl + W` funzionano come in qualsiasi terminale Linux. Le scorciatoie a lettera proprie del terminale passano a `Ctrl + Shift`: `Ctrl + Shift + F` cerca, `Ctrl + Shift + K` pulisce, `Ctrl + Shift + A` seleziona tutto, e `Ctrl + Shift + C` / `Ctrl + Shift + V` copiano e incollano. `Ctrl + C` copia ancora una selezione (altrimenti invia SIGINT) e `Ctrl + V` incolla ancora; anche `Ctrl + Insert` / `Shift + Insert` copiano e incollano.
 
+**Tieni premuto per gli accenti (macOS).** Tenendo premuto un tasto lettera si apre il selettore di accenti di macOS. A quel punto la lettera semplice è già stata inviata alla shell, quindi quando scegli un accento VMark invia un backspace (DEL) seguito dal carattere accentato. In un programma che non tratta DEL come cancellazione del carattere precedente, potresti vedere la lettera originale rimanere.
+
 ::: tip
 `Mod + C` senza una selezione di testo invia SIGINT al processo in esecuzione — uguale a premere Ctrl+C in un terminale normale.
 :::
@@ -198,7 +200,7 @@ A meno che tu non scelga una shell nelle impostazioni del terminale, VMark avvia
 
 Le scorciatoie shell standard come `Ctrl+R` (ricerca cronologia inversa in zsh/bash) funzionano quando il terminale è in focus — non vengono intercettate dall'editor.
 
-Quando la radice del workspace cambia dopo che il terminale è già in esecuzione, le sessioni inattive eseguono automaticamente `cd` alla nuova radice. Una sessione impegnata in un comando (ad esempio `vim` o `less`) non viene interrotta: cambia directory quando il comando termina, cosa che richiede l'[integrazione della shell](#integrazione-della-shell) per essere rilevata. Con la [barra degli spazi di lavoro](/it/guide/workspace-rail) attiva, le sessioni che appartengono a un workspace mantengono la propria directory.
+Quando la radice del workspace cambia dopo che il terminale è già in esecuzione, le sessioni inattive eseguono automaticamente `cd` alla nuova radice. Una sessione impegnata in un comando (ad esempio `vim` o `less`) non viene interrotta: cambia directory quando il comando termina, cosa che richiede l'[integrazione della shell](#integrazione-della-shell) per essere rilevata. Con la [barra degli spazi di lavoro](/it/guide/workspace-rail) attiva, le sessioni che appartengono a un workspace mantengono la propria directory. Senza integrazione della shell — su Windows, con fish o quando l'impostazione è disattivata — VMark non può sapere che una sessione è occupata, quindi il `cd` viene digitato in ciò che è in esecuzione in primo piano.
 
 ## Strumenti CLI IA e il loro accesso al browser
 
@@ -267,7 +269,7 @@ La sezione parte compressa. Si apre da sola quando una nuova risposta contiene u
 
 L'attivazione aggiunge un hook `SessionStart` locale al `settings.json` di Claude Code e al `hooks.json` di Codex, preservando gli hook esistenti. Dopo l'attivazione, avvia o riprendi Claude/Codex in un terminale di VMark; riavvia le sessioni già in esecuzione. Codex potrebbe chiederti di considerare attendibile il nuovo hook alla prima esecuzione. Sono richiesti Node e una versione della CLI con gli hook del ciclo di vita. Gli hook disattivati esplicitamente o limitati da criteri, le sessioni SSH remote e le directory di configurazione personalizzate della CLI diverse dall'ambiente di VMark non possono fornire un collegamento.
 
-Ogni terminale segue esattamente la propria sessione anziché la trascrizione modificata più di recente. L'anteprima conserva fino a 100 messaggi dell'assistente dagli ultimi 2 MiB di dati della trascrizione. L'HTML grezzo e le immagini remote restano inerti; i diagrammi non validi restano leggibili come sorgente. La disattivazione rimuove la sezione formattata e disattiva gli hook installati da VMark.
+Ogni terminale segue esattamente la propria sessione anziché la trascrizione modificata più di recente. L'anteprima conserva fino a 100 messaggi dell'assistente dagli ultimi 2 MiB di dati della trascrizione. L'HTML grezzo e le immagini remote restano inerti; i diagrammi non validi restano leggibili come sorgente. La disattivazione rimuove la sezione formattata e spegne gli hook di VMark: le voci dell'hook SessionStart restano nel tuo `settings.json` di Claude Code e nel tuo `hooks.json` di Codex (VMark non riscrive la configurazione della tua CLI per rimuoverle), ma lo script dell'hook termina subito finché l'impostazione è disattivata, e VMark dimentica tutti i collegamenti di trascrizione esistenti. Ogni nuova shell riceve comunque una variabile `VMARK_TRANSCRIPT_TOKEN`, così riattivare l'impostazione funziona anche per le sessioni già aperte.
 
 ### Accessibilità
 

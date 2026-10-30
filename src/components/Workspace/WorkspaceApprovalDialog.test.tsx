@@ -31,6 +31,14 @@ describe("WorkspaceApprovalDialog", () => {
     expect(screen.getByText(/\/Users\/x\/proj/)).toBeInTheDocument();
   });
 
+  // An agent can name only an existing folder, but that folder's NAME may hide a
+  // bidi override or zero-width character; the prompt shows them as escapes.
+  it("shows invisible characters in the folder path as escapes", () => {
+    queue("id1", "/Users/x/pro\u202Ej\u200B");
+    render(<WorkspaceApprovalDialog />);
+    expect(screen.getByText("/Users/x/pro\\u{202E}j\\u{200B}")).toBeInTheDocument();
+  });
+
   it("Approve mints the one-shot and clears the prompt", async () => {
     const user = userEvent.setup();
     queue();

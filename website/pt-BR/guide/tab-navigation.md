@@ -282,7 +282,7 @@ O comportamento de escape do Tab pode ser personalizado em **Configurações →
 |-------------|--------|
 | **Auto-emparelhar Parênteses** | Habilitar/desabilitar emparelhamento de parênteses e escape do Tab |
 | **Parênteses CJK** | Incluir pares de parênteses CJK |
-| **Aspas Curvas** | Incluir pares de aspas curvas (`""` `''`) |
+| **Aspas Curvas** | Incluir pares de aspas curvas (`“”` `‘’`); uma aspa reta digitada vira um par curvo |
 
 ::: tip
 Se o escape do Tab conflitar com seu fluxo de trabalho, você pode desabilitar o auto-emparelhamento de parênteses completamente. O Tab então inserirá espaços (ou indentará em listas/tabelas) normalmente.

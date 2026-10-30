@@ -4,9 +4,10 @@
  * Purpose: Shared save prompt and Save As flow used by both tab-close
  *   and window-close handlers — ensures consistent dirty-document UX.
  *
- * Pipeline: Tab/window close request → decideOnClose() (utils) → if "prompt"
- *   → this module shows native dialog → user chooses Save/Discard/Cancel
- *   → returns CloseSaveResult for caller to act on
+ * Pipeline: Tab/window close request → the caller checks `needsResolution()`
+ *   (windowClose/dirtyContexts.ts) → if dirty or divergent, this module shows
+ *   the native dialog → user chooses Save/Discard/Cancel → returns
+ *   CloseSaveResult for the caller (tabOperations.ts, windowCloseFlow.ts) to act on
  *
  * Key decisions:
  *   - Single-doc prompt returns per-file result; multi-doc prompt returns aggregate

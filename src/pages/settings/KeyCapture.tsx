@@ -3,6 +3,12 @@
  *
  * Modal overlay that captures keyboard input for shortcut customization.
  *
+ * Key decisions:
+ *   - A chord another shortcut owns is offered as "Reassign", with a note that
+ *     the owner will be unassigned: the parent moves the chord rather than
+ *     letting two shortcuts share it (only one of a shared pair ever fires).
+ *   - "Remove Shortcut" appears only when the shortcut has a chord to remove.
+ *
  * @module pages/settings/KeyCapture
  */
 
@@ -22,11 +28,22 @@ interface KeyCaptureProps {
    *  binding's conflict, so a freshly pressed chord another shortcut owned
    *  showed no warning, or a stale one. */
   getConflict: (key: string) => ShortcutDefinition | null;
+  /** The shortcut's effective chord now; empty when it is unassigned. */
+  currentKey: string;
   onCapture: (key: string) => void;
+  /** Unassign the shortcut. */
+  onClear: () => void;
   onCancel: () => void;
 }
 
-export function KeyCapture({ shortcut, getConflict, onCapture, onCancel }: KeyCaptureProps) {
+export function KeyCapture({
+  shortcut,
+  getConflict,
+  currentKey,
+  onCapture,
+  onClear,
+  onCancel,
+}: KeyCaptureProps) {
   const { t } = useTranslation("settings");
   const [capturedKey, setCapturedKey] = useState<string | null>(null);
   const conflict = capturedKey ? getConflict(capturedKey) : null;
@@ -105,11 +122,17 @@ export function KeyCapture({ shortcut, getConflict, onCapture, onCancel }: KeyCa
             <strong>{t("shortcuts.capture.conflict")}</strong>{" "}
             {t("shortcuts.capture.conflictUsedBy")}{" "}
             <strong>{getShortcutLabel(conflict)}</strong>
+            <div className="mt-1">{t("shortcuts.capture.conflictWillUnassign")}</div>
           </div>
         )}
 
         {/* Actions */}
         <div className="flex justify-end gap-2">
+          {currentKey && (
+            <Button variant="danger" className="mr-auto" onClick={onClear}>
+              {t("shortcuts.capture.clear")}
+            </Button>
+          )}
           <Button onClick={onCancel}>
             {t("shortcuts.capture.cancel")}
           </Button>
@@ -118,7 +141,7 @@ export function KeyCapture({ shortcut, getConflict, onCapture, onCancel }: KeyCa
             onClick={handleConfirm}
             disabled={!capturedKey || unsupported}
           >
-            {conflict ? t("shortcuts.capture.assignAnyway") : t("shortcuts.capture.assign")}
+            {conflict ? t("shortcuts.capture.reassign") : t("shortcuts.capture.assign")}
           </Button>
         </div>
 

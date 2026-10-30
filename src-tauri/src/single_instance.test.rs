@@ -6,7 +6,9 @@
 //! with a file forwards exactly that file and opens nothing, a bare launch
 //! reveals a hidden window or builds one when none is left.
 
-use super::{openable_files_from_argv, should_exit_after_failed_window};
+use super::{
+    openable_files_from_argv, resolve_against_launch_cwd, should_exit_after_failed_window,
+};
 
 /// Real files on disk — `filter_supported_args` calls `is_file()`, so a
 /// fabricated path would be rejected for the wrong reason and the test would
@@ -101,6 +103,57 @@ fn drops_paths_this_app_cannot_open() {
     assert_eq!(files, vec![note]);
 }
 
+// -- Relative arguments belong to the SECOND launch's working directory -------
+//
+// `vmark .` typed in a shell reaches the running instance as `"."`. Resolved
+// against the running process's own cwd it names whatever folder VMark was
+// started in — which always exists, so a folder argument silently opens (and
+// is granted) the wrong directory.
+
+#[test]
+fn relative_arguments_resolve_against_the_launch_cwd() {
+    let fx = Fixture::new("relative-cwd");
+    let project = fx.subdir("project");
+    let note = fx.file("note.md");
+    let cwd = fx.dir.to_string_lossy().into_owned();
+
+    let argv = resolve_against_launch_cwd(
+        vec!["vmark".into(), "project".into(), "note.md".into()],
+        &cwd,
+    );
+
+    assert_eq!(argv[0], "vmark", "argv[0] is the program, never rewritten");
+    assert_eq!(
+        std::path::Path::new(&argv[1]),
+        std::path::Path::new(&project)
+    );
+    assert_eq!(std::path::Path::new(&argv[2]), std::path::Path::new(&note));
+    assert_eq!(
+        openable_files_from_argv(argv),
+        vec![fx.dir.join("note.md").to_string_lossy().into_owned()]
+    );
+}
+
+#[test]
+fn absolute_arguments_pass_through_unchanged() {
+    let fx = Fixture::new("absolute-cwd");
+    let note = fx.file("note.md");
+
+    let argv = resolve_against_launch_cwd(vec!["vmark".into(), note.clone()], "/somewhere/else");
+
+    assert_eq!(argv, vec!["vmark".to_string(), note]);
+}
+
+#[test]
+fn relative_arguments_are_dropped_when_the_launch_cwd_is_unknown() {
+    // No usable cwd means no way to know what `.` meant; guessing with our own
+    // cwd is the bug, so the argument is dropped (fail closed).
+    for cwd in ["", "relative/dir"] {
+        let argv = resolve_against_launch_cwd(vec!["vmark".into(), ".".into(), "a.md".into()], cwd);
+        assert_eq!(argv, vec!["vmark".to_string()], "cwd {cwd:?}");
+    }
+}
+
 // -- #246: routing and surfacing, on a mock runtime --------------------------
 //
 // `tauri::test::MockRuntime` does not exist on Windows (Cargo.toml scopes the
@@ -141,6 +194,7 @@ mod on_a_mock_app {
         second_launch_with(
             app.handle(),
             vec!["/opt/vmark/vmark".into(), note.clone()],
+            "/",
             |_, files| {
                 *forwarded.borrow_mut() = Some(files);
             },
@@ -154,11 +208,84 @@ mod on_a_mock_app {
     }
 
     #[test]
+    fn a_launch_with_a_folder_opens_it_as_a_workspace_and_forwards_nothing() {
+        let fx = Fixture::new("folder-mock");
+        let folder = fx.subdir("project");
+        let app = tauri::test::mock_builder()
+            .plugin(tauri_plugin_fs::init())
+            .manage(crate::workspace::grants::WorkspaceGrants::default())
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .expect("build mock app");
+
+        second_launch_with(
+            app.handle(),
+            vec!["/opt/vmark/vmark".into(), folder],
+            "/",
+            |_, _| {
+                panic!("a folder is not a file to forward");
+            },
+        );
+
+        let windows = app.webview_windows();
+        assert_eq!(
+            windows.len(),
+            1,
+            "one workspace window, and no extra main window"
+        );
+        let url = windows.values().next().expect("window").url().expect("url");
+        assert!(
+            url.query().is_some_and(|q| q.contains("workspaceRoot=")),
+            "the window is scoped to the folder: {url}"
+        );
+    }
+
+    #[test]
+    fn a_relative_folder_opens_the_folder_under_the_launch_cwd() {
+        let fx = Fixture::new("relative-folder-mock");
+        fx.subdir("project");
+        let app = tauri::test::mock_builder()
+            .plugin(tauri_plugin_fs::init())
+            .manage(crate::workspace::grants::WorkspaceGrants::default())
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .expect("build mock app");
+
+        let cwd = fx.dir.to_string_lossy().into_owned();
+        second_launch_with(
+            app.handle(),
+            vec!["/opt/vmark/vmark".into(), "project".into()],
+            &cwd,
+            |_, _| {
+                panic!("a folder is not a file to forward");
+            },
+        );
+
+        let windows = app.webview_windows();
+        assert_eq!(windows.len(), 1, "one workspace window");
+        let url = windows.values().next().expect("window").url().expect("url");
+        let root = url
+            .query_pairs()
+            .find(|(k, _)| k == "workspaceRoot")
+            .map(|(_, v)| v.into_owned())
+            .expect("workspaceRoot in the window url");
+        let expected = std::fs::canonicalize(fx.dir.join("project")).expect("canonical project");
+        assert_eq!(
+            std::path::Path::new(&root),
+            expected,
+            "the caller's ./project, not the running app's"
+        );
+    }
+
+    #[test]
     fn a_bare_launch_with_no_window_left_creates_the_main_window_and_forwards_nothing() {
         let app = mock_app();
-        second_launch_with(app.handle(), vec!["/opt/vmark/vmark".into()], |_, _| {
-            panic!("a bare launch has nothing to forward");
-        });
+        second_launch_with(
+            app.handle(),
+            vec!["/opt/vmark/vmark".into()],
+            "/",
+            |_, _| {
+                panic!("a bare launch has nothing to forward");
+            },
+        );
         assert!(
             app.get_webview_window("main").is_some(),
             "no document window was left, so one is built"

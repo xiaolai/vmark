@@ -12,8 +12,8 @@
 
 use super::blocking::with_kernel;
 use super::command_errors::{classify_write, ledger_unavailable, rejected_argument};
-use super::command_types::{actor_identity, CoherenceStatus, ResolveReceipt, ResolveRequest};
-use super::commands::{perform_breakdown_in, perform_head, perform_resolve, perform_status};
+use super::command_types::{actor_identity, ResolveReceipt, ResolveRequest};
+use super::commands::{perform_breakdown_in, perform_head, perform_resolve};
 use crate::command_error::CommandError;
 
 use super::capture::{CaptureReceipt, CaptureRequest};
@@ -66,17 +66,6 @@ pub async fn coherence_breakdown<R: tauri::Runtime>(
     with_kernel(app, workspace_root, move |_state, kernel| {
         // Read-only projection: nothing here is an argument problem.
         perform_breakdown_in(kernel, context).map_err(ledger_unavailable)
-    })
-    .await
-}
-
-#[tauri::command]
-pub async fn coherence_status<R: tauri::Runtime>(
-    app: tauri::AppHandle<R>,
-    workspace_root: String,
-) -> Result<CoherenceStatus, CommandError> {
-    with_kernel(app, workspace_root, move |_state, kernel| {
-        perform_status(kernel).map_err(ledger_unavailable)
     })
     .await
 }

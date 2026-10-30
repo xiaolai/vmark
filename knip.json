@@ -30,8 +30,7 @@
       "ignoreDependencies": [
         "tailwindcss",
         "@tauri-apps/cli",
-        "@hypothesi/tauri-mcp-server",
-        "@xterm/addon-serialize"
+        "@hypothesi/tauri-mcp-server"
       ],
       "ignoreBinaries": [
         "du",

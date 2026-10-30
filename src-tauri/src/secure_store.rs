@@ -8,7 +8,7 @@
 //! commands, scoped to a single VMark service name, so the frontend can keep
 //! API keys out of any DevTools- or disk-readable plaintext location.
 //!
-//! Pipeline: frontend `secureSecrets.ts` → `set_secret` / `get_secret` /
+//! Pipeline: frontend `src/services/secrets/apiKeySecrets.ts` → `set_secret` / `get_secret` /
 //! `delete_secret` commands → `keyring::Entry` → OS credential store.
 //!
 //! Key decisions:

@@ -1,9 +1,11 @@
 //! Tauri command surface for the content server (Phase 1; grill C3).
 //!
-//! Spawns the bundled Node content-server per workspace, discovers its port via
+//! Spawns the Node content-server per workspace, discovers its port via
 //! the port-file, mints browser-auth nonces over loopback, and tears down the
-//! child on stop. The Node runtime + bundle are resolved from the provisioned
-//! app-data dir, with a `VMARK_CONTENT_SERVER_CLI` env override for dev.
+//! child on stop. The `cli.js` is resolved by `spawn::resolve_cli`: the
+//! `VMARK_CONTENT_SERVER_CLI` env override, then a bundled resource (no
+//! packaged build ships one — `bundle_manifest.rs`), then a runtime installed
+//! by hand under app data. Nothing downloads or installs a runtime.
 //!
 //! Trust: the workspace's trust identity travels with the start as
 //! `--trusted`. It relaxes the served pages' CSP so remote `https:` images

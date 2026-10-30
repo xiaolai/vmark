@@ -11,7 +11,7 @@ import { SettingRow, SettingsGroup, Toggle, TagInput, Select } from "./component
 import { useSettingsStore } from "@/stores/settingsStore";
 import { HotExitDevTools } from "./HotExitDevTools";
 import { CoherenceSettingsGroup } from "./CoherenceSettingsGroup";
-import { isMacPlatform } from "@/utils/shortcutMatch";
+import { isMacPlatform } from "@/utils/platform";
 
 export function AdvancedSettings() {
   const { t } = useTranslation("settings");

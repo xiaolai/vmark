@@ -25,7 +25,7 @@ Les fournisseurs CLI utilisent des outils IA installés localement. VMark les ex
 
 ### Comment fonctionne la détection CLI
 
-Cliquez sur **Détecter** dans Paramètres > Intégrations. VMark parcourt votre `$PATH` à la recherche de chaque commande CLI et indique leur disponibilité. Si un CLI est trouvé, son bouton radio devient sélectionnable.
+Cliquez sur **Détecter** dans Paramètres > Intégrations. VMark parcourt votre `$PATH` à la recherche de chaque commande CLI et indique leur disponibilité. Si un CLI est trouvé, son bouton radio devient sélectionnable. **Détecter** relance la recherche à chaque clic ; la détection automatique (au démarrage de l'application, à l'ouverture des Paramètres et dans le sélecteur de fournisseur du sélecteur de génies) réutilise le dernier résultat. La recherche utilise le `$PATH` que VMark a lu depuis votre shell de connexion à son démarrage : un CLI installé dans un répertoire tout juste ajouté au `$PATH` nécessite donc un redémarrage de VMark avant que **Détecter** puisse le trouver.
 
 ### Avantages
 

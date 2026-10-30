@@ -34,7 +34,7 @@ devono essere presenti due cose:
   una soluzione per la distribuzione, la funzionalità richiede un ambiente di
   sviluppo — un checkout di VMark con il server di contenuti compilato, reso
   disponibile tramite la variabile d'ambiente `VMARK_CONTENT_SERVER_CLI` (oppure un
-  runtime `base-kb` predisposto nei dati applicativi di VMark).
+  runtime `base-kb` che collochi a mano nei dati applicativi di VMark; VMark non ne scarica mai uno).
 
 Il pannello verifica entrambi quando si apre. Se manca uno dei due, indica quale e
 cosa lo fornirebbe, invece di tentare un avvio destinato a fallire.
@@ -107,6 +107,10 @@ scarica né cerca un browser per questo: se `playwright-chromium` non è install
 accanto a Slidev nel runtime del server di contenuti, l'esportazione fallisce e
 mostra il messaggio di errore di Slidev. Un'esportazione che dura più di tre minuti
 viene interrotta.
+
+**Esporta diapositive** chiede dove salvare con il pannello di salvataggio nativo
+di VMark, e l'esportazione scrive solo nel percorso scelto lì; l'estensione del
+file deve corrispondere al formato (`.pdf`, `.png`, `.pptx`).
 
 ## Privacy e sicurezza
 

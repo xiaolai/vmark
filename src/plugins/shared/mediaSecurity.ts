@@ -19,11 +19,14 @@
  * `notes/report.md` referencing `../images/photo.png` — while buying no
  * containment at all, for a checkable reason: every resolver converts an
  * ABSOLUTE path on an earlier branch with no validation whatsoever, and the
- * asset protocol scope is `**` (`src-tauri/tauri.conf.json`). So the set of
- * files a document can address is identical with the check and without it —
- * a hostile document simply writes `/Users/you/.ssh/id_rsa` instead. Removing
- * it grants no capability that was not already granted; it only stops
- * punishing the honest case.
+ * asset protocol scope — not the path syntax — is what bounds them: `$HOME/**`,
+ * `/Volumes/**`, `/mnt/**` and `/media/**` (`src-tauri/tauri.conf.json`; the
+ * Windows overlay adds `C:`–`F:`), plus folders granted at runtime. Every file
+ * a `..` path could reach inside that scope is equally reachable by writing its
+ * absolute path, so the set of files a document can address is identical with
+ * the check and without it — a hostile document simply writes
+ * `/Users/you/.ssh/id_rsa` instead. Removing it grants no capability that was
+ * not already granted; it only stops punishing the honest case.
  *
  * Three of VMark's own subsystems already agreed `..` is ordinary path syntax,
  * which is what made the renderer the outlier rather than the rule:

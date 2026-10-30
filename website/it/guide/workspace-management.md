@@ -19,6 +19,8 @@ La [barra degli spazi di lavoro](/it/guide/workspace-rail) sperimentale consente
 
 Quando apri un workspace, VMark mostra la barra laterale con l'esplora file. Se il workspace è stato aperto in precedenza, le schede aperte in precedenza vengono ripristinate.
 
+Su Windows e Linux, una cartella passata dalla riga di comando (`vmark C:\notes` o `vmark ~/notes`) si apre come workspace nella propria finestra, come accade su macOS trascinando una cartella sull'icona del Dock. Funziona anche quando VMark è già in esecuzione.
+
 ::: tip
 Se la finestra corrente ha modifiche non salvate, VMark offre di aprire il workspace in una nuova finestra invece di sostituire il tuo lavoro.
 :::
@@ -131,7 +133,7 @@ Senza un workspace, Apertura Rapida funziona ancora — mostra i file recenti e 
 
 ## Ricerca nei contenuti del workspace
 
-Quando un workspace è aperto, VMark può cercare nei **contenuti dei file** (non solo nei nomi) corrispondenze nei file markdown e di testo.
+Quando un workspace è aperto, VMark può cercare nei **contenuti dei file** (non solo nei nomi). Per impostazione predefinita cerca nei tipi di file che VMark apre (Markdown, testo normale, YAML e JSON/TOML/Mermaid/SVG/HTML quando il loro supporto di formato è attivo). Disattiva l'interruttore **.md** (**Solo tipi di file supportati**) per cercare in tutti i file di testo (i file binari vengono sempre saltati).
 
 | Azione | Scorciatoia |
 |---|---|

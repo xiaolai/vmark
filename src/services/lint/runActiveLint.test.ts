@@ -1,10 +1,12 @@
 // @vitest-environment node
 /**
- * Tests for runActiveLint — doc-epoch run-start marking (Codex audit finding 5).
+ * Tests for runActiveLint — doc-epoch run-start marking (Codex audit finding 5)
+ * and format routing.
  *
- * The full lint/link-check/toast flow is covered by store and plugin tests;
- * these tests pin the seam that guards stale async completions: the run start
- * must be marked for the active tab at the moment content is captured.
+ * The lint store is mocked; the format registry is the real one, so the file
+ * path is what decides which linter runs and whether the markdown link check
+ * applies. The run start must be marked for the active tab at the moment
+ * content is captured.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -29,17 +31,13 @@ vi.mock("@/services/navigation/activeDocument", () => ({
   getActiveDocument: (...args: unknown[]) => mockGetActiveDocument(...args),
 }));
 
-const mockRunLint = vi.fn(() => []);
-const mockRunYamlLint = vi.fn(() => []);
-// WI-4.3: the call site now asks the FORMAT for its linter instead of choosing
+// WI-4.3: the call site asks the FORMAT for its linter instead of choosing
 // between two hard-coded store actions.
 const mockRunLintForFormat = vi.fn(() => []);
 const mockRunLinkCheck = vi.fn(() => Promise.resolve([]));
 vi.mock("@/stores/documentStore", () => ({
   useLintStore: {
     getState: () => ({
-      runLint: mockRunLint,
-      runYamlLint: mockRunYamlLint,
       runLintForFormat: mockRunLintForFormat,
       runLinkCheck: mockRunLinkCheck,
     }),
@@ -66,7 +64,13 @@ vi.mock("@/stores/editorStore", () => ({
   },
 }));
 
-import { runActiveLint } from "./runActiveLint";
+import { __resetRegistry } from "@/lib/formats/registry";
+import { bootstrapFormats } from "@/lib/formats/registryBootstrap";
+import { imeToast } from "@/services/ime/imeToast";
+import { activeTabHasLinter, runActiveLint } from "./runActiveLint";
+
+__resetRegistry();
+bootstrapFormats();
 
 describe("runActiveLint doc-epoch marking", () => {
   beforeEach(() => {
@@ -114,6 +118,66 @@ describe("runActiveLint doc-epoch marking", () => {
     mockGetActiveDocument.mockReturnValue(undefined);
     runActiveLint("main");
     expect(mockMarkLintRunStart).not.toHaveBeenCalled();
-    expect(mockRunLint).not.toHaveBeenCalled();
+    expect(mockRunLintForFormat).not.toHaveBeenCalled();
+  });
+});
+
+describe("runActiveLint format routing", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    lintEnabled = true;
+    mockGetActiveTabId.mockReturnValue("tab-7");
+  });
+
+  it("runs the markdown link check for a saved markdown file", async () => {
+    mockGetActiveDocument.mockReturnValue({ content: "[a](./b.md)", filePath: "/repo/x.md" });
+    runActiveLint("main");
+    await vi.waitFor(() => expect(imeToast.success).toHaveBeenCalled());
+    expect(mockRunLinkCheck).toHaveBeenCalledWith("tab-7", "[a](./b.md)", "/repo/x.md");
+  });
+
+  it("never runs the markdown link check over a YAML file", () => {
+    mockGetActiveDocument.mockReturnValue({ content: "a: [x](./b.md)", filePath: "/repo/ci.yml" });
+    runActiveLint("main");
+    expect(mockRunLintForFormat).toHaveBeenCalledTimes(1);
+    expect(mockRunLinkCheck).not.toHaveBeenCalled();
+  });
+
+  it.each(["/repo/data.json", "/repo/Cargo.toml", "/repo/notes.txt", "/repo/table.csv"])(
+    "does nothing for %s, whose format contributes no linter",
+    (filePath) => {
+      mockGetActiveDocument.mockReturnValue({ content: "[a](./missing.md)", filePath });
+      runActiveLint("main");
+      expect(mockRunLinkCheck).not.toHaveBeenCalled();
+      expect(mockRunLintForFormat).not.toHaveBeenCalled();
+      expect(mockMarkLintRunStart).not.toHaveBeenCalled();
+      expect(imeToast.success).not.toHaveBeenCalled();
+      expect(imeToast.info).not.toHaveBeenCalled();
+    },
+  );
+});
+
+describe("activeTabHasLinter", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetActiveTabId.mockReturnValue("tab-7");
+  });
+
+  it.each([
+    [null, true],
+    ["/repo/x.md", true],
+    ["/repo/ci.yaml", true],
+    ["/repo/data.json", false],
+    ["/repo/Cargo.toml", false],
+    ["/repo/notes.txt", false],
+  ])("filePath %s → %s", (filePath, expected) => {
+    mockGetActiveDocument.mockReturnValue({ content: "", filePath });
+    expect(activeTabHasLinter("main")).toBe(expected);
+  });
+
+  it("is false with no active document", () => {
+    mockGetActiveTabId.mockReturnValue(null);
+    mockGetActiveDocument.mockReturnValue(null);
+    expect(activeTabHasLinter("main")).toBe(false);
   });
 });

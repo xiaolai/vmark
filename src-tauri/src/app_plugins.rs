@@ -13,8 +13,17 @@
 //! that fails SILENTLY (a dropped `.manage()` neither fails to compile nor
 //! fails to start), and `lib.test.rs` asserts it against a `mock_builder()`.
 //!
+//! Key decisions:
+//!   - The secure store file is opened here, by a plugin registered right
+//!     after the store plugin, so the webview only looks it up and is never
+//!     granted `store:allow-load` (whose path argument could leave app data).
+//!   - The automation bridge's capability lives outside `capabilities/` and is
+//!     added at runtime only in a debug build whose bridge started, so a
+//!     release build carries no `mcp-bridge` permission.
+//!
 //! @coordinates-with lib.rs — `run`, the only caller
 //! @coordinates-with automation_port.rs — the probe the debug bridge is pinned to
+//! @coordinates-with capabilities-debug/automation-bridge.json — the bridge's runtime capability
 //! @module app_plugins
 
 /// Register every plugin the app runs with, in the order it needs them.
@@ -53,8 +62,8 @@ pub(crate) fn register(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<ta
             {
                 builder = builder.plugin(crate::single_instance_holder::plugin());
             }
-            builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
-                crate::single_instance::handle_second_launch(app, argv);
+            builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
+                crate::single_instance::handle_second_launch(app, argv, cwd);
             }));
         }
     }
@@ -88,6 +97,9 @@ pub(crate) fn register(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<ta
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_store::Builder::default().build())
+        // Directly after the store plugin, whose setup manages the state this
+        // one opens a store in.
+        .plugin(secure_store_opener())
         // PTY managed via custom commands (pty.rs), not a plugin
         .plugin({
             let mid = crate::app_setup::machine_id_hash();
@@ -117,6 +129,38 @@ pub(crate) fn register(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<ta
         );
     builder
 }
+
+/// The one store file the webview uses (`secureStorage.ts`), relative to the
+/// app data directory.
+pub(crate) const SECURE_STORE_PATH: &str = ".vmark-secure.json";
+
+/// Open [`SECURE_STORE_PATH`] before any window exists, so the webview reaches
+/// it through `getStore` alone.
+///
+/// The webview is not granted `store:allow-load`: that command resolves its
+/// path argument against app data with `PathBuf::join`, so an absolute path
+/// replaces the base and `save` would write a JSON object to any file the user
+/// can write. Opening the store here keeps the path a Rust constant. A failure
+/// is logged and the app still starts; the webview's lookup then finds no
+/// store and `secureStorage.ts` falls back to localStorage.
+pub(crate) fn secure_store_opener<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
+    tauri::plugin::Builder::new("secure-store-opener")
+        .setup(|app, _api| {
+            use tauri_plugin_store::StoreExt;
+            if let Err(e) = app.store(SECURE_STORE_PATH) {
+                log::error!("[store] could not open {SECURE_STORE_PATH}: {e}");
+            }
+            Ok(())
+        })
+        .build()
+}
+
+/// The automation bridge's capability. It lives outside `capabilities/`, which
+/// tauri-build compiles into every build's static ACL, so only a debug build
+/// whose bridge started ever grants `mcp-bridge:*`.
+#[cfg(debug_assertions)]
+pub(crate) const AUTOMATION_BRIDGE_CAPABILITY: &str =
+    include_str!("../capabilities-debug/automation-bridge.json");
 
 /// Attach the debug-only Tauri MCP automation bridge, or explain loudly why
 /// not.
@@ -153,6 +197,17 @@ pub(crate) fn attach_automation_bridge(
                         .base_port(AUTOMATION_BRIDGE_PORT)
                         .build(),
                 );
+                // Plugin setup runs before Tauri creates the config windows,
+                // so the grant is in place before `main` can call the bridge.
+                builder = builder.plugin(
+                    tauri::plugin::Builder::<tauri::Wry>::new("automation-bridge-acl")
+                        .setup(|app, _api| {
+                            use tauri::Manager;
+                            app.add_capability(AUTOMATION_BRIDGE_CAPABILITY)?;
+                            Ok(())
+                        })
+                        .build(),
+                );
             }
             Err(e) => {
                 // The log plugin is not built yet, so stderr is the only
@@ -173,3 +228,7 @@ pub(crate) fn attach_automation_bridge(
 ) -> tauri::Builder<tauri::Wry> {
     builder
 }
+
+#[cfg(test)]
+#[path = "app_plugins.test.rs"]
+mod tests;

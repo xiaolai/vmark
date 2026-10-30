@@ -26,6 +26,13 @@ name: PDF smoke
 #
 # It is not a liveness gate either (no `liveness-gate:` marker) — it has no
 # cadence to be silent against, since it only fires on relevant diffs.
+#
+# The webview-side HTML (`src/export/pdfHtmlTemplate.ts`, `pdfPrintCss.ts`) is
+# deliberately NOT in the filter: the harness renders its own fixture documents
+# (`src-tauri/src/bin/pdf_smoke/fixtures.rs`), never the TypeScript template, so
+# a template change would run three runners and test nothing it changed. The
+# template is held by `src/export/__tests__/pdfHtmlTemplate.test.ts` and, in a
+# real webview, by `e2e/journeys/42-pdf-export.mjs` (against a running dev build).
 
 on:
   pull_request:

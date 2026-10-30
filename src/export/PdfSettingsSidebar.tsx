@@ -63,7 +63,11 @@ export function PdfSettingsSidebar({ options, onOptionChange: set, onExport, exp
   const stylePresetOptions = useMemo(() => buildStylePresetOptions(t), [t]);
   const orientationOptions = useMemo(() => buildOrientationOptions(t), [t]);
   const marginPresetOptions = useMemo(() => buildMarginPresetOptions(t), [t]);
-  const cjkSpacingOptions = useMemo(() => buildCjkSpacingOptions(t), [t]);
+  const cjkSpacingValue = options.cjkLetterSpacing.replace("em", "");
+  const cjkSpacingOptions = useMemo(
+    () => buildCjkSpacingOptions(t, cjkSpacingValue),
+    [t, cjkSpacingValue],
+  );
   // The current value is passed in so a custom family is listed too — a
   // `<select>` whose value matches no option renders blank (#1429).
   const latinFontOptions = useMemo(
@@ -204,7 +208,7 @@ export function PdfSettingsSidebar({ options, onOptionChange: set, onExport, exp
             </SettingRow>
             <SettingRow label={t("pdf.typography.cjkSpacing")}>
               <Select
-                value={options.cjkLetterSpacing.replace("em", "")}
+                value={cjkSpacingValue}
                 options={cjkSpacingOptions}
                 onChange={(v) =>
                   set("cjkLetterSpacing", v === "0" ? "0" : `${v}em`)

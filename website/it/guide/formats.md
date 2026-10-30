@@ -167,6 +167,8 @@ Su **Windows**, il programma di installazione non si appropria di un tipo di fil
 
 Un file registrato si apre in VMark solo se il suo formato è abilitato (vedi [Abilitare i formati](#abilitare-i-formati)); altrimenti si apre come testo normale.
 
+Su Windows e Linux, una cartella passata dalla riga di comando (`vmark C:\notes` o `vmark ~/notes`) si apre come workspace nella propria finestra, come accade su macOS trascinando una cartella sull'icona del Dock. Funziona anche quando VMark è già in esecuzione.
+
 ### Evidenziazione della sintassi per i file in testo normale
 
 Anche quando un file si apre come testo normale, VMark lo colora se ne riconosce il tipo — `.env`/`.ini`/`.conf` (properties), `.sh`/`.bash` (shell), `Dockerfile`, `.toml`, `.sql`, `.diff` e i linguaggi consueti. È un effetto puramente estetico: non cambia mai l'editor in cui il file si è aperto e funziona indipendentemente dal fatto che la categoria dei visualizzatori di codice sia abilitata.
@@ -198,7 +200,7 @@ Secondo ADR-4 nel piano multi-formato, l'anteprima HTML si basa su tre livelli d
 
 Il validatore segnala i tag script, gli URL `javascript:` e i gestori di eventi inline come avvisi in modo da poter vedere cosa viene bloccato. Una volta che [rendi attendibile il file](#anteprima-html-attendibile-opzionale), vengono invece mostrati come informazioni, così nulla contraddice il banner di attendibilità. Due messaggi indicano ciò che l'anteprima non consente mai, attendibile o no: uno script esterno (`<script src="…">`) non viene mai caricato, poiché nessuno script proviene da un file o da un URL, e un link `javascript:` diretto a un'altra finestra o alla pagina di primo livello (`target="_top"`, `_blank` o un `<base target>`) non naviga mai, poiché l'anteprima non può uscire da sé stessa. Il rilevamento legge i tag della pagina in modo approssimativo; etichetta i risultati e non decide mai cosa viene eseguito — è la sandbox a farlo.
 
-L'approvazione di sicurezza formale di questa anteprima è ancora in sospeso, e l'anteprima lo indica in un avviso sopra la pagina renderizzata: **L'anteprima HTML è isolata ma in attesa dell'approvazione OWASP**. I tre livelli descritti sopra sono attivi; il passaggio mancante è verificarli contro i payload XSS di OWASP all'interno della webview dell'app in esecuzione.
+L'approvazione di sicurezza formale di questa anteprima è ancora in sospeso, e l'anteprima lo indica in un avviso sopra la pagina renderizzata: **L'anteprima HTML è isolata. La sua revisione di sicurezza è ancora in corso.** I tre livelli descritti sopra sono attivi; il passaggio mancante è verificarli contro i payload XSS di OWASP all'interno della webview dell'app in esecuzione.
 
 ### Anteprima HTML attendibile (opzionale)
 

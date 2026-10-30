@@ -11,6 +11,12 @@
 //! `browser_add_one_shot`) also apply the authoritative size bound from
 //! `script_limit.rs` — a resource guard orthogonal to authorization, and the only
 //! copy of that bound below the Tauri command boundary.
+//!
+//! Accepted limit: `browser_eval` authorizes against the `operation` label its
+//! caller supplies. `read` needs no grant on a profile-less sandbox tab and binds
+//! no script hash, so any script labelled `read` runs there without a prompt
+//! (`console_clear` relies on this). It is accepted because every caller is the
+//! app's own in-process TypeScript, never the AI directly.
 
 use crate::browser::ai_guards::{lock_failure, require_browser_enabled, surface_failure};
 use crate::browser::authorize::{authorize_driver_op, command_still_fresh};

@@ -51,11 +51,15 @@ function dataUriToBytes(dataUri: string): Uint8Array {
  * Render the live workflow canvas to the given format and save it to a
  * user-chosen path. Returns "saved" or "cancelled" (no path chosen);
  * throws on a render/write failure so the caller can surface a message.
+ *
+ * `scope` is the canvas wrapper to capture from (default: the document); a
+ * scope with no canvas viewport throws rather than capturing another canvas.
  */
 export async function saveImage(
   format: ExportFormat,
+  scope?: ParentNode,
 ): Promise<"saved" | "cancelled"> {
-  const dataUri = await exportCanvas(format);
+  const dataUri = await exportCanvas(format, scope ? { scope } : {});
 
   const ext = format === "png" ? "png" : "svg";
   const filterName = format === "png" ? "PNG Image" : "SVG Image";

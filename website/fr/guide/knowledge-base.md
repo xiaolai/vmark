@@ -36,8 +36,8 @@ Deux éléments doivent être présents pour qu'il puisse démarrer :
   solution de distribution n'existe, la fonctionnalité nécessite un
   environnement de développement — une copie de travail de VMark avec le
   serveur de contenu compilé, rendue accessible via la variable d'environnement
-  `VMARK_CONTENT_SERVER_CLI` (ou un environnement `base-kb` provisionné dans les
-  données d'application de VMark).
+  `VMARK_CONTENT_SERVER_CLI` (ou un environnement `base-kb` que vous placez à la main dans
+  les données d'application de VMark ; VMark n'en télécharge jamais).
 
 Le panneau vérifie ces deux éléments à son ouverture. Lorsque l'un d'eux
 manque, il indique lequel, et ce qui permettrait de le fournir, au lieu de
@@ -116,6 +116,10 @@ VMark ne télécharge ni ne localise de navigateur pour cela : si
 d'exécution du serveur de contenu, l'exportation échoue et affiche le message
 d'erreur de Slidev. Une exportation qui dure plus de trois minutes est
 interrompue.
+
+**Exporter les diapositives** demande où enregistrer via le panneau
+d'enregistrement natif de VMark, et l'exportation n'écrit qu'au chemin choisi
+là ; l'extension du fichier doit correspondre au format (`.pdf`, `.png`, `.pptx`).
 
 ## Confidentialité et sécurité
 

@@ -279,7 +279,7 @@ function AiProviderSettings() {
   }, []);
 
   const handleDetect = () => {
-    void useAiProviderStore.getState().detectProviders();
+    void useAiProviderStore.getState().detectProviders({ refresh: true });
   };
 
   const handleActivate = (type: ProviderType) => {

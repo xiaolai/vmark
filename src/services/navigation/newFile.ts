@@ -22,7 +22,15 @@ import { claimTabForWorkspaceContext } from "@/services/workspaces/workspaceCont
  */
 export function createUntitledTab(windowLabel: string): string {
   const tabId = useTabStore.getState().createTab(windowLabel, null);
-  useDocumentStore.getState().initDocument(tabId, "", null);
+  initUntitledDocument(tabId);
   claimTabForWorkspaceContext(windowLabel, tabId, null);
   return tabId;
+}
+
+/**
+ * Give an existing untitled tab its empty document — the one shape every
+ * untitled document starts in, whether the tab is new or reopened.
+ */
+export function initUntitledDocument(tabId: string): void {
+  useDocumentStore.getState().initDocument(tabId, "", null);
 }

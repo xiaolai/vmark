@@ -17,10 +17,19 @@ const shortcut: ShortcutDefinition = {
 function renderCapture(overrides: Partial<Parameters<typeof KeyCapture>[0]> = {}) {
   const onCapture = vi.fn();
   const onCancel = vi.fn();
+  const onClear = vi.fn();
   const utils = render(
-    <KeyCapture shortcut={shortcut} getConflict={() => null} onCapture={onCapture} onCancel={onCancel} {...overrides} />,
+    <KeyCapture
+      shortcut={shortcut}
+      getConflict={() => null}
+      currentKey=""
+      onCapture={onCapture}
+      onClear={onClear}
+      onCancel={onCancel}
+      {...overrides}
+    />,
   );
-  return { onCapture, onCancel, ...utils };
+  return { onCapture, onCancel, onClear, ...utils };
 }
 
 describe("KeyCapture", () => {
@@ -54,5 +63,17 @@ describe("KeyCapture", () => {
     fireEvent.click(confirm);
     // Nothing captured yet, so confirming assigns nothing.
     expect(onCapture).not.toHaveBeenCalled();
+  });
+
+  it("Remove Shortcut clears through onClear, without capturing", () => {
+    const { onClear, onCapture } = renderCapture({ currentKey: "Mod-/" });
+    fireEvent.click(screen.getByRole("button", { name: "Remove Shortcut" }));
+    expect(onClear).toHaveBeenCalledTimes(1);
+    expect(onCapture).not.toHaveBeenCalled();
+  });
+
+  it("offers no Remove Shortcut when there is no chord to remove", () => {
+    renderCapture({ currentKey: "" });
+    expect(screen.queryByRole("button", { name: "Remove Shortcut" })).toBeNull();
   });
 });

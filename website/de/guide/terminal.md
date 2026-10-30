@@ -68,6 +68,8 @@ Die Prompt-Navigation (`Mod + ↑` / `Mod + ↓`) erfordert Shell-Integration �
 
 **Linux:** `Ctrl` + Buchstabe geht an die Shell, sodass Readline-Tasten wie `Ctrl + A`, `Ctrl + E`, `Ctrl + K`, `Ctrl + F`, `Ctrl + U` und `Ctrl + W` wie in jedem Linux-Terminal funktionieren. Die eigenen Buchstaben-Kürzel des Terminals wandern auf `Ctrl + Shift`: `Ctrl + Shift + F` sucht, `Ctrl + Shift + K` leert, `Ctrl + Shift + A` wählt alles aus, und `Ctrl + Shift + C` / `Ctrl + Shift + V` kopieren und fügen ein. `Ctrl + C` kopiert weiterhin eine Auswahl (sonst sendet es SIGINT) und `Ctrl + V` fügt weiterhin ein; `Ctrl + Insert` / `Shift + Insert` kopieren und fügen ebenfalls ein.
 
+**Gedrückt halten für Akzente (macOS).** Wenn Sie eine Buchstabentaste gedrückt halten, öffnet sich die Akzentauswahl von macOS. Der einfache Buchstabe wurde zu diesem Zeitpunkt bereits an die Shell gesendet; wählen Sie einen Akzent, sendet VMark daher eine Rücktaste (DEL) und danach das Zeichen mit Akzent. In einem Programm, das DEL nicht als Löschen des vorherigen Zeichens behandelt, bleibt der ursprüngliche Buchstabe unter Umständen stehen.
+
 ::: tip
 `Mod + C` ohne Textauswahl sendet SIGINT an den laufenden Prozess — dasselbe wie Strg+C in einem regulären Terminal.
 :::
@@ -200,7 +202,7 @@ Sofern Sie in den Terminal-Einstellungen keine Shell auswählen, startet VMark I
 
 Standard-Shell-Kürzel wie `Strg+R` (Rückwärtshistorie-Suche in zsh/bash) funktionieren, wenn das Terminal fokussiert ist — sie werden nicht vom Editor abgefangen.
 
-Wenn sich das Arbeitsbereichsstammverzeichnis ändert, nachdem das Terminal bereits läuft, wechseln untätige Sitzungen automatisch per `cd` zum neuen Stammverzeichnis. Eine Sitzung, die mit einem Befehl beschäftigt ist (etwa `vim` oder `less`), wird nicht unterbrochen: Sie wechselt das Verzeichnis, sobald der Befehl beendet ist, was [Shell-Integration](#shell-integration) zur Erkennung voraussetzt. Mit eingeschalteter [Workspace-Leiste](/de/guide/workspace-rail) behalten Sitzungen, die zu einem Arbeitsbereich gehören, ihr eigenes Verzeichnis.
+Wenn sich das Arbeitsbereichsstammverzeichnis ändert, nachdem das Terminal bereits läuft, wechseln untätige Sitzungen automatisch per `cd` zum neuen Stammverzeichnis. Eine Sitzung, die mit einem Befehl beschäftigt ist (etwa `vim` oder `less`), wird nicht unterbrochen: Sie wechselt das Verzeichnis, sobald der Befehl beendet ist, was [Shell-Integration](#shell-integration) zur Erkennung voraussetzt. Mit eingeschalteter [Workspace-Leiste](/de/guide/workspace-rail) behalten Sitzungen, die zu einem Arbeitsbereich gehören, ihr eigenes Verzeichnis. Ohne Shell-Integration — unter Windows, mit fish oder bei ausgeschalteter Einstellung — kann VMark nicht erkennen, dass eine Sitzung beschäftigt ist; das `cd` wird dann in das eingegeben, was gerade im Vordergrund läuft.
 
 ## KI-CLI-Tools und ihr eigener Browserzugriff
 
@@ -268,7 +270,7 @@ Der Bereich ist anfangs eingeklappt. Er öffnet sich von selbst, wenn eine neue 
 
 Beim Aktivieren wird ein lokaler `SessionStart`-Hook zur `settings.json` von Claude Code und zur `hooks.json` von Codex hinzugefügt, wobei vorhandene Hooks erhalten bleiben. Starten Sie Claude/Codex nach dem Aktivieren in einem VMark-Terminal oder setzen Sie eine Sitzung dort fort; bereits laufende Sitzungen müssen neu gestartet werden. Codex fordert Sie beim ersten Start möglicherweise auf, dem neuen Hook zu vertrauen. Erforderlich sind Node und eine CLI-Version mit Lifecycle-Hooks. Ausdrücklich deaktivierte oder durch Richtlinien eingeschränkte Hooks, entfernte SSH-Sitzungen sowie benutzerdefinierte CLI-Konfigurationsverzeichnisse, die von der Umgebung von VMark abweichen, können keine Bindung herstellen.
 
-Jedes Terminal folgt genau seiner eigenen Sitzung statt dem zuletzt geänderten Protokoll. Die Vorschau behält bis zu 100 Assistentennachrichten aus den letzten 2 MiB der Protokolldaten. Rohes HTML und entfernte Bilder bleiben wirkungslos; ungültige Diagramme bleiben als Quelltext lesbar. Beim Deaktivieren wird der formatierte Bereich entfernt, und die von VMark installierten Hooks werden deaktiviert.
+Jedes Terminal folgt genau seiner eigenen Sitzung statt dem zuletzt geänderten Protokoll. Die Vorschau behält bis zu 100 Assistentennachrichten aus den letzten 2 MiB der Protokolldaten. Rohes HTML und entfernte Bilder bleiben wirkungslos; ungültige Diagramme bleiben als Quelltext lesbar. Beim Deaktivieren wird der formatierte Bereich entfernt, und die Hooks von VMark werden abgeschaltet: Die SessionStart-Hook-Einträge bleiben in Ihrer Claude-Code-`settings.json` und Ihrer Codex-`hooks.json` (VMark schreibt Ihre CLI-Konfiguration nicht um, um sie zu entfernen), aber das Hook-Skript beendet sich sofort, solange die Einstellung aus ist, und VMark vergisst alle bestehenden Protokoll-Zuordnungen. Jede neue Shell erhält weiterhin eine Variable `VMARK_TRANSCRIPT_TOKEN`, sodass das Wiedereinschalten der Einstellung auch für bereits geöffnete Sitzungen funktioniert.
 
 ### Barrierefreiheit
 

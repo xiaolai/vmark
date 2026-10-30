@@ -29,9 +29,33 @@ vi.mock("@/utils/reentryGuard", () => ({
   withReentryGuard: (...a: unknown[]) => withReentryGuard(...(a as [string, string, () => Promise<void>])),
 }));
 
-import { handleWorkspaceOpenWorkspace } from "./workspaceOpenFolder";
+import { handleWorkspaceOpenWorkspace as openWorkspaceHandler } from "./workspaceOpenFolder";
+import type { McpWriteContext } from "@/services/mcpBridge/writeContext";
 import { BRIDGE_OPERATION_FIELDS } from "./generated/bridgeContracts";
 import { useWorkspaceApprovalStore } from "@/stores/workspaceApprovalStore";
+
+/** The write context the router builds for a request on one authenticated connection. */
+function connection(connectionId: string): McpWriteContext {
+  return {
+    attribution: {
+      principal: { kind: "anonymous" },
+      connectionId,
+      sessionLabel: null,
+      displayName: null,
+    },
+  };
+}
+const CLIENT_A = connection("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+const CLIENT_B = connection("bbbbbbbb-bbbb-4bbb-9bbb-bbbbbbbbbbbb");
+
+/** Every case below is one client (A) unless it names another. */
+function handleWorkspaceOpenWorkspace(
+  id: string,
+  args: Record<string, unknown>,
+  context: McpWriteContext = CLIENT_A,
+): Promise<void> {
+  return openWorkspaceHandler(id, args, context);
+}
 
 beforeEach(() => {
   responses.length = 0;
@@ -57,7 +81,7 @@ describe("handleWorkspaceOpenWorkspace", () => {
   });
 
   it("first call queues approval and fails now (does not open)", async () => {
-    await handleWorkspaceOpenWorkspace("id1", { folderPath: "/proj", clientId: "c1" });
+    await handleWorkspaceOpenWorkspace("id1", { folderPath: "/proj" });
 
     expect(openWorkspaceByPath).not.toHaveBeenCalled();
     expect(responses[0].success).toBe(false);
@@ -68,13 +92,13 @@ describe("handleWorkspaceOpenWorkspace", () => {
 
   it("retry after approval consumes the one-shot and opens under the guard", async () => {
     // First call queues the prompt.
-    await handleWorkspaceOpenWorkspace("id1", { folderPath: "/proj", clientId: "c1" });
+    await handleWorkspaceOpenWorkspace("id1", { folderPath: "/proj" });
     // User approves.
     useWorkspaceApprovalStore.getState().resolveApproval("id1", "approve");
     responses.length = 0;
 
     // Retry (same path/window/client) consumes and opens.
-    await handleWorkspaceOpenWorkspace("id2", { folderPath: "/proj", clientId: "c1" });
+    await handleWorkspaceOpenWorkspace("id2", { folderPath: "/proj" });
 
     expect(withReentryGuard).toHaveBeenCalledWith(
       "main",
@@ -89,22 +113,22 @@ describe("handleWorkspaceOpenWorkspace", () => {
   });
 
   it("a retry without approval fails again (no open)", async () => {
-    await handleWorkspaceOpenWorkspace("id1", { folderPath: "/proj", clientId: "c1" });
+    await handleWorkspaceOpenWorkspace("id1", { folderPath: "/proj" });
     responses.length = 0;
     // Retry WITHOUT approving — still needs approval.
-    await handleWorkspaceOpenWorkspace("id2", { folderPath: "/proj", clientId: "c1" });
+    await handleWorkspaceOpenWorkspace("id2", { folderPath: "/proj" });
     expect(openWorkspaceByPath).not.toHaveBeenCalled();
     expect(responses[0].success).toBe(false);
   });
 
   it("a busy transition guard fails BUSY and does NOT consume the grant (M4)", async () => {
-    await handleWorkspaceOpenWorkspace("id1", { folderPath: "/proj", clientId: "c1" });
+    await handleWorkspaceOpenWorkspace("id1", { folderPath: "/proj" });
     useWorkspaceApprovalStore.getState().resolveApproval("id1", "approve");
     responses.length = 0;
     // The guard is held by a concurrent menu transition → callback skipped.
     withReentryGuard.mockImplementationOnce(async () => undefined);
 
-    await handleWorkspaceOpenWorkspace("id2", { folderPath: "/proj", clientId: "c1" });
+    await handleWorkspaceOpenWorkspace("id2", { folderPath: "/proj" });
 
     expect(openWorkspaceByPath).not.toHaveBeenCalled();
     expect(responses[0].success).toBe(false);
@@ -114,12 +138,12 @@ describe("handleWorkspaceOpenWorkspace", () => {
   });
 
   it("an internal open failure fails closed (no false success) (M8)", async () => {
-    await handleWorkspaceOpenWorkspace("id1", { folderPath: "/proj", clientId: "c1" });
+    await handleWorkspaceOpenWorkspace("id1", { folderPath: "/proj" });
     useWorkspaceApprovalStore.getState().resolveApproval("id1", "approve");
     responses.length = 0;
     openWorkspaceByPath.mockResolvedValueOnce(false);
 
-    await handleWorkspaceOpenWorkspace("id2", { folderPath: "/proj", clientId: "c1" });
+    await handleWorkspaceOpenWorkspace("id2", { folderPath: "/proj" });
 
     expect(responses[0].success).toBe(false);
     expect(String(responses[0].error)).toContain("INTERNAL");
@@ -133,7 +157,7 @@ describe("handleWorkspaceOpenWorkspace", () => {
     for (let i = 0; i < 32; i++) store.requestApproval(`p${i}`, `/full${i}`, "main", "c1");
     responses.length = 0;
 
-    await handleWorkspaceOpenWorkspace("overflow", { folderPath: "/new", clientId: "c1" });
+    await handleWorkspaceOpenWorkspace("overflow", { folderPath: "/new" });
 
     expect(responses[0].success).toBe(false);
     expect(String(responses[0].error)).toContain("RESOURCE_EXHAUSTED");
@@ -145,6 +169,39 @@ describe("handleWorkspaceOpenWorkspace", () => {
 // read is confirmed in the folder picker Rust shows, opened AT the folder. The
 // MCP transport cannot wait for a person, so the retry fails now and the
 // one-shot SURVIVES for the retry after the user confirms.
+// Codex F-10 — a one-shot is spendable only by the connection that asked for
+// it. Every request carries a validated attribution (writeContext.ts), so
+// "any connected client can spend a grant another client asked for" is no
+// longer a missing input, only a missing check.
+describe("the one-shot is bound to the requesting connection (Codex F-10)", () => {
+  it("another connection's retry cannot spend the grant, and the grant survives for its owner", async () => {
+    await handleWorkspaceOpenWorkspace("id1", { folderPath: "/proj" }, CLIENT_A);
+    useWorkspaceApprovalStore.getState().resolveApproval("id1", "approve");
+    responses.length = 0;
+
+    await handleWorkspaceOpenWorkspace("id2", { folderPath: "/proj" }, CLIENT_B);
+
+    expect(openWorkspaceByPath).not.toHaveBeenCalled();
+    expect(responses[0].success).toBe(false);
+    expect((responses[0].data as { needsApproval?: boolean }).needsApproval).toBe(true);
+    // B's attempt queued B's own prompt; A's grant is untouched.
+    expect(useWorkspaceApprovalStore.getState().oneShots).toHaveLength(1);
+    responses.length = 0;
+
+    await handleWorkspaceOpenWorkspace("id3", { folderPath: "/proj" }, CLIENT_A);
+
+    expect(openWorkspaceByPath).toHaveBeenCalledWith("/proj", { windowLabel: "main" });
+    expect(responses[0].success).toBe(true);
+  });
+
+  it("the pending prompt records the connection it was raised for", async () => {
+    await handleWorkspaceOpenWorkspace("id1", { folderPath: "/proj" }, CLIENT_B);
+    expect(useWorkspaceApprovalStore.getState().pending[0]).toMatchObject({
+      clientId: CLIENT_B.attribution.connectionId,
+    });
+  });
+});
+
 describe("open_workspace confirms an ungranted folder in the picker (WI-LX1.1)", () => {
   const refused = { code: "permission-denied", message: "not granted" };
 

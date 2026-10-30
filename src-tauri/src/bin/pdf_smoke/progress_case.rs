@@ -10,7 +10,8 @@
 //!
 //! Three assertions, because each fails for a different reason:
 //!   - a RENDER emits `loading → rendering → finishing`, in order, once each;
-//!   - the COMMAND (`export_pdf`) adds `done` after post-processing — that is
+//!   - the COMMAND (`export_pdf`'s body, `export_pdf_to_path`, since this
+//!     harness has no save panel to choose in) adds `done` after post-processing — that is
 //!     the one stage the renderer must NOT emit, or the dialog says "Done"
 //!     while the outline is still being written;
 //!   - a path refused up front — by the guard, with `NotFound` — emits
@@ -136,15 +137,16 @@ pub async fn run(app: &tauri::AppHandle, out: &Path) -> usize {
     .await;
     failures += check_sequence("progress-render", result, &seen, &PdfProgress::RENDER);
 
-    // The command: the same three, then `done` after post-processing. The
-    // command is called directly — it is an ordinary async fn under the
-    // `#[tauri::command]` attribute — with no outline or page numbers, so
-    // post-processing is a no-op and `done` still has to come from the
-    // command layer, not the renderer.
+    // The command: the same three, then `done` after post-processing. Its
+    // body is called directly — `export_pdf_to_path`, everything `export_pdf`
+    // does once the save-panel choice is spent; this harness has no webview to
+    // choose in — with no outline or page numbers, so post-processing is a
+    // no-op and `done` still has to come from the command layer, not the
+    // renderer.
     let path = out.join("progress-command.pdf");
     let (result, seen) = captured(
         app,
-        vmark_lib::pdf_export::commands::export_pdf(
+        vmark_lib::pdf_export::commands::export_pdf_to_path(
             app.clone(),
             doc_for("A4", "<p>progress command</p>"),
             path.to_string_lossy().into_owned(),

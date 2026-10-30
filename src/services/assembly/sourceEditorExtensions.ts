@@ -121,11 +121,11 @@ interface ExtensionConfig {
  */
 export function createSourceEditorExtensions(config: ExtensionConfig): Extension[] {
   const { initialWordWrap, initialShowBrTags, initialAutoPair, initialShowLineNumbers, initialShowInvisibles = false, updateListener, tabId, lintEnabled, filePath } = config;
-  // YAML detection ignores the engine flag — every YAML file gets `lang-yaml`
-  // highlighting and parse-error linting (MED-2). The workflow families are
-  // decided in one place: `viewer` for the GitHub Actions authoring
-  // aids (completion, cursor sync, goto-def), unconditional for YAML since D6,
-  // and `engine` for the preview parse that feeds the Run panel, still gated.
+  // Markdown source editor only: a plain .yml opens in the yaml adapter
+  // (`yamlWorkflowExtensions.ts`), so the YAML branches below run only for a
+  // YAML path forced onto markdown via Set File Type (`format.setMarkdown`).
+  // There `viewer` gates the GitHub Actions aids (completion, cursor sync,
+  // goto-def) and `engine` the preview parse that feeds the Run panel.
   const { yaml: isYaml, viewer: viewerFeatures, engine: engineFeatures } =
     workflowExtensionGates(filePath);
 

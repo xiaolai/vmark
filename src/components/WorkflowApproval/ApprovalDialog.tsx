@@ -17,6 +17,7 @@
  * subscribe nothing.
  *
  * @coordinates-with stores/workflowStore.ts — reads `pending`
+ * @coordinates-with utils/revealInvisibleChars — every shown field is escaped through it
  * @coordinates-with useWorkflowExecution.ts — `useWorkflowEventLifecycle`, `respondWorkflowApproval`
  * @module components/WorkflowApproval/ApprovalDialog
  */
@@ -27,6 +28,7 @@ import { useTranslation } from "react-i18next";
 import { useWorkflowStore } from "@/stores/workflowStore";
 import { respondWorkflowApproval, useWorkflowEventLifecycle } from "@/hooks/useWorkflowExecution";
 import { workflowError } from "@/utils/debug";
+import { revealInvisibleChars } from "@/utils/revealInvisibleChars";
 
 import "./approval-dialog.css";
 import { useBrowserOccluder } from "@/hooks/useBrowserOccluder";
@@ -101,14 +103,14 @@ export function ApprovalDialog() {
           <div className="approval-dialog__meta-row">
             <dt>{t("workflow:approval.step", "Step")}</dt>
             <dd>
-              <code>{pending.summary}</code>
+              <code>{revealInvisibleChars(pending.summary)}</code>
             </dd>
           </div>
           {pending.model ? (
             <div className="approval-dialog__meta-row">
               <dt>{t("workflow:approval.model", "Model")}</dt>
               <dd>
-                <code>{pending.model}</code>
+                <code>{revealInvisibleChars(pending.model)}</code>
               </dd>
             </div>
           ) : null}
@@ -116,7 +118,7 @@ export function ApprovalDialog() {
         <div className="approval-dialog__preview-label">
           {t("workflow:approval.preview", "Prompt preview")}
         </div>
-        <pre className="approval-dialog__preview">{pending.preview || "—"}</pre>
+        <pre className="approval-dialog__preview">{pending.preview ? revealInvisibleChars(pending.preview) : "—"}</pre>
         <div className="approval-dialog__actions">
           <button
             type="button"

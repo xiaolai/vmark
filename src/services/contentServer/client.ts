@@ -46,7 +46,8 @@ export interface ContentServerRuntime {
 }
 
 /**
- * Start (provisioning if needed) the content server for a workspace, spawned
+ * Start the content server for a workspace (nothing is installed on demand:
+ * Rust resolves an existing `cli.js` or refuses), spawned
  * with the workspace's trust. `trusted` only relaxes the served CSP so remote
  * `https:` images render; the Rust side restarts a running server whose trust
  * differs, so calling this again after a trust change is the reconcile step.
@@ -107,7 +108,11 @@ export async function startSlidevPreview(workspaceRoot: string, deckPath: string
   return invoke<string>("content_server_slidev_preview", { workspaceRoot, deckPath });
 }
 
-/** Export a Slidev deck. Provisions playwright-chromium on first use (Rust side). */
+/**
+ * Export a Slidev deck. `outputPath` must be this webview's `pick_export_target`
+ * choice (kind `slidev`); Rust refuses any other path. Needs playwright-chromium
+ * already installed beside Slidev; nothing installs it.
+ */
 export async function exportSlidev(
   workspaceRoot: string,
   deckPath: string,

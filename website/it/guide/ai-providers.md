@@ -25,7 +25,7 @@ I provider CLI utilizzano strumenti IA installati localmente. VMark li esegue co
 
 ### Come Funziona il Rilevamento CLI
 
-Fai clic su **Rileva** in Impostazioni > Integrazioni. VMark cerca ogni comando CLI nel tuo `$PATH` e ne riporta la disponibilità. Se un CLI viene trovato, il suo pulsante di selezione diventa attivabile.
+Fai clic su **Rileva** in Impostazioni > Integrazioni. VMark cerca ogni comando CLI nel tuo `$PATH` e ne riporta la disponibilità. Se un CLI viene trovato, il suo pulsante di selezione diventa attivabile. **Rileva** ripete la ricerca a ogni clic; il rilevamento automatico (all'avvio dell'app, all'apertura delle Impostazioni e nel selettore del provider del selettore genie) riutilizza l'ultima ricerca. La ricerca usa il `$PATH` che VMark ha letto dalla tua shell di login all'avvio, quindi un CLI installato in una directory appena aggiunta al `$PATH` richiede un riavvio di VMark prima che **Rileva** possa trovarlo.
 
 ### Vantaggi
 

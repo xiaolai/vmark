@@ -241,13 +241,13 @@ pub(super) fn build(app: &tauri::AppHandle, accel: &AccelFn) -> tauri::Result<Su
                 None::<&str>,
             )?,
             #[cfg(not(target_os = "windows"))]
-            &PredefinedMenuItem::cut(app, None)?,
+            &PredefinedMenuItem::cut(app, Some(&t!("menu.edit.cut")))?,
             #[cfg(not(target_os = "windows"))]
-            &PredefinedMenuItem::copy(app, None)?,
+            &PredefinedMenuItem::copy(app, Some(&t!("menu.edit.copy")))?,
             #[cfg(not(target_os = "windows"))]
-            &PredefinedMenuItem::paste(app, None)?,
+            &PredefinedMenuItem::paste(app, Some(&t!("menu.edit.paste")))?,
             #[cfg(not(target_os = "windows"))]
-            &PredefinedMenuItem::select_all(app, None)?,
+            &PredefinedMenuItem::select_all(app, Some(&t!("menu.edit.selectAll")))?,
             &PredefinedMenuItem::separator(app)?,
             &find_submenu,
             &selection_submenu,

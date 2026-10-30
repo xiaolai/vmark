@@ -186,11 +186,11 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
     statusText = error;
     statusError = true;
   } else if (isSearching) {
-    statusText = t("contentSearch.searching", "Searching...");
+    statusText = t("contentSearch.searching");
   } else if (contentSearchQueryLength(query) > 0 && !isSearchableQuery(query)) {
     statusText = t("contentSearch.minChars", { count: MIN_CONTENT_SEARCH_CHARS });
   } else if (results.length > 0) {
-    statusText = t("contentSearch.resultCount", "{{matches}} matches in {{files}} files", {
+    statusText = t("contentSearch.resultCount", {
       matches: totalMatches,
       files: totalFiles,
     });
@@ -204,7 +204,7 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
         onKeyDown={handleKeyDown}
         role="dialog"
         aria-modal="true"
-        aria-label={t("contentSearch.ariaLabel", "Find in Files")}
+        aria-label={t("contentSearch.ariaLabel")}
       >
         <div className="content-search-header">
           <div className="content-search-input-row">
@@ -214,8 +214,8 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
               type="text"
               placeholder={
                 isWorkspaceMode
-                  ? t("contentSearch.placeholder", "Search in files...")
-                  : t("contentSearch.noWorkspace", "Open a workspace first")
+                  ? t("contentSearch.placeholder")
+                  : t("contentSearch.noWorkspace")
               }
               // Explicit accessible name (a11y). Placeholder text
               // is not a reliable label for screen readers and changes based
@@ -250,7 +250,7 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
             isSearchableQuery(query) &&
             !error && (
               <div className="content-search-empty">
-                {t("contentSearch.noResults", "No results found")}
+                {t("contentSearch.noResults")}
               </div>
             )}
           <ContentSearchResults
@@ -263,11 +263,11 @@ export function ContentSearch({ windowLabel }: ContentSearchProps) {
         <div className="vm-overlay__footer content-search-footer">
           <span className="content-search-footer-hint">
             <kbd className="vm-overlay__kbd">&uarr;&darr;</kbd>{" "}
-            {t("contentSearch.hintNavigate", "navigate")}{" "}
+            {t("contentSearch.hintNavigate")}{" "}
             <kbd className="vm-overlay__kbd">Enter</kbd>{" "}
-            {t("contentSearch.hintOpen", "open")}{" "}
+            {t("contentSearch.hintOpen")}{" "}
             <kbd className="vm-overlay__kbd">Esc</kbd>{" "}
-            {t("contentSearch.hintClose", "close")}
+            {t("contentSearch.hintClose")}
           </span>
         </div>
       </div>

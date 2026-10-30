@@ -6,9 +6,10 @@
  * plugin shipping as a standalone extension (ADR-015). They declare what they
  * need — "is it on" and "tell me when that changes" — and this answers.
  *
- * The subscription matters as much as the getter: both plugins must REDRAW
- * when the toggle flips, not merely read the new value the next time they
- * happen to run.
+ * Focus mode gets a subscription as well as the getter: its dimming must
+ * REDRAW when the toggle flips, not merely read the new value the next time
+ * it happens to run. Typewriter mode gets only the getter: it acts on the
+ * next cursor move, so turning it on does not scroll until the caret moves.
  *
  * @coordinates-with plugins/focusMode/tiptap.ts — FocusModeOptions
  * @coordinates-with plugins/typewriterMode/tiptap.ts — TypewriterModeOptions

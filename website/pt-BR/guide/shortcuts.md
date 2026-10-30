@@ -178,7 +178,7 @@ Se você preferir manter as funções do sistema nas teclas F, pode personalizar
 | Alternar Histórico | `Ctrl + Shift + 3` |
 | Alternar Base de Conhecimento | `Ctrl + Shift + 4` |
 | Alternar Status das Janelas | `Ctrl + Shift + 5` |
-| Alternar Números de Linha (blocos de código) | `Alt + Mod + L` |
+| Alternar Números de Linha (margem do Fonte/Dividido) | `Alt + Mod + L` |
 | Alternar Terminal | Ctrl + `` ` `` |
 | Focar Terminal ou Editor | Ctrl + Shift + `` ` `` (Alt + Shift + `` ` `` no Windows/Linux) |
 | Alternar Visualização de Diagrama | `Alt + Mod + P` |

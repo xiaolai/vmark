@@ -9,6 +9,10 @@ menu:
   app.settings: "Settings…"
   app.saveAllQuit: "Save All and Quit"
   app.quit: "Quit VMark"
+  app.services: "Services"
+  app.hide: "Hide VMark"
+  app.hideOthers: "Hide Others"
+  app.showAll: "Show All"
 
   # === File menu ===
   file: "File"
@@ -198,10 +202,13 @@ menu:
   view.checkMarkdown: "Check Markdown"
   view.lintNext: "Next Issue"
   view.lintPrev: "Previous Issue"
+  view.toggleFullScreen: "Toggle Full Screen"
 
   # === Window menu ===
   window: "Window"
   window.bringAllToFront: "Bring All to Front"
+  window.minimize: "Minimize"
+  window.zoom: "Zoom"
   window.breakdown: "Coherence Breakdown"
 
   # === Help menu ===
@@ -274,6 +281,7 @@ errors:
   pdf.invalidExtension: "Output path must have .pdf extension"
   pdf.dirNotFound: "Output directory does not exist"
   pdf.parentNotDirectory: "The output path’s parent exists but is not a directory"
+  exportTarget.notChosen: "Export only to the location chosen in the save dialog. Export again and choose where to save."
   pdf.publishFailed: "The rendered PDF could not be moved to the output path: %{detail}"
   pdf.outputUnreadable: "The rendered PDF could not be opened to verify it: %{detail}"
   pdf.pathNotAbsolute: "Output path must be absolute"

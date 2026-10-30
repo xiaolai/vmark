@@ -205,14 +205,22 @@ export const LINE_HEIGHT_OPTIONS = [
   { value: "2.0", label: "2.0" },
 ];
 
-/** Build select options for CJK inter-character spacing. */
-export function buildCjkSpacingOptions(t: TFn) {
-  return [
+/**
+ * Build select options for CJK inter-character spacing. `current` (the value
+ * the dialog holds, in em without the unit) is appended when the curated list
+ * lacks it: the dialog seeds from Appearance, which offers more steps.
+ */
+export function buildCjkSpacingOptions(t: TFn, current?: string) {
+  const options = [
     { value: "0", label: t("pdf.typography.cjkSpacing.off") },
     { value: "0.02", label: "0.02em" },
     { value: "0.05", label: "0.05em" },
     { value: "0.08", label: "0.08em" },
   ];
+  if (current && !options.some((o) => o.value === current)) {
+    options.push({ value: current, label: `${current}em` });
+  }
+  return options;
 }
 
 /**

@@ -246,7 +246,7 @@ Entrambi i file si aprono offline, con una differenza per i documenti che conten
 - **`standalone.html`** è completamente autonomo — il foglio di stile e i font di KaTeX vengono incorporati al momento dell'esportazione, quindi le formule vengono rese senza connessione.
 - **`index.html`** carica il foglio di stile di KaTeX da una CDN (jsDelivr), quindi le sue formule richiedono una connessione internet quando la pagina viene aperta; il reader, le immagini e i font in `assets/` sono locali.
 
-I font vengono scaricati durante l'esportazione (i font di KaTeX e qualsiasi web font scelto nelle Impostazioni), quindi esporta su una macchina con accesso a internet se vuoi incorporarli — un'esportazione offline ripiega sui font di sistema.
+I font vengono scaricati durante l'esportazione: i font di KaTeX quando il documento contiene formule, e i tuoi font latino e monospazio quando sono web font che VMark conosce (Literata, JetBrains Mono, Fira Code, IBM Plex Mono). L'impostazione del font CJK non viene mai incorporata, e nemmeno un font di sistema o una famiglia di font personalizzata — per questi la pagina esportata usa lo stack di font di sistema del lettore. Esporta su una macchina con accesso a internet se vuoi incorporare i font — un'esportazione offline ripiega sui font di sistema.
 
 ### Quali Immagini Vengono Incorporate
 
@@ -257,6 +257,9 @@ condivise — per questo VMark limita la provenienza di quei byte:
 |---|---|
 | dentro uno spazio di lavoro aperto | qualsiasi punto di quello spazio di lavoro |
 | aperto da solo | la cartella del documento e le sue sottocartelle |
+| non salvato (mai salvato su disco) | da nessuna parte — nessuna immagine locale viene incorporata, nemmeno con un workspace aperto; le immagini remote non sono interessate |
+
+Per un documento non salvato, salvalo prima, poi esporta di nuovo. Vale per HTML, stampa, PDF e Copia come HTML.
 
 I percorsi relativi si risolvono a partire dalla cartella del documento,
 esattamente come nell'editor — quindi `../images/photo.png` funziona ogni volta che

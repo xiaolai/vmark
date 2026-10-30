@@ -174,11 +174,11 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   { id: "newTab", label: "New Tab", category: "file", defaultKey: "Mod-t", description: "Create a new tab" },
   // Native menu item, not just a DOM shortcut: once the browser's WKWebView
   // is first responder it eats the key event, so a frontend-only binding cannot fire
-  // while you are actually browsing. The item is disabled until `browser.enabled` is on.
+  // while you are actually browsing. The item is hidden until `browser.enabled` is on.
   { id: "newBrowserTab", label: "New Browser Tab", category: "file", defaultKey: "Alt-Mod-Shift-b", menuId: "new-browser-tab", description: "Open a new embedded browser tab (requires the browser feature enabled)" },
   { id: "nextTab", label: "Next Tab", category: "view", defaultKey: "Mod-Shift-]", description: "Switch to the next tab" },
   { id: "prevTab", label: "Previous Tab", category: "view", defaultKey: "Mod-Shift-[", description: "Switch to the previous tab" },
-  { id: "lastUsedTab", label: "Last Used Tab", category: "view", defaultKey: "Ctrl-Tab", menuId: "last-used-tab", description: "Jump back to the most recently used tab (D13: the first MRU entry that is not the current tab)" },
+  { id: "lastUsedTab", label: "Last Used Tab", category: "view", defaultKey: "Ctrl-Tab", menuId: "last-used-tab", description: "Jump back to the tab you used before the current one" },
   { id: "newFile", label: "New File", category: "file", defaultKey: "Mod-n", menuId: "new" },
   { id: "newWindow", label: "New Window", category: "file", defaultKey: "Mod-Shift-n", menuId: "new-window" },
   { id: "quickOpen", label: "Quick Open", category: "file", defaultKey: "Mod-o", menuId: "quick-open" },

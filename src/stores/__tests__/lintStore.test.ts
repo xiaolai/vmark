@@ -2,9 +2,21 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useLintStore } from "../documentStore";
 import { useSettingsStore } from "../settingsStore";
+import { __resetRegistry } from "@/lib/formats/registry";
+import { bootstrapFormats } from "@/lib/formats/registryBootstrap";
 
 const existsMock = vi.hoisted(() => vi.fn());
 vi.mock("@tauri-apps/plugin-fs", () => ({ exists: existsMock }));
+
+// The linter is the one the file's FORMAT contributes, so the real registry
+// decides: `.md` → lintMarkdown, `.yaml` → lintYaml, `.json` → none.
+__resetRegistry();
+bootstrapFormats();
+
+/** Lint `source` as the markdown file `/repo/doc.md`. */
+function lintMd(tabId: string, source: string) {
+  return useLintStore.getState().runLintForFormat(tabId, source, "/repo/doc.md");
+}
 
 describe("lintStore", () => {
   beforeEach(() => {
@@ -15,42 +27,61 @@ describe("lintStore", () => {
     expect(useLintStore.getState().diagnosticsByTab).toEqual({});
   });
 
-  it("runLint stores diagnostics keyed by tabId", () => {
+  it("runLintForFormat stores diagnostics keyed by tabId", () => {
     // Use a doc that triggers W01 (heading skip h1→h3)
-    useLintStore.getState().runLint("tab-1", "# Title\n\n### Skip");
+    lintMd("tab-1", "# Title\n\n### Skip");
     const diags = useLintStore.getState().diagnosticsByTab["tab-1"];
     expect(diags).toBeDefined();
     expect(diags!.length).toBeGreaterThan(0);
   });
 
-  it("runLint returns the diagnostics array", () => {
-    const result = useLintStore.getState().runLint("tab-1", "# Title\n\n### Skip");
+  it("runLintForFormat returns the diagnostics array", () => {
+    const result = lintMd("tab-1", "# Title\n\n### Skip");
     expect(Array.isArray(result)).toBe(true);
     expect(result.length).toBeGreaterThan(0);
   });
 
-  it("runLint on clean doc returns empty array", () => {
-    const result = useLintStore.getState().runLint("tab-1", "# Title\n\n## Section");
+  it("runLintForFormat on clean doc returns empty array", () => {
+    const result = lintMd("tab-1", "# Title\n\n## Section");
     expect(result).toEqual([]);
   });
 
+  it("runLintForFormat lints an untitled tab as markdown", () => {
+    const result = useLintStore.getState().runLintForFormat("tab-1", "# Title\n\n### Skip", null);
+    expect(result.map((d) => d.ruleId)).toEqual(lintMd("tab-2", "# Title\n\n### Skip").map((d) => d.ruleId));
+    expect(result.length).toBeGreaterThan(0);
+  });
+
+  it("runLintForFormat lints a YAML file with the YAML linter, not markdown rules", () => {
+    const result = useLintStore.getState().runLintForFormat("tab-1", "a: 1\na: 2\n", "/repo/ci.yaml");
+    expect(result.length).toBeGreaterThan(0);
+    expect(result.every((d) => d.ruleId.startsWith("Y"))).toBe(true);
+  });
+
+  it("runLintForFormat yields no diagnostics for a format without a linter", () => {
+    lintMd("tab-1", "# Title\n\n### Skip");
+    const result = useLintStore.getState().runLintForFormat("tab-1", "# Title\n\n### Skip", "/repo/data.json");
+    expect(result).toEqual([]);
+    expect(useLintStore.getState().diagnosticsByTab["tab-1"]).toEqual([]);
+  });
+
   it("clearDiagnostics removes for specific tab only", () => {
-    useLintStore.getState().runLint("tab-1", "# Title\n\n### Skip");
-    useLintStore.getState().runLint("tab-2", "# Title\n\n### Skip");
+    lintMd("tab-1", "# Title\n\n### Skip");
+    lintMd("tab-2", "# Title\n\n### Skip");
     useLintStore.getState().clearDiagnostics("tab-1");
     expect(useLintStore.getState().diagnosticsByTab["tab-1"]).toBeUndefined();
     expect(useLintStore.getState().diagnosticsByTab["tab-2"]).toBeDefined();
   });
 
   it("clearAllDiagnostics removes everything", () => {
-    useLintStore.getState().runLint("tab-1", "# Title\n\n### Skip");
-    useLintStore.getState().runLint("tab-2", "# Title\n\n### Skip");
+    lintMd("tab-1", "# Title\n\n### Skip");
+    lintMd("tab-2", "# Title\n\n### Skip");
     useLintStore.getState().clearAllDiagnostics();
     expect(useLintStore.getState().diagnosticsByTab).toEqual({});
   });
 
   it("selectNext wraps around", () => {
-    useLintStore.getState().runLint("tab-1", "# Title\n\n### Skip\n\n![](img.png)");
+    lintMd("tab-1", "# Title\n\n### Skip\n\n![](img.png)");
     const count = useLintStore.getState().diagnosticsByTab["tab-1"]!.length;
     expect(count).toBeGreaterThan(0);
     for (let i = 0; i < count; i++) {
@@ -61,7 +92,7 @@ describe("lintStore", () => {
   });
 
   it("selectPrev wraps to last from index 0", () => {
-    useLintStore.getState().runLint("tab-1", "# Title\n\n### Skip\n\n![](img.png)");
+    lintMd("tab-1", "# Title\n\n### Skip\n\n![](img.png)");
     const count = useLintStore.getState().diagnosticsByTab["tab-1"]!.length;
     // selectedIndexByTab starts at 0, selectPrev should wrap to last
     useLintStore.getState().selectPrev("tab-1");
@@ -77,7 +108,7 @@ describe("lintStore", () => {
 
   it("selectNext falls back to 0 when selectedIndexByTab entry is missing", () => {
     // Use a doc that triggers multiple diagnostics so (0+1)%count != 0
-    useLintStore.getState().runLint("tab-x", "# Title\n\n### Skip\n\n![](img.png)");
+    lintMd("tab-x", "# Title\n\n### Skip\n\n![](img.png)");
     const count = useLintStore.getState().diagnosticsByTab["tab-x"]!.length;
     expect(count).toBeGreaterThanOrEqual(2);
     // Manually remove the selectedIndex entry to force the ?? 0 fallback
@@ -93,7 +124,7 @@ describe("lintStore", () => {
 
   it("selectPrev falls back to 0 when selectedIndexByTab entry is missing", () => {
     // Use a doc that triggers multiple diagnostics
-    useLintStore.getState().runLint("tab-y", "# Title\n\n### Skip\n\n![](img.png)");
+    lintMd("tab-y", "# Title\n\n### Skip\n\n![](img.png)");
     const count = useLintStore.getState().diagnosticsByTab["tab-y"]!.length;
     expect(count).toBeGreaterThanOrEqual(2);
     // Manually remove the selectedIndex entry to force the ?? 0 fallback
@@ -108,7 +139,7 @@ describe("lintStore", () => {
   });
 
   it("selectPrev decrements when current > 0", () => {
-    useLintStore.getState().runLint("tab-z", "# Title\n\n### Skip\n\n![](img.png)");
+    lintMd("tab-z", "# Title\n\n### Skip\n\n![](img.png)");
     const count = useLintStore.getState().diagnosticsByTab["tab-z"]!.length;
     expect(count).toBeGreaterThanOrEqual(2);
     // Move forward first so current > 0
@@ -120,18 +151,18 @@ describe("lintStore", () => {
   });
 
   it("resets selectedIndexByTab when running lint on new content", () => {
-    useLintStore.getState().runLint("tab-1", "# Title\n\n### Skip\n\n![](img.png)");
+    lintMd("tab-1", "# Title\n\n### Skip\n\n![](img.png)");
     // Move to index 1
     useLintStore.getState().selectNext("tab-1");
     expect(useLintStore.getState().selectedIndexByTab["tab-1"]).toBe(1);
     // Re-run lint resets index to 0
-    useLintStore.getState().runLint("tab-1", "# Title\n\n### Skip");
+    lintMd("tab-1", "# Title\n\n### Skip");
     expect(useLintStore.getState().selectedIndexByTab["tab-1"]).toBe(0);
   });
 
   it("selectedIndexByTab is independent across tabs", () => {
-    useLintStore.getState().runLint("tab-1", "# Title\n\n### Skip\n\n![](img.png)");
-    useLintStore.getState().runLint("tab-2", "# Title\n\n### Skip\n\n![](img.png)");
+    lintMd("tab-1", "# Title\n\n### Skip\n\n![](img.png)");
+    lintMd("tab-2", "# Title\n\n### Skip\n\n![](img.png)");
     // Advance tab-1 once; tab-2 should remain at 0
     useLintStore.getState().selectNext("tab-1");
     expect(useLintStore.getState().selectedIndexByTab["tab-1"]).toBe(1);
@@ -146,7 +177,7 @@ describe("lintStore", () => {
       });
 
       // Add some diagnostics
-      useLintStore.getState().runLint("tab-1", "# Title\n\n### Skip");
+      lintMd("tab-1", "# Title\n\n### Skip");
       expect(Object.keys(useLintStore.getState().diagnosticsByTab).length).toBeGreaterThan(0);
 
       // Disable lint
@@ -163,7 +194,7 @@ describe("lintStore", () => {
         markdown: { ...useSettingsStore.getState().markdown, lintEnabled: true },
       });
 
-      useLintStore.getState().runLint("tab-1", "# Title\n\n### Skip");
+      lintMd("tab-1", "# Title\n\n### Skip");
       const before = Object.keys(useLintStore.getState().diagnosticsByTab).length;
 
       // Toggle another setting (lint stays enabled)

@@ -24,13 +24,6 @@
       "file": "viz-js-viz-3.31.0.txt"
     },
     {
-      "name": "@xterm/addon-serialize",
-      "version": "0.14.0",
-      "license": "MIT",
-      "source": "https://github.com/xtermjs/xterm.js/blob/6.0.0/LICENSE",
-      "file": "xterm-addon-serialize-0.14.0.txt"
-    },
-    {
       "name": "boolbase",
       "version": "1.0.0",
       "license": "ISC",

@@ -1,8 +1,9 @@
 //! The conditional-item table, joined to the menu sources that build it (#1425).
 //!
-//! The tree manipulation itself needs a live menu and is verified from outside
-//! the process (`debug_submenu_item_ids`). What IS checkable here is every
-//! assumption that manipulation rests on, and each one has already failed once:
+//! The tree manipulation itself needs a live `Wry` menu, and no automated test
+//! drives it: the hide and restore of a real item are checked by hand in a
+//! running build. What IS checkable here is every assumption that manipulation
+//! rests on, and each one has already failed once:
 //!
 //!   - an anchor must sit in the SAME submenu as its item, or the parent lookup
 //!     finds nothing and the item silently never moves;

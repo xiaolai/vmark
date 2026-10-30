@@ -15,7 +15,7 @@ La barra de espacios de trabajo permite que una ventana contenga **varios espaci
 | Paneles divididos | Cada espacio de trabajo recuerda su propia disposición dividida |
 | Esquema | El estado de plegado, filtro y desplazamiento de cada pestaña sigue al espacio de trabajo |
 | Pestaña siguiente/anterior, menú contextual de pestañas, «pestañas abiertas» de Apertura rápida | Limitados al espacio de trabajo activo |
-| Reabrir pestaña cerrada | Las pestañas cerradas se registran por espacio de trabajo (más un ámbito compartido para el navegador) y se reabren de la más reciente a la más antigua desde **Archivo → Reabrir pestaña cerrada**, la paleta de comandos o un atajo que asignes en Configuración → Atajos (viene sin asignar: las combinaciones cercanas están ocupadas) |
+| Reabrir pestaña cerrada | Las pestañas cerradas se registran por espacio de trabajo (más un ámbito compartido para el navegador) y se reabren de la más reciente a la más antigua desde **Archivo → Reabrir pestaña cerrada**, la paleta de comandos o un atajo que asignes en Configuración → Atajos (viene sin asignar: las combinaciones cercanas están ocupadas). Un documento reabierto se vuelve a leer del disco, así que muestra el archivo tal como está ahora; si el archivo se movió o se eliminó, la pestaña no se restaura y un aviso explica por qué. Una pestaña sin título se reabre vacía. Los cambios sin guardar no se recuperan — al cerrar una pestaña con cambios ya se preguntó si guardarlos |
 | **Páginas del navegador** | **Globales en la ventana** — accesibles desde todos los espacios de trabajo |
 | Menús de archivos recientes / espacios de trabajo recientes | Globales |
 | Autoguardado, avisos de guardado, vigilancia de archivos | Cubren **todas** las pestañas, estén ocultas o no |

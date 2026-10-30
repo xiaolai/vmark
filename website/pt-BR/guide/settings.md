@@ -122,7 +122,7 @@ A Largura do Editor é medida em `em`, então o comprimento da linha em *caracte
 | Abrir arquivos em uma nova aba | Abrir arquivos existentes em uma nova aba em vez de reutilizar a aba vazia atual | Desligado | Ligado / Desligado |
 | Habilitar auto-emparelhamento | Inserir automaticamente o parêntese/aspa de fechamento correspondente ao digitar um de abertura | Ligado | Ligado / Desligado |
 | Parênteses CJK | Auto-emparelhar parênteses específicos do CJK como `「」` `【】` `《》`. Disponível apenas quando o auto-emparelhamento estiver habilitado | Auto | Desligado, Auto |
-| Incluir aspas curvas | Auto-emparelhar os caracteres `""` e `''`. Pode conflitar com alguns recursos de aspas inteligentes do IME. Aparece quando os parênteses CJK estão definidos como Auto | Ligado | Ligado / Desligado |
+| Incluir aspas curvas | Auto-emparelhar `“”` e `‘’`, e transformar um `"` ou `'` reto digitado em um par curvo. Pode conflitar com alguns recursos de aspas inteligentes do IME. Aparece quando os parênteses CJK estão definidos como Auto | Ligado | Ligado / Desligado |
 | Também emparelhar `"` | Digitar as aspas duplas direitas `"` também insere um par `""`. Útil quando o IME alterna entre aspas de abertura e fechamento. Aparece quando as aspas curvas estão habilitadas | Desligado | Ligado / Desligado |
 | Formato de cópia | Qual formato usar para o slot de área de transferência de texto simples ao copiar do modo WYSIWYG | Texto simples | Texto simples, Markdown |
 | Copiar ao selecionar | Copiar automaticamente o texto para a área de transferência sempre que você o selecionar | Desligado | Ligado / Desligado |
@@ -169,9 +169,9 @@ Configurações de comportamento ao colar, layout e renderização HTML.
 |-------------|-----------|--------|--------|
 | Dividir fonte/visualização por padrão | Abrir arquivos Markdown na divisão lado a lado de código-fonte + prévia ao vivo (caso contrário, WYSIWYG). Alterne por sessão com `Shift + F6` ou **Visualizar → Visualização dividida do Markdown** | Desligado | Ligado / Desligado |
 | Tamanho de fonte do elemento de bloco | Tamanho relativo de fonte para listas, citações, tabelas, alertas e blocos de detalhes | 100% | 100%, 95%, 90%, 85% |
-| Alinhamento de título | Alinhamento de texto para títulos | Esquerda | Esquerda, Centro |
-| Bordas de imagens e diagramas | Se mostrar uma borda ao redor de imagens, diagramas Mermaid e blocos matemáticos | Nenhuma | Nenhuma, Sempre, Ao passar o mouse |
-| Alinhamento de imagens e tabelas | Alinhamento horizontal para imagens de bloco e tabelas | Centro | Centro, Esquerda |
+| Alinhamento de título | Alinhamento de texto para títulos. Só no editor — não se aplica à exportação nem à impressão | Esquerda | Esquerda, Centro |
+| Bordas de imagens e diagramas | Se mostrar uma borda ao redor de imagens, diagramas Mermaid e blocos matemáticos. Só no editor — não se aplica à exportação nem à impressão | Nenhuma | Nenhuma, Sempre, Ao passar o mouse |
+| Alinhamento de imagens e tabelas | Alinhamento horizontal para imagens de bloco e tabelas. Só no editor — não se aplica à exportação nem à impressão | Centro | Centro, Esquerda |
 | Ajustar tabelas à largura | Limitar todas as tabelas à largura do editor em vez de permitir rolagem horizontal | Desligado | Ligado / Desligado |
 | Números de linha em blocos de código | Mostrar números de linha dentro dos blocos de código no editor WYSIWYG. Independente de **Números de linha** do menu Visualizar, que controla a margem do editor Fonte/Dividido | Desligado | Ligado / Desligado |
 
@@ -284,7 +284,7 @@ O servidor MCP (Model Context Protocol) permite que assistentes de IA externos c
 |-------------|-----------|--------|
 | Habilitar Servidor MCP | Iniciar ou parar o servidor MCP. Quando em execução, um emblema de status mostra a porta e os clientes conectados | Ligado (alternável) |
 | Iniciar ao abrir | Iniciar automaticamente o servidor MCP quando o VMark abrir | Ligado |
-| Aprovar automaticamente salvamentos em um novo local e resultados de gênios | Permite que um cliente MCP salve um documento em um novo local sem perguntar, e que um gênio aplique seu resultado diretamente em vez de mostrar uma prévia. Quando desativado, uma solicitação MCP para salvar em um novo caminho é recusada e uma notificação avisa você. As gravações de documentos via MCP nunca dependem disto — cada uma é salva como ponto de verificação e pode ser restaurada pelo histórico da barra de status | Desligado |
+| Aprovar automaticamente salvamentos em um novo local e resultados de gênios | Permite que um cliente MCP salve um documento em um novo local sem perguntar, e que um gênio aplique seu resultado diretamente em vez de mostrar uma prévia. Quando desativado, uma solicitação MCP para salvar em um novo caminho é recusada e uma notificação avisa você. As gravações de documentos via MCP nunca dependem disto — cada uma é registrada no histórico de edições de agentes e pode ser restaurada pelo Histórico de escritas MCP na barra de status | Desligado |
 
 Quando o servidor estiver em execução, o painel também exibe:
 - **Porta** — atribuída automaticamente; os clientes de IA a descobrem através do arquivo de configuração
@@ -533,7 +533,7 @@ Configuração para desenvolvedores e em nível de sistema.
 
 A lista faz duas coisas. Ao inserir um link, uma URL da área de transferência com um desses protocolos é reconhecida como link, assim como `https://`. E ao abrir um link, o VMark o repassa ao sistema somente se o protocolo for `http`, `https`, `mailto` ou estiver nesta lista — assim, links `obsidian://open?vault=...` e `vscode://file/...` abrem em seus aplicativos, enquanto qualquer outro protocolo é recusado. Alguns protocolos nunca podem ser habilitados dessa forma, não importa o que a lista diga: `javascript:`, `data:`, `file:` e similares.
 
-Os quatro padrões estão sempre incluídos: remover um deles só dura até o VMark reiniciar.
+Um padrão que você remove continua removido. Um protocolo padrão adicionado em uma versão posterior do VMark é acrescentado à sua lista uma única vez, na primeira execução dessa versão.
 
 ### Desempenho
 

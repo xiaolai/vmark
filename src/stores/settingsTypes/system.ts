@@ -15,7 +15,7 @@
  *  binds an OS-assigned port (`mcp_bridge_start`); there is nothing to configure. */
 interface McpServerSettings {
   autoStart: boolean;  // Start on app launch
-  autoApproveEdits: boolean; // Auto-approve AI document edits without preview
+  autoApproveEdits: boolean; // Auto-approve save_as to a new path and genie direct-apply
 }
 
 /** Terminal placement: auto (axis by aspect ratio), auto-flipped (auto, opposite end), or an explicit side. See useTerminalPosition. */
@@ -88,7 +88,7 @@ export interface AdvancedSettingsState {
   /** Run optional `actionlint` for richer workflow diagnostics. Default: true. */
   workflowActionlint: boolean;
   // macOS only: clear `com.apple.quarantine` on the workspace root and its
-  // direct .md children when opening a workspace. Without this, files marked
+  // every direct child file with a registered VMark extension when opening a workspace. Without this, files marked
   // by apps like Mixin Messenger fail to open in a running VMark via Finder
   // double-click (Launch Services routes them through CSUI which silently
   // drops the openURLs delivery). Default: true.

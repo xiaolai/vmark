@@ -19,6 +19,8 @@ A [barra de espaços de trabalho](/pt-BR/guide/workspace-rail) experimental perm
 
 Quando você abre uma área de trabalho, o VMark mostra a barra lateral com o explorador de arquivos. Se a área de trabalho foi aberta antes, as abas abertas anteriormente são restauradas.
 
+No Windows e no Linux, uma pasta passada na linha de comando (`vmark C:\notes` ou `vmark ~/notes`) abre como área de trabalho em uma janela própria, como acontece no macOS ao soltar uma pasta sobre o ícone no Dock. Isso também funciona quando o VMark já está em execução.
+
 ::: tip
 Se a janela atual tiver alterações não salvas, o VMark oferece abrir a área de trabalho em uma nova janela em vez de substituir seu trabalho.
 :::
@@ -131,7 +133,7 @@ Sem uma área de trabalho, a Abertura Rápida ainda funciona — ela mostra arqu
 
 ## Pesquisa de conteúdo na área de trabalho
 
-Quando uma área de trabalho está aberta, o VMark pode pesquisar **dentro do conteúdo dos arquivos** (não apenas nos nomes) por correspondências em arquivos markdown e de texto.
+Quando uma área de trabalho está aberta, o VMark pode pesquisar **dentro do conteúdo dos arquivos** (não apenas nos nomes). Por padrão, ele pesquisa os tipos de arquivo que o VMark abre (Markdown, texto simples, YAML e JSON/TOML/Mermaid/SVG/HTML quando o suporte a esses formatos está ativado). Desligue a opção **.md** (**Somente tipos de arquivo compatíveis**) para pesquisar todos os arquivos de texto (arquivos binários são sempre ignorados).
 
 | Ação | Atalho |
 |------|--------|

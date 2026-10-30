@@ -127,7 +127,7 @@ VMark 對 AI 助理開放**十個複合 MCP 工具**：`session`、`workspace`�
 
 與 `new` 和 `open` 不同，這裡**不**接受 `windowLabel`。資料夾一律在請求抵達的那個視窗中開啟。這是刻意設計：核准對話框與開啟動作必須落在同一個視窗，而由用戶端提供的標籤可能會把提示放在某個視窗前面、卻改動另一個視窗——核准了一件事，得到的卻是另一件。多視窗指定需要目前尚未存在的請求路由機制。
 
-**核准流程。** 第一次呼叫會回傳 `{needsApproval: true}`，並彈出一個同意對話框，標明*正規化*後的資料夾路徑（符號連結已解析）。助理應詢問使用者，然後**重試同一個呼叫**；一旦使用者核准，重試就會開啟該資料夾。被拒絕的請求會持續失敗，直到再次獲得核准。沒有「記住」選項——每次開啟都要個別核准。
+**核准流程。** 第一次呼叫會回傳 `{needsApproval: true}`，並彈出一個同意對話框，標明*正規化*後的資料夾路徑（符號連結已解析）。助理應詢問使用者，然後**重試同一個呼叫**；一旦使用者核准，重試就會開啟該資料夾。核准屬於提出請求的那個連線：只有來自同一個 MCP 連線的重試才能使用它。另一個已連線的助理會收到自己的提示，而重新連線的用戶端（即新的連線）必須再次取得核准。核准若在五分鐘內未被使用也會失效。被拒絕的請求會持續失敗，直到再次獲得核准。沒有「記住」選項——每次開啟都要個別核准。
 
 **資料夾存取。** 僅在對話框中核准，並不能讓 VMark 讀取其始終可讀位置（你的主資料夾與已掛載的磁碟區）以外的資料夾。對於這樣的資料夾，核准後的重試會在該資料夾處開啟 VMark 的資料夾選擇器，並傳回 `APPROVAL_REQUIRED`，請使用者在其中選擇該資料夾；選擇之後，下一次重試即可開啟。如果已有另一個資料夾對話框開啟，則不會顯示任何內容，傳回 `BUSY`——核准仍然保留，請在使用者關閉該對話框後重試。該視窗中已有工作區切換正在進行時，也會傳回 `BUSY`。
 
@@ -241,7 +241,7 @@ AI 用戶端的每一次儲存——無論是透過 `write`、`workspace.save` �
 { "error": "STALE", "message": "Document has changed since the last read", "current_revision": "rev-currentNow" }
 ```
 
-當使用者在顯示該分頁的 WYSIWYG 編輯器中以輸入法（IME）組字時，寫入會以 `BUSY` 被拒絕，且不做任何變更：組字中的文字在確認之前屬於輸入法。請稍後再試。在原始碼模式下，寫入會被接受，並在組字結束後顯示於編輯器中。
+當使用者在顯示該分頁的編輯器中以輸入法（IME）組字時，不論是 WYSIWYG 還是原始碼模式，寫入都會以 `BUSY` 被拒絕，且不做任何變更：組字中的文字在確認之前屬於輸入法。組字剛結束後的一小段寬限期內，原始碼編輯器也仍會被視為正在組字。請稍後再試。
 
 每次寫入在任何變更發生之前，都會先記入 VMark 的代理程式編輯日誌。成功回應包含 `applied: true` 與 `durable`：`durable: false` 表示內容已寫入，但其日誌記錄尚未能儲存——VMark 會在背景重試，在此之前對該文件的下一次寫入會以 `JOURNAL_DEGRADED` 被拒絕。如果日誌直接拒絕該記錄，寫入仍保持已套用，並作為未記錄的寫入記入日誌，下一次寫入照常進行。以下情況寫入會被拒絕且不做任何變更：同一文件的另一次寫入正在記錄時傳回 `JOURNAL_BUSY`（顯示同一檔案的兩個視窗共用一份文件）；另一個視窗在本分頁上次寫入之後寫過該文件時傳回 `STALE_PARENT`（請重新讀取後再試）；日誌未執行或未能及時回應時傳回 `JOURNAL_UNAVAILABLE`；`content` 含有孤立的 UTF-16 代理字元時傳回 `INVALID_TEXT`。若在記錄寫入期間使用者編輯了文件、關閉了分頁、開始以輸入法組字，或移動了選取範圍（未指定 `tabId` 時則是切換了分頁），寫入會以 `ABORTED` 及 `reason`（`edited`、`closed`、`composing`、`selection`）被拒絕，且不做任何變更；請重新讀取後再試。帶有 `applied: true` 的 `INTERNAL` 錯誤則不同：寫入已變更文件之後編輯器出錯，此時文件中的文字已被記錄（`durable` 含義同上，`current_revision` 為文件的修訂版本）；再次寫入前請重新讀取。寫入失敗後不帶 `applied` 的 `INTERNAL` 錯誤表示文件可能已被部分變更，同樣請重新讀取。
 
@@ -258,7 +258,7 @@ AI 用戶端的每一次儲存——無論是透過 `write`、`workspace.save` �
 
 `cjk-format` 會套用使用者目前的 CJK 排版設定，從頭執行一遍。`cjk-spacing` 會在 CJK 字元與相鄰的拉丁字母或數字之間補上單一空格。`cjk-punctuation` 會把緊鄰 CJK 字元的 ASCII 標點轉換成對應的全形形式。
 
-回傳 `{revision, applied, durable}`。與 `write` 一樣，當使用者在顯示該分頁的 WYSIWYG 編輯器中以輸入法組字時，它會以 `BUSY` 被拒絕，不做任何變更。 與 `write` 一樣，它會在任何變更發生之前先記入 VMark 的代理程式編輯日誌：`applied`、`durable` 及日誌拒絕（`JOURNAL_BUSY`、`STALE_PARENT`、`JOURNAL_DEGRADED`、`JOURNAL_UNAVAILABLE`、`INVALID_TEXT`、`ABORTED`）的含義相同；未做任何變更的呼叫不會被記錄。
+回傳 `{revision, applied, durable}`。與 `write` 一樣，當使用者在顯示該分頁的編輯器中（不論是 WYSIWYG 還是原始碼模式）以輸入法組字時，它會以 `BUSY` 被拒絕，不做任何變更。 與 `write` 一樣，它會在任何變更發生之前先記入 VMark 的代理程式編輯日誌：`applied`、`durable` 及日誌拒絕（`JOURNAL_BUSY`、`STALE_PARENT`、`JOURNAL_DEGRADED`、`JOURNAL_UNAVAILABLE`、`INVALID_TEXT`、`ABORTED`）的含義相同；未做任何變更的呼叫不會被記錄。
 
 ---
 
@@ -597,7 +597,7 @@ AI 用戶端的每一次儲存——無論是透過 `write`、`workspace.save` �
 | `downstream` / `downstream_path` / `downstream_rev` | 衍生物件、其路徑及其目前版本。 |
 | `state` | `"version-stale"`、`"stale-valid"`、`"stale-contradicted"`、`"stale-unknown"`、`"waived"`、`"diverged"`、`"diverged-multi-head"` 或 `"unpinnable"`。 |
 
-裁決一條邊（接受新版 / 豁免）通常是在 VMark 的明細檢視中由人執行的操作。AI 只能透過 [`coherence_resolve`](#coherence-resolve) 來做，而且只有在工作區擁有者已明確將此權限委任給它時才行。
+裁決一條邊（接受新版 / 豁免）通常是在 VMark 的「一致性明細」面板中由人執行的操作。AI 只能透過 [`coherence_resolve`](#coherence-resolve) 來做，而且只有在工作區擁有者已明確將此權限委任給它時才行。
 
 ---
 
@@ -609,7 +609,7 @@ AI 用戶端的每一次儲存——無論是透過 `write`、`workspace.save` �
 
 參數：`{workspace_root, txf, input, resolution: "accept-newer" | "waive", reason? (required for waive)}`。`txf` 與 `input` 來自 `coherence` → `edges` 的某一列。
 
-以取得明確委任的智慧代理身分，解決一條活躍的過期邊。授權採用 **fail-closed** 策略：工作區擁有者必須已向**你通過身分驗證的橋接身分**授予一份涵蓋該解決類型的、有效且未過期的委任（在應用程式內、從「明細」授予），且該邊必須仍然活躍。每一次受委任的解決都會記入稽核紀錄、關聯至該授予，且該條目無法復原。
+以取得明確委任的智慧代理身分，解決一條活躍的過期邊。授權採用 **fail-closed** 策略：工作區擁有者必須已向**你通過身分驗證的橋接身分**授予一份涵蓋該解決類型的、有效且未過期的委任（在應用程式內、從「一致性明細」面板授予），且該邊必須仍然活躍。每一次受委任的解決都會記入稽核紀錄、關聯至該授予，且該條目無法復原。`coherence_resolve` 無法設定到期時間，因此 AI 所做的豁免永遠不會自行失效。
 
 被拒絕代表授予不存在或已過期——請請使用者授予，而不是重試。把這個操作從 `coherence` 拆分出來並未改變任何安全性質：授權一向以通過身分驗證的橋接主體為依據，從不依據用戶端所宣稱的任何內容。
 

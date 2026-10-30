@@ -41,7 +41,9 @@
  * (pointerdown) on the SAME request it completes on. Deny is never delayed.
  *
  * Display hardening (A-05, S-09): page-derived names are bidi-isolated and
- * length-capped, and a payload-binding operation shows what it binds.
+ * length-capped, and a payload-binding operation shows what it binds — its
+ * summary uncut — with characters that draw nothing rendered as visible escapes
+ * (`utils/revealInvisibleChars`), so a bidi override cannot reorder a script.
  *
  * @coordinates-with stores/browserApprovalStore — pending queue + resolveApproval
  * @coordinates-with services/browser/browserOcclusion — freeze while raised
@@ -55,6 +57,7 @@ import { NEVER_GRANTABLE } from "@/lib/browser/approval/grants";
 import { OCCLUDER } from "@/services/browser/browserOcclusion";
 import { useBrowserOccluder } from "@/hooks/useBrowserOccluder";
 import { approvalDenied } from "@/services/browser/browserTabLifecycle";
+import { revealInvisibleChars } from "@/utils/revealInvisibleChars";
 import { ACTIVATION_DELAY_MS, clipName, displayOrigin } from "./approvalDialogFormat";
 import { useApprovalDialogKeyboard } from "./useApprovalDialogKeyboard";
 import "./browser-approval-dialog.css";
@@ -132,7 +135,8 @@ export function BrowserApprovalDialog(): React.ReactElement | null {
   // knowledge the store owns, which drifted the moment `style` was added
   // (audit 20260815-163607 #21). Anything that carries a payload now shows it.
   // A payload-binding op with a human summary (type/key/scroll) shows the summary,
-  // not the built script the summary describes.
+  // not the built script the summary describes — UNCUT, in a scrolling block:
+  // the summary of a `type` is the whole text the bound script will enter.
   const payload = request.payloadSummary !== undefined ? undefined : request.script;
   // A `session` payload is a saved-login HANDLE, not a script; rendering it in a
   // <pre> under a "Script" heading misdescribed what was being approved.
@@ -196,9 +200,9 @@ export function BrowserApprovalDialog(): React.ReactElement | null {
             <>
               <dt>{t("browser.approval.details")}</dt>
               <dd>
-                <span className="browser-approval-name">
-                  <bdi>{clipName(request.payloadSummary)}</bdi>
-                </span>
+                <pre className="browser-approval-script browser-approval-summary">
+                  <bdi>{revealInvisibleChars(request.payloadSummary)}</bdi>
+                </pre>
               </dd>
             </>
           )}
@@ -212,7 +216,7 @@ export function BrowserApprovalDialog(): React.ReactElement | null {
               </dt>
               <dd>
                 {payloadIsScript ? (
-                  <pre className="browser-approval-script">{payload}</pre>
+                  <pre className="browser-approval-script">{revealInvisibleChars(payload)}</pre>
                 ) : (
                   <span className="browser-approval-name">
                     “<bdi>{clipName(payload)}</bdi>”

@@ -31,7 +31,8 @@
  * @coordinates-with src/plugins/codemirror/sourceYamlLint.ts — the
  *   live gutter linter (different lifecycle, same parse function).
  * @coordinates-with src/lib/lintEngine/ruleMeta.ts — Y001 / Y002 severities
- * @coordinates-with src/stores/documentStore/lint.ts — runYamlLint action
+ * @coordinates-with src/lib/formats/adapters/yaml.tsx — contributes this as the
+ *   YAML format's `lint`, which `useLintStore.runLintForFormat` calls.
  * @module lib/lintEngine/yaml
  */
 

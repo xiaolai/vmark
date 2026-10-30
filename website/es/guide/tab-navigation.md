@@ -282,7 +282,7 @@ El comportamiento de escape con Tab se puede personalizar en **Configuración �
 |---------------|--------|
 | **Auto-emparejar Corchetes** | Habilitar/deshabilitar el emparejamiento de corchetes y el escape con Tab |
 | **Corchetes CJK** | Incluir pares de corchetes CJK |
-| **Comillas Curvas** | Incluir pares de comillas curvas (`""` `''`) |
+| **Comillas Curvas** | Incluir pares de comillas curvas (`“”` `‘’`); una comilla recta escrita se convierte en un par curvo |
 
 ::: tip
 Si el escape con Tab entra en conflicto con tu flujo de trabajo, puedes deshabilitar completamente el auto-emparejamiento de corchetes. Tab insertará entonces espacios (o indentará en listas/tablas) de forma normal.

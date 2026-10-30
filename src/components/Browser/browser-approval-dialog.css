@@ -105,7 +105,8 @@
    "improve" it into `.vm-btn--danger`; red would misrepresent the safe
    choice as the dangerous one. */
 
-/* The exact eval script the user is authorizing. Rendered verbatim and
+/* The exact payload the user is authorizing — a script, or the summary of a
+   type/key/scroll (a type's is the whole text). Rendered verbatim and
    scrollable — the user must be able to read precisely what runs, and a long or
    wide script must never push the Deny button off-screen. (Security review P5.) */
 .browser-approval-script {

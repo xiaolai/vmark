@@ -307,7 +307,7 @@ Renderizza SVG grezzo inline tramite blocchi di codice ` ```svg `:
 
 ### Indice Inline
 
-Digita `[TOC]` su una riga a sé, oppure scegli **Inserisci → Indice**, per inserire un indice dinamico (la voce di menu non ha una scorciatoia predefinita; assegnane una in Impostazioni → Scorciatoie):
+Scegli **Inserisci → Indice** per inserire subito un indice dinamico in entrambe le modalità (la voce di menu non ha una scorciatoia predefinita; assegnane una in Impostazioni → Scorciatoie). Puoi anche scrivere `[TOC]` su una riga a sé: in modalità Sorgente quella riga è l'indice, mentre in WYSIWYG un `[TOC]` digitato resta testo normale finché il documento non viene analizzato di nuovo — per esempio dopo il passaggio alla modalità Sorgente e ritorno, o dopo aver riaperto il file. Un `[TOC]` all'interno di altro testo non viene mai convertito:
 
 - Generato automaticamente dalle intestazioni del documento con la corretta nidificazione
 - Fai clic su un'intestazione per scorrere direttamente fino a essa
@@ -455,7 +455,7 @@ VMark salva automaticamente istantanee dei tuoi documenti così puoi recuperare 
 - **Elimina** le singole istantanee di cui non hai più bisogno con il pulsante cestino
 - Il contenuto attuale viene salvato come nuova istantanea prima di qualsiasi ripristino, così non perdi mai il tuo lavoro
 - La cronologia richiede che il documento sia salvato su file (i documenti senza titolo non hanno cronologia)
-- Abilita o disabilita il tracciamento della cronologia in **Impostazioni > Generale**
+- Abilita o disabilita il tracciamento della cronologia in **Impostazioni → File e immagini → Salvataggio** (**Mantieni cronologia documento**)
 
 ## Recupero Sessione (Hot Exit)
 
@@ -559,6 +559,8 @@ VMark include utilità per la pulizia e la formattazione del testo, disponibili 
 - **Rimuovi spazi finali**: Elimina gli spazi bianchi alla fine delle righe
 - **Comprimi righe vuote**: Riduci le righe vuote multiple a una singola
 
+**Rimuovi spazi finali** e **Comprimi righe vuote** lasciano intatti i blocchi di codice delimitati, compreso un blocco non chiuso, che arriva fino alla fine del documento. I blocchi di codice indentati non sono protetti.
+
 ### Formattazione CJK (Formato → CJK)
 
 Strumenti integrati per la formattazione del testo cinese/giapponese/coreano. [Scopri di più →](/it/guide/cjk-formatting)
@@ -592,7 +594,7 @@ VMark controlla automaticamente gli aggiornamenti e può scaricarli e installarl
 
 ## Coerenza, base di conoscenza e Slidev
 
-- **Coerenza e vista di dettaglio** — il tracciamento opzionale della provenienza registra quali documenti ha letto ogni generazione IA, segnala i documenti a valle quando uno a monte cambia, e vi aggiunge controlli semantici, affermazioni canoniche e contesti. Aprila da **Finestra → Dettaglio coerenza**. [Scopri di più →](/it/guide/coherence)
+- **Coerenza e il pannello Dettaglio coerenza** — il tracciamento opzionale della provenienza registra quali documenti ha letto ogni generazione IA, segnala i documenti a valle quando uno a monte cambia, e vi aggiunge controlli semantici, affermazioni canoniche e contesti. Aprila da **Finestra → Dettaglio coerenza**. [Scopri di più →](/it/guide/coherence)
 - **Base di conoscenza** — pubblica un workspace aperto come sito con collegamenti incrociati (wiki link, backlink, grafo delle relazioni, ricerca full-text) su `127.0.0.1`, in un pannello (`Ctrl + Shift + 4`) o nel tuo browser, e mostra in anteprima ed esporta presentazioni Slidev. Nessuna build di rilascio include ancora il runtime del content server di cui ha bisogno, quindi il pannello, la sua voce di menu, il comando della palette e la scorciatoia sono nascosti a meno che **Impostazioni → Avanzate → Strumenti sviluppatore** non sia attivo. [Scopri di più →](/it/guide/knowledge-base)
 
 ## Personalizzazione

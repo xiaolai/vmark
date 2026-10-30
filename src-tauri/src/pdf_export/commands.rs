@@ -109,8 +109,28 @@ pub struct ExportOutcome {
 ///
 /// One export at a time: a call while another is in flight is refused with
 /// `Conflict` (`export_gate.rs`).
+///
+/// `output_path` must be the calling webview's save-panel choice
+/// (`export_target`); any other path is refused with `PermissionDenied`
+/// before anything is rendered or written.
 #[tauri::command]
 pub async fn export_pdf(
+    app: tauri::AppHandle,
+    webview: tauri::Webview,
+    html: String,
+    output_path: String,
+    headings: Option<Vec<Heading>>,
+    page: PageSpec,
+    page_numbers: Option<super::page_numbers::PageNumberSpec>,
+) -> Result<ExportOutcome, CommandError> {
+    crate::export_target::claim(&app, webview.label(), &output_path)?;
+    export_pdf_to_path(app, html, output_path, headings, page, page_numbers).await
+}
+
+/// [`export_pdf`] after the destination is authorized: validation, the
+/// render, post-processing and the `done` event. Public for the smoke harness,
+/// which has no webview to choose a path in; not a command.
+pub async fn export_pdf_to_path(
     app: tauri::AppHandle,
     html: String,
     output_path: String,

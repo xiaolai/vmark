@@ -1,4 +1,4 @@
-# Coerência e a visão de detalhamento
+# Coerência e o Detalhamento de coerência
 
 A camada de coerência do VMark mantém honestos os projetos de escrita desenvolvidos recursivamente: ela registra **quais documentos cada geração de IA realmente leu**, percebe quando esses documentos de origem mudam depois e mostra a você — sob demanda — exatamente quais artefatos derivados podem ter ficado desatualizados. Nada é atualizado automaticamente; você continua sendo o editor-chefe.
 
@@ -11,7 +11,7 @@ A camada de coerência do VMark mantém honestos os projetos de escrita desenvol
 - Quando um documento de origem avança além de uma revisão fixada, a aresta fica **desatualizada**. Se duas revisões evoluíram em paralelo (por exemplo, em branches do git), a aresta está **divergente** — sinalizada, nunca adivinhada.
 - Arquivos editados fora do VMark (terminal, outros editores) são reconciliados na varredura como *edições externas observadas* — o histórico permanece sem lacunas, marcado honestamente como de proveniência desconhecida.
 
-## A visão de detalhamento
+## O painel Detalhamento de coerência
 
 Abra-a em **Janela → Detalhamento de coerência** (ou pela paleta de comandos: "Detalhamento de coerência"). Ela é estritamente **sob demanda** (pull): atualiza quando você a abre ou pressiona atualizar — nunca incomoda em segundo plano.
 
@@ -31,7 +31,7 @@ Cada item oferece três ações honestas — nenhuma delas reescreve o históric
 
 - **Aceitar mais recente** — registra que o artefato ainda é compatível com a origem mais recente (uma *ratificação*). O item sai da lista; se a origem mudar de novo, ele volta.
 - **Revisar** — abre o artefato para que você possa atualizá-lo. Salvar uma nova versão aposenta a aresta antiga.
-- **Isentar** — registra uma divergência intencional com um **motivo obrigatório** (narradores não confiáveis existem). Na v0, uma isenção é intencionalmente restrita: ela se aplica apenas a esta aresta e à revisão específica da origem contra a qual ela é resolvida. Itens isentos permanecem visíveis, marcados de forma distinta, e reabrem se a origem se mover novamente.
+- **Isentar** — registra uma divergência intencional com um **motivo obrigatório** (narradores não confiáveis existem). Na v0, uma isenção é intencionalmente restrita: ela se aplica apenas a esta aresta e à revisão específica da origem contra a qual ela é resolvida. Itens isentos permanecem visíveis, marcados de forma distinta, e reabrem se a origem se mover novamente. Uma isenção também pode ter uma expiração opcional — uma data (`YYYY-MM-DD`, que significa o fim desse dia em UTC) ou um carimbo de data e hora completo. Quando ela passa, a isenção caduca e o item reabre; uma expiração malformada caduca na hora, para que o item nunca fique isento em silêncio.
 
 Aceitar mais recente e isentar ficam desabilitados quando a origem tem várias versões atuais — não há uma única revisão contra a qual resolver; revise (ou reconcilie as versões) primeiro.
 

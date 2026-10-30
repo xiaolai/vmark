@@ -55,9 +55,11 @@ Il blocco `with:` viene visualizzato come righe chiave/valore con aggiungi/modif
 
 Per gli step `uses:`, il riferimento all'azione è in sola lettura — modificalo nel sorgente se ti serve un'azione diversa.
 
+Nel modulo dello step, **Alt + Sinistra** / **Alt + Destra** passano allo step precedente / successivo. La scorciatoia funziona ovunque nella finestra, tranne dentro un campo di testo, un menu a discesa o un editor di codice, dove Alt + Freccia mantiene il suo normale significato di spostamento per parole.
+
 ### Trigger
 
-Un trigger scritto come mappa (`on: { push: { branches: [main] } }`) ha campi filtro modificabili — branches, branches-ignore, tags, tags-ignore, paths, paths-ignore e types — ciascuno come elenco separato da virgole. Un cron di `schedule` viene mostrato come frase in linguaggio naturale, con un avviso quando viene eseguito più spesso di ogni 5 minuti (GitHub limita quelle pianificazioni), ed è in sola lettura. Lo stesso vale per un trigger scritto come semplice nome di evento o come elenco di nomi; modificali nel sorgente.
+Un trigger scritto come mappa (`on: { push: { branches: [main] } }`) ha campi filtro modificabili — branches, branches-ignore, tags, tags-ignore, paths, paths-ignore e types — ciascuno come elenco separato da virgole. Un cron di `schedule` viene mostrato come frase nella lingua dell'interfaccia — i nomi di giorni e mesi restano abbreviazioni inglesi di tre lettere (`Mon`, `Jan`) —, con un avviso quando viene eseguito più spesso di ogni 5 minuti (GitHub limita quelle pianificazioni), ed è in sola lettura. Lo stesso vale per un trigger scritto come semplice nome di evento o come elenco di nomi; modificali nel sorgente.
 
 ### Permessi e concorrenza
 

@@ -75,7 +75,7 @@ If a page's web content process dies, the tab shows a **"This page crashed"** ov
 
 VMark creates the platform webview itself and adds it as a native child of the window — it does **not** ask the app framework for one. That matters for privacy: a framework-created webview would inject an internal messaging bridge into every page, handing any site a channel into the app. Because VMark owns a freshly-constructed webview with no such bridge, **a browsed page has no channel into VMark**. The page is driven strictly one-directionally (the app can read and act on the page; the page cannot reach back).
 
-Sessions (logins, cookies) persist per profile in the OS webview's own data store, so you log into each site once. VMark keeps no password or cookie store of its own; the one exception is a session you explicitly approve saving for an AI (see *Session save / load* below), whose cookies and `localStorage` go into the **OS keychain**, never into a file.
+Sessions (logins, cookies) persist per profile in the OS webview's own data store, so you log into each site once. On macOS 14 and later, your own browsing uses a VMark-only persistent store, separate from other apps' webviews. On macOS 13 and earlier, macOS has no per-app store, so your browsing (and an AI sharing your session) uses the system's default webview store. A named AI profile still gets its own non-persistent store there, so it stays separate from your logins, but its sessions do not persist. VMark keeps no password or cookie store of its own; the one exception is a session you explicitly approve saving for an AI (see *Session save / load* below), whose cookies and `localStorage` go into the **OS keychain**, never into a file.
 
 ## Driving the browser with AI
 

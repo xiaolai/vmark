@@ -68,6 +68,8 @@ VMark 内置终端面板，让你无需离开编辑器即可执行命令。
 
 **Linux：** `Ctrl` + 字母会交给 shell，因此 `Ctrl + A`、`Ctrl + E`、`Ctrl + K`、`Ctrl + F`、`Ctrl + U`、`Ctrl + W` 等 readline 按键与其他 Linux 终端一样可用。终端自身的字母快捷键改为 `Ctrl + Shift`：`Ctrl + Shift + F` 搜索，`Ctrl + Shift + K` 清屏，`Ctrl + Shift + A` 全选，`Ctrl + Shift + C` / `Ctrl + Shift + V` 复制和粘贴。`Ctrl + C` 仍会复制选中内容（无选中内容时发送 SIGINT），`Ctrl + V` 仍会粘贴；`Ctrl + Insert` / `Shift + Insert` 同样可以复制和粘贴。
 
+**长按输入重音字符（macOS）。** 长按某个字母键会打开 macOS 的重音字符选择器。此时原字母已经发送给 shell，所以当你选中一个重音字符时，VMark 会先发送一个退格（DEL），再发送该重音字符。如果某个程序不把 DEL 当作删除前一个字符，你可能会看到原字母仍然留在那里。
+
 ::: tip
 无选中内容时 `Mod + C` 会向运行中的进程发送 SIGINT——与在普通终端中按 Ctrl+C 相同。
 :::
@@ -160,7 +162,7 @@ VMark 有意**不**设置 `EDITOR`。`git commit`、`crontab -e` 等命令会启
 
 标准 Shell 快捷键（如 zsh/bash 中的 `Ctrl+R` 反向历史搜索）在终端获得焦点时有效——它们不会被编辑器拦截。
 
-在终端已运行的情况下工作区根目录发生变化时，空闲的会话会自动 `cd` 到新的根目录。正在执行命令（比如 `vim` 或 `less`）的会话不会被打断：它会在命令结束后再切换目录，而检测这一点需要 [Shell 集成](#shell-集成)。开启[工作区导轨](/zh-CN/guide/workspace-rail)后，属于某个工作区的会话会保留各自的目录。
+在终端已运行的情况下工作区根目录发生变化时，空闲的会话会自动 `cd` 到新的根目录。正在执行命令（比如 `vim` 或 `less`）的会话不会被打断：它会在命令结束后再切换目录，而检测这一点需要 [Shell 集成](#shell-集成)。开启[工作区导轨](/zh-CN/guide/workspace-rail)后，属于某个工作区的会话会保留各自的目录。没有 Shell 集成时——在 Windows 上、使用 fish 时，或该设置关闭时——VMark 无法判断会话是否忙碌，因此 `cd` 会被直接输入到前台正在运行的程序中。
 
 ## AI CLI 工具与其自带的浏览器访问
 
@@ -220,7 +222,7 @@ VMark 不配置、不代理，也不为浏览器工具背书。要确认浏览�
 
 启用时，VMark 会在 Claude Code 的 `settings.json` 和 Codex 的 `hooks.json` 中添加一个本地 `SessionStart` 钩子，并保留已有的钩子。启用后，请在 VMark 终端中启动或恢复 Claude/Codex；已在运行的会话需要重启。Codex 首次运行时可能会要求你信任这个新钩子。需要安装 Node，且 CLI 版本须支持生命周期钩子。被明确禁用或受策略限制的钩子、远程 SSH 会话，以及与 VMark 环境不同的自定义 CLI 配置目录，都无法建立绑定。
 
-每个终端都跟随其对应的确切会话，而不是最近修改的那份对话记录。预览最多保留对话记录数据最后 2 MiB 中的 100 条助手消息。原始 HTML 和远程图片保持惰性，不会生效；无效的图表仍以源代码形式可读。禁用后会移除渲染区域，并停用 VMark 安装的钩子。
+每个终端都跟随其对应的确切会话，而不是最近修改的那份对话记录。预览最多保留对话记录数据最后 2 MiB 中的 100 条助手消息。原始 HTML 和远程图片保持惰性，不会生效；无效的图表仍以源代码形式可读。禁用后会移除渲染区域，并关闭 VMark 的钩子：SessionStart 钩子条目仍保留在 Claude Code 的 `settings.json` 和 Codex 的 `hooks.json` 中（VMark 不会为了删除它们而改写你的 CLI 配置），但在该设置关闭期间，钩子脚本会立即退出，VMark 也会忘掉所有已有的对话记录绑定。每个新 shell 仍会收到 `VMARK_TRANSCRIPT_TOKEN` 变量，因此重新开启该设置后，对已经打开的会话同样有效。
 
 ### 无障碍
 

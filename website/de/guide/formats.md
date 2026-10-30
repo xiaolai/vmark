@@ -171,6 +171,8 @@ Unter **Windows** übernimmt das Installationsprogramm keinen Dateityp, den bere
 
 Eine registrierte Datei öffnet sich nur dann in VMark, wenn ihr Format aktiviert ist (siehe [Formate aktivieren](#formate-aktivieren)); andernfalls öffnet sie sich als Klartext.
 
+Unter Windows und Linux öffnet sich ein auf der Befehlszeile übergebener Ordner (`vmark C:\notes` oder `vmark ~/notes`) als Arbeitsbereich in einem eigenen Fenster, so wie das Ablegen eines Ordners auf dem Dock-Symbol unter macOS. Das funktioniert auch, wenn VMark bereits läuft.
+
 ### Syntaxhervorhebung für Klartextdateien
 
 Auch wenn eine Datei als Klartext geöffnet wird, färbt VMark sie ein, sobald es den Typ erkennt — `.env`/`.ini`/`.conf` (Properties), `.sh`/`.bash` (Shell), `Dockerfile`, `.toml`, `.sql`, `.diff` und die üblichen Sprachen. Das ist rein kosmetisch; es ändert nie, in welchem Editor die Datei geöffnet wurde, und es funktioniert unabhängig davon, ob die Kategorie Code-Betrachter aktiviert ist.
@@ -202,7 +204,7 @@ Gemäß ADR-4 im Mehrformat-Plan basiert die HTML-Vorschau auf drei unabhängige
 
 Der Validator zeigt Script-Tags, `javascript:`-URLs und Inline-Ereignishandler als Warnungen an, damit Sie sehen können, was blockiert wird. Sobald Sie [der Datei vertrauen](#vertrauenswurdige-html-vorschau-opt-in), werden sie stattdessen als Information angezeigt, damit nichts dem Vertrauens-Banner widerspricht. Zwei Meldungen nennen, was die Vorschau nie erlaubt, ob vertrauenswürdig oder nicht: Ein externes Skript (`<script src="…">`) wird nie geladen, da kein Skript aus einer Datei oder URL stammt, und ein `javascript:`-Link, der auf ein anderes Fenster oder die oberste Seite zielt (`target="_top"`, `_blank` oder ein `<base target>`), navigiert nie, da die Vorschau sich selbst nicht verlassen kann. Die Erkennung liest die Tags der Seite nur näherungsweise; sie kennzeichnet Befunde und entscheidet nie, was ausgeführt wird — das tut die Sandbox.
 
-Die formale Sicherheitsfreigabe für diese Vorschau steht noch aus, und die Vorschau weist in einem Hinweis über der gerenderten Seite darauf hin: **Die HTML-Vorschau ist isoliert, die OWASP-Freigabe steht jedoch noch aus.** Die drei oben genannten Schichten sind vorhanden; der noch offene Schritt ist, sie in der Webview der laufenden App gegen die OWASP-XSS-Payloads zu bestätigen.
+Die formale Sicherheitsfreigabe für diese Vorschau steht noch aus, und die Vorschau weist in einem Hinweis über der gerenderten Seite darauf hin: **Die HTML-Vorschau ist isoliert. Ihre Sicherheitsprüfung ist noch nicht abgeschlossen.** Die drei oben genannten Schichten sind vorhanden; der noch offene Schritt ist, sie in der Webview der laufenden App gegen die OWASP-XSS-Payloads zu bestätigen.
 
 ### Vertrauenswürdige HTML-Vorschau (Opt-in)
 
