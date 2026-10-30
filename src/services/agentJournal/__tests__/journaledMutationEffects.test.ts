@@ -139,7 +139,10 @@ describe("runJournaledMutation — the effects hook", () => {
     // Timers only: the prepare's payload digest is real async work the clock must not outrun.
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "performance"] });
     const pending = runJournaledMutation(mutation({ effects: () => new Promise<CommitExtras>(() => {}) }));
-    for (let i = 0; i < 1000 && content() !== "after"; i += 1) await new Promise((r) => setImmediate(r));
+    // Bounded by wall time, not a turn count: a loaded runner spins 1000 turns
+    // before the digest lands. Date and setImmediate are not faked here.
+    const until = Date.now() + 5000;
+    while (content() !== "after" && Date.now() < until) await new Promise((r) => setImmediate(r));
     expect(content()).toBe("after");
     await vi.advanceTimersByTimeAsync(EFFECTS_DEADLINE_MS - 1);
     expect(ops()).toEqual(["prepare"]);
