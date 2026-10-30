@@ -7,9 +7,15 @@ fn win(label: &str, workspace: Option<&str>, focused: bool) -> WindowCandidate {
         label: label.into(),
         workspace: workspace.map(str::to_string),
         focused,
+        last_focused: false,
         is_document: label == "main" || label.starts_with("doc-"),
         tabs: Vec::new(),
     }
+}
+
+fn last_focused(mut window: WindowCandidate) -> WindowCandidate {
+    window.last_focused = true;
+    window
 }
 
 fn holding(mut window: WindowCandidate, tabs: &[&str]) -> WindowCandidate {
@@ -193,6 +199,38 @@ fn workspaceless_request_falls_back_to_focused_then_main() {
     // Nothing focused → main.
     let none_focused = vec![win("main", None, false), win("doc-0", None, false)];
     assert_eq!(pick_target_window(None, &none_focused).unwrap(), "main");
+}
+
+/// #1612: the user typing in an MCP client's terminal leaves NO VMark window
+/// focused. A workspace-less request then belongs to the document window the
+/// user last worked in, not to `main` by default — focus still wins over it.
+#[test]
+fn nothing_focused_routes_to_the_last_focused_document_window() {
+    let cands = vec![
+        win("main", None, false),
+        last_focused(win("doc-8", None, false)),
+    ];
+    assert_eq!(pick_target_window(None, &cands).unwrap(), "doc-8");
+    assert_eq!(
+        pick_target_window_for(&serde_json::json!({}), &cands).unwrap(),
+        "doc-8"
+    );
+
+    let focused_elsewhere = vec![
+        win("main", None, true),
+        last_focused(win("doc-8", None, false)),
+    ];
+    assert_eq!(
+        pick_target_window(None, &focused_elsewhere).unwrap(),
+        "main"
+    );
+
+    // A utility window is never a target, even if it were the last focused.
+    let utility = vec![
+        win("main", None, false),
+        last_focused(win("settings", None, false)),
+    ];
+    assert_eq!(pick_target_window(None, &utility).unwrap(), "main");
 }
 
 #[test]

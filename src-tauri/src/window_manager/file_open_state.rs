@@ -140,6 +140,14 @@ impl FileOpenState {
         }
     }
 
+    /// The most recently focused, listener-ready document window, if it is
+    /// still open. MCP routing falls back to it when no VMark window holds
+    /// focus — the user is typing in their AI client — so a request without
+    /// a tab lands in the window the user last worked in, not in `main`.
+    pub fn last_focused_document_window(&self) -> Option<&str> {
+        self.last_focused_document_window.as_deref()
+    }
+
     /// Remove a destroyed window from the focus history. When it was the
     /// queue's owner, nothing is booting any more: the next open must bring a
     /// new `main` up rather than wait for this one.
