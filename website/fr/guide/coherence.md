@@ -1,4 +1,4 @@
-# Cohérence et la vue Détail
+# Cohérence et Détail de cohérence
 
 La couche de cohérence de VMark garde honnêtes les projets d'écriture
 développés récursivement&nbsp;: elle enregistre **quels documents chaque
@@ -48,12 +48,12 @@ artefacts aval pourraient désormais être obsolètes. Rien n'est jamais mis
   l'historique reste sans lacune, honnêtement marqué comme de provenance
   inconnue.
 
-## La vue Détail
+## Le panneau Détail de cohérence
 
-Ouvrez-la depuis **Fenêtre → Détail de cohérence** (ou la palette de
-commandes&nbsp;: « Breakdown View »). Elle est strictement en **mode
-pull**&nbsp;: elle se rafraîchit quand vous l'ouvrez ou appuyez sur
-Actualiser — elle ne vous harcèle jamais en arrière-plan.
+Ouvrez-le depuis **Fenêtre → Détail de cohérence** (ou la palette de
+commandes&nbsp;: « Détail de cohérence »). Il est strictement en **mode
+pull**&nbsp;: il se rafraîchit quand vous l'ouvrez ou appuyez sur
+Actualiser — il ne vous harcèle jamais en arrière-plan.
 
 Les éléments sont groupés par artefact (le document aval) et montrent le
 document amont, la révision épinglée et l'état actuel&nbsp;:
@@ -81,7 +81,12 @@ l'historique&nbsp;:
   exemption est volontairement étroite&nbsp;: elle ne s'applique qu'à
   cette arête et à la révision amont précise par rapport à laquelle elle
   est résolue. Les éléments exemptés restent visibles, marqués
-  distinctement, et se rouvrent si l'amont bouge à nouveau.
+  distinctement, et se rouvrent si l'amont bouge à nouveau. Une exemption
+  peut aussi recevoir une expiration facultative — une date (`YYYY-MM-DD`,
+  c'est-à-dire la fin de ce jour en UTC) ou un horodatage complet. Une fois
+  celle-ci passée, l'exemption devient caduque et l'élément se rouvre&nbsp;;
+  une expiration mal formée devient caduque immédiatement, si bien que
+  l'élément ne reste jamais exempté en silence.
 
 Accepter la plus récente et Exempter sont désactivés quand l'amont a
 plusieurs versions actuelles — il n'y a pas de révision unique contre
@@ -183,7 +188,7 @@ contextes sont en mode **serre** par défaut — les verdicts de
 vérification se lisent comme une tension consultative. En basculer un
 en **appliqué** (un acte explicite et confirmé) marque les
 contradictions comme des violations du canon. Le sélecteur de contexte
-de la vue Détail choisit à travers quel contexte vous regardez&nbsp;;
+du panneau Détail choisit à travers quel contexte vous regardez&nbsp;;
 les résultats de vérification sont liés au contexte et à l'instantané
 d'affirmations exacts qui les ont produits et ne fuient jamais de l'un
 à l'autre.

@@ -162,6 +162,7 @@ Platzhalter dargestellt.)
 ## Sicherheit
 
 - Ein Medienpfad darf kein URI-Schema tragen (`javascript:`, `file:` oder ein eigenes); solche Quellen werden abgelehnt statt geladen
-- Ein Pfad, der ein Verzeichnis statt einer Datei bezeichnet, wird abgelehnt
+- Ein relativer Pfad, der ein Verzeichnis bezeichnet (`.`, `..`, `assets/`), wird nicht geladen. Die Video-/Audio-Blöcke lehnen ihn sofort ab. Inline-Bilder geben ihn unverändert zurück, und die Webview löst ihn gegen den App-Ursprung auf, sodass er nie die Festplatte erreicht. Ein Pfad relativ zum Home-Ordner (`~/…`) wird genauso behandelt
+- Absolute Pfade werden durch die Pfadregeln nicht eingeschränkt. Jeder absolute Pfad innerhalb des Asset-Bereichs wird angezeigt: Ihr Home-Ordner, `/Volumes`, `/mnt` und `/media` (unter Windows zusätzlich die Laufwerke `C:`–`F:`) sowie zur Laufzeit freigegebene Ordner. Ein Dokument kann daher jedes lesbare Bild an diesen Orten anzeigen, indem es dessen vollständigen Pfad angibt. Das Einfügen eines Bildes bei ausgeschaltetem **In Assets-Ordner kopieren** schreibt einen solchen absoluten Pfad. Deshalb darf ein relativer Pfad auch `..` verwenden: Er erreicht nichts, was ein absoluter Pfad nicht ohnehin erreichen könnte
 - Video-Einbettungen werden nur von drei Hosts geladen: `www.youtube-nocookie.com` (der datenschutzfreundliche Player von YouTube), `player.vimeo.com` und `player.bilibili.com`. Ein YouTube-Link oder ein iFrame mit `youtube.com` wird über den datenschutzfreundlichen Host eingebettet. Die Content Security Policy von VMark lässt Frames nur von diesen Hosts und von keiner anderen Website zu
 - Andere iFrame-Quellen werden vom Bereiniger entfernt

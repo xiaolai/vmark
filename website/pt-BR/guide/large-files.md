@@ -32,6 +32,7 @@ O que o WYSIWYG faz ao abrir também fica proporcional ao documento:
 - As imagens carregam quando se aproximam da área visível.
 - **Espaçamento entre Letras CJK** (**Configurações → Editor → Tipografia**) não faz nenhum trabalho enquanto está desligado, o padrão, e percorre o documento uma única vez quando está ligado.
 - Decorações como o destaque de código, o espaçamento CJK e as marcações de lint custam aproximadamente de forma linear com o tamanho do documento. Documentos muito longos custavam de forma quadrática.
+- Acima de 100.000 caracteres, o WYSIWYG desliga o corretor ortográfico do sistema para aquele documento, porque a nova verificação após cada edição deixa a digitação lenta. Ele volta a ligar se o documento ficar abaixo desse tamanho. O modo Fonte não é afetado.
 
 ## Indicadores na barra de status
 

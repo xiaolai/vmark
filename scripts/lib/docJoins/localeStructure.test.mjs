@@ -58,12 +58,12 @@ const runOn = (files) => run({ root: site(files), paths: { website: "website" } 
 
 describe("pageShape", () => {
   it("counts headings by level, tables, fences, mermaid and containers, and ignores fenced content", () => {
-    expect(pageShape(PAGE)).toEqual({ headings: [1, 2, 3], tables: 1, fences: 2, mermaid: 1, containers: 1 });
+    expect(pageShape(PAGE)).toEqual({ headings: [1, 2, 3], tables: 1, tableRows: [1], fences: 2, mermaid: 1, containers: 1 });
   });
 
   it("treats a longer fence that shows a shorter one as one opaque block", () => {
     const nested = ["# T", "````markdown", "```mermaid", "flowchart TD", "```", "## not a heading", "````", "## H"].join("\n");
-    expect(pageShape(nested)).toEqual({ headings: [1, 2], tables: 0, fences: 1, mermaid: 0, containers: 0 });
+    expect(pageShape(nested)).toEqual({ headings: [1, 2], tables: 0, tableRows: [], fences: 1, mermaid: 0, containers: 0 });
   });
 
   it("reads CRLF pages the same", () => {
@@ -71,7 +71,7 @@ describe("pageShape", () => {
   });
 
   it("is empty for an empty page", () => {
-    expect(pageShape("")).toEqual({ headings: [], tables: 0, fences: 0, mermaid: 0, containers: 0 });
+    expect(pageShape("")).toEqual({ headings: [], tables: 0, tableRows: [], fences: 0, mermaid: 0, containers: 0 });
   });
 });
 
@@ -92,6 +92,21 @@ describe("compareShapes", () => {
     expect(compareShapes(en, pageShape(PAGE.replace("### Sub", "## Sub")))).toEqual([
       "3 headings, English 3; first difference at heading 3 (level 2, English 3)",
     ]);
+  });
+
+  it("names a table that gained or lost a row, by its position", () => {
+    // A row English added (a new setting, a new image rule) is as much a
+    // missing piece of the page as a missing table.
+    const twoTables = `${PAGE}\n\n| X |\n|---|\n| a |\n| b |\n`;
+    const dropped = twoTables.replace("| b |\n", "");
+    expect(compareShapes(pageShape(twoTables), pageShape(dropped))).toEqual(["table 2 has 1 rows, English 2"]);
+    expect(compareShapes(pageShape(twoTables), pageShape(twoTables.replace("| 1 | 2 |", "| 1 | 2 |\n| 3 | 4 |")))).toEqual([
+      "table 1 has 2 rows, English 1",
+    ]);
+  });
+
+  it("ends a table at its first non-row line", () => {
+    expect(pageShape("| A |\n|---|\n| 1 |\n\nText | with a pipe\n").tableRows).toEqual([1]);
   });
 
   it("names every count that differs", () => {

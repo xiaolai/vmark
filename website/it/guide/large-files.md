@@ -32,6 +32,7 @@ Anche ciò che WYSIWYG fa all'apertura resta proporzionato al documento:
 - Le immagini si caricano quando si avvicinano all'area visibile.
 - **Spaziatura tra Lettere CJK** (**Impostazioni → Editor → Tipografia**) non fa alcun lavoro finché è disattivata, come da impostazione predefinita, e analizza il documento una sola volta quando è attiva.
 - Le decorazioni, come l'evidenziazione del codice, la spaziatura CJK e i segni del lint, costano all'incirca in modo lineare rispetto alla lunghezza del documento. I documenti molto lunghi costavano in modo quadratico.
+- Oltre 100.000 caratteri, WYSIWYG disattiva il controllo ortografico di sistema per quel documento, perché ricontrollare dopo ogni modifica rallenta la digitazione. Si riattiva se il documento torna sotto quella dimensione. La modalità Sorgente non è interessata.
 
 ## Indicazioni nella barra di stato
 

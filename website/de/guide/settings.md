@@ -124,7 +124,7 @@ Die Editor-Breite wird in `em` gemessen, daher hängt die Zeilenlänge in *Zeich
 | Dateien in neuem Tab öffnen | Vorhandene Dateien in einem neuen Tab öffnen, statt den aktuellen leeren Tab wiederzuverwenden | Aus | Ein / Aus |
 | Auto-Pairing aktivieren | Automatisch passende schließende Klammern und Anführungszeichen einfügen, wenn Sie ein öffnendes Zeichen eingeben | Ein | Ein / Aus |
 | CJK-Klammern | CJK-spezifische Klammern wie `「」` `【】` `《》` automatisch pairen. Nur verfügbar, wenn Auto-Pairing aktiviert ist | Auto | Aus, Auto |
-| Typografische Anführungszeichen einschließen | `""` und `''` automatisch pairen. Kann mit einigen IME-Smartquote-Funktionen in Konflikt geraten. Erscheint, wenn CJK-Klammern auf Auto steht | Ein | Ein / Aus |
+| Typografische Anführungszeichen einschließen | `“”` und `‘’` automatisch pairen und ein getipptes gerades `"` oder `'` in ein typografisches Paar umwandeln. Kann mit einigen IME-Smartquote-Funktionen in Konflikt geraten. Erscheint, wenn CJK-Klammern auf Auto steht | Ein | Ein / Aus |
 | Auch `"` pairen | Das Eingeben des rechten doppelten Anführungszeichens `"` fügt ebenfalls ein `""`-Paar ein. Nützlich, wenn Ihr IME zwischen öffnenden und schließenden Anführungszeichen wechselt. Erscheint, wenn typografische Anführungszeichen aktiviert sind | Aus | Ein / Aus |
 | Kopierformat | Welches Format für den reinen Text-Zwischenablageplatz beim Kopieren aus dem WYSIWYG-Modus verwendet wird | Reiner Text | Reiner Text, Markdown |
 | Bei Auswahl kopieren | Text automatisch in die Zwischenablage kopieren, wenn Sie ihn auswählen | Aus | Ein / Aus |
@@ -171,9 +171,9 @@ Einfüge-Verhalten, Layout und HTML-Rendering-Einstellungen.
 |-------------|-------------|---------|---------|
 | Quelle/Vorschau standardmäßig teilen | Markdown-Dateien in der geteilten Ansicht mit Quelltext und Live-Vorschau nebeneinander öffnen (sonst WYSIWYG). Pro Sitzung umschalten mit `Umschalt + F6` oder **Ansicht → Markdown-Splitansicht** | Aus | Ein / Aus |
 | Block-Element-Schriftgröße | Relative Schriftgröße für Listen, Blockzitate, Tabellen, Hinweise und Details-Blöcke | 100% | 100%, 95%, 90%, 85% |
-| Überschriften-Ausrichtung | Textausrichtung für Überschriften | Links | Links, Zentriert |
-| Bild- und Diagramm-Ränder | Ob ein Rand um Bilder, Mermaid-Diagramme und Mathematik-Blöcke angezeigt wird | Keiner | Keiner, Immer, Beim Hover |
-| Bild- und Tabellen-Ausrichtung | Horizontale Ausrichtung für Block-Bilder und Tabellen | Zentriert | Zentriert, Links |
+| Überschriften-Ausrichtung | Textausrichtung für Überschriften. Nur im Editor — gilt nicht für Export oder Druck | Links | Links, Zentriert |
+| Bild- und Diagramm-Ränder | Ob ein Rand um Bilder, Mermaid-Diagramme und Mathematik-Blöcke angezeigt wird. Nur im Editor — gilt nicht für Export oder Druck | Keiner | Keiner, Immer, Beim Hover |
+| Bild- und Tabellen-Ausrichtung | Horizontale Ausrichtung für Block-Bilder und Tabellen. Nur im Editor — gilt nicht für Export oder Druck | Zentriert | Zentriert, Links |
 | Tabellen an Breite anpassen | Alle Tabellen auf die Editorbreite beschränken, statt horizontales Scrollen zu erlauben | Aus | Ein / Aus |
 | Zeilennummern in Codeblöcken | Zeilennummern in Codeblöcken im WYSIWYG-Editor anzeigen. Unabhängig von **Zeilennummern** im Menü Ansicht, das den Rand des Quelltext-/Split-Editors steuert | Aus | Ein / Aus |
 
@@ -288,7 +288,7 @@ Der MCP-Server (Model Context Protocol) ermöglicht externen KI-Assistenten wie 
 |-------------|-------------|---------|
 | MCP-Server aktivieren | MCP-Server starten oder stoppen. Wenn er läuft, zeigt ein Status-Badge den Port und verbundene Clients | Ein (Umschalter) |
 | Beim Start beginnen | Den MCP-Server beim Öffnen von VMark automatisch starten | Ein |
-| Speichern an neuem Ort und Genie-Ergebnisse automatisch genehmigen | Einem MCP-Client erlauben, ein Dokument ohne Rückfrage an einem neuen Ort zu speichern, und ein Genie sein Ergebnis direkt anwenden lassen, statt eine Vorschau anzuzeigen. Wenn aus, wird eine MCP-Anfrage zum Speichern unter einem neuen Pfad abgelehnt, und eine Toast-Meldung informiert Sie. MCP-Schreibvorgänge in Dokumente werden hiervon nie blockiert — für jeden wird ein Wiederherstellungspunkt angelegt, der sich über den Verlauf in der Statusleiste wiederherstellen lässt | Aus |
+| Speichern an neuem Ort und Genie-Ergebnisse automatisch genehmigen | Einem MCP-Client erlauben, ein Dokument ohne Rückfrage an einem neuen Ort zu speichern, und ein Genie sein Ergebnis direkt anwenden lassen, statt eine Vorschau anzuzeigen. Wenn aus, wird eine MCP-Anfrage zum Speichern unter einem neuen Pfad abgelehnt, und eine Toast-Meldung informiert Sie. MCP-Schreibvorgänge in Dokumente werden hiervon nie blockiert — jeder wird im Agenten-Bearbeitungsverlauf festgehalten und lässt sich über den MCP-Schreibverlauf in der Statusleiste wiederherstellen | Aus |
 
 Wenn der Server läuft, zeigt der Bereich auch:
 - **Port** — automatisch zugewiesen; KI-Clients erkennen ihn über die Konfigurationsdatei
@@ -537,7 +537,7 @@ Entwickler- und systemebene Konfiguration.
 
 Die Liste bewirkt zweierlei. Beim Einfügen eines Links wird eine URL in der Zwischenablage mit einem dieser Protokolle als Link erkannt, genau wie `https://`. Und beim Öffnen eines Links übergibt VMark ihn nur dann an Ihr System, wenn sein Protokoll `http`, `https`, `mailto` ist oder in dieser Liste steht — so öffnen sich Links wie `obsidian://open?vault=...` und `vscode://file/...` in ihren Apps, während jedes andere Protokoll abgelehnt wird. Einige Protokolle lassen sich auf diesem Weg nie freischalten, egal was die Liste enthält: `javascript:`, `data:`, `file:` und ähnliche.
 
-Die vier Standardwerte sind immer enthalten: Das Entfernen eines davon gilt nur bis zum nächsten Neustart von VMark.
+Ein entfernter Standardwert bleibt entfernt. Ein Standardprotokoll, das in einer späteren VMark-Version hinzukommt, wird beim ersten Start dieser Version einmalig zu Ihrer Liste hinzugefügt.
 
 ### Leistung
 

@@ -24,7 +24,7 @@ Os provedores CLI usam ferramentas de IA instaladas localmente. O VMark as execu
 | Gemini | `gemini` | [Google Gemini CLI](https://github.com/google-gemini/gemini-cli) |
 ### Como Funciona a Detecção de CLI
 
-Clique em **Detectar** em Configurações > Integrações. O VMark pesquisa seu `$PATH` para cada comando CLI e informa a disponibilidade. Se um CLI for encontrado, seu botão de rádio fica selecionável.
+Clique em **Detectar** em Configurações > Integrações. O VMark pesquisa seu `$PATH` para cada comando CLI e informa a disponibilidade. Se um CLI for encontrado, seu botão de rádio fica selecionável. **Detectar** faz uma nova varredura a cada clique; a detecção automática (ao iniciar o app, ao abrir as Configurações e no seletor de provedor do seletor de gênios) reaproveita a última varredura. A varredura usa o `$PATH` que o VMark leu do seu shell de login ao iniciar, então um CLI instalado em um diretório recém-adicionado ao `$PATH` exige reiniciar o VMark antes que **Detectar** consiga encontrá-lo.
 
 ### Vantagens
 

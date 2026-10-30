@@ -19,6 +19,8 @@ La [barra de espacios de trabajo](/es/guide/workspace-rail) experimental permite
 
 Cuando abres un espacio de trabajo, VMark muestra la barra lateral con el explorador de archivos. Si el espacio de trabajo fue abierto anteriormente, las pestañas abiertas previamente se restauran.
 
+En Windows y Linux, una carpeta pasada en la línea de comandos (`vmark C:\notes` o `vmark ~/notes`) se abre como espacio de trabajo en su propia ventana, igual que al soltar una carpeta sobre el icono del Dock en macOS. Esto también funciona cuando VMark ya está en ejecución.
+
 ::: tip
 Si la ventana actual tiene cambios sin guardar, VMark ofrece abrir el espacio de trabajo en una nueva ventana en lugar de reemplazar tu trabajo.
 :::
@@ -131,7 +133,7 @@ Sin un espacio de trabajo, la Apertura Rápida sigue funcionando — muestra los
 
 ## Búsqueda de Contenido en el Espacio de Trabajo
 
-Cuando hay un espacio de trabajo abierto, VMark puede buscar a través del **contenido de los archivos** (no solo nombres de archivo) coincidencias en archivos markdown y de texto.
+Cuando hay un espacio de trabajo abierto, VMark puede buscar a través del **contenido de los archivos** (no solo nombres de archivo). De forma predeterminada busca en los tipos de archivo que VMark abre (Markdown, texto plano, YAML y JSON/TOML/Mermaid/SVG/HTML cuando su compatibilidad de formato está activada). Desactiva el conmutador **.md** (**Solo tipos de archivo compatibles**) para buscar en todos los archivos de texto (los binarios siempre se omiten).
 
 | Acción | Atajo |
 |---|---|

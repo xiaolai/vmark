@@ -32,6 +32,7 @@ Ce que fait le WYSIWYG à l'ouverture reste aussi proportionné au document&nbsp
 - Les images se chargent à l'approche de la zone visible.
 - **Espacement des lettres CJK** (**Paramètres → Éditeur → Typographie**) ne fait aucun travail tant qu'il est désactivé, sa valeur par défaut, et parcourt le document une seule fois lorsqu'il est activé.
 - Les décorations, comme la coloration du code, l'espacement CJK et les marques de lint, coûtent à peu près linéairement selon la longueur du document. Les très longs documents coûtaient auparavant de façon quadratique.
+- Au-delà de 100 000 caractères, le mode WYSIWYG désactive le correcteur orthographique du système pour ce document, car la nouvelle vérification après chaque modification ralentit la frappe. Il se réactive si le document repasse sous cette taille. Le mode Source n'est pas concerné.
 
 ## Indications dans la barre d'état
 

@@ -1,8 +1,11 @@
 /**
  * Purpose: join every translated guide page to its English page by structure
- *   — the same headings at the same levels in the same order, and the same
- *   number of tables, fenced code blocks, Mermaid diagrams and `:::`
- *   containers (WI-RA15C.10).
+ *   — the same headings at the same levels in the same order, the same
+ *   number of tables with the same number of body rows each, and the same
+ *   number of fenced code blocks, Mermaid diagrams and `:::` containers
+ *   (WI-RA15C.10). Rows are compared because a row English adds to an
+ *   existing table (a new setting, a new rule) is as much a missing piece of
+ *   the page as a missing table, and counting tables alone let it pass.
  *
  * The translations had drifted silently: whole sections missing in every
  * locale, sections English had deleted still present, a table English added
@@ -31,14 +34,18 @@ export const id = "locale-structure";
 export const DEFAULT_PATHS = { website: "website" };
 
 /**
- * The structural shape of one page: heading levels in order, and the counts
- * of tables, fences, Mermaid fences and `:::` containers. Fenced content is
+ * The structural shape of one page: heading levels in order, the body-row
+ * count of each table in order, and the counts of tables, fences, Mermaid
+ * fences and `:::` containers. A table runs from its delimiter row to the
+ * first blank line or line without a `|`. Fenced content is
  * opaque, so a `#` or a `|` inside a code block counts for nothing — and a
  * four-backtick fence that shows a three-backtick example is ONE fence.
  */
 export function pageShape(markdown) {
   const headings = [];
   let tables = 0;
+  const tableRows = [];
+  let inTable = false;
   let fences = 0;
   let mermaid = 0;
   let containers = 0;
@@ -51,6 +58,13 @@ export function pageShape(markdown) {
       if (/^\s*mermaid\b/.test(open[2])) mermaid++;
       continue;
     }
+    if (inTable) {
+      if (line.trim() !== "" && line.includes("|")) {
+        tableRows[tableRows.length - 1]++;
+        continue;
+      }
+      inTable = false;
+    }
     if (fence !== null) {
       // CommonMark: a closing fence uses the opening character, at least as many.
       if (new RegExp(`^\\s*\\${fence[0]}{${fence.length},}\\s*$`).test(line)) fence = null;
@@ -58,10 +72,14 @@ export function pageShape(markdown) {
     }
     const h = /^(#{1,6})\s+\S/.exec(line);
     if (h) headings.push(h[1].length);
-    if (/^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?\s*$/.test(line) && line.includes("|")) tables++;
+    if (/^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?\s*$/.test(line) && line.includes("|")) {
+      tables++;
+      tableRows.push(0);
+      inTable = true;
+    }
     if (/^:::\s*\w/.test(line)) containers++;
   }
-  return { headings, tables, fences, mermaid, containers };
+  return { headings, tables, tableRows, fences, mermaid, containers };
 }
 
 /** Sentences describing how `local` differs from `english`; [] when they match. */
@@ -76,6 +94,13 @@ export function compareShapes(english, local) {
   }
   for (const key of ["tables", "fences", "mermaid", "containers"]) {
     if (english[key] !== local[key]) out.push(`${local[key]} ${key}, English ${english[key]}`);
+  }
+  // Rows are compared only when the tables line up; otherwise the count
+  // finding above already names the drift and positions would be misleading.
+  if (english.tables === local.tables) {
+    english.tableRows.forEach((rows, i) => {
+      if (local.tableRows[i] !== rows) out.push(`table ${i + 1} has ${local.tableRows[i]} rows, English ${rows}`);
+    });
   }
   return out;
 }

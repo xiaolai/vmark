@@ -15,7 +15,7 @@ The workspace rail lets one window hold **several workspaces at once**, shown as
 | Split panes | Each workspace remembers its own split layout |
 | Outline | Per-tab collapse/filter/scroll state follows the workspace |
 | Next/previous tab, tab context menu, Quick Open "open tabs" | Scoped to the active workspace |
-| Reopen Closed Tab | Closed tabs are recorded per workspace (plus one shared browser scope) and reopened most-recent-first from **File → Reopen Closed Tab**, the command palette, or a shortcut you assign in Settings → Shortcuts (it ships unassigned: the nearby chords are taken) |
+| Reopen Closed Tab | Closed tabs are recorded per workspace (plus one shared browser scope) and reopened most-recent-first from **File → Reopen Closed Tab**, the command palette, or a shortcut you assign in Settings → Shortcuts (it ships unassigned: the nearby chords are taken). A reopened document is read again from disk, so it shows the file as it is now; if the file was moved or deleted, the tab is not restored and a notice says why. An untitled tab reopens empty. Unsaved edits are not recovered — closing a dirty tab already asked whether to save |
 | **Browser pages** | **Window-global** — reachable from every workspace |
 | Recent Files / Recent Workspaces menus | Global |
 | Autosave, save prompts, file watching | Cover **every** tab, hidden or not |

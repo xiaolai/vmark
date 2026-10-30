@@ -38,7 +38,7 @@ export const ptBR = {
           "workspace-rail": "Barra de espaços de trabalho",
           "cjk-formatting": "Formatação CJK",
           "ai-genies": "AI Genies",
-          "coherence": "Coerência e visão de detalhamento",
+          "coherence": "Detalhamento de coerência",
           "workflows": "Workflows de Genie",
           "workflow-genies": "Genies de Workflow",
           "ai-providers": "Provedores de IA",

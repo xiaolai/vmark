@@ -162,6 +162,7 @@ placeholders.)
 ## Security
 
 - A media path may not carry a URI scheme (`javascript:`, `file:`, or a custom one); such sources are refused rather than loaded
-- A path that names a directory rather than a file is refused
+- A relative path that names a directory (`.`, `..`, `assets/`) is not loaded. The video/audio blocks refuse it outright. Inline images hand it back unchanged, and the webview resolves it against the app origin, so it never reaches the disk. A home-relative path (`~/…`) is treated the same way
+- Absolute paths are not restricted by the path rules. Any absolute path inside the asset scope is displayed: your home folder, `/Volumes`, `/mnt` and `/media` (plus drives `C:`–`F:` on Windows), and folders granted at runtime. A document can therefore show any readable image in those places by writing its full path. Pasting an image with **Copy to assets folder** off writes such an absolute path. This is also why a relative path may use `..`: it reaches nothing an absolute path could not already reach
 - Video embeds load from three hosts only: `www.youtube-nocookie.com` (YouTube's privacy-enhanced player), `player.vimeo.com`, and `player.bilibili.com`. A YouTube link, or an iframe written with `youtube.com`, is embedded through the privacy-enhanced host. VMark's content security policy lets a frame load from these hosts and from no other site
 - Other iframe sources are stripped by the sanitizer

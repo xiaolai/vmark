@@ -178,7 +178,7 @@ VMark는 빠른 모드 전환을 위해 기능 키 (F2–F10)를 사용합니다
 | 히스토리 토글 | `Ctrl + Shift + 3` |
 | 지식 베이스 토글 | `Ctrl + Shift + 4` |
 | 창 상태 토글 | `Ctrl + Shift + 5` |
-| 줄 번호 토글 (코드 블록) | `Alt + Mod + L` |
+| 줄 번호 토글 (소스/분할 거터) | `Alt + Mod + L` |
 | 터미널 토글 | Ctrl + `` ` `` |
 | 터미널 또는 에디터에 포커스 | Ctrl + Shift + `` ` `` (Windows/Linux에서는 Alt + Shift + `` ` ``) |
 | 다이어그램 미리보기 토글 | `Alt + Mod + P` |

@@ -162,6 +162,7 @@ marcadores de posición rotos.)
 ## Seguridad
 
 - Una ruta multimedia no puede llevar un esquema de URI (`javascript:`, `file:` o uno personalizado); esas fuentes se rechazan en lugar de cargarse
-- Una ruta que nombra un directorio en lugar de un archivo se rechaza
+- Una ruta relativa que nombra un directorio (`.`, `..`, `assets/`) no se carga. Los bloques de vídeo/audio la rechazan directamente. Las imágenes en línea la devuelven sin cambios, y la webview la resuelve contra el origen de la app, así que nunca llega al disco. Una ruta relativa a la carpeta personal (`~/…`) se trata igual
+- Las rutas absolutas no están restringidas por las reglas de rutas. Se muestra cualquier ruta absoluta dentro del ámbito de recursos: tu carpeta personal, `/Volumes`, `/mnt` y `/media` (más las unidades `C:`–`F:` en Windows) y las carpetas concedidas en tiempo de ejecución. Por tanto, un documento puede mostrar cualquier imagen legible de esos lugares escribiendo su ruta completa. Pegar una imagen con **Copiar a la carpeta de recursos** desactivado escribe una ruta absoluta de ese tipo. Por eso una ruta relativa también puede usar `..`: no alcanza nada que una ruta absoluta no pudiera alcanzar ya
 - Los embeds de vídeo se cargan solo desde tres hosts: `www.youtube-nocookie.com` (el reproductor de privacidad mejorada de YouTube), `player.vimeo.com` y `player.bilibili.com`. Un enlace de YouTube, o un iframe escrito con `youtube.com`, se inserta a través del host de privacidad mejorada. La política de seguridad de contenido de VMark permite cargar marcos desde estos hosts y desde ningún otro sitio
 - Otras fuentes de iframe son eliminadas por el saneador

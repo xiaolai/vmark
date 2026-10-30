@@ -2,7 +2,7 @@
 vmark:
   id: 019f758c-54ef-7043-93c8-921bc58c4c18
 ---
-# Coherence & the Breakdown View
+# Coherence & the Coherence Breakdown
 
 VMark's coherence layer keeps recursively developed writing projects
 honest: it records **which documents each AI generation actually read**,
@@ -43,10 +43,10 @@ Nothing is ever auto-updated; you stay the editor-in-chief.
   scan as *observed external edits* — history stays gap-free, honestly
   marked as unknown-provenance.
 
-## The Breakdown view
+## The Coherence Breakdown panel
 
 Open it from **Window → Coherence Breakdown** (or the command palette:
-"Breakdown View"). It is strictly **pull-based**: it refreshes when you
+"Coherence Breakdown"). It is strictly **pull-based**: it refreshes when you
 open it or press refresh — it never nags in the background.
 
 Items are grouped by artifact (the downstream document) and show the
@@ -71,7 +71,11 @@ Each item offers three honest actions — none of them rewrites history:
   version retires the old edge.
 - **Waive** — records an intentional divergence with a **required
   reason** (unreliable narrators exist). In v0, a waiver is intentionally narrow: it applies only to this edge and the specific upstream revision it resolves against. Waived items stay visible,
-  marked distinctly, and reopen if the upstream moves again.
+  marked distinctly, and reopen if the upstream moves again. A waiver can
+  also take an optional expiry — a date (`YYYY-MM-DD`, meaning the end of
+  that day UTC) or a full timestamp. Once it passes, the waiver lapses and
+  the item reopens; a malformed expiry lapses at once, so the item never
+  stays silently waived.
 
 Accept-newer and waive are disabled when the upstream has multiple
 current versions — there is no single revision to resolve against;

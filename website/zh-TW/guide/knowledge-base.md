@@ -11,7 +11,7 @@ VMark 可以將整個工作區作為可瀏覽、交叉連結的知識庫提供�
 知識庫、其關係圖、搜尋、即時重新載入與 Slidev 預覽，全都在同一個本機內容伺服器上執行 — 這是一個獨立的 Node.js 程式，由 VMark 在需要時啟動。它啟動前必須具備兩樣東西：
 
 - **Node.js。** VMark 會透過登入 shell 的 `PATH` 解析 `node`，就像終端機一樣；因此只有專案本地工具才看得到的 Node.js 不算數。請將它安裝到登入 shell 的 `PATH` 中找得到 `node` 的位置。
-- **內容伺服器本身**（VMark 儲存庫中的 `server/content`，建置為 `cli.js`）。**目前沒有任何封裝好的 VMark 版本包含它 — 所有平台皆然。** 這不是 Linux 或 Windows 特有的缺口：macOS 的 DMG 同樣不附帶內容伺服器執行環境，而 VMark 的發行檢查會在每次發行時確認這一點。在發行方案確定之前，此功能需要開發環境 — 一份已建置內容伺服器的 VMark 原始碼，並透過 `VMARK_CONTENT_SERVER_CLI` 環境變數提供（或在 VMark 的應用程式資料中佈建 `base-kb` 執行環境）。
+- **內容伺服器本身**（VMark 儲存庫中的 `server/content`，建置為 `cli.js`）。**目前沒有任何封裝好的 VMark 版本包含它 — 所有平台皆然。** 這不是 Linux 或 Windows 特有的缺口：macOS 的 DMG 同樣不附帶內容伺服器執行環境，而 VMark 的發行檢查會在每次發行時確認這一點。在發行方案確定之前，此功能需要開發環境 — 一份已建置內容伺服器的 VMark 原始碼，並透過 `VMARK_CONTENT_SERVER_CLI` 環境變數提供（或手動放進 VMark 應用程式資料中的 `base-kb` 執行環境；VMark 絕不會自行下載）。
 
 面板開啟時會檢查這兩項。缺少任何一項時，它會告訴你缺的是哪一項、要如何取得，而不是嘗試一次注定失敗的啟動。
 
@@ -45,6 +45,8 @@ VMark 可以將整個工作區作為可瀏覽、交叉連結的知識庫提供�
 ### 匯出
 
 Slidev 簡報可匯出為 **PDF**、**PNG** 或 **PPTX**。內容伺服器會執行 Slidev 自己的 `slidev export` 指令，透過 `playwright-chromium` 套件在 Chromium 中算繪投影片。VMark 不會為它下載或尋找瀏覽器：如果內容伺服器的執行環境中沒有在 Slidev 旁安裝 `playwright-chromium`，匯出就會失敗並顯示 Slidev 的錯誤訊息。執行超過三分鐘的匯出會被停止。
+
+**匯出投影片** 會以 VMark 的原生儲存面板詢問儲存位置，匯出只會寫入你在那裡選定的路徑；副檔名必須與格式相符（`.pdf`、`.png`、`.pptx`）。
 
 ## 隱私與安全
 

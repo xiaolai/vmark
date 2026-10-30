@@ -308,7 +308,7 @@ Renderize SVG bruto inline via blocos de código ` ```svg `:
 
 ### Sumário Inline
 
-Digite `[TOC]` sozinho em uma linha, ou escolha **Inserir → Sumário**, para inserir um sumário dinâmico (o item de menu não tem atalho padrão; atribua um em Configurações → Atalhos):
+Escolha **Inserir → Sumário** para inserir na hora um sumário dinâmico em qualquer um dos modos (o item de menu não tem atalho padrão; atribua um em Configurações → Atalhos). Você também pode escrever `[TOC]` sozinho em uma linha: no modo Fonte essa linha é o sumário, enquanto no WYSIWYG um `[TOC]` digitado continua como texto simples até o documento ser analisado de novo — por exemplo, depois de alternar para o modo Fonte e voltar, ou de reabrir o arquivo. Um `[TOC]` no meio de outro texto nunca é convertido:
 
 - Gerado automaticamente a partir dos títulos do documento, com o aninhamento correto
 - Clique em qualquer título para rolar diretamente até ele
@@ -456,7 +456,7 @@ O VMark salva automaticamente snapshots dos seus documentos para que você possa
 - **Exclua** snapshots individuais que você não precisa mais com o botão de lixeira
 - O conteúdo atual é salvo como novo snapshot antes de qualquer reversão, então você nunca perde seu trabalho
 - O histórico requer que o documento esteja salvo em um arquivo (documentos sem título não têm histórico)
-- Ative ou desative o rastreamento de histórico em **Configurações > Geral**
+- Ative ou desative o rastreamento de histórico em **Configurações → Arquivos e imagens → Salvamento** (**Manter histórico do documento**)
 
 ## Recuperação de Sessão (Hot Exit)
 
@@ -560,6 +560,8 @@ O VMark inclui utilitários para limpeza e formatação de texto, disponíveis n
 - **Remover Espaços no Fim**: Remover espaços em branco ao final das linhas
 - **Recolher Linhas em Branco**: Reduzir múltiplas linhas em branco para uma única
 
+**Remover Espaços no Fim** e **Recolher Linhas em Branco** não mexem em blocos de código cercados, inclusive em uma cerca não fechada, que vai até o fim do documento. Blocos de código indentados não são protegidos.
+
 ### Formatação CJK (Formatar → CJK)
 
 Ferramentas de formatação de texto em Chinês/Japonês/Coreano integradas. [Saiba mais →](/pt-BR/guide/cjk-formatting)
@@ -593,7 +595,7 @@ O VMark verifica atualizações automaticamente e pode baixar e instalar dentro 
 
 ## Coerência, Base de Conhecimento e Slidev
 
-- **Coerência e visão de Detalhamento** — o rastreamento de proveniência, opcional, registra quais documentos cada geração de IA leu, sinaliza documentos derivados quando um documento de origem muda e acrescenta verificações semânticas, afirmações canônicas e contextos. Abra-o em **Janela → Detalhamento de coerência**. [Saiba mais →](/pt-BR/guide/coherence)
+- **Coerência e o painel Detalhamento de coerência** — o rastreamento de proveniência, opcional, registra quais documentos cada geração de IA leu, sinaliza documentos derivados quando um documento de origem muda e acrescenta verificações semânticas, afirmações canônicas e contextos. Abra-o em **Janela → Detalhamento de coerência**. [Saiba mais →](/pt-BR/guide/coherence)
 - **Base de conhecimento** — serve uma área de trabalho aberta como um site com links cruzados (links wiki, backlinks, grafo de relações, pesquisa de texto completo) em `127.0.0.1`, em um painel (`Ctrl + Shift + 4`) ou no seu navegador, e pré-visualiza e exporta apresentações Slidev. Nenhuma versão de lançamento inclui ainda o runtime do servidor de conteúdo de que ela precisa, por isso o painel, seu item de menu, o comando da paleta e o atalho ficam ocultos, a menos que **Configurações → Avançado → Ferramentas de desenvolvedor** esteja ativado. [Saiba mais →](/pt-BR/guide/knowledge-base)
 
 ## Personalização

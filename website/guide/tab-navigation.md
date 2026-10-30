@@ -282,7 +282,7 @@ Tab escape behavior can be customized in **Settings → Editor**:
 |---------|--------|
 | **Auto-pair Brackets** | Enable/disable bracket pairing and Tab escape |
 | **CJK Brackets** | Include CJK bracket pairs |
-| **Curly Quotes** | Include curly quote pairs (`""` `''`) |
+| **Curly Quotes** | Include curly quote pairs (`“”` `‘’`); a typed straight quote becomes a curly pair |
 
 ::: tip
 If Tab escape conflicts with your workflow, you can disable auto-pair brackets entirely. Tab will then insert spaces (or indent in lists/tables) as normal.

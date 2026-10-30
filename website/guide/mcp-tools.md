@@ -148,7 +148,7 @@ targeting needs request routing that does not exist yet.
 **Approval flow.** The first call returns `{needsApproval: true}` and raises a
 consent dialog naming the *canonical* folder path (symlinks resolved). The
 assistant should ask the user, then **retry the same call**; once the user
-approves, the retry opens the folder. A denied request keeps failing until it is
+approves, the retry opens the folder. The approval belongs to the connection that asked for it: only a retry from the same MCP connection can use it. Another connected assistant gets its own prompt, and a client that reconnected (a new connection) must be approved again. The approval also expires if it is not used within five minutes. A denied request keeps failing until it is
 re-approved. There is no "remember" option — each open is approved individually.
 
 **Folder access.** Approving the dialog does not by itself let VMark read a folder outside the places it can always read (your home folder and mounted volumes). For such a folder, the approved retry opens VMark's folder picker at that folder and returns `APPROVAL_REQUIRED`, asking the user to choose it there; once they do, the next retry opens it. If another folder dialog is already open, nothing is shown and the reply is `BUSY` — the approval is kept, so retry once the user has closed that dialog. `BUSY` is also the reply while a workspace switch is already running in that window.
@@ -269,7 +269,7 @@ If `expected_revision` is supplied and the document has changed since that read,
 { "error": "STALE", "message": "Document has changed since the last read", "current_revision": "rev-currentNow" }
 ```
 
-While the user is composing text with an input method (IME) in the WYSIWYG editor showing the tab, the write is refused with `BUSY` and nothing changes: the text being composed belongs to the input method until it is committed. Retry shortly. In Source mode the write is accepted, and the editor shows it once the composition ends.
+While the user is composing text with an input method (IME) in the editor showing the tab, in WYSIWYG or Source mode, the write is refused with `BUSY` and nothing changes: the text being composed belongs to the input method until it is committed. A Source editor is also treated as composing for a short grace period just after the composition ends. Retry shortly.
 
 Every write is recorded in VMark's agent edit journal before anything changes. The success response carries `applied: true` and `durable`: `durable: false` means the content was written but its journal record could not be stored yet — VMark retries it in the background, and until it lands the next write to that document is refused with `JOURNAL_DEGRADED`. If the journal refuses the record outright, the write stays applied, it is logged as unrecorded, and the next write goes ahead. A write is refused, changing nothing, with `JOURNAL_BUSY` while another write to the same document is being recorded (two windows showing one file share one document), with `STALE_PARENT` when another window wrote the document after this tab last did (re-read and retry), with `JOURNAL_UNAVAILABLE` when the journal is not running or does not answer in time, and with `INVALID_TEXT` when `content` holds a lone UTF-16 surrogate. If the user edits the document, closes the tab, starts composing with an input method, or moves the selection (or switches tabs, when no `tabId` was given) while the write is being recorded, the write is refused with `ABORTED` and a `reason` (`edited`, `closed`, `composing`, `selection`) and nothing changes; re-read and retry. An `INTERNAL` error that carries `applied: true` is different: the editor failed after the write had changed the document, and the text it then held was recorded (`durable` as above, `current_revision` the document's revision) — re-read before writing again. An `INTERNAL` error without `applied` after a failed write means the document may be partly changed; re-read it too.
 
@@ -286,7 +286,7 @@ Apply a deterministic rewrite. Currently supports CJK-specific transforms (full-
 
 `cjk-format` applies the user's CJK formatting settings end-to-end. `cjk-spacing` inserts single spaces between CJK characters and adjacent Latin/digits. `cjk-punctuation` converts ASCII punctuation that sits beside CJK characters to its full-width form.
 
-Returns `{revision, applied, durable}`. Like `write`, it is refused with `BUSY`, changing nothing, while the user is composing with an input method in the WYSIWYG editor showing the tab. Like `write`, it is recorded in VMark's agent edit journal before anything changes: `applied`, `durable` and the journal refusals (`JOURNAL_BUSY`, `STALE_PARENT`, `JOURNAL_DEGRADED`, `JOURNAL_UNAVAILABLE`, `INVALID_TEXT`, `ABORTED`) mean the same; a call that changes nothing is not recorded.
+Returns `{revision, applied, durable}`. Like `write`, it is refused with `BUSY`, changing nothing, while the user is composing with an input method in the editor showing the tab, in WYSIWYG or Source mode. Like `write`, it is recorded in VMark's agent edit journal before anything changes: `applied`, `durable` and the journal refusals (`JOURNAL_BUSY`, `STALE_PARENT`, `JOURNAL_DEGRADED`, `JOURNAL_UNAVAILABLE`, `INVALID_TEXT`, `ABORTED`) mean the same; a call that changes nothing is not recorded.
 
 ---
 
@@ -807,7 +807,7 @@ The breakdown: every live dependency edge whose upstream has moved. Runs a scan-
 | `downstream` / `downstream_path` / `downstream_rev` | The derived object, its path, and its current revision. |
 | `state` | `"version-stale"`, `"stale-valid"`, `"stale-contradicted"`, `"stale-unknown"`, `"waived"`, `"diverged"`, `"diverged-multi-head"`, or `"unpinnable"`. |
 
-Resolving an edge (accept-newer / waive) is normally a human action performed in VMark's breakdown view. An AI can do it only through [`coherence_resolve`](#coherence-resolve), and only when the workspace owner has explicitly delegated that to it.
+Resolving an edge (accept-newer / waive) is normally a human action performed in VMark's Coherence Breakdown panel. An AI can do it only through [`coherence_resolve`](#coherence-resolve), and only when the workspace owner has explicitly delegated that to it.
 
 ---
 
@@ -825,9 +825,10 @@ Arguments: `{workspace_root, txf, input, resolution: "accept-newer" | "waive", r
 
 Resolve a live stale edge as an explicitly delegated agent. Authorization is **fail-closed**:
 the workspace owner must have granted **your authenticated bridge identity** a live,
-unexpired delegation covering the resolution kind (granted in-app, from the Breakdown), and
+unexpired delegation covering the resolution kind (granted in-app, from the Coherence Breakdown panel), and
 the edge must still be live. Every delegated resolution is audit-logged against the grant,
-and the entry cannot be undone.
+and the entry cannot be undone. `coherence_resolve` cannot set an expiry, so an AI's waiver never
+lapses on its own.
 
 A refusal means the grant is missing or expired — ask the user to grant it rather than
 retrying. Splitting this out of `coherence` changed no security property: authorization has

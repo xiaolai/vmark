@@ -68,6 +68,8 @@ La navegación entre prompts (`Mod + ↑` / `Mod + ↓`) requiere la integració
 
 **Linux:** `Ctrl` + una letra va al shell, así que las teclas de readline como `Ctrl + A`, `Ctrl + E`, `Ctrl + K`, `Ctrl + F`, `Ctrl + U` y `Ctrl + W` funcionan como en cualquier terminal de Linux. Los atajos de letra propios de la terminal pasan a `Ctrl + Shift`: `Ctrl + Shift + F` busca, `Ctrl + Shift + K` limpia, `Ctrl + Shift + A` selecciona todo, y `Ctrl + Shift + C` / `Ctrl + Shift + V` copian y pegan. `Ctrl + C` sigue copiando una selección (si no la hay, envía SIGINT) y `Ctrl + V` sigue pegando; `Ctrl + Insert` / `Shift + Insert` también copian y pegan.
 
+**Mantener pulsado para acentos (macOS).** Mantener pulsada una tecla de letra abre el selector de acentos de macOS. Para entonces la letra simple ya se ha enviado al shell, así que cuando eliges un acento VMark envía un retroceso (DEL) seguido del carácter acentuado. En un programa que no trate DEL como borrar el carácter anterior, puede que veas que la letra original se queda.
+
 ::: tip
 `Mod + C` sin una selección de texto envía SIGINT al proceso en ejecución — igual que presionar Ctrl+C en un terminal normal.
 :::
@@ -196,7 +198,7 @@ Salvo que elijas un shell en la configuración del terminal, VMark inicia tu she
 
 Los atajos de shell estándar como `Ctrl+R` (búsqueda inversa del historial en zsh/bash) funcionan cuando el terminal está enfocado — el editor no los intercepta.
 
-Cuando la raíz del espacio de trabajo cambia después de que el terminal ya está en ejecución, las sesiones inactivas cambian automáticamente su directorio a la nueva raíz mediante `cd`. Una sesión ocupada con un comando (por ejemplo, `vim` o `less`) no se interrumpe: cambia de directorio cuando el comando termina, lo que requiere la [integración con el shell](#integracion-con-el-shell) para detectarlo. Con la [barra de espacios de trabajo](/es/guide/workspace-rail) activada, las sesiones que pertenecen a un espacio de trabajo conservan su propio directorio.
+Cuando la raíz del espacio de trabajo cambia después de que el terminal ya está en ejecución, las sesiones inactivas cambian automáticamente su directorio a la nueva raíz mediante `cd`. Una sesión ocupada con un comando (por ejemplo, `vim` o `less`) no se interrumpe: cambia de directorio cuando el comando termina, lo que requiere la [integración con el shell](#integracion-con-el-shell) para detectarlo. Con la [barra de espacios de trabajo](/es/guide/workspace-rail) activada, las sesiones que pertenecen a un espacio de trabajo conservan su propio directorio. Sin integración con el shell — en Windows, con fish o cuando el ajuste está desactivado — VMark no puede saber si una sesión está ocupada, así que el `cd` se escribe en lo que esté ejecutándose en primer plano.
 
 ## Herramientas CLI de IA y su propio acceso al navegador
 
@@ -265,7 +267,7 @@ La sección empieza contraída. Se abre sola cuando una nueva respuesta contiene
 
 Al habilitarla se añade un hook `SessionStart` local al `settings.json` de Claude Code y al `hooks.json` de Codex, conservando los hooks existentes. Después de habilitarla, inicia o reanuda Claude/Codex en un terminal de VMark; reinicia las sesiones que ya estén en ejecución. Codex puede pedirte que confíes en el nuevo hook la primera vez que se ejecute. Se requieren Node y una versión de la CLI con hooks de ciclo de vida. Los hooks deshabilitados explícitamente o restringidos por políticas, las sesiones SSH remotas y los directorios de configuración personalizados de la CLI que difieran del entorno de VMark no pueden proporcionar un vínculo.
 
-Cada terminal sigue su sesión exacta en lugar de la transcripción modificada más recientemente. La vista previa conserva hasta 100 mensajes del asistente de los últimos 2 MiB de datos de la transcripción. El HTML sin procesar y las imágenes remotas permanecen inertes; los diagramas no válidos siguen siendo legibles como código fuente. Al deshabilitarla se elimina la sección con formato y se desactivan los hooks instalados por VMark.
+Cada terminal sigue su sesión exacta en lugar de la transcripción modificada más recientemente. La vista previa conserva hasta 100 mensajes del asistente de los últimos 2 MiB de datos de la transcripción. El HTML sin procesar y las imágenes remotas permanecen inertes; los diagramas no válidos siguen siendo legibles como código fuente. Al deshabilitarla se elimina la sección con formato y se apagan los hooks de VMark: las entradas del hook SessionStart permanecen en tu `settings.json` de Claude Code y en tu `hooks.json` de Codex (VMark no reescribe la configuración de tu CLI para quitarlas), pero el script del hook termina de inmediato mientras el ajuste esté desactivado, y VMark olvida todas las vinculaciones de transcripción existentes. Cada shell nuevo sigue recibiendo una variable `VMARK_TRANSCRIPT_TOKEN`, así que volver a activar el ajuste funciona con las sesiones que ya están abiertas.
 
 ### Accesibilidad
 

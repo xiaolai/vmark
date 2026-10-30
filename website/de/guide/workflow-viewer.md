@@ -55,9 +55,11 @@ Der `with:`-Block wird als Zeilen zum Hinzufügen, Bearbeiten und Entfernen von 
 
 Bei `uses:`-Steps ist die Action-Referenz selbst schreibgeschützt — ändern Sie sie im Quelltext, wenn Sie eine andere Action benötigen.
 
+Im Step-Formular wechseln **Alt + Links** / **Alt + Rechts** zum vorherigen / nächsten Step. Das Kürzel funktioniert überall im Fenster, außer in einem Textfeld, einer Auswahlliste oder einem Code-Editor, wo Alt + Pfeil seine übliche Bedeutung der wortweisen Navigation behält.
+
 ### Trigger
 
-Ein als Mapping geschriebener Trigger (`on: { push: { branches: [main] } }`) hat bearbeitbare Filterfelder, jeweils als kommagetrennte Liste: branches, branches-ignore, tags, tags-ignore, paths, paths-ignore und types. Ein `schedule`-Cron wird als englischer Satz angezeigt, mit einer Warnung, wenn er häufiger als alle 5 Minuten läuft (GitHub drosselt solche Zeitpläne), und ist schreibgeschützt. Das gilt auch für einen Trigger, der als bloßer Event-Name oder als Liste von Namen geschrieben ist; bearbeiten Sie diese im Quelltext.
+Ein als Mapping geschriebener Trigger (`on: { push: { branches: [main] } }`) hat bearbeitbare Filterfelder, jeweils als kommagetrennte Liste: branches, branches-ignore, tags, tags-ignore, paths, paths-ignore und types. Ein `schedule`-Cron wird als Satz in der Sprache der Oberfläche angezeigt — Tages- und Monatsnamen bleiben englische Abkürzungen aus drei Buchstaben (`Mon`, `Jan`) —, mit einer Warnung, wenn er häufiger als alle 5 Minuten läuft (GitHub drosselt solche Zeitpläne), und ist schreibgeschützt. Das gilt auch für einen Trigger, der als bloßer Event-Name oder als Liste von Namen geschrieben ist; bearbeiten Sie diese im Quelltext.
 
 ### Berechtigungen und Parallelität
 

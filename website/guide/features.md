@@ -308,7 +308,7 @@ Render raw SVG inline via ` ```svg ` code blocks:
 
 ### Inline Table of Contents
 
-Type `[TOC]` on its own line, or choose **Insert → Table of Contents**, to insert a live table of contents (the menu item has no default shortcut; assign one in Settings → Shortcuts):
+Choose **Insert → Table of Contents** to insert a live table of contents at once in either mode (the menu item has no default shortcut; assign one in Settings → Shortcuts). You can also write `[TOC]` on its own line: in Source mode that line is the table of contents, while in WYSIWYG a typed `[TOC]` stays plain text until the document is parsed again — for example after switching to Source and back, or reopening the file. `[TOC]` inside other text is never converted:
 
 - Auto-generated from document headings with proper nesting
 - Click any heading to scroll directly to it
@@ -404,7 +404,7 @@ Right-click anywhere in the editor (WYSIWYG or Source mode) to open a context me
 
 ## Command Palette
 
-Press `Mod + Shift + P` to open the command palette. With an empty query it lists every available command grouped by category — file, workspace, view, export, formatting, headings, lists, tables, lines, selection, transform, CJK, lint, history, AI and more; type to filter and rank by match. `↑`/`↓` move, `Enter` runs the command, `Escape` (or a click on the backdrop) closes. Only commands that apply right now are shown — an editor command disappears when no document is open, a workspace command when no workspace is — and the command runs in the window you opened the palette from. Pages in this guide name their palette commands in quotes ("Toggle Markdown Split View", "Breakdown View", "Window Status"). The palette has no menu item; its shortcut is customizable in **Settings → Shortcuts**.
+Press `Mod + Shift + P` to open the command palette. With an empty query it lists every available command grouped by category — file, workspace, view, export, formatting, headings, lists, tables, lines, selection, transform, CJK, lint, history, AI and more; type to filter and rank by match. `↑`/`↓` move, `Enter` runs the command, `Escape` (or a click on the backdrop) closes. Only commands that apply right now are shown — an editor command disappears when no document is open, a workspace command when no workspace is — and the command runs in the window you opened the palette from. Pages in this guide name their palette commands in quotes ("Toggle Markdown Split View", "Coherence Breakdown", "Window Status"). The palette has no menu item; its shortcut is customizable in **Settings → Shortcuts**.
 
 ## Export Options
 
@@ -456,7 +456,7 @@ VMark automatically saves snapshots of your documents so you can recover earlier
 - **Delete** individual snapshots you no longer need with the trash button
 - The current content is saved as a new snapshot before any revert, so you never lose your work
 - History requires the document to be saved to a file (untitled documents have no history)
-- Enable or disable history tracking in **Settings > General**
+- Enable or disable history tracking in **Settings → Files & Images → Saving** (**Keep document history**)
 
 ## Session Recovery (Hot Exit)
 
@@ -560,6 +560,8 @@ VMark includes utilities for text cleanup and formatting, available in the Forma
 - **Remove Trailing Spaces**: Strip whitespace from line endings
 - **Collapse Blank Lines**: Reduce multiple blank lines to single
 
+**Remove Trailing Spaces** and **Collapse Blank Lines** leave fenced code blocks untouched, including an unclosed fence, which runs to the end of the document. Indented code blocks are not protected.
+
 ### CJK Formatting (Format → CJK)
 
 Built-in Chinese/Japanese/Korean text formatting tools. [Learn more →](/guide/cjk-formatting)
@@ -593,7 +595,7 @@ VMark automatically checks for updates and can download and install them in-app:
 
 ## Coherence, Knowledge Base & Slidev
 
-- **Coherence & Breakdown view** — opt-in provenance tracking records which documents each AI generation read, flags downstream documents when an upstream changes, and adds semantic checks, canon claims and contexts on top. Open it from **Window → Coherence Breakdown**. [Learn more →](/guide/coherence)
+- **Coherence & the Coherence Breakdown panel** — opt-in provenance tracking records which documents each AI generation read, flags downstream documents when an upstream changes, and adds semantic checks, canon claims and contexts on top. Open it from **Window → Coherence Breakdown**. [Learn more →](/guide/coherence)
 - **Knowledge base** — serves an open workspace as a cross-linked site (wiki links, backlinks, relationship graph, full-text search) on `127.0.0.1`, in a panel (`Ctrl + Shift + 4`) or in your browser, and previews and exports Slidev decks. No release build includes the content-server runtime it needs yet, so the panel, its menu item, palette command and shortcut are hidden unless **Settings → Advanced → Developer tools** is on. [Learn more →](/guide/knowledge-base)
 
 ## Customization

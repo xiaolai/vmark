@@ -247,7 +247,7 @@ Ambos archivos se abren sin conexión, con una diferencia para los documentos qu
 - **`standalone.html`** es totalmente autocontenido — la hoja de estilos y las fuentes de KaTeX se incrustan al exportar, así que las matemáticas se muestran sin conexión.
 - **`index.html`** carga la hoja de estilos de KaTeX desde una CDN (jsDelivr), así que sus matemáticas necesitan conexión a internet cuando se abre la página; el lector, las imágenes y las fuentes de `assets/` son locales.
 
-Las fuentes se descargan mientras exportas (las fuentes de KaTeX y cualquier fuente web que hayas elegido en Configuración), así que exporta en un equipo con acceso a internet si quieres incrustarlas — una exportación sin conexión recurre a las fuentes del sistema.
+Las fuentes se descargan mientras exportas: las fuentes de KaTeX cuando el documento tiene matemáticas, y tus fuentes latina y monoespaciada cuando son fuentes web que VMark conoce (Literata, JetBrains Mono, Fira Code, IBM Plex Mono). El ajuste de fuente CJK nunca se incrusta, y tampoco una fuente del sistema ni una familia de fuentes personalizada — la página exportada usa para ellas la pila de fuentes del sistema del lector. Exporta en un equipo con acceso a internet si quieres incrustar las fuentes — una exportación sin conexión recurre a las fuentes del sistema.
 
 ### Qué Imágenes se Incrustan
 
@@ -258,6 +258,9 @@ se comparten — así que VMark limita de dónde pueden proceder esos bytes:
 |---|---|
 | dentro de un espacio de trabajo abierto | cualquier lugar de ese espacio de trabajo |
 | abierto por sí solo | la propia carpeta del documento y sus subcarpetas |
+| sin guardar (nunca guardado en disco) | ninguna parte — no se incrusta ninguna imagen local, ni siquiera con un espacio de trabajo abierto; las imágenes remotas no se ven afectadas |
+
+Si el documento no está guardado, guárdalo primero y vuelve a exportarlo. Esto se aplica a HTML, impresión, PDF y Copiar como HTML.
 
 Las rutas relativas se resuelven desde la carpeta del documento, exactamente
 igual que en el editor — así que `../images/photo.png` funciona siempre que el

@@ -38,7 +38,7 @@ export const fr = {
           "workspace-rail": "Barre des espaces de travail",
           "cjk-formatting": "Formatage CJK",
           "ai-genies": "AI Genies",
-          "coherence": "Cohérence et vue Détail",
+          "coherence": "Détail de cohérence",
           "workflows": "Workflows Genie",
           "workflow-genies": "Genies de workflow",
           "ai-providers": "Fournisseurs d'IA",

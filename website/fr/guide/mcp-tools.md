@@ -148,6 +148,7 @@ nécessite un routage des requêtes qui n'existe pas encore.
 boîte de dialogue de consentement nommant le chemin *canonique* du dossier (liens
 symboliques résolus). L'assistant devrait demander à l'utilisateur, puis **réessayer le
 même appel**&nbsp;; une fois que l'utilisateur approuve, le nouvel essai ouvre le dossier.
+L'approbation appartient à la connexion qui l'a demandée&nbsp;: seul un nouvel essai depuis la même connexion MCP peut l'utiliser. Un autre assistant connecté reçoit sa propre demande, et un client qui s'est reconnecté (une nouvelle connexion) doit être approuvé à nouveau. L'approbation expire aussi si elle n'est pas utilisée dans les cinq minutes.
 Une requête refusée continue d'échouer jusqu'à ce qu'elle soit ré-approuvée. Il n'y a pas
 d'option «&nbsp;se souvenir&nbsp;» — chaque ouverture est approuvée individuellement.
 
@@ -270,7 +271,7 @@ Si `expected_revision` est fourni et que le document a changé depuis cette lect
 { "error": "STALE", "message": "Document has changed since the last read", "current_revision": "rev-currentNow" }
 ```
 
-Pendant que l'utilisateur compose du texte avec une méthode de saisie (IME) dans l'éditeur WYSIWYG qui affiche l'onglet, l'écriture est refusée avec `BUSY` et rien ne change&nbsp;: le texte en cours de composition appartient à la méthode de saisie jusqu'à sa validation. Réessayez peu après. En mode Source, l'écriture est acceptée, et l'éditeur l'affiche dès que la composition se termine.
+Pendant que l'utilisateur compose du texte avec une méthode de saisie (IME) dans l'éditeur qui affiche l'onglet, en mode WYSIWYG comme en mode Source, l'écriture est refusée avec `BUSY` et rien ne change&nbsp;: le texte en cours de composition appartient à la méthode de saisie jusqu'à sa validation. Un éditeur Source est aussi considéré comme en cours de composition pendant un court délai de grâce juste après la fin de la composition. Réessayez peu après.
 
 Chaque écriture est consignée dans le journal des modifications d'agents de VMark avant que quoi que ce soit ne change. La réponse de succès comporte `applied: true` et `durable`&nbsp;: `durable: false` signifie que le contenu a été écrit mais que son entrée de journal n'a pas encore pu être enregistrée — VMark réessaie en arrière-plan et, d'ici là, l'écriture suivante dans ce document est refusée avec `JOURNAL_DEGRADED`. Si le journal refuse l'entrée elle-même, l'écriture reste appliquée, elle est consignée comme non enregistrée et l'écriture suivante se fait normalement. Une écriture est refusée, sans rien modifier, avec `JOURNAL_BUSY` tant qu'une autre écriture dans le même document est en cours de consignation (deux fenêtres affichant le même fichier partagent un document), avec `STALE_PARENT` quand une autre fenêtre a écrit le document après la dernière écriture de cet onglet (relisez puis réessayez), avec `JOURNAL_UNAVAILABLE` quand le journal ne fonctionne pas ou ne répond pas à temps, et avec `INVALID_TEXT` quand `content` contient un demi-code UTF-16 isolé. Si l'utilisateur modifie le document, ferme l'onglet, commence à composer avec une méthode de saisie ou déplace la sélection (ou change d'onglet, si aucun `tabId` n'a été donné) pendant la consignation, l'écriture est refusée avec `ABORTED` et un `reason` (`edited`, `closed`, `composing`, `selection`), et rien ne change&nbsp;; relisez puis réessayez. Une erreur `INTERNAL` portant `applied: true` est différente&nbsp;: l'éditeur a échoué après que l'écriture a modifié le document, et le texte qu'il contenait alors a été consigné (`durable` comme ci-dessus, `current_revision` étant la révision du document)&nbsp;; relisez avant d'écrire à nouveau. Une erreur `INTERNAL` sans `applied` après une écriture échouée signifie que le document a pu être modifié en partie&nbsp;; relisez-le aussi.
 
@@ -287,7 +288,7 @@ Appliquer une réécriture déterministe. Prend actuellement en charge les trans
 
 `cjk-format` applique de bout en bout les paramètres de mise en forme CJK de l'utilisateur. `cjk-spacing` insère des espaces simples entre les caractères CJK et les caractères latins/chiffres adjacents. `cjk-punctuation` convertit la ponctuation ASCII qui se trouve à côté des caractères CJK vers sa forme pleine largeur.
 
-Retourne `{revision, applied, durable}`. Comme `write`, il est refusé avec `BUSY`, sans rien modifier, pendant que l'utilisateur compose avec une méthode de saisie dans l'éditeur WYSIWYG qui affiche l'onglet. Comme `write`, l'appel est consigné dans le journal des modifications d'agents de VMark avant que quoi que ce soit ne change&nbsp;: `applied`, `durable` et les refus du journal (`JOURNAL_BUSY`, `STALE_PARENT`, `JOURNAL_DEGRADED`, `JOURNAL_UNAVAILABLE`, `INVALID_TEXT`, `ABORTED`) ont le même sens&nbsp;; un appel qui ne change rien n'est pas consigné.
+Retourne `{revision, applied, durable}`. Comme `write`, il est refusé avec `BUSY`, sans rien modifier, pendant que l'utilisateur compose avec une méthode de saisie dans l'éditeur qui affiche l'onglet, en mode WYSIWYG comme en mode Source. Comme `write`, l'appel est consigné dans le journal des modifications d'agents de VMark avant que quoi que ce soit ne change&nbsp;: `applied`, `durable` et les refus du journal (`JOURNAL_BUSY`, `STALE_PARENT`, `JOURNAL_DEGRADED`, `JOURNAL_UNAVAILABLE`, `INVALID_TEXT`, `ABORTED`) ont le même sens&nbsp;; un appel qui ne change rien n'est pas consigné.
 
 ---
 
@@ -847,7 +848,7 @@ Le détail&nbsp;: chaque arête de dépendance vivante dont l'amont a bougé. Ex
 | `downstream` / `downstream_path` / `downstream_rev` | L'objet dérivé, son chemin et sa révision actuelle. |
 | `state` | `"version-stale"`, `"stale-valid"`, `"stale-contradicted"`, `"stale-unknown"`, `"waived"`, `"diverged"`, `"diverged-multi-head"` ou `"unpinnable"`. |
 
-Résoudre une arête (accept-newer / waive) est normalement une action humaine effectuée dans la vue Détail de VMark. Une IA ne peut le faire que via [`coherence_resolve`](#coherence-resolve), et uniquement lorsque le propriétaire de l'espace de travail le lui a explicitement délégué.
+Résoudre une arête (accept-newer / waive) est normalement une action humaine effectuée dans le panneau Détail de cohérence de VMark. Une IA ne peut le faire que via [`coherence_resolve`](#coherence-resolve), et uniquement lorsque le propriétaire de l'espace de travail le lui a explicitement délégué.
 
 ---
 
@@ -866,9 +867,10 @@ Arguments&nbsp;: `{workspace_root, txf, input, resolution: "accept-newer" | "wai
 Résoudre une arête obsolète active en tant qu'agent explicitement délégué. L'autorisation
 est **fail-closed**&nbsp;: le propriétaire de l'espace de travail doit avoir accordé à
 **votre identité de pont authentifiée** une délégation active et non expirée couvrant le
-type de résolution (accordée dans l'application, depuis la vue Détail), et l'arête doit
+type de résolution (accordée dans l'application, depuis le panneau Détail de cohérence), et l'arête doit
 toujours être active. Chaque résolution déléguée est journalisée au titre de la délégation,
-et l'entrée ne peut pas être annulée.
+et l'entrée ne peut pas être annulée. `coherence_resolve` ne peut pas fixer d'expiration, si bien que l'exemption
+d'une IA ne devient jamais caduque d'elle-même.
 
 Un refus signifie que l'autorisation est manquante ou expirée — demandez à l'utilisateur de
 l'accorder plutôt que de réessayer. Extraire cela de `coherence` n'a changé aucune propriété

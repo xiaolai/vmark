@@ -124,7 +124,7 @@ La largeur de l'éditeur est mesurée en `em` ; la longueur de ligne en *caract�
 | Ouvrir les fichiers dans un nouvel onglet | Ouvrir les fichiers existants dans un nouvel onglet au lieu de réutiliser l'onglet vide courant | Désactivé | Activé / Désactivé |
 | Activer l'appariement automatique | Insérer automatiquement les crochets fermants et guillemets correspondants lorsque vous tapez un ouvrant | Activé | Activé / Désactivé |
 | Crochets CJK | Apparier automatiquement les crochets spécifiques au CJK comme `「」` `【】` `《》`. Disponible uniquement lorsque l'appariement automatique est activé | Auto | Désactivé, Auto |
-| Inclure les guillemets courbes | Apparier automatiquement les caractères `""` et `''`. Peut entrer en conflit avec certaines fonctionnalités de guillemets intelligents d'IME. Apparaît lorsque les crochets CJK sont en Auto | Activé | Activé / Désactivé |
+| Inclure les guillemets courbes | Apparier automatiquement `“”` et `‘’`, et transformer un `"` ou un `'` droit tapé en paire courbe. Peut entrer en conflit avec certaines fonctionnalités de guillemets intelligents d'IME. Apparaît lorsque les crochets CJK sont en Auto | Activé | Activé / Désactivé |
 | Aussi apparier `"` | Taper le guillemet double droit fermant `"` insère également une paire `""`. Utile lorsque votre IME alterne entre guillemets ouvrants et fermants. Apparaît lorsque les guillemets courbes sont activés | Désactivé | Activé / Désactivé |
 | Format de copie | Format à utiliser pour l'emplacement presse-papiers texte brut lors de la copie en mode WYSIWYG | Texte brut | Texte brut, Markdown |
 | Copier à la sélection | Copier automatiquement le texte dans le presse-papiers à chaque fois que vous le sélectionnez | Désactivé | Activé / Désactivé |
@@ -171,9 +171,9 @@ Comportement de collage, mise en page et paramètres de rendu HTML.
 |-----------|-------------|------------|---------|
 | Diviser source/aperçu par défaut | Ouvrir les fichiers Markdown en vue divisée, avec la source et un aperçu en direct côte à côte (sinon en WYSIWYG). Basculez pour la session avec `Shift + F6` ou **Affichage → Vue divisée Markdown** | Désactivé | Activé / Désactivé |
 | Taille de police des éléments de bloc | Taille de police relative pour les listes, citations, tableaux, alertes et blocs de détails | 100% | 100%, 95%, 90%, 85% |
-| Alignement des titres | Alignement du texte pour les titres | Gauche | Gauche, Centre |
-| Bordures d'images et diagrammes | Afficher ou non une bordure autour des images, diagrammes Mermaid et blocs mathématiques | Aucune | Aucune, Toujours, Au survol |
-| Alignement des images et tableaux | Alignement horizontal pour les images et tableaux en bloc | Centre | Centre, Gauche |
+| Alignement des titres | Alignement du texte pour les titres. Éditeur uniquement — non appliqué à l'export ni à l'impression | Gauche | Gauche, Centre |
+| Bordures d'images et diagrammes | Afficher ou non une bordure autour des images, diagrammes Mermaid et blocs mathématiques. Éditeur uniquement — non appliqué à l'export ni à l'impression | Aucune | Aucune, Toujours, Au survol |
+| Alignement des images et tableaux | Alignement horizontal pour les images et tableaux en bloc. Éditeur uniquement — non appliqué à l'export ni à l'impression | Centre | Centre, Gauche |
 | Ajuster les tableaux à la largeur | Contraindre tous les tableaux à la largeur de l'éditeur au lieu d'autoriser le défilement horizontal | Désactivé | Activé / Désactivé |
 | Numéros de ligne des blocs de code | Afficher les numéros de ligne dans les blocs de code de l'éditeur WYSIWYG. Indépendant de **Numéros de ligne** du menu Affichage, qui contrôle la marge de l'éditeur Source/vue divisée | Désactivé | Activé / Désactivé |
 
@@ -289,7 +289,7 @@ Le serveur MCP (Model Context Protocol) permet aux assistants IA externes comme 
 |-----------|-------------|------------|
 | Activer le serveur MCP | Démarrer ou arrêter le serveur MCP. Lorsqu'il est en cours d'exécution, un badge de statut affiche le port et les clients connectés | Activé (basculer) |
 | Démarrer au lancement | Démarrer automatiquement le serveur MCP à l'ouverture de VMark | Activé |
-| Approuver automatiquement les enregistrements vers un nouvel emplacement et les résultats des génies | Permettre à un client MCP d'enregistrer un document vers un nouvel emplacement sans demander, et permettre à un génie d'appliquer directement son résultat au lieu d'afficher un aperçu. Désactivé, une requête MCP d'enregistrement vers un nouveau chemin est refusée et une notification vous en informe. Les écritures MCP dans un document ne sont jamais soumises à ce paramètre — chacune fait l'objet d'un point de contrôle et peut être restaurée depuis l'historique de la barre d'état | Désactivé |
+| Approuver automatiquement les enregistrements vers un nouvel emplacement et les résultats des génies | Permettre à un client MCP d'enregistrer un document vers un nouvel emplacement sans demander, et permettre à un génie d'appliquer directement son résultat au lieu d'afficher un aperçu. Désactivé, une requête MCP d'enregistrement vers un nouveau chemin est refusée et une notification vous en informe. Les écritures MCP dans un document ne sont jamais soumises à ce paramètre — chacune est consignée dans l'historique des modifications d'agents et peut être restaurée depuis l'historique des écritures MCP de la barre d'état | Désactivé |
 
 Lorsque le serveur est en cours d'exécution, le panneau affiche également&nbsp;:
 - **Port** — assigné automatiquement&nbsp;; les clients IA le découvrent via le fichier de configuration
@@ -539,7 +539,7 @@ Configuration au niveau développeur et système.
 
 La liste a deux effets. Lorsque vous insérez un lien, une URL du presse-papiers utilisant l'un de ces protocoles est reconnue comme un lien, tout comme `https://`. Et lorsque vous ouvrez un lien, VMark ne le transmet à votre système que si son protocole est `http`, `https`, `mailto` ou figure dans cette liste — les liens `obsidian://open?vault=...` et `vscode://file/...` s'ouvrent ainsi dans leurs applications, tandis que tout autre protocole est refusé. Certains protocoles ne peuvent jamais être activés de cette façon, quoi que contienne la liste : `javascript:`, `data:`, `file:` et similaires.
 
-Les quatre valeurs par défaut sont toujours incluses : en retirer une ne dure que jusqu'au prochain redémarrage de VMark.
+Une valeur par défaut que vous retirez reste retirée. Un protocole par défaut ajouté dans une version ultérieure de VMark est ajouté à votre liste une seule fois, au premier lancement de cette version.
 
 ### Performance
 

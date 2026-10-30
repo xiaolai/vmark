@@ -35,8 +35,8 @@ estar presentes dos cosas antes de que pueda arrancar:
   cada versión. Hasta que exista una solución de distribución, la función
   requiere un entorno de desarrollo — una copia del repositorio de VMark con el
   servidor de contenido compilado, puesta a disposición mediante la variable de
-  entorno `VMARK_CONTENT_SERVER_CLI` (o un entorno `base-kb` aprovisionado en
-  los datos de la aplicación de VMark).
+  entorno `VMARK_CONTENT_SERVER_CLI` (o un entorno `base-kb` que colocas a mano en
+  los datos de la aplicación de VMark; VMark nunca descarga uno).
 
 El panel comprueba ambas cosas al abrirse. Cuando falta alguna, indica cuál y
 qué la proporcionaría, en lugar de intentar un arranque que no puede tener
@@ -111,6 +111,10 @@ renderiza las diapositivas en Chromium mediante el paquete
 `playwright-chromium` no está instalado junto a Slidev en el entorno de
 ejecución del servidor de contenido, la exportación falla y muestra el mensaje
 de error de Slidev. Una exportación que dura más de tres minutos se detiene.
+
+**Exportar diapositivas** pregunta dónde guardar con el panel de guardado nativo
+de VMark, y la exportación escribe solo en la ruta que elegiste allí; la
+extensión del archivo debe coincidir con el formato (`.pdf`, `.png`, `.pptx`).
 
 ## Privacidad y seguridad
 

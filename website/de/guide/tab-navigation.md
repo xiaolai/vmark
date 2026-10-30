@@ -282,7 +282,7 @@ Das Tab-Escape-Verhalten kann in **Einstellungen → Editor** angepasst werden:
 |-------------|-----------|
 | **Klammern auto-paaren** | Klammern-Paarung und Tab-Escape aktivieren/deaktivieren |
 | **CJK-Klammern** | CJK-Klammerpaare einschließen |
-| **Geschwungene Anführungszeichen** | Geschwungene Anführungszeichen-Paare einschließen (`""` `''`) |
+| **Geschwungene Anführungszeichen** | Geschwungene Anführungszeichen-Paare einschließen (`“”` `‘’`); ein getipptes gerades Anführungszeichen wird zu einem geschwungenen Paar |
 
 ::: tip
 Wenn Tab-Escape Ihrem Arbeitsablauf widerspricht, können Sie die automatische Klammern-Paarung vollständig deaktivieren. Tab fügt dann wie gewohnt Leerzeichen ein (oder rückt in Listen/Tabellen ein).

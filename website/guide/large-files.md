@@ -32,6 +32,7 @@ What WYSIWYG does at open also stays in proportion to the document:
 - Images load as they come near the visible area.
 - **CJK Letter Spacing** (**Settings → Editor → Typography**) does no work while it is off, its default, and scans the document once when it is on.
 - Decorations such as code highlighting, CJK spacing and lint marks cost about linearly in the document's length. Very long documents used to cost quadratically.
+- Above 100,000 characters, WYSIWYG turns the system spellchecker off for that document, because rescanning after every edit makes typing lag. It turns back on if the document shrinks below that size. Source mode is unaffected.
 
 ## Status bar cues
 

@@ -55,9 +55,11 @@ The `with:` block renders as add/edit/remove key/value rows. Renaming a key emit
 
 For `uses:` steps, the action reference itself is read-only — change it in source if you need a different action.
 
+In the step form, **Alt + Left** / **Alt + Right** move to the previous / next step. The shortcut works anywhere in the window, except inside a text field, select or code editor, where Alt + Arrow keeps its normal word-navigation meaning.
+
 ### Triggers
 
-A trigger written as a mapping (`on: { push: { branches: [main] } }`) has editable filter fields — branches, branches-ignore, tags, tags-ignore, paths, paths-ignore and types — each a comma-separated list. A `schedule` cron is shown as an English sentence, with a warning when it runs more often than every 5 minutes (GitHub throttles those), and is read-only. So is a trigger written as a bare event name or a list of names; edit those in source.
+A trigger written as a mapping (`on: { push: { branches: [main] } }`) has editable filter fields — branches, branches-ignore, tags, tags-ignore, paths, paths-ignore and types — each a comma-separated list. A `schedule` cron is shown as a sentence in the UI language — day and month names stay as English three-letter abbreviations (`Mon`, `Jan`) — with a warning when it runs more often than every 5 minutes (GitHub throttles those), and is read-only. So is a trigger written as a bare event name or a list of names; edit those in source.
 
 ### Permissions and concurrency
 

@@ -178,7 +178,7 @@ If you prefer keeping system functions on F-keys, you can customize VMark shortc
 | Toggle History | `Ctrl + Shift + 3` |
 | Toggle Knowledge Base | `Ctrl + Shift + 4` |
 | Toggle Window Status | `Ctrl + Shift + 5` |
-| Toggle Line Numbers (code blocks) | `Alt + Mod + L` |
+| Toggle Line Numbers (Source/Split gutter) | `Alt + Mod + L` |
 | Toggle Terminal | Ctrl + `` ` `` |
 | Focus Terminal or Editor | Ctrl + Shift + `` ` `` (Alt + Shift + `` ` `` on Windows/Linux) |
 | Toggle Diagram Preview | `Alt + Mod + P` |

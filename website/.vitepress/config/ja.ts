@@ -38,7 +38,7 @@ export const ja = {
           "workspace-rail": "ワークスペースレール",
           "cjk-formatting": "CJK フォーマット",
           "ai-genies": "AI ジーニー",
-          "coherence": "整合性と内訳ビュー",
+          "coherence": "整合性の内訳",
           "workflows": "Genie ワークフロー",
           "workflow-genies": "ワークフロージーニー",
           "ai-providers": "AI プロバイダー",

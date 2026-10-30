@@ -55,9 +55,11 @@ VMark에서 `.github/workflows/*.yml` 파일을 엽니다. 파일은 분할 뷰�
 
 `uses:` 단계의 경우, 액션 참조 자체는 읽기 전용입니다 — 다른 액션이 필요하다면 소스에서 변경하세요.
 
+단계 양식에서는 **Alt + Left** / **Alt + Right** 로 이전 / 다음 단계로 이동합니다. 이 단축키는 창 어디에서나 동작하지만, 텍스트 필드, 선택 상자, 코드 에디터 안에서는 Alt + 화살표가 평소대로 단어 단위 이동을 합니다.
+
 ### 트리거
 
-매핑으로 작성된 트리거(`on: { push: { branches: [main] } }`)에는 편집 가능한 필터 필드가 있습니다 — branches, branches-ignore, tags, tags-ignore, paths, paths-ignore, types — 각각 쉼표로 구분된 목록입니다. `schedule` cron은 읽기 쉬운 문장으로 표시되며, 5분보다 자주 실행되면 경고가 함께 표시되고(GitHub가 이런 일정을 제한합니다), 읽기 전용입니다. 이벤트 이름 하나나 이름 목록으로만 작성된 트리거도 마찬가지로 읽기 전용이니, 소스에서 편집하세요.
+매핑으로 작성된 트리거(`on: { push: { branches: [main] } }`)에는 편집 가능한 필터 필드가 있습니다 — branches, branches-ignore, tags, tags-ignore, paths, paths-ignore, types — 각각 쉼표로 구분된 목록입니다. `schedule` cron은 UI 언어의 문장으로 표시되며(요일과 월 이름은 영어 세 글자 약어 `Mon`, `Jan` 그대로입니다), 5분보다 자주 실행되면 경고가 함께 표시되고(GitHub가 이런 일정을 제한합니다), 읽기 전용입니다. 이벤트 이름 하나나 이름 목록으로만 작성된 트리거도 마찬가지로 읽기 전용이니, 소스에서 편집하세요.
 
 ### 권한과 동시성
 

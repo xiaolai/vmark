@@ -114,7 +114,8 @@ PDF export may hang or produce incomplete output.
 VMark may refuse to open a file or show garbled content.
 
 - Verify the file has read permissions for your user account.
-- VMark expects UTF-8 encoded Markdown. Files in other encodings (e.g., GB2312, Shift-JIS) may not display correctly — convert them to UTF-8 first.
+- VMark opens UTF-8 files only. A file marked as UTF-16 or UTF-32 (by its byte-order mark) is refused at open with a toast: "*path* is encoded as *encoding*. VMark opens UTF-8 files only — save it as UTF-8 in another editor, then open it again." Other legacy encodings (GB2312, Shift-JIS) carry no mark; they open but may show garbled text — convert them to UTF-8 first.
+- A UTF-8 file that starts with a byte-order mark keeps it: VMark preserves the BOM through open and save.
 - If the file is locked by another process (e.g., a sync client or backup tool), close that process and try again.
 - **macOS: double-clicking a downloaded file does nothing while VMark is running.** Files saved by some apps carry the download-quarantine attribute (`com.apple.quarantine`), and macOS can silently drop the request to open such a file in an app that is already running. When you open a workspace, VMark removes the attribute from the workspace folder and the files directly inside it that it can open (subfolders are not touched) — the **Clear download quarantine on workspace open** setting under **Settings → Advanced → macOS**, on by default. For any other file, use **File → Open**, or run `xattr -d com.apple.quarantine <file>` in Terminal.
 

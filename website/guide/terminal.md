@@ -68,6 +68,8 @@ Prompt navigation (`Mod + ↑` / `Mod + ↓`) requires shell integration — see
 
 **Linux:** `Ctrl` + a letter goes to the shell, so readline keys such as `Ctrl + A`, `Ctrl + E`, `Ctrl + K`, `Ctrl + F`, `Ctrl + U` and `Ctrl + W` work as in any Linux terminal. The terminal's own letter shortcuts move to `Ctrl + Shift`: `Ctrl + Shift + F` searches, `Ctrl + Shift + K` clears, `Ctrl + Shift + A` selects all, and `Ctrl + Shift + C` / `Ctrl + Shift + V` copy and paste. `Ctrl + C` still copies a selection (otherwise it sends SIGINT) and `Ctrl + V` still pastes; `Ctrl + Insert` / `Shift + Insert` also copy and paste.
 
+**Press-and-hold accents (macOS).** Holding a letter key opens the macOS accent picker. The plain letter has already been sent to the shell by then, so when you pick an accent VMark sends a backspace (DEL) followed by the accented character. In a program that does not treat DEL as erase-previous-character, you may see the original letter remain.
+
 ::: tip
 `Mod + C` without a text selection sends SIGINT to the running process — the same as pressing Ctrl+C in a regular terminal.
 :::
@@ -193,7 +195,7 @@ Unless you pick a shell in the terminal settings, VMark starts your login shell.
 
 Standard shell shortcuts like `Ctrl+R` (reverse history search in zsh/bash) work when the terminal is focused — they are not intercepted by the editor.
 
-When the workspace root changes after the terminal is already running, idle sessions automatically `cd` to the new root. A session busy with a command (say, `vim` or `less`) is not interrupted: it changes directory once the command finishes, which needs [shell integration](#shell-integration) to detect. With the [workspace rail](/guide/workspace-rail) on, sessions that belong to a workspace keep their own directory.
+When the workspace root changes after the terminal is already running, idle sessions automatically `cd` to the new root. A session busy with a command (say, `vim` or `less`) is not interrupted: it changes directory once the command finishes, which needs [shell integration](#shell-integration) to detect. With the [workspace rail](/guide/workspace-rail) on, sessions that belong to a workspace keep their own directory. Without shell integration — on Windows, with fish, or when the setting is off — VMark cannot tell that a session is busy, so the `cd` is typed into whatever is running in the foreground.
 
 ## AI CLI tools and their own browser access
 
@@ -258,7 +260,7 @@ The section starts collapsed. It opens by itself when a new reply contains a tab
 
 Enabling adds a local `SessionStart` hook to Claude Code's `settings.json` and Codex's `hooks.json`, preserving existing hooks. Start or resume Claude/Codex in a VMark terminal after enabling; restart sessions that are already running. Codex may ask you to trust the new hook on its first run. Node and a CLI version with lifecycle hooks are required. Explicitly disabled or policy-restricted hooks, remote SSH sessions, and custom CLI configuration directories that differ from VMark's environment cannot provide a binding.
 
-Each terminal follows its exact session rather than whichever transcript was modified most recently. The preview retains up to 100 assistant messages from the last 2 MiB of transcript data. Raw HTML and remote images remain inert; invalid diagrams remain readable as source. Disabling removes the rendered section and deactivates VMark's installed hooks.
+Each terminal follows its exact session rather than whichever transcript was modified most recently. The preview retains up to 100 assistant messages from the last 2 MiB of transcript data. Raw HTML and remote images remain inert; invalid diagrams remain readable as source. Disabling removes the rendered section and turns VMark's hooks off: the SessionStart hook entries stay in your Claude Code `settings.json` and Codex `hooks.json` (VMark does not rewrite your CLI config to remove them), but the hook script exits immediately while the setting is off, and VMark forgets every existing transcript binding. Each new shell still receives a `VMARK_TRANSCRIPT_TOKEN` variable, so turning the setting back on works for sessions that are already open.
 
 ### Accessibility
 

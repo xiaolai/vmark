@@ -29,8 +29,8 @@ VMark starts on demand. Two things must be present before it can start:
   content-server runtime either, and VMark's release checks assert that on every
   release. Until a release story lands, the feature requires a development
   setup — a checkout of VMark with the content server built, made available
-  through the `VMARK_CONTENT_SERVER_CLI` environment variable (or a provisioned
-  `base-kb` runtime in VMark's application data).
+  through the `VMARK_CONTENT_SERVER_CLI` environment variable (or a `base-kb`
+  runtime you place by hand in VMark's application data; VMark never downloads one).
 
 The panel checks both when it opens. When either is missing it says which one,
 and what would provide it, instead of attempting a start that cannot succeed.
@@ -95,6 +95,10 @@ through the `playwright-chromium` package. VMark does not download or locate a
 browser for it: if `playwright-chromium` is not installed next to Slidev in the
 content server's runtime, the export fails and shows Slidev's error message.
 An export that runs longer than three minutes is stopped.
+
+Export slides asks where to save with VMark's native save panel, and the export
+writes only to the path you picked there; the file extension must match the
+format (`.pdf`, `.png`, `.pptx`).
 
 ## Privacy & security
 

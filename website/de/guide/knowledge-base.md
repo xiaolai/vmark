@@ -34,8 +34,8 @@ bevor er starten kann:
   stellen genau das bei jedem Release sicher. Bis es eine Lösung für die
   Auslieferung gibt, erfordert die Funktion eine Entwicklungsumgebung — einen
   Checkout von VMark mit gebautem Content-Server, bereitgestellt über die
-  Umgebungsvariable `VMARK_CONTENT_SERVER_CLI` (oder eine bereitgestellte
-  `base-kb`-Laufzeit in den Anwendungsdaten von VMark).
+  Umgebungsvariable `VMARK_CONTENT_SERVER_CLI` (oder eine `base-kb`-Laufzeit,
+  die Sie von Hand in den Anwendungsdaten von VMark ablegen; VMark lädt nie eine herunter).
 
 Das Panel prüft beides beim Öffnen. Fehlt eines davon, sagt es, welches, und was
 es bereitstellen würde, statt einen Start zu versuchen, der nicht gelingen kann.
@@ -110,6 +110,10 @@ keinen Browser herunter und sucht auch keinen: Ist `playwright-chromium` nicht
 neben Slidev in der Laufzeit des Content-Servers installiert, schlägt der Export
 fehl und zeigt die Fehlermeldung von Slidev an. Ein Export, der länger als drei
 Minuten läuft, wird abgebrochen.
+
+**Folien exportieren** fragt mit dem nativen Sichern-Dialog von VMark nach dem
+Speicherort, und der Export schreibt nur an den dort gewählten Pfad; die
+Dateiendung muss zum Format passen (`.pdf`, `.png`, `.pptx`).
 
 ## Datenschutz & Sicherheit
 

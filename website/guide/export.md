@@ -241,7 +241,7 @@ Both files open offline, with one difference for documents that contain math:
 - **`standalone.html`** is fully self-contained — the KaTeX stylesheet and fonts are inlined at export time, so math renders with no connection.
 - **`index.html`** loads the KaTeX stylesheet from a CDN (jsDelivr), so its math needs an internet connection when the page is opened; the reader, images and fonts under `assets/` are local.
 
-Fonts are downloaded while you export (KaTeX fonts, and any web font you chose in Settings), so export on a machine with internet access if you want them embedded — an offline export falls back to system fonts.
+Fonts are downloaded while you export: KaTeX fonts when the document has math, and your Latin and monospace fonts when they are web fonts VMark knows (Literata, JetBrains Mono, Fira Code, IBM Plex Mono). The CJK font setting is never embedded, and a system font or a custom font family is not embedded either — the exported page uses the reader's system font stack for those. Export on a machine with internet access if you want fonts embedded — an offline export falls back to system fonts.
 
 ### Which Images Get Embedded
 
@@ -252,6 +252,9 @@ bounds where those bytes may come from:
 |---|---|
 | inside an open workspace | anywhere in that workspace |
 | opened on its own | the document's own folder and below |
+| unsaved (never saved to disk) | nowhere — no local image is embedded, even with a workspace open; remote images are unaffected |
+
+For an unsaved document, save it first, then export again. This applies to HTML, print, PDF and Copy as HTML.
 
 Relative paths resolve from the document's folder, exactly as they do in the
 editor — so `../images/photo.png` works whenever the target stays inside the

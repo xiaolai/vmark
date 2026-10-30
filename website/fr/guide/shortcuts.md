@@ -178,7 +178,7 @@ Si vous préférez conserver les fonctions système sur les touches F, vous pouv
 | Basculer l'historique | `Ctrl + Shift + 3` |
 | Afficher/masquer la base de connaissances | `Ctrl + Shift + 4` |
 | Afficher/masquer l'état des fenêtres | `Ctrl + Shift + 5` |
-| Basculer les numéros de ligne (blocs de code) | `Alt + Mod + L` |
+| Basculer les numéros de ligne (gouttière Source/vue divisée) | `Alt + Mod + L` |
 | Basculer le terminal | Ctrl + `` ` `` |
 | Activer le terminal ou l'éditeur | Ctrl + Shift + `` ` `` (Alt + Shift + `` ` `` sous Windows/Linux) |
 | Afficher/masquer l'aperçu des diagrammes | `Alt + Mod + P` |

@@ -307,7 +307,7 @@ Renderiza SVG sin procesar en línea mediante bloques de código ` ```svg `:
 
 ### Tabla de Contenidos en Línea
 
-Escribe `[TOC]` en una línea propia, o elige **Insertar → Tabla de contenidos**, para insertar una tabla de contenidos dinámica (el elemento de menú no tiene atajo predeterminado; asígnale uno en Configuración → Atajos):
+Elige **Insertar → Tabla de contenidos** para insertar al instante una tabla de contenidos dinámica en cualquiera de los dos modos (el elemento de menú no tiene atajo predeterminado; asígnale uno en Configuración → Atajos). También puedes escribir `[TOC]` en una línea propia: en modo Fuente esa línea es la tabla de contenidos, mientras que en WYSIWYG un `[TOC]` escrito sigue siendo texto plano hasta que el documento se vuelve a analizar — por ejemplo, al pasar a modo Fuente y volver, o al reabrir el archivo. Un `[TOC]` dentro de otro texto nunca se convierte:
 
 - Generada automáticamente a partir de los encabezados del documento, con el anidamiento correcto
 - Haz clic en cualquier encabezado para desplazarte directamente a él
@@ -403,7 +403,7 @@ Haz clic derecho en cualquier lugar del editor (modo WYSIWYG o Fuente) para abri
 
 ## Paleta de Comandos
 
-Pulsa `Mod + Shift + P` para abrir la paleta de comandos. Con la consulta vacía enumera todos los comandos disponibles agrupados por categoría — archivo, espacio de trabajo, vista, exportación, formato, encabezados, listas, tablas, líneas, selección, transformación, CJK, lint, historial, IA y más; escribe para filtrar y ordenar por coincidencia. `↑`/`↓` se mueven, `Enter` ejecuta el comando, `Escape` (o un clic en el fondo) la cierra. Solo se muestran los comandos que se aplican en ese momento — un comando del editor desaparece cuando no hay ningún documento abierto, y uno del espacio de trabajo cuando no hay espacio de trabajo — y el comando se ejecuta en la ventana desde la que abriste la paleta. Las páginas de esta guía nombran sus comandos de la paleta entre comillas («Alternar vista dividida de Markdown», «Breakdown View», «Estado de ventanas»). La paleta no tiene elemento de menú; su atajo se puede personalizar en **Configuración → Atajos**.
+Pulsa `Mod + Shift + P` para abrir la paleta de comandos. Con la consulta vacía enumera todos los comandos disponibles agrupados por categoría — archivo, espacio de trabajo, vista, exportación, formato, encabezados, listas, tablas, líneas, selección, transformación, CJK, lint, historial, IA y más; escribe para filtrar y ordenar por coincidencia. `↑`/`↓` se mueven, `Enter` ejecuta el comando, `Escape` (o un clic en el fondo) la cierra. Solo se muestran los comandos que se aplican en ese momento — un comando del editor desaparece cuando no hay ningún documento abierto, y uno del espacio de trabajo cuando no hay espacio de trabajo — y el comando se ejecuta en la ventana desde la que abriste la paleta. Las páginas de esta guía nombran sus comandos de la paleta entre comillas («Alternar vista dividida de Markdown», «Desglose de coherencia», «Estado de ventanas»). La paleta no tiene elemento de menú; su atajo se puede personalizar en **Configuración → Atajos**.
 
 ## Opciones de Exportación
 
@@ -455,7 +455,7 @@ VMark guarda automáticamente instantáneas de tus documentos para que puedas re
 - **Elimina** instantáneas individuales que ya no necesites con el botón de papelera
 - El contenido actual se guarda como nueva instantánea antes de cualquier reversión, así nunca pierdes tu trabajo
 - El historial requiere que el documento esté guardado en un archivo (los documentos sin título no tienen historial)
-- Activa o desactiva el seguimiento de historial en **Configuración > General**
+- Activa o desactiva el seguimiento de historial en **Configuración → Archivos e imágenes → Guardado** (**Conservar historial del documento**)
 
 ## Recuperación de Sesión (Hot Exit)
 
@@ -559,6 +559,8 @@ VMark incluye utilidades para limpieza y formato de texto, disponibles en el men
 - **Eliminar Espacios Finales**: Elimina el espacio en blanco al final de las líneas
 - **Contraer Líneas en Blanco**: Reduce múltiples líneas en blanco a una sola
 
+**Eliminar Espacios Finales** y **Contraer Líneas en Blanco** no tocan los bloques de código delimitados, incluido uno sin cerrar, que llega hasta el final del documento. Los bloques de código con sangría no están protegidos.
+
 ### Formato CJK (Formato → CJK)
 
 Herramientas de formato de texto chino/japonés/coreano integradas. [Más información →](/es/guide/cjk-formatting)
@@ -592,7 +594,7 @@ VMark verifica automáticamente las actualizaciones y puede descargarlas e insta
 
 ## Coherencia, Base de Conocimiento y Slidev
 
-- **Coherencia y vista de desglose** — un seguimiento de procedencia opcional registra qué documentos leyó cada generación de IA, marca los documentos posteriores cuando cambia uno anterior y añade encima comprobaciones semánticas, afirmaciones canónicas y contextos. Ábrelo desde **Ventana → Desglose de coherencia**. [Más información →](/es/guide/coherence)
+- **Coherencia y el panel Desglose de coherencia** — un seguimiento de procedencia opcional registra qué documentos leyó cada generación de IA, marca los documentos posteriores cuando cambia uno anterior y añade encima comprobaciones semánticas, afirmaciones canónicas y contextos. Ábrelo desde **Ventana → Desglose de coherencia**. [Más información →](/es/guide/coherence)
 - **Base de conocimiento** — sirve un espacio de trabajo abierto como un sitio con enlaces cruzados (enlaces wiki, retroenlaces, grafo de relaciones, búsqueda de texto completo) en `127.0.0.1`, en un panel (`Ctrl + Shift + 4`) o en tu navegador, y previsualiza y exporta presentaciones de Slidev. Ninguna versión publicada incluye todavía el entorno de ejecución del servidor de contenido que necesita, por lo que el panel, su elemento de menú, el comando de la paleta y el atajo están ocultos salvo que **Configuración → Avanzado → Herramientas de desarrollo** esté activado. [Más información →](/es/guide/knowledge-base)
 
 ## Personalización

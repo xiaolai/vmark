@@ -38,7 +38,7 @@ export const zhTW = {
           "workspace-rail": "工作區導軌",
           "cjk-formatting": "中日韓排版",
           "ai-genies": "AI 精靈",
-          "coherence": "一致性與明細檢視",
+          "coherence": "一致性明細",
           "workflows": "精靈工作流程",
           "workflow-genies": "工作流程精靈",
           "ai-providers": "AI 服務商",

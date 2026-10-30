@@ -162,6 +162,7 @@ segnaposto non funzionanti.)
 ## Sicurezza
 
 - Un percorso media non può contenere uno schema URI (`javascript:`, `file:` o uno personalizzato); tali sorgenti vengono rifiutate invece di essere caricate
-- Un percorso che indica una directory anziché un file viene rifiutato
+- Un percorso relativo che indica una directory (`.`, `..`, `assets/`) non viene caricato. I blocchi video/audio lo rifiutano direttamente. Le immagini inline lo restituiscono invariato, e la webview lo risolve rispetto all'origine dell'app, quindi non raggiunge mai il disco. Un percorso relativo alla home (`~/…`) viene trattato allo stesso modo
+- I percorsi assoluti non sono limitati dalle regole sui percorsi. Viene mostrato qualsiasi percorso assoluto all'interno dell'ambito degli asset: la tua cartella home, `/Volumes`, `/mnt` e `/media` (più le unità `C:`–`F:` su Windows) e le cartelle concesse durante l'esecuzione. Un documento può quindi mostrare qualsiasi immagine leggibile in quei luoghi scrivendone il percorso completo. Incollare un'immagine con **Copia nella cartella asset** disattivato scrive proprio un percorso assoluto di questo tipo. Per questo anche un percorso relativo può usare `..`: non raggiunge nulla che un percorso assoluto non potesse già raggiungere
 - Gli embed video vengono caricati solo da tre host: `www.youtube-nocookie.com` (il player di YouTube con privacy avanzata), `player.vimeo.com` e `player.bilibili.com`. Un link di YouTube, o un iframe scritto con `youtube.com`, viene incorporato tramite l'host con privacy avanzata. La content security policy di VMark consente di caricare frame da questi host e da nessun altro sito
 - Le altre sorgenti di iframe vengono rimosse dal sanitizer

@@ -167,6 +167,8 @@ En **Windows**, el instalador no se apropia de un tipo de archivo que ya gestion
 
 Un archivo registrado se abre en VMark solo si su formato está activado (consulta [Activar formatos](#activar-formatos)); si no, se abre como texto plano.
 
+En Windows y Linux, una carpeta pasada en la línea de comandos (`vmark C:\notes` o `vmark ~/notes`) se abre como espacio de trabajo en su propia ventana, igual que al soltar una carpeta sobre el icono del Dock en macOS. Esto también funciona cuando VMark ya está en ejecución.
+
 ### Resaltado de sintaxis para archivos planos
 
 Incluso cuando un archivo se abre como texto plano, VMark lo colorea si reconoce el tipo — `.env`/`.ini`/`.conf` (propiedades), `.sh`/`.bash` (shell), `Dockerfile`, `.toml`, `.sql`, `.diff` y los lenguajes habituales. Es puramente estético; nunca cambia el editor en el que se abrió el archivo y funciona tanto si la categoría de visores de código está activada como si no.
@@ -198,7 +200,7 @@ Según el ADR-4 del plan multi-formato, la vista previa HTML se basa en tres cap
 
 El validador muestra etiquetas de script, URLs `javascript:` y manejadores de eventos en línea como advertencias para que puedas ver qué está siendo bloqueado. Una vez que [confías en el archivo](#vista-previa-html-de-confianza-opcional) se muestran como información, para que nada contradiga el banner de confianza. Dos mensajes indican lo que la vista previa nunca permite, sea de confianza o no: un script externo (`<script src="…">`) nunca se carga, ya que ningún script procede de un archivo o una URL, y un enlace `javascript:` dirigido a otra ventana o a la página superior (`target="_top"`, `_blank` o un `<base target>`) nunca navega, ya que la vista previa no puede salir de sí misma. La detección lee las etiquetas de la página de forma aproximada; etiqueta los hallazgos y nunca decide qué se ejecuta — eso lo decide la zona de pruebas.
 
-La aprobación formal de seguridad de esta vista previa sigue pendiente, y la vista previa lo indica en un aviso sobre la página renderizada: **La vista previa HTML está aislada, pero pendiente de la aprobación OWASP.** Las tres capas anteriores están implementadas; el paso pendiente es confirmarlas frente a las cargas XSS de OWASP dentro del webview de la aplicación en ejecución.
+La aprobación formal de seguridad de esta vista previa sigue pendiente, y la vista previa lo indica en un aviso sobre la página renderizada: **La vista previa HTML está aislada. Su revisión de seguridad aún está en curso.** Las tres capas anteriores están implementadas; el paso pendiente es confirmarlas frente a las cargas XSS de OWASP dentro del webview de la aplicación en ejecución.
 
 ### Vista previa HTML de confianza (opcional)
 

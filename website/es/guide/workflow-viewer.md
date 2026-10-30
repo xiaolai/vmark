@@ -55,9 +55,11 @@ El bloque `with:` se renderiza como filas de añadir/editar/eliminar pares clave
 
 En los steps `uses:`, la propia referencia a la action es de solo lectura — cámbiala en el código fuente si necesitas otra action.
 
+En el formulario del step, **Alt + Izquierda** / **Alt + Derecha** pasan al step anterior / siguiente. El atajo funciona en cualquier parte de la ventana, salvo dentro de un campo de texto, un desplegable o un editor de código, donde Alt + Flecha conserva su significado habitual de navegar por palabras.
+
 ### Triggers
 
-Un trigger escrito como mapeo (`on: { push: { branches: [main] } }`) tiene campos de filtro editables — branches, branches-ignore, tags, tags-ignore, paths, paths-ignore y types —, cada uno una lista separada por comas. Un cron de `schedule` se muestra como una frase en lenguaje natural, con un aviso cuando se ejecuta con más frecuencia que cada 5 minutos (GitHub limita esas ejecuciones), y es de solo lectura. También lo es un trigger escrito como un simple nombre de evento o como una lista de nombres; edítalos en el código fuente.
+Un trigger escrito como mapeo (`on: { push: { branches: [main] } }`) tiene campos de filtro editables — branches, branches-ignore, tags, tags-ignore, paths, paths-ignore y types —, cada uno una lista separada por comas. Un cron de `schedule` se muestra como una frase en el idioma de la interfaz — los nombres de días y meses se quedan como abreviaturas inglesas de tres letras (`Mon`, `Jan`) —, con un aviso cuando se ejecuta con más frecuencia que cada 5 minutos (GitHub limita esas ejecuciones), y es de solo lectura. También lo es un trigger escrito como un simple nombre de evento o como una lista de nombres; edítalos en el código fuente.
 
 ### Permisos y concurrencia
 

@@ -19,6 +19,8 @@ La [barre des espaces de travail](/fr/guide/workspace-rail), expérimentale, per
 
 Lorsque vous ouvrez un espace de travail, VMark affiche la barre latérale avec l'explorateur de fichiers. Si l'espace de travail a déjà été ouvert, les onglets précédemment ouverts sont restaurés.
 
+Sous Windows et Linux, un dossier passé en ligne de commande (`vmark C:\notes` ou `vmark ~/notes`) s'ouvre comme espace de travail dans sa propre fenêtre, comme le fait le dépôt d'un dossier sur l'icône du Dock sous macOS. Cela fonctionne aussi lorsque VMark est déjà en cours d'exécution.
+
 ::: tip
 Si la fenêtre actuelle a des modifications non enregistrées, VMark propose d'ouvrir l'espace de travail dans une nouvelle fenêtre au lieu de remplacer votre travail.
 :::
@@ -132,7 +134,7 @@ Sans espace de travail, l'Ouverture rapide fonctionne quand même — elle affic
 
 ## Recherche dans le contenu de l'espace de travail
 
-Lorsqu'un espace de travail est ouvert, VMark peut rechercher dans le **contenu des fichiers** (et pas seulement dans les noms de fichiers) les correspondances dans les fichiers markdown et texte.
+Lorsqu'un espace de travail est ouvert, VMark peut rechercher dans le **contenu des fichiers** (et pas seulement dans les noms de fichiers). Par défaut, il cherche dans les types de fichiers que VMark ouvre (Markdown, texte brut, YAML, ainsi que JSON/TOML/Mermaid/SVG/HTML lorsque leur prise en charge est activée). Désactivez le bouton **.md** (**Types de fichiers pris en charge uniquement**) pour chercher dans tous les fichiers texte (les fichiers binaires sont toujours ignorés).
 
 | Action | Raccourci |
 |---|---|

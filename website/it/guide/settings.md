@@ -123,7 +123,7 @@ La Larghezza Editor si misura in `em`, quindi la lunghezza della riga in *caratt
 | Apri i file in una nuova scheda | Apre i file esistenti in una nuova scheda invece di riutilizzare la scheda vuota corrente | Off | Attivo / Off |
 | Abilita auto-accoppiamento | Inserisce automaticamente la parentesi/virgoletta di chiusura corrispondente quando ne digiti una di apertura | Attivo | Attivo / Off |
 | Parentesi CJK | Auto-accoppiamento di parentesi specifiche CJK come `「」` `【】` `《》`. Disponibile solo quando l'auto-accoppiamento è abilitato | Auto | Off, Auto |
-| Includi virgolette curve | Auto-accoppiamento dei caratteri `""` e `''`. Potrebbe entrare in conflitto con alcune funzionalità di virgolette intelligenti degli IME. Appare quando le parentesi CJK sono impostate su Auto | Attivo | Attivo / Off |
+| Includi virgolette curve | Auto-accoppiamento di `“”` e `‘’`, e trasformazione di un `"` o `'` dritto digitato in una coppia curva. Potrebbe entrare in conflitto con alcune funzionalità di virgolette intelligenti degli IME. Appare quando le parentesi CJK sono impostate su Auto | Attivo | Attivo / Off |
 | Accoppia anche `"` | Digitare la virgoletta doppia destra `"` inserisce anche una coppia `""`. Utile quando il tuo IME alterna tra virgolette aperte e chiuse. Appare quando le virgolette curve sono abilitate | Off | Attivo / Off |
 | Formato copia | Il formato da usare per il segnaposto degli appunti di testo normale quando si copia dalla modalità WYSIWYG | Testo normale | Testo normale, Markdown |
 | Copia alla selezione | Copia automaticamente il testo negli appunti ogni volta che lo selezioni | Off | Attivo / Off |
@@ -170,9 +170,9 @@ Comportamento dell'incolla, layout e impostazioni di rendering HTML.
 |-------------|-------------|-------------|---------|
 | Dividi sorgente/anteprima per impostazione predefinita | Apre i file Markdown con la vista divisa sorgente + anteprima dal vivo affiancate (altrimenti WYSIWYG). Si attiva/disattiva per sessione con `Shift + F6` o **Vista → Vista divisa Markdown** | Off | Attivo / Off |
 | Dimensione font elementi a blocco | Dimensione relativa del font per elenchi, citazioni, tabelle, avvisi e blocchi dettagli | 100% | 100%, 95%, 90%, 85% |
-| Allineamento intestazioni | Allineamento del testo per le intestazioni | Sinistra | Sinistra, Centro |
-| Bordi immagini e diagrammi | Se mostrare un bordo attorno alle immagini, ai diagrammi Mermaid e ai blocchi matematici | Nessuno | Nessuno, Sempre, Al passaggio |
-| Allineamento immagini e tabelle | Allineamento orizzontale per le immagini a blocco e le tabelle | Centro | Centro, Sinistra |
+| Allineamento intestazioni | Allineamento del testo per le intestazioni. Solo nell'editor — non applicato a esportazione o stampa | Sinistra | Sinistra, Centro |
+| Bordi immagini e diagrammi | Se mostrare un bordo attorno alle immagini, ai diagrammi Mermaid e ai blocchi matematici. Solo nell'editor — non applicato a esportazione o stampa | Nessuno | Nessuno, Sempre, Al passaggio |
+| Allineamento immagini e tabelle | Allineamento orizzontale per le immagini a blocco e le tabelle. Solo nell'editor — non applicato a esportazione o stampa | Centro | Centro, Sinistra |
 | Adatta tabelle alla larghezza | Limita tutte le tabelle alla larghezza dell'editor invece di consentire lo scorrimento orizzontale | Off | Attivo / Off |
 | Numeri di riga nei blocchi di codice | Mostra i numeri di riga all'interno dei blocchi di codice nell'editor WYSIWYG. Indipendente da **Numeri riga** del menu Vista, che controlla il margine dell'editor Sorgente/Diviso | Off | Attivo / Off |
 
@@ -288,7 +288,7 @@ Il server MCP (Model Context Protocol) consente agli assistenti IA esterni come 
 |-------------|-------------|-------------|
 | Abilita Server MCP | Avvia o ferma il server MCP. Quando è in esecuzione, un badge di stato mostra la porta e i client connessi | Attivo (toggle) |
 | Avvia all'avvio | Avvia automaticamente il server MCP all'apertura di VMark | Attivo |
-| Approva automaticamente i salvataggi in una nuova posizione e i risultati dei geni | Consente a un client MCP di salvare un documento in una nuova posizione senza chiedere, e a un genio di applicare direttamente il suo risultato invece di mostrare un'anteprima. Se disattivata, una richiesta MCP di salvare in un nuovo percorso viene rifiutata e un toast te lo notifica. Le scritture di documenti via MCP non dipendono mai da questa impostazione — ognuna viene salvata come punto di controllo e può essere ripristinata dalla cronologia nella barra di stato | Off |
+| Approva automaticamente i salvataggi in una nuova posizione e i risultati dei geni | Consente a un client MCP di salvare un documento in una nuova posizione senza chiedere, e a un genio di applicare direttamente il suo risultato invece di mostrare un'anteprima. Se disattivata, una richiesta MCP di salvare in un nuovo percorso viene rifiutata e un toast te lo notifica. Le scritture di documenti via MCP non dipendono mai da questa impostazione — ognuna viene registrata nella cronologia delle modifiche degli agenti e può essere ripristinata dalla cronologia scritture MCP nella barra di stato | Off |
 
 Quando il server è in esecuzione, il pannello mostra anche:
 - **Porta** — assegnata automaticamente; i client IA la scoprono tramite il file di configurazione
@@ -538,7 +538,7 @@ Configurazione per sviluppatori e a livello di sistema.
 
 L'elenco ha due effetti. Quando inserisci un collegamento, un URL negli appunti con uno di questi protocolli viene riconosciuto come collegamento, proprio come `https://`. E quando apri un collegamento, VMark lo passa al sistema solo se il suo protocollo è `http`, `https`, `mailto` o uno di questo elenco — così i collegamenti `obsidian://open?vault=...` e `vscode://file/...` si aprono nelle rispettive app, mentre qualsiasi altro protocollo viene rifiutato. Alcuni protocolli non possono mai essere abilitati in questo modo, qualunque cosa dica l'elenco: `javascript:`, `data:`, `file:` e simili.
 
-I quattro predefiniti sono sempre inclusi: rimuoverne uno vale solo fino al riavvio di VMark.
+Un predefinito che rimuovi resta rimosso. Un protocollo predefinito aggiunto in una versione successiva di VMark viene aggiunto al tuo elenco una sola volta, al primo avvio di quella versione.
 
 ### Prestazioni
 

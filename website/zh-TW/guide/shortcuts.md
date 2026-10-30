@@ -178,7 +178,7 @@ VMark 使用功能鍵（F2–F10）進行快速模式切換。在 macOS 上，�
 | 切換歷史記錄 | `Ctrl + Shift + 3` |
 | 切換知識庫 | `Ctrl + Shift + 4` |
 | 切換視窗狀態 | `Ctrl + Shift + 5` |
-| 切換行號（程式碼區塊） | `Alt + Mod + L` |
+| 切換行號（原始碼／分割檢視的行號欄） | `Alt + Mod + L` |
 | 切換終端機 | Ctrl + `` ` `` |
 | 聚焦終端機或編輯器 | Ctrl + Shift + `` ` ``（Windows/Linux 上為 Alt + Shift + `` ` ``） |
 | 切換圖表預覽 | `Alt + Mod + P` |
