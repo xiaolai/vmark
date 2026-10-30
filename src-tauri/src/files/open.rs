@@ -9,8 +9,9 @@
 //! over the 300-line limit, which the size gate correctly refused.
 //!
 //! Key decisions:
-//!   - A folder opened from Finder is a folder the user chose: it is granted
-//!     and recorded through `workspace::grants` before its window opens.
+//!   - A folder opened from Finder, or passed as a launch argument on Windows
+//!     and Linux, is a folder the user chose: it is granted and recorded
+//!     through `workspace::grants` before its window opens.
 //!   - `RunEvent::Opened` arrives on the event loop, and handling it touches
 //!     the disk — classifying each URL, resolving and recording a folder, a
 //!     grant file fsync. On a stale network mount any of those blocks for the

@@ -10,7 +10,8 @@
 //!
 //! Three assertions, because each fails for a different reason:
 //!   - a RENDER emits `loading → rendering → finishing`, in order, once each;
-//!   - the COMMAND (`export_pdf`) adds `done` after post-processing — that is
+//!   - the COMMAND (`export_pdf`'s body, `export_pdf_to_path`, since this
+//!     harness has no save panel to choose in) adds `done` after post-processing — that is
 //!     the one stage the renderer must NOT emit, or the dialog says "Done"
 //!     while the outline is still being written;
 //!   - a path refused up front — by the guard, with `NotFound` — emits

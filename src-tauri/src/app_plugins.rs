@@ -13,8 +13,17 @@
 //! that fails SILENTLY (a dropped `.manage()` neither fails to compile nor
 //! fails to start), and `lib.test.rs` asserts it against a `mock_builder()`.
 //!
+//! Key decisions:
+//!   - The secure store file is opened here, by a plugin registered right
+//!     after the store plugin, so the webview only looks it up and is never
+//!     granted `store:allow-load` (whose path argument could leave app data).
+//!   - The automation bridge's capability lives outside `capabilities/` and is
+//!     added at runtime only in a debug build whose bridge started, so a
+//!     release build carries no `mcp-bridge` permission.
+//!
 //! @coordinates-with lib.rs — `run`, the only caller
 //! @coordinates-with automation_port.rs — the probe the debug bridge is pinned to
+//! @coordinates-with capabilities-debug/automation-bridge.json — the bridge's runtime capability
 //! @module app_plugins
 
 /// Register every plugin the app runs with, in the order it needs them.

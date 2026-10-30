@@ -5,7 +5,8 @@
 //! that file under the size gate. Used by CLI arg filtering, Finder
 //! `RunEvent::Opened` filtering, `validate_openable_path`, and the macOS
 //! quarantine strip. Mirrors the TS registry's `getSupportedExtensions()`;
-//! parity enforced by `scripts/check-ext-sync.sh` (ADR-12).
+//! parity enforced by `scripts/check-ext-sync.sh` (ADR-12). `launch_dirs`
+//! picks out the folder launch arguments that extension filter drops.
 
 /// Accepted file extensions (lowercased, no leading dot).
 pub(crate) const SUPPORTED_EXTENSIONS: &[&str] = &[

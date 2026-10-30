@@ -10,7 +10,7 @@
 //!   - A destroyed window's backend state is reaped on `Destroyed`, not left to
 //!     the frontend: its webview dies without running its own teardown. That
 //!     covers its file watcher, its PTY sessions and its MCP bridge workspace
-//!     registration.
+//!     registration, all released by `window_destroyed`.
 //!   - Recorded workspace grants (`workspace::grants`) are re-issued during
 //!     setup. Tauri has already BUILT the configured `main` window by then, but
 //!     its page load and every IPC request are served on the main thread setup

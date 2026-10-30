@@ -41,7 +41,9 @@
  * (pointerdown) on the SAME request it completes on. Deny is never delayed.
  *
  * Display hardening (A-05, S-09): page-derived names are bidi-isolated and
- * length-capped, and a payload-binding operation shows what it binds.
+ * length-capped, and a payload-binding operation shows what it binds — its
+ * summary uncut — with characters that draw nothing rendered as visible escapes
+ * (`utils/revealInvisibleChars`), so a bidi override cannot reorder a script.
  *
  * @coordinates-with stores/browserApprovalStore — pending queue + resolveApproval
  * @coordinates-with services/browser/browserOcclusion — freeze while raised
