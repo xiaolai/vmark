@@ -800,7 +800,10 @@
       "paths": [
         "src-tauri/src/pandoc",
         "src/pages/settings/DocumentToolsSettings.tsx",
-        "src/pages/settings/DocumentToolsSettings.test.tsx"
+        "src/pages/settings/DocumentToolsSettings.test.tsx",
+        "src/export/pandocExport.ts",
+        "src/export/pandocFormats.ts",
+        "src/export/pandocExport.test.ts"
       ],
       "flag": null,
       "flagDefault": null,
@@ -1064,7 +1067,11 @@
         "src/services/workflow/workflowEnginePolicySync.ts",
         "src/plugins/codemirror/sourceWorkflowPreview.ts",
         "src/services/workflow/providerPayload.test.ts",
-        "src/services/workflow/workflowEnginePolicySync.test.ts"
+        "src/services/workflow/workflowEnginePolicySync.test.ts",
+        "src/services/workflow/dispatchWorkflowRun.ts",
+        "src/services/workflow/workflowRunEvents.ts",
+        "src/services/workflow/dispatchWorkflowRun.test.ts",
+        "src/services/workflow/workflowRunEvents.test.ts"
       ],
       "flag": "advanced.workflowEngine",
       "flagDefault": false,
