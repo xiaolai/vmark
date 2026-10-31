@@ -11,6 +11,8 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 ## [Unreleased]
 
+## [0.9.109] - 2026-10-31
+
 ### Changed
 
 - **CJK quote spacing now follows the switch that names it.** "Fix double
@@ -20,7 +22,50 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
   `那些“自己也不会解魔方”的家长` came back unchanged with both switches on.
   Turn either switch off to keep curly quotes tight against CJK text, the
   GB/T 15834 and JLREQ treatment. Bracket quotes (`「」`, `『』`) and terminal
-  punctuation still take no space.
+  punctuation still take no space (#1615).
+- **Reassigning a shortcut says what it does.** When a key combination is
+  already taken, Settings → Shortcuts now offers **Reassign** and tells you
+  the other action will be left without a shortcut. A new **Remove Shortcut**
+  button clears a shortcut, and if the menu bar cannot apply a change you now
+  see an error instead of a silent mismatch (#1616).
+- **PDF export starts from your CJK letter spacing.** The PDF dialog's CJK
+  letter spacing now starts at your Settings → Appearance value, which is off
+  by default, instead of always starting at 0.05em (#1616).
+
+### Fixed
+
+- **Menus and Find in Files in your language.** The app menu (Services,
+  Hide VMark, Hide Others, Show All), Cut, Copy, Paste, Select All, Minimize
+  and Zoom now follow VMark's language instead of the system's, and the Find
+  in Files panel is translated (#1616).
+- **Clearer setting descriptions.** Heading alignment, media borders and
+  media alignment now say they apply in the editor only, not to export or
+  print; curly quotes, developer mode and auto-approve describe what they
+  actually do (#1616).
+
+### Security
+
+- **Exports go only where you chose.** PDF, Pandoc and Slidev exports now
+  write only to the location you picked in the save dialog, once. Any other
+  path is refused and you are asked to export again (#1616).
+- **Approval prompts show hidden characters.** The browser, workflow-step and
+  workspace-folder approval prompts show invisible characters (zero-width
+  spaces, text-direction overrides, variation selectors and the like) as
+  visible `\u{…}` escapes, so a name or script cannot disguise what you are
+  approving (#1616).
+- **Files from a second launch open from the right folder.** On Windows and
+  Linux, a relative path passed to a second VMark launch is resolved against
+  that launch's own folder, and dropped when that folder is unknown, instead
+  of being resolved against the running VMark's folder (#1616).
+- **Tighter internal permissions.** The secure settings store is opened by the
+  app itself and the window can no longer open arbitrary store files, the
+  workspace-open approval is tied to the connection that asked, and release
+  builds no longer carry the debug automation bridge's permission (#1616).
+
+### Removed
+
+- Unused code paths: the coherence accept and operators flow, the merge
+  audit, and the unused `@xterm/addon-serialize` dependency (#1616).
 
 ## [0.9.108] - 2026-10-30
 
@@ -496,7 +541,8 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 - Raised the `markdown-it` version floor past GHSA-253c-mchw-3w2r.
 
-[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.108...HEAD
+[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.109...HEAD
+[0.9.109]: https://github.com/xiaolai/vmark/releases/tag/v0.9.109
 [0.9.108]: https://github.com/xiaolai/vmark/releases/tag/v0.9.108
 [0.9.107]: https://github.com/xiaolai/vmark/releases/tag/v0.9.107
 [0.9.106]: https://github.com/xiaolai/vmark/releases/tag/v0.9.106
