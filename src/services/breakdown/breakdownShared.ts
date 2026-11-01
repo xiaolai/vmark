@@ -9,6 +9,7 @@
  * @module services/breakdown/breakdownShared
  */
 
+import { withoutTrailingSeparators } from "@/utils/pathUtils";
 import { commandErrorMessage } from "@/services/commands/commandError";
 
 /**
@@ -39,7 +40,7 @@ export function resolveWorkspacePath(workspaceRoot: string, relative: string): s
   if (relative.length === 0 || relative.startsWith("/") || relative.includes("\\")) return null;
   const segments = relative.split("/");
   if (segments.some((s) => s === "" || s === "." || s === "..")) return null;
-  return `${workspaceRoot.replace(/[/\\]+$/, "")}/${relative}`;
+  return `${withoutTrailingSeparators(workspaceRoot)}/${relative}`;
 }
 
 /** Mirror of the Rust `ResolveRequest`. */

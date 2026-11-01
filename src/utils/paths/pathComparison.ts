@@ -36,7 +36,7 @@ export function normalizePathForCompare(
   path: string,
   platform: RuntimePlatform,
 ): string {
-  const normalized = normalizePath(path);
+  const normalized = normalizePath(path, platform);
   return platform === "windows" ? normalized.toLowerCase() : normalized;
 }
 
@@ -49,8 +49,8 @@ export function normalizePathForCompare(
  * case-sensitive filesystems, and the cleanup compares KEYS from one source
  * (the document store) where spelling is already consistent per file.
  */
-export function canonicalPathKey(path: string): string {
-  const normalized = normalizePath(path);
+export function canonicalPathKey(path: string, platform?: RuntimePlatform): string {
+  const normalized = normalizePath(path, platform);
   const isAbsolute = normalized.startsWith("/");
   const out: string[] = [];
   for (const seg of normalized.split("/")) {

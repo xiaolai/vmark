@@ -15,21 +15,27 @@
  * @coordinates-with openPolicy.ts — uses isWithinRoot for workspace boundary decisions
  * @coordinates-with pathReconciliation.ts — uses normalizePath for path comparison
  * @coordinates-with fileTreeFilters.ts — uses isPathExcluded for file explorer filtering
+ * @coordinates-with pathUtils.ts — toForwardSlashes, the one rule for when a backslash is a name character
  * @module utils/paths/paths
  */
 
+import { toForwardSlashes } from "@/utils/pathUtils";
+import type { RuntimePlatform } from "@/utils/platform";
+
 /**
  * Normalize a path to use forward slashes and remove trailing slashes.
- * Works with both Windows (backslash) and POSIX (forward slash) paths.
+ * Works with both Windows (backslash) and POSIX (forward slash) paths. A backslash
+ * that is part of a macOS or Linux file name stays: converting it would make
+ * `/notes/a\\b.md` and `/notes/a/b.md` the same file.
  *
  * @param path - The path to normalize
+ * @param platform - The OS whose rules apply; defaults to the running one
  * @returns Normalized path with forward slashes
  */
-export function normalizePath(path: string): string {
+export function normalizePath(path: string, platform?: RuntimePlatform): string {
   if (!path) return "";
 
-  // Convert backslashes to forward slashes
-  let normalized = path.replace(/\\/g, "/");
+  let normalized = toForwardSlashes(path, platform);
 
   // Lowercase Windows drive letter (e.g. "C:/" → "c:/")
   // Safe for POSIX paths — they start with "/" not a letter + ":"
@@ -41,7 +47,7 @@ export function normalizePath(path: string): string {
     normalized = normalized[0].toLowerCase() + normalized.slice(1);
   }
 
-  // Remove trailing slashes (but not the root slash)
+  // Remove trailing slashes (but keep root "/")
   while (normalized.length > 1 && normalized.endsWith("/")) {
     normalized = normalized.slice(0, -1);
   }
@@ -53,7 +59,7 @@ export function normalizePath(path: string): string {
  * Get the filename from a path (last segment).
  *
  * @param path - The file path
- * @returns The filename, or empty string if path ends with separator
+ * @returns The filename, or empty string if path is empty or the root
  */
 export function getFileName(path: string): string {
   const normalized = normalizePath(path);
@@ -130,20 +136,6 @@ export function isWithinRoot(rootPath: string, targetPath: string): boolean {
 }
 
 /**
- * Split a path into segments (directory/file names).
- * Filters out empty segments from consecutive or trailing separators.
- *
- * @param path - The path to split
- * @returns Array of path segments
- */
-export function pathSegments(path: string): string[] {
-  const normalized = normalizePath(path);
-  if (!normalized) return [];
-
-  return normalized.split("/").filter((segment) => segment.length > 0);
-}
-
-/**
  * Check if a path should be excluded based on folder patterns.
  * Matches against path segments (not substrings) for accuracy.
  *
@@ -159,8 +151,9 @@ export function isPathExcluded(
 ): boolean {
   if (!excludeFolders.length) return false;
 
-  const relativePath = getRelativePath(rootPath, path);
-  const segments = pathSegments(relativePath);
+  // Already normalized, and no longer absolute: normalizing it again would split
+  // a backslash that `getRelativePath` kept as part of a name.
+  const segments = getRelativePath(rootPath, path).split("/");
 
   return segments.some((segment) => excludeFolders.includes(segment));
 }

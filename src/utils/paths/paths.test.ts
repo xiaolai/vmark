@@ -11,7 +11,6 @@ import {
   getParentDir,
   getRelativePath,
   isWithinRoot,
-  pathSegments,
   isPathExcluded,
 } from "./paths";
 
@@ -66,6 +65,15 @@ describe("paths", () => {
 
     it("extracts filename from Windows path", () => {
       expect(getFileName("C:\\Users\\test\\document.md")).toBe("document.md");
+    });
+
+    it("keeps a backslash that is part of a POSIX filename", () => {
+      expect(getFileName("/notes/a\\b.md")).toBe("a\\b.md");
+      expect(getFileName("/notes/a\\b/")).toBe("a\\b");
+    });
+
+    it("still splits a UNC path on its backslashes", () => {
+      expect(getFileName("\\\\server\\share\\a.md")).toBe("a.md");
     });
 
     it("handles filename without directory", () => {
@@ -178,37 +186,6 @@ describe("paths", () => {
       expect(
         isWithinRoot("C:\\Users\\root", "C:\\Users\\root\\docs\\file.md")
       ).toBe(true);
-    });
-  });
-
-  describe("pathSegments", () => {
-    it("splits POSIX path into segments", () => {
-      expect(pathSegments("/Users/test/file.md")).toEqual([
-        "Users",
-        "test",
-        "file.md",
-      ]);
-    });
-
-    it("splits Windows path into segments", () => {
-      expect(pathSegments("C:\\Users\\test\\file.md")).toEqual([
-        "c:",
-        "Users",
-        "test",
-        "file.md",
-      ]);
-    });
-
-    it("handles relative path", () => {
-      expect(pathSegments("docs/file.md")).toEqual(["docs", "file.md"]);
-    });
-
-    it("filters empty segments", () => {
-      expect(pathSegments("/Users//test/")).toEqual(["Users", "test"]);
-    });
-
-    it("returns empty array for empty string", () => {
-      expect(pathSegments("")).toEqual([]);
     });
   });
 

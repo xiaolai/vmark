@@ -31,12 +31,7 @@ import { useQuickLookStore } from "@/stores/quickLookStore";
 import { MediaView } from "@/components/Editor/MediaView/MediaView";
 import "./QuickLookOverlay.css";
 import { useBrowserOccluder } from "@/hooks/useBrowserOccluder";
-
-/** Extract the trailing filename from an absolute path (cross-platform). */
-function basenameOf(path: string): string {
-  const segments = path.replace(/\\/g, "/").split("/");
-  return segments[segments.length - 1] || path;
-}
+import { getFileName } from "@/utils/pathUtils";
 
 /** Full-screen Quick Look preview overlay, mounted once at the app shell. */
 export function QuickLookOverlay() {
@@ -116,7 +111,7 @@ export function QuickLookOverlay() {
 
   if (!isOpen || !path) return null;
 
-  const filename = basenameOf(path);
+  const filename = getFileName(path) || path;
 
   return createPortal(
     <div className="vm-overlay vm-overlay--center quick-look-backdrop" onClick={close}>

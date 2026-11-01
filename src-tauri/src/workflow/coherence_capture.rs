@@ -127,7 +127,7 @@ fn normalize_in_workspace(path: &str, workspace_root: &Path) -> Option<String> {
     };
     let resolved = joined.canonicalize().unwrap_or(joined);
     let relative = resolved.strip_prefix(&root).ok()?;
-    let text = relative.to_str()?.replace('\\', "/");
+    let text = relative.to_str()?.replace(std::path::MAIN_SEPARATOR, "/");
     (!text.is_empty()).then_some(text)
 }
 

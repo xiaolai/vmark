@@ -26,6 +26,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { clearAllHistory, clearWorkspaceHistory } from "@/services/history/historyRecovery";
 import { historyLog, historyError } from "@/utils/debug";
+import { getFileName } from "@/utils/paths";
 import { emitHistoryCleared } from "@/utils/historyTypes";
 import { withReentryGuard } from "@/utils/reentryGuard";
 import { runOrphanCleanup } from "@/services/media/orphanCleanupPrompt";
@@ -126,7 +127,7 @@ function historyCommandSpecs(): CommandDefinition[] {
           const { rootPath } = useWorkspaceStore.getState();
           if (!rootPath) return;
 
-          const workspaceName = rootPath.split(/[\\/]/).filter(Boolean).pop() || rootPath;
+          const workspaceName = getFileName(rootPath) || rootPath;
           const confirmed = await confirmAction({
             title: i18n.t("dialog:clearHistory.workspaceTitle"),
             message: i18n.t("dialog:clearHistory.workspaceMessage", { workspaceName }),

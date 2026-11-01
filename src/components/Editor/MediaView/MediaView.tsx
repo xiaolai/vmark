@@ -29,16 +29,10 @@ import { useTranslation } from "react-i18next";
 import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { FileQuestion } from "lucide-react";
 import { getMediaType } from "@/utils/mediaPathDetection";
-import { revealInFileManagerKey } from "@/utils/pathUtils";
+import { getFileName, revealInFileManagerKey } from "@/utils/pathUtils";
 import { mediaViewError } from "@/utils/debug";
 import { useMediaAsset } from "./useMediaAsset";
 import "./MediaView.css";
-
-/** Extract the trailing filename from an absolute path (sync, cross-platform). */
-function basenameOf(path: string): string {
-  const segments = path.replace(/\\/g, "/").split("/");
-  return segments[segments.length - 1] || path;
-}
 
 export interface MediaViewProps {
   /** Absolute file path handed down by the tab surface / overlay. */
@@ -62,7 +56,7 @@ export function MediaView({ path, reloadKey = 0 }: MediaViewProps) {
   const { granted, errored, src, attempt, markErrored } = useMediaAsset(path, reloadKey);
 
   const mediaType = getMediaType(path);
-  const filename = basenameOf(path);
+  const filename = getFileName(path) || path;
 
   const openExternally = () => {
     void openPath(path).catch((e: unknown) =>

@@ -128,6 +128,26 @@ fn case_sensitivity_matches_platform_expectations() {
     }
 }
 
+#[cfg(unix)]
+#[test]
+fn a_backslash_is_part_of_the_file_name_on_posix() {
+    // The spawn runs this string verbatim, so on POSIX the file it names is
+    // `payload\claude`, which is not the provider binary.
+    assert!(validate_cli_path("claude", Some(r"/tmp/payload\claude")).is_err());
+    assert!(validate_cli_path("claude", Some(r"payload\claude")).is_err());
+    assert!(validate_cli_path("claude", Some(r"/tmp/claude\")).is_err());
+    // A directory may hold one; the file name is still the provider's.
+    assert!(validate_cli_path("claude", Some(r"/opt/a\b/claude")).is_ok());
+}
+
+#[cfg(unix)]
+#[test]
+fn a_backslash_never_hides_traversal_or_a_directory_path() {
+    assert!(validate_cli_path("claude", Some(r"/tmp\..\claude")).is_err());
+    assert!(validate_cli_path("claude", Some("/opt/claude/")).is_err());
+    assert!(validate_cli_path("claude", Some("/opt/claude/.")).is_err());
+}
+
 // ===== REST providers pass through the same command boundary ===============
 
 #[test]

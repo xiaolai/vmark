@@ -161,6 +161,18 @@ fn refuses_relative_paths() {
     }
 }
 
+#[cfg(unix)]
+#[test]
+fn windows_absolute_spellings_are_relative_names_on_posix() {
+    // Classified as absolute, these would reach the existence check and pass
+    // for any file of that name in the working directory, skipping the
+    // known-editor list. "does not exist" is the mark of that wrong branch.
+    for name in [r"\vmark-guard-probe", "a:vmark-guard-probe"] {
+        let error = validate_editor_override(name).expect_err(name);
+        assert!(!error.contains("does not exist"), "{name:?}: {error}");
+    }
+}
+
 #[test]
 fn refuses_relative_with_whitespace() {
     // Multi-token bare overrides belong in $VMARK_EXTERNAL_EDITOR — the env

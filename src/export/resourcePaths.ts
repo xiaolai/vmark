@@ -19,6 +19,7 @@
  * @module export/resourcePaths
  */
 
+import { backslashIsNameCharacter, withoutTrailingSeparators } from "@/utils/pathUtils";
 import { dirname, join, normalize } from "@tauri-apps/api/path";
 import { exportWarn } from "@/utils/debug";
 
@@ -43,14 +44,17 @@ export const NO_DOCUMENT_DIR = "\u0000unsaved-document";
  * prefix admitted nothing, so a workspace at a root embedded no images. A
  * base that is ONLY separators is the filesystem root and holds every
  * absolute path. An empty base holds nothing (fail closed).
+ * @edge-case On macOS and Linux a backslash is part of a name, so it is neither
+ * a trailing separator of the base nor a boundary after it: `/vault\\x.png` is a
+ * sibling of `/vault`, not a file inside it.
  */
 export function isInsideBase(normalizedPath: string, normalizedBase: string): boolean {
   if (normalizedBase === "" || normalizedBase === NO_DOCUMENT_DIR) return false;
   if (normalizedPath === normalizedBase) return true;
-  const trimmed = normalizedBase.replace(/[/\\]+$/, "");
+  const trimmed = withoutTrailingSeparators(normalizedBase);
   return (
     normalizedPath.startsWith(trimmed + "/") ||
-    normalizedPath.startsWith(trimmed + "\\")
+    (!backslashIsNameCharacter(normalizedBase) && normalizedPath.startsWith(trimmed + "\\"))
   );
 }
 

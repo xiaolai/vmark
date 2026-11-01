@@ -14,6 +14,7 @@
  */
 
 import { useLargeFileSessionStore } from "@/stores/documentStore";
+import { getFileName } from "@/utils/pathUtils";
 import { dispatchEditor } from "./registry";
 
 // Mirror of MarkdownEditorSurface's accepted extensions. Used as the
@@ -23,12 +24,7 @@ import { dispatchEditor } from "./registry";
 const MARKDOWN_EXTENSIONS = new Set(["md", "markdown", "mdown", "mkd", "mdx"]);
 
 function extractExtension(filePath: string): string | null {
-  const slash = Math.max(
-    filePath.lastIndexOf("/"),
-    filePath.lastIndexOf("\\"),
-  );
-  const base = slash >= 0 ? filePath.slice(slash + 1) : filePath;
-  const stripped = base.replace(/[?#].*$/, "");
+  const stripped = getFileName(filePath).replace(/[?#].*$/, "");
   const dot = stripped.lastIndexOf(".");
   if (dot <= 0 || dot === stripped.length - 1) return null;
   return stripped.slice(dot + 1).toLowerCase();

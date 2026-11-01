@@ -148,13 +148,16 @@ fn walk_bounded(
 }
 
 /// The category a genie file belongs to: its directory relative to `base`,
-/// with `\` normalized to `/` so Windows paths produce the same category and
-/// key strings as POSIX; `None` for a file directly under `base`.
+/// with the native separator normalized to `/` so Windows paths produce the same
+/// category and key strings as POSIX, where a `\` is part of a name; `None` for a file directly under `base`.
 fn category_of(path: &Path, base: &Path) -> Option<String> {
     path.parent()
         .and_then(|p| p.strip_prefix(base).ok())
         .filter(|rel| !rel.as_os_str().is_empty())
-        .map(|rel| rel.to_string_lossy().replace('\\', "/"))
+        .map(|rel| {
+            rel.to_string_lossy()
+                .replace(std::path::MAIN_SEPARATOR, "/")
+        })
 }
 
 /// Whether `c` may appear in a label at all: not a control character, and
@@ -203,7 +206,7 @@ pub(crate) fn scan_genies_dir(
             .strip_prefix(base)
             .unwrap_or(path)
             .to_string_lossy()
-            .replace('\\', "/");
+            .replace(std::path::MAIN_SEPARATOR, "/");
         entries.insert(
             rel_key,
             GenieEntry {

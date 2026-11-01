@@ -270,3 +270,12 @@ fn an_unreadable_file_voids_completeness_and_the_walk_goes_on() {
         );
     }
 }
+
+/// A backslash is part of a name off Windows: the relative path must name the
+/// file that exists, not a look-alike one folder down.
+#[cfg(unix)]
+#[test]
+fn result_keeps_a_backslash_that_is_part_of_a_file_name() {
+    let result = result_for(Path::new("/ws/sub/a\\b.md"), Path::new("/ws"), Vec::new());
+    assert_eq!(result.relative_path, "sub/a\\b.md");
+}

@@ -35,6 +35,7 @@ import { isLocalUsesRef } from "@/lib/ghaWorkflow/paths";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { WindowContext } from "@/contexts/WindowContext";
+import { toForwardSlashes } from "@/utils/pathUtils";
 
 /**
  * Derive (workflowFile, wsRoot) for resolving `./` action refs.
@@ -67,7 +68,7 @@ function useWorkflowContext(): {
     activeTabId ? s.documents[activeTabId]?.filePath ?? null : null,
   );
   if (!filePath) return null;
-  const norm = filePath.replace(/\\/g, "/");
+  const norm = toForwardSlashes(filePath);
   const ghIdx = norm.lastIndexOf("/.github/workflows/");
   if (ghIdx <= 0) return null;
   return { workflowFile: norm, wsRoot: norm.slice(0, ghIdx) };

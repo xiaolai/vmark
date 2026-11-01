@@ -40,6 +40,7 @@ vi.mock("@/utils/historyTypes", () => ({
 
 import { executeCommand, listCommands, getCommand, _resetCommandBus } from "./CommandBus";
 import { registerMiscCommands } from "./miscCommands";
+import i18n from "@/i18n";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 
 beforeEach(() => {
@@ -131,6 +132,19 @@ describe("history.clearWorkspace (destructive)", () => {
 
     expect(mockAsk).not.toHaveBeenCalled();
     expect(mockClearWorkspaceHistory).not.toHaveBeenCalled();
+  });
+
+  it("names a workspace whose folder holds a backslash in full", async () => {
+    useWorkspaceStore.setState({ rootPath: "/repo/a\\b/" } as never);
+    const translate = vi.spyOn(i18n, "t");
+    mockAsk.mockResolvedValue(false);
+
+    await executeCommand("history.clearWorkspace", undefined, { windowLabel: "main" });
+
+    expect(translate).toHaveBeenCalledWith("dialog:clearHistory.workspaceMessage", {
+      workspaceName: "a\\b",
+    });
+    translate.mockRestore();
   });
 
   it("clears only the current workspace's history after confirmation", async () => {

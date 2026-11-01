@@ -20,6 +20,7 @@ import {
   resolveLocalUsesRef,
 } from "@/lib/ghaWorkflow/paths";
 import { openLocalFileInTab } from "@/services/navigation/openWorkflowTarget";
+import { toForwardSlashes } from "@/utils/pathUtils";
 
 const USES_LINE = /^(\s*-?\s*uses\s*:\s*)([^\s#]+.*)$/;
 
@@ -61,8 +62,8 @@ export function extractUsesAt(
  * workspace root is the directory containing `.github/`. Otherwise
  * we conservatively use the file's parent directory.
  */
-function workspaceRootOf(filePath: string): string {
-  const norm = filePath.replace(/\\/g, "/");
+export function workspaceRootOf(filePath: string): string {
+  const norm = toForwardSlashes(filePath);
   const ghIdx = norm.lastIndexOf("/.github/workflows/");
   if (ghIdx > 0) return norm.slice(0, ghIdx);
   return norm.slice(0, norm.lastIndexOf("/"));

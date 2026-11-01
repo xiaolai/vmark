@@ -90,9 +90,12 @@ pub fn validate_cli_path(cmd: &str, cli_path: Option<&str>) -> Result<(), String
         ));
     }
 
-    // Split on both separators — a Windows path may reach a macOS build in
-    // config that syncs across machines, and vice versa.
-    let basename = path.rsplit(['/', '\\']).next().unwrap_or("");
+    // The file name the OS will run: the spawn uses this string verbatim, and on
+    // POSIX a backslash is an ordinary name character, so `/tmp/payload\claude`
+    // names a file that is not the provider. `Path::file_name` is not used
+    // because it would accept `/x/claude/` and `/x/claude/.`.
+    let is_separator = |c: char| c == '/' || (cfg!(windows) && c == '\\');
+    let basename = path.rsplit(is_separator).next().unwrap_or("");
     if basename.is_empty() {
         return Err(format!(
             "cli_path must name a file, not a directory; expected `{cmd}`"

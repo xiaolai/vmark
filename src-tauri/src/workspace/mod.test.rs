@@ -44,10 +44,28 @@ fn test_hash_root_path_normalizes_trailing_slash() {
 }
 
 #[test]
-fn test_hash_root_path_normalizes_trailing_backslash() {
-    let h1 = hash_root_path("C:\\Users\\test\\project");
-    let h2 = hash_root_path("C:\\Users\\test\\project\\");
-    assert_eq!(h1, h2);
+fn test_root_normalization_strips_a_trailing_backslash_on_windows() {
+    // Takes the platform as an argument so this Windows pin runs on every OS.
+    let root = r"C:\Users\test\project";
+    for spelling in [root, r"C:\Users\test\project\", r"C:\Users\test\project\/"] {
+        assert_eq!(root_without_trailing_separators(spelling, true), root);
+    }
+    assert_eq!(
+        root_without_trailing_separators(r"/a\", false),
+        r"/a\",
+        "off Windows the backslash is a name character"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn a_trailing_backslash_is_a_different_root_on_posix() {
+    // `/a\` is a real directory beside `/a`; sharing a config file would read
+    // and then overwrite the other workspace's tabs and trust state.
+    assert_ne!(hash_root_path("/a"), hash_root_path(r"/a\"));
+    assert_ne!(hash_root_path("/a"), hash_root_path(r"/a\/"));
+    assert_ne!(legacy_hash_root_path("/a"), legacy_hash_root_path(r"/a\"));
+    assert_eq!(hash_root_path(r"/a\"), hash_root_path(r"/a\/"));
 }
 
 #[test]

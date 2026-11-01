@@ -32,6 +32,7 @@ import {
 import type { Root, Link, Image } from "mdast";
 import { createMarkdownProcessor } from "@/utils/markdownPipeline/parser";
 import { decodeMarkdownUrl } from "@/utils/markdownUrl";
+import { toForwardSlashes } from "@/utils/pathUtils";
 import { ruleEmission } from "@/lib/lintEngine/ruleMeta";
 import {
   createDiagnostic,
@@ -147,9 +148,9 @@ export function resolveMarkdownUrl(
   );
   if (!pathPart) return "";
 
-  const target = pathPart.replace(/\\/g, "/");
+  const target = toForwardSlashes(pathPart);
   if (target.startsWith("//") || /^[A-Za-z]:(?!\/)/.test(target)) return "";
-  const source = sourcePath ? splitPathRoot(sourcePath.replace(/\\/g, "/")) : null;
+  const source = sourcePath ? splitPathRoot(toForwardSlashes(sourcePath)) : null;
   const absolute = splitPathRoot(target);
 
   let root: string;

@@ -52,6 +52,13 @@ describe("MediaView", () => {
     expect(img).toHaveAttribute("src", "asset://localhost//photos/sunset.png");
   });
 
+  it("names and loads the file a POSIX backslash belongs to, not its look-alike", async () => {
+    render(<MediaView path={"/photos/a\\b.png"} />);
+    const img = await screen.findByRole("img");
+    expect(img).toHaveAttribute("alt", "a\\b.png");
+    expect(img).toHaveAttribute("src", "asset://localhost//photos/a\\b.png");
+  });
+
   // --- issue #1328: an element whose src never changes never re-fetches ------
 
   it("uses the bare asset url when the file has never changed externally", async () => {

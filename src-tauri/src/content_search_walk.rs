@@ -146,7 +146,7 @@ fn result_for(file_path: &Path, root: &Path, matches: Vec<LineMatch>) -> FileSea
         .strip_prefix(root)
         .unwrap_or(file_path)
         .to_string_lossy()
-        .replace('\\', "/");
+        .replace(std::path::MAIN_SEPARATOR, "/");
 
     FileSearchResult {
         path: file_path.to_string_lossy().to_string(),
