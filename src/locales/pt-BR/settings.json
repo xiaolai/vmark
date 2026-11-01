@@ -57,6 +57,8 @@
   "appearance.group.window": "Janela",
   "appearance.showFilenameInTitlebar.label": "Mostrar nome do arquivo na barra de título",
   "appearance.showFilenameInTitlebar.description": "Exibir o nome do arquivo atual no título da janela",
+  "appearance.showFolderInWindowTitle.label": "Mostrar a pasta no nome da janela",
+  "appearance.showFolderInWindowTitle.description": "Adiciona a pasta superior ao nome nas pré-visualizações de janelas do Dock e no menu Janela",
   "appearance.group.focusMode": "Modo de foco",
   "appearance.focusModeDim.label": "Nível de escurecimento",
   "appearance.focusModeDim.description": "Quão intensamente o conteúdo fora de foco é escurecido no Modo de foco",

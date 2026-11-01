@@ -36,3 +36,11 @@ describe("first-install defaults are non-destructive", () => {
     expect(defaultSettings.general.showFileExtensions).toBe(true);
   });
 });
+
+// #1618 — the filename alone is what the issue asked to see in the Dock; the
+// parent folder is an opt-in for telling same-named files apart.
+describe("first-install window title", () => {
+  it("does not add the parent folder until asked", () => {
+    expect(defaultSettings.appearance.showFolderInWindowTitle).toBe(false);
+  });
+});

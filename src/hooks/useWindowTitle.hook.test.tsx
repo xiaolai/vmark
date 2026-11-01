@@ -10,7 +10,7 @@
  * that used to end as an unhandled rejection naming no caller.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 
 const setTitle = vi.fn<(t: string) => Promise<void>>();
@@ -32,8 +32,9 @@ const state: { filePath: string | null; isDirty: boolean; hasActiveTab: boolean 
   hasActiveTab: true,
 };
 
-// The native title's audience is platform-dependent (#1296): on macOS it is
-// hidden behind the app's own chrome strip, everywhere else it IS the title bar.
+// The native title is always the document's name, but its audience differs
+// (#1296, #1618): on macOS the title bar text is hidden and the Dock, Window menu
+// and Mission Control read it; everywhere else it IS the title bar.
 const platform = vi.hoisted(() => ({ overlayTitleBar: true }));
 vi.mock("@/utils/platform", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/utils/platform")>()),
@@ -78,13 +79,18 @@ beforeEach(() => {
   state.isDirty = false;
   state.hasActiveTab = true;
   useSettingsStore.setState((s) => ({
-    appearance: { ...s.appearance, showFilenameInTitlebar: true },
+    appearance: { ...s.appearance, showFilenameInTitlebar: true, showFolderInWindowTitle: false },
   }));
 });
 
 const setShowFilename = (show: boolean) =>
   useSettingsStore.setState((s) => ({
     appearance: { ...s.appearance, showFilenameInTitlebar: show },
+  }));
+
+const setShowFolder = (show: boolean) =>
+  useSettingsStore.setState((s) => ({
+    appearance: { ...s.appearance, showFolderInWindowTitle: show },
   }));
 
 describe("useWindowTitle", () => {
@@ -102,10 +108,30 @@ describe("useWindowTitle", () => {
     await waitFor(() => expect(setTitle).toHaveBeenCalledWith("• readme.md"));
   });
 
-  it("clears the native title when the filename is not shown", async () => {
+  // #1618 — the setting governs the app's own strip. The Dock, Window menu and
+  // Mission Control read the native title, and fall back to "VMark" without it.
+  it("names the document natively on macOS with the titlebar filename off", async () => {
     setShowFilename(false);
     renderTitle();
-    await waitFor(() => expect(setTitle).toHaveBeenCalledWith(""));
+    await waitFor(() => expect(setTitle).toHaveBeenCalledWith("readme.md"));
+    expect(setTitle).not.toHaveBeenCalledWith("");
+  });
+
+  it("adds the parent folder on macOS when asked to", async () => {
+    setShowFolder(true);
+    renderTitle();
+    await waitFor(() => expect(setTitle).toHaveBeenCalledWith("docs | readme.md"));
+    // The print-to-PDF name stays the bare document name.
+    expect(document.title).toBe("readme");
+  });
+
+  it("retitles when the folder setting flips", async () => {
+    renderTitle();
+    await waitFor(() => expect(setTitle).toHaveBeenLastCalledWith("readme.md"));
+    act(() => setShowFolder(true));
+    await waitFor(() => expect(setTitle).toHaveBeenLastCalledWith("docs | readme.md"));
+    act(() => setShowFolder(false));
+    await waitFor(() => expect(setTitle).toHaveBeenLastCalledWith("readme.md"));
   });
 
   it("reports a setTitle rejection instead of dropping it", async () => {
@@ -126,10 +152,10 @@ describe("useWindowTitle", () => {
   });
 });
 
-// #1296 — the setting exists because macOS HIDES the native title behind the
-// app's own chrome. Off macOS the native title bar is the only place a filename
-// can appear, so the preference has no meaning there and must not be honoured.
-describe("useWindowTitle — off macOS the native title is not optional", () => {
+// #1296 — both settings are macOS-only. Off macOS the native title bar is the
+// visible title, and neither toggle is offered there, so a value that a synced
+// settings file carries across platforms must not change it.
+describe("useWindowTitle — off macOS the native title ignores the macOS settings", () => {
   beforeEach(() => {
     platform.overlayTitleBar = false;
   });
@@ -145,6 +171,12 @@ describe("useWindowTitle — off macOS the native title is not optional", () => 
     renderTitle();
     await waitFor(() => expect(setTitle).toHaveBeenCalled());
     expect(setTitle).not.toHaveBeenCalledWith("");
+  });
+
+  it("does not add the folder", async () => {
+    setShowFolder(true);
+    renderTitle();
+    await waitFor(() => expect(setTitle).toHaveBeenCalledWith("readme.md"));
   });
 
   it("still carries the dirty indicator", async () => {
@@ -185,13 +217,16 @@ describe("useWindowTitle — no document open (WelcomeScreen)", () => {
     await waitFor(() => expect(setTitle).toHaveBeenCalledWith("VMark"));
   });
 
-  // The setting still speaks for the whole title on macOS: an empty native
-  // title is what keeps the window out of the Window menu, and "no document
-  // open" is no reason to override a preference the user set.
-  it("still honours the macOS show-filename setting", async () => {
+  it("keeps the product name with the titlebar filename off on macOS", async () => {
     setShowFilename(false);
     renderTitle();
-    await waitFor(() => expect(setTitle).toHaveBeenCalledWith(""));
+    await waitFor(() => expect(setTitle).toHaveBeenCalledWith("VMark"));
+  });
+
+  it("has no folder to add to the product name", async () => {
+    setShowFolder(true);
+    renderTitle();
+    await waitFor(() => expect(setTitle).toHaveBeenCalledWith("VMark"));
   });
 
   // A stale document flag cannot smuggle a bullet onto a title with no

@@ -57,6 +57,8 @@
   "appearance.group.window": "視窗",
   "appearance.showFilenameInTitlebar.label": "在標題列顯示檔案名稱",
   "appearance.showFilenameInTitlebar.description": "在視窗標題中顯示目前檔案名稱",
+  "appearance.showFolderInWindowTitle.label": "在視窗名稱中顯示檔案夾",
+  "appearance.showFolderInWindowTitle.description": "在 Dock 視窗預覽和「視窗」選單的名稱中加入所在檔案夾",
   "appearance.group.focusMode": "專注模式",
   "appearance.focusModeDim.label": "變暗程度",
   "appearance.focusModeDim.description": "在專注模式下，非焦點內容變暗的強度",

@@ -1652,15 +1652,15 @@ Document windows mount their lifecycle through `src/hooks/lifecycle/DocumentWind
 - id: window-title
 - feature: Tabs & windows
 - summary: The native window title shows the current filename with a `•` dirty marker; a window with no document is named after the app.
-- capabilities: `• ` dirty prefix; `document.title` set to the filename without extension so the print dialog proposes a sane PDF name; the no-filename label is the translated "Untitled" for an unsaved document and "VMark" for a window with no tab (Welcome screen); on macOS `appearance.showFilenameInTitlebar` governs the app's own strip and an empty native title keeps the name out of the Window menu; off macOS the filename always goes in the native title bar
+- capabilities: `• ` dirty prefix; `document.title` set to the filename without extension so the print dialog proposes a sane PDF name; the no-filename label is the translated "Untitled" for an unsaved document and "VMark" for a window with no tab (Welcome screen); on macOS the native title's text is hidden but it still names the window for Dock previews, the Window menu and Mission Control, `appearance.showFilenameInTitlebar` governs only the app's own strip, and `appearance.showFolderInWindowTitle` prefixes the parent folder (`docs | readme.md`); off macOS the filename always goes in the native title bar
 - status: shipped-on
-- gate: `appearance.showFilenameInTitlebar = false` (consulted only where `usesOverlayTitleBar()` is true, i.e. macOS); elsewhere always on
-- surfaces: automatic; Settings → Appearance → Window (row rendered only on macOS)
+- gate: the title is always on; the folder prefix is `appearance.showFolderInWindowTitle = false` (consulted only where `usesOverlayTitleBar()` is true, i.e. macOS)
+- surfaces: automatic; Settings → Appearance → Window (both rows rendered only on macOS)
 - code: `src/hooks/useWindowTitle.ts`, `src/utils/platform.ts`, `src/pages/settings/AppearanceSettings.tsx`
 - rust: none
 - docs: `website/guide/settings.md` §"Window"; `website/guide/workspace-management.md` §"Empty Workspace Window"
 - tests: `src/hooks/useWindowTitle.test.ts`, `src/hooks/useWindowTitle.hook.test.tsx`, `src/components/TitleBar/TitleBar.filename.test.tsx`, `src/pages/settings/AppearanceSettings.test.tsx`
-- notes: #1296 (off macOS the native title is the only place a filename can appear, so the setting is not offered there); #1331 (Welcome-screen naming).
+- notes: #1296 (off macOS the native title is the only place a filename can appear, so the settings are not offered there); #1331 (Welcome-screen naming); #1618 (Dock previews read the native title, so clearing it labelled them "VMark").
 
 ### Cross-window live document references
 - id: live-docs
@@ -4135,10 +4135,10 @@ The Settings window is its own route (`src/pages/Settings.tsx`, panes under `src
 ### Appearance pane
 - id: appearance-settings
 - feature: Settings UI & persistence
-- summary: Theme selection (one mixed swatch row, or paired light/dark rows when following the system), the sidebar style, the macOS title-bar filename toggle, and Focus Mode dim strength.
-- capabilities: theme swatches rendered as mini pages from the typed catalog ("Aa" specimen in the theme's ink, border hairline, 2px accent rule), `aria-pressed`, light/dark badge only in the mixed row; Follow system appearance (`appearance.followSystemAppearance`) swaps to two mode-filtered rows for `systemLightTheme` / `systemDarkTheme`; Sidebar group with Sidebar style `flat` (Full height) | `card` (`appearance.sidebarStyle`, every platform, shown through `resolveSidebarStyle`; see `sidebar-style`); Window group with Show filename in titlebar (`appearance.showFilenameInTitlebar`), rendered only when `usesOverlayTitleBar()`; Focus mode dim `standard | strong | stronger` (`appearance.focusModeDim`)
+- summary: Theme selection (one mixed swatch row, or paired light/dark rows when following the system), the sidebar style, the macOS title-bar filename and window-name folder toggles, and Focus Mode dim strength.
+- capabilities: theme swatches rendered as mini pages from the typed catalog ("Aa" specimen in the theme's ink, border hairline, 2px accent rule), `aria-pressed`, light/dark badge only in the mixed row; Follow system appearance (`appearance.followSystemAppearance`) swaps to two mode-filtered rows for `systemLightTheme` / `systemDarkTheme`; Sidebar group with Sidebar style `flat` (Full height) | `card` (`appearance.sidebarStyle`, every platform, shown through `resolveSidebarStyle`; see `sidebar-style`); Window group with Show filename in titlebar (`appearance.showFilenameInTitlebar`) and Show folder in window name (`appearance.showFolderInWindowTitle`), rendered only when `usesOverlayTitleBar()`; Focus mode dim `standard | strong | stronger` (`appearance.focusModeDim`)
 - status: shipped-on, windows-linux-gap
-- gate: `appearance.theme = "paper"`, `appearance.followSystemAppearance = false`, `appearance.systemLightTheme = "paper"`, `appearance.systemDarkTheme = "night"`, `appearance.sidebarStyle = "flat"`, `appearance.showFilenameInTitlebar = false`, `appearance.focusModeDim = "standard"`; Window group gated on `usesOverlayTitleBar()`; swatch list gated on `selectableThemeIds(offersFullThemeCatalog())`
+- gate: `appearance.theme = "paper"`, `appearance.followSystemAppearance = false`, `appearance.systemLightTheme = "paper"`, `appearance.systemDarkTheme = "night"`, `appearance.sidebarStyle = "flat"`, `appearance.showFilenameInTitlebar = false`, `appearance.showFolderInWindowTitle = false`, `appearance.focusModeDim = "standard"`; Window group gated on `usesOverlayTitleBar()`; swatch list gated on `selectableThemeIds(offersFullThemeCatalog())`
 - surfaces: settings pane `appearance`
 - code: `src/pages/settings/AppearanceSettings.tsx`, `src/theme/themeAvailability.ts`, `src/stores/settingsTypes/appearance.ts`
 - rust: none (theme reaches native chrome through `native-chrome-theme`)

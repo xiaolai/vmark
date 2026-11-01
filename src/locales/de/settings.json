@@ -57,6 +57,8 @@
   "appearance.group.window": "Fenster",
   "appearance.showFilenameInTitlebar.label": "Dateiname in Titelleiste anzeigen",
   "appearance.showFilenameInTitlebar.description": "Den aktuellen Dateinamen im Fenstertitel anzeigen",
+  "appearance.showFolderInWindowTitle.label": "Ordner im Fensternamen anzeigen",
+  "appearance.showFolderInWindowTitle.description": "Ergänzt den übergeordneten Ordner im Namen der Fenstervorschau im Dock und im Menü „Fenster“",
   "appearance.group.focusMode": "Fokusmodus",
   "appearance.focusModeDim.label": "Abdunklungsgrad",
   "appearance.focusModeDim.description": "Wie stark nicht fokussierte Inhalte im Fokusmodus abgedunkelt werden",

@@ -46,12 +46,15 @@ Ist die Option aktiviert, wird die einzelne Design-Zeile durch zwei Zeilen erset
 | Einstellung | Beschreibung | Standard |
 |-------------|-------------|---------|
 | Dateiname in Titelleiste anzeigen | Aktuellen Dateinamen in der macOS-Fenstertitelleiste anzeigen. **Nur macOS** — anderswo ist diese Einstellung ausgeblendet, weil Windows und Linux den Dateinamen immer in der Titelleiste des Systems anzeigen | Aus |
+| Ordner im Fensternamen anzeigen | Ergänzt den übergeordneten Ordner im Fensternamen, etwa `docs \| readme.md`. **Nur macOS** — unterscheidet Fenster, deren Dateien gleich heißen | Aus |
 
 Unter macOS zeichnet VMark seine eigene Titelleiste über die des Systems, daher ist
 der Dateiname ein optionales Element dieser Leiste. Unter Windows und Linux zeichnet
 das System eine echte Titelleiste über dem Fenster: Der Dateiname (mit einem `•`,
 solange ungespeicherte Änderungen vorliegen) erscheint immer dort, und VMark fügt
 keine eigene Titelleiste hinzu.
+
+Unter macOS bleibt der Text der System-Titelleiste ausgeblendet, doch die Fenstervorschau im Dock, das Menü „Fenster“ und Mission Control lesen den Fensternamen. Sie erhalten immer den Dateinamen, unabhängig von diesen Einstellungen.
 
 ### Fokusmodus
 

@@ -189,9 +189,25 @@ describe("AppearanceSettings — the titlebar filename toggle is macOS-only", ()
     ).toBeNull();
   });
 
+  // #1618 — the folder is for the Dock, the Window menu and Mission Control, the
+  // macOS surfaces that read a title the title bar itself does not show.
+  it("offers the window-title folder toggle on macOS, off by default", () => {
+    render(<AppearanceSettings />);
+    const toggle = screen.getByRole("switch", { name: /show folder in window name/i });
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+    fireEvent.click(toggle);
+    expect(useSettingsStore.getState().appearance.showFolderInWindowTitle).toBe(true);
+  });
+
+  it("hides the window-title folder toggle off macOS", () => {
+    platform.isMac = false;
+    render(<AppearanceSettings />);
+    expect(screen.queryByRole("switch", { name: /show folder in window name/i })).toBeNull();
+  });
+
   it("withholds the whole Window group off macOS rather than showing it empty", () => {
-    // The titlebar toggle is the group's only row (WI-FL2.2 removed the other
-    // one), so a gate on the row alone would leave a heading over nothing.
+    // Every row in the group is macOS-only, so a gate per row would leave a
+    // heading over nothing.
     platform.isMac = false;
     render(<AppearanceSettings />);
     expect(screen.queryByText("Window")).toBeNull();

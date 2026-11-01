@@ -46,12 +46,15 @@ Quando ativada, a linha única de tema é substituída por duas linhas — **Tem
 | Configuração | Descrição | Padrão |
 |-------------|-----------|--------|
 | Mostrar nome do arquivo na barra de título | Exibir o nome do arquivo atual na barra de título da janela do macOS. **Somente macOS** — esta configuração fica oculta nas outras plataformas, porque o Windows e o Linux sempre mostram o nome do arquivo na barra de título do sistema | Desligado |
+| Mostrar a pasta no nome da janela | Adiciona a pasta superior ao nome da janela, como `docs \| readme.md`. **Somente macOS** — distingue janelas cujos arquivos têm o mesmo nome | Desligado |
 
 No macOS, o VMark desenha a sua própria barra de título sobre a do sistema, então
 o nome do arquivo é um elemento opcional dessa faixa. No Windows e no Linux o
 sistema desenha uma barra de título real acima da janela: o nome do arquivo (com
 um `•` enquanto houver alterações não salvas) sempre aparece ali, e o VMark não
 acrescenta nenhuma faixa de título própria.
+
+No macOS, o texto da barra de título do sistema continua oculto, mas as pré-visualizações de janelas do Dock, o menu Janela e o Mission Control leem o nome da janela. Eles sempre recebem o nome do arquivo, seja qual for o valor destas configurações.
 
 ### Modo de foco
 

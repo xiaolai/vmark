@@ -57,6 +57,8 @@
   "appearance.group.window": "Finestra",
   "appearance.showFilenameInTitlebar.label": "Mostra il nome del file nella barra del titolo",
   "appearance.showFilenameInTitlebar.description": "Visualizza il nome del file corrente nel titolo della finestra",
+  "appearance.showFolderInWindowTitle.label": "Mostra la cartella nel nome della finestra",
+  "appearance.showFolderInWindowTitle.description": "Aggiunge la cartella superiore al nome nelle anteprime delle finestre del Dock e nel menu Finestra",
   "appearance.group.focusMode": "Modalità focus",
   "appearance.focusModeDim.label": "Livello di attenuazione",
   "appearance.focusModeDim.description": "Quanto fortemente viene attenuato il contenuto non in focus nella Modalità focus",

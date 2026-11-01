@@ -46,12 +46,15 @@ Lorsqu'il est activé, la ligne de thème unique est remplacée par deux lignes 
 | Paramètre | Description | Par défaut |
 |-----------|-------------|------------|
 | Afficher le nom de fichier dans la barre de titre | Afficher le nom du fichier courant dans la barre de titre de la fenêtre macOS. **macOS uniquement** — ce paramètre est masqué ailleurs, car Windows et Linux affichent toujours le nom du fichier dans la barre de titre du système | Désactivé |
+| Afficher le dossier dans le nom de la fenêtre | Ajoute le dossier parent au nom de la fenêtre, par exemple `docs \| readme.md`. **macOS uniquement** — distingue les fenêtres dont les fichiers portent le même nom | Désactivé |
 
 Sur macOS, VMark dessine sa propre barre de titre par-dessus celle du système ; le
 nom du fichier y est donc un élément facultatif. Sous Windows et Linux, le système
 dessine une véritable barre de titre au-dessus de la fenêtre : le nom du fichier
 (avec un `•` tant qu'il reste des modifications non enregistrées) y apparaît
 toujours, et VMark n'ajoute aucune bande de titre propre.
+
+Sur macOS, le texte de la barre de titre du système reste masqué, mais les aperçus de fenêtres du Dock, le menu Fenêtre et Mission Control lisent le nom de la fenêtre. Ils reçoivent toujours le nom du fichier, quelle que soit la valeur de ces paramètres.
 
 ### Mode focus
 

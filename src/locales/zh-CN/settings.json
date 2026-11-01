@@ -57,6 +57,8 @@
   "appearance.group.window": "窗口",
   "appearance.showFilenameInTitlebar.label": "在标题栏显示文件名",
   "appearance.showFilenameInTitlebar.description": "在窗口标题中显示当前文件名",
+  "appearance.showFolderInWindowTitle.label": "在窗口名称中显示文件夹",
+  "appearance.showFolderInWindowTitle.description": "在程序坞窗口预览和“窗口”菜单的名称中加入所在文件夹",
   "appearance.group.focusMode": "专注模式",
   "appearance.focusModeDim.label": "暗化程度",
   "appearance.focusModeDim.description": "专注模式下非聚焦内容的暗化强度",
