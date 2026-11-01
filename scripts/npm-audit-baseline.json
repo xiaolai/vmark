@@ -9,6 +9,14 @@
     "continue-on-error for a pnpm-410 problem that no longer reproduces."
   ],
   "accepted": {
+    "GHSA-g3hv-75wg-m249": {
+      "module": "minimatch",
+      "reason": "Denial of service from an amplifying glob pattern. Reached only through tooling that is not in the desktop bundle: eslint and @stryker-mutator/core (lint and mutation runs over patterns in this repo's own configs) and filelist under the developer-only content server's Slidev PWA path. No fix exists for these paths: the patched line is 11.x, while the latest eslint, @stryker-mutator/core and filelist releases still require 10.x."
+    },
+    "GHSA-3g3m-2fjr-6pw4": {
+      "module": "glob",
+      "reason": "A cancelled AbortSignal does not stop a filesystem traversal. Reached only through server/content>@slidev/cli>vite-plugin-pwa>workbox-build. The content server is developer-only and not in the desktop bundle (BUNDLED_CLI_RESOURCE is None in src-tauri/src/content_server/bundle_manifest.rs). No fix exists for this path: the patched line is 14.x, while the latest workbox-build still requires 11.x."
+    },
     "GHSA-4w7w-66w2-5vf9": {
       "module": "vite",
       "reason": "Dev-server path traversal in the website's VitePress toolchain. Same non-shipped dev-server surface as GHSA-fx2h-pf6j-xcff."
