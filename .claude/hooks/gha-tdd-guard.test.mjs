@@ -8,9 +8,9 @@
 //
 // Exit codes: 0 allow · 2 block.
 
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect } from "vitest";
 import { spawnSync } from "node:child_process";
-import { rmdirSync, mkdirSync, mkdtempSync, writeFileSync, rmSync, readdirSync, readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync, rmSync, readdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -28,37 +28,26 @@ function runGuard(payload) {
 
 const write = (file_path) => ({ tool_name: "Write", tool_input: { file_path } });
 
-// Temp fixtures created under a real in-scope dir so the guard's filesystem
-// checks (isFile on the sibling candidate) hit real paths. Names carry the
-// pid so two concurrent vitest invocations on one checkout (a manual
-// test:gates beside a running check:predelta) never create or delete each
-// other's probes.
-const TAG = `__guardspec_${process.pid}__`;
-const DIR_AS_TEST = join(REPO, `src/lib/browser/${TAG}_dir.test.ts`);
-const TESTS_DIR = join(REPO, "src/lib/browser/__tests__");
-const TESTS_FILE = join(TESTS_DIR, `${TAG}_sub.test.ts`);
-
-beforeAll(() => {
-  mkdirSync(DIR_AS_TEST, { recursive: true }); // a DIRECTORY named like a test
-  mkdirSync(TESTS_DIR, { recursive: true });
-  // Safe noop body: if a crash ever leaves this behind, a stray collection
-  // still passes rather than failing the suite.
-  writeFileSync(TESTS_FILE, 'import { it } from "vitest";\nit("guard fixture", () => {});\n');
-});
-
-afterAll(() => {
-  rmSync(DIR_AS_TEST, { recursive: true, force: true });
-  // File-precise, then a NON-recursive rmdir: mkdirSync(recursive) succeeds
-  // on a pre-existing __tests__/ too, and a recursive rm here would silently
-  // delete any real tests that directory had acquired. rmdir refuses a
-  // non-empty directory, which is exactly the safe outcome.
-  rmSync(TESTS_FILE, { force: true });
+/**
+ * Run `body` against a copy of the guard in a scratch tree. The guard resolves
+ * its repo root from its own location, so the copy judges the scratch tree. Probe
+ * files go here and never in the real `src/`: other gate tests walk that tree in
+ * parallel, and a file they list that is then deleted fails them.
+ */
+function inScratchTree(body) {
+  const root = mkdtempSync(join(tmpdir(), "gha-guard-"));
   try {
-    rmdirSync(TESTS_DIR);
-  } catch {
-    // non-empty or already gone — leave it alone
+    const guard = join(root, ".claude/hooks/gha-tdd-guard.mjs");
+    mkdirSync(join(root, ".claude/hooks"), { recursive: true });
+    mkdirSync(join(root, "src/lib/browser"), { recursive: true });
+    writeFileSync(guard, readFileSync(GUARD, "utf8"));
+    const guardStatus = (rel) =>
+      spawnSync(process.execPath, [guard], { input: JSON.stringify(write(join(root, rel))), encoding: "utf8" }).status;
+    body(root, guardStatus);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
-});
+}
 
 describe("gha-tdd-guard — pass-through (not our business)", () => {
   it("allows non-mutation tools", () => {
@@ -110,7 +99,12 @@ describe("gha-tdd-guard — scope + allow-list", () => {
   });
 
   it("allows a scoped source when the test lives in __tests__/", () => {
-    expect(runGuard(write(`src/lib/browser/${TAG}_sub.ts`)).status).toBe(0);
+    inScratchTree((root, guardStatus) => {
+      expect(guardStatus("src/lib/browser/sub.ts")).toBe(2);
+      mkdirSync(join(root, "src/lib/browser/__tests__"));
+      writeFileSync(join(root, "src/lib/browser/__tests__/sub.test.ts"), "");
+      expect(guardStatus("src/lib/browser/sub.ts")).toBe(0);
+    });
   });
 
   it("allows the test file itself", () => {
@@ -129,7 +123,10 @@ describe("gha-tdd-guard — scope + allow-list", () => {
 describe("gha-tdd-guard — directory named like a test does not satisfy the gate", () => {
   it("blocks when the sibling test path is a DIRECTORY, not a file", () => {
     // isFile() must reject a directory named foo.test.ts.
-    expect(runGuard(write(`src/lib/browser/${TAG}_dir.ts`)).status).toBe(2);
+    inScratchTree((root, guardStatus) => {
+      mkdirSync(join(root, "src/lib/browser/dir.test.ts"));
+      expect(guardStatus("src/lib/browser/dir.ts")).toBe(2);
+    });
   });
 });
 
