@@ -57,6 +57,8 @@
   "appearance.group.window": "창",
   "appearance.showFilenameInTitlebar.label": "제목 표시줄에 파일 이름 표시",
   "appearance.showFilenameInTitlebar.description": "창 제목에 현재 파일 이름을 표시합니다",
+  "appearance.showFolderInWindowTitle.label": "창 이름에 폴더 표시",
+  "appearance.showFolderInWindowTitle.description": "Dock 창 미리보기와 윈도우 메뉴의 이름에 상위 폴더를 추가합니다",
   "appearance.group.focusMode": "집중 모드",
   "appearance.focusModeDim.label": "흐림 정도",
   "appearance.focusModeDim.description": "집중 모드에서 초점이 아닌 콘텐츠를 얼마나 강하게 흐리게 할지 설정합니다",

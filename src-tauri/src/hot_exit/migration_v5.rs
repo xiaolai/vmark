@@ -194,18 +194,31 @@ fn choose_active_instance_id(
         .or_else(|| ids.first().cloned())
 }
 
+/// True when a backslash in `path` is part of a name: off Windows, in an absolute
+/// path. Stricter `backslashIsNameCharacter` in `src/utils/pathUtils.ts` refuses
+/// `//host` and `/\host` because it also judges untrusted markdown links; these
+/// are paths the OS already opened, where neither spelling means a network share.
+fn backslash_is_name_character(path: &str, windows: bool) -> bool {
+    !windows && path.starts_with('/')
+}
+
 /// Normalize a path for boundary comparison, mirroring the behavior of
 /// `src/utils/paths`' `normalizePath`:
-///   - convert backslashes to forward slashes (Windows paths)
+///   - convert backslashes to forward slashes, except one that is part of a name
+///     (`backslash_is_name_character`)
 ///   - lowercase a leading Windows drive letter (e.g. `C:/` -> `c:/`)
 ///   - collapse duplicate separators
 ///   - strip trailing slashes (but keep the root `/`)
-fn normalize_path(path: &str) -> String {
+fn normalize_path(path: &str, windows: bool) -> String {
     if path.is_empty() {
         return String::new();
     }
 
-    let mut normalized: String = path.replace('\\', "/");
+    let mut normalized: String = if backslash_is_name_character(path, windows) {
+        path.to_string()
+    } else {
+        path.replace('\\', "/")
+    };
 
     // Lowercase a leading Windows drive letter ("C:/..." -> "c:/...").
     if normalized.len() >= 2 {
@@ -242,12 +255,12 @@ pub(super) fn is_within_root(root: &str, path: &str) -> bool {
 }
 
 /// Platform-parameterized containment so the Windows branch is testable on
-/// every host OS. `fold_case` mirrors "is the target platform
-/// Windows": full lowercase after separator normalization.
-pub(super) fn is_within_root_for_platform(root: &str, path: &str, fold_case: bool) -> bool {
-    let mut normalized_root = normalize_path(root);
-    let mut normalized_path = normalize_path(path);
-    if fold_case {
+/// every host OS. `windows` is the target platform: there a backslash always
+/// separates, and the full path lowercases after separator normalization.
+pub(super) fn is_within_root_for_platform(root: &str, path: &str, windows: bool) -> bool {
+    let mut normalized_root = normalize_path(root, windows);
+    let mut normalized_path = normalize_path(path, windows);
+    if windows {
         normalized_root = normalized_root.to_lowercase();
         normalized_path = normalized_path.to_lowercase();
     }

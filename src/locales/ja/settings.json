@@ -57,6 +57,8 @@
   "appearance.group.window": "ウィンドウ",
   "appearance.showFilenameInTitlebar.label": "タイトルバーにファイル名を表示",
   "appearance.showFilenameInTitlebar.description": "ウィンドウタイトルに現在のファイル名を表示する",
+  "appearance.showFolderInWindowTitle.label": "ウィンドウ名にフォルダを表示",
+  "appearance.showFolderInWindowTitle.description": "Dock のウィンドウプレビューと「ウインドウ」メニューの名前に親フォルダを追加します",
   "appearance.group.focusMode": "フォーカスモード",
   "appearance.focusModeDim.label": "減光レベル",
   "appearance.focusModeDim.description": "フォーカスモードで、フォーカスされていないコンテンツをどれだけ強く減光するか",

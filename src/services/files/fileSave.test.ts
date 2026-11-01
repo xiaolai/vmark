@@ -89,10 +89,6 @@ vi.mock("@/services/workspaces/openWorkspaceWithConfig", () => ({
   openWorkspaceWithConfig: mockOpenWorkspaceWithConfig,
 }));
 
-vi.mock("@/utils/pathUtils", () => ({
-  joinPath: vi.fn((...parts: string[]) => parts.join("/")),
-}));
-
 vi.mock("@/utils/exportNaming", () => ({
   getSaveFileName: vi.fn(() => "Untitled"),
 }));

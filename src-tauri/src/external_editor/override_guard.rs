@@ -65,15 +65,20 @@ pub(super) fn validate_editor_override(raw: &str) -> Result<String, String> {
              command-line flag). Got: {trimmed:?}"
         ));
     }
-    let is_absolute = trimmed.starts_with('/')
-        || trimmed.starts_with('\\')
-        || (trimmed.len() >= 2 && trimmed.chars().nth(1) == Some(':'));
-    if is_absolute {
+    if is_absolute(trimmed) {
         validate_absolute(trimmed)?;
     } else {
         validate_bare_name(trimmed)?;
     }
     Ok(trimmed.to_string())
+}
+
+/// True when the OS would read `path` as absolute. A leading backslash and a
+/// drive letter mean that only on Windows; on POSIX they begin a relative name.
+fn is_absolute(path: &str) -> bool {
+    path.starts_with('/')
+        || (cfg!(windows)
+            && (path.starts_with('\\') || (path.len() >= 2 && path.chars().nth(1) == Some(':'))))
 }
 
 /// A bare name: one word, no directory part, and an editor VMark knows.

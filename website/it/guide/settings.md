@@ -46,12 +46,15 @@ Quando è attiva, la singola riga del tema viene sostituita da due righe — **T
 | Impostazione | Descrizione | Predefinito |
 |-------------|-------------|-------------|
 | Mostra nome file nella barra del titolo | Visualizza il nome del file corrente nella barra del titolo della finestra macOS. **Solo macOS** — questa impostazione è nascosta altrove, perché Windows e Linux mostrano sempre il nome del file nella barra del titolo di sistema | Off |
+| Mostra la cartella nel nome della finestra | Aggiunge la cartella superiore al nome della finestra, come `docs \| readme.md`. **Solo macOS** — distingue le finestre i cui file hanno lo stesso nome | Off |
 
 Su macOS, VMark disegna la propria barra del titolo sopra quella di sistema, quindi
 il nome del file è un elemento facoltativo di quella striscia. Su Windows e Linux il
 sistema disegna una vera barra del titolo sopra la finestra: il nome del file (con
 un `•` finché ci sono modifiche non salvate) compare sempre lì, e VMark non
 aggiunge alcuna striscia del titolo propria.
+
+Su macOS il testo della barra del titolo di sistema resta nascosto, ma le anteprime delle finestre del Dock, il menu Finestra e Mission Control leggono il nome della finestra. Ricevono sempre il nome del file, qualunque sia il valore di queste impostazioni.
 
 ### Modalità focus
 

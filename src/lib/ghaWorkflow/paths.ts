@@ -17,6 +17,8 @@
  * @module lib/ghaWorkflow/paths
  */
 
+import { toForwardSlashes } from "@/utils/pathUtils";
+
 export type ResolvedLocalRef =
   | { kind: "action"; absPath: string }
   | { kind: "workflow"; absPath: string; gitRef: string | null }
@@ -46,7 +48,7 @@ function classifyRoot(absPath: string): {
   rootPrefix: string;
   body: string;
 } {
-  const norm = absPath.replace(/\\/g, "/");
+  const norm = toForwardSlashes(absPath);
   // UNC: leading `//server/share`
   const unc = /^(\/\/[^/]+\/[^/]+)(\/.*|$)/.exec(norm);
   if (unc) return { rootKind: "unc", rootPrefix: unc[1], body: unc[2] };
@@ -75,7 +77,7 @@ function resolveAgainst(
   _workflowFile: string,
   wsRoot: string,
 ): string | null {
-  const wsRootNorm = wsRoot.replace(/\\/g, "/").replace(/\/$/, "");
+  const wsRootNorm = toForwardSlashes(wsRoot).replace(/\/$/, "");
   const { rootKind, rootPrefix, body: wsBody } = classifyRoot(wsRootNorm);
 
   let relNorm = rel.replace(/\\/g, "/");

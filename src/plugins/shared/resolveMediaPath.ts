@@ -42,15 +42,17 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { dirname, join } from "@tauri-apps/api/path";
 import { imageViewWarn, imagePreviewError } from "@/utils/debug";
 import { decodeMarkdownUrl } from "@/utils/markdownUrl";
+import { toForwardSlashes } from "@/utils/pathUtils";
 import { activeFilePathForCurrentWindow } from "./hostDocument";
 import { hasUriScheme, isAbsolutePath, isExternalUrl, isRelativePath } from "./mediaSecurity";
 
 /**
  * Normalize a filesystem path for use with Tauri's convertFileSrc():
- * Windows backslashes become forward slashes (tauri-apps/tauri#7970).
+ * Windows backslashes become forward slashes (tauri-apps/tauri#7970). A backslash
+ * in a macOS or Linux file name stays, or the URL would load a different file.
  */
 export function normalizePathForAsset(path: string): string {
-  return path.replace(/\\/g, "/");
+  return toForwardSlashes(path);
 }
 
 /** What a caller decides about the source it is resolving. */

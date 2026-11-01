@@ -499,6 +499,10 @@ describe("getExportFolderName", () => {
       expect(getExportFolderName("No H1", "C:\\Users\\doc.md", "Untitled")).toBe("doc");
     });
 
+    it("names the whole file when a POSIX filename holds a backslash", () => {
+      expect(getExportFolderName("No H1", "/path/a\\b.md", "Untitled")).toBe("a-b");
+    });
+
     it("sanitizes file name", () => {
       expect(getExportFolderName("No H1", "/path/to/file:name.md", "Untitled")).toBe("file-name");
     });

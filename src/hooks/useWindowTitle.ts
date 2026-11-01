@@ -2,17 +2,19 @@
  * Window Title Hook
  *
  * Purpose: Updates the native window title based on document state — shows
- *   filename with dirty indicator (•).
+ *   filename with dirty indicator (•), and on macOS optionally the parent folder.
  *
  * Key decisions:
  *   - Also sets document.title (without extension) for print dialog PDF filename
- *   - The `showFilenameInTitlebar` setting applies ONLY where the app overlays
- *     the native title bar (macOS). There, the native title text is hidden, the
- *     setting governs the app's own chrome strip, and an empty native title
- *     keeps the name out of the Window menu too. Everywhere else the native
- *     title bar is visible and is the only place a filename can appear, so
- *     showing it is not a preference — clearing it just left the window blank
- *     (#1296).
+ *   - The native title always names the document (#1618). On macOS the title
+ *     bar text is hidden by the overlay, so the title's readers are the Dock's
+ *     window previews, the Window menu and Mission Control. Clearing it left a
+ *     Dock preview labelled only "VMark". `showFilenameInTitlebar` governs the
+ *     app's own chrome strip (TitleBar.tsx) and has no say here. Off macOS the
+ *     native title bar is the only place a filename can appear (#1296).
+ *   - `showFolderInWindowTitle` is macOS-only like the toggle that sets it: off
+ *     macOS a synced settings file must not change the visible title bar. It
+ *     tells apart windows whose files share a name, such as two README.md files.
  *   - The no-filename fallback label is passed IN, so the caller decides what
  *     a window with no filename is called. Two things are: an unsaved document
  *     (the translated "Untitled") and a window with NO document at all — the
@@ -21,9 +23,9 @@
  *     the hook asks the tab store instead of guessing.
  *   - Reacts to filePath, isDirty, tab presence, and setting changes
  *
- * @coordinates-with settingsStore.ts — reads appearance.showFilenameInTitlebar
+ * @coordinates-with settingsStore.ts — reads appearance.showFolderInWindowTitle
  * @coordinates-with useDocumentState.ts — reads filePath, isDirty, tab presence
- * @coordinates-with utils/platform.ts — usesOverlayTitleBar decides whose title this is
+ * @coordinates-with utils/platform.ts — usesOverlayTitleBar scopes the folder setting
  * @module hooks/useWindowTitle
  */
 
@@ -46,16 +48,34 @@ function fileNameOr(fallbackLabel: string, filePath: string | null | undefined):
   return filePath ? getFileName(filePath) || fallbackLabel : fallbackLabel;
 }
 
+/**
+ * The name of the folder holding a file, or "" at a root or with no directory.
+ *
+ * POSIX only, because the folder setting is macOS-only: a backslash is a legal
+ * character in a macOS folder name, so `/notes/a\b/readme.md` names `a\b`.
+ * Empty and dot segments are resolved first, so `/notes//readme.md` and
+ * `/notes/archive/../readme.md` both name `notes`.
+ */
+function parentFolderName(filePath: string): string {
+  const segments: string[] = [];
+  for (const segment of filePath.split("/")) {
+    if (segment === "..") segments.pop();
+    else if (segment && segment !== ".") segments.push(segment);
+  }
+  return segments.at(-2) ?? "";
+}
+
 /** Format the native window title from document state. Pure — no DOM access. */
 export function formatWindowTitle(
   filePath: string | null | undefined,
   isDirty: boolean,
-  showFilename: boolean,
+  showFolder: boolean,
   fallbackLabel: string
 ): string {
-  if (!showFilename) return "";
   const dirtyIndicator = isDirty ? "• " : "";
-  return `${dirtyIndicator}${fileNameOr(fallbackLabel, filePath)}`;
+  const folder = showFolder && filePath ? parentFolderName(filePath) : "";
+  const folderPrefix = folder ? `${folder} | ` : "";
+  return `${dirtyIndicator}${folderPrefix}${fileNameOr(fallbackLabel, filePath)}`;
 }
 
 /**
@@ -76,17 +96,14 @@ export function formatDocumentTitle(
 // Hook
 // ---------------------------------------------------------------------------
 
-/** Hook that updates the native window title with the filename and dirty indicator based on settings. */
+/** Hook that keeps the native window title naming the document, with its dirty indicator. */
 export function useWindowTitle() {
   const { t } = useTranslation("common");
   const filePath = useDocumentFilePath();
   const isDirty = useDocumentIsDirty();
   const hasActiveTab = useHasActiveTab();
-  // Default to false for undefined (localStorage migration)
-  const setting = useSettingsStore((state) => state.appearance.showFilenameInTitlebar ?? false);
-  // The setting speaks for the app's own chrome strip, which exists only where
-  // that strip covers the native title bar. See the header note.
-  const showFilename = usesOverlayTitleBar() ? setting : true;
+  const folderSetting = useSettingsStore((state) => state.appearance.showFolderInWindowTitle);
+  const showFolder = usesOverlayTitleBar() && folderSetting;
   // #1331 — with no tab there is no document, so the untitled label would name
   // one that does not exist. The window is the app itself; call it that. Both
   // states reach the formatter as "the label for a window with no filename",
@@ -100,10 +117,10 @@ export function useWindowTitle() {
 
       document.title = formatDocumentTitle(filePath, fallbackLabel);
 
-      const title = formatWindowTitle(filePath, dirty, showFilename, fallbackLabel);
+      const title = formatWindowTitle(filePath, dirty, showFolder, fallbackLabel);
       await window.setTitle(title);
     };
 
     void updateTitle().catch((e) => titleBarWarn("Failed to set window title:", e));
-  }, [filePath, dirty, showFilename, fallbackLabel]);
+  }, [filePath, dirty, showFolder, fallbackLabel]);
 }

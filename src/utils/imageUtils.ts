@@ -12,6 +12,7 @@
  */
 
 import { IMAGE_EXTENSIONS } from "./mediaExtensions";
+import { getFileName } from "./pathUtils";
 
 /**
  * Supported image extensions (bare form). Re-exported from the single source
@@ -33,7 +34,7 @@ export function isImageFile(filename: string): boolean {
  * Extract filename from a path (handles both / and \ separators).
  */
 export function getFilename(path: string): string {
-  return path.split(/[/\\]/).pop() || "image.png";
+  return getFileName(path) || "image.png";
 }
 
 /**

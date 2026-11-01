@@ -21,6 +21,8 @@
  * @coordinates-with services/navigation/restoreWorkspaceTabs.ts — restores on open
  * @module services/persistence/splitLayoutPersistence
  */
+
+import { withoutTrailingSeparators } from "@/utils/pathUtils";
 import { workspaceError } from "@/utils/debug";
 import { createWorkspaceRootIdentity } from "@/utils/workspaceIdentity";
 import { normalizeWorkspacePathForIdentity } from "@/utils/workspaceIdentityPaths";
@@ -37,13 +39,13 @@ export interface SplitLayoutConfig {
 const KEY_PREFIX = "vmark-split-layout:";
 
 /** Legacy raw-path key (pre-WI-17.2). Kept for migration only. */
-const legacyKeyFor = (rootPath: string) =>
-  `${KEY_PREFIX}${rootPath.replace(/[/\\]+$/, "")}`;
+const legacyKeyFor = (rootPath: string, platform: RuntimePlatform) =>
+  `${KEY_PREFIX}${withoutTrailingSeparators(rootPath, platform)}`;
 
 /** Stable identity key; falls back to the legacy key for invalid paths. */
 function stableKeyFor(rootPath: string, platform: RuntimePlatform): string {
   const root = createWorkspaceRootIdentity(rootPath, { platform });
-  if (!root.ok) return legacyKeyFor(rootPath);
+  if (!root.ok) return legacyKeyFor(rootPath, platform);
   return `${KEY_PREFIX}id:${root.root.rootId}`;
 }
 
@@ -104,7 +106,7 @@ export function saveSplitLayout(
       localStorage.removeItem(key);
     }
     // A stale legacy raw-path key must not shadow or resurrect old state.
-    const legacyKey = legacyKeyFor(rootPath);
+    const legacyKey = legacyKeyFor(rootPath, platform);
     if (legacyKey !== key) localStorage.removeItem(legacyKey);
   } catch (error) {
     workspaceError("Failed to save split layout:", error);
@@ -123,7 +125,7 @@ export function loadSplitLayout(
 
     // Fallback migration: a valid layout under the legacy raw-path key moves
     // to the stable key; malformed legacy values are left untouched (null).
-    const legacyKey = legacyKeyFor(rootPath);
+    const legacyKey = legacyKeyFor(rootPath, platform);
     if (legacyKey === key) return null;
     const legacy = parseLayout(localStorage.getItem(legacyKey), platform);
     if (legacy) {

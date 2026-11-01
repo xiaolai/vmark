@@ -173,10 +173,12 @@ export function AppearanceSettings() {
         </SettingRow>
       </SettingsGroup>
 
-      {/* Window — its only row governs the app's own title-bar strip, which is
-          drawn only where it covers the native one. Off macOS the filename goes
-          in the native title bar unconditionally, so there is nothing to choose
-          (#1296) and the whole group is withheld rather than shown empty. (The
+      {/* Window — both rows are macOS-only. One governs the app's own title-bar
+          strip, drawn only where it covers the native one; the other adds the
+          folder to the native window name that the Dock and Window menu read
+          (#1618). Off macOS the filename goes in the visible native title bar
+          unconditionally, so there is nothing to choose (#1296) and the whole
+          group is withheld rather than shown empty. (The
           "Auto-hide status bar" toggle that used to share this group was wired
           to nothing and was removed — D8.) */}
       {usesOverlayTitleBar() && (
@@ -188,6 +190,15 @@ export function AppearanceSettings() {
             <Toggle
               checked={appearance.showFilenameInTitlebar ?? false}
               onChange={(v) => updateSetting("showFilenameInTitlebar", v)}
+            />
+          </SettingRow>
+          <SettingRow
+            label={t("appearance.showFolderInWindowTitle.label")}
+            description={t("appearance.showFolderInWindowTitle.description")}
+          >
+            <Toggle
+              checked={appearance.showFolderInWindowTitle}
+              onChange={(v) => updateSetting("showFolderInWindowTitle", v)}
             />
           </SettingRow>
         </SettingsGroup>

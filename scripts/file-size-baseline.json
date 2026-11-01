@@ -53,7 +53,7 @@
     "src/stores/aiStore/provider.ts": 324,
     "src/stores/aiStore/suggestion.ts": 336,
     "src/stores/tabStore.ts": 457,
-    "src/utils/exportNaming.ts": 324,
+    "src/utils/exportNaming.ts": 301,
     "src/utils/textTransformations.ts": 335
   },
   "limit": 300,
@@ -116,7 +116,7 @@
     "src/plugins/toolbarActions/wysiwygAdapterInsert.test.ts": 1490,
     "src/plugins/wikiLinkPopup/__tests__/WikiLinkPopupView.test.ts": 1369,
     "src/services/commands/menuListener.editorActions.test.tsx": 1335,
-    "src/services/files/fileSave.test.ts": 1174,
+    "src/services/files/fileSave.test.ts": 1170,
     "src/services/history/__tests__/historyOperations.test.ts": 819,
     "src/services/persistence/hotExit/restoreHelpers.test.ts": 1297,
     "src/services/persistence/resilience/_hotExitRestore.test.ts": 953,

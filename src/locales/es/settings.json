@@ -57,6 +57,8 @@
   "appearance.group.window": "Ventana",
   "appearance.showFilenameInTitlebar.label": "Mostrar nombre de archivo en la barra de título",
   "appearance.showFilenameInTitlebar.description": "Muestra el nombre del archivo actual en el título de la ventana",
+  "appearance.showFolderInWindowTitle.label": "Mostrar la carpeta en el nombre de la ventana",
+  "appearance.showFolderInWindowTitle.description": "Añade la carpeta contenedora al nombre en las vistas previas de ventanas del Dock y en el menú Ventana",
   "appearance.group.focusMode": "Modo enfoque",
   "appearance.focusModeDim.label": "Nivel de atenuación",
   "appearance.focusModeDim.description": "Con qué intensidad se atenúa el contenido no enfocado en el Modo enfoque",

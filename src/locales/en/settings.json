@@ -57,6 +57,8 @@
   "appearance.group.window": "Window",
   "appearance.showFilenameInTitlebar.label": "Show filename in titlebar",
   "appearance.showFilenameInTitlebar.description": "Display the current file name in the window title",
+  "appearance.showFolderInWindowTitle.label": "Show folder in window name",
+  "appearance.showFolderInWindowTitle.description": "Add the parent folder to the name in Dock window previews and the Window menu",
   "appearance.group.focusMode": "Focus Mode",
   "appearance.focusModeDim.label": "Dim level",
   "appearance.focusModeDim.description": "How strongly non-focused content is dimmed in Focus Mode",

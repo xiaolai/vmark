@@ -16,7 +16,7 @@
 //!     one at a time under `ConfigIoLock` (see there for the migration race the
 //!     IPC thread used to prevent). Legacy layouts live in `workspace/legacy.rs`.
 //!
-//! Child modules: `grants` (recursive folder grants), `transfer` (moving a
+//! Child modules: `root_hash` (config file names), `grants` (recursive folder grants), `transfer` (moving a
 //! workspace between windows), `validation` (the MCP `open_workspace` path).
 //!
 //! Known limitations:
@@ -25,18 +25,21 @@
 use crate::app_paths;
 use crate::command_error::CommandError;
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::{Path, PathBuf};
 use tauri::Manager;
 
 pub(crate) mod grants;
 mod legacy;
+mod root_hash;
 pub(crate) mod transfer;
 pub(crate) mod validation;
 use legacy::{fallback_after_rename, migrate_from_legacy};
 #[cfg(test)]
 use legacy::{try_rename_legacy_hash, HashMigrationOutcome};
+#[cfg(test)]
+use root_hash::root_without_trailing_separators;
+pub(crate) use root_hash::{hash_root_path, legacy_hash_root_path};
 
 /// Workspace identity and trust information for permission management.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -99,31 +102,6 @@ impl Default for WorkspaceConfig {
 // ============================================================================
 // Path hashing
 // ============================================================================
-
-/// Truncated SHA-256 of a workspace root path, hex-encoded, for use as a filename.
-/// The normalization is deliberately NOT "tidied up": these hashes ARE filenames on
-/// disk, so changing it silently orphans every existing user's config. Frozen.
-fn hash_root_path_bytes(root_path: &str, n: usize) -> String {
-    let normalized = root_path.trim_end_matches('/').trim_end_matches('\\');
-    let hash = Sha256::digest(normalized.as_bytes());
-    hash.iter().take(n).map(|b| format!("{:02x}", b)).collect()
-}
-
-/// Current filename hash: 16 bytes (128 bits) → 2^64 collision space at the
-/// birthday bound, vastly more than a user will ever accumulate.
-pub(crate) fn hash_root_path(root_path: &str) -> String {
-    hash_root_path_bytes(root_path, 16)
-}
-
-/// Legacy 8-byte hash used in releases <= 0.7.22 (2^32 birthday bound). Read-only:
-/// `migrate_legacy_hash_filename` renames such a file to the 16-byte name on load.
-///
-/// Sunset: remove this, `get_legacy_workspace_config_path`, the hash half of
-/// `workspace/legacy.rs` and `migrate_legacy_hash_filename` once no supported
-/// upgrade path starts below 0.7.23.
-pub(crate) fn legacy_hash_root_path(root_path: &str) -> String {
-    hash_root_path_bytes(root_path, 8)
-}
 
 /// Get the workspaces directory inside app data.
 fn get_workspaces_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {

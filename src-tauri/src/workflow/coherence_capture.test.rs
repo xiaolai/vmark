@@ -408,3 +408,15 @@ fn adopt_save_in_a_fresh_workspace_creates_the_ledger_and_stamps_the_output() {
         "setting on: the output carries an identity block"
     );
 }
+
+/// A backslash is part of a name off Windows: the key must name the file that
+/// exists, or its coherence edge attaches to a look-alike.
+#[cfg(unix)]
+#[test]
+fn workspace_key_keeps_a_backslash_that_is_part_of_a_file_name() {
+    let dir = tempfile::tempdir().unwrap();
+    assert_eq!(
+        normalize_in_workspace("a\\b.md", dir.path()).as_deref(),
+        Some("a\\b.md")
+    );
+}

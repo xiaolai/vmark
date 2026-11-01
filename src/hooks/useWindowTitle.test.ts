@@ -5,7 +5,7 @@
  * Tests the title formatting logic extracted from useWindowTitle.ts:
  *   - Window title with dirty indicator
  *   - Document title (for print PDF naming)
- *   - Empty title when showFilename is false
+ *   - The optional parent folder, and every path that has none to show
  *   - Various file path formats (POSIX, Windows, no extension)
  *   - The unsaved-document fallback is a CALLER-SUPPLIED label, so it can be
  *     translated (#1296): off macOS this string is always on screen, in the
@@ -22,55 +22,83 @@ const UNTITLED = "Untitled";
 // formatWindowTitle
 // ---------------------------------------------------------------------------
 describe("formatWindowTitle", () => {
-  it("returns filename when showFilename is true and not dirty", () => {
-    expect(formatWindowTitle("/path/to/readme.md", false, true, UNTITLED)).toBe("readme.md");
+  it("returns the filename when not dirty", () => {
+    expect(formatWindowTitle("/path/to/readme.md", false, false, UNTITLED)).toBe("readme.md");
   });
 
-  it("prepends dirty indicator when showFilename is true and dirty", () => {
-    expect(formatWindowTitle("/path/to/readme.md", true, true, UNTITLED)).toBe("• readme.md");
-  });
-
-  it("returns empty string when showFilename is false", () => {
-    expect(formatWindowTitle("/path/to/readme.md", false, false, UNTITLED)).toBe("");
-  });
-
-  it("returns empty string when showFilename is false even if dirty", () => {
-    expect(formatWindowTitle("/path/to/readme.md", true, false, UNTITLED)).toBe("");
+  it("prepends the dirty indicator when dirty", () => {
+    expect(formatWindowTitle("/path/to/readme.md", true, false, UNTITLED)).toBe("• readme.md");
   });
 
   it("uses the supplied fallback label when filePath is null", () => {
-    expect(formatWindowTitle(null, false, true, UNTITLED)).toBe("Untitled");
+    expect(formatWindowTitle(null, false, false, UNTITLED)).toBe("Untitled");
   });
 
   it("uses the supplied fallback label when filePath is undefined", () => {
-    expect(formatWindowTitle(undefined, false, true, UNTITLED)).toBe("Untitled");
+    expect(formatWindowTitle(undefined, false, false, UNTITLED)).toBe("Untitled");
   });
 
   it("uses the supplied fallback label with dirty indicator", () => {
-    expect(formatWindowTitle(null, true, true, UNTITLED)).toBe("• Untitled");
+    expect(formatWindowTitle(null, true, false, UNTITLED)).toBe("• Untitled");
   });
 
   it("uses the supplied fallback label when filePath is empty string", () => {
-    expect(formatWindowTitle("", false, true, UNTITLED)).toBe("Untitled");
+    expect(formatWindowTitle("", false, false, UNTITLED)).toBe("Untitled");
   });
 
   it("uses the fallback label VERBATIM — no hardcoded English underneath", () => {
-    expect(formatWindowTitle(null, false, true, "未命名")).toBe("未命名");
-    expect(formatWindowTitle(null, true, true, "Sans titre")).toBe("• Sans titre");
+    expect(formatWindowTitle(null, false, false, "未命名")).toBe("未命名");
+    expect(formatWindowTitle(null, true, false, "Sans titre")).toBe("• Sans titre");
   });
 
   it("handles Windows backslash paths", () => {
-    expect(formatWindowTitle("C:\\Users\\test\\doc.md", false, true, UNTITLED)).toBe("doc.md");
+    expect(formatWindowTitle("C:\\Users\\test\\doc.md", false, false, UNTITLED)).toBe("doc.md");
   });
 
   it("handles path with no directory", () => {
-    expect(formatWindowTitle("notes.md", false, true, UNTITLED)).toBe("notes.md");
+    expect(formatWindowTitle("notes.md", false, false, UNTITLED)).toBe("notes.md");
   });
 
   it("handles file with multiple dots", () => {
-    expect(formatWindowTitle("/path/my.notes.2024.md", false, true, UNTITLED)).toBe(
+    expect(formatWindowTitle("/path/my.notes.2024.md", false, false, UNTITLED)).toBe(
       "my.notes.2024.md"
     );
+  });
+
+  // #1618 — two windows on two README.md files read the same in the Dock.
+  describe("with the parent folder (#1618)", () => {
+    it.each([
+      ["a POSIX path", "/path/to/readme.md", "to | readme.md"],
+      ["a backslash in the folder name", "/notes/a\\b/readme.md", "a\\b | readme.md"],
+      ["a backslash in the filename", "/notes/a\\b.md", "notes | a\\b.md"],
+      ["a CJK folder and file", "/文档/项目/说明.md", "项目 | 说明.md"],
+      ["a folder name holding the separator", "/a | b/c.md", "a | b | c.md"],
+      ["a doubled separator", "/notes//readme.md", "notes | readme.md"],
+      ["a current-directory segment", "/notes/./readme.md", "notes | readme.md"],
+      ["a parent-directory segment", "/notes/archive/../readme.md", "notes | readme.md"],
+    ])("names the folder for %s", (_label, path, expected) => {
+      expect(formatWindowTitle(path, false, true, UNTITLED)).toBe(expected);
+    });
+
+    it("keeps the dirty indicator in front of the folder", () => {
+      expect(formatWindowTitle("/path/to/readme.md", true, true, UNTITLED)).toBe(
+        "• to | readme.md"
+      );
+    });
+
+    // None of these has a folder to name: a leading " | " would be the bug.
+    it.each([
+      ["the POSIX root", "/readme.md", "readme.md"],
+      ["a doubled root separator", "//readme.md", "readme.md"],
+      ["a path that climbs back to the root", "/notes/../readme.md", "readme.md"],
+      ["a bare filename", "notes.md", "notes.md"],
+    ])("omits the separator at %s", (_label, path, expected) => {
+      expect(formatWindowTitle(path, false, true, UNTITLED)).toBe(expected);
+    });
+
+    it.each([[null], [undefined], [""]])("uses only the fallback label for %j", (path) => {
+      expect(formatWindowTitle(path, false, true, UNTITLED)).toBe("Untitled");
+    });
   });
 });
 

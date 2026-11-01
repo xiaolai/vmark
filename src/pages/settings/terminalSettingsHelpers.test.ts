@@ -135,6 +135,10 @@ describe("fontSizeOptionsFor (WI-1.3)", () => {
 });
 
 describe("shellLabel", () => {
+  it("keeps a backslash that is part of a POSIX filename", () => {
+    expect(shellLabel("/opt/my\\shell")).toBe("my\\shell");
+  });
+
   it("extracts the basename from POSIX and Windows paths", () => {
     expect(shellLabel("/bin/zsh")).toBe("zsh");
     expect(shellLabel("C:\\Windows\\System32\\cmd.exe")).toBe("cmd.exe");

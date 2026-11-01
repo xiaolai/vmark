@@ -8,6 +8,9 @@
  *     are collapsed; the filesystem is not consulted, so a symlink and its
  *     target stay two identities. Resolving them needs an await, and the save
  *     queue is keyed before its first await so no later save can overtake it.
+ *   - A backslash separates on Windows only. Elsewhere it is part of a name, so
+ *     `/a\\b.md` and `/a/b.md` stay two files and a Save As from one to the other
+ *     is an overwrite to refuse, not the document's own path.
  *   - Case is folded on Windows only (NTFS is case-insensitive by default).
  *     macOS stays byte-exact, like `pathComparison.ts`: an APFS volume may be
  *     case-sensitive, and a fold there would let a Save As to `Notes.md`
@@ -26,8 +29,8 @@ import type { RuntimePlatform } from "@/utils/platform";
 
 /** The identity of the file `path` names on `platform`: compare these, never the spellings. */
 export function fileIdentityKey(path: string, platform: RuntimePlatform): string {
-  const unc = platform === "windows" && normalizePath(path).startsWith("//");
-  const key = (unc ? "/" : "") + canonicalPathKey(path);
+  const unc = platform === "windows" && normalizePath(path, platform).startsWith("//");
+  const key = (unc ? "/" : "") + canonicalPathKey(path, platform);
   return platform === "windows" ? key.toLowerCase() : key;
 }
 

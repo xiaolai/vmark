@@ -487,7 +487,9 @@ module.exports = [
     ["AdvancedSettings", "7.1 kB"],
     // 3.6 → 4.0 kB: the Sidebar group (sidebar style, flat or card) adds
     // its Select row; actual 3.78 kB.
-    ["AppearanceSettings", "4.0 kB"],
+    // 4.0 → 4.3 kB: the Window group's folder-in-window-name toggle (#1618)
+    // adds its row; actual 4.04 kB.
+    ["AppearanceSettings", "4.3 kB"],
     ["EditorSettings", "9.6 kB"],
     ["FilesImagesSettings", "8.9 kB"],
     ["FormatsSettings", "5.2 kB"],

@@ -40,6 +40,7 @@ describe("combined save dialog document list", () => {
     ["a file one folder below the root is shown whole", "/docs/a.md", "a.md", "/docs/a.md"],
     ["a Windows drive-root file is shown whole", "C:\\notes.md", "notes.md", "C:\\notes.md"],
     ["a nested Windows file keeps its own separator", "C:\\Users\\me\\docs\\a.md", "a.md", "…\\docs\\a.md"],
+    ["a backslash in a macOS folder name is not a separator", "/Users/me/a\\b/c.md", "c.md", "…/a\\b/c.md"],
     ["a CJK folder and file name survive", "/Users/me/文档/笔记.md", "笔记.md", "…/文档/笔记.md"],
     ["a bare relative name is shown as is", "a.md", "a.md", "a.md"],
   ])("%s", async (_label, filePath, title, expected) => {

@@ -7,7 +7,7 @@
 
 use super::*;
 use crate::coherence::capture::{capture, CaptureRequest};
-use crate::coherence::scan_diagnostics::path_under_ignored_dir;
+use crate::coherence::scan_diagnostics::{path_at_or_under_ignored_prefix, path_under_ignored_dir};
 use crate::coherence::state::WorkspaceKernel;
 use crate::coherence::types::{Agent, AgentType, Confidence, Intent, WriterId};
 use std::path::Path;
@@ -739,4 +739,15 @@ fn scan_loads_the_revision_dag_once_per_scan() {
          that is the per-file load_dag regression (O(files x revisions)); it must \
          be hoisted out of the walk"
     );
+}
+
+/// The walk hands this helper paths whose separators are already `/`, on every
+/// OS. A backslash left in one is part of a real name, so that directory is not
+/// the ignored prefix and must still be walked.
+#[test]
+fn walked_directory_with_a_backslash_in_its_name_is_not_an_ignored_prefix() {
+    assert!(!path_at_or_under_ignored_prefix(r".claude\worktrees"));
+    assert!(!path_at_or_under_ignored_prefix(r".claude\worktrees/a"));
+    assert!(path_at_or_under_ignored_prefix(".claude/worktrees"));
+    assert!(path_at_or_under_ignored_prefix(".claude/worktrees/a"));
 }

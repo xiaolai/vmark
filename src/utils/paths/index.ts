@@ -13,7 +13,6 @@ export {
   getRelativePath,
   isWithinRoot,
   isPathExcluded,
-  pathSegments,
 } from "./paths";
 export {
 } from "./pathComparison";

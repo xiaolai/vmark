@@ -55,7 +55,8 @@ export interface AppearanceSettings {
   blockSpacing: number; // Visual gap between blocks in "lines" (1 = one line-height)
   cjkLetterSpacing: CJKLetterSpacingValue; // Letter spacing for CJK characters (em)
   editorWidth: number; // Max content width in em (0 = unlimited)
-  showFilenameInTitlebar: boolean; // Show filename in window titlebar
+  showFilenameInTitlebar: boolean; // Show filename in the app's own title strip (macOS)
+  showFolderInWindowTitle: boolean; // Add the parent folder to the native window title (macOS)
   focusModeDim: FocusModeDim; // How strongly Focus Mode dims non-focused content
   sidebarStyle: SidebarStyle; // Frame of the leading column — full height or floating card
 }

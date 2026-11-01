@@ -27,19 +27,22 @@
  *   - Reject anything that isn't an absolute path: the bridge always deals
  *     in real on-disk files, so a relative path is meaningless (and would
  *     resolve against an unknowable CWD).
- *   - Reject any path containing a ".." segment outright. The Rust guard later
- *     canonicalizes existing paths and the deepest existing ancestor of new
- *     paths, but refusing traversal early keeps the bridge contract simple.
+ *   - Reject any path containing a ".." segment outright, split on BOTH
+ *     separators on every OS. `..\\..\\x` is one literal name on macOS, but it
+ *     has no honest use and this check stays independent of the platform. The
+ *     Rust guard later canonicalizes existing paths and the deepest existing
+ *     ancestor of new paths, but refusing traversal early keeps the bridge
+ *     contract simple.
  *   - Allow iff the path is within (or equal to) at least one allowed root.
  *     Empty `allowedRoots` → always reject: no workspace and no open document
  *     means there is no legitimate target, so the bridge grants no access.
  *
- * @coordinates-with utils/paths/paths.ts — isWithinRoot, pathSegments, normalizePath
+ * @coordinates-with utils/paths/paths.ts — isWithinRoot, normalizePath
  * @coordinates-with services/mcpBridge/bridgePathGuard.ts — resolves allowedRoots from stores
  * @module utils/mcpBridgePathPolicy
  */
 
-import { isWithinRoot, normalizePath, pathSegments } from "@/utils/paths";
+import { isWithinRoot, normalizePath } from "@/utils/paths";
 
 /** Context for a bridge path decision — the directories access is scoped to. */
 interface BridgePathContext {
@@ -79,8 +82,7 @@ export function resolveBridgePathDecision(
   if (!isAbsolutePath(filePath)) {
     return { allowed: false, reason: "Path must be absolute" };
   }
-  // pathSegments normalizes but never folds "..", so traversal survives here.
-  if (pathSegments(filePath).includes("..")) {
+  if (filePath.split(/[\\/]/).includes("..")) {
     return { allowed: false, reason: "Path must not contain '..' segments" };
   }
 

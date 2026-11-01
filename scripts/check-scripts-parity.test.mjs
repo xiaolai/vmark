@@ -171,12 +171,11 @@ describe("check:all and CI run the same gates", () => {
  *
  * THE DISK IS READ EXACTLY ONCE, and every tier's ownership is then decided
  * in memory against that one snapshot. This is not tidiness. The first version
- * globbed the tree separately for each side, and other gate self-tests create
- * probe files INSIDE `src/` while they run (`.claude/hooks/gha-tdd-guard.test.mjs`
- * writes `__guardspec_dir__.test.ts` to check the guard blocks it, then deletes
- * it). A file that existed for one glob and not the other was reported as a
- * dropped or phantom test — a ~25% flake rate, red on work that was perfectly
- * fine. One read cannot disagree with itself.
+ * globbed the tree separately for each side, while a gate self-test created
+ * probe files INSIDE `src/`. A file that existed for one glob and not the other
+ * was reported as a dropped or phantom test — a ~25% flake rate, red on work that
+ * was perfectly fine. One read cannot disagree with itself, and the tree can still
+ * change under it (a developer, a generator).
  */
 describe("test tiers partition the test files on disk", () => {
   /**

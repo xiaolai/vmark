@@ -76,7 +76,7 @@ export async function collectSiblingReferences(
   // An open document that readDir did NOT return still holds references — it may
   // have been deleted or moved externally while its buffer stays on screen.
   // Missing it deletes an image that document still displays.
-  const onDiskKeys = new Set(onDisk.map(canonicalPathKey));
+  const onDiskKeys = new Set(onDisk.map((path) => canonicalPathKey(path)));
   const buffered = [...knownContents.keys()].filter(
     (path) =>
       canonicalPathKey(path) !== canonicalPathKey(documentPath) &&

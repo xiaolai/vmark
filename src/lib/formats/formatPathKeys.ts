@@ -11,6 +11,8 @@
  * @module lib/formats/formatPathKeys
  */
 
+import { getFileName } from "@/utils/pathUtils";
+
 /**
  * Compute the ordered list of lookup keys for a file path, most specific
  * first. Used to match a file against user associations and the built-in
@@ -36,8 +38,7 @@ export function formatLookupKeys(filePath: string): string[] {
   // nothing after it has a dot — `?reload=1`/`#anchor` strip, `photo#1.png` keeps `.png`.
   const isUrl = /^[a-z][a-z0-9+.-]*:\/\//i.test(filePath);
   const stripped = isUrl ? filePath.replace(/[?#].*$/, "") : filePath;
-  const slash = Math.max(stripped.lastIndexOf("/"), stripped.lastIndexOf("\\"));
-  const base = (slash >= 0 ? stripped.slice(slash + 1) : stripped).replace(/[?#][^.]*$/, "");
+  const base = getFileName(stripped).replace(/[?#][^.]*$/, "");
   const lower = base.toLowerCase();
   if (!lower) return [];
 

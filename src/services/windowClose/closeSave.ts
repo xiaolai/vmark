@@ -23,7 +23,7 @@ import { message, save } from "@tauri-apps/plugin-dialog";
 import i18n from "@/i18n";
 import { getDefaultSaveFolderWithFallback } from "@/services/files/defaultSaveFolder";
 import { saveToPathForClose } from "@/services/persistence/saveToPath";
-import { joinPath, getDirectory, getFileName } from "@/utils/pathUtils";
+import { joinPath, getDirectory, getFileName, pathSeparator } from "@/utils/pathUtils";
 import { persistDocumentBatch } from "./closeSaveBatch";
 
 
@@ -125,7 +125,7 @@ function formatDocEntry(context: CloseSaveContext): string {
   const dir = getDirectory(filePath);
   const parentName = getFileName(dir);
   if (!parentName || !getFileName(getDirectory(dir))) return filePath;
-  const sep = filePath.includes("\\") ? "\\" : "/";
+  const sep = pathSeparator(filePath);
   return `…${sep}${parentName}${sep}${title}`;
 }
 

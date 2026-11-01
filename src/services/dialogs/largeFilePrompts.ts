@@ -11,7 +11,7 @@
  *   - Uses Tauri's dialog plugin (`ask` / `message`) for consistency with the
  *     unsaved-changes flow in `closeSave.ts`. Native dialogs are already
  *     permitted via `dialog:default` + `dialog:allow-open` capabilities.
- *   - Keeps filename-in-title short via `basename()`; the full path is noisy
+ *   - Keeps filename-in-title short via `getFileName()`; the full path is noisy
  *     for long workspace paths.
  *   - Translation keys live in `src/locales/**\/dialog.json` under
  *     `largeFile.warn*` / `largeFile.refuse*`.
@@ -26,12 +26,7 @@ import { message } from "@tauri-apps/plugin-dialog";
 import i18n from "@/i18n";
 import { formatFileSize, FILE_SIZE_THRESHOLDS } from "@/utils/fileSizeThresholds";
 import { confirmAction } from "@/services/dialogs/confirmAction";
-
-/** Extract the trailing filename from a POSIX or Windows path. */
-function basename(path: string): string {
-  const idx = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
-  return idx >= 0 ? path.slice(idx + 1) : path;
-}
+import { getFileName } from "@/utils/pathUtils";
 
 /**
  * Show a pre-open confirmation for files in the "huge" tier (≥ 5 MB, < 50 MB).
@@ -40,7 +35,7 @@ function basename(path: string): string {
  * Escape / window dismiss both resolve to `false` so the default is safe.
  */
 export async function confirmOpenHugeFile(path: string, sizeBytes: number): Promise<boolean> {
-  const filename = basename(path);
+  const filename = getFileName(path);
   const size = formatFileSize(sizeBytes);
 
   return await confirmAction({
@@ -58,7 +53,7 @@ export async function confirmOpenHugeFile(path: string, sizeBytes: number): Prom
  * Promise<void> so callers can `await` before re-enabling UI affordances.
  */
 export async function showHugeFileRefusal(path: string, sizeBytes: number): Promise<void> {
-  const filename = basename(path);
+  const filename = getFileName(path);
   const size = formatFileSize(sizeBytes);
   const limit = formatFileSize(FILE_SIZE_THRESHOLDS.HARD_REFUSE_BYTES);
 

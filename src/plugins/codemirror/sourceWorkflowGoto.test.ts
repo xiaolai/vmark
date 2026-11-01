@@ -4,7 +4,18 @@
 // the live Tauri smoke (no jsdom mouse-event simulation).
 
 import { describe, it, expect } from "vitest";
-import { extractUsesAt } from "./sourceWorkflowGoto";
+import { extractUsesAt, workspaceRootOf } from "./sourceWorkflowGoto";
+
+describe("workspaceRootOf", () => {
+  it("keeps a backslash that is part of a macOS folder name", () => {
+    expect(workspaceRootOf("/repo\\x/.github/workflows/ci.yml")).toBe("/repo\\x");
+    expect(workspaceRootOf("/repo\\x/ci.yml")).toBe("/repo\\x");
+  });
+
+  it("still reads a Windows path's backslashes as separators", () => {
+    expect(workspaceRootOf("C:\\repo\\.github\\workflows\\ci.yml")).toBe("C:/repo");
+  });
+});
 
 describe("extractUsesAt", () => {
   it("returns the uses ref when cursor is on a uses: line", () => {

@@ -60,11 +60,12 @@ fn get_cascaded_position(count: u32) -> (f64, f64) {
 /// The native title a window starts with, before the frontend replaces it with
 /// the document's filename.
 ///
-/// macOS hides the native title (`TitleBarStyle::Overlay` + `hidden_title`
-/// below) and the app draws its own strip, so an empty string is right there —
-/// anything else would surface only in the Window menu, naming something the
-/// title bar never shows. Every other platform draws a real, visible title bar,
-/// where an empty string is a blank window until the first title update (#1296).
+/// macOS hides the native title's text (`TitleBarStyle::Overlay` + `hidden_title`
+/// below), so an empty string is a safe startup placeholder there: nothing is
+/// blank on screen, and the frontend's first update gives the Dock previews, the
+/// Window menu and Mission Control their name (#1618). Every other platform draws
+/// a real, visible title bar, where an empty string is a blank window until that
+/// first update (#1296).
 fn initial_window_title(app_name: &str) -> String {
     if cfg!(target_os = "macos") {
         String::new()

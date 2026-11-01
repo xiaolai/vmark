@@ -46,12 +46,15 @@ Cuando está activado, la fila única de tema se sustituye por dos filas — **T
 | Configuración | Descripción | Predeterminado |
 |---------------|-------------|----------------|
 | Mostrar nombre de archivo en la barra de título | Muestra el nombre del archivo actual en la barra de título de la ventana de macOS. **Solo macOS** — este ajuste está oculto en las demás plataformas, porque Windows y Linux siempre muestran el nombre de archivo en la barra de título del sistema | Desactivado |
+| Mostrar la carpeta en el nombre de la ventana | Añade la carpeta contenedora al nombre de la ventana, como `docs \| readme.md`. **Solo macOS** — distingue ventanas cuyos archivos se llaman igual | Desactivado |
 
 En macOS, VMark dibuja su propia barra de título sobre la del sistema, así que el
 nombre de archivo es un elemento opcional de esa franja. En Windows y Linux el
 sistema dibuja una barra de título real encima de la ventana: el nombre de
 archivo (con un `•` mientras haya cambios sin guardar) siempre aparece allí, y
 VMark no añade ninguna franja de título propia.
+
+En macOS, el texto de la barra de título del sistema sigue oculto, pero las vistas previas de ventanas del Dock, el menú Ventana y Mission Control leen el nombre de la ventana. Siempre reciben el nombre de archivo, sea cual sea el valor de estos ajustes.
 
 ### Modo Enfoque
 

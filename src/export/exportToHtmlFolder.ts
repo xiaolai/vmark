@@ -21,7 +21,7 @@ import i18n from "@/i18n";
 import { exportHtml } from "./htmlExport";
 import { renderMarkdownToHtml } from "./renderMarkdownToHtml";
 import { useSettingsStore } from "@/stores/settingsStore";
-import { joinPath } from "@/utils/pathUtils";
+import { getFileName, joinPath } from "@/utils/pathUtils";
 import { showError, FileErrors } from "@/services/dialogs/errorDialog";
 import { commandErrorMessage } from "@/services/commands/commandError";
 import { hasExportableContent } from "./exportGuards";
@@ -34,9 +34,7 @@ import { hasExportableContent } from "./exportGuards";
  */
 export function exportFolderPath(selectedPath: string): string {
   const stripped = selectedPath.replace(/\.html$/i, "");
-  const slash = Math.max(stripped.lastIndexOf("/"), stripped.lastIndexOf("\\"));
-  const basename = slash >= 0 ? stripped.slice(slash + 1) : stripped;
-  return basename === "" ? selectedPath : stripped;
+  return getFileName(stripped) === "" ? selectedPath : stripped;
 }
 
 /**

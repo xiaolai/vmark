@@ -23,6 +23,7 @@
  * @module pages/settings/terminalSettingsHelpers
  */
 import { TERMINAL_MAX_RATIO } from "@/stores/uiStore";
+import { getFileName } from "@/utils/pathUtils";
 
 /** Step between panel-size options, as a fraction of available space. */
 const PANEL_SIZE_STEP = 0.05;
@@ -122,8 +123,7 @@ export function fontSizeOptionsFor(
 
 /** Extract shell name from an absolute path ("/bin/zsh" → "zsh", "C:\\...\\cmd.exe" → "cmd.exe"). */
 export function shellLabel(path: string): string {
-  const name = path.split(/[/\\]/).pop() ?? path;
-  return name || path;
+  return getFileName(path) || path;
 }
 
 /** Snap a ratio to the nearest panel-size dropdown value. */

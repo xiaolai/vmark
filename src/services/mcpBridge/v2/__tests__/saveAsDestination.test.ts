@@ -22,6 +22,7 @@ describe("resolveSaveAsDestination", () => {
     ["approval before the overwrite probe", "/docs/其他.md", OWN, { autoApprove: false, existing: true }, "APPROVAL_REQUIRED", "approval"],
     ["approval for an untitled tab", "/docs/new.md", null, { autoApprove: false }, "APPROVAL_REQUIRED", "approval"],
     ["an existing file with approval on", "/docs/其他.md", OWN, { existing: true }, "APPROVAL_REQUIRED", "overwrite"],
+    ["a look-alike of an own path holding a backslash", "/docs/a/b.md", "/docs/a\\b.md", { existing: true }, "APPROVAL_REQUIRED", "overwrite"],
     ["a case-variant of the own path on macOS", "/docs/A.md", "/docs/a.md", { autoApprove: false, existing: true }, "APPROVAL_REQUIRED", "approval"],
   ] as const)("refuses %s", async (_name, target, own, o, error, toast) => {
     const p = probes(o);

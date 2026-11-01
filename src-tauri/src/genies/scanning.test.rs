@@ -277,3 +277,25 @@ fn menu_entries_with_the_same_title_are_ordered_by_path() {
     assert_eq!(titles[0].0, titles[1].0);
     assert!(titles[0].1 < titles[1].1, "{titles:?}");
 }
+
+/// A backslash is part of a name off Windows, so the category and key must
+/// name the directory and file that exist.
+#[cfg(unix)]
+#[test]
+fn category_and_key_keep_a_backslash_that_is_part_of_a_name() {
+    let dir = tempfile::tempdir().unwrap();
+    let folder = dir.path().join("a\\b");
+    std::fs::create_dir(&folder).unwrap();
+    let file = folder.join("c.md");
+    std::fs::write(&file, "---\nname: c\n---\nbody").unwrap();
+
+    assert_eq!(category_of(&file, dir.path()).as_deref(), Some("a\\b"));
+
+    let mut entries = std::collections::HashMap::new();
+    scan_genies_dir(dir.path(), dir.path(), "user", &mut entries);
+    assert!(
+        entries.contains_key("a\\b/c.md"),
+        "keys: {:?}",
+        entries.keys().collect::<Vec<_>>()
+    );
+}

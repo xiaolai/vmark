@@ -22,19 +22,19 @@ pub(super) fn path_under_ignored_dir(path: &str) -> bool {
     let mut segments: Vec<&str> = path.split(['/', '\\']).collect();
     segments.pop(); // drop the leaf — the file itself, not a parent dir
     segments.into_iter().any(|seg| IGNORED_DIRS.contains(&seg))
-        || path_at_or_under_ignored_prefix(path)
+        || path_at_or_under_ignored_prefix(&path.replace('\\', "/"))
 }
 
 /// A workspace-relative path that IS an ignored path-prefix directory or
 /// lives under one (`IGNORED_REL_PREFIXES`). Anchored at the workspace root,
-/// so `docs/.claude/worktrees/a.md` is real content, and separator-agnostic
-/// so a Windows-style path is not misread. The boundary is a full segment:
-/// `.claude/worktrees.md` is a sibling file, not a match.
+/// so `docs/.claude/worktrees/a.md` is real content. `rel` must already use `/`:
+/// the walk's paths do, on every OS, and a backslash left in one is part of a
+/// real name. The boundary is a full segment: `.claude/worktrees.md` is a
+/// sibling file, not a match.
 pub(super) fn path_at_or_under_ignored_prefix(rel: &str) -> bool {
-    let norm = rel.replace('\\', "/");
     IGNORED_REL_PREFIXES.iter().any(|prefix| {
-        norm == *prefix
-            || norm
+        rel == *prefix
+            || rel
                 .strip_prefix(prefix)
                 .is_some_and(|rest| rest.starts_with('/'))
     })

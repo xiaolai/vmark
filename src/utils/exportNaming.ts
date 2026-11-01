@@ -4,9 +4,11 @@
  * Utilities for determining default folder names when exporting documents.
  * Extracts titles from markdown and sanitizes for filesystem use.
  *
+ * @coordinates-with utils/pathUtils.ts — the filename fallback
  * @coordinates-with utils/truncateText.ts — the character-safe length cut
  * @module utils/exportNaming
  */
+import { getFileNameWithoutExtension } from "./pathUtils";
 import { truncateToLength } from "./truncateText";
 
 /**
@@ -222,31 +224,6 @@ export function getExportFolderName(
 
   // Final fallback
   return fallback;
-}
-
-/**
- * Extract file name without extension from a path.
- * Handles both forward and back slashes.
- *
- * @param filePath - Full file path
- * @returns File name without extension
- */
-function getFileNameWithoutExtension(filePath: string): string {
-  /* v8 ignore start -- caller always guards with `if (filePath)` before calling */
-  if (!filePath) return "";
-  /* v8 ignore stop */
-
-  // Get the last path component
-  const parts = filePath.split(/[/\\]/);
-  const fileName = parts[parts.length - 1] || "";
-
-  // Remove extension
-  const dotIndex = fileName.lastIndexOf(".");
-  if (dotIndex > 0) {
-    return fileName.slice(0, dotIndex);
-  }
-
-  return fileName;
 }
 
 /**

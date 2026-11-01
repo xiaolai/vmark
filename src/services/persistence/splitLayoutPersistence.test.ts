@@ -188,6 +188,12 @@ describe("splitLayoutPersistence stable-root keying (WI-17.2)", () => {
     expect(loadSplitLayout(ROOT)).toEqual(LAYOUT);
   });
 
+  it("does not take the layout of a root whose name only differs by a trailing backslash", () => {
+    localStorage.setItem("vmark-split-layout:/Users/me/project", JSON.stringify(LAYOUT));
+    expect(loadSplitLayout("/Users/me/project\\", "macos")).toBeNull();
+    expect(localStorage.getItem("vmark-split-layout:/Users/me/project")).not.toBeNull();
+  });
+
   it("does not migrate a malformed legacy value", () => {
     localStorage.setItem(`vmark-split-layout:${ROOT}`, "{not json");
     expect(loadSplitLayout(ROOT)).toBeNull();

@@ -199,7 +199,7 @@ fn resolver(p: &str) -> Option<String> {
 //
 // Issue #1296. The title was unconditionally empty because the builder assumes
 // macOS's overlay title bar, where the native title text is hidden and an empty
-// string is the only correct value. Off macOS the OS draws a REAL title bar, so
+// string is a safe placeholder until the frontend names the window (#1618). Off macOS the OS draws a REAL title bar, so
 // an empty string is a blank strip until the frontend's first title update —
 // and a blank one is what the reporter saw. Both legs are asserted per target,
 // which the 3-OS CI matrix exercises.
@@ -207,8 +207,8 @@ fn resolver(p: &str) -> Option<String> {
 #[cfg(target_os = "macos")]
 #[test]
 fn initial_title_is_empty_where_the_native_title_is_hidden() {
-    // TitleBarStyle::Overlay + hidden_title(true): the app draws its own strip,
-    // so a non-empty title would only ever surface in the Window menu.
+    // TitleBarStyle::Overlay + hidden_title(true): nothing is blank on screen, and
+    // the frontend's first update names the window for the Dock and Window menu.
     assert_eq!(initial_window_title("VMark"), "");
 }
 

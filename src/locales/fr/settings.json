@@ -57,6 +57,8 @@
   "appearance.group.window": "Fenêtre",
   "appearance.showFilenameInTitlebar.label": "Afficher le nom du fichier dans la barre de titre",
   "appearance.showFilenameInTitlebar.description": "Afficher le nom du fichier courant dans le titre de la fenêtre",
+  "appearance.showFolderInWindowTitle.label": "Afficher le dossier dans le nom de la fenêtre",
+  "appearance.showFolderInWindowTitle.description": "Ajoute le dossier parent au nom dans les aperçus de fenêtres du Dock et le menu Fenêtre",
   "appearance.group.focusMode": "Mode focus",
   "appearance.focusModeDim.label": "Niveau d'atténuation",
   "appearance.focusModeDim.description": "Intensité de l'atténuation du contenu non focalisé en mode focus",

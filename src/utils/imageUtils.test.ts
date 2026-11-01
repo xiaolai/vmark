@@ -55,6 +55,10 @@ describe("imageUtils", () => {
   });
 
   describe("getFilename", () => {
+    it("keeps a backslash that is part of a POSIX filename", () => {
+      expect(getFilename("/photos/a\\b.png")).toBe("a\\b.png");
+    });
+
     it("extracts filename from Unix paths", () => {
       expect(getFilename("/path/to/image.png")).toBe("image.png");
       expect(getFilename("/Users/name/Documents/photo.jpg")).toBe("photo.jpg");

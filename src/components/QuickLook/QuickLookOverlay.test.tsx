@@ -47,6 +47,12 @@ describe("QuickLookOverlay", () => {
     expect(dialog).toHaveAttribute("aria-modal", "true");
   });
 
+  it("keeps a backslash that is part of a POSIX filename in the dialog label", () => {
+    useQuickLookStore.setState({ isOpen: true, path: "/dir/a\\b.png" });
+    render(<QuickLookOverlay />);
+    expect(screen.getByRole("dialog", { name: /a\\b\.png/ })).toBeInTheDocument();
+  });
+
   it("closes when the close button is clicked", async () => {
     const user = userEvent.setup();
     useQuickLookStore.setState({ isOpen: true, path: "/abs/photo.png" });

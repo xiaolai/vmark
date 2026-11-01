@@ -194,6 +194,46 @@ describe("pathUtils", () => {
   // WI-RA19.4 — the label is a translation KEY, chosen per platform; the
   // caller translates it. It used to return English literals, so Windows and
   // Linux users in every locale read "Show in Explorer" / "Show in File Manager".
+  // On macOS and Linux a backslash is an ordinary filename character, and a path
+  // that starts with a single "/" can only be one of theirs.
+  describe("a backslash inside a POSIX absolute path", () => {
+    it("stays part of the filename", () => {
+      expect(getFileName("/notes/a\\b.md")).toBe("a\\b.md");
+      expect(getFileName("/a\\b.md")).toBe("a\\b.md");
+      expect(getFileName("/notes\\sub/")).toBe("");
+    });
+
+    it("stays part of the name without its extension", () => {
+      expect(getFileNameWithoutExtension("/notes/a\\b.md")).toBe("a\\b");
+      expect(getFileNameWithoutExtension("/notes/a.b\\c")).toBe("a");
+    });
+
+    it("does not end the directory early", () => {
+      expect(getDirectory("/notes/a\\b.md")).toBe("/notes");
+      expect(getDirectory("/notes/a\\b/c.md")).toBe("/notes/a\\b");
+      expect(getDirectory("/a\\b.md")).toBe("/");
+    });
+
+    it("does not make the joined path use a backslash separator", () => {
+      expect(joinPath("/notes/a\\b", "c.md")).toBe("/notes/a\\b/c.md");
+      expect(joinPath("/notes/a\\", "c.md")).toBe("/notes/a\\/c.md");
+    });
+
+    it.each([
+      ["a drive path", "C:\\Users\\a.md", "a.md", "C:\\Users"],
+      ["a UNC path", "\\\\server\\share\\a.md", "a.md", "\\\\server\\share"],
+      ["a forward-slashed UNC path", "//server/share\\a.md", "a.md", "//server/share"],
+      ["a relative path", "docs\\a.md", "a.md", "docs"],
+    ])("still splits %s on the backslash", (_label, path, name, directory) => {
+      expect(getFileName(path)).toBe(name);
+      expect(getDirectory(path)).toBe(directory);
+    });
+
+    it("still joins a Windows directory with a backslash", () => {
+      expect(joinPath("\\\\server\\share", "a.md")).toBe("\\\\server\\share\\a.md");
+    });
+  });
+
   describe("revealInFileManagerKey", () => {
     let originalNavigator: typeof navigator;
 

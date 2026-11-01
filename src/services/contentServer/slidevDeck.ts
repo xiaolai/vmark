@@ -10,6 +10,7 @@
 import { useTabStore, tabFilePath } from "@/stores/tabStore";
 import { getActiveTabId } from "@/services/navigation/activeDocument";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
+import { getFileName } from "@/utils/pathUtils";
 import type { SlidevExportFormat } from "./client";
 
 /** Absolute path of the active tab's file, or null (untitled / no tab). */
@@ -31,9 +32,9 @@ export function activeDeckPath(): string | null {
  * left an extensionless deck with no `.pdf` at all.
  */
 export function deckExportDefaultPath(deckPath: string): string {
-  const separator = Math.max(deckPath.lastIndexOf("/"), deckPath.lastIndexOf("\\"));
-  const dot = deckPath.lastIndexOf(".");
-  return `${dot > separator + 1 ? deckPath.slice(0, dot) : deckPath}.pdf`;
+  const name = getFileName(deckPath);
+  const dot = name.lastIndexOf(".");
+  return `${dot > 0 ? deckPath.slice(0, deckPath.length - name.length + dot) : deckPath}.pdf`;
 }
 
 /** Derive the Slidev export format from the chosen output extension. */
