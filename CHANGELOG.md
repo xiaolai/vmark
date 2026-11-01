@@ -11,6 +11,27 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 ## [Unreleased]
 
+## [0.9.110] - 2026-11-01
+
+### Added
+
+- **Dock previews name the file on macOS.** The Dock's window previews, the
+  Window menu and Mission Control now show the file name instead of only
+  "VMark", whichever way the title bar settings are set. To tell apart files
+  that share a name, turn on **Show folder in window name** (Settings →
+  Appearance) to get `docs | readme.md`. It is off by default (#1618).
+
+### Fixed
+
+- **Backslashes stay in file names on macOS and Linux.** A backslash is an
+  ordinary character in a file name on these systems, but VMark treated it as
+  a folder separator, so `/notes/a\b.md` was taken for `b.md`. Opening, saving,
+  exporting, finding media and scanning a workspace could act on the wrong
+  file. Windows behaves as before. Two limits remain: a workspace folder whose
+  name ends in a backslash starts with fresh workspace settings, and a workflow
+  saving to a relative name that contains a backslash saves the file without
+  its provenance record and logs a warning.
+
 ## [0.9.109] - 2026-10-31
 
 ### Changed
@@ -541,7 +562,8 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 - Raised the `markdown-it` version floor past GHSA-253c-mchw-3w2r.
 
-[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.109...HEAD
+[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.110...HEAD
+[0.9.110]: https://github.com/xiaolai/vmark/releases/tag/v0.9.110
 [0.9.109]: https://github.com/xiaolai/vmark/releases/tag/v0.9.109
 [0.9.108]: https://github.com/xiaolai/vmark/releases/tag/v0.9.108
 [0.9.107]: https://github.com/xiaolai/vmark/releases/tag/v0.9.107
