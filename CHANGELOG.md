@@ -11,6 +11,12 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 ## [Unreleased]
 
+### Fixed
+
+- Clicking Detect in Settings > Integrations now reads your login shell's PATH again, so CLI providers no longer stay "Not found" until a restart after that read failed or your shell profile changed. When VMark cannot read the PATH, Settings now says so, with the shell, the reason, and the directories it searched.
+- The same Detect click also retries the terminal's lookup of your zsh `ZDOTDIR`, so a terminal opened afterwards loads your real zsh configuration if that lookup failed earlier.
+- A shell profile that leaves a background process holding the shell's output can no longer hang PATH lookup: it now times out like any other slow shell.
+
 ## [0.9.110] - 2026-11-01
 
 ### Added

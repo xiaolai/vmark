@@ -3,6 +3,36 @@
 //! `ai_provider/` module).
 
 use super::*;
+#[cfg(unix)]
+use crate::ai_provider::spawn::build_command;
+
+/// #1628: Detect must read PATH again BEFORE it looks for the CLIs, or the scan
+/// searches the stale PATH and only the next click would see the new one.
+#[test]
+fn an_explicit_refresh_rereads_path_before_it_searches() {
+    let order = std::cell::RefCell::new(Vec::new());
+    scan_with(
+        true,
+        || order.borrow_mut().push("path"),
+        |_| {
+            order.borrow_mut().push("check");
+            (false, None)
+        },
+    );
+    assert_eq!(order.borrow().first(), Some(&"path"));
+    assert_eq!(order.borrow().iter().filter(|s| **s == "path").count(), 1);
+    assert!(order.borrow().contains(&"check"));
+}
+
+#[test]
+fn an_ordinary_scan_leaves_path_alone() {
+    let entries = scan_with(
+        false,
+        || panic!("only an explicit refresh may re-run the login shell"),
+        |_| (false, None),
+    );
+    assert_eq!(entries.len(), 3);
+}
 
 #[test]
 fn detect_with_maps_all_three_providers() {
@@ -187,7 +217,7 @@ fn warm_exec(shell: &std::path::Path) {
 /// The `--vmark-warmup` branch exits before both. The real invocation is
 /// `<shell> -lic <cmd>`, so `$1` is `-lic` and can never take it.
 #[cfg(unix)]
-fn write_fake_shell(
+pub(in crate::ai_provider) fn write_fake_shell(
     dir: &tempfile::TempDir,
     body: &str,
 ) -> (std::path::PathBuf, std::path::PathBuf) {
@@ -332,7 +362,7 @@ fn zdotdir_round_trips_via_fake_login_shell() {
 /// every terminal spawn for the rest of the session.
 #[test]
 fn a_poisoned_zdotdir_cache_still_answers_from_the_cache() {
-    let cache: ZdotdirCache = crate::lock_policy::tests::poisoned(HashMap::new());
+    let cache: ZdotdirCache = crate::lock_policy::tests::poisoned(ZdotdirAnswers::default());
     let mut queries = 0;
     for _ in 0..2 {
         let answer = cached_zdotdir(&cache, "/bin/zsh", || {
@@ -345,6 +375,43 @@ fn a_poisoned_zdotdir_cache_still_answers_from_the_cache() {
         queries, 1,
         "the second spawn must be answered from the cache"
     );
+}
+
+/// A failed probe caches as "no `ZDOTDIR`", so it must not outlive the repair.
+#[test]
+fn forgetting_zdotdirs_makes_the_next_spawn_ask_again() {
+    let cache = ZdotdirCache::default();
+    assert_eq!(cached_zdotdir(&cache, "/bin/zsh", || None), None);
+
+    forget_zdotdirs(&cache);
+
+    let answer = cached_zdotdir(&cache, "/bin/zsh", || Some("/fixed".to_string()));
+    assert_eq!(answer.as_deref(), Some("/fixed"));
+}
+
+/// The caller still gets its answer; only the cache refuses the old one.
+#[test]
+fn a_query_running_across_a_forget_does_not_restore_its_answer() {
+    let cache = ZdotdirCache::default();
+    let old = cached_zdotdir(&cache, "/bin/zsh", || {
+        forget_zdotdirs(&cache);
+        None
+    });
+    assert_eq!(old, None);
+
+    let answer = cached_zdotdir(&cache, "/bin/zsh", || Some("/fixed".to_string()));
+    assert_eq!(answer.as_deref(), Some("/fixed"));
+}
+
+#[test]
+fn rereading_the_login_shell_forgets_the_zdotdir_answers() {
+    const SHELL: &str = "/no/such/shell/rereading-test";
+    cached_zdotdir(zdotdir_cache(), SHELL, || None);
+    assert!(recover(zdotdir_cache()).by_shell.contains_key(SHELL));
+
+    reread_login_shell();
+
+    assert!(!recover(zdotdir_cache()).by_shell.contains_key(SHELL));
 }
 
 fn entry(provider_type: &str, available: bool) -> CliProviderEntry {
@@ -377,4 +444,46 @@ fn a_refreshed_detection_replaces_the_cached_one() {
     store_detection(&cache, vec![entry("claude", false)]);
     store_detection(&cache, vec![entry("claude", true)]);
     assert!(cached_detection(&cache, false).unwrap()[0].available);
+}
+
+/// A slow scan that started first must not overwrite the one that started after.
+#[test]
+fn overlapping_scans_keep_the_newer_result() {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    let (order, cache) = (Mutex::new(()), Mutex::new(None));
+    let older_is_scanning = AtomicBool::new(false);
+    std::thread::scope(|scope| {
+        scope.spawn(|| {
+            scan_in_order(
+                &order,
+                &cache,
+                true,
+                || {},
+                |_| {
+                    older_is_scanning.store(true, Ordering::SeqCst);
+                    std::thread::sleep(std::time::Duration::from_millis(100));
+                    (false, None)
+                },
+            );
+        });
+        while !older_is_scanning.load(Ordering::SeqCst) {
+            std::thread::yield_now();
+        }
+        scan_in_order(&order, &cache, true, || {}, |_| (true, None));
+    });
+    assert!(cached_detection(&cache, false).unwrap()[0].available);
+}
+
+#[test]
+fn a_caller_that_waited_reuses_the_scan_it_waited_for() {
+    let (order, cache) = (Mutex::new(()), Mutex::new(None));
+    scan_in_order(&order, &cache, true, || {}, |_| (true, None));
+    let reused = scan_in_order(
+        &order,
+        &cache,
+        false,
+        || panic!("an ordinary scan must not re-read PATH"),
+        |_| panic!("the cached result must answer"),
+    );
+    assert!(reused[0].available);
 }

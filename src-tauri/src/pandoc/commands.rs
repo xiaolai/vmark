@@ -7,7 +7,7 @@
 //! @coordinates-with export_target/mod.rs — the save-panel choice `export_via_pandoc` may write to
 //! @coordinates-with pandoc/run.rs — run_pandoc() blocking subprocess execution
 //! @coordinates-with ai_provider/spawn.rs — build_command() for cross-platform spawn
-//! @coordinates-with ai_provider/detection.rs — login_shell_path(), which_command() for PATH resolution
+//! @coordinates-with ai_provider/login_path.rs — login_shell_path() for PATH resolution; ai_provider/spawn.rs — which_command()
 
 use std::time::Duration;
 use tauri::command;

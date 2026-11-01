@@ -24,7 +24,7 @@ CLI providers use locally installed AI tools. VMark runs them as subprocesses an
 | Gemini | `gemini` | [Google Gemini CLI](https://github.com/google-gemini/gemini-cli) |
 ### How CLI Detection Works
 
-Click **Detect** in Settings > Integrations. VMark searches your `$PATH` for each CLI command and reports availability. If a CLI is found, its radio button becomes selectable. **Detect** rescans every time you click it; automatic detection (at app start, when Settings opens, and in the genie picker's provider switcher) reuses the last scan. The scan uses the `$PATH` VMark read from your login shell when it started, so a CLI installed into a directory newly added to `$PATH` needs a VMark restart before **Detect** can find it.
+Click **Detect** in Settings > Integrations. VMark searches your `$PATH` for each CLI command and reports availability. If a CLI is found, its radio button becomes selectable. **Detect** rescans every time you click it; automatic detection (at app start, when Settings opens, and in the genie picker's provider switcher) reuses the last scan. Clicking **Detect** also reads `$PATH` from your login shell again, so a CLI in a directory you just added to your shell profile is found without restarting VMark; automatic detection uses the `$PATH` VMark last read. If VMark has never managed to read `$PATH` from your login shell, it searches the `$PATH` it inherited from whatever launched it, and while a CLI is missing, Settings shows a notice naming the shell, the reason, and the directories searched. A **Detect** whose read fails keeps any `$PATH` read successfully earlier.
 
 ### Advantages
 
@@ -182,7 +182,7 @@ If the keychain refuses a write, VMark shows an error toast rather than silently
 
 **"No AI provider available"** — Click **Detect** to scan for CLIs, or configure a REST provider with an API key.
 
-**CLI shows "Not found"** — The CLI is not in your `$PATH`. Install it or check your shell profile. On macOS, GUI apps may not inherit terminal `$PATH` — try adding the path to `/etc/paths.d/`.
+**CLI shows "Not found"** — The CLI is not in your `$PATH`. Install it or check your shell profile. On macOS, GUI apps may not inherit terminal `$PATH` — try adding the path to `/etc/paths.d/`. If Settings also shows a notice that VMark could not read your `$PATH`, the CLI may be installed after all: fix whatever makes your shell profile fail or run slowly (VMark waits only a few seconds), then click **Detect**.
 
 **CLI hangs / no response** — VMark's execution timeout will cancel the call automatically; you'll see an error in the genie status banner. If a particular CLI consistently hits the timeout, run it once from a terminal to confirm it works there, then check whether it requires interactive auth.
 

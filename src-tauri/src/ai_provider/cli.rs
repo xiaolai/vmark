@@ -16,7 +16,7 @@ use tokio::io::BufReader;
 use tokio::process::Command as TokioCommand;
 use tokio_util::sync::CancellationToken;
 
-use super::detection::login_shell_path;
+use super::login_path::login_shell_path;
 use super::sink::AiSink;
 use super::spawn::{build_command, spawn_failure};
 use prompt::PromptWriter;

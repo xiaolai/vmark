@@ -31,7 +31,7 @@
     "src/lib/ghaWorkflow/parser/jobs.ts": 321,
     "src/lib/ghaWorkflow/save/mutators.ts": 578,
     "src/lib/workflow/parser.ts": 418,
-    "src/pages/settings/IntegrationsSettings.tsx": 385,
+    "src/pages/settings/IntegrationsSettings.tsx": 348,
     "src/pages/settings/LanguageSettings.tsx": 351,
     "src/plugins/codemirror/sourceSelectOccurrence.ts": 339,
     "src/plugins/codemirror/sourceTableContextMenu.ts": 319,

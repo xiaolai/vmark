@@ -165,66 +165,6 @@ fn which_command_prefers_absolute_path() {
 }
 
 // ---------------------------------------------------------------------------
-// capture_stdout_with_timeout
-// ---------------------------------------------------------------------------
-
-#[cfg(unix)]
-fn sh(script: &str) -> Command {
-    let mut c = crate::ai_provider::build_command("/bin/sh", &[]);
-    c.args(["-c", script]);
-    c
-}
-
-#[cfg(unix)]
-#[test]
-fn capture_returns_stdout_on_success() {
-    let out = capture_stdout_with_timeout(
-        sh("printf hello-capture"),
-        std::time::Duration::from_secs(5),
-        "test",
-    );
-    assert_eq!(out.as_deref(), Some("hello-capture"));
-}
-
-#[cfg(unix)]
-#[test]
-fn capture_none_on_nonzero_exit() {
-    let out = capture_stdout_with_timeout(
-        sh("printf partial; exit 3"),
-        std::time::Duration::from_secs(5),
-        "test",
-    );
-    assert_eq!(out, None);
-}
-
-#[test]
-fn capture_none_on_spawn_failure() {
-    let out = capture_stdout_with_timeout(
-        crate::ai_provider::build_command("/no/such/binary/vmark-xyz", &[]),
-        std::time::Duration::from_secs(1),
-        "test",
-    );
-    assert_eq!(out, None);
-}
-
-#[cfg(unix)]
-#[test]
-fn capture_timeout_kills_long_running_child() {
-    let started = std::time::Instant::now();
-    let out = capture_stdout_with_timeout(
-        sh("sleep 10"),
-        std::time::Duration::from_millis(200),
-        "test",
-    );
-    assert_eq!(out, None);
-    assert!(
-        started.elapsed() < std::time::Duration::from_secs(3),
-        "timeout must kill the child promptly, took {:?}",
-        started.elapsed()
-    );
-}
-
-// ---------------------------------------------------------------------------
 // parse_sentinel
 // ---------------------------------------------------------------------------
 

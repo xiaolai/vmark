@@ -24,7 +24,7 @@ Os provedores CLI usam ferramentas de IA instaladas localmente. O VMark as execu
 | Gemini | `gemini` | [Google Gemini CLI](https://github.com/google-gemini/gemini-cli) |
 ### Como Funciona a Detecção de CLI
 
-Clique em **Detectar** em Configurações > Integrações. O VMark pesquisa seu `$PATH` para cada comando CLI e informa a disponibilidade. Se um CLI for encontrado, seu botão de rádio fica selecionável. **Detectar** faz uma nova varredura a cada clique; a detecção automática (ao iniciar o app, ao abrir as Configurações e no seletor de provedor do seletor de gênios) reaproveita a última varredura. A varredura usa o `$PATH` que o VMark leu do seu shell de login ao iniciar, então um CLI instalado em um diretório recém-adicionado ao `$PATH` exige reiniciar o VMark antes que **Detectar** consiga encontrá-lo.
+Clique em **Detectar** em Configurações > Integrações. O VMark pesquisa seu `$PATH` para cada comando CLI e informa a disponibilidade. Se um CLI for encontrado, seu botão de rádio fica selecionável. **Detectar** faz uma nova varredura a cada clique; a detecção automática (ao iniciar o app, ao abrir as Configurações e no seletor de provedor do seletor de gênios) reaproveita a última varredura. Clicar em **Detectar** também lê novamente o `$PATH` do seu shell de login, então um CLI em um diretório que você acabou de adicionar ao seu perfil de shell é encontrado sem reiniciar o VMark; a detecção automática usa o último `$PATH` lido. Se o VMark nunca tiver conseguido ler o `$PATH` do seu shell de login, ele pesquisa o `$PATH` herdado do programa que o iniciou e, enquanto faltar algum CLI, as Configurações mostram um aviso com o shell, o motivo e os diretórios pesquisados. Se a leitura falhar ao usar **Detectar**, qualquer `$PATH` lido com sucesso antes é mantido.
 
 ### Vantagens
 
@@ -182,7 +182,7 @@ Se o chaveiro recusar uma gravação, o VMark mostra um aviso de erro em vez de 
 
 **"Nenhum provedor de IA disponível"** — Clique em **Detectar** para verificar CLIs, ou configure um provedor REST com uma chave de API.
 
-**CLI mostra "Não encontrado"** — O CLI não está no seu `$PATH`. Instale-o ou verifique seu perfil de shell. No macOS, aplicativos GUI podem não herdar o `$PATH` do terminal — tente adicionar o caminho a `/etc/paths.d/`.
+**CLI mostra "Não encontrado"** — O CLI não está no seu `$PATH`. Instale-o ou verifique seu perfil de shell. No macOS, aplicativos GUI podem não herdar o `$PATH` do terminal — tente adicionar o caminho a `/etc/paths.d/`. Se as Configurações também mostrarem um aviso de que o VMark não conseguiu ler seu `$PATH`, o CLI pode estar instalado: corrija o que faz seu perfil de shell falhar ou ficar lento (o VMark espera apenas alguns segundos) e clique em **Detectar**.
 
 **CLI trava / sem resposta** — O timeout de execução do VMark cancelará a chamada automaticamente; você verá um erro no banner de status do gênio. Se um CLI específico atinge consistentemente o timeout, execute-o uma vez no terminal para confirmar que funciona lá e verifique se ele requer autenticação interativa.
 
