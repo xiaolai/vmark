@@ -253,7 +253,7 @@ export function SettingsPage() {
             height: "calc(2 * var(--traffic-lights-centre))",
           }}
         >
-          <span className="text-sm font-medium text-[var(--text-color)]">
+          <span className="text-sm font-medium text-[var(--text-color)] select-none">
             {t("title")}
           </span>
         </div>

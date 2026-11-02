@@ -253,4 +253,9 @@ export const browserApprovalError = isDev
   ? (...args: unknown[]) => console.error("[BrowserApproval]", ...args)
   : (...args: unknown[]) => prodError("[BrowserApproval]", ...args);
 
+/** Error logger for the page-wide Select All redirect. */
+export const selectAllError = isDev
+  ? (...args: unknown[]) => console.error("[SelectAll]", ...args)
+  : (...args: unknown[]) => prodError("[SelectAll]", ...args);
+
 /* v8 ignore stop */

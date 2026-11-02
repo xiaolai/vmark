@@ -28,6 +28,7 @@
   cursor: var(--cursor-interactive, default); /* D7, platform-scoped */
   color: var(--text-color);
   text-align: left;
+  -webkit-user-select: none;
   user-select: none;
 }
 

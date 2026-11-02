@@ -31,6 +31,7 @@
   background: transparent;
   color: var(--text-secondary);
   cursor: var(--cursor-interactive, default); /* D7, platform-scoped */
+  -webkit-user-select: none;
   user-select: none;
   flex-shrink: 0;
   transition:

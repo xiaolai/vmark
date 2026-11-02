@@ -609,6 +609,7 @@
   color: var(--text-secondary);
   cursor: pointer;
   padding: var(--space-half) 0;
+  -webkit-user-select: none;
   user-select: none;
 }
 

@@ -133,6 +133,7 @@
   align-items: center;
   justify-content: center;
   transition: background 0.15s, color 0.15s;
+  -webkit-user-select: none;
   user-select: none;
 }
 

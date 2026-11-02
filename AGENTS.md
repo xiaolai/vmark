@@ -64,6 +64,7 @@ Each script's header explains its rules and exemption markers.
 - `lint:ipc-contract` — every `invoke("x")` resolves to a registered `#[command] fn x`. Zero tolerance.
 - `lint:window-thread` — a Tauri command that creates a window MUST be `async` (WebView2 deadlocks otherwise). When a command goes async, re-read it for check-then-act races the blocking IPC loop used to serialize.
 - `lint:type-aware` — floating/misused promises, base-to-string. Slow; in `check:static`, not `check:fast`.
+- `lint:user-select` — every CSS `user-select` is paired with `-webkit-user-select` in the same rule, and no inline `style.userSelect` writes (WebKit ignores both). Which chrome refuses a selection is listed in `src/styles/chrome-selection.css`; add a new chrome-only surface there.
 - `lint:theme-contrast`, `lint:ui-consistency`, `lint:bespoke-buttons`, `lint:design-tokens` — UI gates; see `.claude/rules/3*.md`.
 - `lint:command-errors` — new Rust commands return `CommandError`; see `.claude/rules/50-codebase-conventions.md`.
 - `lint:store-coupling` — plugins must not import app stores/services/hooks/components; see `.claude/rules/00-engineering-principles.md`.

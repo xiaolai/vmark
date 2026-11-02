@@ -17,6 +17,7 @@
 }
 
 .mermaid-preview-popup.dragging {
+  -webkit-user-select: none;
   user-select: none;
   cursor: grabbing;
 }
@@ -137,6 +138,7 @@
 }
 
 .mermaid-preview-popup.resizing {
+  -webkit-user-select: none;
   user-select: none;
 }
 

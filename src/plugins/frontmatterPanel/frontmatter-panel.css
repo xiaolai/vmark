@@ -9,6 +9,7 @@
   border: var(--border-thin) solid var(--border-color);
   border-radius: var(--radius-md);
   overflow: hidden;
+  -webkit-user-select: none;
   user-select: none;
 }
 

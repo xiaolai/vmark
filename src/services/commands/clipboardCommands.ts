@@ -22,8 +22,9 @@
  *     path predefined items served well — SendInput went to whatever
  *     focused — and is out of scope here).
  *   - macOS keeps PredefinedMenuItems (the responder chain is correct
- *     there), so these commands are never reached from its menu; they stay
- *     registered on every platform for the palette and for symmetry.
+ *     there), so its menu reaches these commands in one case only: a Select
+ *     All with focus outside any field, which pageSelectAllGuard.ts redirects
+ *     here. They stay registered on every platform for that and the palette.
  *
  * @coordinates-with src-tauri/src/menu/localized/edit_menu.rs — emits menu:edit-*
  * @coordinates-with services/editor/clipboardBridge.ts — the executor

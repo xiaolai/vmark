@@ -34,6 +34,7 @@
  * @module components/Editor/DocumentSplit/useSplitDrag
  */
 import { useCallback, useEffect, useRef, type PointerEvent as ReactPointerEvent } from "react";
+import { allowBodyTextSelection, suppressBodyTextSelection } from "@/utils/bodyTextSelection";
 
 interface DragSession {
   /** Undo everything `beginDragSession` did — listeners, body styles, capture. */
@@ -73,7 +74,7 @@ function beginDragSession(
   document.addEventListener("pointercancel", end);
   window.addEventListener("blur", blur);
   document.body.style.cursor = "col-resize";
-  document.body.style.userSelect = "none";
+  suppressBodyTextSelection();
   if (typeof target.setPointerCapture === "function") {
     try {
       target.setPointerCapture(pointerId);
@@ -90,7 +91,7 @@ function beginDragSession(
       window.removeEventListener("blur", blur);
       releaseCapture(target, pointerId);
       document.body.style.cursor = "";
-      document.body.style.userSelect = "";
+      allowBodyTextSelection();
     },
   };
 }

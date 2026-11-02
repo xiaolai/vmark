@@ -29,6 +29,7 @@
  * @module hooks/useDocumentDrag
  */
 import { useEffect, useMemo, useRef } from "react";
+import { allowBodyTextSelection, suppressBodyTextSelection } from "@/utils/bodyTextSelection";
 
 /** Which DOM event family carries the drag. */
 export type DocumentDragKind = "mouse" | "pointer";
@@ -94,7 +95,7 @@ function attach(
   window.addEventListener("blur", onBlur);
   if (cursor !== undefined) {
     document.body.style.cursor = cursor;
-    document.body.style.userSelect = "none";
+    suppressBodyTextSelection();
   }
 
   return () => {
@@ -104,7 +105,7 @@ function attach(
     window.removeEventListener("blur", onBlur);
     if (cursor !== undefined) {
       document.body.style.cursor = "";
-      document.body.style.userSelect = "";
+      allowBodyTextSelection();
     }
   };
 }

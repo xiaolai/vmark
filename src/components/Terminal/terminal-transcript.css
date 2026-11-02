@@ -15,7 +15,7 @@
 .terminal-sessions-container--column > .terminal-transcript { border-top: var(--border-thin) solid var(--border-color); }
 .terminal-sessions-container--row > .terminal-transcript { flex-basis: 45%; border-left: var(--border-thin) solid var(--border-color); }
 .terminal-transcript article + article { border-top: var(--border-thin) solid var(--border-color); }
-.transcript-markdown { user-select: text; overflow-wrap: anywhere; }
+.transcript-markdown { -webkit-user-select: text; user-select: text; overflow-wrap: anywhere; }
 .transcript-markdown pre { white-space: pre-wrap; font-family: var(--font-mono); }
 .transcript-heading { display: block; margin-block: var(--space-2); }
 .transcript-table { overflow-x: auto; margin-block: var(--space-2); }

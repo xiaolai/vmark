@@ -13,5 +13,6 @@
 /* Change cursor while dragging text — applied to editor container only */
 .text-drag-active {
   cursor: grabbing !important;
+  -webkit-user-select: none;
   user-select: none;
 }

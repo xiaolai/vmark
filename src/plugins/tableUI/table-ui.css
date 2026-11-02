@@ -42,6 +42,7 @@
   font-size: var(--font-size-base);
   text-align: left;
   cursor: var(--cursor-interactive, default); /* D7, platform-scoped */
+  -webkit-user-select: none;
   user-select: none;
   transition: background var(--duration-fast);
 }

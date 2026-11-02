@@ -113,6 +113,7 @@
   padding: var(--space-1) var(--space-2) 0;
   overflow-x: auto;
   scrollbar-width: none;
+  -webkit-user-select: none;
   user-select: none;
 }
 

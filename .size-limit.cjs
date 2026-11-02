@@ -307,7 +307,12 @@ module.exports = [
     // -> 290,524 bytes. The modulepreloaded total rose 14.6 kB, 12.2 kB of
     // it the App and provenance growth budgeted beside this; `pnpm lint:eager`
     // caps that total. Smallest raise that fits.
-    limit: "291 kB",
+    // 291 → 291.5 kB: the body text-selection lock (utils/bodyTextSelection,
+    // 170 bytes) that the table column resize, split divider and document
+    // drag share. Their old inline write set only the unprefixed property,
+    // which WebKit ignores, so the lock never worked in the app. 291,083
+    // bytes; smallest raise that fits.
+    limit: "291.5 kB",
     brotli: false,
   },
   {
