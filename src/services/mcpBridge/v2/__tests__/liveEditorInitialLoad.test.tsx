@@ -6,6 +6,10 @@
 // the content, leave the editor alone, and let the editor's own initial load
 // and content sync bring it to the store's text.
 //
+// A small document is loaded while the editor commits (#1634), so this window
+// exists only for a deferred load: the first test raises the loading
+// indicator, which defers the initial load as a large file's open does.
+//
 // The REAL editor component is mounted (production extensions and flusher);
 // only `@tauri-apps/*` and the window label are mocked.
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
@@ -21,7 +25,7 @@ vi.mock("@tauri-apps/api/core", async () =>
 vi.mock("@/contexts/WindowContext", () => ({ useWindowLabel: () => "main" }));
 
 import { ROOT, doc, openDocInTab } from "@/test/tier0/harness";
-import { useDocumentStore } from "@/stores/documentStore";
+import { useDocumentStore, useFileLoadStore } from "@/stores/documentStore";
 import { useEditorStore } from "@/stores/editorStore";
 import { serializeMarkdown } from "@/utils/markdownPipeline";
 import { getSerializeOptions } from "@/plugins/toolbarActions/wysiwygAdapterUtils";
@@ -45,12 +49,14 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  useFileLoadStore.getState().endLoad();
   vi.useRealTimers();
 });
 
 describe("a load into the live editor before its initial load has run", () => {
   it("reports the editor did not take it, and the editor then catches up with the store", async () => {
     const tabId = await openDocInTab(DOC, ORIGINAL);
+    useFileLoadStore.getState().startLoad("notes.md", ORIGINAL.length);
     render(<TiptapEditorInner />);
     // No timers advanced: the deferred initial load is still pending.
     const editor = useEditorStore.getState().tiptap.editor;

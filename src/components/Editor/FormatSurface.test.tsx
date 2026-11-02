@@ -82,6 +82,30 @@ describe("FormatSurface — successful load", () => {
     expect(await screen.findByTestId("surface")).toHaveTextContent("surface for tab-2");
     expect(calls).toBe(1);
   });
+
+  // #1634 — switching to an open tab remounts FormatSurface. With the module
+  // already resolved, the remount must not suspend: a Suspense fallback of
+  // null is an empty editor area painted for at least one frame.
+  it("renders an already-resolved surface in the first commit of a remount, with no empty frame", async () => {
+    const config = configWith("warm", () => Promise.resolve({ default: Surface }));
+    const first = render(<FormatSurface formatConfig={config} tabId="tab-1" />);
+    await screen.findByTestId("surface");
+    first.unmount();
+
+    render(<FormatSurface formatConfig={config} tabId="tab-2" />);
+
+    // No await: what render() just committed is the first frame the user sees.
+    expect(screen.getByTestId("surface")).toHaveTextContent("surface for tab-2");
+  });
+
+  it("still suspends on a cold mount, then shows the surface once it resolves", async () => {
+    const config = configWith("cold", () => Promise.resolve({ default: Surface }));
+
+    render(<FormatSurface formatConfig={config} tabId="tab-1" />);
+
+    expect(screen.queryByTestId("surface")).not.toBeInTheDocument();
+    expect(await screen.findByTestId("surface")).toHaveTextContent("surface for tab-1");
+  });
 });
 
 describe("FormatSurface — rejection (D4)", () => {

@@ -16,6 +16,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   FormatSurfaceLoadError,
   __resetFormatSurfaceCache,
+  peekResolvedFormatSurface,
   resolveFormatSurface,
 } from "./lazySurfaces";
 import { __resetRegistry, dispatchEditor, getFormatById, registerFormat } from "./registry";
@@ -187,6 +188,46 @@ describe("resolution cache", () => {
 
     expect(a.calls.language).toBe(1);
     expect(b.calls.language).toBe(1);
+  });
+});
+
+// #1634 — a remount must be able to render a resolved surface in the same
+// commit. A synchronous peek is the only way to know "already resolved"
+// without awaiting a promise, and it must never report a value the async
+// path would not have handed back.
+describe("synchronous peek", () => {
+  it("reports nothing before the first resolution and nothing while it is in flight", () => {
+    const pending = deferred<{ default: ComponentType<{ tabId: string }> }>();
+
+    expect(peekResolvedFormatSurface("peek", "wysiwygComponent")).toBeUndefined();
+    void resolveFormatSurface("peek", "wysiwygComponent", () => pending.promise);
+    expect(peekResolvedFormatSurface("peek", "wysiwygComponent")).toBeUndefined();
+  });
+
+  it("returns the very value the resolution fulfilled with, per (format, surface)", async () => {
+    const { config } = countingConfig("peekhit");
+    registerFormat(config);
+
+    const resolvedValue = await resolveFormatSurface(config.id, "wysiwygComponent", config.wysiwygComponent!);
+
+    expect(peekResolvedFormatSurface(config.id, "wysiwygComponent")).toBe(resolvedValue);
+    expect(peekResolvedFormatSurface(config.id, "language")).toBeUndefined();
+    expect(peekResolvedFormatSurface("otherformat", "wysiwygComponent")).toBeUndefined();
+  });
+
+  it("reports nothing after a rejection, so the next mount still retries (D4)", async () => {
+    await expect(
+      resolveFormatSurface("peekfail", "wysiwygComponent", () => Promise.reject(new Error("chunk 404"))),
+    ).rejects.toBeInstanceOf(FormatSurfaceLoadError);
+
+    expect(peekResolvedFormatSurface("peekfail", "wysiwygComponent")).toBeUndefined();
+  });
+
+  it("reports nothing after the cache is reset", async () => {
+    await resolveFormatSurface("peekreset", "language", () => Promise.resolve([]));
+    __resetFormatSurfaceCache();
+
+    expect(peekResolvedFormatSurface("peekreset", "language")).toBeUndefined();
   });
 });
 

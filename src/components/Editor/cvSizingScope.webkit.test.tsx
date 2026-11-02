@@ -41,6 +41,8 @@ const doc = vi.hoisted(() => {
   };
   return {
     editor: null as Editor | null,
+    /** The editor as of TiptapEditorInner's last committed passive effects. */
+    kept: null as Editor | null,
     /** Every markdown string the editor's flush wrote to the store. */
     flushed: [] as string[],
     get: () => content,
@@ -72,12 +74,19 @@ vi.mock("@/hooks/useDocumentState", async () => {
     useDocumentActions: () => doc.actions,
   };
 });
-// The editor instance, captured from a hook TiptapEditorInner hands it to.
-vi.mock("@/hooks/useTiptapSettingsSync", () => ({
-  useTiptapSettingsSync: (editor: Editor | null) => {
-    doc.editor = editor;
-  },
-}));
+// The editor instance, captured from a hook TiptapEditorInner hands it to —
+// at render (`editor`) and in a passive effect (`kept`; see keptEditor).
+vi.mock("@/hooks/useTiptapSettingsSync", async () => {
+  const { useEffect } = await import("react");
+  return {
+    useTiptapSettingsSync: (editor: Editor | null) => {
+      doc.editor = editor;
+      useEffect(() => {
+        doc.kept = editor;
+      }, [editor]);
+    },
+  };
+});
 vi.mock("@/services/editor/tiptapFocus", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/services/editor/tiptapFocus")>()),
   scheduleTiptapFocusAndRestore: () => {},
@@ -99,12 +108,26 @@ vi.mock("@/services/editor/unparseableDocument", () => ({
 }));
 
 import { TextSelection } from "@tiptap/pm/state";
+import { useFileLoadStore } from "@/stores/documentStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { parseMarkdown } from "@/utils/markdownPipeline";
 import { TiptapEditorInner } from "./TiptapEditor";
 import { CV_IDLE_CHAR_THRESHOLD } from "./tiptapEditorHelpers";
 
 const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+/**
+ * The editor matching `ready` that Tiptap KEEPS. useEditor arms a 1 ms destroy
+ * timer when it builds an editor during render and disarms it in its passive
+ * effect; a commit that parses the document can outlast the timer, so an
+ * editor can be parsed and live yet already doomed, its replacement parsing
+ * again. `doc.kept` is written by a passive effect that runs after useEditor's
+ * in the same flush: an editor still alive there had its timer disarmed (the
+ * replacement is built in that effect and arms none), so it stays.
+ */
+function keptEditor(ready: (editor: Editor) => boolean, what: string): Promise<Editor> {
+  return until(() => (doc.kept && !doc.kept.isDestroyed && ready(doc.kept) ? doc.kept : null), what);
+}
 
 /**
  * Take over the clock once the editor is mounted (the mount's own deferred
@@ -185,6 +208,7 @@ function render(props: EditorProps): void {
 
 async function mount(markdown: string, props: EditorProps = {}): Promise<Mounted> {
   doc.editor = null;
+  doc.kept = null;
   doc.set(markdown);
   frame = document.createElement("div");
   frame.style.cssText = "height:700px;width:900px;display:flex;flex-direction:column";
@@ -196,8 +220,10 @@ async function mount(markdown: string, props: EditorProps = {}): Promise<Mounted
   document.body.appendChild(frame);
   root = createRoot(host);
   render(props);
-  // onCreate parses the markdown in a deferred task after mount.
-  const editor = await until(() => (doc.editor && doc.editor.state.doc.childCount > 1 ? doc.editor : null), "the initial parse");
+  // A document under the loading indicator's threshold is parsed while the
+  // editor commits (#1634); see keptEditor for why the first parsed editor
+  // is not necessarily the mounted one.
+  const editor = await keptEditor((e) => e.state.doc.childCount > 1, "the initial parse");
   for (let i = 0; i < 3; i += 1) await nextFrame();
   fakeTheIdleTimer();
   return { editor, scroller };
@@ -249,6 +275,7 @@ function pinPlatform(platform: string): void {
 describe("content-visibility sizing scope (real engine, production editor)", () => {
   beforeEach(() => {
     doc.editor = null;
+    doc.kept = null;
     doc.flushed = [];
   });
   afterEach(() => {
@@ -259,6 +286,7 @@ describe("content-visibility sizing scope (real engine, production editor)", () 
     root = null;
     frame = null;
     Reflect.deleteProperty(navigator, "platform");
+    useFileLoadStore.getState().endLoad();
     useSettingsStore.getState().updateMarkdownSetting("codeBlockLineNumbers", false);
   });
 
@@ -401,9 +429,13 @@ describe("content-visibility sizing scope (real engine, production editor)", () 
   // The content can change between mount and onCreate's deferred parse,
   // which then loads the latest content. The parse is not an edit, and no
   // React state changes when it completes: the document itself must be followed.
+  // A small document defers only under the loading indicator (#1634), so the
+  // indicator is up here, as when a large file's open began the load.
   it("follows a crossing that lands before the initial parse", async () => {
     pinPlatform("Win32");
+    useFileLoadStore.getState().startLoad("cv-sizing-scope.md", LARGE.length);
     doc.editor = null;
+    doc.kept = null;
     doc.set(SMALL);
     frame = document.createElement("div");
     frame.style.cssText = "height:700px;width:900px;display:flex;flex-direction:column";
@@ -416,7 +448,8 @@ describe("content-visibility sizing scope (real engine, production editor)", () 
     root = createRoot(host);
     render({});
     flushSync(() => doc.set(LARGE)); // before the parse's task runs
-    const editor = await until(() => (doc.editor && doc.editor.state.doc.content.size > CV_IDLE_CHAR_THRESHOLD ? doc.editor : null), "the parse of the latest content");
+    const editor = await keptEditor((e) => e.state.doc.content.size > CV_IDLE_CHAR_THRESHOLD, "the parse of the latest content");
+    expect(useFileLoadStore.getState().active, "premise: the deferred parse ran and ended the indicator").toBe(false);
     fakeTheIdleTimer();
     const count = editor.view.dom.children.length;
     expect(census(editor), "after the parse").toEqual({ blocks: count, sized: count, skippable: 0 });

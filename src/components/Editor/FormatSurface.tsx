@@ -14,8 +14,16 @@
  *     by accident, which D4 explicitly rejects. Re-creating it per mount is
  *     what makes "the next mount retries" true, and it costs nothing on the
  *     success path because `resolveFormatSurface` caches the resolved module.
+ *   - A module that has ALREADY resolved is rendered directly, with no lazy
+ *     at all (`peekResolvedFormatSurface`). Editor.tsx keys this component by
+ *     tab, so every tab switch is a remount, and a lazy over a cached module
+ *     still suspends for one commit — which painted the null fallback as a
+ *     blank editor area on each switch (#1634). Only fulfilled modules are
+ *     peeked, so an unresolved or failed surface still takes the fresh-lazy
+ *     path above and keeps its D4 retry semantics.
  *   - Suspense fallback is `null`. The surrounding editor chrome is already
  *     painted, and a spinner that appears for one frame reads as a flicker.
+ *     It now applies only to the FIRST mount of a format in a window.
  *   - The error state names the format via `preview.surfaceFailed`
  *     and offers an in-place Retry (`dialog:errorBoundary.tryAgain`) that
  *     bumps the lazy key — a fresh thunk evaluation, not a re-render of a
@@ -26,12 +34,19 @@
  * @coordinates-with components/Editor/Editor.tsx — the dispatcher that mounts this
  * @module components/Editor/FormatSurface
  */
-import { Component, Suspense, lazy, useState, type ReactNode } from "react";
+import { Component, Suspense, lazy, useState, type ComponentType, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
-import { FormatSurfaceLoadError, resolveFormatSurface } from "@/lib/formats/lazySurfaces";
+import {
+  FormatSurfaceLoadError,
+  peekResolvedFormatSurface,
+  resolveFormatSurface,
+} from "@/lib/formats/lazySurfaces";
 import { localizedFormatName } from "@/lib/formats/saveFilters";
 import type { FormatConfig } from "@/lib/formats/types";
+
+/** What a format's `wysiwygComponent` thunk resolves to. */
+type SurfaceModule = Awaited<ReturnType<NonNullable<FormatConfig["wysiwygComponent"]>>>;
 
 interface FormatSurfaceProps {
   formatConfig: FormatConfig;
@@ -121,8 +136,16 @@ function MountedSurface({
   // Not `useMemo`: memo results are advisory (React may discard them) and the
   // config cannot change under a mounted FormatSurface anyway — Editor.tsx
   // keys it by `${tabId}-${formatId}`, so a format change is a remount.
-  const [Surface] = useState(() =>
-    lazy(() => {
+  //
+  // An already-resolved module skips the lazy entirely (#1634): `lazy` over a
+  // cached module still suspends for one commit — `Promise.resolve(cached)`
+  // is not settled as far as React can tell — and that commit paints the null
+  // fallback, so every switch to an open tab flashed an empty editor area.
+  // Only a FULFILLED module is peeked, so the D4 retry path is untouched.
+  const [Surface] = useState<ComponentType<{ tabId: string }>>(() => {
+    const cached = peekResolvedFormatSurface<SurfaceModule>(id, "wysiwygComponent");
+    if (cached) return cached.default;
+    return lazy(() => {
       if (typeof wysiwygComponent !== "function") {
         // registerFormat rejects this shape; reaching it means the config
         // bypassed registration. Fail loudly into the boundary rather than
@@ -136,8 +159,8 @@ function MountedSurface({
         );
       }
       return resolveFormatSurface(id, "wysiwygComponent", wysiwygComponent);
-    }),
-  );
+    });
+  });
 
   return (
     <SurfaceErrorBoundary

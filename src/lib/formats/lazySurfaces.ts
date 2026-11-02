@@ -20,6 +20,8 @@
  *     mounting the same format in the same tick must produce ONE evaluation;
  *     an `if (!cached)` cache evaluates twice and can hand back two different
  *     module instances.
+ *   - `peekResolvedFormatSurface` reads the fulfilled cache synchronously, so
+ *     a remount of a loaded surface needs no Suspense round trip (#1634).
  *   - A synchronous throw inside a thunk is normalized to the same rejection
  *     as an async one — a caller must not have to handle two shapes.
  *   - Failures are typed (`FormatSurfaceLoadError`) and name both the adapter
@@ -107,6 +109,22 @@ export function resolveFormatSurface<T>(
   );
   inFlight.set(key, tracked);
   return tracked;
+}
+
+/**
+ * The value a previous resolution FULFILLED with, or `undefined`.
+ *
+ * Synchronous on purpose: a remount (every tab switch, #1634) can render an
+ * already-loaded surface in the same commit instead of suspending on
+ * `Promise.resolve(cached)` and painting an empty frame. In-flight and
+ * rejected attempts report `undefined` — the caller takes the async path and
+ * keeps D4's retry semantics.
+ */
+export function peekResolvedFormatSurface<T>(
+  formatId: string,
+  surface: FormatSurfaceKind,
+): T | undefined {
+  return resolved.get(cacheKey(formatId, surface)) as T | undefined;
 }
 
 /**

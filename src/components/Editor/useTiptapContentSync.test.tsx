@@ -6,6 +6,10 @@ import { renderHook } from "@testing-library/react";
 import { Editor as TiptapEditor } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 
+import {
+  consumePendingContentSearchNav,
+  setPendingContentSearchNav,
+} from "@/services/navigation/contentSearchNavigation";
 import { useTiptapContentSync } from "./useTiptapContentSync";
 
 /**
@@ -108,5 +112,51 @@ describe("useTiptapContentSync — editable pane", () => {
     refs.lastExternalContent.current = "two";
     rerender("two");
     expect(syncedContents()).toEqual([]);
+  });
+});
+
+// #1634 — a small document is loaded (and its pending jump consumed, or its
+// caret restored) before the hook's effects first run. Mount must therefore
+// not count as a hidden → visible transition, or it consumes / clobbers what
+// the initial load just did.
+describe("useTiptapContentSync — visibility transitions", () => {
+  function mountVisibility(hidden: boolean) {
+    const refs = {
+      hiddenRef: ref(hidden),
+      previewRef: ref(false),
+      isInternalChange: ref(false),
+      lastExternalContent: ref("one"),
+      editorInitialized: ref(true),
+      preserveLineBreaksRef: ref(false),
+      cursorInfoRef: ref(null),
+      isFocusedPaneRef: ref(true),
+    };
+    return renderHook(
+      (next: boolean) => {
+        refs.hiddenRef.current = next;
+        return useTiptapContentSync({ editor, content: "one", hidden: next, activeTabId: "tab-1", ...refs });
+      },
+      { initialProps: hidden },
+    );
+  }
+
+  afterEach(() => {
+    consumePendingContentSearchNav("tab-1");
+  });
+
+  it("does not treat a visible mount as a transition", () => {
+    setPendingContentSearchNav("tab-1", 1, "");
+    mountVisibility(false);
+
+    expect(consumePendingContentSearchNav("tab-1")).toEqual({ line: 1, query: "" });
+  });
+
+  it("acts when a hidden editor is shown", () => {
+    const { rerender } = mountVisibility(true);
+    setPendingContentSearchNav("tab-1", 1, "");
+
+    rerender(false);
+
+    expect(consumePendingContentSearchNav("tab-1")).toBeUndefined();
   });
 });
