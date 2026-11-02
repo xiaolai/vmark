@@ -11,9 +11,11 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 ## [Unreleased]
 
+## [0.9.111] - 2026-11-02
+
 ### Fixed
 
-- Clicking Detect in Settings > Integrations now reads your login shell's PATH again, so CLI providers no longer stay "Not found" until a restart after that read failed or your shell profile changed. When VMark cannot read the PATH, Settings now says so, with the shell, the reason, and the directories it searched.
+- Clicking Detect in Settings > Integrations now reads your login shell's PATH again, so CLI providers no longer stay "Not found" until a restart after that read failed or your shell profile changed. When VMark cannot read the PATH and a CLI is missing, Settings now says so, with the shell, the reason, and the directories it searched.
 - The same Detect click also retries the terminal's lookup of your zsh `ZDOTDIR`, so a terminal opened afterwards loads your real zsh configuration if that lookup failed earlier.
 - A shell profile that leaves a background process holding the shell's output can no longer hang PATH lookup: it now times out like any other slow shell.
 
@@ -568,7 +570,8 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 - Raised the `markdown-it` version floor past GHSA-253c-mchw-3w2r.
 
-[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.110...HEAD
+[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.111...HEAD
+[0.9.111]: https://github.com/xiaolai/vmark/releases/tag/v0.9.111
 [0.9.110]: https://github.com/xiaolai/vmark/releases/tag/v0.9.110
 [0.9.109]: https://github.com/xiaolai/vmark/releases/tag/v0.9.109
 [0.9.108]: https://github.com/xiaolai/vmark/releases/tag/v0.9.108
