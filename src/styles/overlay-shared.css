@@ -156,6 +156,8 @@
   padding: 5px;
   font-family: var(--font-ui);
   font-size: var(--font-size-base);
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .dark-theme .vm-menu {
