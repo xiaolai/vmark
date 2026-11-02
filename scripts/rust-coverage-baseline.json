@@ -9,17 +9,17 @@
     "maxSlackPercent above it fails as a stale floor, with the ceiling to",
     "commit in the message. Lower the ceiling; never raise it.",
     "`measured` is the run the ceiling was derived from: whole-crate",
-    "`cargo llvm-cov` line coverage, 75851 of 87085 lines, on an Apple",
+    "`cargo llvm-cov` line coverage, 126170 of 138206 lines, on an Apple",
     "silicon Mac, which is the platform of the runner named. The ceiling",
     "leaves 2 points under it for run-to-run and machine variance, in the",
     "middle of the band. The workflow must run on that runner: a figure from",
     "another platform compiles a different set of cfg-gated modules and is",
     "not comparable."
   ],
-  "maxUncoveredLinePercent": 14.9,
+  "maxUncoveredLinePercent": 10.71,
   "maxSlackPercent": 4,
   "measured": {
-    "linePercent": 87.09,
+    "linePercent": 91.29,
     "runner": "macos-latest"
   }
 }
