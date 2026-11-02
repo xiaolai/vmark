@@ -11,6 +11,12 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 ## [Unreleased]
 
+## [0.9.114] - 2026-11-03
+
+### Fixed
+
+- Switching tabs no longer flashes an empty white editor before the document appears. Documents under about 300 KB are on screen in the first frame; larger ones still show the loading indicator first.
+
 ## [0.9.113] - 2026-11-02
 
 ### Fixed
@@ -587,7 +593,8 @@ Text you may want to copy stays selectable: messages, approval dialogs, Genie an
 
 - Raised the `markdown-it` version floor past GHSA-253c-mchw-3w2r.
 
-[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.113...HEAD
+[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.114...HEAD
+[0.9.114]: https://github.com/xiaolai/vmark/releases/tag/v0.9.114
 [0.9.113]: https://github.com/xiaolai/vmark/releases/tag/v0.9.113
 [0.9.112]: https://github.com/xiaolai/vmark/releases/tag/v0.9.112
 [0.9.111]: https://github.com/xiaolai/vmark/releases/tag/v0.9.111
