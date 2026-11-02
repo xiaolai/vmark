@@ -12,6 +12,8 @@
 //     a hidden editor is shown again;
 //   - a hidden editor neither tracks the caret nor takes external content
 //     until it is shown;
+//   - a small document is on screen in the first committed frame (#1634);
+//     a large one, or one under the loading indicator, defers its parse;
 //   - a pending content-search jump wins over the caret restore, and a
 //     preview pane neither consumes it nor takes focus.
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from "vitest";
@@ -33,6 +35,8 @@ import { WindowContext } from "@/contexts/WindowContext";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useEditorStore } from "@/stores/editorStore";
 import { useFileLoadStore } from "@/stores/documentStore/fileLoad";
+import { useLargeFileSessionStore } from "@/stores/documentStore";
+import { FILE_SIZE_THRESHOLDS } from "@/utils/fileSizeThresholds";
 import { useTabStore } from "@/stores/tabStore";
 import { flushActiveWysiwygNow } from "@/utils/wysiwygFlush";
 import { bootstrapFormats } from "@/lib/formats/registryBootstrap";
@@ -254,7 +258,7 @@ describe("the reader's caret", () => {
   it("is not recorded during the settling delay after creation", async () => {
     mount();
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(20); // past the deferred parse, before tracking opens
+      await vi.advanceTimersByTimeAsync(20); // past the initial load, before tracking opens
     });
     clickInto(liveEditor(), "Second paragraph.");
     await act(async () => {
@@ -340,7 +344,7 @@ describe("external content and visibility", () => {
 });
 
 describe("a pending content-search jump", () => {
-  it("is consumed by the deferred initialization and wins over the caret restore", async () => {
+  it("is consumed by the initial load and wins over the caret restore", async () => {
     setPendingContentSearchNav(tabId, 3, "");
     mount();
     await settle();
@@ -363,6 +367,92 @@ describe("a pending content-search jump", () => {
     // A preview never registers as the window's editor.
     expect(useEditorStore.getState().tiptap.editor).toBeNull();
     expect(shownText(container)).toContain("First paragraph.");
+  });
+});
+
+// #1634 — switching to an open tab remounts the editor. A small document is
+// parsed while the editor is being committed, so the first painted frame
+// already shows it; only a large one (or one opened under the loading
+// indicator) is deferred, so the shell and the indicator can paint first.
+// No timers are advanced before the "first frame" assertions: what render()
+// committed is what the user sees.
+describe("the first committed frame", () => {
+  afterEach(() => useFileLoadStore.getState().endLoad());
+
+  it("already shows a small document, with the load kept out of undo", () => {
+    const { container } = mount();
+
+    expect(shownText(container)).toContain("Second paragraph.");
+    expect(liveEditor().can().undo()).toBe(false);
+  });
+
+  it("already shows CJK content", async () => {
+    tabId = await openDocInTab(`${ROOT}/cjk.md`, "# 标题\n\n中文段落，含全角标点。\n\n日本語の段落。\n");
+    const { container } = mount();
+
+    expect(shownText(container)).toContain("中文段落，含全角标点。");
+    expect(shownText(container)).toContain("日本語の段落。");
+  });
+
+  it("an empty document is ready at once: external content arriving before any timer is taken", async () => {
+    tabId = await openDocInTab(`${ROOT}/empty.md`, "");
+    const { container } = mount();
+    expect(shownText(container)).toBe("");
+
+    act(() => {
+      useDocumentStore.getState().setEditorContent(tabId, "Arrived at once.\n");
+    });
+
+    expect(shownText(container)).toContain("Arrived at once.");
+  });
+
+  it("an unparseable small document is reported at once, not after a blank frame", async () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    tabId = await openDocInTab(`${ROOT}/deep.md`, `${">".repeat(1100)} too deep\n`);
+    mount();
+
+    expect(useLargeFileSessionStore.getState().forcedSourceReason(tabId)).toBe("unparseable");
+    errors.mockRestore();
+  });
+
+  it("defers a large document's parse, then shows it", async () => {
+    const big = "a".repeat(FILE_SIZE_THRESHOLDS.SHOW_PROGRESS_BYTES);
+    tabId = await openDocInTab(`${ROOT}/big.md`, `${big}\n`);
+    useFileLoadStore.getState().endLoad(); // a switch back to an open tab: no indicator running
+    const { container } = mount();
+    expect(shownText(container)).not.toContain("aaaa");
+
+    await settle();
+
+    expect(shownText(container)).toContain(big);
+  });
+
+  it("defers a small document opened under the loading indicator, so the indicator can paint", async () => {
+    useFileLoadStore.getState().startLoad("notes.md", 5_000_000);
+    const { container } = mount();
+    expect(shownText(container)).not.toContain("First paragraph.");
+
+    await settle();
+
+    expect(shownText(container)).toContain("First paragraph.");
+    expect(useFileLoadStore.getState().active).toBe(false);
+  });
+
+  it("a large document's tab closed before its deferred parse leaves the document untouched", async () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    const big = `${"b".repeat(FILE_SIZE_THRESHOLDS.SHOW_PROGRESS_BYTES)}\n`;
+    tabId = await openDocInTab(`${ROOT}/big.md`, big);
+    useFileLoadStore.getState().endLoad();
+    const { unmount } = mount();
+
+    unmount();
+    await settle();
+
+    expect(doc(tabId).content).toBe(big);
+    expect(doc(tabId).isDirty).toBe(false);
+    expect(useLargeFileSessionStore.getState().forcedSourceReason(tabId)).toBeUndefined();
+    expect(errors).not.toHaveBeenCalled();
+    errors.mockRestore();
   });
 });
 

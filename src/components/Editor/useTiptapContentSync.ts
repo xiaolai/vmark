@@ -2,8 +2,8 @@
  * useTiptapContentSync
  *
  * Purpose: sync external content changes INTO the Tiptap editor (subsequent
- * changes only — onCreate owns the initial load), and re-sync + restore
- * focus/cursor on hidden → visible transitions. Extracted from
+ * changes only — tiptapInitialLoad.ts owns the initial load), and re-sync +
+ * restore focus/cursor on hidden → visible transitions (not on mount). Extracted from
  * TiptapEditor.tsx (effect stack split); the refs are owned by the component.
  *
  * Key decisions:
@@ -21,7 +21,7 @@
  * @coordinates-with previewDebounce.ts — how long a preview pane waits
  * @module components/Editor/useTiptapContentSync
  */
-import { useEffect, type MutableRefObject } from "react";
+import { useEffect, useRef, type MutableRefObject } from "react";
 import type { Editor as TiptapEditor } from "@tiptap/core";
 import { Selection } from "@tiptap/pm/state";
 import type { CursorInfo } from "@/stores/documentStore";
@@ -76,7 +76,7 @@ export function useTiptapContentSync({
       /* v8 ignore next -- @preserve reason: isInternalChange guard; only set true during programmatic content updates, not exercised in isolation tests */
       if (isInternalChange.current) return;
       if (content === lastExternalContent.current) return;
-      // Skip if onCreate hasn't run yet - let onCreate handle initial content loading
+      // Skip until the initial load has run — it owns the first content
       if (!editorInitialized.current) return;
 
       const synced = syncMarkdownToEditor(
@@ -115,9 +115,16 @@ export function useTiptapContentSync({
   // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on content and editor; everything else is a ref or read at sync time
   }, [content, editor]);
 
-  // Handle visibility transitions: hidden → visible
+  // Handle visibility transitions: hidden → visible. Mount is not one: the
+  // initial load restores focus/cursor (or consumes a pending jump) itself, and
+  // since a small document loads before this effect first runs (#1634), acting
+  // on mount would schedule a second restore that clobbers a jump. The ref, not
+  // a mount flag, so Strict Mode's re-run of the effect is not a transition.
+  const previousHidden = useRef<boolean | null>(null);
   useEffect(() => {
-    if (hidden) return;
+    const wasHidden = previousHidden.current;
+    previousHidden.current = hidden;
+    if (hidden || wasHidden !== true) return;
     if (!editor || !editorInitialized.current) return;
 
     syncMarkdownToEditor(

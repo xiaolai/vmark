@@ -9,8 +9,12 @@
  *     with the initial parse.
  *   - Adaptive debounce (100ms–5s) scales with document size: larger docs get longer
  *     delays to reduce serialization frequency without losing keystrokes on unmount.
- *   - Initial parse is deferred via setTimeout(0) so the shell renders first; a parse that
- *     fails goes to services/editor/unparseableDocument.ts (Source mode + message).
+ *   - Initial parse (tiptapInitialLoad.ts) runs in a layout effect for a small document, so
+ *     the first painted frame of a tab switch already shows it (#1634); its outside setup
+ *     (jump, focus, toolbar context) waits for a passive effect, after useEditor has kept or
+ *     replaced the editor. A large one, or one opened under the loading indicator, defers
+ *     via setTimeout(0) so the shell paints first.
+ *     A parse that fails goes to services/editor/unparseableDocument.ts (Source mode + message).
  *   - shouldRerenderOnTransaction: false — Tiptap's default full-React-rerender per
  *     transaction is wasted work here since state flows through Zustand selectors.
  *   - content-visibility only on large docs and never on macOS: .cv-enabled marks those
@@ -25,6 +29,7 @@
  *   - Hidden mode skips all store updates and content syncs, deferring to visibility transition.
  *   - Preview mode (markdown split) syncs content but skips active-editor registration.
  *
+ * @coordinates-with tiptapInitialLoad.ts — the one-time initial parse, immediate or deferred
  * @coordinates-with useTiptapFlush.ts — serialize-to-store flush + adaptive debounce machinery
  * @coordinates-with SourceEditor.tsx — shares document content via documentStore
  * @coordinates-with utils/markdownPipeline/ — parseMarkdown/serializeMarkdown for round-tripping
@@ -38,13 +43,12 @@ import { useActiveTabId, useDocumentActions, useDocumentContent, useDocumentCurs
 import { useImageContextMenu } from "@/hooks/useImageContextMenu";
 import { useOutlineSync } from "@/hooks/useOutlineSync";
 import { initializeRevisionTracking } from "@/services/mcpBridge/revisionTracker";
-import { parseMarkdown } from "@/utils/markdownPipeline";
 import { useWysiwygFlusherRegistration } from "@/hooks/useWysiwygFlusherRegistration";
 import { useTiptapUnmountFlush } from "@/hooks/useTiptapUnmountFlush";
 import { useFileLoadStore } from "@/stores/documentStore";
-import { getCursorInfoFromTiptap, restoreCursorInTiptap } from "@/utils/cursorSync/tiptap";
+import { getCursorInfoFromTiptap } from "@/utils/cursorSync/tiptap";
 import { getTiptapEditorView } from "@/services/editor/tiptapView";
-import { PROGRAMMATIC_SELECTION_META, scheduleTiptapFocusAndRestore } from "@/services/editor/tiptapFocus";
+import { PROGRAMMATIC_SELECTION_META } from "@/services/editor/tiptapFocus";
 import { createTiptapExtensions } from "@/services/assembly/createTiptapExtensions";
 import { useTiptapSettingsSync } from "@/hooks/useTiptapSettingsSync";
 import type { CursorInfo } from "@/stores/documentStore";
@@ -55,8 +59,6 @@ import { useFocusedPaneTiptapRegistration } from "@/hooks/useFocusedPaneTiptapRe
 import { useFocusedPaneState } from "@/hooks/useIsFocusedPane";
 import { extractTiptapContext } from "@/plugins/formatToolbar/tiptapContext";
 import { useImageDragDrop } from "@/hooks/useImageDragDrop";
-import { reportUnparseableDocument } from "@/services/editor/unparseableDocument";
-import { consumeWysiwygPendingNav } from "./wysiwygPendingNav";
 import { ImageContextMenu } from "./ImageContextMenu";
 import { useTiptapContentSync } from "./useTiptapContentSync";
 import { useTiptapFlush } from "./useTiptapFlush";
@@ -69,7 +71,7 @@ import {
   spellcheckAttrForDocSize,
   suppressCvIdleDuringEdit,
 } from "./tiptapEditorHelpers";
-import { setContentWithoutHistory, syncMarkdownToEditor } from "./tiptapContentLoad";
+import { type FinishInitialLoad, shouldDeferInitialParse, startInitialLoad } from "./tiptapInitialLoad";
 
 interface TiptapEditorInnerProps {
   hidden?: boolean;
@@ -169,6 +171,31 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
     [flushCursorInfo]
   );
 
+  // One-time setup per editor INSTANCE (React Strict Mode double-mounts, and
+  // both the layout effect and onCreate call this). Revision tracking makes user
+  // edits bump the token the MCP bridge's STALE checks depend on; it is keyed
+  // per tab and bound to this editor. Cursor tracking opens after a delay of
+  // its own, independent of the parse — it gates selection events, not content.
+  // Flusher registration lives in a useEffect (not here) to avoid dual
+  // registration under React Strict Mode and clean up on unmount.
+  const initializedEditor = useRef<TiptapEditor | null>(null);
+  const initializeEditor = useCallback((instance: TiptapEditor): FinishInitialLoad | null => {
+    if (initializedEditor.current === instance) return null;
+    initializedEditor.current = instance;
+    editorInitialized.current = false;
+    if (activeTabId) initializeRevisionTracking(instance, activeTabId);
+    const finish = startInitialLoad(instance, activeTabId, {
+      lastExternalContent, editorInitialized, contentRef, hiddenRef, previewRef,
+      preserveLineBreaksRef, cursorInfoRef, isFocusedPaneRef,
+    });
+    cursorTrackingEnabled.current = false;
+    if (trackingTimeoutId.current !== null) window.clearTimeout(trackingTimeoutId.current);
+    trackingTimeoutId.current = window.setTimeout(() => {
+      cursorTrackingEnabled.current = true;
+    }, CURSOR_TRACKING_DELAY_MS);
+    return finish;
+  }, [activeTabId, lastExternalContent, isFocusedPaneRef]);
+
   const editor = useEditor({
     editable: !readOnly,
     extensions,
@@ -178,80 +205,10 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
     // typing produces dozens of transactions per second.
     shouldRerenderOnTransaction: false,
     editorProps: buildTiptapEditorProps(content.length),
-    onCreate: ({ editor }) => {
-      // Reset for this new editor instance (handles React Strict Mode double-mount)
-      editorInitialized.current = false;
-
-      // Wire MCP revision tracking so user edits bump the revision token that
-      // optimistic-concurrency (STALE) checks in the MCP bridge depend on. The
-      // transaction listener is bound to this editor and torn down with it.
-      // Revision is keyed per tab; this editor owns the active tab.
-      if (activeTabId) initializeRevisionTracking(editor, activeTabId);
-
-      // Capture content at mount time — the closure value is stable for this editor instance.
-      const contentSnapshot = content;
-
-      // Clear the "Opening large file…" indicator once this editor is interactive — or
-      // gone. Scoped to the load id captured now, so a stale completion cannot wipe a newer one.
-      const loadIdAtMount = useFileLoadStore.getState().active ? useFileLoadStore.getState().loadId : null;
-      const endMountLoad = () => { if (loadIdAtMount !== null) useFileLoadStore.getState().endLoad(loadIdAtMount); };
-
-      // Defer the heavy markdown→PM parse so the editor shell renders before the parse
-      // blocks the main thread. For large documents this keeps the UI responsive.
-      setTimeout(() => {
-        if (editor.isDestroyed) return endMountLoad(); // @edge-case unmounted before the parse ran
-        try {
-          const doc = parseMarkdown(editor.schema, contentSnapshot, {
-            preserveLineBreaks: preserveLineBreaksRef.current,
-          });
-          // Use helper to avoid polluting undo history with initial content load
-          setContentWithoutHistory(editor, doc, () => lastExternalContent.current === contentSnapshot, contentSnapshot, lastExternalContent.current);
-          lastExternalContent.current = contentSnapshot;
-          editorInitialized.current = true;
-
-          // If content drifted while the deferred parse was pending, sync the
-          // fresh value now — otherwise the external-sync effect (gated on
-          // editorInitialized) already skipped it and would not refire until
-          // the next content change.
-          if (contentRef.current !== contentSnapshot && !hiddenRef.current) { // hidden: synced when shown
-            syncMarkdownToEditor(editor, contentRef.current, lastExternalContent, preserveLineBreaksRef.current, activeTabId);
-          }
-        } catch (error) {
-          editorInitialized.current = true; // Unblock external sync even on parse error
-          if (hiddenRef.current) { /* A hidden editor re-syncs, and reports, when shown */ }
-          else if (contentRef.current !== contentSnapshot) syncMarkdownToEditor(editor, contentRef.current, lastExternalContent, preserveLineBreaksRef.current, activeTabId); // report the LATEST content
-          else reportUnparseableDocument(activeTabId, error);
-        } finally {
-          endMountLoad();
-        }
-
-        const view = getTiptapEditorView(editor);
-
-        // Focus/cursor restore once content is set — skipped for hidden/preview, restore-only
-        // in an unfocused split pane (#1554). A pending content-search jump wins: the deferred
-        // restore would clobber its selection, and the visibility effect never re-fires for it.
-        if (!hiddenRef.current && !previewRef.current && !consumeWysiwygPendingNav(view, activeTabId)) {
-          scheduleTiptapFocusAndRestore(editor, () => cursorInfoRef.current, restoreCursorInTiptap, activeTabId, () => isFocusedPaneRef.current);
-        }
-
-        if (view && !previewRef.current) {
-          useEditorStore.getState().setTiptapContext(extractTiptapContext(editor.state), view);
-        }
-      }, 0);
-
-      // Cursor tracking setup is immediate — it starts the delay timer independently
-      // of the parse, since it gates selection events not content loading.
-      cursorTrackingEnabled.current = false;
-      if (trackingTimeoutId.current !== null) {
-        window.clearTimeout(trackingTimeoutId.current);
-      }
-      trackingTimeoutId.current = window.setTimeout(() => {
-        cursorTrackingEnabled.current = true;
-      }, CURSOR_TRACKING_DELAY_MS);
-
-      // NOTE: Flusher registration lives in a useEffect (not here) to avoid
-      // dual registration under React Strict Mode and clean up on unmount.
-    },
+    // Tiptap emits create a task AFTER mount — too late for a small document
+    // to be in the first painted frame, so the layout effect below usually
+    // initializes first and this is a no-op. It still starts deferred loads.
+    onCreate: ({ editor }) => initializeEditor(editor)?.(),
     onUpdate: ({ editor, transaction }) => {
       // Skip programmatic content loads (reload/external sync set preventUpdate
       // to avoid a round-trip serialization that re-dirties the doc, #806).
@@ -292,6 +249,24 @@ export function TiptapEditorInner({ hidden = false, readOnly = false, preview = 
   // hasn't run, and so it survives the reverse-order cleanup race (#755).
   // eslint-disable-next-line react-hooks/refs -- editorRef must track the live editor for the unmount flush despite reverse-order cleanup
   editorRef.current = editor ?? null;
+
+  // A small document loads here, while the editor is committed, so the first
+  // painted frame already shows it (#1634). A large one is left to onCreate,
+  // which defers its parse so the shell and the loading indicator paint first.
+  // The rest of the load waits for the passive effect below, which runs after
+  // useEditor's own: by then Tiptap has kept this editor or destroyed it.
+  const finishLoad = useRef<FinishInitialLoad | null>(null);
+  useLayoutEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+    if (shouldDeferInitialParse(contentRef.current, useFileLoadStore.getState().active)) return;
+    const finish = initializeEditor(editor);
+    if (finish) finishLoad.current = finish; // a Strict Mode re-run returns none
+  }, [editor, initializeEditor]);
+  useEffect(() => {
+    const finish = finishLoad.current;
+    finishLoad.current = null;
+    finish?.();
+  }, [editor]);
 
   // Settings → editor sync (invisibles, CJK spacing, read-only) — extracted
   // effects live in useTiptapSettingsSync.

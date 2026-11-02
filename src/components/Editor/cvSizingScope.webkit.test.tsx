@@ -99,10 +99,14 @@ vi.mock("@/services/editor/unparseableDocument", () => ({
 }));
 
 import { TextSelection } from "@tiptap/pm/state";
+import { useFileLoadStore } from "@/stores/documentStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { parseMarkdown } from "@/utils/markdownPipeline";
 import { TiptapEditorInner } from "./TiptapEditor";
 import { CV_IDLE_CHAR_THRESHOLD } from "./tiptapEditorHelpers";
+
+/** The captured editor, unless Tiptap has already destroyed it. */
+const liveEditor = () => (doc.editor && !doc.editor.isDestroyed ? doc.editor : null);
 
 const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
@@ -196,8 +200,11 @@ async function mount(markdown: string, props: EditorProps = {}): Promise<Mounted
   document.body.appendChild(frame);
   root = createRoot(host);
   render(props);
-  // onCreate parses the markdown in a deferred task after mount.
-  const editor = await until(() => (doc.editor && doc.editor.state.doc.childCount > 1 ? doc.editor : null), "the initial parse");
+  // A document under the loading indicator's threshold is parsed while the
+  // editor commits (#1634) — and that editor can still be torn down by
+  // useEditor's destroy timer when the commit runs long, its replacement
+  // parsing again. Only a live editor with the document is the mounted one.
+  const editor = await until(() => (liveEditor() && liveEditor()!.state.doc.childCount > 1 ? liveEditor() : null), "the initial parse");
   for (let i = 0; i < 3; i += 1) await nextFrame();
   fakeTheIdleTimer();
   return { editor, scroller };
@@ -259,6 +266,7 @@ describe("content-visibility sizing scope (real engine, production editor)", () 
     root = null;
     frame = null;
     Reflect.deleteProperty(navigator, "platform");
+    useFileLoadStore.getState().endLoad();
     useSettingsStore.getState().updateMarkdownSetting("codeBlockLineNumbers", false);
   });
 
@@ -401,8 +409,11 @@ describe("content-visibility sizing scope (real engine, production editor)", () 
   // The content can change between mount and onCreate's deferred parse,
   // which then loads the latest content. The parse is not an edit, and no
   // React state changes when it completes: the document itself must be followed.
+  // A small document defers only under the loading indicator (#1634), so the
+  // indicator is up here, as when a large file's open began the load.
   it("follows a crossing that lands before the initial parse", async () => {
     pinPlatform("Win32");
+    useFileLoadStore.getState().startLoad("cv-sizing-scope.md", LARGE.length);
     doc.editor = null;
     doc.set(SMALL);
     frame = document.createElement("div");
@@ -416,7 +427,8 @@ describe("content-visibility sizing scope (real engine, production editor)", () 
     root = createRoot(host);
     render({});
     flushSync(() => doc.set(LARGE)); // before the parse's task runs
-    const editor = await until(() => (doc.editor && doc.editor.state.doc.content.size > CV_IDLE_CHAR_THRESHOLD ? doc.editor : null), "the parse of the latest content");
+    const editor = await until(() => (liveEditor() && liveEditor()!.state.doc.content.size > CV_IDLE_CHAR_THRESHOLD ? liveEditor() : null), "the parse of the latest content");
+    expect(useFileLoadStore.getState().active, "premise: the deferred parse ran and ended the indicator").toBe(false);
     fakeTheIdleTimer();
     const count = editor.view.dom.children.length;
     expect(census(editor), "after the parse").toEqual({ blocks: count, sized: count, skippable: 0 });

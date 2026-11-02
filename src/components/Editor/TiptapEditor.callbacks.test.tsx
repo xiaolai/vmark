@@ -228,6 +228,7 @@ vi.mock("@/services/agentJournal/collectors/wysiwyg/wysiwygCollector", () => ({
 }));
 
 import { TiptapEditorInner } from "./TiptapEditor";
+import { FILE_SIZE_THRESHOLDS } from "@/utils/fileSizeThresholds";
 import { markContentApplied } from "@/services/editor/contentApplied";
 import type { Editor as TiptapEditor } from "@tiptap/core";
 
@@ -515,14 +516,18 @@ describe("syncMarkdownToEditor — via onCreate", () => {
 // ── flushToStore coverage ───────────────────────────────────────────
 
 // WI-OC1.1 — Save and Save All reach the editor through its registered
-// flusher, which exists from mount; the initial load runs a task later. A save
-// in between serialized the empty placeholder over the tab's text.
+// flusher, which exists from mount; a deferred initial load runs a task later.
+// A save in between serialized the empty placeholder over the tab's text.
+// Since #1634 only a LARGE document defers its load (a small one loads while
+// the editor is committed, so it has no gap), so the case uses one at the
+// loading indicator's byte threshold to keep exercising the gap.
 describe("the registered flusher around the deferred initial load", () => {
   it("writes nothing before the load runs, and writes after it", () => {
     const editor = createMockEditor({ loaded: false });
     mocks.useEditor.mockReturnValue(editor);
     mocks.getTiptapEditorView.mockReturnValue(null);
     mocks.parseMarkdown.mockReturnValue({ type: "doc", content: [] });
+    mocks.useDocumentContent.mockReturnValue("a".repeat(FILE_SIZE_THRESHOLDS.SHOW_PROGRESS_BYTES));
     vi.useFakeTimers();
     try {
       render(<TiptapEditorInner hidden={false} />);
@@ -542,6 +547,7 @@ describe("the registered flusher around the deferred initial load", () => {
       expect(mocks.setContent).toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
+      mocks.useDocumentContent.mockReturnValue("# hello");
     }
   });
 });
