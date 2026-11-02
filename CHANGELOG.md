@@ -11,6 +11,12 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 ## [Unreleased]
 
+## [0.9.112] - 2026-11-02
+
+### Fixed
+
+- Context menus and the status bar's word and character counts no longer pick up a text selection highlight. Their labels also stay out of a window-wide Select All. Numbers in the word count popover can still be selected and copied.
+
 ## [0.9.111] - 2026-11-02
 
 ### Fixed
@@ -570,7 +576,8 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 - Raised the `markdown-it` version floor past GHSA-253c-mchw-3w2r.
 
-[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.111...HEAD
+[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.112...HEAD
+[0.9.112]: https://github.com/xiaolai/vmark/releases/tag/v0.9.112
 [0.9.111]: https://github.com/xiaolai/vmark/releases/tag/v0.9.111
 [0.9.110]: https://github.com/xiaolai/vmark/releases/tag/v0.9.110
 [0.9.109]: https://github.com/xiaolai/vmark/releases/tag/v0.9.109
