@@ -24,6 +24,8 @@
   font: inherit;
   cursor: pointer;
   transition: background-color var(--duration-base) ease;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .status-counts-trigger:hover {
