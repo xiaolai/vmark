@@ -11,6 +11,17 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 ## [Unreleased]
 
+## [0.9.113] - 2026-11-02
+
+### Fixed
+
+- Right-clicking a label in the sidebar, outline, toolbar menus, status bar, Quick Open, Find in Files, the command palette, the Genie picker, Settings or the workspace rail no longer highlights it as selected text.
+- Edit > Select All with nothing focused no longer selects the whole window: it selects the document, and does nothing where there is no document.
+- Dragging from a sidebar label into the document, or resizing a table column, a split view or a panel, no longer selects text along the way.
+- Exported reading-view HTML no longer selects its controls in Safari.
+
+Text you may want to copy stays selectable: messages, approval dialogs, Genie answers, word count numbers and terminal output.
+
 ## [0.9.112] - 2026-11-02
 
 ### Fixed
@@ -576,7 +587,8 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 - Raised the `markdown-it` version floor past GHSA-253c-mchw-3w2r.
 
-[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.112...HEAD
+[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.113...HEAD
+[0.9.113]: https://github.com/xiaolai/vmark/releases/tag/v0.9.113
 [0.9.112]: https://github.com/xiaolai/vmark/releases/tag/v0.9.112
 [0.9.111]: https://github.com/xiaolai/vmark/releases/tag/v0.9.111
 [0.9.110]: https://github.com/xiaolai/vmark/releases/tag/v0.9.110
