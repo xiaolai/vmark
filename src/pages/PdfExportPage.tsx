@@ -119,7 +119,7 @@ export function PdfExportPage() {
         data-tauri-drag-region
         className="absolute top-0 left-0 right-0 h-12 flex items-center justify-center pointer-events-none"
       >
-        <span className="text-sm font-medium text-[var(--text-color)]">
+        <span className="text-sm font-medium text-[var(--text-color)] select-none">
           {t("dialog:pdfExport.title")}
         </span>
       </div>

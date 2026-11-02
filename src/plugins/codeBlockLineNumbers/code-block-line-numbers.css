@@ -34,6 +34,7 @@
   font-size: var(--editor-font-size-mono);
   color: var(--text-secondary);
   text-align: right;
+  -webkit-user-select: none;
   user-select: none;
   pointer-events: none;
   border-right: var(--border-thin) solid var(--border-color);
@@ -69,6 +70,7 @@
   align-items: center;
   gap: var(--space-half);
   z-index: var(--z-resize-handle);
+  -webkit-user-select: none;
   user-select: none;
 }
 

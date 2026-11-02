@@ -17,6 +17,7 @@ import "./styles/overlay-shared.css";
 import "./styles/input-shared.css";
 import "./styles/panel-shared.css";
 import "./styles/select-shared.css";
+import "./styles/chrome-selection.css";
 // KaTeX CSS must load AFTER Tailwind (so preflight runs first).
 // KaTeX fixes must load AFTER KaTeX CSS to restore border-widths reset by Tailwind.
 import "katex/dist/katex.min.css";

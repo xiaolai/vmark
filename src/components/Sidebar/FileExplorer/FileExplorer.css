@@ -58,6 +58,7 @@
   padding: var(--space-half) var(--space-7);
   cursor: pointer;
   border-radius: var(--radius-md);
+  -webkit-user-select: none;
   user-select: none;
 }
 

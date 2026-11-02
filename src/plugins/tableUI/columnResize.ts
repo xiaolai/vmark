@@ -8,6 +8,7 @@
  */
 
 import type { EditorView } from "@tiptap/pm/view";
+import { allowBodyTextSelection, suppressBodyTextSelection } from "@/utils/bodyTextSelection";
 
 const MIN_COLUMN_WIDTH = 50;
 const HANDLE_CLASS = "table-resize-handle";
@@ -149,7 +150,7 @@ export class ColumnResizeManager {
     document.addEventListener("mouseup", this.handleMouseUp);
 
     // Prevent text selection during drag
-    document.body.style.userSelect = "none";
+    suppressBodyTextSelection();
     document.body.style.cursor = "col-resize";
   }
 
@@ -188,7 +189,7 @@ export class ColumnResizeManager {
     document.removeEventListener("mouseup", this.handleMouseUp);
 
     // Restore normal cursor and selection
-    document.body.style.userSelect = "";
+    allowBodyTextSelection();
     document.body.style.cursor = "";
   };
 

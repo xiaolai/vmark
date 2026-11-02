@@ -29,6 +29,7 @@
   font: inherit;
   text-align: left;
   transition: none;
+  -webkit-user-select: none;
   user-select: none;
   outline: none;
 }

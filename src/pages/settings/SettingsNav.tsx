@@ -66,7 +66,7 @@ export function SettingsNav({
   return (
     <div className="shrink-0 box-border" style={{ padding: "var(--shell-card-inset)" }}>
       <div
-        className="w-[var(--settings-nav-width)] h-full flex flex-col overflow-hidden bg-[var(--bg-secondary)]"
+        className="w-[var(--settings-nav-width)] h-full flex flex-col overflow-hidden select-none bg-[var(--bg-secondary)]"
         style={{
           borderRadius: "var(--shell-card-radius)",
           boxShadow: "var(--shell-card-shadow)",

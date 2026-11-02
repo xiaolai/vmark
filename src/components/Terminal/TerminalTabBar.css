@@ -12,6 +12,7 @@
   padding: var(--space-1) 0;
   background: var(--bg-color);
   flex-shrink: 0;
+  -webkit-user-select: none;
   user-select: none;
 }
 

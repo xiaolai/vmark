@@ -1,0 +1,66 @@
+/*
+ * Which app chrome refuses a text selection.
+ *
+ * WebKit selects the word under the pointer on a right-click, and a Select All
+ * or a drag sweeps up every label it can reach, so a label left selectable shows
+ * a selection highlight the user never asked for.
+ *
+ * This is not a window-wide default: read-only text a user may want to copy
+ * (approval dialogs, tool output, Genie answers, word count values) stays
+ * selectable. Text fields stay selectable because the engine's own stylesheet
+ * declares it on them, which beats a value inherited from these containers.
+ *
+ * Every "none" selector is wrapped in :where() so it has no specificity, and a
+ * component's own rule, or the opt-in at the end of this file, always wins.
+ */
+
+/* Controls: a label on something you click is never content. The document's own
+   markup is excluded, because a <summary> in the editor is text you can edit. */
+:where(
+  button,
+  label,
+  summary,
+  [role="button"],
+  [role="menuitem"],
+  [role="menuitemcheckbox"],
+  [role="menuitemradio"],
+  [role="option"],
+  [role="tab"],
+  [role="treeitem"]
+):where(:not(.ProseMirror *, .cm-editor *)),
+/* Surfaces that hold only navigation, status or hints. */
+:where(
+  .sidebar,
+  .workspace-rail,
+  .status-bar,
+  .universal-toolbar,
+  .find-bar,
+  .terminal-search-bar,
+  .quick-open,
+  .content-search,
+  .command-palette,
+  .genie-picker,
+  .heading-picker,
+  .provider-switcher,
+  .prompt-history-dropdown,
+  .window-status-panel,
+  .workflow-export-control,
+  .welcome-screen
+),
+/* Shared pieces of surfaces whose body stays selectable. */
+:where(
+  .vm-overlay__footer,
+  .vm-overlay__kbd,
+  .vm-panel__header,
+  .vm-chip,
+  .word-count-popover__label
+) {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* A Genie's answer sits inside the picker and is there to be read and copied. */
+.genie-response-view {
+  -webkit-user-select: text;
+  user-select: text;
+}

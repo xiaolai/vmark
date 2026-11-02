@@ -87,6 +87,18 @@ describe("bootstrap order", () => {
     expect(boot.renders).toBe(1);
   });
 
+  it("guards the window against a page-wide Select All before App loads", async () => {
+    document.body.appendChild(Object.assign(document.createElement("div"), { id: "root" }));
+    const loadApp = vi.fn(async () => ({ default: () => null }));
+    const done = bootstrap(loadApp);
+    const event = new Event("selectstart", { bubbles: true, cancelable: true });
+    document.body.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+    expect(loadApp).not.toHaveBeenCalled();
+    boot.release();
+    await done;
+  });
+
   // #1606: a Windows 11 window must know it can render the full catalog BEFORE
   // App's first render, or a Sepia pick paints as White and then switches.
   it("loads App only after the native theme capability has arrived", async () => {

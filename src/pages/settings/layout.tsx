@@ -56,7 +56,7 @@ export function SettingRow({ label, description, children, disabled }: SettingRo
       className={`flex items-center justify-between py-2.5
                      ${disabled ? "opacity-[var(--opacity-disabled)]" : ""}`}
     >
-      <div className="flex-1">
+      <div className="flex-1 select-none">
         {/* A real <label htmlFor>, so clicking the row's text activates the
             control — a switch/select is a labelable element.
             Audit 20260829: a wrapper <div> child is NOT labelable, so the
@@ -128,7 +128,7 @@ export function SettingsGroup({
 }) {
   return (
     <div className={`settings-search-group ${className}`}>
-      <div className="text-base font-semibold text-[var(--text-color)] mb-3">
+      <div className="text-base font-semibold text-[var(--text-color)] mb-3 select-none">
         {title}
       </div>
       <div className="space-y-1">{children}</div>

@@ -29,6 +29,7 @@ import { bindPluginHostSettings } from "@/services/assembly/bindHostSettings";
 import { useTabStore } from "@/stores/tabStore";
 import { platformRootClass } from "@/utils/platform";
 import { loadNativeThemeCapability } from "@/services/theme/nativeThemeCapability";
+import { installPageSelectAllGuard } from "@/services/commands/pageSelectAllGuard";
 
 /** Secure-storage keys App's stores hydrate from at module evaluation. */
 const SECURE_KEYS = ["vmark-ai-providers"];
@@ -40,6 +41,10 @@ export async function bootstrap(loadApp: AppLoader): Promise<void> {
   // Platform root class, before first paint — index.css keys the
   // D7 cursor split off it (arrow on macOS, pointer elsewhere).
   document.documentElement.classList.add(platformRootClass());
+
+  // Every window, for its whole life: a Select All from the native Edit menu
+  // with focus outside a field would otherwise select the entire page.
+  installPageSelectAllGuard();
 
   // Started now, awaited just before App is loaded: the setup below reads no
   // secure-storage key (only the AI provider store in App does), so it runs
