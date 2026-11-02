@@ -10,6 +10,20 @@ const host = process.env.TAURI_DEV_HOST;
 /** The module `src/main.tsx` awaits with `import("./App")` before first paint. */
 const BOOT_MODULE = "/src/App.tsx";
 
+/** Source modules E2E journeys `import()` in the page; see `optimizeDeps.entries`. */
+const E2E_RUNTIME_IMPORTS = [
+  "src/export/renderMarkdownToHtml.ts",
+  "src/export/htmlExport.ts",
+  "src/export/printDocument.ts",
+  "src/export/pdfHtmlTemplate.ts",
+  "src/export/themeSnapshot.ts",
+  "src/export/htmlExportStyles.ts",
+  "src/export/pageSpec.ts",
+  "src/export/pdfOptions.ts",
+  "src/test/focusFacts.ts",
+  "src/test/focusFactHost.ts",
+];
+
 /** The slice of a Rollup output item the boot preload reads. */
 interface BundleItem {
   type: "chunk" | "asset";
@@ -94,6 +108,13 @@ export default defineConfig(() => ({
 
   // Pre-bundle heavy dependencies to speed up dev server startup
   optimizeDeps: {
+    // The startup scan crawls these roots for bare imports. Setting `entries`
+    // replaces the default HTML crawl, so index.html stays first. The rest are
+    // the modules E2E journeys `import()` at runtime: one the app never reaches
+    // (src/test/ imports `vitest`) would otherwise make Vite discover a dep
+    // mid-run, re-optimize and full-reload the page under the journey.
+    // `e2e/journeyImportsPrebundled.test.mjs` holds this list to the journeys.
+    entries: ["index.html", ...E2E_RUNTIME_IMPORTS],
     include: [
       // CodeMirror
       "@codemirror/state",
