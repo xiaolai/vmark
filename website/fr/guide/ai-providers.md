@@ -25,7 +25,7 @@ Les fournisseurs CLI utilisent des outils IA installés localement. VMark les ex
 
 ### Comment fonctionne la détection CLI
 
-Cliquez sur **Détecter** dans Paramètres > Intégrations. VMark parcourt votre `$PATH` à la recherche de chaque commande CLI et indique leur disponibilité. Si un CLI est trouvé, son bouton radio devient sélectionnable. **Détecter** relance la recherche à chaque clic ; la détection automatique (au démarrage de l'application, à l'ouverture des Paramètres et dans le sélecteur de fournisseur du sélecteur de génies) réutilise le dernier résultat. La recherche utilise le `$PATH` que VMark a lu depuis votre shell de connexion à son démarrage : un CLI installé dans un répertoire tout juste ajouté au `$PATH` nécessite donc un redémarrage de VMark avant que **Détecter** puisse le trouver.
+Cliquez sur **Détecter** dans Paramètres > Intégrations. VMark parcourt votre `$PATH` à la recherche de chaque commande CLI et indique leur disponibilité. Si un CLI est trouvé, son bouton radio devient sélectionnable. **Détecter** relance la recherche à chaque clic ; la détection automatique (au démarrage de l'application, à l'ouverture des Paramètres et dans le sélecteur de fournisseur du sélecteur de génies) réutilise le dernier résultat. Cliquer sur **Détecter** relit aussi le `$PATH` depuis votre shell de connexion : un CLI situé dans un répertoire que vous venez d'ajouter à votre profil shell est donc trouvé sans redémarrer VMark ; la détection automatique utilise le dernier `$PATH` lu. Si VMark n'a jamais réussi à lire le `$PATH` depuis votre shell de connexion, il parcourt le `$PATH` hérité du programme qui l'a lancé et, tant qu'un CLI manque, les Paramètres affichent un avis indiquant le shell, la raison et les répertoires parcourus. Si la lecture échoue lors d'un clic sur **Détecter**, tout `$PATH` lu avec succès auparavant est conservé.
 
 ### Avantages
 
@@ -184,7 +184,7 @@ Si le trousseau refuse une écriture, VMark affiche une notification d'erreur au
 
 **« Aucun fournisseur IA disponible »** — Cliquez sur **Détecter** pour rechercher des CLIs, ou configurez un fournisseur REST avec une clé API.
 
-**Le CLI indique « Introuvable »** — Le CLI n'est pas dans votre `$PATH`. Installez-le ou vérifiez votre profil shell. Sur macOS, les applications GUI peuvent ne pas hériter du `$PATH` du terminal — essayez d'ajouter le chemin à `/etc/paths.d/`.
+**Le CLI indique « Introuvable »** — Le CLI n'est pas dans votre `$PATH`. Installez-le ou vérifiez votre profil shell. Sur macOS, les applications GUI peuvent ne pas hériter du `$PATH` du terminal — essayez d'ajouter le chemin à `/etc/paths.d/`. Si les Paramètres indiquent aussi que VMark n'a pas pu lire votre `$PATH`, le CLI est peut-être bien installé : corrigez ce qui fait échouer ou ralentit votre profil shell (VMark attend seulement quelques secondes), puis cliquez sur **Détecter**.
 
 **Le CLI est bloqué / pas de réponse** — Le délai d'attente d'exécution de VMark annulera l'appel automatiquement ; vous verrez une erreur dans la bannière de statut du génie. Si un CLI particulier dépasse systématiquement le délai, exécutez-le d'abord depuis un terminal pour confirmer qu'il fonctionne là, puis vérifiez s'il nécessite une authentification interactive.
 

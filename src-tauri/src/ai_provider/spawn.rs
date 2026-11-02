@@ -10,6 +10,8 @@
 
 use std::process::Command;
 
+use super::capture::CaptureFailure;
+
 // ============================================================================
 // Console-Window Suppression
 // ============================================================================
@@ -119,70 +121,6 @@ pub(crate) fn which_command() -> Command {
     }
 }
 
-// ============================================================================
-// Bounded Process Capture
-// ============================================================================
-
-/// Spawn `command`, capture its stdout with a hard `timeout`, and return the
-/// raw stdout text only on a successful exit.
-///
-/// Shared by the Unix login-shell probes (`detection.rs`) and the Windows
-/// PowerShell `$PROFILE` probe. Stdout is drained on a background thread to
-/// avoid the pipe-buffer deadlock (a child that writes more than the ~64 KiB
-/// pipe buffer blocks on write while we block on `try_wait`). The child's
-/// stdin/stderr are nulled and its console window is hidden on Windows.
-///
-/// Returns `None` on spawn failure, non-zero exit, or timeout (the child is
-/// killed and reaped, and `label` is used in the warn log). On the timeout
-/// and error paths the drain thread is deliberately NOT joined: if the child
-/// leaked its stdout write-end to a background grandchild (e.g. a daemon
-/// spawned from a shell rc file), joining would block indefinitely — the
-/// detached thread exits on its own once the pipe finally closes.
-pub(crate) fn capture_stdout_with_timeout(
-    mut command: Command,
-    timeout: std::time::Duration,
-    label: &str,
-) -> Option<String> {
-    command
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::null());
-    hide_console_window(&mut command);
-    let mut child = command.spawn().ok()?;
-
-    let stdout_pipe = child.stdout.take();
-    let reader = std::thread::spawn(move || -> Vec<u8> {
-        let mut buf = Vec::new();
-        if let Some(mut pipe) = stdout_pipe {
-            use std::io::Read;
-            let _ = pipe.read_to_end(&mut buf);
-        }
-        buf
-    });
-
-    let start = std::time::Instant::now();
-    loop {
-        match child.try_wait() {
-            Ok(Some(status)) => {
-                let buf = reader.join().ok()?;
-                return status
-                    .success()
-                    .then(|| String::from_utf8_lossy(&buf).to_string());
-            }
-            Ok(None) => {
-                if start.elapsed() > timeout {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    log::warn!("[VMark] {label} timed out after {}s", timeout.as_secs());
-                    return None;
-                }
-                std::thread::sleep(std::time::Duration::from_millis(50));
-            }
-            Err(_) => return None,
-        }
-    }
-}
-
 /// Extract the text between the first `start` sentinel and the next `end`
 /// sentinel after it, trimmed. Returns `None` if either sentinel is absent.
 /// Sentinels isolate the probed value from shell/profile startup noise.
@@ -206,36 +144,44 @@ pub(crate) fn parse_sentinel(raw: &str, start: &str, end: &str) -> Option<String
 /// Returns `None` if PowerShell is unavailable, times out (3s), or produces
 /// empty output.
 #[cfg(target_os = "windows")]
-pub(crate) fn windows_profile_path() -> Option<String> {
+pub(crate) fn windows_profile_path() -> Result<String, Option<CaptureFailure>> {
+    use super::capture::capture_stdout_detailed;
+
     const START: &str = "__VMARK_PATH_START__";
     const END: &str = "__VMARK_PATH_END__";
 
     // Try pwsh (PowerShell 7+) first, then powershell.exe (Windows PowerShell 5.x)
     let shells = ["pwsh.exe", "powershell.exe"];
+    let mut last_failure = None;
     for shell in &shells {
         let cmd_str =
             format!("Write-Output '{START}'; Write-Output $env:Path; Write-Output '{END}'");
         let mut command = Command::new(shell);
         command.args(["-NoLogo", "-NonInteractive", "-Command", &cmd_str]);
-        let Some(raw) = capture_stdout_with_timeout(
+        let raw = match capture_stdout_detailed(
             command,
             std::time::Duration::from_secs(3),
             &format!("windows_profile_path: {shell}"),
-        ) else {
-            continue; // spawn failure, non-zero exit, or timeout — try next shell
+        ) {
+            Ok(raw) => raw,
+            Err(failure) => {
+                last_failure = Some(failure);
+                continue; // spawn failure, non-zero exit, or timeout — try next shell
+            }
         };
         // parse_sentinel only matches END after START, so profile startup
         // noise containing the END marker can't panic or corrupt the value.
         if let Some(path) = parse_sentinel(&raw, START, END).filter(|p| !p.is_empty()) {
-            return Some(path);
+            return Ok(path);
         }
+        last_failure = None;
     }
-    None
+    Err(last_failure)
 }
 
 #[cfg(not(target_os = "windows"))]
-pub(crate) fn windows_profile_path() -> Option<String> {
-    None
+pub(crate) fn windows_profile_path() -> Result<String, Option<CaptureFailure>> {
+    Err(None)
 }
 
 #[cfg(test)]

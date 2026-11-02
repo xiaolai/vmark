@@ -164,6 +164,7 @@ macro_rules! all_commands {
             gha_workflow::commands::gha_lint,
             gha_workflow::commands::gha_fetch_action_yml,
             ai_provider::detect_ai_providers,
+            ai_provider::login_path_fallback,
             ai_provider::run_ai_prompt,
             ai_provider::cancel::cancel_ai_prompt,
             ai_provider::read_env_api_keys,

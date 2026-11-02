@@ -25,7 +25,7 @@ I provider CLI utilizzano strumenti IA installati localmente. VMark li esegue co
 
 ### Come Funziona il Rilevamento CLI
 
-Fai clic su **Rileva** in Impostazioni > Integrazioni. VMark cerca ogni comando CLI nel tuo `$PATH` e ne riporta la disponibilità. Se un CLI viene trovato, il suo pulsante di selezione diventa attivabile. **Rileva** ripete la ricerca a ogni clic; il rilevamento automatico (all'avvio dell'app, all'apertura delle Impostazioni e nel selettore del provider del selettore genie) riutilizza l'ultima ricerca. La ricerca usa il `$PATH` che VMark ha letto dalla tua shell di login all'avvio, quindi un CLI installato in una directory appena aggiunta al `$PATH` richiede un riavvio di VMark prima che **Rileva** possa trovarlo.
+Fai clic su **Rileva** in Impostazioni > Integrazioni. VMark cerca ogni comando CLI nel tuo `$PATH` e ne riporta la disponibilità. Se un CLI viene trovato, il suo pulsante di selezione diventa attivabile. **Rileva** ripete la ricerca a ogni clic; il rilevamento automatico (all'avvio dell'app, all'apertura delle Impostazioni e nel selettore del provider del selettore genie) riutilizza l'ultima ricerca. Facendo clic su **Rileva** VMark rilegge anche il `$PATH` dalla tua shell di login, quindi un CLI in una directory appena aggiunta al tuo profilo shell viene trovato senza riavviare VMark; il rilevamento automatico usa l'ultimo `$PATH` letto. Se VMark non è mai riuscito a leggere il `$PATH` dalla tua shell di login, cerca nel `$PATH` ereditato dal programma che lo ha avviato e, finché manca un CLI, le Impostazioni mostrano un avviso con la shell, il motivo e le directory esaminate. Se la lettura non riesce con **Rileva**, viene mantenuto l'eventuale `$PATH` letto correttamente in precedenza.
 
 ### Vantaggi
 
@@ -184,7 +184,7 @@ Se il portachiavi rifiuta una scrittura, VMark mostra un toast di errore invece 
 
 **"Nessun provider IA disponibile"** — Fai clic su **Rileva** per cercare i CLI, o configura un provider REST con una chiave API.
 
-**Il CLI mostra "Non trovato"** — Il CLI non è nel tuo `$PATH`. Installalo o controlla il tuo profilo shell. Su macOS, le app GUI potrebbero non ereditare il `$PATH` del terminale — prova ad aggiungere il percorso a `/etc/paths.d/`.
+**Il CLI mostra "Non trovato"** — Il CLI non è nel tuo `$PATH`. Installalo o controlla il tuo profilo shell. Su macOS, le app GUI potrebbero non ereditare il `$PATH` del terminale — prova ad aggiungere il percorso a `/etc/paths.d/`. Se le Impostazioni mostrano anche un avviso che VMark non è riuscito a leggere il tuo `$PATH`, il CLI potrebbe essere comunque installato: correggi ciò che fa fallire o rallenta il tuo profilo shell (VMark attende solo pochi secondi), poi fai clic su **Rileva**.
 
 **Il CLI si blocca / nessuna risposta** — Il timeout di esecuzione di VMark annullerà la chiamata automaticamente; vedrai un errore nel banner di stato del genie. Se un particolare CLI raggiunge sistematicamente il timeout, eseguilo una volta dal terminale per confermare che funzioni lì, poi verifica se richiede un'autenticazione interattiva.
 

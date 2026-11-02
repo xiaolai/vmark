@@ -937,6 +937,8 @@
         "src-tauri/src/ai_provider",
         "src-tauri/src/secure_store.rs",
         "src/pages/settings/IntegrationsSettings.tsx",
+        "src/pages/settings/CliProviderList.tsx",
+        "src/pages/settings/CliProviderList.test.tsx",
         "src/pages/settings/ProviderRadio.tsx",
         "src/pages/settings/RestProviderConfigFields.tsx",
         "src/pages/settings/ModelComboBox.tsx",

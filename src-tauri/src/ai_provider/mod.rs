@@ -12,6 +12,8 @@
 //! - `detection`      -- CLI provider detection, login-shell PATH, env API keys
 //! - `rest_api`       -- API key testing, model listing, model validation
 //! - `cli`            -- CLI provider spawning, prompt on stdin, stdout streaming
+//! - `login_path`     -- The login shell's PATH: cached, retryable, and reports a fallback
+//! - `capture`        -- A helper process's stdout, bounded in time and size
 //! - `spawn`          -- Process-spawn platform utilities (no shell in front, no console window)
 //! - `rest_request`   -- REST request builders (URL, headers, body, timeout), unsent
 //! - `rest_providers` -- REST provider prompt execution
@@ -19,12 +21,14 @@
 //! - `cancel`         -- Per-request cancel registry + `cancel_ai_prompt` (streaming path)
 
 pub(crate) mod cancel;
+mod capture;
 mod cli;
 mod cli_path_guard;
 mod detection;
 mod dispatch;
 mod endpoint;
 mod http_client;
+mod login_path;
 mod rest_api;
 mod rest_providers;
 mod rest_request;
@@ -43,12 +47,14 @@ pub(crate) mod test_shim;
 #[allow(unused_imports)]
 pub use detection::*;
 #[allow(unused_imports)]
+pub use login_path::*;
+#[allow(unused_imports)]
 pub use rest_api::*;
 
 // Re-export crate-internal helpers used by other modules (e.g. mcp/).
 #[allow(unused_imports)]
 pub(crate) use {
-    detection::login_shell_path, spawn::build_command, spawn::capture_stdout_with_timeout,
+    capture::capture_stdout_with_timeout, login_path::login_shell_path, spawn::build_command,
     spawn::which_command,
 };
 

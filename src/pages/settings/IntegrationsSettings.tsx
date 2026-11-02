@@ -17,6 +17,7 @@ import { RefreshCw, Users, ExternalLink } from "lucide-react";
 import type { ProviderType } from "@/types/aiGenies";
 import { RestProviderConfigFields } from "./RestProviderConfigFields";
 import { ProviderRadio } from "./ProviderRadio";
+import { CliProviderList } from "./CliProviderList";
 
 function StatusBadge({ running, loading }: { running: boolean; loading: boolean }) {
   const { t } = useTranslation("settings");
@@ -267,7 +268,6 @@ export function IntegrationsSettings() {
 
 function AiProviderSettings() {
   const { t } = useTranslation("settings");
-  const cliProviders = useAiProviderStore((s) => s.cliProviders);
   const restProviders = useAiProviderStore((s) => s.restProviders);
   const activeProvider = useAiProviderStore((s) => s.activeProvider);
   const detecting = useAiProviderStore((s) => s.detecting);
@@ -302,44 +302,7 @@ function AiProviderSettings() {
         </Button>
       </SettingRow>
 
-      {/* CLI providers */}
-      {cliProviders.length > 0 && (
-        <div className="mt-2 px-1" role="radiogroup" aria-label={t("integrations.aiProviders.cliProviders")}>
-          <div className="text-xs text-[var(--text-secondary)] mb-1">{t("integrations.aiProviders.cliProviders")}</div>
-          {cliProviders.map((p) => (
-            <div
-              key={p.type}
-              className={`flex items-center gap-2 text-xs py-1.5 ${
-                !p.available ? "opacity-[var(--opacity-disabled)]" : "cursor-pointer"
-              }`}
-              onClick={() => p.available && handleActivate(p.type)}
-            >
-              <ProviderRadio
-                checked={activeProvider === p.type}
-                disabled={!p.available}
-                onChange={() => handleActivate(p.type)}
-                label={p.name}
-              />
-              <span className={
-                activeProvider === p.type
-                  ? "text-[var(--text-color)] font-medium"
-                  : "text-[var(--text-secondary)]"
-              }>
-                {p.name}
-              </span>
-              <span
-                className={`ml-auto text-xs ${
-                  p.available
-                    ? "text-[var(--success-color)]"
-                    : "text-[var(--text-secondary)]"
-                }`}
-              >
-                {p.available ? t("integrations.aiProviders.available") : t("integrations.aiProviders.notFound")}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
+      <CliProviderList />
 
       {/* REST providers */}
       <div className="mt-3 pt-3 border-t border-[var(--border-color)]" role="radiogroup" aria-label={t("integrations.aiProviders.restProviders")}>

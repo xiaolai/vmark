@@ -25,7 +25,7 @@ CLI-Anbieter verwenden lokal installierte KI-Tools. VMark führt diese als Unter
 
 ### Wie CLI-Erkennung funktioniert
 
-Klicken Sie in Einstellungen > Integrationen auf **Erkennen**. VMark durchsucht Ihren `$PATH` nach jedem CLI-Befehl und meldet die Verfügbarkeit. Wenn ein CLI gefunden wird, wird sein Optionsfeld wählbar. **Erkennen** sucht bei jedem Klick neu; die automatische Erkennung (beim App-Start, beim Öffnen der Einstellungen und im Anbieterwechsler der Genie-Auswahl) verwendet das Ergebnis der letzten Suche. Die Suche verwendet den `$PATH`, den VMark beim Start aus Ihrer Login-Shell gelesen hat; ein CLI, das in ein neu zum `$PATH` hinzugefügtes Verzeichnis installiert wurde, findet **Erkennen** daher erst nach einem Neustart von VMark.
+Klicken Sie in Einstellungen > Integrationen auf **Erkennen**. VMark durchsucht Ihren `$PATH` nach jedem CLI-Befehl und meldet die Verfügbarkeit. Wenn ein CLI gefunden wird, wird sein Optionsfeld wählbar. **Erkennen** sucht bei jedem Klick neu; die automatische Erkennung (beim App-Start, beim Öffnen der Einstellungen und im Anbieterwechsler der Genie-Auswahl) verwendet das Ergebnis der letzten Suche. Ein Klick auf **Erkennen** liest außerdem den `$PATH` erneut aus Ihrer Login-Shell, sodass ein CLI in einem gerade zu Ihrem Shell-Profil hinzugefügten Verzeichnis ohne Neustart von VMark gefunden wird; die automatische Erkennung verwendet den zuletzt gelesenen `$PATH`. Konnte VMark den `$PATH` noch nie aus Ihrer Login-Shell lesen, durchsucht es den `$PATH`, den es von dem startenden Programm geerbt hat, und solange ein CLI fehlt, zeigen die Einstellungen einen Hinweis mit der Shell, dem Grund und den durchsuchten Verzeichnissen. Schlägt das Lesen bei **Erkennen** fehl, bleibt ein zuvor erfolgreich gelesener `$PATH` erhalten.
 
 ### Vorteile
 
@@ -184,7 +184,7 @@ Verweigert der Schlüsselbund einen Schreibvorgang, zeigt VMark eine Fehler-Toas
 
 **„Kein KI-Anbieter verfügbar“** — Klicken Sie auf **Erkennen**, um nach CLIs zu suchen, oder konfigurieren Sie einen REST-Anbieter mit API-Schlüssel.
 
-**CLI zeigt „Nicht gefunden“** — Das CLI ist nicht in Ihrem `$PATH`. Installieren Sie es oder überprüfen Sie Ihr Shell-Profil. Auf macOS erben GUI-Apps möglicherweise nicht den Terminal-`$PATH` — versuchen Sie, den Pfad zu `/etc/paths.d/` hinzuzufügen.
+**CLI zeigt „Nicht gefunden“** — Das CLI ist nicht in Ihrem `$PATH`. Installieren Sie es oder überprüfen Sie Ihr Shell-Profil. Auf macOS erben GUI-Apps möglicherweise nicht den Terminal-`$PATH` — versuchen Sie, den Pfad zu `/etc/paths.d/` hinzuzufügen. Zeigen die Einstellungen zusätzlich den Hinweis, dass VMark Ihren `$PATH` nicht lesen konnte, ist das CLI womöglich doch installiert: Beheben Sie, was Ihr Shell-Profil scheitern lässt oder verlangsamt (VMark wartet nur wenige Sekunden), und klicken Sie dann auf **Erkennen**.
 
 **CLI hängt / keine Antwort** — Das Ausführungs-Timeout von VMark bricht den Aufruf automatisch ab; im Status-Banner des Genies erscheint eine Fehlermeldung. Wenn ein bestimmtes CLI den Timeout regelmäßig überschreitet, führen Sie es einmal im Terminal aus, um zu bestätigen, dass es dort funktioniert, und prüfen Sie dann, ob eine interaktive Authentifizierung erforderlich ist.
 
