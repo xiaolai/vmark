@@ -10,6 +10,10 @@
  *     requested language+namespace combination.
  *   - load: "currentOnly" avoids loading both "zh" and "zh-CN" for
  *     regional codes — only the exact requested locale is fetched.
+ *   - A namespace is loaded at boot when something in EVERY window reads it
+ *     outside React — a store, a service or a plugin has no hook to load it,
+ *     and i18next will not load a namespace just because a key names it. Every
+ *     other namespace is loaded by the component that reads it.
  *   - Language is seeded from settingsStore on startup; runtime changes
  *     follow the setting through a store subscription, and the last
  *     requested language wins even when an earlier locale is still loading.
@@ -64,7 +68,30 @@ void i18n
       default: ["en"],
     },
     load: "currentOnly",
-    ns: ["common", "statusbar", "commands", "dialog"],  // Boot-critical (incl. CommandBus titles + early dialog messages)
+    // Boot-critical: every window loads these at startup.
+    //
+    // "common", "statusbar", "commands" and "dialog" are read from stores,
+    // services and the CommandBus — code that runs before any React tree can
+    // ask for a namespace. "editor", "workflowEditor", "export" and "ai" are
+    // read the same way: the editor's plugins build their DOM without a hook,
+    // the git-journal export command runs in the main window (which never
+    // mounts the export panel), and the provider store reports a keychain
+    // failure from the Settings window.
+    //
+    // A namespace left out of this list has to be named in the
+    // `useTranslation(...)` call of the component that reads it — i18next
+    // strips an `ns:` prefix off a key and then looks the key up in a
+    // namespace nobody loaded, which answers with the key itself.
+    ns: [
+      "common",
+      "statusbar",
+      "commands",
+      "dialog",
+      "editor",
+      "workflowEditor",
+      "export",
+      "ai",
+    ],
     defaultNS: "common",
     interpolation: {
       escapeValue: false,

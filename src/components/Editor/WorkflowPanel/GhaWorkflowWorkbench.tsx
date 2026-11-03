@@ -122,7 +122,11 @@ export function GhaWorkflowWorkbench({
   workflow,
   tabId,
 }: GhaWorkflowWorkbenchProps): ReactElement {
-  const { t } = useTranslation();
+  // The panel's own strings live in the `workflowEditor` bundle, and the
+  // toasts it raises are read from event handlers that can fire before a
+  // sibling component's hook has loaded that bundle. Naming the namespace
+  // here is what makes react-i18next load it.
+  const { t } = useTranslation(["common", "workflowEditor"]);
   const rootRef = useRef<HTMLDivElement>(null);
   // The document id this pane last bound under, so a CHANGE of it is
   // distinguishable from a re-parse. Not derivable from the store: another

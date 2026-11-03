@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import enAi from "@/locales/en/ai.json";
 
 // The global test setup mocks @/i18n for all other tests.
 // This file tests the real i18n module, so we unmock it here.
@@ -40,6 +41,18 @@ describe("i18n initialization", () => {
   it("has common as default namespace", async () => {
     const { default: i18n } = await import("./i18n");
     expect(i18n.options.defaultNS).toBe("common");
+  });
+
+  it("boot-loads the namespaces the non-React code reads", async () => {
+    // The provider store reports a keychain failure through the `i18n`
+    // singleton, and the Settings window never mounts a component that loads
+    // the `ai` bundle — so the toast read the raw key, or, with the
+    // defaultValue it carries, English in every other language. The boot list
+    // is what makes the lookup work in every window.
+    const { default: i18n } = await import("./i18n");
+    await i18n.loadNamespaces("ai");
+    expect(i18n.t("ai:provider.keySaveError")).toBe(enAi["provider.keySaveError"]);
+    expect(i18n.t("ai:provider.keySaveError")).not.toBe("provider.keySaveError");
   });
 
   it("uses currentOnly load strategy", async () => {

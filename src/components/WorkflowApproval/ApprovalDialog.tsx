@@ -34,7 +34,12 @@ import "./approval-dialog.css";
 import { useBrowserOccluder } from "@/hooks/useBrowserOccluder";
 
 export function ApprovalDialog() {
-  const { t } = useTranslation();
+  // This overlay is mounted in EVERY window, while the `workflow` bundle is
+  // loaded by the workflow panel — a lazy surface the approval dialog can
+  // appear over without (a run started in another window). Naming the
+  // namespace here is what makes react-i18next load it; without that, the
+  // dialog's own strings fell back to the English defaultValue they carry.
+  const { t } = useTranslation(["common", "workflow"]);
   const pending = useWorkflowStore((s) => s.approval.pending);
   useWorkflowEventLifecycle();
 
