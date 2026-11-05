@@ -139,8 +139,8 @@ phase_OC2() {
            "the code-block extension stops re-adding its parent's plugins (WI-OC2.1)"
   has_file "src/services/assembly/extensionPluginFamilies.test.ts" \
            "no extension yields a plugin family twice (WI-OC2.1)"
-  has_file "patches/prosemirror-view@1.42.6.patch" "the decoration-set patch (WI-OC2.2)"
-  has_text "package.json" "\"prosemirror-view@1\.42\.6\"" "the patch is applied by pnpm (WI-OC2.2)"
+  has_file "patches/prosemirror-view@1.42.8.patch" "the decoration-set patch (WI-OC2.2)"
+  has_text "package.json" "\"prosemirror-view@1\.42\.8\"" "the patch is applied by pnpm (WI-OC2.2)"
   local tests="src/plugins/shared/__tests__"
   has_file "$tests/decorationSet.differential.test.ts" "the patch agrees with upstream's trees (WI-OC2.2)"
   has_file "$tests/decorationSet.render.test.ts" "the patch draws upstream's DOM (WI-OC2.2)"

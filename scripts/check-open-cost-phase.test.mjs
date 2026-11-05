@@ -53,8 +53,8 @@ const OC1_TESTS = [
 /** Phase OC2's production deliverables, without its tests. */
 const OC2_CODE = [
   ["src/plugins/codeBlockLineNumbers/tiptap.ts", "addProseMirrorPlugins() {}\n"],
-  ["patches/prosemirror-view@1.42.6.patch", "diff\n"],
-  ["package.json", "{ \"prosemirror-view@1.42.6\": \"patches/x.patch\" }\n"],
+  ["patches/prosemirror-view@1.42.8.patch", "diff\n"],
+  ["package.json", "{ \"prosemirror-view@1.42.8\": \"patches/x.patch\" }\n"],
 ];
 
 const OC2_TESTS = [

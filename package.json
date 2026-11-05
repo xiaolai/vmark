@@ -151,7 +151,7 @@
     "@tiptap/extension-paragraph": "^3.32.1",
     "@tiptap/extension-table": "^3.32.1",
     "@tiptap/extension-table-row": "^3.32.1",
-    "@tiptap/pm": "^3.31.4",
+    "@tiptap/pm": "^3.32.1",
     "@tiptap/react": "^3.32.1",
     "@tiptap/starter-kit": "^3.32.1",
     "@viz-js/viz": "^3.31.0",
@@ -253,7 +253,7 @@
       "micromark-extension-gfm-autolink-literal@2.1.0": "patches/micromark-extension-gfm-autolink-literal@2.1.0.patch",
       "mdast-util-from-markdown@2.0.3": "patches/mdast-util-from-markdown@2.0.3.patch",
       "mdast-util-find-and-replace@3.0.2": "patches/mdast-util-find-and-replace@3.0.2.patch",
-      "prosemirror-view@1.42.6": "patches/prosemirror-view@1.42.6.patch"
+      "prosemirror-view@1.42.8": "patches/prosemirror-view@1.42.8.patch"
     }
   },
   "devDependencies": {
