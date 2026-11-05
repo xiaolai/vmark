@@ -151,7 +151,7 @@ keyring = { version = "3", default-features = false }
 # dependency-review.md): bundled SQLite pins 3.5x everywhere (macOS system
 # sqlite is an Apple build, Windows has none — S2 spike decision); NFC
 # canonicalization per spec §3.1 needs the real Unicode tables.
-rusqlite = { version = "0.40", features = ["bundled"] }
+rusqlite = { version = "0.41", features = ["bundled"] }
 unicode-normalization = "0.1"
 # Unicode default case folding for the save path's per-file write-lock key
 # (files/write/lock_key.rs), which folds broadly; the agent journal's
