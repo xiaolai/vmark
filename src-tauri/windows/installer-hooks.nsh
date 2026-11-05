@@ -1,12 +1,13 @@
 ; VMark NSIS installer hooks.
 ;
-; Three sections below. Sections 1 and 2 are uninstall repairs and run from
+; Four sections below. Sections 1 and 2 are uninstall repairs and run from
 ; NSIS_HOOK_POSTUNINSTALL, which Tauri inserts at the END of the uninstall
 ; section — after the APP_UNASSOCIATE loop that undoes the file associations.
 ; That ordering is what makes a repair possible; see
 ; crates/tauri-bundler/src/bundle/windows/nsis/installer.nsi (the unassociate
 ; loop, then the hook a few dozen lines later). Section 3 runs from
-; NSIS_HOOK_POSTINSTALL, after the install's APP_ASSOCIATE loop.
+; NSIS_HOOK_POSTINSTALL, after the install's APP_ASSOCIATE loop. Section 4 runs
+; from NSIS_HOOK_PREINSTALL and NSIS_HOOK_PREUNINSTALL, before any file moves.
 ;
 ; ---------------------------------------------------------------------------
 ; 1. Re-create HKCR\.txt\ShellNew — issue #1142
@@ -158,6 +159,75 @@
   ${EndIf}
 
   Pop $R0
+!macroend
+
+; ---------------------------------------------------------------------------
+; 4. Release the MCP sidecar's file lock before touching it — issue #1648
+; ---------------------------------------------------------------------------
+;
+; Tauri's installer only checks that the MAIN binary is running. The MCP
+; sidecar (`vmark-mcp-server.exe`, see externalBin in tauri.conf.json) is a
+; separate process: an AI client such as Claude Desktop or Cursor spawns it, and
+; it can outlive a VMark that was closed or killed. Windows will not overwrite
+; or delete a running executable, so the installer's `File` instruction failed
+; with NSIS's built-in English "Can't write" Abort/Retry/Ignore box. Abort ends
+; in "Installation Aborted" even though the main program had already been
+; replaced — an upgrade that looks failed and is half done.
+;
+; That dialog is NSIS's own and cannot be localised or reworded from a hook, so
+; the fix makes it unreachable: PREINSTALL and PREUNINSTALL stop the sidecar
+; first. Force-killing it is safe — it holds no state of its own, and the AI
+; client that owns it respawns it on the next tool call. `/IM` matches by image
+; name, run from $SYSDIR so a planted taskkill.exe beside the installer is never
+; picked up.
+;
+; taskkill exits 128 when no such process exists, which is the normal case. Any
+; other non-zero code (an elevated copy refusing the kill) aborts BEFORE this
+; installer writes any file, with a message that names the component, instead of
+; a half-applied upgrade. The one case it cannot fully cover: when the user picks
+; "uninstall first" on the reinstall page, Tauri runs the PREVIOUSLY installed
+; uninstaller before any hook here fires, and releases before this hook have no
+; kill of their own. That uninstaller's Delete of the locked sidecar is
+; non-fatal, so the usual outcome is fine; only if this kill then also fails is
+; the old version already gone, which is why the message does not claim that
+; nothing was changed. Tauri exposes no earlier hook point. The short Sleep gives Windows time to drop
+; the image's file handle before the next instruction writes it.
+;
+; Known limitation: `/IM` matches by image name, so a development or second
+; install's sidecar running as the same user is stopped too. Targeting by path
+; needs wmic (removed from current Windows) or PowerShell; the sidecar is
+; stateless and respawned by its client, so the trade is accepted.
+; scripts/installer-hooks-sidecar.test.mjs pins this contract.
+
+!macro VMARK_STOP_SIDECAR
+  Push $R0
+
+  nsExec::Exec '"$SYSDIR\taskkill.exe" /F /IM vmark-mcp-server.exe'
+  Pop $R0
+
+  ; 0 = killed, 128 = no such process. Anything else (access denied for an
+  ; elevated copy, taskkill failing to launch) means the file is still locked:
+  ; stop here, before any file is replaced, rather than half-upgrade.
+  ${If} $R0 != 0
+  ${AndIf} $R0 != 128
+    MessageBox MB_OK|MB_ICONSTOP \
+      "VMark could not stop its MCP server (vmark-mcp-server.exe), so the installer cannot replace it.$\r$\n$\r$\nSetup stopped before updating it. Close the AI app that started it (for example Claude Desktop or Cursor) or end vmark-mcp-server.exe in Task Manager, then run Setup again." \
+      /SD IDOK
+    Pop $R0
+    Abort
+  ${EndIf}
+
+  Sleep 500
+
+  Pop $R0
+!macroend
+
+!macro NSIS_HOOK_PREINSTALL
+  !insertmacro VMARK_STOP_SIDECAR
+!macroend
+
+!macro NSIS_HOOK_PREUNINSTALL
+  !insertmacro VMARK_STOP_SIDECAR
 !macroend
 
 !macro NSIS_HOOK_POSTINSTALL
