@@ -37,10 +37,6 @@
       "module": "vite",
       "reason": "Dev-server path handling in the website's VitePress toolchain (website>vitepress>vite). Not shipped: the desktop app bundles built assets and never runs a Vite dev server. Fixed by a VitePress line that supports vite>=6.4.3."
     },
-    "GHSA-g7r4-m6w7-qqqr": {
-      "module": "esbuild",
-      "reason": "Windows-only file read through esbuild's own development server (servedir). esbuild 0.27.7 is reached only through build and test tooling: Vitest's browser mode (.>@vitest/coverage-v8>@vitest/browser>@vitest/mocker>vite>esbuild, the path pnpm audit reports), plus server__content's tsup bundler and Slidev's Vite. None of them starts esbuild's server: Vite serves with its own, tsup only bundles, and the shipped app contains no esbuild."
-    },
     "GHSA-mrhx-c7xc-m3w5": {
       "module": "zod",
       "reason": "Memory exhaustion validating oversized constrained collections. zod@4 is pinned to the patched line (>=4.6.6) by a package.json override; the remaining instance is zod@3.25.76, pinned exactly by @hypothesi/tauri-mcp-server, the devDependency that serves Tauri MCP to the E2E harness against debug builds. No patched 3.x release exists. Not shipped, and its input comes only from the local test client. Re-check when the harness moves to zod 4."
