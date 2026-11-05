@@ -14,7 +14,14 @@ import { CoherenceSettingsGroup } from "./CoherenceSettingsGroup";
 import { isMacPlatform } from "@/utils/platform";
 
 export function AdvancedSettings() {
-  const { t } = useTranslation("settings");
+  // The workflow group's strings live in the `workflowEditor` bundle, and this
+  // panel is the only thing that reads them. The Settings window is its own
+  // webview with its own i18next instance, and i18next does NOT load a
+  // namespace because a key names it: `t("workflowEditor:…")` strips the
+  // prefix, looks the key up in a namespace that was never loaded here, and
+  // answers with the KEY itself. Naming the namespace in the hook is what
+  // makes react-i18next load it.
+  const { t } = useTranslation(["settings", "workflowEditor"]);
   // Persisted (not ephemeral local state): once enabled, the experimental toggles
   // stay revealed across Settings re-opens and in release builds.
   const devTools = useSettingsStore((state) => state.advanced.developerMode);
