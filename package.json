@@ -243,7 +243,8 @@
       "js-yaml@4": ">=4.3.2 <5",
       "baseline-browser-mapping": ">=2.11.0 <3",
       "smol-toml": ">=1.7.1 <2",
-      "@lezer/common": ">=1.5.3 <2",
+      "@lezer/common": ">=1.5.4 <2",
+      "@lezer/lr": ">=1.4.11 <2",
       "image-size": ">=2.0.3 <3",
       "re2js": ">=2.8.7 <2.9"
     },
