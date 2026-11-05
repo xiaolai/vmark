@@ -1,14 +1,14 @@
 /**
- * The decoration-tree algorithm prosemirror-view 1.42.6 ships, before VMark's
+ * The decoration-tree algorithm prosemirror-view 1.42.8 ships, before VMark's
  * patch — the reference the patched build must agree with exactly.
  *
  * Transcribed from upstream `src/decoration.ts` (`buildTree`,
- * `takeSpansForNode`, `addInner`, `forChild`), kept unoptimised on purpose: it
+ * `takeSpansForNode`, `addInner`, `forChild`, `FragmentCursor`), kept unoptimised on purpose: it
  * is the specification, not an implementation. It reaches the same internals
  * the library uses (`local`, `children`, the constructors, `type.valid`), which
  * is what lets a test compare whole trees with `eq` rather than a summary.
  */
-import type { Node } from "@tiptap/pm/model";
+import type { Fragment, Node } from "@tiptap/pm/model";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 
 type Child = number | DecorationSet;
@@ -17,7 +17,7 @@ interface SetInternals {
   children: readonly Child[];
 }
 interface DecorationInternals {
-  type: { valid(node: Node, span: Decoration): boolean };
+  type: { valid(node: Node, span: Decoration, cursor: FragmentCursor): boolean };
   inline: boolean;
 }
 
@@ -26,6 +26,32 @@ const NewDecoration = Decoration as unknown as new (from: number, to: number, ty
 const parts = (set: DecorationSet) => set as unknown as SetInternals;
 const internals = (span: Decoration) => span as unknown as DecorationInternals;
 const empty = DecorationSet.empty;
+
+/**
+ * Upstream's forward-only child lookup that node decorations' `valid` reads
+ * through. One per validity pass, as upstream creates it.
+ */
+class FragmentCursor {
+  index = 0;
+  off = 0;
+  constructor(readonly frag: Fragment) {}
+  nodeAt(off: number): Node | null {
+    while (this.off <= off && this.index < this.frag.childCount) {
+      const next = this.frag.child(this.index);
+      if (this.off === off) return next;
+      this.off += next.nodeSize;
+      this.index++;
+    }
+    return null;
+  }
+}
+
+/** Upstream's validity pass: drop each span its type rejects for `node`. */
+function keepValid(node: Node, spans: Decoration[]): void {
+  if (!spans.length) return;
+  const cursor = new FragmentCursor(node.content);
+  for (let i = 0; i < spans.length; i++) if (!internals(spans[i]).type.valid(node, spans[i], cursor)) spans.splice(i--, 1);
+}
 
 function byPos(a: Decoration, b: Decoration): number {
   return a.from - b.from || a.to - b.to;
@@ -66,7 +92,7 @@ function buildTree(spans: (Decoration | null)[], node: Node, offset: number): De
     }
   });
   const locals = moveSpans(hasNulls ? withoutNulls(spans) : (spans as Decoration[]), -offset).sort(byPos);
-  for (let i = 0; i < locals.length; i++) if (!internals(locals[i]).type.valid(node, locals[i])) locals.splice(i--, 1);
+  keepValid(node, locals);
   return locals.length || children.length ? new NewSet(locals, children) : empty;
 }
 
@@ -92,7 +118,7 @@ function addInner(set: DecorationSet, doc: Node, decorations: (Decoration | null
     childIndex += 3;
   });
   const local = moveSpans(childIndex ? withoutNulls(decorations) : (decorations as Decoration[]), -offset);
-  for (let i = 0; i < local.length; i++) if (!internals(local[i]).type.valid(doc, local[i])) local.splice(i--, 1);
+  keepValid(doc, local);
   const { local: own, children: ownChildren } = parts(set);
   return new NewSet(local.length ? own.concat(local).sort(byPos) : (own as Decoration[]), children ?? (ownChildren as Child[]));
 }

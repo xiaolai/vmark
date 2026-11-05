@@ -26,7 +26,7 @@ describe("the prosemirror-view patch", () => {
   };
 
   it("is for the installed version", () => {
-    expect(manifest.version).toBe("1.42.6");
+    expect(manifest.version).toBe("1.42.8");
   });
 
   it.each(["import", "require"] as const)("is in the %s entry point", (condition) => {

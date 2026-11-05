@@ -79,21 +79,21 @@
     },
     {
       "component": "Node.js",
-      "version": "22.23.2",
+      "version": "22.23.4",
       "license": "MIT and the licenses of its bundled dependencies",
-      "host": { "name": "@yao-pkg/pkg-fetch", "version": "3.6.6" },
-      "embeddedIn": "the runtime inside the vmark-mcp-server sidecar binary, as built by @yao-pkg/pkg-fetch 3.6.6",
-      "source": "https://github.com/nodejs/node/blob/v22.23.2/LICENSE",
-      "file": "nodejs-22.23.2.txt"
+      "host": { "name": "@yao-pkg/pkg-fetch", "version": "3.6.7" },
+      "embeddedIn": "the runtime inside the vmark-mcp-server sidecar binary, as built by @yao-pkg/pkg-fetch 3.6.7",
+      "source": "https://github.com/nodejs/node/blob/v22.23.4/LICENSE",
+      "file": "nodejs-22.23.4.txt"
     },
     {
       "component": "pkg runtime bootstrap",
-      "version": "6.23.0",
+      "version": "6.24.0",
       "license": "MIT",
-      "host": { "name": "@yao-pkg/pkg", "version": "6.23.0" },
-      "embeddedIn": "the bootstrap inside the vmark-mcp-server sidecar binary, as built by @yao-pkg/pkg 6.23.0",
-      "source": "https://github.com/yao-pkg/pkg/blob/v6.23.0/LICENSE",
-      "file": "yao-pkg-6.23.0.txt"
+      "host": { "name": "@yao-pkg/pkg", "version": "6.24.0" },
+      "embeddedIn": "the bootstrap inside the vmark-mcp-server sidecar binary, as built by @yao-pkg/pkg 6.24.0",
+      "source": "https://github.com/yao-pkg/pkg/blob/v6.24.0/LICENSE",
+      "file": "yao-pkg-6.24.0.txt"
     }
   ]
 }
