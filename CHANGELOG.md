@@ -11,6 +11,17 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 ## [Unreleased]
 
+## [0.9.115] - 2026-11-05
+
+### Fixed
+
+- Settings > Advanced shows the workflow options under their real names again, in every language, instead of raw keys such as "settings.groupTitle". The same fix restores translated text in the workflow approval dialog, the GitHub Actions workbench, the keychain-failure message, the git-journal export and some editor widgets. Thanks to ezsky for the fix.
+- Emphasis written directly next to other `*` or `_` runs now parses the way CommonMark specifies, from an upstream Markdown parser fix.
+
+### Changed
+
+- Updated the editor engine, the Tauri plugins, the database and PDF libraries, and the Node.js runtime inside the MCP server to newer releases.
+
 ## [0.9.114] - 2026-11-03
 
 ### Fixed
@@ -593,7 +604,8 @@ Text you may want to copy stays selectable: messages, approval dialogs, Genie an
 
 - Raised the `markdown-it` version floor past GHSA-253c-mchw-3w2r.
 
-[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.114...HEAD
+[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.115...HEAD
+[0.9.115]: https://github.com/xiaolai/vmark/releases/tag/v0.9.115
 [0.9.114]: https://github.com/xiaolai/vmark/releases/tag/v0.9.114
 [0.9.113]: https://github.com/xiaolai/vmark/releases/tag/v0.9.113
 [0.9.112]: https://github.com/xiaolai/vmark/releases/tag/v0.9.112
