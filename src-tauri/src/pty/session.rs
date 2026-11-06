@@ -54,6 +54,7 @@ pub(super) struct Session {
     pub(super) master: StdMutex<Box<dyn MasterPty + Send>>,
     pub(super) pause_ctl: PauseControl,
     pub(super) shutdown: AtomicBool,
+    code_block_script: StdMutex<Option<tempfile::TempPath>>,
 }
 
 /// Why a reader thread could not be started.
@@ -131,6 +132,9 @@ fn stop_shells(sessions: &[Arc<Session>]) {
     }
     let children: Vec<&ChildSlot> = sessions.iter().map(|session| &session.child).collect();
     terminate_children(&children, HANGUP_GRACE);
+    for session in sessions {
+        lock(&session.code_block_script).take();
+    }
 }
 
 /// End sessions for good, started or not: stop their shells, then wait for
@@ -160,6 +164,17 @@ pub(super) fn create_session(
     rows: u16,
     cwd: Option<&str>,
 ) -> Result<Session, String> {
+    create_session_with_script(owner, command, cols, rows, cwd, None)
+}
+
+pub(super) fn create_session_with_script(
+    owner: String,
+    command: VettedCommand,
+    cols: u16,
+    rows: u16,
+    cwd: Option<&str>,
+    script: Option<tempfile::TempPath>,
+) -> Result<Session, String> {
     let pty_system = native_pty_system();
     let pair = pty_system
         .openpty(PtySize {
@@ -179,9 +194,13 @@ pub(super) fn create_session(
     // Before the spawn: a failure here must not leave a shell nobody owns.
     let (output, interrupter) = output::channel(pair.master.as_ref()).map_err(|e| e.to_string())?;
 
+    let mut command = command.into_builder(cwd);
+    if let Some(path) = &script {
+        command.env("VMARK_CODE_BLOCK_SCRIPT", path.as_os_str());
+    }
     let child = pair
         .slave
-        .spawn_command(command.into_builder(cwd))
+        .spawn_command(command)
         .map_err(|e| e.to_string())?;
     // Close the slave fd — the child has its own copy.
     // This ensures the reader gets EOF when the child exits.
@@ -197,6 +216,7 @@ pub(super) fn create_session(
         master: StdMutex::new(pair.master),
         pause_ctl: PauseControl::new(),
         shutdown: AtomicBool::new(false),
+        code_block_script: StdMutex::new(script),
     })
 }
 

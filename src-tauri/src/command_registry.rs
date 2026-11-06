@@ -239,6 +239,7 @@ macro_rules! all_commands {
             content_server::slidev_commands::content_server_slidev_preview,
             content_server::slidev_commands::content_server_slidev_export,
             pty::pty_spawn,
+            pty::code_block::pty_spawn_code_block,
             pty::reader::pty_start,
             pty::pty_write,
             pty::pty_resize,
