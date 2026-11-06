@@ -160,6 +160,8 @@ export function createTerminalActions(set: TerminalSet, get: TerminalGet): Termi
         // "Open Terminal Here" pins the start directory; the spawn
         // path takes it exactly once.
         ...(options?.requestedCwd ? { requestedCwd: options.requestedCwd } : {}),
+        ...(options?.windowsShell ? { windowsShell: options.windowsShell } : {}),
+        ...(options?.pendingCode !== undefined ? { pendingCode: options.pendingCode } : {}),
         // Owner stamp (WI-TS1.1, D-T1). Key absent ⇒ window-scoped.
         ...(options?.ownerInstanceId
           ? { workspaceInstanceId: options.ownerInstanceId }
@@ -231,6 +233,16 @@ export function createTerminalActions(set: TerminalSet, get: TerminalGet): Termi
     },
     terminalPeekRequestedCwd: (id) =>
       get().sessions.find((s) => s.id === id)?.requestedCwd,
+    terminalClearPendingCode: (id) => {
+      if (get().sessions.find((session) => session.id === id)?.pendingCode === undefined) return;
+      mapSession(set, id, ({ pendingCode: _pendingCode, codeBlockDispatched: _sent, ...rest }) => rest);
+    },
+    terminalClaimPendingCode: (id) => {
+      const session = get().sessions.find(item => item.id === id);
+      if (session?.pendingCode === undefined || session.codeBlockDispatched) return false;
+      updateSession(set, id, { codeBlockDispatched: true });
+      return true;
+    },
     terminalClearRequestedCwd: (id) => {
       // Cleared only after a SUCCESSFUL spawn (see useTerminalShellLifecycle).
       // Clearing on read would lose the user's directory when the first spawn

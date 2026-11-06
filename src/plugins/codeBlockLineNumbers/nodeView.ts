@@ -164,8 +164,8 @@ export class CodeBlockNodeView implements NodeView {
   }
 
   /**
-   * Paste the block into the terminal. It is NOT executed — see the security
-   * note in services/terminal/runInTerminal.
+   * Run explicit Windows fences in their matching internal session. Unix fences
+   * are pasted into the embedded terminal without execution.
    */
   private runInFlight = false;
 
