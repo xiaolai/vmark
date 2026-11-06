@@ -11,6 +11,12 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 ## [Unreleased]
 
+## [0.9.116] - 2026-11-06
+
+### Fixed
+
+- Upgrading VMark on Windows no longer fails with an English "Can't write … vmark-mcp-server.exe" prompt followed by a misleading "Installation Aborted" message. The installer now stops the MCP server before replacing or removing it, so the upgrade runs through without asking you to choose between Abort, Retry and Ignore. If the MCP server cannot be stopped (for example when it runs with administrator rights), Setup stops with a clear message that tells you to close the app that started it, such as Claude Desktop or Cursor, or to end `vmark-mcp-server.exe` in Task Manager, and then run Setup again.
+
 ## [0.9.115] - 2026-11-05
 
 ### Fixed
@@ -604,7 +610,8 @@ Text you may want to copy stays selectable: messages, approval dialogs, Genie an
 
 - Raised the `markdown-it` version floor past GHSA-253c-mchw-3w2r.
 
-[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.115...HEAD
+[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.116...HEAD
+[0.9.116]: https://github.com/xiaolai/vmark/releases/tag/v0.9.116
 [0.9.115]: https://github.com/xiaolai/vmark/releases/tag/v0.9.115
 [0.9.114]: https://github.com/xiaolai/vmark/releases/tag/v0.9.114
 [0.9.113]: https://github.com/xiaolai/vmark/releases/tag/v0.9.113
