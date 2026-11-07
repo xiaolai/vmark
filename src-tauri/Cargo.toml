@@ -158,7 +158,7 @@ unicode-normalization = "0.1"
 # document keys never fold. Same ICU4X 2.2 family already in the
 # tree (icu_normalizer, icu_properties), so it adds no second data copy.
 icu_casemap = "~2.2"
-lopdf = { version = "0.46.0", default-features = false }
+lopdf = { version = "0.47.0", default-features = false }
 # YAML in safe Rust (src/yaml.rs); replaced serde_yaml_ng, whose
 # unsafe-libyaml is unmaintained (RUSTSEC-2024-0449). Parse-only, so the
 # serializer feature and its dependencies stay out.
