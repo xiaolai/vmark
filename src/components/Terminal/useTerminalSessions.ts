@@ -164,7 +164,7 @@ export function useTerminalSessions(
         });
       } catch (error) {
         terminalError(`Failed to create terminal instance for ${sessionId}:`, error);
-        // Audit 20260831 #38: leaving the store session alive rendered a
+        // Leaving the store session alive rendered a
         // permanently blank tab that neither fit nor restart could recover
         // (no entry ever registered). Remove it — the reconcile's removal
         // pass is a no-op for an id with no live instance.

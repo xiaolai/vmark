@@ -129,7 +129,7 @@ export function ShortcutsSettings() {
 
     const reader = new FileReader();
     reader.onload = () => {
-      // `importConfig` is ATOMIC (audit 20260907, #422): a file with any bad
+      // `importConfig` is ATOMIC: a file with any bad
       // entry applies NOTHING, so this message can say so — it used to report
       // errors after the valid entries had already replaced the user's map.
       const result = importConfig(reader.result as string);

@@ -73,7 +73,7 @@ function menuLabelPairs() {
     // a commented-out site labels nothing; and EVERY live key is kept, so the
     // label leg checks each one. Keeping the first let a second site's label
     // (the non-macOS File-menu tail's "Save All and Exit") hide behind the
-    // macOS App-menu site's for months (audit 20260907 #45).
+    // macOS App-menu site's for months.
     // TWO PASSES, the rule `headerReferences.pathMountedModulePaths` and
     // `dod-syntax.rustModIncludes` already apply to the same shape: the match
     // runs over code with LITERALS KEPT (the id and the key ARE literals), and

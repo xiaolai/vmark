@@ -3,8 +3,8 @@
 //! Purpose: the manager decides under its mutex and detaches records; the
 //! killing, reaping and port-file removal happen here, after the lock is
 //! released. Holding the registry lock across `Child::wait` let one slow reap
-//! block status, stop, start and every supervisor poll for every workspace
-//! (audit 20260907 #121). Failures are LOGGED, never discarded: a child
+//! block status, stop, start and every supervisor poll for every workspace.
+//! Failures are LOGGED, never discarded: a child
 //! that could not be killed is a process the user cannot see, and a port file
 //! that could not be removed is a stale destination the next start reads.
 //!

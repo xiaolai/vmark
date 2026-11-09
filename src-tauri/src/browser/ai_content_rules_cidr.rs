@@ -6,7 +6,7 @@
 //! 16–31), and every octet after it is `[0-9]+`. Deriving these from
 //! `BLOCKED_IPV4_RANGES` is what makes the rule list and the navigation policy
 //! ONE table: a range added to the policy is blocked for subresources too, with no
-//! second list to forget (audit 2026-09-03 round 2, #6).
+//! second list to forget.
 //!
 //! The digit-class decomposition (`range_patterns`) is radix-generic: decimal for
 //! an IPv4 octet, hex for the 16-bit group of an IPv6 literal

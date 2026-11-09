@@ -1,5 +1,5 @@
 /**
- * Step guard (audit 2026-09-03 W-05 / W-06 / W-07 / W-09) — the wrapper the run
+ * Step guard — the wrapper the run
  * service puts around `makeRunExecutor`. Per step, in order:
  *
  *   1. the running-time budget is checked BEFORE the attempt (deadline → pause);

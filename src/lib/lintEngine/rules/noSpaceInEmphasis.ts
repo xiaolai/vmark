@@ -8,7 +8,7 @@
  * shape as a LIST BULLET followed by real emphasis — `* some *emph* here`
  * matches `\* (.+?)\*` exactly — and as ordinary prose preceding an emphasis
  * run, so detecting it by regex flags correct documents. Distinguishing them
- * needs the inline parser, not another pattern (audit 20260907 round 2).
+ * needs the inline parser, not another pattern.
  *
  * What counts as scannable text is `sourceMask`'s answer, shared with E01, E04
  * and W03. This rule used to carry its own fence tracker (blind to a fence a

@@ -1,6 +1,5 @@
 /**
- * Export staging — a transactional publish for folder exports (audit
- * 20260907, #332/#334/#335).
+ * Export staging — a transactional publish for folder exports.
  *
  * Purpose: `exportHtml` used to write straight into the destination folder
  * and, on failure, delete every path it had written. A re-export over a
@@ -73,7 +72,7 @@ export interface ExportStage {
    * Throws on an escaping, reserved or duplicate path — publication renames
    * each tracked entry over `<destination>/<relative>`, so an unchecked one
    * writes outside the folder the user chose, and a duplicate overwrites the
-   * backup of the file it replaced (audit 20260907 round 2).
+   * backup of the file it replaced.
    */
   track(relative: string): void;
   /**
@@ -146,7 +145,7 @@ async function stageUnder(
       // step's backup — the user's own file — out from under itself, and the
       // rollback then restores this export's output over it. That is the data
       // loss the whole staging design exists to prevent, so a repeat is
-      // simply the same file (audit 20260907 round 2).
+      // simply the same file.
       tracked.add(key);
     },
     publish: async () => {

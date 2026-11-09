@@ -21,7 +21,7 @@
  * still has in flight, so a revocation can never be overtaken by an older,
  * more permissive snapshot.
  *
- * It is also the ONE mint path for single-use approvals (audit 2026-09-03 A-04):
+ * It is also the ONE mint path for single-use approvals:
  * the subscription mints each new one-shot and records the promise, and callers
  * await that mint through `mintOneShotConfirmed` instead of minting a second copy.
  * The mint/revoke family lives in `oneShotMints.ts` (split for size, round 3) and

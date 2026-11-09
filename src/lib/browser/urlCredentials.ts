@@ -37,7 +37,7 @@ export function dropCredentialParams(params: URLSearchParams): boolean {
 
 /** A camelCase spelling (`accessToken`, `sessionId`, `apiKey`) is split at its case
  *  boundaries first, so the one list below covers `access_token` and `accessToken`
- *  alike (audit 20260907, #396). BOTH boundaries: an ACRONYM head has no lowercase
+ *  alike. BOTH boundaries: an ACRONYM head has no lowercase
  *  to split on, so `APIToken`/`JWTToken` stayed one word and walked past the list. */
 function isCredentialParam(name: string): boolean {
   const split = name
@@ -54,8 +54,7 @@ function isCredentialParam(name: string): boolean {
 export function credentialPath(pathname: string): boolean {
   return pathname.split("/").some((raw) => {
     // Classify the DECODED segment: `password%2Dreset` is `password-reset` to the
-    // server, and the encoded spelling walked past every rule (audit 20260907,
-    // #398). A segment that will not decode is treated as a credential — this is
+    // server, and the encoded spelling walked past every rule. A segment that will not decode is treated as a credential — this is
     // a redactor, and a malformed escape is not a shape an ordinary path takes.
     const seg = decodeSegment(raw);
     if (seg === null) return true;

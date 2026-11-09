@@ -5,7 +5,7 @@
  * webview, and that is all a JavaScript queue can do. VMark opens a document
  * per window, each with its own webview and its own module instances, so two
  * windows exporting to one folder had a queue each and published into it at
- * the same time (audit 20260907, #332). Whichever finished second overwrote
+ * the same time. Whichever finished second overwrote
  * half of the first, and a failure in either rolled back over the other's
  * output.
  *

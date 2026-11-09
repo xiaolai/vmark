@@ -25,7 +25,7 @@
  *   The forms are handed a SECOND, structural-only IR beside it: a field's own
  *   queued edit must not be the value it compares itself against.
  *
- *   The container composes and nothing else (audit 20260907, #283): the
+ *   The container composes and nothing else: the
  *   preview overlay is `usePreviewWorkflow`, the selection → form choice is
  *   `SelectionForm`, the derivation `stepSelection.ts`, and the focus
  *   restoration `useStepFocusRestore`.

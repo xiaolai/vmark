@@ -8,7 +8,7 @@
  * allowed). The run itself authorizes every act it performs individually, so
  * `workflow_run` needs no new authorization token — it is orchestration.
  *
- * Status contract (D1v2, audit 2026-09-03 W-09): `{runId, status, stepCount,
+ * Status contract: `{runId, status, stepCount,
  * firstStep, completedSteps, skippedSteps, pausedAt?, reasonCode?, reason?,
  * pendingApproval?, resumedFrom?, stepResults, url}`; the run response carries
  * `firstStep`. `resumeRunId` continues a paused run (W-05). Cancel answers

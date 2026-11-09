@@ -8,7 +8,7 @@
 //! dispatch cannot land the credential in a different origin. Every write is checked:
 //! a rejected `setItem` (quota, a storage-disabled origin) puts the preceding writes
 //! back to their previous values and reports the failing entry's INDEX — never the
-//! key or the value (audit 2026-09-03 round 1; it used to be swallowed and reported as
+//! key or the value (it used to be swallowed and reported as
 //! applied:true). A put-back that itself throws is REPORTED, by index, as a distinct
 //! outcome: the page's storage is then only partly restored, and the
 //! caller is told that instead of being told the rollback succeeded.

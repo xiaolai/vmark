@@ -15,7 +15,7 @@
  *     middles / tails, regexes, JSX text), Rust through `rustSource.mjs`. So a
  *     header quoted inside a test's template literal is never read as the
  *     test's own header, however its lines start, and a `@generated` quoted in
- *     one cannot skip the file that quotes it (audit 20260907 #84 — with the
+ *     one cannot skip the file that quotes it (with the
  *     line model alone, a `/*` that opened a line inside a template literal was
  *     a comment, and a `@generated` there within the first 20 lines skipped
  *     every real header in the file). A hand-rolled backtick tokenizer was

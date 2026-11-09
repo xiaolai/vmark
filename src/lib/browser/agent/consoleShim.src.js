@@ -14,7 +14,7 @@
 //
 // The closure array is the source of truth and is rewritten into the element on
 // every entry, so a host clear that only blanked the element re-published every
-// drained entry on the next log (audit 2026-09-03 S-01). The host's clearing read
+// drained entry on the next log. The host's clearing read
 // now stamps `data-drain` on the element; before every push the shim compares
 // that stamp with the one it last saw and drops its copy when it moved. O(1), and
 // a page that forges the stamp only discards its own entries.

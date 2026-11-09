@@ -1,6 +1,6 @@
 //! Every plugin the app registers, and the order that order matters in.
 //!
-//! Purpose: split from `lib.rs` (audit 20260907 #358). `run` had grown to ~160
+//! Purpose: split from `lib.rs`. `run` had grown to ~160
 //! lines holding platform policy, plugin registration, state injection,
 //! protocol handling, debug automation and event-loop startup in one scope, and
 //! `lib.rs` had reached the 300-line cap exactly — so the composition root

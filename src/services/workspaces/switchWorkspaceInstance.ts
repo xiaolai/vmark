@@ -134,7 +134,7 @@ export function switchWorkspaceInstance(
   const store = useWorkspaceInstancesStore.getState();
   const windowState = store.windows[windowLabel];
   if (!windowState?.workspaceInstanceIds.includes(instanceId)) return declined();
-  // Audit 20260831 #23: membership without a RECORD is a corrupt store —
+  // Membership without a RECORD is a corrupt store —
   // decline rather than restore a context that cannot resolve.
   if (!store.instances[instanceId]) return declined();
 

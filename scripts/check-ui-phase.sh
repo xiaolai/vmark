@@ -15,8 +15,8 @@
 # plus the RUN of every test it names as a deliverable: a test file that
 # exists but is empty, skipped or failing is not a deliverable, so phases 0, 1
 # and 4 run theirs through vitest and read the JSON report SUITE BY SUITE
-# (audit 20260907 #63/#65/#66 — existence alone was the assertion before, and
-# then a run total, which one green suite satisfied on behalf of a skipped one).
+# (existence alone was the assertion before, and then a run total, which one
+# green suite satisfied on behalf of a skipped one).
 # The fixture assertions under dev-docs/ (phase 0's PNGs and reference doc,
 # phase 4's design-system.md) run only where that folder exists, and
 # VMARK_UI_PHASE_NO_DEVDOCS=1 skips them explicitly — see has_devdocs.
@@ -110,7 +110,7 @@ assert_cmd() {
 # no failing one, and every suite that matches the filter ON DISK must appear
 # in the report BY NAME. The run's totals are not enough — an all-`it.skip`
 # suite reports `status: "passed"` with only skipped assertions, and beside one
-# green suite it vanished into a green total (audit 20260907 #66).
+# green suite it vanished into a green total.
 #
 # Two things this used to get wrong: vitest's exit status
 # was DISCARDED, so a run that wrote a green-looking report and then died (a

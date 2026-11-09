@@ -4,8 +4,8 @@
  * `useTerminalSessions`'s init effect subscribes to the terminal store and
  * reconciles the live xterm instances against it. That reconciliation was inline
  * in a 61-line effect, and no test reached it: `TerminalPanel.test.tsx` mocks the
- * hook wholesale, so session add, removal and active-switch were all unverified
- * (audit 20260815-163607 #20). The diff itself has no React or xterm in it, so
+ * hook wholesale, so session add, removal and active-switch were all unverified.
+ * The diff itself has no React or xterm in it, so
  * it belongs here where it can be tested directly.
  *
  * @coordinates-with useTerminalSessions.ts — sole consumer

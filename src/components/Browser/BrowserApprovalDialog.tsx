@@ -12,7 +12,7 @@
  * An attach approval is an IPC in flight until confirmed; the buttons are disabled
  * while it is (`resolving` in the store), so a second click cannot start a
  * concurrent attach whose completion order would decide the final authority. If
- * the IPC fails the prompt stays raised and SAYS SO (audit 2026-09-03 #153): the
+ * the IPC fails the prompt stays raised and SAYS SO: the
  * store puts an i18n key on the entry (`attachError`), rendered here as a live
  * `role="alert"` line, and the buttons re-enable so the user can retry or deny.
  *
@@ -32,7 +32,7 @@
  * Fail-closed: Escape denies, and Deny holds focus, so a stray Enter can never
  * authorize an action.
  *
- * Prompt-swap protection (audit 2026-09-03 A-02): the head of the queue can be
+ * Prompt-swap protection: the head of the queue can be
  * removed asynchronously by things the AI controls — cancelling its own workflow
  * run withdraws that run's prompt, a sandbox navigation dismisses a tab's prompts —
  * so the NEXT prompt could render under a click the user aimed at the previous
@@ -132,8 +132,8 @@ export function BrowserApprovalDialog(): React.ReactElement | null {
   // Driven by PRESENCE, not by a hardcoded operation list. The list said
   // ["eval","session"] while the store records a script for `style` too, so an
   // AI-chosen stylesheet was authorised unseen — a list in the view duplicating
-  // knowledge the store owns, which drifted the moment `style` was added
-  // (audit 20260815-163607 #21). Anything that carries a payload now shows it.
+  // knowledge the store owns, which drifted the moment `style` was added.
+  // Anything that carries a payload now shows it.
   // A payload-binding op with a human summary (type/key/scroll) shows the summary,
   // not the built script the summary describes — UNCUT, in a scrolling block:
   // the summary of a `type` is the whole text the bound script will enter.

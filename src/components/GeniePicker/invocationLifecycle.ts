@@ -1,5 +1,5 @@
 /**
- * Genie invocation lifecycle (audit 20260907, #309/#310).
+ * Genie invocation lifecycle.
  *
  * The picker used to close itself BEFORE invoking a genie, so `isOpen` was
  * false by the time the stream runner moved the store to processing/preview/

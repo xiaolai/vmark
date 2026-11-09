@@ -214,7 +214,7 @@ pub fn set_bounds(
 }
 
 /// Resume a parked `confirm()` dialog with the user's answer — but only
-/// from the window that owns the dialog's tab (audit 20260903).
+/// from the window that owns the dialog's tab.
 ///
 /// A dialog id is a small integer that travels through the frontend; a guessed or
 /// stale one from another window must not answer a page that window cannot see.

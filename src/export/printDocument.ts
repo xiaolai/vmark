@@ -1,5 +1,5 @@
 /**
- * Print document assembly (audit 20260907, #344/#345/#346).
+ * Print document assembly.
  *
  * Purpose: the building blocks the print / native-PDF operations share, split
  * out of `useExportOperations.ts` so each is testable on its own —
@@ -99,8 +99,7 @@ export function liveEditorElement(tabId: string | null): Element | null {
  * COLLAPSED element's contents with `content-visibility`, which no display
  * override reaches. A reader cannot click paper open, so a collapsed section
  * printed with its body missing — pure data loss, and this builder was the one
- * caller that composed the CSS without the markup step it depends on (audit
- * 20260907 round 2).
+ * caller that composed the CSS without the markup step it depends on.
  */
 export async function buildPrintHtml(bodyHtml: string): Promise<string> {
   const themeCSS = captureThemeCSS();

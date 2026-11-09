@@ -178,7 +178,7 @@ pub async fn sequential(app: &tauri::AppHandle, out: &Path) -> usize {
         // Reporting "PASS 20 exports" here is what the old shared-counter
         // version did after breaking out early.
         //
-        // `INCOMPLETE`, not a second `FAIL` (audit 20260907 #262). The render
+        // `INCOMPLETE`, not a second `FAIL`. The render
         // error above already printed `FAIL at {i}` and already counted one, so
         // a second FAIL marker made the transcript claim two failures where the
         // count says one — and the transcript is what a caller greps. This line

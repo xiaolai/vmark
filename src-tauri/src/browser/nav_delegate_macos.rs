@@ -77,7 +77,7 @@ define_class!(
             let url = action_url(navigation_action);
             // Nil target frames are blocked popups; they must not mint navigation tickets.
             // A SUBFRAME on an AI-owned tab meets the same destination policy as the
-            // main frame (audit 20260903 P-01) — no ticket, no failure event, just a
+            // main frame — no ticket, no failure event, just a
             // cancelled frame load.
             let target = targets_main_frame(navigation_action);
             let main_frame = target == Some(true);

@@ -26,7 +26,7 @@
  *     queue on rebind. Two mounted workbenches used to fight over it (the
  *     last mount won), so a workbench rebinds to ITS document whenever a
  *     pointer or focus enters it and again before it saves, and it only
- *     ever applies its own queue (audit 20260907, #293/#296). The mount /
+ *     ever applies its own queue. The mount /
  *     re-parse effect yields while the user's focus is in ANOTHER bound
  *     document's surface: a second pane opening, or this pane re-parsing
  *     after an external change, must not redirect a pane they are typing in.
@@ -186,7 +186,7 @@ export function GhaWorkflowWorkbench({
     // `pointerdown` fires BEFORE the browser moves focus, so a field in the
     // OTHER pane has not blurred yet — and blur is how the forms COMMIT. Blur
     // it first, under the binding it still belongs to, or its patch is queued
-    // against this pane's document (audit 20260907, #293, round 3).
+    // against this pane's document.
     const outgoing = focusedOutside(rootRef.current);
     if (outgoing instanceof HTMLElement) outgoing.blur();
     useWorkflowStore.getState().bindToDocument(workflowDocumentIdFor(tabId));

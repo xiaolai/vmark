@@ -12,7 +12,7 @@
 //! the check and the enqueue — closing the window where another thread could
 //! navigate or destroy the tab — and the caller awaits unlocked.
 //!
-//! **Every outcome is typed** (audit 20260903 E-03/E-04). A timeout, a thrown
+//! **Every outcome is typed**. A timeout, a thrown
 //! exception, a `null` result and an oversized result used to come back as the
 //! strings `<timeout>` and `<null>` — a caller could not tell a page whose title
 //! is `<null>` from a script that failed, and reported a still-running script as

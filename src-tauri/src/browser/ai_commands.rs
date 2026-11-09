@@ -184,7 +184,7 @@ pub async fn browser_ai_create(
     let (ticket, _replaced) = begin_ai_navigation(&state, &tab_id, &url, mode)?;
     let create_profile = authorize_profile(&state, &tab_id, profile, &url)?;
     // `allow_loopback` reaches the native layer so the AI webview's content rule
-    // list (audit 20260903 P-01) is compiled for the same posture the URL was
+    // list is compiled for the same posture the URL was
     // validated against.
     create_native(&state, &tab_id, || {
         surface::create_with_mode(

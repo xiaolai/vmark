@@ -1,5 +1,5 @@
 /**
- * The drain stamp (audit 2026-09-03, S-01) — the one snippet both host clear
+ * The drain stamp — the one snippet both host clear
  * scripts write and both page-world shims read.
  *
  * Why it exists: each shim keeps a closure array as its source of truth and
@@ -46,7 +46,7 @@ const MAX_DRAIN_CHARS = 256 * 1024;
  * `{[key]: [], oversized: true}` when the raw text exceeds `MAX_DRAIN_CHARS`. A
  * page that cleared or corrupted the buffer just yields `[]` — the reader never
  * throws. A clearing read also bumps the drain stamp, which is what makes the
- * clear stick (audit 2026-09-03 S-01): the shim's closure array is its source of
+ * clear stick: the shim's closure array is its source of
  * truth and used to re-publish every drained entry on the next log.
  *
  * ONE builder for the console and recorder buffers — the two copies had already

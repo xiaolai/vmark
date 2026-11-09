@@ -37,7 +37,7 @@ const RUNTIME_SERVICES: ReadonlyArray<() => () => void> = [
   // Lease event sources: native page input reclaims an AI-held tab;
   // tab close drops lease state.
   startBrowserLeaseWiring,
-  // Native views stay alive while their tab exists (audit 2026-09-03 L-01): one
+  // Native views stay alive while their tab exists: one
   // window-level consumer keeps every tab's mirror honest, and the removal bus
   // is what finally destroys a view.
   startBrowserTabEvents,

@@ -1,6 +1,5 @@
 /**
- * useSplitDrag — the pointer-drag half of a split divider (audit 20260907,
- * #277/#278/#279). Returns the `onPointerDown` handler; the caller owns the
+ * useSplitDrag — the pointer-drag half of a split divider. Returns the `onPointerDown` handler; the caller owns the
  * keyboard half and the ARIA surface.
  *
  * Key decisions:

@@ -17,8 +17,7 @@
  * remains is what the compiler reads as code, which is what a text probe has
  * to run over: a `provision::transition` in a doc comment is not a call site,
  * a `#[path = "x.test.rs"]` inside a block comment includes nothing, and a
- * `with_id(app, "save", …)` behind `//` labels no menu item (audit 20260907
- * #26, #31, #45). `keepStrings` is for probes whose subject IS a literal —
+ * `with_id(app, "save", …)` behind `//` labels no menu item. `keepStrings` is for probes whose subject IS a literal —
  * the `t!("menu.key")` label key; `keepComments` is the inverse, for a probe
  * whose subject IS the comments (the header-reference scanner) and that must
  * not read a `//!`-shaped line inside a raw string as one of them.

@@ -69,8 +69,7 @@ export interface BrowserUiEntry {
    */
   error: string | null;
   /**
-   * The last popup the page tried to open and VMark blocked (audit 2026-09-03
-   * X-03), or null. `window.open` / `target=_blank` are refused by the UI
+   * The last popup the page tried to open and VMark blocked, or null. `window.open` / `target=_blank` are refused by the UI
    * delegate; before this the URL was discarded with a debug log and neither the
    * user nor the AI learned that a click had led anywhere. The chrome offers to
    * open it as a new tab; an act that raised it reports it.
@@ -78,7 +77,7 @@ export interface BrowserUiEntry {
   blockedPopup: { url: string; at: number } | null;
   /**
    * Non-null while a page JS dialog (`alert`/`confirm`) is open. Held in
-   * the store, not in the surface component (audit 2026-09-03): the event arrives
+   * the store, not in the surface component: the event arrives
    * for whichever tab the page belongs to, mounted or not, and a `confirm()` parks
    * the page's JS until someone answers — so the tab is brought forward and the
    * surface renders the dialog from here when it mounts.

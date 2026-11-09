@@ -68,7 +68,7 @@ export function formatLookupKeys(filePath: string): string[] {
  * whole key list: those keys include the full basename, so a file named `md` or
  * `html` with no extension at all resolved to that format — against the
  * registry's own contract that markdown matches only via its registered
- * `.md`-family extensions (audit 20260907 round 2). A user ASSOCIATION still
+ * `.md`-family extensions. A user ASSOCIATION still
  * matches on every key; `dockerfile` as a full name is the point there.
  *
  * Derived from `formatLookupKeys` rather than re-parsing the path, so the two
