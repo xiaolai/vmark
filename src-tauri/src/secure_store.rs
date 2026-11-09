@@ -38,7 +38,7 @@
 //!     `errSecItemNotFound` → `not-found`, `errSecUserCanceled` →
 //!     `cancelled`, and every OTHER status → `internal` — with the status
 //!     itself in `detail.osStatus`. `internal` is the conservative fallback:
-//! the earlier `io` invited a retry that an
+//!     the earlier `io` invited a retry that an
 //!     unrecognised status — a decode failure, a missing entitlement, a code
 //!     Apple adds tomorrow — has given no reason to expect. A
 //!     `PlatformFailure` that is not a keychain status, and every other

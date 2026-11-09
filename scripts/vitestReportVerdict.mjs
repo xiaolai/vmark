@@ -28,7 +28,7 @@
  *     different set of the same size passed.
  *   - A suite whose every case is skipped reports `status: "passed"` with only
  *     skipped assertions, and vanishes into a green total beside its siblings.
- * Every suite must have a passing case and no
+ *     Every suite must have a passing case and no
  *     failing one.
  *   - An EMPTY expectation is a failure, not a vacuous pass: it means the
  *     filter matched nothing on disk, so the phase asserted nothing.

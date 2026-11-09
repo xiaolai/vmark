@@ -243,7 +243,7 @@ function applySensitivityRecords(records) {
  *  page that flips `type` away from password and then commits the field in the
  *  SAME task — inside its own input handler, then `blur()` — reached the commit
  *  before the permanent mark existed, and the value was recorded as ordinary.
- * Every commit path drains first, which is the only
+ *  Every commit path drains first, which is the only
  *  ordering that makes the observer's evidence available when it is needed. */
 function flushSensitivity() {
   if (!sensitivityObserver) return;
