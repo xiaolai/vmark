@@ -55,3 +55,21 @@ export function registerTerminalResolver(next: TerminalResolver): () => void {
 export function getTerminalForSession(sessionId: string): RunTargetTerminal | null {
   return resolver?.(sessionId) ?? null;
 }
+
+export interface CodeBlockTerminal {
+  run: (shell: "powershell" | "cmd" | "python", source: string) => Promise<void>;
+  focus: () => void;
+}
+
+type CodeBlockTerminalResolver = (sessionId: string) => CodeBlockTerminal | null;
+let codeBlockResolver: CodeBlockTerminalResolver | null = null;
+
+/** Publish only ready PTYs; a deferred Run stays pinned to its original session. */
+export function registerCodeBlockTerminalResolver(next: CodeBlockTerminalResolver): () => void {
+  codeBlockResolver = next;
+  return () => { if (codeBlockResolver === next) codeBlockResolver = null; };
+}
+
+export function getCodeBlockTerminalForSession(sessionId: string): CodeBlockTerminal | null {
+  return codeBlockResolver?.(sessionId) ?? null;
+}

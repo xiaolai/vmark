@@ -5,12 +5,12 @@
  * integrated terminal (F1). VMark is a markdown editor full of `bash`
  * fences; this closes the copy-switch-paste loop.
  * Explicit Windows fences instead delegate to runWindowsCodeBlock, which
- * executes it in a matching dedicated internal PowerShell/CMD session.
+ * executes it in the current internal terminal with a matching interpreter.
  *
  * SECURITY BOUNDARY — read before changing anything here.
  *   The Unix-shell paste path accepts documents from a clone, download or
  *   AI tool. Its payload is *pasted into the input line* and must **never
- *   auto-execute**. Explicit Windows Run clicks use dedicated internal sessions.
+ *   auto-execute**. Explicit Windows Run clicks execute in the internal terminal.
  *   Two separate things are required for that, and both are enforced here:
  *
  *   1. **No trailing line terminator.** A trailing "\n" IS an Enter press.
@@ -232,7 +232,7 @@ function deliver(
 /**
  * Send a shell code block to the terminal, creating a session and revealing
  * the panel if needed. Unix fences are pasted without execution; explicitly
- * tagged Windows fences execute in their matching dedicated internal session.
+ * tagged Windows fences execute in the current internal session.
  * Resolves once delivery or internal session startup succeeded or failed.
  */
 export function runInTerminal(

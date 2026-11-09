@@ -144,6 +144,52 @@ fn assert_interpreters(shells: &[CodeShell]) {
         while !marker.exists() && Instant::now() < deadline {
             std::thread::sleep(Duration::from_millis(25));
         }
+        let mut reused_paths = Vec::new();
+        for (index, language) in [CodeShell::PowerShell, CodeShell::Cmd]
+            .into_iter()
+            .enumerate()
+        {
+            let reuse_marker = dir.path().join(format!("reuse-{index}.txt"));
+            let source = if matches!(language, CodeShell::Cmd) {
+                format!("> \"reuse-{index}.txt\" echo reused")
+            } else {
+                format!(
+                    "[IO.File]::WriteAllText('{}', 'reused')",
+                    reuse_marker.to_string_lossy().replace('\'', "''")
+                )
+            };
+            let request = CodeBlockRequest {
+                shell: language,
+                source,
+            };
+            run_in_session(&session, request).unwrap();
+            reused_paths.extend(
+                session
+                    .code_block_scripts
+                    .lock()
+                    .unwrap()
+                    .iter()
+                    .map(|path| path.to_path_buf()),
+            );
+            let current_script = reused_paths.last().unwrap();
+            let deadline = Instant::now() + Duration::from_secs(20);
+            while (!reuse_marker.exists() || current_script.exists()) && Instant::now() < deadline {
+                std::thread::sleep(Duration::from_millis(25));
+            }
+            assert!(
+                reuse_marker.exists(),
+                "Reuse failed: {}",
+                String::from_utf8_lossy(&output.lock().unwrap())
+            );
+            assert_eq!(
+                std::fs::read_to_string(reuse_marker).unwrap().trim(),
+                "reused"
+            );
+            assert!(
+                !current_script.exists(),
+                "Completed Run retained its script"
+            );
+        }
         super::super::session::terminate(&[session]);
         assert!(
             marker.exists(),
@@ -160,6 +206,10 @@ fn assert_interpreters(shells: &[CodeShell]) {
         };
         assert!(String::from_utf8_lossy(&output.lock().unwrap()).contains(expected));
         assert!(!script_path.exists(), "PTY teardown retained its script");
+        assert!(
+            reused_paths.iter().all(|path| !path.exists()),
+            "PTY teardown retained reused scripts"
+        );
         std::fs::remove_file(&marker).unwrap();
     }
 }

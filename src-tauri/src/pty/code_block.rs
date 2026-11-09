@@ -2,6 +2,7 @@
 //! Source is a temporary script; its guard follows the PTY's teardown path.
 //! @module pty/code_block
 use crate::command_error::CommandError;
+use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::io::Write;
@@ -54,6 +55,41 @@ impl CodeShell {
 }
 
 impl CodeBlockRequest {
+    fn reuse_command(&self, host: &str, script: &std::path::Path) -> Result<String, CommandError> {
+        let path = script.to_string_lossy().replace('\'', "''");
+        let source = match self.shell {
+            CodeShell::Cmd => format!(
+                "& {{ $previous = $env:VMARK_CODE_BLOCK_SCRIPT; try {{ $env:VMARK_CODE_BLOCK_SCRIPT = '{path}'; & $env:ComSpec /d /c 'chcp {} >nul & \"%VMARK_CODE_BLOCK_SCRIPT%\"' }} finally {{ $env:VMARK_CODE_BLOCK_SCRIPT = $previous }} }}",
+                encoding::cmd_code_page()
+            ),
+            _ => self.shell.command().trim_end_matches('\r').replace("$env:VMARK_CODE_BLOCK_SCRIPT", &format!("'{path}'")),
+        };
+        let source = format!("try {{ {source} }} finally {{ [IO.File]::Delete('{path}') }}");
+        let name = std::path::Path::new(host)
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("")
+            .to_ascii_lowercase();
+        match name.as_str() {
+            "powershell.exe" | "pwsh.exe" => Ok(format!("{source}\r")),
+            "cmd.exe" => {
+                let root = std::env::var_os("SystemRoot")
+                    .ok_or_else(|| CommandError::not_found("SystemRoot is missing"))?;
+                let powershell = std::path::PathBuf::from(root)
+                    .join("System32/WindowsPowerShell/v1.0/powershell.exe");
+                let bytes: Vec<u8> = source.encode_utf16().flat_map(u16::to_le_bytes).collect();
+                let encoded = base64::engine::general_purpose::STANDARD.encode(bytes);
+                Ok(format!(
+                    "\"{}\" -NoLogo -NoProfile -EncodedCommand {encoded}\r",
+                    powershell.display()
+                ))
+            }
+            _ => Err(CommandError::unsupported(
+                "Code-block reuse requires PowerShell or CMD",
+            )),
+        }
+    }
+
     fn prepare(&self, file: &str) -> Result<tempfile::TempPath, CommandError> {
         if !cfg!(target_os = "windows") {
             return Err(CommandError::unsupported(
@@ -153,6 +189,48 @@ pub async fn pty_spawn_code_block(
         pid,
         command: command_line,
     })
+}
+
+fn run_in_session(
+    session: &super::session::Session,
+    code_block: CodeBlockRequest,
+) -> Result<(), CommandError> {
+    let script = code_block.prepare(code_block.shell.executable())?;
+    let command = code_block.reuse_command(&session.shell_file, &script)?;
+    {
+        let mut scripts = session
+            .code_block_scripts
+            .lock()
+            .map_err(|error| super::pty_internal("Code-block script lock failed", error))?;
+        if session.shutdown.load(Ordering::Acquire) {
+            return Err(CommandError::not_found("Terminal was closed"));
+        }
+        scripts.retain(|path| path.exists());
+        scripts.push(script);
+    }
+    super::input::write_input(session, command.as_bytes(), super::input::STALL_LIMIT)
+        .map_err(super::pty_io)
+}
+
+/// Run in an existing window-owned PTY without replacing its shell or output.
+#[tauri::command]
+pub async fn pty_run_code_block(
+    pid: u32,
+    code_block: CodeBlockRequest,
+    window: tauri::Window,
+) -> Result<(), CommandError> {
+    let state = window.state::<super::PtyState>();
+    let session = super::session::get_session(&state, pid)
+        .await
+        .map_err(|_| super::session_gone(pid))?;
+    if session.owner != window.label() {
+        return Err(CommandError::invalid_input(
+            "Terminal belongs to another window",
+        ));
+    }
+    tokio::task::spawn_blocking(move || run_in_session(&session, code_block))
+        .await
+        .map_err(|error| super::pty_internal("Code-block execution failed", error))?
 }
 
 #[cfg(test)]

@@ -1,6 +1,6 @@
 /**
- * Execute Windows code blocks in dedicated INTERNAL terminal sessions.
- * Source stays pinned to the newly created session until its PTY accepts it.
+ * Execute Windows code blocks in the current INTERNAL terminal session.
+ * Source stays pinned to the chosen session until its PTY accepts it.
  * @module services/terminal/runWindowsCodeBlock
  */
 import { useTerminalStore } from "@/stores/terminalStore";
@@ -11,6 +11,8 @@ import { getActiveWorkspaceScope } from "@/services/workspaces/activeWorkspaceSc
 import { getParentDir } from "@/utils/paths/paths";
 import { createTerminalSessionInScope } from "./createTerminalSession";
 import { revealTerminalSession } from "./revealTerminalSession";
+import { getVisibleTerminalSessions } from "./visibleTerminalSessions";
+import { getCodeBlockTerminalForSession } from "./activeTerminal";
 import type { RunInTerminalResult } from "./runInTerminal";
 
 export function windowsCodeBlockShell(language: string): "powershell" | "cmd" | "python" | null {
@@ -39,6 +41,27 @@ export async function runWindowsCodeBlock(source: string, language: string): Pro
   const shell = windowsCodeBlockShell(language);
   if (!shell) return { ok: false, reason: "not-shell" };
   if (!source.trim()) return { ok: false, reason: "empty" };
+  const store = useTerminalStore.getState();
+  const visible = getVisibleTerminalSessions(getCurrentWindowLabel()).filter(session => session.isAlive);
+  const existing = visible.find(session => session.id === store.activeSessionId) ?? visible[0];
+  if (existing) {
+    revealTerminalSession(existing.id);
+    const deadline = Date.now() + 30_000;
+    while (Date.now() < deadline) {
+      const session = useTerminalStore.getState().sessions.find(item => item.id === existing.id);
+      if (!session?.isAlive) return { ok: false, reason: "launch-failed" };
+      const terminal = getCodeBlockTerminalForSession(existing.id);
+      if (terminal && session.pendingCode === undefined) {
+        try {
+          await terminal.run(shell, source);
+          terminal.focus();
+          return { ok: true };
+        } catch { return { ok: false, reason: "launch-failed" }; }
+      }
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    return { ok: false, reason: "timeout" };
+  }
   const cwd = workingDirectory();
   const created = createTerminalSessionInScope(getCurrentWindowLabel(), {
     windowsShell: shell, pendingCode: source, ...(cwd !== undefined ? { requestedCwd: cwd } : {}),

@@ -54,15 +54,14 @@ pub(super) struct Session {
     pub(super) master: StdMutex<Box<dyn MasterPty + Send>>,
     pub(super) pause_ctl: PauseControl,
     pub(super) shutdown: AtomicBool,
-    code_block_script: StdMutex<Option<tempfile::TempPath>>,
+    pub(super) code_block_scripts: StdMutex<Vec<tempfile::TempPath>>,
+    pub(super) shell_file: String,
 }
-
 /// Why a reader thread could not be started.
 pub(super) enum StartError {
     AlreadyStarted,
     Spawn(std::io::Error),
 }
-
 impl Session {
     /// Start the reader thread, handing it the session and its output source.
     /// The reader slot stays locked across the spawn, so a concurrent
@@ -133,7 +132,7 @@ fn stop_shells(sessions: &[Arc<Session>]) {
     let children: Vec<&ChildSlot> = sessions.iter().map(|session| &session.child).collect();
     terminate_children(&children, HANGUP_GRACE);
     for session in sessions {
-        lock(&session.code_block_script).take();
+        lock(&session.code_block_scripts).clear();
     }
 }
 
@@ -194,6 +193,7 @@ pub(super) fn create_session_with_script(
     // Before the spawn: a failure here must not leave a shell nobody owns.
     let (output, interrupter) = output::channel(pair.master.as_ref()).map_err(|e| e.to_string())?;
 
+    let shell_file = command.file().to_string();
     let mut command = command.into_builder(cwd);
     if let Some(path) = &script {
         command.env("VMARK_CODE_BLOCK_SCRIPT", path.as_os_str());
@@ -216,7 +216,8 @@ pub(super) fn create_session_with_script(
         master: StdMutex::new(pair.master),
         pause_ctl: PauseControl::new(),
         shutdown: AtomicBool::new(false),
-        code_block_script: StdMutex::new(script),
+        code_block_scripts: StdMutex::new(script.into_iter().collect()),
+        shell_file,
     })
 }
 
