@@ -1,5 +1,5 @@
 /**
- * The shared perception core's typed name (audit 2026-09-03, S-02).
+ * The shared perception core's typed name.
  *
  * Purpose: give the TypeScript side ONE import for the raw ES5 asset
  * `agentCore.src.js` + `agentCoreWalk.src.js` + `agentCoreRoles.src.js` — the

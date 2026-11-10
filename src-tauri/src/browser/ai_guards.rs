@@ -140,7 +140,7 @@ pub(super) fn require_current_epoch(
     }
 }
 
-/// The AI already holds [`MAX_AI_TABS`] live tabs (audit 20260903 X-01). A
+/// The AI already holds [`MAX_AI_TABS`] live tabs. A
 /// conflict: closing one lifts it, and no approval can — so no prompt is raised.
 /// `detail.limit` carries the bound so the client need not parse the sentence.
 pub(super) fn require_ai_tab_capacity(live: usize) -> Result<(), CommandError> {
@@ -218,8 +218,8 @@ pub(super) fn ai_policy(state: &BrowserSurface) -> Result<AiBrowserPolicy, Comma
 }
 
 /// May a shared-posture tab navigate to `url` without a prompt? Standing
-/// `navigate` authority is read from the grants of the WINDOW that owns the tab
-/// (audit 20260903 A-03); failing that, a `navigate` one-shot for this exact tab
+/// `navigate` authority is read from the grants of the WINDOW that owns the tab;
+/// failing that, a `navigate` one-shot for this exact tab
 /// and generation is consumed. An unknown tab has no window and so no grants —
 /// default-deny, then the one-shot path.
 pub(super) fn authorize_shared_navigation(

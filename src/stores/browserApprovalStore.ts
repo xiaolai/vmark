@@ -218,7 +218,7 @@ export const useBrowserApprovalStore = create<BrowserApprovalState & BrowserAppr
         // A denial is final and local. An APPROVAL depends on an IPC that can
         // fail, so the prompt stays raised until the attach is CONFIRMED —
         // dropping it first left a failure with no prompt, no attachment and no
-        // message (audit 20260815-163607 #24).
+        // message.
         // Single-flight: while the attach IPC is pending the prompt is still
         // raised, so a second click used to launch a second attach whose completion
         // order decided the final authority — and a Deny could drop the prompt while

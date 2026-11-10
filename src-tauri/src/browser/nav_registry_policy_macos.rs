@@ -8,7 +8,7 @@
 //! remembering the ticket the load rides.
 //!
 //! Standing `navigate` authority is read from the grants of the WINDOW that owns
-//! the tab (audit 20260903 A-03), through `BrowserSurface::is_granted_in_window`,
+//! the tab, through `BrowserSurface::is_granted_in_window`,
 //! with the registry guard held in the established registry → grants order.
 
 use crate::browser::ai_policy::{self, validate_ai_navigation_url};

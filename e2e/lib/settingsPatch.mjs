@@ -1,5 +1,5 @@
 /**
- * Shared persisted-settings reader/patcher (audit 20260831 #45): rail.mjs and
+ * Shared persisted-settings reader/patcher: rail.mjs and
  * browser.mjs had grown byte-similar copies of the same localStorage +
  * StorageEvent writer. This is the app's OWN cross-window settings mechanism
  * (`useSettingsSync.ts` listens for exactly this event), so the running store

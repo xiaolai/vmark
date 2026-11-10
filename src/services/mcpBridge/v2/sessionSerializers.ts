@@ -6,7 +6,7 @@
  *
  * Key decisions (carried from session.ts):
  *   - Human browser tabs are listed by id and origin only until the AI holds an
- *     attachment for them (audit 2026-09-03 X-02): attachment is the gate for AI
+ *     attachment for them: attachment is the gate for AI
  *     access to a human tab, and title and path are page content. An AI-owned tab
  *     carries its title and redacted url and omits `attached`.
  *   - `kind` is computed by sniffing filePath + content via the workflow detection
@@ -84,7 +84,7 @@ export function serializeBrowserTab(tab: BrowserTab, active: boolean): BrowserSe
   }
   // A human tab is the user's browsing. Attachment is the gate for AI access to
   // it (browser.md), so without one the listing carries only what the AI needs
-  // to ASK: the id and the origin. (Audit 2026-09-03 X-02.)
+  // to ASK: the id and the origin.
   const attached = useBrowserApprovalStore.getState().isHumanTabAttached(tab.id, generation);
   return attached
     ? { ...base, attached, title: tab.title, url: urlForAgent(tab.url) }

@@ -54,7 +54,7 @@ export function keyTokens(key) {
  * upper-cased — any script's letter (`\p{L}`), not only ASCII, so `é` renders
  * as `É` the way `n` renders as `N`. "Single" is one CODE POINT, not one
  * UTF-16 unit: an astral letter (Deseret `𐐨`) is two units long and a
- * `length === 1` test left it lower-case (audit 20260907 #91).
+ * `length === 1` test left it lower-case.
  * The keybinding gate uses it for error messages (its matching goes through
  * `canonAccel` for order tolerance); the lint-table doc join uses it as the
  * canonical spelling a guide page must carry.

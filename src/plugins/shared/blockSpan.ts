@@ -17,7 +17,7 @@
  *   - A blank line separates PARAGRAPHS, a fence bounds a code block, and a
  *     ONE-LINE block bounds its neighbours: an ATX heading or a thematic break
  *     is a whole block by grammar and never continues a paragraph, so `para` +
- *     `# heading` are two spans (audit 20260907, #440/#443 — resolving them as
+ *     `# heading` are two spans (#440/#443 — resolving them as
  *     one fenced the heading's TEXT with the paragraph and wrapped a block the
  *     user never selected). Fences are handled because getting them wrong was
  *     DESTRUCTIVE: a caret below a closing ``` resolved to the whole code block.

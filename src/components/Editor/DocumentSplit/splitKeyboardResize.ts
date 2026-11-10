@@ -1,6 +1,5 @@
 /**
- * splitKeyboardResize — the keyboard half of the split divider (audit
- * 20260907, #277): which fraction a key asks for, or `null` for a key the
+ * splitKeyboardResize — the keyboard half of the split divider: which fraction a key asks for, or `null` for a key the
  * divider does not own. Pure, so the arrow step and the Home/End jumps are
  * pinned without rendering.
  *

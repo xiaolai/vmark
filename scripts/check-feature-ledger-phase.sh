@@ -77,7 +77,7 @@ RULE60=".claude/rules/60-ai-governance.md"
 # `allow(dead_code)` is left on it. A file that merely dropped the attribute is
 # neither wired nor deleted.
 # The `(` is load-bearing: without it `use super::provision::transition;` — an
-# import that reaches nothing — satisfied the probe (audit 20260907 #31). The
+# import that reaches nothing — satisfied the probe. The
 # name must be APPLIED; that is what reachability means.
 PROVISION_RS="src-tauri/src/content_server/provision.rs"
 CONTENT_SERVER_MOD="src-tauri/src/content_server/mod.rs"

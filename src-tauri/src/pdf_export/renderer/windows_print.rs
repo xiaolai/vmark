@@ -60,7 +60,7 @@ fn start_print(
     html_path: &str,
     sink: Arc<RenderSink<PrintOutcome>>,
 ) -> Result<(), CommandError> {
-    // Translated (audit 20260907 #464). This is not a hidden helper: the window
+    // Translated. This is not a hidden helper: the window
     // is VISIBLE behind the print dialog and its title is what the user reads
     // in the task bar and the Alt-Tab switcher, so an English literal here is
     // the one untranslated string on an otherwise localized surface.

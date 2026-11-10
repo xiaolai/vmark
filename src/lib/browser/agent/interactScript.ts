@@ -1,5 +1,5 @@
 /**
- * Injected scroll/key act scripts (audit 2026-09-03 S-07).
+ * Injected scroll/key act scripts.
  *
  * Prepend `AGENT_LIB` so these reuse `__vmarkQueryByRef` and the perception core.
  * On macOS the synthetic tier IS eval-dispatched DOM events (SPIKE-3: synthesized

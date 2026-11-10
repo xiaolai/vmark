@@ -1,6 +1,6 @@
 /**
  * browserAttachmentMirror — reconcile the frontend's human-tab attachment mirror
- * to the DRIVER's report (audit 2026-09-03 round 4, #37).
+ * to the DRIVER's report.
  *
  * Purpose: `invokeAttached` has to know, after a rejected driver call on an
  * attached human tab, whether the driver spent the tab's one-use attachment.

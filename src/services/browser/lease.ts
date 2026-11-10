@@ -20,7 +20,7 @@
  *     the AI can only acquire a *free* tab. A human hold is the INTERRUPTION of an
  *     AI tenure, nothing more: reclaiming a tab the AI does not hold is a no-op, and
  *     the run service releases the hold (`release(tab, "human")`) when the
- *     interrupted run ends. Before audit 2026-09-03 W-04 a hold was permanent —
+ *     interrupted run ends. It used to be permanent —
  *     nothing released it, so one accidental scroll refused every later
  *     `workflow_run` on that tab until it was closed.
  *   - A run's envelope carries `{holder, epoch}`. `validate` rejects it as

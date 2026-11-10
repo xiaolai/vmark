@@ -3,7 +3,7 @@
 //! Purpose: the pure, platform-independent core of the embedded-browser surface.
 //! It owns the identity map — `tabId ↔ window ↔ navigation generation ↔ lifecycle
 //! state` — the lifecycle state machine, and the live AI-tab count behind the
-//! `MAX_AI_TABS` cap (audit 2026-09-03 X-01). The native surface (WKWebView on
+//! `MAX_AI_TABS` cap. The native surface (WKWebView on
 //! macOS today; WebView2/webkit2gtk backends planned for Windows/Linux) is layered
 //! on top and holds the actual view handle; this module owns the invariants the
 //! native layer, the automation lease (R11), and the eval watchdog all
@@ -133,7 +133,7 @@ impl Lifecycle {
     }
 }
 
-/// Cap on live AI-owned tabs (audit 20260903 X-01). Each `open` is an unprompted
+/// Cap on live AI-owned tabs. Each `open` is an unprompted
 /// `WKWebView` content process, and dedupe by URL is defeated by distinct paths, so
 /// without a bound an AI could grow processes without limit. `browser_ai_create`
 /// refuses past this with `TAB_LIMIT`; a closed tab frees its slot.

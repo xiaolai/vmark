@@ -1,5 +1,5 @@
 /**
- * Workflow identity (audit 2026-09-03 W-07, r3 #135) — what the completed-write
+ * Workflow identity — what the completed-write
  * ledger is keyed on.
  *
  * The ledger used to be keyed on the raw source bytes and ignored inputs, which

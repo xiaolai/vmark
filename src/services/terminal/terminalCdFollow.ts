@@ -28,7 +28,7 @@ export function shouldFollowWorkspaceCd(sessionId: string): boolean {
     .getState()
     .sessions.find((s) => s.id === sessionId);
   // Unknown id ⇒ the session is mid-teardown; never write into a dying shell
-  // in EITHER rail mode (audit 20260831 #16 — the rail-off early return used
+  // in EITHER rail mode (the rail-off early return used
   // to treat an unknown session as followable, contradicting this guard).
   if (session === undefined) return false;
   // Rail off ⇒ every existing session follows, exactly as before scoping —

@@ -1,6 +1,6 @@
 /**
  * Purpose: restore keyboard focus after a step→step navigation remount in the
- *   forms editor, split out of WorkflowEditorPanel (audit 20260907, #283).
+ *   forms editor, split out of WorkflowEditorPanel.
  *
  *   The `key=` prop change unmounts/remounts StepForm and strands keyboard
  *   focus on document.body. Only a transition between two non-null step ids

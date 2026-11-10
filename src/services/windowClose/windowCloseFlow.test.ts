@@ -45,6 +45,13 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({
   ask: (...args: unknown[]) => mockAsk(...args),
 }));
 
+const mockRetire = vi.fn((_ids: string[]) => Promise.resolve());
+const mockUnretire = vi.fn((_ids: string[]) => {});
+vi.mock("@/services/persistence/crashRecovery", () => ({
+  retireRecoveryTabs: (ids: string[]) => mockRetire(ids),
+  unretireRecoveryTabs: (ids: string[]) => mockUnretire(ids),
+}));
+
 import { runWindowCloseFlow } from "./windowCloseFlow";
 
 const WINDOW = "main";
@@ -220,5 +227,68 @@ describe("runWindowCloseFlow — save-normalization artifact", () => {
     expect(mockPromptSingle).toHaveBeenLastCalledWith(
       expect.objectContaining({ content: "line  \nnext plus more" })
     );
+  });
+});
+
+// #1658: a discarded buffer's recovery snapshot survived Quit, because the
+// delete was fire-and-forget and the process exited first.
+describe("runWindowCloseFlow — recovery snapshots (#1658)", () => {
+  it("durably retires snapshots of every tab BEFORE close_window", async () => {
+    const a = useTabStore.getState().createTab(WINDOW, null);
+    const b = useTabStore.getState().createTab(WINDOW, "/tmp/b.md");
+    useDocumentStore.getState().initDocument(a, "", null);
+    useDocumentStore.getState().initDocument(b, "x", "/tmp/b.md");
+    useDocumentStore.getState().setEditorContent(a, "丢弃的文字 discarded");
+    mockPromptSingle.mockImplementationOnce(async () => ({ action: "discarded" }) as never);
+
+    const order: string[] = [];
+    let retireDone = false;
+    mockRetire.mockImplementationOnce(async () => {
+      await new Promise((r) => setTimeout(r, 5));
+      retireDone = true;
+      order.push("retired");
+    });
+    vi.mocked(invoke).mockImplementation(async (cmd: string) => {
+      if (cmd === "close_window") {
+        expect(retireDone).toBe(true);
+        order.push("close_window");
+      }
+    });
+
+    expect(await runWindowCloseFlow(WINDOW, log)).toBe(true);
+    expect(order).toEqual(["retired", "close_window"]);
+    expect(mockRetire).toHaveBeenCalledWith(expect.arrayContaining([a, b]));
+    expect(mockUnretire).not.toHaveBeenCalled();
+  });
+
+  it("does not touch snapshots when the user cancels", async () => {
+    const a = useTabStore.getState().createTab(WINDOW, null);
+    useDocumentStore.getState().initDocument(a, "", null);
+    useDocumentStore.getState().setEditorContent(a, "keep");
+    mockPromptSingle.mockImplementationOnce(async () => ({ action: "cancelled" }) as never);
+
+    expect(await runWindowCloseFlow(WINDOW, log)).toBe(false);
+    expect(mockRetire).not.toHaveBeenCalled();
+    expect(closeWindowCalls()).toHaveLength(0);
+  });
+
+  it("lifts the retirement when an edit lands during the delete (window stays)", async () => {
+    const a = useTabStore.getState().createTab(WINDOW, "/tmp/a.md");
+    useDocumentStore.getState().initDocument(a, "clean", "/tmp/a.md");
+    mockRetire.mockImplementationOnce(async () => {
+      useDocumentStore.getState().setEditorContent(a, "landed");
+    });
+
+    expect(await runWindowCloseFlow(WINDOW, log)).toBe(true);
+    expect(mockUnretire).toHaveBeenCalledWith([a]);
+  });
+
+  it("lifts the retirement when close_window rejects", async () => {
+    const a = useTabStore.getState().createTab(WINDOW, "/tmp/a.md");
+    useDocumentStore.getState().initDocument(a, "clean", "/tmp/a.md");
+    vi.mocked(invoke).mockRejectedValueOnce(new Error("nope"));
+
+    await expect(runWindowCloseFlow(WINDOW, log)).rejects.toThrow("nope");
+    expect(mockUnretire).toHaveBeenCalledWith([a]);
   });
 });

@@ -38,7 +38,7 @@ export async function readBrowserSettings(client) {
  * would produce, so `useSettingsSync` applies it to the live Zustand store.
  */
 export async function patchBrowserSettings(client, patch) {
-  // Shared writer (audit 20260831 #45) — see settingsPatch.mjs.
+  // Shared writer — see settingsPatch.mjs.
   await patchPersistedSettings(client, "browser", patch);
 }
 

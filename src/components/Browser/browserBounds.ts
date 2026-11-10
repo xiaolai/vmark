@@ -1,5 +1,5 @@
 /**
- * browserBounds — one tab's `browser_set_bounds` channel (audit 2026-09-03 round 3, #167).
+ * browserBounds — one tab's `browser_set_bounds` channel.
  *
  * Purpose: the React adapter reports the reserved rect on every resize and reflow, and
  * the driver must end up holding the LAST one. Each report used to be its own

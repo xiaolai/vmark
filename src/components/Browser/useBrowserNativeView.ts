@@ -4,7 +4,7 @@
  * Purpose: on mount, make sure the tab's view exists and is visible; keep it aligned
  * under the reserved rect while mounted; on unmount, hide it. The registry itself —
  * create once, show/hide, destroy on tab close — is `services/browser/browserNativeViews`
- * (audit 2026-09-03 L-01: views are kept alive across tab switches).
+ * (views are kept alive across tab switches).
  *
  * Hazard handled here: **the rect can MOVE without resizing.** A ResizeObserver fires
  * on size. A terminal switching sides, or a bar appearing above the viewport, changes

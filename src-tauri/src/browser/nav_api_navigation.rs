@@ -1,4 +1,4 @@
-//! The pure half of owning an API-initiated navigation (audit 20260903, journey 37).
+//! The pure half of owning an API-initiated navigation (journey 37).
 //!
 //! `WKWebView.URL` is KVO-observed to catch SAME-DOCUMENT navigations — a
 //! `pushState`, a fragment change — which no public `WKNavigationDelegate` callback

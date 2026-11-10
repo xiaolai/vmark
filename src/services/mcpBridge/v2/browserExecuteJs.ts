@@ -5,7 +5,7 @@
  * handler an NSString for a string result, an NSDictionary/NSArray/NSNumber for
  * anything JSON-like, and nil plus an error for a throw. The Rust side used to
  * render the non-string cases through `-description` and the nil case as the
- * text `<null>` with `success:true` (audit 2026-09-03 E-04), so `return {a:1}`
+ * text `<null>` with `success:true`, so `return {a:1}`
  * came back as Apple's `{ a = 1; }` and `return document.foo.bar` as a success.
  *
  * The wrapper makes every outcome a JSON string with an explicit `ok` flag:

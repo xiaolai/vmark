@@ -123,7 +123,7 @@ fn build_document_window<R: Runtime>(
 ///
 /// The `doc-{n}` spelling is the allocator's contract with
 /// `create_document_window_with_label_and_url`, which parses the number back
-/// out for the cascade — so it is defined once (audit 20260907 #487); it had
+/// out for the cascade — so it is defined once; it had
 /// three copies.
 fn next_window_label() -> (u32, String) {
     let count = WINDOW_COUNTER.fetch_add(1, Ordering::SeqCst);
@@ -165,7 +165,7 @@ pub(crate) fn create_document_window_with_label_and_url<R: Runtime>(
     // Parse counter from label for cascade position (e.g., "doc-5" → 5).
     //
     // A label `next_window_label` could not have produced falls back to
-    // position zero, and that fallback is now LOUD (audit 20260907 #489). It
+    // position zero, and that fallback is now LOUD. It
     // stays a fallback rather than an error on purpose: the labels reaching
     // here come from hot-exit restore, so refusing would trade a window opening
     // at the wrong corner for the user's restored tabs not opening at all. But
@@ -213,7 +213,7 @@ pub fn create_document_window<R: Runtime>(
     workspace_root: Option<&str>,
 ) -> Result<String, tauri::Error> {
     // Delegates rather than repeating the allocate/label/position/build
-    // sequence (audit 20260907 #487): the only thing this entry point adds is
+    // sequence: the only thing this entry point adds is
     // turning its two optional arguments into a URL.
     create_document_window_with_url(app, build_window_url(file_path, workspace_root))
 }

@@ -109,7 +109,7 @@ export function parseNavigableUrl(input: string): URL | null {
  * where it is; if it legitimately needs a query value it can read the rendered page.
  * (This extends the earlier userinfo-only redaction.)
  *
- * FAILS CLOSED (audit 2026-09-03 round 1): a URL that will not parse yields a placeholder,
+ * FAILS CLOSED: a URL that will not parse yields a placeholder,
  * not the raw string — an unparseable value can still carry a credential — and an OPAQUE
  * origin (`data:`/`blob:`/`about:`) exposes only its scheme, because a `data:` URL carries
  * its whole payload in what `URL` calls the path. The earlier rule returned both whole.
@@ -172,8 +172,7 @@ export function originForAgent(url: string): string {
  * password is a credential; a username is an address.
  *
  * A URL that will not parse — or that is not http(s), `about:blank` or `about:srcdoc`
- * — is written as the EMPTY string. It FAILS CLOSED (audit
- * 20260907, #397). This is the redactor at the persistence boundary, and an input the
+ * — is written as the EMPTY string. It FAILS CLOSED. This is the redactor at the persistence boundary, and an input the
  * parser refuses can still carry a credential (`https://alice:hunter2@exa mple.com`
  * fails on the space and used to be written verbatim). Nothing is lost: a record with
  * an empty url is dropped as malformed on restore (`sessionTabs.ts`), which is what
@@ -224,7 +223,7 @@ function stripPassword(parsed: URL): boolean {
  * An SPA fragment is a ROUTE with its own query (`#/callback?access_token=…`):
  * the parameters sit after the first `?`, and the route before it stays. Read as
  * one parameter list, the route swallowed the first name (`/callback?token`) and
- * the credential behind it persisted (audit 20260907, #395).
+ * the credential behind it persisted.
  *
  * The route is also a PATH: `#/reset/<token>` survived intact because nothing ran
  * it through `credentialPath` (round 2). Only a `/`-led (or `!/`-led) route

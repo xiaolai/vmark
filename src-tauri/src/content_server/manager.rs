@@ -11,7 +11,7 @@
 //! it back as a `cleanup::Detached` (or cleans it up itself after releasing
 //! the lock), because killing and reaping a child under the registry lock let
 //! one slow reap block every other workspace's status, stop, start and
-//! supervisor poll (audit 20260907 #121). A child a teardown could not stop
+//! supervisor poll. A child a teardown could not stop
 //! is kept as an orphan rather than forgotten (`retain_orphan`); the
 //! orphans, `shutdown_all` and `Drop` live in `manager_teardown.rs`.
 

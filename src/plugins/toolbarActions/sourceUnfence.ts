@@ -2,7 +2,7 @@
  * Source Unfence — the code-block TOGGLE's way out.
  *
  * Purpose: replace a fenced block with its literal contents. Split out of
- * `sourceInsertActions.ts` (audit 20260907, #444) so the list-item rule below
+ * `sourceInsertActions.ts` so the list-item rule below
  * has room without pushing that file past the size gate.
  *
  * Key decisions:

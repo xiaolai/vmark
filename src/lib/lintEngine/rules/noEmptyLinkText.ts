@@ -6,8 +6,7 @@
  * "Nothing" is not "no text after trimming". Inline code and an image are
  * CONTENT even when their own value is blank: `[` `](url)` shows a code span
  * and `[![](/a.png)](url)` shows a picture, and both were reported as empty
- * because their value was appended and then trimmed away (audit 20260907
- * round 3, #818). Content-bearing nodes are tracked as presence, not as text.
+ * because their value was appended and then trimmed away. Content-bearing nodes are tracked as presence, not as text.
  *
  * @module lib/lintEngine/rules/noEmptyLinkText
  */

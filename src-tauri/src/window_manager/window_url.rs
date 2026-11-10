@@ -9,7 +9,7 @@
 //! @coordinates-with document_windows.rs — the only caller
 //! @module window_manager/window_url
 
-/// The one place a parameter list becomes a URL (audit 20260907 #485).
+/// The one place a parameter list becomes a URL.
 ///
 /// Both builders below wrote this rule out — "no params means `/`, otherwise
 /// `/?a&b`" — and two copies of a rule the frontend's router depends on is a

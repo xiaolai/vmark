@@ -1,5 +1,5 @@
 /**
- * Drained recorder buffer → typed events (audit 2026-09-03 S-03 / W11).
+ * Drained recorder buffer → typed events.
  *
  * The recorder shim's ring buffer is a PAGE-WRITABLE DOM element, so everything
  * drained from it is untrusted page data. This parser is the trust boundary:

@@ -126,8 +126,8 @@ export function dispatchEditor(filePath: string | null): FormatConfig {
     // Markdown is the product default for a new document, and `bootstrapFormats`
     // registers it unconditionally — so its absence is a bootstrap defect, not a
     // case to degrade through. Falling back silently opened untitled documents in
-    // the plain source pane, or in whatever format happened to register first
-    // (audit 20260907 round 2). The pathed branch below already fails this way
+    // the plain source pane, or in whatever format happened to register first.
+    // The pathed branch below already fails this way
     // when `txt` is missing; both are the same defect.
     const markdown = state.byId.get(MARKDOWN_FALLBACK_ID);
     if (!markdown) {

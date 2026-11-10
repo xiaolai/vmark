@@ -5,7 +5,7 @@
  * grew it past the ~300-line rule. The stage owns its lifecycle (lock, root,
  * tracking, cleanup); this module owns the one risky step — moving a finished
  * staging tree over whatever the destination already holds, and putting it all
- * back if a move fails part way (audit 20260907, #334).
+ * back if a move fails part way.
  *
  * The shape:
  *   - a destination file the export is about to replace is renamed ASIDE into
@@ -82,7 +82,7 @@ export async function publishTracked(
         // A DIRECTORY where this export wants a file is not something to move
         // aside: the aside lives in the staging tree, which is removed whole
         // on success, so the whole subtree would go with it and the user would
-        // never be told (audit 20260907 round 2). `exists` cannot tell the two
+        // never be told. `exists` cannot tell the two
         // apart; refuse instead, and let the rollback below put back
         // everything published so far. `lstat`, not `stat`: a symlink TO a
         // directory is renamed as the link, so only the link is at stake.

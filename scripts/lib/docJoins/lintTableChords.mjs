@@ -68,7 +68,7 @@ function chordTokens(text) {
  * The copy had already drifted, in the direction that matters: it upper-cased
  * a single ASCII letter (`t.length === 1 && /[a-z]/i`), while the renderer it
  * is compared against upper-cases any single Unicode LETTER by CODE POINT
- * (`/^\p{L}$/u` — audit 20260907 #91 fixed that side and not this one). So a
+ * (`/^\p{L}$/u` — the other side was already fixed, this one was not). So a
  * chord on a non-ASCII or astral key rendered one way by the shortcut
  * definition and another way by the page reader, and a page carrying the
  * CORRECT chord would have been reported stale.

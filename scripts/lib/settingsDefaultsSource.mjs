@@ -26,7 +26,7 @@ export const DEFAULTS_REL = "src/stores/settingsStore/defaults.ts";
  * this replaced keyed on two-space indentation, one-line values and three
  * levels of nesting, so a value that wrapped, a `key:{` without its space or
  * a fourth level silently dropped the setting, and the only consumer then
- * reported a spine flag as "not found" (audit 20260907 #69). A spread
+ * reported a spine flag as "not found". A spread
  * contributes no keys (its members live in another file); an object literal
  * is descended, never recorded; a shorthand or method property is not a
  * literal default and is skipped, as before.

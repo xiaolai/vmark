@@ -123,7 +123,7 @@ pub fn validate_ai_navigation_url(input: &str, allow_loopback: bool) -> Result<S
     Ok(value.to_string())
 }
 
-/// May a tab load `url` in a SUBFRAME (audit 20260903 P-01)?
+/// May a tab load `url` in a SUBFRAME?
 ///
 /// The navigation delegate sees every frame's navigation, and used to allow any
 /// non-main-frame load unconditionally — so an iframe on a public page an AI opened
@@ -156,7 +156,7 @@ pub fn subframe_load_allowed(mode: AutomationMode, policy: &AiBrowserPolicy, url
 }
 
 /// May a SAME-DOCUMENT navigation to `url` stand on a tab of `mode` bound to
-/// `tab_epoch` (audit 20260903 round 3, #21)? The pure half of the KVO observer's
+/// `tab_epoch`? The pure half of the KVO observer's
 /// decision: the browser must be on; an AI tab must be bound to the current
 /// posture epoch and its destination must pass the navigation policy; a shared tab
 /// must also be inside the origin its current navigation was approved for

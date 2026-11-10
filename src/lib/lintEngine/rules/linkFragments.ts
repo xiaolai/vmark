@@ -5,7 +5,7 @@
  * the document provides. The slug set is built with `makeUniqueSlug`, so
  * duplicate headings get the same `-1`, `-2` suffixes the renderer gives them.
  *
- * Two things the heading text is NOT (audit 20260907 round 3):
+ * Two things the heading text is NOT:
  *   - raw inline HTML. `# Hello <b>World</b>` renders an anchor of
  *     `hello-world`; feeding the tags in produced `hello-bworldb`, so every
  *     link to that heading was reported missing.

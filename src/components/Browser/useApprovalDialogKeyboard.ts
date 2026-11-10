@@ -4,7 +4,7 @@
  *
  *  - Deny holds focus while the prompt is up, and the element focused before the
  *    prompt is restored on close — resolving a prompt used to drop focus to <body>
- *    and a keyboard user lost their place (audit 20260815-163607 #22).
+ *    and a keyboard user lost their place.
  *  - Escape DENIES, exclusively: capture phase + stopImmediatePropagation, because a
  *    sibling overlay's window-level listener once saw the same keystroke and one
  *    Escape resolved two decisions.
@@ -32,7 +32,7 @@ export function useApprovalDialogKeyboard(
   // Deny holds focus: a stray Enter must never authorize an action. The element
   // focused BEFORE the prompt is remembered so it can be restored on close —
   // otherwise resolving a prompt dropped focus to <body> and a keyboard user lost
-  // their place in the app (audit 20260815-163607 #22).
+  // their place in the app.
   // Layout effects, not passive ones: the prompt must own focus and the keyboard
   // BEFORE it is painted. A passive effect left a post-render window in which the
   // security prompt was visible while background focus and sibling handlers were live.

@@ -7,7 +7,7 @@
 //! content worlds, so **no `WKScriptMessageHandler` is registered and the no-bridge
 //! invariant (R3) holds**.
 //!
-//! **Every AI-owned posture, never a human's page** (audit 20260903 S-06): the shim
+//! **Every AI-owned posture, never a human's page**: the shim
 //! used to be AiSandbox-only, so `browser_read console` on an `ai-shared` tab
 //! succeeded and read an empty buffer forever. The captured output is
 //! page-controlled and untrusted; the read handler treats it like any `read`.
@@ -71,7 +71,7 @@ mod tests {
         assert!(!CONSOLE_SHIM_SRC.contains("webkit.messageHandlers"));
     }
 
-    /// Audit 20260903 S-06: an `ai-shared` tab's console read returned nothing,
+    /// An `ai-shared` tab's console read returned nothing,
     /// forever, because the shim was sandbox-only. A human's page is never reshaped.
     #[test]
     fn the_shim_installs_for_every_ai_posture_and_never_for_a_human() {

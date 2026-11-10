@@ -29,7 +29,7 @@ export const run = (cmd, args, opts = {}) =>
 // `CODE_LANGS` is the tokei-side spelling of `CODE_EXTENSIONS`: the two MUST
 // name the same population, or the code column and the file/test columns
 // measure different things — `.js`/`.jsx`/`.mjs`/`.mts` were code to tokei
-// and invisible to `find` until audit 20260907 #70.
+// and invisible to `find` until they were added.
 const CODE_LANGS = new Set(["TypeScript", "Tsx", "JSX", "JavaScript", "Rust"]);
 // The extension list and the code-file test are the OWNERSHIP module's, not a
 // copy: inventory and ownership must describe one population, and two lists

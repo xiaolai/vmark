@@ -2,7 +2,7 @@
  * browserNavigationShared — the pieces `open`, `navigate` and `wait` share: the
  * single wait budget, the navigation-ticket wait and its result mapping, the
  * pending-approval envelope with its retry verb, and creation completion for a
- * tab whose `open` waited for the user (audit 2026-09-03 L-02). Split from
+ * tab whose `open` waited for the user. Split from
  * `browserNavigation.ts` for the file-size gate.
  *
  * @coordinates-with services/mcpBridge/v2/browserNavigation — navigate + wait

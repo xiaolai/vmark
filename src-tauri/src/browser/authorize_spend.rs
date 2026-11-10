@@ -1,4 +1,4 @@
-//! The spending half of the driver gate (audit 20260903 round 3, #10).
+//! The spending half of the driver gate.
 //!
 //! `spend` consumes exactly what a [`Decision`] requires — a one-shot when
 //! standing authority does not cover the operation, and a human tab's
@@ -26,7 +26,7 @@ use crate::command_error::CommandError;
 
 /// Spend the authority `decision` requires for `operation`, or refuse without
 /// spending. `target` and `payload_hash` bind a one-shot to the exact element and
-/// script (audit 20260903 A-05).
+/// script.
 pub(super) fn spend(
     state: &BrowserSurface,
     decision: &Decision,

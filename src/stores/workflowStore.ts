@@ -226,7 +226,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => {
       }),
     /**
      * Carry a document's queued patches to a new id, binding included — what a
-     * Save As does to the document a queue belongs to (audit 20260907, #292).
+     * Save As does to the document a queue belongs to.
      * The transformation itself is `renameEditDocument`; `null` means nothing
      * to do, and returning `{}` from `set` is Zustand's no-op.
      */

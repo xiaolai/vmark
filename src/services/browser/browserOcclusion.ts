@@ -54,7 +54,7 @@ export const OCCLUDER = {
    *  drawn under a live page is a message nobody can read (audit finding). */
   error: "error-overlay",
   /**
-   * The tab is not the visible page (audit 2026-09-03 L-01). Native views used to be
+   * The tab is not the visible page. Native views used to be
    * DESTROYED on unmount and recreated on remount — the page reloaded, in-page state
    * was lost, and the driver forgot the tab's generation, which locked the AI out of
    * it. Now a tab that leaves the screen is merely hidden under this occluder, and

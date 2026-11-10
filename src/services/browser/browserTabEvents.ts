@@ -2,8 +2,7 @@
  * browserTabEvents — the window-level consumer of native browser events.
  *
  * Purpose: keep every store that mirrors a browser tab honest for EVERY tab of
- * this window, whether or not the tab's surface is mounted (audit 2026-09-03
- * L-01). These updates used to live in `BrowserSurface`'s event handlers, which
+ * this window, whether or not the tab's surface is mounted. These updates used to live in `BrowserSurface`'s event handlers, which
  * exist only for the visible page; with native views alive in the background an
  * AI-driven tab navigates while unmounted, and its url, generation, history,
  * prompts and dialogs must still track reality.

@@ -7,7 +7,7 @@
  * output-schema validation for `isError` results, so this cannot turn a refusal
  * into a protocol error.
  *
- * Bounded in BOTH channels (audit 2026-09-03 round 1): an error is small by
+ * Bounded in BOTH channels: an error is small by
  * nature, but a page-derived message or record is not, and before this the
  * bridge frame limit was the only thing stopping it. An oversized or
  * unserializable record collapses to its branchable fields.
