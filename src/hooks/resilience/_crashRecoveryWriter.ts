@@ -14,7 +14,10 @@ import { useEffect, useRef } from "react";
 import { useWindowLabel } from "@/contexts/WindowContext";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
-import { writeRecoverySnapshot } from "@/services/persistence/crashRecovery";
+import {
+  writeRecoverySnapshot,
+  getRetirementEpoch,
+} from "@/services/persistence/crashRecovery";
 import { crashRecoveryLog } from "@/utils/debug";
 import { errorMessage } from "@/utils/errorMessage";
 
@@ -28,13 +31,15 @@ export function useCrashRecoveryWriter(): void {
   const windowLabel = useWindowLabel();
   const lastWrittenRef = useRef<Map<string, WrittenSnapshot>>(new Map());
   const writingRef = useRef(false);
+  const epochRef = useRef(getRetirementEpoch());
 
   useEffect(() => {
     const interval = setInterval(() => {
       void writeDirtySnapshots(
         windowLabel,
         lastWrittenRef.current,
-        writingRef
+        writingRef,
+        epochRef
       );
     }, WRITE_INTERVAL_MS);
 
@@ -69,8 +74,15 @@ function isUnchanged(previous: WrittenSnapshot | undefined, next: WrittenSnapsho
 async function writeDirtySnapshots(
   windowLabel: string,
   lastWritten: Map<string, WrittenSnapshot>,
-  writingRef: React.RefObject<boolean>
+  writingRef: React.RefObject<boolean>,
+  epochRef: React.RefObject<number>
 ): Promise<void> {
+  // A lifted retirement means snapshots were deleted behind the cache's back.
+  const epoch = getRetirementEpoch();
+  if (epoch !== epochRef.current) {
+    epochRef.current = epoch;
+    lastWritten.clear();
+  }
   // In-flight guard — skip if previous write pass is still running
   if (writingRef.current) return;
   writingRef.current = true;

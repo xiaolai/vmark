@@ -18,6 +18,9 @@ import {
   readRecoverySnapshots,
   deleteRecoverySnapshot,
   deleteRecoveryFilesForTabs,
+  retireRecoveryTabs,
+  unretireRecoveryTabs,
+  getRetirementEpoch,
   deleteStaleRecoveryFiles,
   type RecoverySnapshot,
 } from "./crashRecovery";
@@ -314,6 +317,102 @@ describe("crashRecovery", () => {
     it("handles empty tab array", async () => {
       await deleteRecoveryFilesForTabs([]);
       expect(mockRemove).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("retireRecoveryTabs", () => {
+    it("resolves only after every delete has settled", async () => {
+      mockExists.mockResolvedValue(true);
+      let finished = 0;
+      mockRemove.mockImplementation(async () => {
+        await new Promise((r) => setTimeout(r, 5));
+        finished++;
+      });
+      await retireRecoveryTabs(["r-a", "r-b"]);
+      expect(finished).toBe(2);
+      unretireRecoveryTabs(["r-a", "r-b"]);
+    });
+
+    it("does not block when a delete fails (permission denied)", async () => {
+      mockExists.mockResolvedValue(true);
+      mockRemove.mockRejectedValue(new Error("permission denied"));
+      await expect(retireRecoveryTabs(["r-c"])).resolves.toBeUndefined();
+      unretireRecoveryTabs(["r-c"]);
+    });
+
+    it("refuses later snapshot writes for a retired tab until lifted", async () => {
+      await retireRecoveryTabs(["r-d"]);
+      expect(await writeRecoverySnapshot(makeSnapshot({ tabId: "r-d", content: "你好 discarded" }))).toBe(false);
+      expect(mockWriteTextFile).not.toHaveBeenCalled();
+
+      const epoch = getRetirementEpoch();
+      unretireRecoveryTabs(["r-d"]);
+      expect(getRetirementEpoch()).toBe(epoch + 1);
+      expect(await writeRecoverySnapshot(makeSnapshot({ tabId: "r-d" }))).toBe(true);
+    });
+
+    it("takes back a write that was already in flight when the tab retired", async () => {
+      mockExists.mockResolvedValue(true);
+      let release!: () => void;
+      mockWriteTextFile.mockImplementationOnce(
+        () => new Promise<void>((r) => { release = r; }),
+      );
+      const pending = writeRecoverySnapshot(makeSnapshot({ tabId: "r-e" }));
+      await vi.waitFor(() => expect(mockWriteTextFile).toHaveBeenCalled());
+      let retired = false;
+      const retiring = retireRecoveryTabs(["r-e"]).then(() => { retired = true; });
+      await new Promise((r) => setTimeout(r, 10));
+      // Retirement waits for the running write to land before it deletes.
+      expect(retired).toBe(false);
+      mockRemove.mockClear();
+      release();
+      await retiring;
+      expect(await pending).toBe(false);
+      expect(mockRemove).toHaveBeenCalledWith(expect.stringContaining("snapshot-r-e.json"));
+      unretireRecoveryTabs(["r-e"]);
+    });
+
+    it("keeps a tab retired until every overlapping retirement is lifted", async () => {
+      await retireRecoveryTabs(["r-g"]);
+      await retireRecoveryTabs(["r-g"]);
+      unretireRecoveryTabs(["r-g"]);
+      expect(await writeRecoverySnapshot(makeSnapshot({ tabId: "r-g" }))).toBe(false);
+      unretireRecoveryTabs(["r-g"]);
+      expect(await writeRecoverySnapshot(makeSnapshot({ tabId: "r-g" }))).toBe(true);
+    });
+
+    it("waits for every in-flight write of the targeted tabs, not unrelated ones", async () => {
+      mockExists.mockResolvedValue(true);
+      const releases: Record<string, Array<() => void>> = { "r-h": [], "r-i": [], "r-other": [] };
+      const order: string[] = [];
+      mockWriteTextFile.mockImplementation((path) => {
+        const key = Object.keys(releases).find((k) => String(path).includes(`.tmp-${k}-`))!;
+        return new Promise<void>((r) => releases[key].push(() => { order.push(key); r(); }));
+      });
+      const w1 = writeRecoverySnapshot(makeSnapshot({ tabId: "r-h" }));
+      const w2 = writeRecoverySnapshot(makeSnapshot({ tabId: "r-h" }));
+      const w3 = writeRecoverySnapshot(makeSnapshot({ tabId: "r-i" }));
+      const w4 = writeRecoverySnapshot(makeSnapshot({ tabId: "r-other" }));
+      await vi.waitFor(() => expect(mockWriteTextFile).toHaveBeenCalledTimes(4));
+      let retired = false;
+      const retiring = retireRecoveryTabs(["r-h", "r-i"]).then(() => { retired = true; });
+      releases["r-h"][0](); releases["r-h"][1]();
+      await new Promise((r) => setTimeout(r, 10));
+      expect(retired).toBe(false); // r-i still running; r-other irrelevant
+      releases["r-i"][0]();
+      await retiring; // completes without waiting for r-other
+      expect(retired).toBe(true);
+      releases["r-other"][0]();
+      await Promise.all([w1, w2, w3, w4]);
+      unretireRecoveryTabs(["r-h", "r-i"]);
+      mockWriteTextFile.mockResolvedValue(undefined);
+    });
+
+    it("is a no-op when the snapshot is already absent", async () => {
+      mockExists.mockResolvedValue(false);
+      await retireRecoveryTabs(["r-f"]);
+      expect(mockRemove).not.toHaveBeenCalled();
+      unretireRecoveryTabs(["r-f"]);
     });
   });
 
