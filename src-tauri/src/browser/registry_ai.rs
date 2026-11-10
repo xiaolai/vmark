@@ -1,5 +1,4 @@
-//! AI tab reservation and the request identity it is bound to (audit 20260903
-//! round 3, #3).
+//! AI tab reservation and the request identity it is bound to.
 //!
 //! `browser_ai_create` is re-issued for an existing tab id on purpose: the React
 //! surface and the MCP `navigate` verb both retry it for a tab whose creation

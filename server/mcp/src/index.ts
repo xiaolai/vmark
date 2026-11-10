@@ -9,7 +9,7 @@
  * from it, and each entry's action list is asserted against the live enum by
  * `__tests__/unit/tools/toolContract.test.ts`. This prose deliberately names
  * no tool and no count — read the registry; every list it used to carry
- * drifted (audit 20260907 #100). The legacy 60-tool surface was pruned
+ * drifted. The legacy 60-tool surface was pruned
  * by the MCP-pruning plan; `selection.{get,set}` was re-added per ADR-7 after the round-trip
  * cost on large documents proved a real burden.
  * See .claude/adr/plans/20260504-mcp-pruning.md for the full rationale.
@@ -94,8 +94,8 @@ import type { Bridge } from './bridge/types.js';
  * Nothing here is retyped from a tool module: `name` and `actions` are the
  * constants each tool registers and advertises with (the browser halves'
  * lists belong to their action tables), and the `(N actions)` a descriptor
- * carries is DERIVED from `actions` rather than written into the prose
- * (audit 20260907 #100). toolContract.test.ts pins each entry's `actions`
+ * carries is DERIVED from `actions` rather than written into the prose.
+ * toolContract.test.ts pins each entry's `actions`
  * against the enum the SDK actually advertises.
  */
 export const TOOL_REGISTRY = [

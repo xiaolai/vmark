@@ -80,7 +80,7 @@ export function redactUrl(url: string): string {
  * Below the bridge's FIRST deadline on purpose: Rust waits 10 s for a response
  * (`mcp_bridge/server.rs`) and then treats silence as a napping webview, wakes
  * it and re-emits the request. A handler that legitimately waited 12 s tripped
- * that recovery on every slow page (audit 2026-09-03, timing). Every wait in a
+ * that recovery on every slow page (timing). Every wait in a
  * handler shares ONE budget derived from this, so two stacked waits cannot
  * exceed it either. The sidecar advertises the same bound (`browserArgs.ts`).
  */

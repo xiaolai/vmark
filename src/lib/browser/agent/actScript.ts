@@ -33,7 +33,7 @@
  * ref store (`LIB_REFS`) mirrors `refs.ts` on the same `document.__vmarkRefStore`,
  * so the two agree and `actScript.test.ts` keeps them from drifting.
  *
- * Audit 2026-09-03: every walk is the COMPOSED tree through open shadow roots
+ * Every walk is the COMPOSED tree through open shadow roots
  * (S-05); the snapshot is an object `{nodes, truncated, unreachable}` (S-05/S-06);
  * a role/name that resolves to more than one interactable element is refused as
  * `ambiguous` with ref'd `candidates` instead of clicking the first in DOM order
@@ -52,7 +52,7 @@
  * Every result — the ref paths included — carries `matchedTotal`/`matchedVisible`,
  * and a typing exception reports `reason:'error'` with the message as `detail`, so
  * the result grammar is a CLOSED set of shapes; `runExecutorEnv.ts` validates the
- * workflow executor's act results against exactly that set (audit 20260903, #193).
+ * workflow executor's act results against exactly that set.
  */
 
 import { AGENT_LIB } from "./agentLib";

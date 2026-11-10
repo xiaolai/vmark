@@ -1,8 +1,7 @@
 /**
  * browserTabLifecycle — when a browser tab's native view is destroyed, and by whom.
  *
- * Purpose: the native WKWebView is kept alive while its tab exists (audit
- * 2026-09-03 L-01 — `useBrowserNativeView` hides it on unmount instead of
+ * Purpose: the native WKWebView is kept alive while its tab exists (`useBrowserNativeView` hides it on unmount instead of
  * destroying it), so SOMETHING must destroy it when the tab actually goes. That
  * is the tab-removal bus: `closeTab` and `detachTab` are the single choke point
  * for a tab leaving a window, and every browser tab that leaves through them —

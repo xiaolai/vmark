@@ -1,6 +1,5 @@
 /**
- * closeTerminalSession — the ONE remove-session + panel-hide policy
- * (audit 20260831 #32).
+ * closeTerminalSession — the ONE remove-session + panel-hide policy.
  *
  * Purpose: TerminalPanel's close button and the clean-exit path had grown
  * near-identical copies of "remove the session, pick a visible fallback,

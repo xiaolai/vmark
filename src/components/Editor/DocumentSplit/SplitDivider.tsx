@@ -3,7 +3,7 @@
  * side-by-side document panes (#1081). The ARIA surface lives here; the
  * pointer-drag mechanics are `useSplitDrag` (touch and pen included; cleanup
  * on blur and unmount, the useSidebarResize discipline) and the keyboard
- * mapping is `keyboardResizeTarget` (audit 20260907, #277). The fraction is
+ * mapping is `keyboardResizeTarget`. The fraction is
  * clamped by paneStore.setFraction. Panes sit left | right, so the bar itself
  * is vertical and only Left/Right resize it.
  *

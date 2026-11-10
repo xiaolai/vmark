@@ -41,7 +41,7 @@ function detachExitedPty(entry: SessionEntry): void {
 
 /**
  * Clean exit (Ctrl+D / `exit`, code 0): close the tab (#1103) via the ONE
- * remove+hide policy (audit 20260831 #32 — TerminalPanel's close button and
+ * remove+hide policy (TerminalPanel's close button and
  * this path had drifted). The panel hides only when this was the last
  * VISIBLE session (WI-TS3.3/D-T7); a hidden scope's exiting shell still
  * closes its tab. Instance/registry teardown follows from the store removal

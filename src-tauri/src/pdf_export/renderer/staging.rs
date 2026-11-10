@@ -65,8 +65,7 @@ pub(super) fn publish(staging: &Path, output: &Path) -> Result<(), CommandError>
         }
         Err(e) => {
             remove_temp(staging);
-            // `publishFailed`, not `staleOutputNotRemoved` (audit 20260907
-            // #446). This rename is the PUBLICATION, and it fails for reasons
+            // `publishFailed`, not `staleOutputNotRemoved`. This rename is the PUBLICATION, and it fails for reasons
             // that have nothing to do with a previous file: a full disk, a
             // read-only directory, a staging file the sink already deleted.
             // Naming the old output was a diagnosis the code never made, and it

@@ -46,6 +46,7 @@ import { cleanupOrphansForClosingTabs } from "@/services/media/closeCleanup";
 import { persistWorkspaceSession } from "@/services/workspaces/workspaceSession";
 import { flushAllWysiwygNow } from "@/utils/wysiwygFlush";
 import type { Tab } from "@/stores/tabStoreTypes";
+import { retireRecoveryTabs, unretireRecoveryTabs } from "@/services/persistence/crashRecovery";
 import { confirmAction } from "@/services/dialogs/confirmAction";
 
 export type CloseLog = (label: string, ...args: unknown[]) => void;
@@ -85,18 +86,34 @@ async function finalizeWindowClose(
   await cleanupOrphansForClosingTabs(tabIds);
   await persistWorkspaceSession(windowLabel);
 
+  // Recovery snapshots go BEFORE the last-instant check below, because the
+  // delete yields. At this point every document is saved, clean or explicitly
+  // discarded, so none may outlive the window. Awaited, ahead of the native
+  // close: on a quit the process exits right behind the last window, and a
+  // fire-and-forget delete never finished — the discarded text came back on
+  // the next launch. Undone below if the window is not closing after all.
+  const retiredIds = (useTabStore.getState().tabs[windowLabel] ?? []).map((t) => t.id);
+  await retireRecoveryTabs(retiredIds);
+
   // Last-instant revalidation: nothing below this check yields, so a buffer
   // clean HERE cannot be dirtied before the teardown runs.
   flushAllWysiwygNow();
   const freshTabs = useTabStore.getState().tabs[windowLabel] ?? [];
   if (collectDirtyContexts(windowLabel, freshTabs, discarded, settled).length > 0) {
     log(windowLabel, "edit landed during finalize — re-prompting");
+    unretireRecoveryTabs(retiredIds);
     return false;
   }
 
   // `close_window` closes the window that asks, which is this one.
   log(windowLabel, "invoking close_window");
-  await invoke("close_window");
+  try {
+    await invoke("close_window");
+  } catch (error) {
+    // The window survives: its dirty documents are crash-recoverable again.
+    unretireRecoveryTabs(retiredIds);
+    throw error;
+  }
   log(windowLabel, "close_window returned");
   // On success the webview is being destroyed and may never reach this line —
   // which is fine: the teardown only matters if the window SURVIVES. Dropping

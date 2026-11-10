@@ -37,6 +37,24 @@ const SNAPSHOT_PREFIX = "snapshot-";
 const SNAPSHOT_SUFFIX = ".json";
 const TMP_PREFIX = ".tmp-";
 
+// --- Retired tabs ---
+
+/**
+ * Tabs whose document is being let go (a window close is committed): their
+ * snapshot must not come back. A discarded buffer stays "dirty" until the
+ * webview dies, so the periodic writer would rewrite what was just deleted.
+ */
+const retiredTabs = new Map<string, number>();
+/** Writes now running, per tab — retirement waits for them. */
+const inFlightWrites = new Map<string, Set<Promise<boolean>>>();
+/** Bumped when a retirement is lifted, so a writer's dedup cache is not trusted. */
+let retirementEpoch = 0;
+
+/** Changes whenever a retirement is lifted; writers drop their dedup cache on change. */
+export function getRetirementEpoch(): number {
+  return retirementEpoch;
+}
+
 // --- Path helpers (shared naming logic) ---
 
 /** Build the final snapshot file path for a tab. */
@@ -79,7 +97,23 @@ export async function ensureRecoveryDir(): Promise<string> {
  * Write a recovery snapshot atomically (write to tmp, then rename).
  * Returns true on success, false on failure (logged, never throws).
  */
-export async function writeRecoverySnapshot(
+export function writeRecoverySnapshot(
+  snapshot: RecoverySnapshot
+): Promise<boolean> {
+  const run = doWriteRecoverySnapshot(snapshot);
+  let set = inFlightWrites.get(snapshot.tabId);
+  if (!set) inFlightWrites.set(snapshot.tabId, (set = new Set()));
+  set.add(run);
+  void run.finally(() => {
+    set.delete(run);
+    if (set.size === 0 && inFlightWrites.get(snapshot.tabId) === set) {
+      inFlightWrites.delete(snapshot.tabId);
+    }
+  });
+  return run;
+}
+
+async function doWriteRecoverySnapshot(
   snapshot: RecoverySnapshot
 ): Promise<boolean> {
   try {
@@ -87,8 +121,14 @@ export async function writeRecoverySnapshot(
     const tmp = await tmpPath(dir, snapshot.tabId);
     const final = await snapshotPath(dir, snapshot.tabId);
 
+    if (retiredTabs.has(snapshot.tabId)) return false;
     await writeTextFile(tmp, JSON.stringify(snapshot));
     await rename(tmp, final);
+    if (retiredTabs.has(snapshot.tabId)) {
+      // Retired while this write was in flight: take back what just landed.
+      await deleteRecoverySnapshot(snapshot.tabId);
+      return false;
+    }
     crashRecoveryLog("Wrote snapshot for", snapshot.tabId);
     return true;
   } catch (error) {
@@ -171,6 +211,33 @@ export async function deleteRecoveryFilesForTabs(
   for (const tabId of tabIds) {
     await deleteRecoverySnapshot(tabId);
   }
+}
+
+/**
+ * Durably remove the snapshots of tabs that are being let go, and stop them
+ * being written again. Resolves only once every delete has settled, so the
+ * caller can safely destroy the window afterwards. A failed delete is logged
+ * (inside `deleteRecoverySnapshot`) and never blocks. Undo with
+ * `unretireRecoveryTabs` if the close does not happen.
+ */
+export async function retireRecoveryTabs(tabIds: string[]): Promise<void> {
+  for (const tabId of tabIds) retiredTabs.set(tabId, (retiredTabs.get(tabId) ?? 0) + 1);
+  // A write already running would rename its file in AFTER our delete, and the
+  // process may be gone before it could undo that. Let each one land first.
+  const running = tabIds.flatMap((id) => [...(inFlightWrites.get(id) ?? [])]);
+  await Promise.allSettled(running);
+  await deleteRecoveryFilesForTabs(tabIds);
+}
+
+/** Lift `retireRecoveryTabs` for tabs that stay open after all. */
+export function unretireRecoveryTabs(tabIds: string[]): void {
+  // Counted: two overlapping close attempts must not lift each other's hold.
+  for (const tabId of tabIds) {
+    const left = (retiredTabs.get(tabId) ?? 0) - 1;
+    if (left > 0) retiredTabs.set(tabId, left);
+    else retiredTabs.delete(tabId);
+  }
+  retirementEpoch++;
 }
 
 /**

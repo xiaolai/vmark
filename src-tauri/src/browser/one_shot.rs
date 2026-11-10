@@ -20,8 +20,7 @@
 //!     delta): the one-shot binds a hash of the exact script the user approved, so
 //!     an "Allow once" for `return document.title` cannot be spent on a substituted
 //!     `steal-the-session` retry — the AI chooses what it re-sends, and without
-//!     this the approved-A-runs-B escalation is open.
-//!     (audit 20260903 A-05 for the act operations.)
+//!     this the approved-A-runs-B escalation is open (this covers the act operations).
 //!
 //! Consumption is deliberately not separable from the check: a one-shot authorizes
 //! exactly ONE action, so `consume_one_shot` removes it as it answers.
@@ -65,7 +64,7 @@ impl OneShot {
     /// Does `other` authorize exactly the same action — the same tab, generation,
     /// origin pattern, operation, target and payload?
     ///
-    /// Minting is idempotent on this (audit 20260903 A-04): the frontend mints one
+    /// Minting is idempotent on this: the frontend mints one
     /// approval through two paths, and a second identical entry would be a second
     /// authorization for an action the user approved once.
     pub fn same_binding(&self, other: &OneShot) -> bool {

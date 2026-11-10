@@ -25,7 +25,7 @@
  * a copied literal because the docs-drift gate (`scripts/check-mcp-docs.mjs`)
  * could only read an enum declared in the same file; the gate now follows a
  * sibling import to the const it names, and the tool registry (`index.ts`)
- * reads the same list for its action count (audit 20260907 #100).
+ * reads the same list for its action count.
  *
  * @coordinates-with tools/browserReadActions.ts (the action table this registers)
  * @coordinates-with tools/browser.ts (the mutating half — shares browserArgs/browserDispatch)

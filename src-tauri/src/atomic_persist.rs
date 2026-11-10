@@ -1,7 +1,7 @@
 //! The atomic publication step, and the ONE Windows replacement rule.
 //!
-//! Purpose: split out of `atomic_replace.rs` when it gained a second consumer
-//! (audit 20260907 #389). `mcp_bridge::token_file` publishes the bridge's
+//! Purpose: split out of `atomic_replace.rs` when it gained a second consumer.
+//! `mcp_bridge::token_file` publishes the bridge's
 //! discovery credential the same way but cannot use `atomic_write_file` — that
 //! writer preserves the TARGET's permissions, which is right for a user
 //! document and wrong for a secret. Reaching into `atomic_replace` for the

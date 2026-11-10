@@ -74,7 +74,7 @@ pub(crate) fn parse_act_target(
 /// the approval to a page the user never saw. Reading it from the caller and *checking*
 /// it turns that race into a refusal. (Audit, High.)
 ///
-/// **Idempotent for an identical binding** (audit 20260903 A-04). The frontend mints
+/// **Idempotent for an identical binding**. The frontend mints
 /// one approval through two paths — the grant-sync subscription and the run
 /// executor's awaited mint — so the second arrival of the same (tab, generation,
 /// origin, operation, target, payload) is the same approval, not a second one. A
@@ -186,7 +186,7 @@ pub(crate) fn attach_ai_tab(
 /// The driver's copy is authoritative — `browser_eval` reads it — so a caller that
 /// never syncs simply gets default-deny, and an empty vec revokes everything.
 ///
-/// **Keyed by window** (audit 20260903 A-03). Every document window runs its own
+/// **Keyed by window**. Every document window runs its own
 /// grant sync against its own store, and the driver used to hold ONE vector that
 /// whichever window synced last replaced wholesale: a grant made in window A vanished
 /// the moment window B pushed, and Revoke in A could not touch what B had pushed.

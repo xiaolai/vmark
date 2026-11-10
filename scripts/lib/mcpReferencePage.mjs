@@ -39,8 +39,7 @@ export function toolSections(docText) {
  * An affirmative entry: a heading naming the action, or a list item / table
  * row led by its code span, and not withdrawn on the same line. An entry led
  * by the code span used to pass however it continued, so
- * `- \`claims\` — no longer supported` documented `claims` (audit 20260907
- * #50); `NEGATED` is the vocabulary that makes a line a removal notice.
+ * `- \`claims\` — no longer supported` documented `claims`; `NEGATED` is the vocabulary that makes a line a removal notice.
  */
 function isEntryFor(line, action) {
   const span = `\`${action}\``;

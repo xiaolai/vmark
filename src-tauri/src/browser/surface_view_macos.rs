@@ -103,8 +103,7 @@ fn script_error(error: &NSError) -> String {
 /// script that returned anything but a string therefore hit
 /// `-[NSNumber ...]: unrecognized selector` — an uncaught `NSException` that
 /// **terminates the whole app** (found in the live E2E run). So the class is
-/// checked first, and every non-string outcome is a TYPED failure (audit 20260903
-/// E-04) rather than a string the caller mistakes for a result:
+/// checked first, and every non-string outcome is a TYPED failure rather than a string the caller mistakes for a result:
 ///   - an `NSError` → `ScriptError`, carrying the exception text and position;
 ///   - `nil` with no error → `NoValue`;
 ///   - a non-string object → `ScriptError` naming the rule (VMark's scripts

@@ -1,5 +1,5 @@
-//! The state transactions behind `browser_ai_create` and `browser_ai_navigate`
-//! (audit 20260903 round 3, #2 / #3 / #4), each a function over `&BrowserSurface`
+//! The state transactions behind `browser_ai_create` and `browser_ai_navigate`,
+//! each a function over `&BrowserSurface`
 //! so it is testable without a Tauri app. The commands in `ai_commands.rs` are
 //! the composition — policy, validation, then these, in order — and own nothing
 //! else.
@@ -85,7 +85,7 @@ pub(super) fn reserve_ai_tab(
     match reg.automation_mode(tab_id) {
         Some(existing) if existing != request.mode => return Err(provenance_mismatch()),
         Some(_) => require_current_epoch(reg.policy_epoch(tab_id), request.policy_epoch)?,
-        // Bounded (audit 20260903 X-01): every AI `open` is an unprompted content
+        // Bounded: every AI `open` is an unprompted content
         // process, and URL dedupe is defeated by distinct paths.
         None => require_ai_tab_capacity(reg.live_ai_tab_count())?,
     }

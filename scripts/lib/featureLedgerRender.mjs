@@ -4,7 +4,7 @@
  * readable on its own. Every value that lands in a table cell goes through
  * `escapeCell`: a `|` in a feature name, flag or date would split the row, a
  * newline would end it, and a backtick, `*`, `_`, `[`, `<` or `~` would open
- * Markdown or HTML inside the cell (audit 20260907 #79); a value shown as code
+ * Markdown or HTML inside the cell; a value shown as code
  * goes through `codeSpan`, whose fence outlasts any backtick run inside. All
  * of it comes from the spine JSON and the CLI, not from anything this module
  * measured.

@@ -26,8 +26,8 @@ use serde_json::json;
 /// The `detail.kind` names the class so the frontend never has to look at the
 /// prose, and `detail.detail` keeps the failure's full text reachable. Three
 /// classes also carry the `detail.mcpCode` token the MCP client is promised:
-/// `UNSUPPORTED_PLATFORM` (the `browser` tool description names it verbatim —
-/// audit 20260903 X-04), `DIALOG_NOT_OWNED`, and `STALE_COMMAND` — a gate refusal
+/// `UNSUPPORTED_PLATFORM` (the `browser` tool description names it verbatim),
+/// `DIALOG_NOT_OWNED`, and `STALE_COMMAND` — a gate refusal
 /// that once had to cross the string boundary; `eval` now carries the typed
 /// refusal intact (`eval_outcome::EvalError::Refused`), so that arm is the
 /// classifier honouring a class in the vocabulary, not the path a refusal takes.

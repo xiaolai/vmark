@@ -7,7 +7,7 @@
  * unmount, destroy on close, and the races around them — belongs to
  * `useBrowserNativeView`; this component reserves the rect and hands it over.
  *
- * It renders, it does not listen (audit 2026-09-03 L-01). The native nav-delegate
+ * It renders, it does not listen. The native nav-delegate
  * events are consumed once per window by `services/browser/browserTabEvents`, which
  * writes url/loading/history/error/crash/dialog/popup into `browserUiStore` for EVERY
  * tab of the window — mounted or not, since native views now stay alive in the

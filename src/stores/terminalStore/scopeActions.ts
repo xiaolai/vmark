@@ -116,7 +116,7 @@ export function createTerminalScopeActions(
     },
 
     terminalRealignActive: (visibleIds) => {
-      // R2-15 (audit 20260831 round 2): after a rail-MODE toggle the visible
+      // R2-15: after a rail-MODE toggle the visible
       // population changes with no scope switch, so nothing realigned the
       // active session — a stale hidden active over an empty tab bar blocked
       // auto-create. Keep the current active if still visible; otherwise the

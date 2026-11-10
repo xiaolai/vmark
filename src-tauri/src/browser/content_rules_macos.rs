@@ -1,5 +1,4 @@
-//! Installing the AI destination policy as a `WKContentRuleList` (audit 20260903
-//! P-01, macOS). A `#[path]` child of `surface_macos.rs`, so `super::` reaches
+//! Installing the AI destination policy as a `WKContentRuleList` (macOS). A `#[path]` child of `surface_macos.rs`, so `super::` reaches
 //! `pump_until`.
 //!
 //! **What this covers that the navigation delegate cannot.** The delegate is asked

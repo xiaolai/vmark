@@ -1,5 +1,5 @@
 /**
- * Run request validation (audit 2026-09-03 W-05 / W-07 / W-09) —
+ * Run request validation —
  * everything that must hold before `startWorkflowRun` takes a lease.
  *
  * Bounds (D1v2 residuals): ≤ 25 steps, source ≤ 64 KiB UTF-8, ≤ 64 inputs, each

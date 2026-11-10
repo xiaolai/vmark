@@ -4,7 +4,7 @@
  * Purpose: `exportToHtml`, `exportToPdf`, `exportToPdfNative` and `copyAsHtml`
  * each carried their own `markdown.trim()` test and their own identical toast,
  * so a change to what "empty" means — or to which toast says so — had four
- * places to miss (audit 20260907 round 3, #697). `copyAsHtml` is the case that
+ * places to miss. `copyAsHtml` is the case that
  * proves it: it had no guard at all until a FOURTH copy was added.
  *
  * @module export/exportGuards

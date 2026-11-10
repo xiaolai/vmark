@@ -1,4 +1,4 @@
-//! The main-thread hop's cancellation protocol (audit 20260903 round 3, #32).
+//! The main-thread hop's cancellation protocol.
 //!
 //! `surface_macos::on_main` queues a closure on the AppKit main thread and waits
 //! for its result with a deadline. A deadline that fires does NOT dequeue the

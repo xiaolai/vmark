@@ -47,7 +47,7 @@ const isCliSource = (value: unknown): value is ContentServerRuntime["cliSource"]
  * Narrow an IPC payload to the wire shape — every field, not just the two
  * states: a guard that accepted `{node:"ready", cli:"ready"}` alone let an
  * older backend's partial report reopen the start path this probe exists to
- * gate (audit 20260907). Anything else is a probe failure.
+ * gate. Anything else is a probe failure.
  *
  * Field types are not the whole shape: `classify` in `runtime.rs` produces the
  * state and its source from ONE match arm, so `ready` always names where it

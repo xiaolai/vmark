@@ -1,7 +1,6 @@
 /**
  * Accessible-name computation — the TypeScript mirror of `agentCore.src.js`'s
- * `__vmarkNorm` / `__vmarkNameFull` / `__vmarkName` (audit 2026-09-03
- * S-02 / S-06 / S-09).
+ * `__vmarkNorm` / `__vmarkNameFull` / `__vmarkName`.
  *
  * A pragmatic subset of the WAI-ARIA accname algorithm: aria-labelledby (each
  * reference's aria-label, else its content, hidden references included, never

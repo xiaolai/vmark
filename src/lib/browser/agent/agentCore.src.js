@@ -1,4 +1,4 @@
-// The shared perception core (audit 2026-09-03, S-02) — THE ONLY COPY of the
+// The shared perception core — THE ONLY COPY of the
 // accessible-name / visibility rules the AI-facing scripts run in a page. The
 // composed walk follows in `agentCoreWalk.src.js` and role resolution with its
 // vocabulary in `agentCoreRoles.src.js`; every host concatenates the three straight

@@ -1,5 +1,5 @@
 //! Bracketed-literal url-filters for an IPv6 CIDR, derived rather than
-//! hand-written (audit 20260903 round 3, #9) — the v6 twin of
+//! hand-written — the v6 twin of
 //! `ai_content_rules_cidr.rs`.
 //!
 //! Filters must match the address as WebKit SERIALIZES it: the URL Standard's

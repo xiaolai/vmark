@@ -63,7 +63,7 @@ pub(super) fn validate_output_path(output_path: &str) -> Result<(), CommandError
             // `parent.exists()` is true for a regular FILE too, and the render
             // then starts against a destination that can never be written.
             //
-            // Its own key (audit 20260907 #398): reusing `dirNotFound` told the
+            // Its own key: reusing `dirNotFound` told the
             // user the directory does not exist while it plainly does, which
             // sends them to create a path that is already there. The CODE
             // differs from the branch above too — `InvalidInput`, not

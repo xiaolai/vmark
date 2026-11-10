@@ -25,7 +25,7 @@ const SCAN_ROOT = ["src-tauri", "src"];
  *  the whitespace rustfmt would never write but the language allows. The IPC
  *  contract gate matches both forms for the same reason; matching only the
  *  qualified one left three legacy `Result<_, String>` commands invisible to
- *  this ratchet (audit-fix 2026-09-07). `\b` stops it matching
+ *  this ratchet. `\b` stops it matching
  *  `#[tauri::command_bogus]` / `#[command_bogus]`. */
 const COMMAND_ATTRIBUTE_START = /#\[\s*(?:tauri\s*::\s*)?command\b/g;
 

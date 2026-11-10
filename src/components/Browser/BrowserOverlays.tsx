@@ -16,7 +16,7 @@
  * presentation — no stores, no invoke — so it is cheap to test and cheap to reason
  * about, and the surface stays about the webview. Its one effect is the modal focus
  * contract: a page dialog takes focus on open (OK, the safe default) and hands it back
- * to whatever had it when it closes (audit 2026-09-03 round 2, #161).
+ * to whatever had it when it closes.
  *
  * A page dialog whose answer did not reach the page keeps standing, with the failure
  * painted inside it as a live alert and both buttons live: the

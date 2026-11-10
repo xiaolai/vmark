@@ -37,7 +37,7 @@ export function hydrateWorkspaceInstanceContext(windowLabel: string): Promise<vo
 
   const generation = bumpContextGeneration(windowLabel);
 
-  // Audit 20260831 #22: hydration restores persisted/stashed splits
+  // Hydration restores persisted/stashed splits
   // through the SAME shared restoration (and kernel-backed sanitization) the
   // switch coordinator uses — the two paths had grown near-identical copies.
   restoreInstanceVisualContext(windowLabel, activeId);

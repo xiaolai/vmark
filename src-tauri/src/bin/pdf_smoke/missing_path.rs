@@ -2,7 +2,7 @@
 //!
 //! Purpose: `scenarios::bad_path` and `progress_case::refused` each built their
 //! own scratch directory, invoked the renderer against it, and classified the
-//! result — the same four rules written twice (audit 20260907 #251), which is
+//! result — the same four rules written twice, which is
 //! how one of them ends up asserting something the other does not.
 //!
 //! Both copies also named the scratch directory after the PROCESS ID and then

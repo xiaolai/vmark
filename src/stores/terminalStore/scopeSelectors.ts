@@ -21,7 +21,7 @@ import type { TerminalSession, TerminalState } from "./types";
  * when it is window-scoped (no stamp) or stamped with that scope. Every other
  * rule in this module — and the store's creation union and the scope actions'
  * internal filters — builds on this ONE predicate, so the visibility rule
- * cannot fork (audit 20260831 #2/#4).
+ * cannot fork.
  */
 export function isSessionVisibleInScope(
   session: TerminalSession,

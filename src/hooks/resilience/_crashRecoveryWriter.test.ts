@@ -8,7 +8,9 @@ import { useDocumentStore } from "@/stores/documentStore";
 const mockWriteRecoverySnapshot = vi.fn();
 vi.mock("@/services/persistence/crashRecovery", () => ({
   writeRecoverySnapshot: (...args: unknown[]) => mockWriteRecoverySnapshot(...args),
+  getRetirementEpoch: () => mockEpoch,
 }));
+let mockEpoch = 0;
 
 // Mock WindowContext
 vi.mock("@/contexts/WindowContext", () => ({
@@ -36,6 +38,7 @@ function makeDocState(overrides: Record<string, unknown> = {}) {
 describe("useCrashRecoveryWriter", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockEpoch = 0;
     vi.useFakeTimers();
     mockWriteRecoverySnapshot.mockResolvedValue(true);
 
@@ -377,5 +380,19 @@ describe("useCrashRecoveryWriter", () => {
     // Resolve the first write
     resolveWrite?.();
     await vi.advanceTimersByTimeAsync(0);
+  });
+
+  it("rewrites an unchanged dirty tab after a retirement was lifted (snapshot was deleted)", async () => {
+    renderHook(() => useCrashRecoveryWriter());
+    await vi.advanceTimersByTimeAsync(10_000);
+    const first = mockWriteRecoverySnapshot.mock.calls.length;
+    expect(first).toBeGreaterThan(0);
+
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(mockWriteRecoverySnapshot).toHaveBeenCalledTimes(first);
+
+    mockEpoch = 1;
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(mockWriteRecoverySnapshot.mock.calls.length).toBeGreaterThan(first);
   });
 });

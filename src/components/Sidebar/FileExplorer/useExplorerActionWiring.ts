@@ -1,6 +1,5 @@
 /**
- * useExplorerActionWiring — the file explorer's action callbacks (audit
- * 20260907, #322).
+ * useExplorerActionWiring — the file explorer's action callbacks.
  *
  * Purpose: everything FileExplorer wires from the tree and the context menu
  * into operations — opening by file type, the create-then-rename flows, the

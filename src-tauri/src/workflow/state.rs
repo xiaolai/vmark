@@ -4,8 +4,7 @@
 //! file past its frozen size, and the state was never a command anyway — it is
 //! what `.manage()` holds and what `workflow::guards` reads.
 //!
-//! Three transitions are ATOMIC here because they raced as separate atomics
-//! (audit 20260907):
+//! Three transitions are ATOMIC here because they raced as separate atomics:
 //!   - the engine gate + the `running` claim of a start, against the flag
 //!     write + cancel of `workflow_engine_policy(false)` — one lock,
 //!     `admission`, held across each pair;

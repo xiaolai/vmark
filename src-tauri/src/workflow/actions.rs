@@ -70,7 +70,7 @@ pub(super) async fn execute_action(
     params: &HashMap<String, String>,
     workspace_root: &Path,
 ) -> Result<String, String> {
-    // REQUIRED, not stripped-if-present (audit 20260907 #495). `unwrap_or(uses)`
+    // REQUIRED, not stripped-if-present. `unwrap_or(uses)`
     // accepted a bare `read-file` and ran it, so a workflow that misspelt the
     // namespace behaved as if it had not — and the `action/*` contract this
     // module is named for held only by the runner's own courtesy
@@ -127,7 +127,7 @@ async fn read_file(path_str: &str, workspace_root: &Path) -> Result<String, Stri
 /// Run `op` on the blocking pool, keeping a PANIC distinguishable from the
 /// operation's own failure.
 ///
-/// Both of `save_file`'s blocking steps hand-wrote this (audit 20260907 #501),
+/// Both of `save_file`'s blocking steps hand-wrote this,
 /// and each mapped the `JoinError` and the inner error through the SAME message
 /// template — so "Failed to write 'x': ..." was produced by a permission
 /// refusal and by a panic in `commit_inside_workspace` alike, with nothing in

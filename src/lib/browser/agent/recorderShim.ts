@@ -13,7 +13,7 @@
  * a drained buffer cannot leak a secret. Trusted host-side redaction (`recorder.ts`)
  * makes the final serialization decision.
  *
- * **Two canonical assets, one assembly** (audit 2026-09-03 S-02). The shim is a BODY
+ * **Two canonical assets, one assembly**. The shim is a BODY
  * that assumes the shared perception core is in scope, so both hosts wrap the pair
  * identically: Rust `concat!`s `"(function(){\n"`, `agentCore.src.js`, `agentCoreRoles.src.js`,
  * `recorderShimSensitivity.src.js`, `recorderShim.src.js` (each `"\n"`-joined) and

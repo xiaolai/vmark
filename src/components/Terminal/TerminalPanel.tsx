@@ -211,7 +211,7 @@ export function TerminalPanel() {
     setContextMenu(null);
   }, []);
 
-  // Tab bar actions — the ONE remove+hide policy (audit 20260831 #32):
+  // Tab bar actions — the ONE remove+hide policy:
   // membership-verified, visible fallback, no hidden-panel resurrect.
   const handleClose = useCallback(() => {
     const activeId = useTerminalStore.getState().activeSessionId;

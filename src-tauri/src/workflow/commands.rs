@@ -175,7 +175,7 @@ pub async fn run_workflow<R: tauri::Runtime>(
 /// it started returning `feature-disabled`. A gate whose job is "do not START
 /// things" has no business refusing to stop one.
 ///
-/// It took an unused `AppHandle` until audit 20260907 #523. Tauri injects that
+/// It used to take an unused `AppHandle`. Tauri injects that
 /// parameter, so the frontend never sent it and nothing broke by asking — but a
 /// command's parameter list is its ABI as read by anyone maintaining it, and an
 /// argument declared for no reason reads as a dependency this command does not

@@ -1,7 +1,7 @@
 /**
  * MCP v2 `vmark.browser.open` / `navigate` / `wait` handlers.
  *
- * Audit 2026-09-03 changes, each with its mechanism:
+ * Changes, each with its mechanism:
  *  - ONE wait budget per request (`MAX_WAIT_MS`, below the bridge's first
  *    deadline): the native-view wait and the navigation wait draw on the same
  *    deadline, so two stacked waits can no longer outlive the transport (timing).

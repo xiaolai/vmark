@@ -102,7 +102,7 @@ export function TerminalTabBar({ onClose, onRestart, orientation = "vertical", p
   const activeId = useTerminalStore((s) => s.activeSessionId);
 
   const handleCreate = useCallback(() => {
-    // The ONE owner-aware creation service (D-T1; audit 20260831 #17) — it
+    // The ONE owner-aware creation service (D-T1) — it
     // resolves the scope and applies the placeholder/restore/rail-off
     // carve-outs, identically to every other creator.
     createTerminalSessionInScope(getCurrentWindowLabel());
@@ -129,8 +129,8 @@ export function TerminalTabBar({ onClose, onRestart, orientation = "vertical", p
 
   // Which tab is being renamed, if any.
   const [renamingId, setRenamingId] = useState<string | null>(null);
-  // A rename box must not survive its session leaving the VISIBLE set
-  // (audit 20260831 #34): a rail switch mid-rename would otherwise resurrect
+  // A rename box must not survive its session leaving the VISIBLE set:
+  // a rail switch mid-rename would otherwise resurrect
   // edit mode when the user returns to the scope. Adjusted during render (the
   // guarded one-way pattern TerminalPanel's `activated` latch uses) — an
   // effect calling setState synchronously trips the cascading-render lint.

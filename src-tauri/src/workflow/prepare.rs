@@ -39,7 +39,7 @@ use uuid::Uuid;
 ///
 /// The RULE — non-empty, at most `snapshots::MAX_ID_LEN`, drawn from
 /// `[A-Za-z0-9_-]` — is `snapshots::validate_id`'s, and is consulted here
-/// rather than restated (audit 20260907 #549). Both are path-safety rules
+/// rather than restated. Both are path-safety rules
 /// about the SAME string: the id is the key every event and cancel is matched
 /// on AND a snapshot directory name, so two copies could drift into a value
 /// this entry point accepts and the snapshot layer refuses — or worse, the
@@ -236,7 +236,7 @@ pub(super) async fn prepare_run<R: Runtime>(
     // `None` is the documented degraded mode — a platform that cannot resolve
     // app data still runs action-only workflows, and genie steps report a clean
     // error. But the platform's REASON used to be dropped on the floor with
-    // `.ok()` (audit 20260907 #556), so the later "genies directory
+    // `.ok()`, so the later "genies directory
     // unavailable" was the only trace and named nothing. The behaviour is
     // unchanged; the cause is now recoverable.
     Ok(match app.path().app_data_dir() {

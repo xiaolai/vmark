@@ -2,8 +2,8 @@
  * oneShotMints — the driver-side mint and revoke of single-use approvals
  * ("Allow once"), split out of `grantSync.ts` for size (round 3).
  *
- * Purpose: one path mints a one-shot into the Rust driver and records the promise
- * (audit 2026-09-03 A-04), so a caller that needs the driver's confirmation awaits
+ * Purpose: one path mints a one-shot into the Rust driver and records the promise,
+ * so a caller that needs the driver's confirmation awaits
  * THAT mint (`mintOneShotConfirmed`) instead of minting a second copy; and
  * `revokeOneShot` withdraws a mint that confirmed after its run was cancelled, by
  * the mint's FULL identity — script included — so revoking one payload-bound
@@ -37,7 +37,7 @@ export const MAX_PENDING_MINTS = 256;
 /**
  * Every mint in flight or settled-but-unconsumed, by identity.
  *
- * ONE mint path (audit 2026-09-03 A-04). The subscription used to fire-and-forget
+ * ONE mint path. The subscription used to fire-and-forget
  * `browser_add_one_shot` while the workflow executor minted the same approval a
  * second time to be able to await it — so every approved run step left an orphan
  * one-shot in the driver, and on the one-off act path a fast retry could reach

@@ -32,14 +32,14 @@ import { createTerminalSessionAt } from "./revealTerminalSession";
 /** Why an "Open Terminal Here" request could not be satisfied. */
 type OpenTerminalHereFailure = "no-directory" | "max-sessions";
 
-/** Discriminated on `ok` (audit 20260831 #21): `{ok:true}` without a session
+/** Discriminated on `ok`: `{ok:true}` without a session
  *  id, or `{ok:false}` with one, are unrepresentable. */
 export type OpenTerminalHereResult =
   | { ok: true; sessionId: string }
   | { ok: false; reason: OpenTerminalHereFailure };
 
 /** True when another terminal session can still be created — the
- *  AUTHORITATIVE creation predicate (audit 20260831 #20): the same
+ *  AUTHORITATIVE creation predicate: the same
  *  owner-aware union the store's cap gate applies, never a bare count. */
 export function canOpenTerminalHere(): boolean {
   return canCreateTerminalSessionHere(getCurrentWindowLabel());

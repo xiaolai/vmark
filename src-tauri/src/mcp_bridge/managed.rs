@@ -58,8 +58,7 @@ pub struct McpBridgeState {
     /// from the OLD bridge apart from a legitimate peer of the new one.
     connection_generation: AtomicU64,
     /// The server's start/stop lifecycle — running flag, bound port and the
-    /// start generation — which used to be three statics in `control.rs`
-    /// (audit 20260907 #177).
+    /// start generation — which used to be three statics in `control.rs`.
     lifecycle: BridgeLifecycle,
     /// Rust-answered operations in flight: each holds a read lease from
     /// admission to completion (`admit_operation`), and `stop_bridge` takes

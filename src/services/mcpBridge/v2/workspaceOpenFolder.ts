@@ -77,7 +77,7 @@ import type { McpWriteContext } from "@/services/mcpBridge/writeContext";
  *  canonical path). Never touches the webview fs surface.
  *
  *  `commandErrorMessage`, not `errorMessage`: `validate_workspace_dir` returns
- *  a typed `CommandError` (audit 20260907 #560), which is a plain OBJECT on the
+ *  a typed `CommandError`, which is a plain OBJECT on the
  *  wire — `String(e)` renders it as `"[object Object]"`, the class rule 50 §10
  *  records as having shipped to users four times. */
 async function validateWorkspaceDir(
