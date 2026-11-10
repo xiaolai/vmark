@@ -4,7 +4,7 @@
  * assembled on the shared perception core. Split from `actScript.ts` (which keeps
  * the script BUILDERS) along that seam; the act half lives in `agentAct.ts`.
  *
- * Assembly order (audit 2026-09-03 S-02): `agentCore.src.js` (name, hidden-ness,
+ * Assembly order: `agentCore.src.js` (name, hidden-ness,
  * the budgeted composed walk — the same bytes the recorder shim runs) with its
  * role vocabulary, then the refs, query and act sections below. `agentLib.test.ts`
  * pins that the library starts with the core and defines each function exactly once.

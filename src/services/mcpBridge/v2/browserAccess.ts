@@ -1,5 +1,5 @@
 /**
- * browserAccess — the gates every browser handler shares (audit 2026-09-03).
+ * browserAccess — the gates every browser handler shares.
  *
  * `browserGate` answers "may this window serve browser requests at all?" in the
  * order the client expects: an unsupported platform refuses with the

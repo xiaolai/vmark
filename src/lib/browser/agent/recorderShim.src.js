@@ -30,8 +30,7 @@
 // It records the LOCATOR (ARIA role + accessible name) and, for a typed field, a
 // `sensitive` HINT — NEVER the typed value. The sensitivity rules, the two marks
 // that carry an observation across an attribute rewrite, and the vocabulary that
-// names a secret all live in `recorderShimSensitivity.src.js` (S-11 and
-// audit 20260907), which this file is concatenated with. A value never enters this
+// names a secret all live in `recorderShimSensitivity.src.js`, which this file is concatenated with. A value never enters this
 // buffer; trusted host-side redaction (recorder.ts) makes the final call.
 //
 // Self-contained ES5, safe on any hostile page: every handler is wrapped so capture

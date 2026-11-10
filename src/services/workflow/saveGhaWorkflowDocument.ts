@@ -5,7 +5,7 @@
  * patches to the document text, write the result to disk when the document
  * has a path, then reflect the write in the editor and clear exactly the
  * patches that were written. The workbench used to own all of this inside its
- * click handler, next to the toasts (audit 20260907, #294); it now maps the
+ * click handler, next to the toasts; it now maps the
  * typed outcome returned here to its notifications and nothing else.
  *
  * Key decisions:

@@ -15,7 +15,7 @@
  * `scripts/lib/docJoins/lintTable.mjs` now reads the doc table structurally and
  * asserts id, severity and title equality against this list, both directions.
  *
- * It is also the engine's source of truth for severity (audit 20260907, #405).
+ * It is also the engine's source of truth for severity.
  * Each rule module used to redeclare `ruleId` and `severity` inline beside its
  * `createDiagnostic` call, and a synchronization test held the two declarations
  * together by scanning the emitters as source — two sources of truth joined by a
@@ -30,7 +30,7 @@
  * `src/locales/en/editor.json` — they carry substitutions, and the M/Y ids map
  * to shared keys (`lint.linkNotFound`, `lint.yamlParseError`).
  *
- * The title here is ENGLISH and stays English (audit 20260907, #406). It is the
+ * The title here is ENGLISH and stays English. It is the
  * string the doc-joins gate compares against `website/guide/lint.md`, so it has
  * to be the language that page is written in. Localization happens at the UI
  * boundary instead: `ValidationGutter` renders `t("lint.rule.<id>")` with this
@@ -68,7 +68,7 @@ export interface RuleMeta {
 /** Every rule id the lint engine, the YAML linter and the link checker can emit.
  *  Frozen, rows included: `readonly` guards only the array at compile time, and
  *  `BY_ID` shares these objects, so a mutable row would be a write to every
- *  reader (audit 20260907). */
+ *  reader. */
 const RULE_ROWS = [
     { id: "E01", severity: "error", title: "Undefined reference" },
     { id: "E02", severity: "error", title: "Table row has wrong column count" },

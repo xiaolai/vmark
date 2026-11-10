@@ -1,6 +1,6 @@
 /**
  * useFindBarKeyboard — the keyboard behaviour of the find and replace inputs
- * (audit 20260907, #301: split out of the 247-line FindBar component).
+ * (#301: split out of the 247-line FindBar component).
  *
  *   - Enter / Shift+Enter in the find input navigates forward / backward;
  *     Enter in the replace input replaces the current match.

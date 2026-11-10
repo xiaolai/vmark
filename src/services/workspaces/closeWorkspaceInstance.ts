@@ -143,7 +143,7 @@ export async function closeWorkspaceInstance(
     const tabIds = ownedTabIds(windowLabel, workspaceInstanceId);
     if (tabIds === null) return { ok: false, reason: "missing" };
 
-    // Audit 20260831 #24: tabs can be OPENED into (or reassigned to) this
+    // Tabs can be OPENED into (or reassigned to) this
     // workspace while a dirty prompt is up, and removing the instance after a
     // stale snapshot would orphan them. After each pass, re-collect and close
     // any ids that NEWLY appeared — ids already handed to the injected closer

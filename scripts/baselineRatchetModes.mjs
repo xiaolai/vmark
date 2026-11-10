@@ -147,7 +147,7 @@ export function evaluateCheck(check, baseDoc, headDoc, filePath) {
   // from the HEAD document at comparison time rather than listed by hand in
   // the manifest. A key that arrives later (a seventh theme) is ratcheted
   // from its first change with no manifest edit; a hand-kept list could omit
-  // it and read as coverage (audit 20260907 #13). A key absent at the base is
+  // it and read as coverage. A key absent at the base is
   // the same shape-change notice a hand-listed key gets; the parent's own
   // arrival or removal is the business of an `object-keys` check on it.
   if (typeof check.at === "string" && check.at.endsWith(".*")) {
@@ -206,7 +206,7 @@ export function evaluateCheck(check, baseDoc, headDoc, filePath) {
         // it is a raise from 0 — refused like any other raise, and explained
         // the same way (an `allowRaise` from 0, with a reason): a file added
         // to a per-file baseline in the change that made it dirty was the
-        // self-attestation §11 exists to close (audit 20260907 #12). A new
+        // self-attestation §11 exists to close. A new
         // key AT zero raises nothing and is reported either way.
         if (check.onAdd === "fail" && count > 0) raises.push({ path: filePath, key: `${prefix}${key}`, from: 0, to: count });
         else added.push(`${prefix}${key} @ ${count}`);

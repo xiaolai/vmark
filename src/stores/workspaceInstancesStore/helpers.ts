@@ -56,8 +56,8 @@ export function uniqueIds(ids: string[]): string[] {
  * instance deletes any placeholder instances from the target window silently;
  * a placeholder being added never displaces anything.
  *
- * The incoming instance's OWN id is never treated as an evictable placeholder
- * (audit 20260831 #10): when a real instance reuses a placeholder's id, the
+ * The incoming instance's OWN id is never treated as an evictable placeholder:
+ * when a real instance reuses a placeholder's id, the
  * old flow filtered that id out of the membership list and then deleted the
  * record it had just written — leaving an active id with no membership and
  * no record.

@@ -8,7 +8,7 @@
 // A field is sensitive by its own attributes (type, autocomplete, identifier
 // tokens in name/id/aria-label) or by its ACCESSIBLE NAME — the <label>,
 // aria-labelledby or placeholder the core already resolves for the locator
-// (audit 20260907, #391) — in English by token and in the other shipped
+// — in English by token and in the other shipped
 // languages by phrase (`SENSITIVE_PHRASES`). Two marks carry that observation forward, because a
 // page changes attributes under the user — a show-password toggle flips `type`:
 //   - the EPISODE mark (`sticky`): set on focus/input, cleared on change/focusout,
@@ -16,7 +16,7 @@
 //   - the PERMANENT mark (`everSecret`): never cleared. The identity of a secret is
 //     the element, not its current attributes — a field observed as a secret at any
 //     point in the document's life stays one, across later commits and across focus
-//     leaving for the eye button (audit 20260903). A change the page makes
+//     leaving for the eye button. A change the page makes
 //     before the user ever touches the field is visible only as an attribute
 //     mutation, so an observer over EVERY sensitivity-defining attribute feeds the
 //     same mark, from the old value or the new one.
@@ -104,7 +104,7 @@ var everSecret = new WeakMap();
  *  the engine's. Later calls resolve `sticky.set` through that prototype, so a
  *  page that replaces `WeakMap.prototype.set` with a no-op made every mark
  *  silently vanish WITHOUT tripping `marksBroken` — laundering a secret through
- *  the one channel the WeakMaps were chosen to close (audit 20260907 round 2).
+ *  the one channel the WeakMaps were chosen to close.
  *  Held as functions and `.call`ed, which the patch cannot reach. */
 var wmGet = WeakMap.prototype.get;
 var wmSet = WeakMap.prototype.set;
@@ -113,7 +113,7 @@ var wmDelete = WeakMap.prototype["delete"];
  *  `placeholder` and `aria-labelledby` are here because `isSensitiveNow` also
  *  judges the ACCESSIBLE NAME, which they define: a page that set
  *  `placeholder="Password"` and removed it before the first focus erased the
- *  only evidence the field was one (audit 20260907 round 2). */
+ *  only evidence the field was one. */
 var SENSITIVE_ATTRS = ["type", "autocomplete", "name", "id", "aria-label", "placeholder", "aria-labelledby"];
 
 /** The element's sensitivity-defining attributes, with `name` read as `value`
@@ -242,8 +242,8 @@ function applySensitivityRecords(records) {
 /** Apply the observer's PENDING records now. Its callback is a microtask, so a
  *  page that flips `type` away from password and then commits the field in the
  *  SAME task — inside its own input handler, then `blur()` — reached the commit
- *  before the permanent mark existed, and the value was recorded as ordinary
- *  (audit 20260907 round 2). Every commit path drains first, which is the only
+ *  before the permanent mark existed, and the value was recorded as ordinary.
+ *  Every commit path drains first, which is the only
  *  ordering that makes the observer's evidence available when it is needed. */
 function flushSensitivity() {
   if (!sensitivityObserver) return;

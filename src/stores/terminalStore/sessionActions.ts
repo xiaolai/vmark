@@ -43,7 +43,7 @@ function generateTerminalId(): string {
   return `term-${nextTerminalId++}`;
 }
 
-/** THE smallest-unused allocation rule (audit 20260831 R2-5): creation and
+/** THE smallest-unused allocation rule (R2-5): creation and
  *  the scope actions' renumbering share it, so the rules cannot diverge. */
 export function smallestUnusedOrdinal(used: ReadonlySet<number>): number {
   let n = 1;
@@ -212,7 +212,7 @@ export function createTerminalActions(set: TerminalSet, get: TerminalGet): Termi
       // A program controls this via OSC 0/2 — strip control chars, collapse
       // whitespace, and cap length so a hostile/garbled title can't bloat the
       // store or corrupt the tab UI / screen-reader output (Codex audit).
-      // C1 controls and bidi overrides are stripped too (audit 20260831 #3):
+      // C1 controls and bidi overrides are stripped too:
       // a bidi override in a tab label can visually reverse the strip's text.
       const clean = Array.from(title)
         .filter((ch) => {

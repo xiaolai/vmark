@@ -59,7 +59,7 @@ export function SettingRow({ label, description, children, disabled }: SettingRo
       <div className="flex-1 select-none">
         {/* A real <label htmlFor>, so clicking the row's text activates the
             control — a switch/select is a labelable element.
-            Audit 20260829: a wrapper <div> child is NOT labelable, so the
+            A wrapper <div> child is NOT labelable, so the
             htmlFor would dangle — omit it there and keep the aria wiring. */}
         <label
           htmlFor={labelable ? effectiveControlId : undefined}

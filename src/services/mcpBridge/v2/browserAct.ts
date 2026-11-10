@@ -19,7 +19,7 @@
  * origin and rejects a stale generation. `scroll`/`key` dispatch SYNTHETIC DOM
  * events (SPIKE-3), so a site gating on `event.isTrusted` ignores them.
  *
- * Audit 2026-09-03: a `type`, `key` or `scroll` approval binds the BUILT script
+ * A `type`, `key` or `scroll` approval binds the BUILT script
  * (so the text, key+modifiers or delta the user approved is what runs — A-05)
  * and the prompt shows a summary of it — for `type`, the WHOLE text, since the
  * bound script embeds all of it; the one-shot mint is awaited

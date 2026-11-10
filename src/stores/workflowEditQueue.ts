@@ -191,8 +191,7 @@ export function bindEditDocument(slice: EditSlice, documentId: string | null): E
  *
  * A Save As renames the document its patches belong to, and rebinding cannot
  * express that: binding STASHES the old id's queue and RESTORES the new id's,
- * so the edits end up filed under a name nothing will ever save (audit
- * 20260907, #292). It works whether or not `from` is bound, because the pane
+ * so the edits end up filed under a name nothing will ever save. It works whether or not `from` is bound, because the pane
  * whose file was renamed need not be the pane the user is typing in.
  *
  * `to`'s own queue keeps precedence and the moved patches follow it: a second

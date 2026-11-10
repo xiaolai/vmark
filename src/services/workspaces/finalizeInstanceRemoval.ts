@@ -1,6 +1,6 @@
 /**
  * finalizeInstanceRemoval — the ONE post-removal lifecycle for an instance
- * leaving its window (audit 20260831 #25/#26): close and move had grown
+ * leaving its window: close and move had grown
  * separate copies that were already drifting in which per-instance stores
  * they cleaned and how much of the successor's context they restored.
  *
@@ -77,7 +77,7 @@ export function finalizeInstanceRemoval(
   }
 
   if (!wasActive) return Promise.resolve();
-  // Audit 20260831 #25: the promoted successor (ids[0], promoted with no
+  // The promoted successor (ids[0], promoted with no
   // switch event) needs its FULL context — panes, active tab, sidebar root,
   // config, and the terminal realign — not only the terminal store.
   return hydrateWorkspaceInstanceContext(windowLabel);

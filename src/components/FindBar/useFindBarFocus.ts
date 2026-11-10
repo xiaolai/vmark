@@ -1,8 +1,7 @@
 /**
  * FindBar focus effects — where the caret goes, and the Mod+E seeding.
  *
- * Purpose: the two `useEffect` bodies the FindBar component carried (audit
- * 20260907, #301). Both are about the same thing — putting a ready-to-type
+ * Purpose: the two `useEffect` bodies the FindBar component carried. Both are about the same thing — putting a ready-to-type
  * query in front of the user — and neither is about rendering, so they read
  * better next to each other than interleaved with the bar's markup.
  *

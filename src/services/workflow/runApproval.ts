@@ -1,6 +1,6 @@
 /**
- * Run-scoped approval wait (audit 2026-09-03 W-01 / W-06 / W-09 — the D1v2
- * approval state machine for one write step).
+ * Run-scoped approval wait (the D1v2 approval state machine
+ * for one write step).
  *
  *   requested → approved (await the Rust mint confirmation, then act)
  *             / denied (pause `denied`, stop-and-ask)

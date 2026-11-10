@@ -3,7 +3,7 @@
  *
  * Purpose: E01, E04, E05 and W03 all answer the same question before they
  * scan a line — "is this text the parser reads as prose?" — and each carried
- * its own half-answer. Measured on adoption (audit 20260907 round 3), the
+ * its own half-answer. Measured on adoption, the
  * three models disagreed about one document at eight places:
  *
  *   - a fence a container prefixes (`> ``` `) was invisible to every

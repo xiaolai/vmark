@@ -269,7 +269,7 @@ async function revokeMintedGrants(client, before) {
  * revoked (`revokeMintedGrants`); the error says which happened. The request
  * phase runs INSIDE that cleanup too: a dialog that came up for the wrong
  * path is a failure with the dialog still open, and it used to be thrown
- * past the catch that denies it (audit 20260907 #8).
+ * past the catch that denies it.
  */
 export async function openWorkspaceViaMcp(client, folderPath, { windowLabel = "main" } = {}) {
   let canonicalPath;

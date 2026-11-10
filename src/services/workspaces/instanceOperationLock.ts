@@ -1,5 +1,5 @@
 /**
- * Per-instance operation lock (audit 20260831 round 2, R2-14).
+ * Per-instance operation lock (R2-14).
  *
  * Purpose: ONE mutual-exclusion set for every long-running workspace-instance
  * operation — close, move, duplicate. Each of these crosses an await (a dirty

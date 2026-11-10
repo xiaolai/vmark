@@ -4,7 +4,7 @@
 //! `surface::` address.
 //!
 //! An attachment binds to exactly (tab, generation), so it cannot follow a page
-//! navigation or a reused tab id — and since audit 20260903 round 3 #35 it is
+//! navigation or a reused tab id — and it is
 //! WRITTEN only under the registry guard, for a tab the registry knows at that
 //! generation (`BrowserSurface::attach_tab`), and CLEARED under that same guard
 //! when the tab is forgotten (`BrowserSurface::forget_tab`). The two free

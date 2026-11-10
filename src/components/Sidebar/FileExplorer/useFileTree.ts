@@ -146,7 +146,7 @@ export function useFileTree(
   const [tree, setTree] = useState<FileNode[]>([]);
   // The root `tree` was listed for. A root-to-root switch used to render the
   // previous workspace's tree until the new listing landed — stale absolute
-  // paths a user could open, rename or delete (audit 20260907, #327); until
+  // paths a user could open, rename or delete; until
   // the roots agree the hook returns an empty tree, which the explorer shows
   // as "loading".
   const [treeRoot, setTreeRoot] = useState<string | null>(null);

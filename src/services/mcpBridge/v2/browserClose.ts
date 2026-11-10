@@ -1,5 +1,5 @@
 /**
- * MCP v2 `vmark.browser.close` handler (audit 2026-09-03 X-01).
+ * MCP v2 `vmark.browser.close` handler.
  *
  * The AI can open tabs but had no verb to close one, and the driver now caps
  * live AI-owned tabs (`MAX_AI_TABS` in `browser_ai_create`): without this an

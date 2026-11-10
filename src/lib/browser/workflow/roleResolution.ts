@@ -1,5 +1,5 @@
 /**
- * Role resolution for a role-less locator (audit 2026-09-03 S-02 / W10).
+ * Role resolution for a role-less locator.
  *
  * The recorder may emit `click "name"` with no role, and a workflow author may
  * write one. The act scripts resolve a target by role + name, so a missing role

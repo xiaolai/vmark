@@ -63,7 +63,7 @@ use super::RenderSink;
 /// from `failed` — because a confirmed job keeps spooling after the dialog
 /// closes (#1343).
 ///
-/// `_read_access_dir` is the PLATFORM CONTRACT, not dead code (audit 20260907):
+/// `_read_access_dir` is the PLATFORM CONTRACT, not dead code:
 /// `mod.rs` dispatches to the macOS, Linux and Windows backends with
 /// one argument list under `#[cfg]`, so every backend declares it. Only macOS
 /// reads it — `WKWebView::loadFileURL:allowingReadAccessToURL:` needs an
@@ -87,7 +87,7 @@ fn start_print(
     html_path: &str,
     sink: Arc<RenderSink<PrintOutcome>>,
 ) -> Result<(), CommandError> {
-    // Translated for the same reason as the Windows twin (audit 20260907 #464).
+    // Translated for the same reason as the Windows twin.
     // This window is hidden (#1341), so the title reaches the user only through
     // a window-list applet — but it is the same string on the same surface, and
     // two spellings of one title is how one of them stays English forever.

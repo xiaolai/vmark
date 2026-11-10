@@ -18,7 +18,7 @@
  * eval, because the driver's per-eval run-loop pump is short — polling also keeps
  * each eval well under that cap and lets the wait track a navigation.
  *
- * Audit 2026-09-03: a human tab attached with "Allow once" holds ONE authorized
+ * A human tab attached with "Allow once" holds ONE authorized
  * read, and a poll loop is many — the first poll spent it and every later poll
  * was refused, reported as `matched:false` (A-01). Such a tab is now refused up
  * front with `ATTACHMENT_ONCE_INSUFFICIENT`; "Allow until navigation" covers a

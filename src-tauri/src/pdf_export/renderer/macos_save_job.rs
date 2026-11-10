@@ -217,8 +217,7 @@ pub(super) fn verify_pdf(output_path: &Path) -> Result<(), CommandError> {
     let shape = match pdf_shape(output_path) {
         Ok(shape) => shape,
         // The file could not be EXAMINED — a permission failure, a transient
-        // I/O error, an unreadable mount. That is not "empty" (audit 20260907
-        // #433): reporting it as such names a cause the code never observed,
+        // I/O error, an unreadable mount. That is not "empty": reporting it as such names a cause the code never observed,
         // and every such failure was folded into the same message before. The
         // file is deliberately NOT removed: nothing here knows whether it holds
         // the user's document, and a removal that cannot even open it would
@@ -254,8 +253,7 @@ pub(super) fn verify_pdf(output_path: &Path) -> Result<(), CommandError> {
 /// the trailing window.
 ///
 /// `Err` means the file could not be EXAMINED and says nothing about its shape.
-/// Every one of these used to collapse into `Empty` or `NotPdf` (audit 20260907
-/// #433) — so a permission failure was reported as "produced empty PDF", and
+/// Every one of these used to collapse into `Empty` or `NotPdf` — so a permission failure was reported as "produced empty PDF", and
 /// `verify_pdf` then tried to delete a file it had not even been able to open.
 /// A file that is genuinely absent is still `Empty`: that is the classification
 /// this function's own doc comment promises.

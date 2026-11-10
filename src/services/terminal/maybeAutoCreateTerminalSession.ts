@@ -50,6 +50,6 @@ export function maybeAutoCreateTerminalSession(windowLabel: string): boolean {
   if (getVisibleTerminalSessions(windowLabel).length > 0) return false;
   const scope = getActiveWorkspaceScope(windowLabel);
   if (!canAutoCreateInScope(scope, activeTabHasSavedFile(windowLabel))) return false;
-  // The ONE owner-aware creation service (audit 20260831 #17).
+  // The ONE owner-aware creation service.
   return createTerminalSessionInScope(windowLabel) !== null;
 }

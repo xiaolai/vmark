@@ -2,8 +2,7 @@
  * Read-only banner above the source pane for kind="viewer"
  * formats. The caller MOUNTS it conditionally on the tab's effective
  * read-only state; it has no self-hiding prop. It used to carry a `hidden`
- * prop as a second way to do the same job, which no caller ever passed
- * (audit 20260815-163607 #25).
+ * prop as a second way to do the same job, which no caller ever passed.
  *
  * "Enable editing" promotes the tab to read-write via the caller's
  * onEnableEditing handler. "Open in external editor"
