@@ -73,6 +73,8 @@ node e2e/run-journeys.mjs --only save    # name-substring filter
 | `journal-rapid-reloads` | Five reloads in a row, each followed by an AI write: every reload registers its page exactly once, every write is journaled durably, and nothing is left uncommitted |
 | `focus-facts-wkwebview` | macOS only. The focus facts the comments panel's two-frame confirm rests on (`src/test/focusFacts.ts`, measured in Playwright's WebKit) are imported from the dev server and run in the app's own WKWebView, two animation frames per settle: every fact not marked `pointer` must hold. The five pointer facts need a real mouse and stay with the Playwright runner; the journey fails if that count changes, and when the window lacks focus (a background window delivers no blur) |
 
+Before the first journey the runner warms the editor surface (`e2e/lib/warmup.mjs`): `tauri dev` serves modules on demand, so on a cold Vite cache the first tab any journey opens would otherwise spend the journey's 8 s budget compiling the editor graph. A surface that cannot load refuses the run.
+
 The runner appends a suite-level `state-restoration` check: the tab bar must
 be byte-identical to the pre-suite snapshot.
 

@@ -9,7 +9,7 @@
  * cannot disguise a candidate), whitespace collapsed, case-folded, and split into
  * CODE POINTS, so an emoji is one character rather than two surrogate halves.
  *
- * **Antonyms are never a heal** (audit 2026-09-03 W-03). Heal fires when the
+ * **Antonyms are never a heal**. Heal fires when the
  * original target is ABSENT — exactly the page state after the action already
  * happened, where the inverse control ("Unpublish" for "Publish", "Unsubscribe"
  * for "Subscribe") stands in its place and scores 0.75–0.82 on edit distance.

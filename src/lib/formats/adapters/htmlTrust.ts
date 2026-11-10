@@ -80,7 +80,7 @@ export const TRUSTED_ALLOW = "";
  *
  * The token is encoded as ONE path segment. A real token is 64 hex chars and
  * encodes to itself; the encoding exists so that nothing else can add a
- * segment, a query or a fragment to the URL the frame loads (audit 20260907).
+ * segment, a query or a fragment to the URL the frame loads.
  */
 export function trustedFrameUrlFor(token: string, platform: RuntimePlatform): string {
   const segment = encodeURIComponent(token);

@@ -1,4 +1,4 @@
-//! The pure half of WebKit navigation identity (audit 20260903 round 4, #19).
+//! The pure half of WebKit navigation identity.
 //!
 //! WebKit hands every `WKNavigationDelegate` callback the `WKNavigation` it is
 //! about — and it can deliver a callback for an OLDER navigation after a newer one

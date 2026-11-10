@@ -37,8 +37,8 @@
 //!     `permission-denied` (localized, the one message a user must act on),
 //!     `errSecItemNotFound` → `not-found`, `errSecUserCanceled` →
 //!     `cancelled`, and every OTHER status → `internal` — with the status
-//!     itself in `detail.osStatus`. `internal` is the conservative fallback
-//!     (audit 20260907 #241): the earlier `io` invited a retry that an
+//!     itself in `detail.osStatus`. `internal` is the conservative fallback:
+//!     the earlier `io` invited a retry that an
 //!     unrecognised status — a decode failure, a missing entitlement, a code
 //!     Apple adds tomorrow — has given no reason to expect. A
 //!     `PlatformFailure` that is not a keychain status, and every other
@@ -179,7 +179,7 @@ fn delete_on(entry: &Entry) -> Result<(), CommandError> {
 
 /// Longest secret key the commands accept.
 ///
-/// A BOUND where there was none (audit 20260907 #469), not a tightening of one.
+/// A BOUND where there was none, not a tightening of one.
 /// Every key this app produces is `apikey.<provider type>`
 /// (`services/secrets/apiKeySecrets.ts`), so 256 leaves two orders of magnitude
 /// of headroom over anything legitimate while refusing a megabyte of garbage at
@@ -188,10 +188,10 @@ fn delete_on(entry: &Entry) -> Result<(), CommandError> {
 const MAX_KEY_LEN: usize = 256;
 
 /// Validate the key and build its entry. The empty-key check was copy-pasted
-/// into all three commands (audit 20260809 #6); one caller-bug rejection with
+/// into all three commands; one caller-bug rejection with
 /// one message is easier to keep true than three.
 ///
-/// **Control characters are refused, and NUL is why** (audit 20260907 #469).
+/// **Control characters are refused, and NUL is why**.
 /// The key becomes the keychain ACCOUNT, and every backend hands it to a C
 /// string API: the Secret Service takes a NUL-terminated D-Bus string and
 /// Windows `CredWrite` a NUL-terminated wide string, so `"a\0b"` and `"a\0c"`

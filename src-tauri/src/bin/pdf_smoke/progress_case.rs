@@ -167,7 +167,7 @@ pub async fn run(app: &tauri::AppHandle, out: &Path) -> usize {
 /// A refused path: validation happens before any stage, so nothing leaks.
 ///
 /// The fixture and the refusal rule are `missing_path`'s, shared with
-/// `scenarios::bad_path` (audit 20260907 #251/#253) — the same
+/// `scenarios::bad_path` — the same
 /// destination and the same "must be `NotFound`, from the guard" verdict. What
 /// stays here is the assertion this case is FOR: that nothing was emitted.
 async fn refused(app: &tauri::AppHandle) -> usize {
@@ -189,7 +189,7 @@ async fn refused(app: &tauri::AppHandle) -> usize {
     )
     .await;
     let mut failures = check_parsed("progress-refused", &seen);
-    // TWO independent conditions, reported independently (audit 20260907 #254).
+    // TWO independent conditions, reported independently.
     // Folding them into one match arm meant a correct `NotFound` that had
     // nonetheless leaked stages fell through to the arm that prints
     // "code=NotFound (expected NotFound)" — a line that reads as a

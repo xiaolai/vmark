@@ -14,10 +14,10 @@
 //! Authority is dropped too, and deliberately: a one-shot is bound to a tab, and a tab
 //! whose window is gone can never be acted on again. Leaving the grant behind would be
 //! authority with no way to observe what it authorized. The window's standing grants
-//! go the same way (audit 20260903 A-03): they were mirrored from THAT window's store,
+//! go the same way: they were mirrored from THAT window's store,
 //! which no longer exists to revoke them.
 //!
-//! Every tab's state goes under ONE registry guard (audit 20260903 round 4, #35), the
+//! Every tab's state goes under ONE registry guard, the
 //! same way `BrowserSurface::forget_tab` does it for one tab. Removing the entries and
 //! then clearing each tab's one-shots, attachment and crash tracker with the guard
 //! released left a gap in which a `create` + `attach_tab` for a reused id could land

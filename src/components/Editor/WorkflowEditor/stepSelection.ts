@@ -1,7 +1,6 @@
 /**
  * Purpose: the selected job/step derivation for the forms editor — a pure
- *   function over the preview IR, split out of WorkflowEditorPanel (audit
- *   20260907, #283) so the neighbour arithmetic the StepForm nav relies on
+ *   function over the preview IR, split out of WorkflowEditorPanel so the neighbour arithmetic the StepForm nav relies on
  *   is testable without rendering.
  *
  * @coordinates-with src/components/Editor/WorkflowEditor/WorkflowEditorPanel.tsx — the consumer

@@ -17,7 +17,7 @@
 //! another. Authority must lapse with the view it was granted against, not merely with
 //! the document (R7a).
 //!
-//! The decision and the write are each ONE registry guard (audit 20260903 round 3, #21).
+//! The decision and the write are each ONE registry guard.
 //! This used to read the committed URL, mode, epoch and shared approval through four
 //! separate locks and then bump-and-record through a fifth; a top-level navigation begun
 //! by a command thread in between revokes the committed page, and the late write here put

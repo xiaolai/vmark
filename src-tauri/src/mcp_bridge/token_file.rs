@@ -17,12 +17,12 @@
 //! to 0600 **before a byte of it is written** and **re-stat'ed immediately
 //! before the rename**, so it is never reachable under a name at the wrong
 //! mode and the staging window rests on this file's own enforcement rather
-//! than on `NamedTempFile`'s default (audit 20260907 #388). A bridge that
+//! than on `NamedTempFile`'s default. A bridge that
 //! cannot protect its token does not start, and it does not leave the token
 //! behind when it refuses.
 //!
 //! The publication itself is `atomic_replace::persist_with_retry` — the one
-//! copy of the Windows replacement rule (audit 20260907 #389).
+//! copy of the Windows replacement rule.
 //!
 //! The half of the threat a file mode cannot cover — another user REPLACING
 //! the file rather than reading it — belongs to the directory, and lives in
@@ -114,7 +114,7 @@ fn write_secured(path: &Path, parent: &Path, contents: &[u8]) -> Result<(), Stri
     let mut temp = NamedTempFile::new_in(parent)
         .map_err(|e| format!("Failed to create temp file in {parent:?}: {e}"))?;
 
-    // BEFORE the secret is written, not after it (audit 20260907 #388). The
+    // BEFORE the secret is written, not after it. The
     // old order set the mode immediately before the rename, which protects the
     // published name but leaves the staging window resting on `NamedTempFile`'s
     // default — the exact dependency this module's header says it exists to
@@ -146,7 +146,7 @@ fn write_secured(path: &Path, parent: &Path, contents: &[u8]) -> Result<(), Stri
     //
     // There used to be a Windows-only `remove_file(path)` + retry here, on the
     // premise that Windows `rename` refuses an existing target. That premise is
-    // false, and the fallback was DESTRUCTIVE (audit 20260907 #389): it fired on
+    // false, and the fallback was DESTRUCTIVE: it fired on
     // ANY persist failure — a transient sharing refusal from an antivirus
     // scanner included — so it deleted the live token file and then failed to
     // rewrite it, leaving the bridge's only credential gone. `atomic_replace.rs`

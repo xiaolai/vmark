@@ -31,7 +31,7 @@
  *     and does nothing else. Rust sets it on a failure whose side effect may still
  *     land — the browser eval timeout (`EVAL_TIMEOUT`): nothing cancels an
  *     enqueued script, so a blind retry of a `timeout` can run a mutating act
- *     twice (audit 20260903 round 3, #18). The code stays `timeout`, because that
+ *     twice. The code stays `timeout`, because that
  *     is what happened and no code in the closed vocabulary says "unknown effect"
  *     truthfully; the flag rides in `detail`, the machine-readable channel. It
  *     never LIFTS a class: an approval-required or denied error stays what it is.

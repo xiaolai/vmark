@@ -1,6 +1,6 @@
 /**
  * ARIA role inference — the TypeScript mirror of `agentCore.src.js`'s
- * `__vmarkRole` / `__vmarkIsLandmark` (audit 2026-09-03 S-02).
+ * `__vmarkRole` / `__vmarkIsLandmark`.
  *
  * Split out of `aria.ts` so the accessible-name module can ask "is this role a
  * landmark?" (landmarks never take a name from content) without an import cycle.

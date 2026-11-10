@@ -61,7 +61,7 @@ function liveInSomeTestBuild(p) {
  * `cargo test` on that target — the crate gates its `tauri::test` items off
  * Windows exactly this way. Anything else — `cfg(any())`, a feature,
  * `cfg_attr` — makes the include CONDITIONAL on something this probe cannot
- * see, and a conditional include is not a discovered test (audit 20260907 #26).
+ * see, and a conditional include is not a discovered test.
  */
 function unevaluatableCfg(attrRun) {
   for (const m of attrRun.matchAll(/#\[([^\]]*)\]/g)) {
@@ -86,7 +86,7 @@ const attrRunBefore = (code, index) => /(?:#\[[^\]]*\]\s*)*$/.exec(code.slice(0,
  *
  * The attribute must also be CODE. `keepStrings` is required here — the path
  * IS a string literal — which leaves a whole `#[path = "x.test.rs"] mod t;`
- * quoted inside a RAW string intact, and it matched (audit 20260907 #26; the
+ * quoted inside a RAW string intact, and it matched (the
  * ordinary-string case only failed because `\"` breaks the regex, which is
  * luck, not a check). The fully-blanked source tells the two apart: a `#` that
  * survives literal blanking is code, one that does not was inside a literal.

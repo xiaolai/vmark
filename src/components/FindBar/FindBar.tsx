@@ -22,13 +22,13 @@
  *     seeding effects in useFindBarFocus, and the two text fields plus the three
  *     button groups — mode toggles, navigation, replace actions — in
  *     FindBarControls. What is left here is the store subscriptions, the three
- *     dispatch callbacks and the composition (audit 20260907, #301).
+ *     dispatch callbacks and the composition.
  *   - Regex toggle is conditionally shown based on settings (enableRegexSearch).
  *   - A query or mode change resets currentIndex to -1 while the editor recounts, and
  *     both search backends report an index >= 0 whenever they report matches — so
  *     (matchCount > 0, currentIndex < 0) is "recount pending" (`hasCurrentMatch`) and
  *     renders as no matches rather than "0 of N" over the previous query's count; the
- *     keyboard hook consults the same predicate before Enter (audit 20260907, #302).
+ *     keyboard hook consults the same predicate before Enter.
  *
  * @coordinates-with stores/uiStore/searchSlice.ts — all search state and operations
  * @coordinates-with components/FindBar/useFindBarKeyboard.ts — Enter/Escape/Tab + IME guard

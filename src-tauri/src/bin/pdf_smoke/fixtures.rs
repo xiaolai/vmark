@@ -26,8 +26,7 @@ pub const LETTER: PageSpec = PageSpec::new(612.0, 792.0);
 pub const LEGAL: PageSpec = PageSpec::new(612.0, 1008.0);
 
 /// The rounded point dimensions a `PageSpec` should show up as in the PDF's
-/// MediaBox — DERIVED, never written out beside the spec (audit 20260907
-/// #258).
+/// MediaBox — DERIVED, never written out beside the spec.
 ///
 /// `geometry_matrix` already computed them this way; every other case wrote the
 /// integers by hand, so A4's `(595, 842)` appeared at four sites and A5's at a

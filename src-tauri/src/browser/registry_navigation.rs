@@ -112,7 +112,7 @@ impl BrowserRegistry {
     }
 
     /// `snapshot_navigation` and `begin_navigation` as ONE step, so the snapshot
-    /// is exactly the state this navigation replaced (audit 20260903 round 3, #4).
+    /// is exactly the state this navigation replaced.
     /// Taken under separate guards, a navigation begun between them was captured
     /// by neither: a native failure then rolled the tab back PAST it, to a page
     /// and ticket that navigation had already superseded.

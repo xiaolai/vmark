@@ -1,5 +1,5 @@
 /**
- * KnowledgeBasePanel lifecycle views (audit 20260907, #318) — one component
+ * KnowledgeBasePanel lifecycle views — one component
  * per server state, so the panel itself is a dispatcher over `status` and
  * each view owns its own markup:
  *

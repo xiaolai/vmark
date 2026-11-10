@@ -134,7 +134,7 @@ pub async fn browser_stop(app: AppHandle, tab_id: String) -> Result<(), CommandE
 
 /// Answer a page `confirm()` dialog surfaced via `browser://dialog`.
 ///
-/// Only the window that OWNS the dialog's tab may answer it (audit 20260903): the
+/// Only the window that OWNS the dialog's tab may answer it: the
 /// window is the invoking one, taken from Tauri, and the native layer refuses
 /// (`DIALOG_NOT_OWNED`) when the parked dialog's tab belongs to another window —
 /// a dialog id is a small integer, and a guessed one must not answer a page the

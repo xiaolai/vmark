@@ -7,7 +7,7 @@
 //! - The SIDECAR is spawned by AI clients (Claude Code, Codex, etc.), NOT by VMark
 //! - VMark only starts the bridge; AI clients spawn their own sidecars
 //!
-//! There is no local sidecar any more (audit 20260907 #175): the static that
+//! There is no local sidecar any more: the static that
 //! held one was never assigned, the command this header once promised did
 //! not exist, and the `local_sidecar` status field it fed was therefore
 //! always `false`. What remains is the bridge lifecycle alone.

@@ -1,4 +1,4 @@
-//! The authority's answer to "is this tab attached?" (audit 20260903 round 4, #37).
+//! The authority's answer to "is this tab attached?".
 //! A `#[path]` child of `surface.rs`, re-exported from there so callers keep the
 //! `surface::` address.
 //!

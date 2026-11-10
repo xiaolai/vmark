@@ -1,5 +1,4 @@
-//! Resolved-address pre-flight for AI-initiated navigations (audit 20260903
-//! round 4, #7 / #8).
+//! Resolved-address pre-flight for AI-initiated navigations.
 //!
 //! Purpose: `validate_ai_navigation_url` judges URL TEXT. A public-looking
 //! hostname whose DNS answer is a loopback, LAN or cloud-metadata address passes

@@ -21,8 +21,7 @@ import i18n from "@/i18n";
  * Is the embedded browser usable here? The setting AND the platform: the native
  * surface exists only on macOS (`surface_stub.rs` everywhere else), and the setting
  * defaults on regardless of platform, so a Windows or Linux build used to offer a
- * command that could only ever show "not available on this platform" (audit
- * 2026-09-03 X-04). One predicate, shared with the native menu item.
+ * command that could only ever show "not available on this platform". One predicate, shared with the native menu item.
  */
 export function browserAvailableHere(): boolean {
   return isMacPlatform() && useSettingsStore.getState().browser.enabled;

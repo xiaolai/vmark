@@ -1,5 +1,5 @@
 /**
- * `navigate to` step (audit 2026-09-03 W-02).
+ * `navigate to` step.
  *
  * The first executor returned success the moment `browser_ai_navigate` issued a
  * ticket, so the next step ran against the PREVIOUS document at the old

@@ -8,8 +8,7 @@
  * `browser://load-failed`, `browser://crashed` (content-process death, with the
  * recovery action), `browser://dialog` (a page `alert`/`confirm`) and
  * `browser://popup` (a `window.open` VMark refused). This module turns the typed
- * events into per-handler callbacks for the WINDOW-LEVEL consumer (audit
- * 2026-09-03 L-01): every handler receives the `tabId`, so one subscription —
+ * events into per-handler callbacks for the WINDOW-LEVEL consumer: every handler receives the `tabId`, so one subscription —
  * `services/browser/browserTabEvents.ts` — tracks every tab of the window whether
  * or not its surface is mounted. A background tab's `confirm()` used to park the
  * page forever because only the mounted surface listened.

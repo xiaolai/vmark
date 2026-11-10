@@ -67,7 +67,7 @@ import { handleReadlineNavKey } from "./terminalReadlineKeys";
 import { createTerminalClipboard } from "./terminalClipboard";
 
 /** Terminal font-zoom step and reset value. The reset target is the store's
- *  OWN default (audit 20260831 #36 — a restated literal would silently keep
+ *  OWN default (a restated literal would silently keep
  *  Cmd/Ctrl+0 resetting to an old value if the default ever moved); the
  *  store clamps to the terminal range [8,32]. */
 const TERMINAL_FONT_SIZE_STEP = 2;

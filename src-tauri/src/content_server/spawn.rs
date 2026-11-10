@@ -67,7 +67,7 @@ const NODE_LOOKUP_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(
 
 /// Resolve the `node` executable absolute path via the login-shell PATH.
 ///
-/// Bounded (audit 20260907 #312) through the crate's existing kill-and-reap
+/// Bounded through the crate's existing kill-and-reap
 /// capture rather than a bare `Command::output`, which waits forever.
 pub fn resolve_node() -> Result<String, String> {
     let mut command = which_command();

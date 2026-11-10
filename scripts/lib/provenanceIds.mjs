@@ -4,7 +4,7 @@
  *
  * Purpose: a production comment may say WHY a line exists by citing where the
  * decision was made — a work item (`WI-RA27.1`) or a dated audit
- * (`audit 20260907 #84`). Such a citation is only worth its place if a reader
+ * (`audit <date> #<n>`). Such a citation is only worth its place if a reader
  * of a fresh clone can follow it. This module finds the citations and decides,
  * offline and from tracked files alone, which of them can be followed.
  *
@@ -19,7 +19,7 @@
  *     from was never tracked, a different plan's item that happens to share
  *     the number.
  *   - An AUDIT citation — `audit` followed by an identifier (`audit
- *     20260907 #84`, `audit R<n> #<n>`, `audit-fix H<n>`, `audit round <n>`) —
+ *     <date> #<n>`, `audit R<n> #<n>`, `audit-fix H<n>`, `audit round <n>`) —
  *     resolves when it carries a date and a tracked audit record for that date
  *     exists (`.cc-suite/audits/`, `.claude/tdd-guardian/audit-*`). An
  *     undated citation names no record at all.

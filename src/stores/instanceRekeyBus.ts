@@ -1,6 +1,5 @@
 /**
- * instanceRekeyBus — decoupled fan-out for loose-instance identity re-keys
- * (audit 20260831 #9).
+ * instanceRekeyBus — decoupled fan-out for loose-instance identity re-keys.
  *
  * Purpose: `ensureLooseInstance` re-keys an instance's identity and every
  * per-instance store must follow. Most followers are imported directly by the

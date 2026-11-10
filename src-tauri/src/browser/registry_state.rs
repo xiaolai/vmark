@@ -3,7 +3,7 @@
 use super::{AutomationMode, BrowserError, BrowserRegistry, Entry, Lifecycle};
 
 /// One consistent read of a tab — what `browser_ai_state` reports and what the
-/// AI navigate command decides on (audit 20260903 round 3, #5). Read as a whole so
+/// AI navigate command decides on. Read as a whole so
 /// no caller has to default a field the entry must have: the per-field reads
 /// defaulted a missing generation to 0 and a missing state to "Destroyed", and a
 /// fallback there could only ever mask an invariant violation.
@@ -30,8 +30,7 @@ impl BrowserRegistry {
 
     /// Does `tab_id` exist, outside a terminal state, at exactly `generation`?
     /// The precondition for binding tab-scoped authority (a human attachment) to
-    /// it, checked under the guard the binding is written under (audit 20260903
-    /// round 3, #35): an unknown, destroyed or navigated-away tab gets nothing
+    /// it, checked under the guard the binding is written under: an unknown, destroyed or navigated-away tab gets nothing
     /// bound, so a reused id cannot inherit an attachment written for its
     /// predecessor.
     pub fn tab_alive_at(&self, tab_id: &str, generation: u64) -> bool {
@@ -142,7 +141,7 @@ impl BrowserRegistry {
     }
 
     /// The window that owns `tab_id` — what routes its events, scopes its standing
-    /// grants (audit 20260903 A-03) and decides who may answer its dialogs.
+    /// grants and decides who may answer its dialogs.
     pub fn window_of(&self, tab_id: &str) -> Option<&str> {
         self.tabs.get(tab_id).map(|e| e.window_label.as_str())
     }
@@ -155,7 +154,7 @@ impl BrowserRegistry {
     }
 
     /// How many AI-owned tabs are alive: not human, and not in a terminal state
-    /// (audit 20260903 X-01 — `browser_ai_create` refuses at `MAX_AI_TABS`).
+    /// (`browser_ai_create` refuses at `MAX_AI_TABS`).
     pub fn live_ai_tab_count(&self) -> usize {
         self.tabs
             .values()

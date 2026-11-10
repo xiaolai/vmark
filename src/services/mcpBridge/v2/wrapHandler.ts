@@ -6,8 +6,7 @@
  *
  * The rendering is `bridgeErrorEnvelope`, never `String(error)`: a Rust
  * `CommandError` is a plain object, and stringifying one produced the literal
- * "[object Object]" for every typed refusal on the browser paths (audit
- * 2026-09-03, E-01).
+ * "[object Object]" for every typed refusal on the browser paths.
  *
  * @coordinates-with services/mcpBridge/v2/bridgeError — the one renderer
  * @module services/mcpBridge/v2/wrapHandler

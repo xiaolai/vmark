@@ -1,4 +1,4 @@
-//! The typed vocabulary of native surface failures (audit 20260903 round 3 #31,
+//! The typed vocabulary of native surface failures (
 //! carried end to end in round 4).
 //!
 //! Every native entry point in `surface.rs` — creation, navigation, eval,

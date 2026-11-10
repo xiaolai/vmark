@@ -1,4 +1,4 @@
-//! The same-document navigation transition (audit 20260903 round 3, #21).
+//! The same-document navigation transition.
 //!
 //! `pushState`, `replaceState` and a fragment jump change the page without a
 //! load. The KVO observer that sees them (`nav_kvo_macos.rs`) used to read the

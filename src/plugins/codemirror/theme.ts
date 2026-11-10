@@ -86,7 +86,7 @@ export const codeHighlightStyle = HighlightStyle.define([
   // — the same --md-char-color WYSIWYG uses. ONLY
   // processingInstruction — Lezer's markdown parser tags QuoteMark/ListMark
   // with it, while `tags.quote`/`tags.list` cover the WHOLE blockquote/list
-  // subtrees, prose included (audit 20260829 caught the overreach).
+  // subtrees, prose included (an earlier rule overreached there).
   { tag: tags.processingInstruction, class: "cm-hl-md-char" },
   // Code/monospace: font only. `tags.monospace` covers block CodeText as
   // well as InlineCode, so a background/padding surface here would wrap

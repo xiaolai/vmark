@@ -1,5 +1,4 @@
-//! The resolved-address pre-flight as the AI transactions raise it (audit 20260903
-//! round 4, #7 / #8): the refusal class and the lock discipline around the lookup.
+//! The resolved-address pre-flight as the AI transactions raise it: the refusal class and the lock discipline around the lookup.
 //! Split out of `ai_transactions.rs` for size; that module is the only caller.
 //!
 //! @coordinates-with browser/ai_policy_dns.rs — the pre-flight itself

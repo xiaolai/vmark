@@ -66,7 +66,7 @@ interface ClosedTabScopesState {
    *  scopes leaked forever (removeWindowClosedScopes has no per-instance
    *  counterpart and zero production callers). */
   removeClosedScope: (windowLabel: string, scopeKey: string) => void;
-  /** Follow a loose-instance identity re-key (audit 20260831 #9): merge the
+  /** Follow a loose-instance identity re-key: merge the
    *  old scope's history into the new key, newest-first, capped. Without
    *  this the reopen history was orphaned under an id nothing reads. */
   rekeyClosedScope: (windowLabel: string, oldId: string, newId: string) => void;
@@ -190,7 +190,7 @@ export const useClosedTabScopesStore = create<ClosedTabScopesState>()((set, get)
         const candidates = rawEntries
           .filter((raw): raw is ClosedTabEntry => isValidClosedEntry(raw, scopeKey))
           // A closedSeq at the integer ceiling would break the monotonic
-          // nextSeq derived below (audit 20260831 #14) — reject entries with
+          // nextSeq derived below — reject entries with
           // no increment headroom rather than corrupt ordering forever.
           .filter((entry) => entry.closedSeq < SAFE_SEQ_HEADROOM)
           // The store contract is newest-first; a reordered persisted payload
@@ -265,7 +265,7 @@ onTabRemoved((windowLabel, _tabId, info) => {
 });
 
 // A loose-instance identity re-key must carry its reopen history with it
-// (audit 20260831 #9) — bus-driven because this store imports the instances
+// — bus-driven because this store imports the instances
 // store, so a direct call back would be an import cycle.
 onInstanceRekeyed((windowLabel, oldId, newId) => {
   useClosedTabScopesStore.getState().rekeyClosedScope(windowLabel, oldId, newId);

@@ -1,5 +1,5 @@
 /**
- * The attach-approval transitions (audit 2026-09-03 round 4, #153) — pure, like
+ * The attach-approval transitions — pure, like
  * `browserApprovalStore.resolve.ts`: each takes the current slices and returns the
  * next, and the store does the `set`.
  *

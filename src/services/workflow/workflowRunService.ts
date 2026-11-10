@@ -11,7 +11,7 @@
  *
  * The engine (`runWebWorkflow`) drives each step through `makeRunExecutor`,
  * wrapped by `makeGuardedExecutor` (ledger skips, the running-time budget, one
- * step result per step). Audit 2026-09-03:
+ * step result per step). 
  *   - W-01: every run has an `AbortController`; `cancelWorkflowRun` aborts it,
  *     and it is registered as the lease's in-flight canceller so a human takeover
  *     (`reclaimForHuman`/`release`) aborts it too. An approval wait exits at once.

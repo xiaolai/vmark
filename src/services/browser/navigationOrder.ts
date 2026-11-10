@@ -1,5 +1,5 @@
 /**
- * Per-tab ORDER of navigation ids (audit 2026-09-03 round 4, #87).
+ * Per-tab ORDER of navigation ids.
  *
  * Purpose: decide whether a `browser://load-failed` names a navigation this tab has
  * already moved past, from the ids alone. The driver mints every id as

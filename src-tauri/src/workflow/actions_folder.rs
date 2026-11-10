@@ -114,7 +114,7 @@ fn read_entry(path: &Path, remaining: u64) -> EntryRead {
 /// The accepted entries of `path`, in the deterministic RAW-name order,
 /// refusing a directory with more of them than the cap allows.
 ///
-/// Split out of `read_folder` (audit 20260907 #506), which held enumeration,
+/// Split out of `read_folder`, which held enumeration,
 /// the cap, containment, blocking I/O, decoding, budgeting and formatting in
 /// one scope. This half is decided entirely by the listing and the accept
 /// pattern, and it is the half with a bound in it.
@@ -149,8 +149,8 @@ async fn collect_candidates(
     Ok(candidates)
 }
 
-/// The section label for an entry, UNIQUE even when its name is not UTF-8
-/// (audit 20260907 #508). `to_string_lossy` maps every invalid byte to the
+/// The section label for an entry, UNIQUE even when its name is not UTF-8.
+/// `to_string_lossy` maps every invalid byte to the
 /// replacement character, so two names differing only in their invalid bytes
 /// render IDENTICALLY — two sections a consumer cannot tell apart, in output
 /// whose whole structure is "this content came from that name". The ORDER was
@@ -177,7 +177,7 @@ struct SkippedEntry {
     reason: String,
 }
 
-/// The trailing section naming what the read left out (audit 20260907 #510).
+/// The trailing section naming what the read left out.
 /// Every skip was already LOGGED, so "silently omitted" is half true — but a
 /// log line is not reachable by what consumes this output, the next workflow
 /// step: a read returning three of five files was indistinguishable from one

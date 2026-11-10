@@ -7,14 +7,14 @@
 //! the buffer via the ordinary eval primitive, so **no `WKScriptMessageHandler` is
 //! registered and the no-bridge invariant (R3) holds**.
 //!
-//! Installed at config time on **every AI-owned tab** (audit 20260903 S-06 — it was
+//! Installed at config time on **every AI-owned tab** (it was
 //! AiSandbox-only, so recording an `ai-shared` tab started fine and captured nothing
 //! on every drain) and never on a human's page, because a `WKUserScript` is
 //! configuration-time (it cannot be added after the webview exists). It ships
 //! dormant precisely because of that: capture is gated on the runtime marker, not on
 //! installation, so a tab that never records pays only for two idle event listeners.
 //!
-//! **Assembled from the canonical assets** (audit 20260903 S-02): the recorder used
+//! **Assembled from the canonical assets**: the recorder used
 //! to compute roles and names with its own copy of the vocabulary, which drifted from
 //! the replayer's (`aria.ts`), so it emitted locators the replayer could not resolve.
 //! `agentCore.src.js` (+ `agentCoreRoles.src.js`) is the shared role/name helper set
@@ -104,7 +104,7 @@ mod tests {
         assert!(RECORDER_SHIM_SRC.ends_with("\n})();"));
     }
 
-    /// Audit 20260903 S-06: recording an `ai-shared` tab silently captured nothing
+    /// Recording an `ai-shared` tab silently captured nothing
     /// because the shim was sandbox-only. A human's page is never reshaped.
     #[test]
     fn the_shim_installs_for_every_ai_posture_and_never_for_a_human() {

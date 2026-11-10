@@ -8,8 +8,7 @@
 //! `authorize_driver_op`; `browser_screenshot` additionally re-checks
 //! `command_still_fresh` after its long capture.
 //!
-//! The gate is two halves composed under one guard (audit 20260903 round 3,
-//! #10): `authorize_decision.rs` builds an immutable `Decision` from the
+//! The gate is two halves composed under one guard: `authorize_decision.rs` builds an immutable `Decision` from the
 //! registry, the policy and the owning window's grants, spending nothing;
 //! `authorize_spend.rs` consumes exactly what that decision requires. The
 //! composition here owns the LOCK ORDER — registry, held across both halves;

@@ -1,6 +1,5 @@
 /**
- * The injected ACT library — click and type (audit
- * 2026-09-03 S-03 / S-04 / S-08 / S-10). Split from `agentLib.ts` along the
+ * The injected ACT library — click and type. Split from `agentLib.ts` along the
  * perceive/act seam; `agentLib.ts` appends this string after the core, refs and
  * query sections, so everything here may call `__vmark*` from those.
  *

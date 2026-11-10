@@ -1,6 +1,5 @@
 /**
- * browserNativeViews — the per-window registry of native browser views
- * (audit 2026-09-03 L-01).
+ * browserNativeViews — the per-window registry of native browser views.
  *
  * Purpose: one place knows which tabs own a live WKWebView, creates a view once per
  * tab, hides/shows it as its surface leaves and re-enters the screen, and destroys

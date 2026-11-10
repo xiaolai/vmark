@@ -31,7 +31,7 @@ use super::RenderSink;
 /// The parameter list is the PLATFORM CONTRACT, not this function's needs:
 /// `mod.rs` dispatches to `macos_ops`, `linux` and `windows` with one argument
 /// list under `#[cfg]`, so every backend declares every parameter whether or
-/// not it reads one. `_app` is macOS's unused one (audit 20260907 #421) —
+/// not it reads one. `_app` is macOS's unused one —
 /// this path builds a raw `NSWindow` + `WKWebView` rather than a Tauri window,
 /// so it needs no handle, while the other two create Tauri windows and do.
 pub(super) fn render_on_main_thread(
@@ -39,7 +39,7 @@ pub(super) fn render_on_main_thread(
     html_path: &str,
     read_access_dir: &str,
     output_path: &str,
-    // NOT unused, whatever this comment used to claim (audit 20260907 #422):
+    // NOT unused, whatever this comment used to claim:
     // `page` is forwarded to `print_to_pdf` → `configure_print_info`, which is
     // what makes `NSPrintInfo` honour the requested paper size. The comment
     // predates WI-PDF1.4, when macOS took its geometry from the `@page` CSS

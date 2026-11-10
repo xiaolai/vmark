@@ -218,7 +218,7 @@ export const MANIFEST = {
       // verified by fixture in check-baseline-ratchet.test.mjs). The per-theme
       // checks are DERIVED from the file's own `failing` keys (`failing.*`),
       // not named here: a hand-kept list of six themes left a seventh's list
-      // unratcheted until someone remembered the manifest (audit 20260907 #13).
+      // unratcheted until someone remembered the manifest.
       // The object-keys check remains for the ARRIVAL of a theme (report — a
       // 7th theme legitimately adds a key). `ansiFloor`/`exempt` go through the
       // contrastFloors PAIR comparator: value may only rise, reason required.

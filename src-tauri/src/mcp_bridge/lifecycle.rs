@@ -1,4 +1,4 @@
-//! The bridge's start/stop lifecycle, as one object (audit 20260907 #177).
+//! The bridge's start/stop lifecycle, as one object.
 //!
 //! `mcp_bridge_start` used to coordinate three process-global statics by hand
 //! — a running flag, a port slot and a generation counter — and two races

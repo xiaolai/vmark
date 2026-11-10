@@ -12,7 +12,7 @@
  *   document text (ACTIONLINT_DEBOUNCE_MS) and SERIALIZED per hook: a run
  *   waits for the in-flight one to settle, and only the latest text runs
  *   when it does — a superseded run's result is discarded, and its process
- *   is never joined by a second one (audit 20260907, #290). Serializing puts
+ *   is never joined by a second one. Serializing puts
  *   the whole queue behind one call, so each is bounded by
  *   ACTIONLINT_TIMEOUT_MS. The parser's rows never wait for
  *   this hook: it starts empty and the banner re-renders when a run lands.

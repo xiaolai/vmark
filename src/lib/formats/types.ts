@@ -48,8 +48,7 @@ export function isSplitViewMode(value: unknown): value is SplitViewMode {
  * a coordinate contract that is not written down is a cross-format off-by-one
  * waiting to happen: every producer today derives its numbers from a different
  * library (remark positions, a JSON parser's `loc`, a YAML error, a hand-count
- * of lines), and each has its own opinion about where counting starts (audit
- * 20260907 round 3, #803).
+ * of lines), and each has its own opinion about where counting starts.
  *
  * The authority is the CONSUMER, and it is one function:
  * `diagnosticToCodemirror` in
