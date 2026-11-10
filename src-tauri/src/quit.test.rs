@@ -646,3 +646,42 @@ fn concurrent_exit_allowed_toggle_no_panic() {
         h.join().expect("thread should not panic");
     }
 }
+
+// #1657: a Quit right after launch must honour the stored choice, before the
+// webview has synced it.
+#[test]
+fn stored_off_means_the_first_press_after_launch_quits() {
+    let _lock = TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    reset_confirm_quit();
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("confirm-quit"), "false").unwrap();
+
+    setting::seed_gate(dir.path());
+
+    assert_eq!(
+        check_confirm_quit_gate(Instant::now()),
+        QuitGateResult::Proceed
+    );
+    reset_confirm_quit();
+}
+
+#[test]
+fn stored_on_missing_or_corrupt_keeps_the_gate_armed() {
+    let _lock = TEST_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    for stored in [Some("true"), None, Some("garbage\u{0}")] {
+        reset_confirm_quit();
+        clear_first_quit_press();
+        let dir = tempfile::tempdir().unwrap();
+        if let Some(text) = stored {
+            std::fs::write(dir.path().join("confirm-quit"), text).unwrap();
+        }
+        setting::seed_gate(dir.path());
+        assert_eq!(
+            check_confirm_quit_gate(Instant::now()),
+            QuitGateResult::WaitForSecondPress,
+            "stored = {stored:?}"
+        );
+    }
+    reset_confirm_quit();
+    clear_first_quit_press();
+}

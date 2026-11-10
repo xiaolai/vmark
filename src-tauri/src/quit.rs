@@ -45,6 +45,10 @@ use broadcast::{abort_quit_on_emit_failure, claim_quit_attempt, QuitAttempt, Qui
 #[path = "quit_feedback.rs"]
 mod feedback;
 
+#[path = "quit_setting.rs"]
+mod setting;
+pub use setting::init_confirm_quit;
+
 #[path = "quit_exit_request.rs"]
 mod exit_request;
 pub use exit_request::{
@@ -100,6 +104,7 @@ fn remove_quit_target(label: &str) -> bool {
 pub fn set_confirm_quit(enabled: bool) {
     CONFIRM_QUIT_ENABLED.store(enabled, Ordering::SeqCst);
     clear_first_quit_press();
+    setting::remember(enabled);
 }
 
 fn clear_first_quit_press() {

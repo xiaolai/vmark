@@ -54,6 +54,12 @@ pub(crate) fn machine_id_hash() -> String {
 pub(crate) fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(pty::PtyState::default());
 
+    // The confirm-quit gate must know the stored choice before the menu can
+    // be clicked; the webview's own sync arrives later (#1657).
+    if let Ok(dir) = tauri::Manager::path(app.handle()).app_data_dir() {
+        crate::quit::init_confirm_quit(&dir);
+    }
+
     // WI-LX1.1: re-grant the workspace roots the user chose in earlier
     // sessions. FIRST, and on this thread: the main window exists already, but
     // it cannot load or invoke anything until setup returns (bounded wait).
