@@ -24,6 +24,7 @@ import { readdir } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, join } from "node:path";
 import { BridgeClient, evalJs } from "./lib/bridge.mjs";
+import { warmEditorSurface } from "./lib/warmup.mjs";
 import { parseArgs } from "./lib/config.mjs";
 import { writeScreenshot } from "./lib/artifacts.mjs";
 import { getTabs } from "./lib/vmark.mjs";
@@ -116,6 +117,15 @@ async function main() {
 
   const client = new BridgeClient({ idPrefix: "journey" });
   await client.connect(cfg);
+
+  // Pay the dev server's cold compile of the editor surface once, up front,
+  // rather than inside whichever journey opens the first tab first (#1659).
+  try {
+    await warmEditorSurface(client);
+  } catch (err) {
+    console.error(`REFUSING TO RUN: ${err.message}`);
+    process.exit(3);
+  }
   console.error(`Connected. Running ${selected.length}/${all.length} journey(s).\n`);
 
   // The document window label — every menu emit targets it.
