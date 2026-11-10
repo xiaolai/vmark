@@ -142,3 +142,126 @@ fn a_swap_onto_a_folder_containing_an_authorized_workspace_never_revokes_it() {
     assert!(result.is_err(), "the swap is still detected");
     assert_eq!(readable(&app, &chosen_file), (true, true));
 }
+
+// -- Dot-prefixed segments inside a granted root -------------------------------
+//
+// Tauri's glob matcher takes ONE `require_literal_leading_dot` setting for the
+// whole scope, so `root/**` pushed by `allow_directory` cannot match a `.name`
+// segment unless the scope was configured with the switch off. The scope here
+// is built from the real `tauri.conf.json`, so the shipped switch is what is
+// tested, not a copy of it.
+
+const TAURI_CONF: &str = include_str!("../../../tauri.conf.json");
+
+fn mock_app_with_shipped_asset_scope() -> tauri::App<tauri::test::MockRuntime> {
+    let mut conf: serde_json::Value = serde_json::from_str(TAURI_CONF).expect("tauri.conf.json");
+    // Keep the shipped match options but drop the static roots, so only the
+    // runtime grant under test can make a path reachable (a temp dir under
+    // `$HOME` would otherwise pass for the wrong reason).
+    conf["app"]["security"]["assetProtocol"]["scope"]["allow"] = serde_json::json!([]);
+    let asset: tauri::utils::config::AssetProtocolConfig =
+        serde_json::from_value(conf["app"]["security"]["assetProtocol"].clone())
+            .expect("assetProtocol config");
+    let mut context = tauri::test::mock_context(tauri::test::noop_assets());
+    context.config_mut().app.security.asset_protocol = asset;
+    context
+        .config_mut()
+        .plugins
+        .0
+        .insert("fs".to_owned(), conf["plugins"]["fs"].clone());
+    tauri::test::mock_builder()
+        .plugin(tauri_plugin_fs::init())
+        .build(context)
+        .expect("build mock app")
+}
+
+/// A workspace holding a dot dir, a nested dot dir, a dot file, a CJK dir and a
+/// dir with a space, each with one image; plus a sibling folder OUTSIDE it.
+fn dotted_workspace() -> (tempfile::TempDir, String, Vec<PathBuf>, PathBuf) {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let root = dir.path().join("root");
+    let mut files = Vec::new();
+    for rel in [
+        ".gitbook/assets/x.webp",
+        "img/.hidden/h.png",
+        "img/.a/.b/deep.png",
+        "img/.dotfile.png",
+        "图片/.隐藏/图.png",
+        "my pics/.hid den/p.png",
+    ] {
+        let file = root.join(rel);
+        std::fs::create_dir_all(file.parent().expect("parent")).expect("mkdir");
+        std::fs::write(&file, b"x").expect("write");
+        files.push(file);
+    }
+    let outside = dir.path().join("outside");
+    std::fs::create_dir_all(outside.join(".secret")).expect("mkdir");
+    let secret = outside.join(".secret").join("s.png");
+    std::fs::write(&secret, b"x").expect("write");
+    let root = root
+        .canonicalize()
+        .expect("canonical")
+        .to_str()
+        .expect("utf-8")
+        .to_owned();
+    (dir, root, files, secret)
+}
+
+#[test]
+fn dot_prefixed_paths_inside_a_granted_root_are_reachable() {
+    let app = mock_app_with_shipped_asset_scope();
+    let (_dir, root, files, _secret) = dotted_workspace();
+    let files: Vec<PathBuf> = files
+        .iter()
+        .map(|f| f.canonicalize().expect("canonical"))
+        .collect();
+    for file in &files {
+        assert_eq!(
+            readable(&app, file),
+            (false, false),
+            "{file:?} before the grant"
+        );
+    }
+
+    grant_workspace_scope(app.handle(), &root).expect("a real folder");
+
+    for file in &files {
+        assert_eq!(readable(&app, file), (true, true), "{file:?}");
+    }
+}
+
+#[test]
+fn dot_paths_outside_every_granted_root_stay_refused() {
+    let app = mock_app_with_shipped_asset_scope();
+    let (_dir, root, _files, secret) = dotted_workspace();
+
+    grant_workspace_scope(app.handle(), &root).expect("a real folder");
+
+    let escaped = Path::new(&root)
+        .join("..")
+        .join("outside")
+        .join(".secret")
+        .join("s.png");
+    assert_eq!(readable(&app, &secret), (false, false), "a sibling folder");
+    assert_eq!(
+        readable(&app, &escaped),
+        (false, false),
+        "`..` out of the root"
+    );
+}
+
+/// A link inside the root to a dot folder outside it is reachable by neither
+/// name: Tauri canonicalizes before matching, so the grant never follows it.
+#[cfg(unix)]
+#[test]
+fn a_link_out_of_the_root_to_a_dot_folder_stays_refused() {
+    let app = mock_app_with_shipped_asset_scope();
+    let (dir, root, _files, secret) = dotted_workspace();
+    let link = Path::new(&root).join("escape");
+    std::os::unix::fs::symlink(dir.path().join("outside").join(".secret"), &link).expect("link");
+
+    grant_workspace_scope(app.handle(), &root).expect("a real folder");
+
+    assert_eq!(readable(&app, &link.join("s.png")), (false, false));
+    assert_eq!(readable(&app, &secret), (false, false));
+}

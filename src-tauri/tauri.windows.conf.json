@@ -2,16 +2,19 @@
   "app": {
     "security": {
       "assetProtocol": {
-        "scope": [
-          "$HOME/**",
-          "/Volumes/**",
-          "/mnt/**",
-          "/media/**",
-          "C:\\**",
-          "D:\\**",
-          "E:\\**",
-          "F:\\**"
-        ]
+        "scope": {
+          "allow": [
+            "$HOME/**",
+            "/Volumes/**",
+            "/mnt/**",
+            "/media/**",
+            "C:\\**",
+            "D:\\**",
+            "E:\\**",
+            "F:\\**"
+          ],
+          "requireLiteralLeadingDot": false
+        }
       }
     }
   }
