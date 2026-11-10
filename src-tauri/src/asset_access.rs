@@ -29,6 +29,11 @@
 //! nothing else, and a runtime fs grant would be accepted by every fs command
 //! the capability permits, write and remove included (`fs_scope.rs`).
 //!
+//! The scope matches dot-prefixed segments (`requireLiteralLeadingDot: false`,
+//! the fs plugin's setting): Tauri applies one glob option to the whole scope,
+//! so without it neither the static roots nor a workspace's runtime `root/**`
+//! could serve `.gitbook/assets/x.png`. The reach equals the fs scope's.
+//!
 //! What it does NOT bound is WHICH media file: any image, video or audio file
 //! the user can read, anywhere on disk, is readable over asset://.
 

@@ -248,9 +248,9 @@ const TAURI_CONF: &str = include_str!("../tauri.conf.json");
 const TAURI_WINDOWS_CONF: &str = include_str!("../tauri.windows.conf.json");
 
 fn asset_scope(conf: &Value) -> Vec<String> {
-    let mut scope: Vec<String> = conf["app"]["security"]["assetProtocol"]["scope"]
+    let mut scope: Vec<String> = conf["app"]["security"]["assetProtocol"]["scope"]["allow"]
         .as_array()
-        .expect("assetProtocol.scope is a list")
+        .expect("assetProtocol.scope.allow is a list")
         .iter()
         .map(|p| p.as_str().expect("scope entry is a path").to_owned())
         .collect();
@@ -290,6 +290,22 @@ fn on_windows_the_asset_protocol_also_reaches_c_to_f() {
         } } } }),
         "tauri.windows.conf.json must not override anything but the asset scope"
     );
+}
+
+/// Tauri takes ONE `require_literal_leading_dot` for the whole scope, so the
+/// runtime `root/**` a workspace grant pushes only reaches `.gitbook/assets/`
+/// when the scope is configured with the switch off — the same setting the fs
+/// plugin already ships (`plugins.fs.requireLiteralLeadingDot`).
+#[test]
+fn the_asset_protocol_matches_dot_prefixed_segments_like_the_fs_scope() {
+    let base = parse(TAURI_CONF);
+    for conf in [&base, &parse(TAURI_WINDOWS_CONF)] {
+        assert_eq!(
+            conf["app"]["security"]["assetProtocol"]["scope"]["requireLiteralLeadingDot"],
+            false
+        );
+    }
+    assert_eq!(base["plugins"]["fs"]["requireLiteralLeadingDot"], false);
 }
 
 #[test]
