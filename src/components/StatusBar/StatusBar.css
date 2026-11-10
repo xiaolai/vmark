@@ -120,9 +120,15 @@
    ======================================== */
 
 .status-quit-message {
-  color: var(--text-secondary);
-  font-size: var(--font-size-xs);
-  padding: 0 var(--space-2);
+  /* A hint the user must not miss (#1528, #1657): the first Cmd+Q is otherwise
+     indistinguishable from a dead Quit, so it is a filled pill in the text
+     colour rather than secondary-grey caption text. */
+  color: var(--text-color);
+  background: var(--accent-bg);
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
   white-space: nowrap;
   animation: popup-fade-in var(--duration-fast) ease-out;
 }
