@@ -11,14 +11,14 @@
  *     shared tab operations and keep native WebKit / MCP identity.
  *   - Activating an EXISTING page routes through activateTabInFocusedPane. A NEW
  *     page is activated by `createBrowserPage` itself, which writes the alias and
- *     announces once on the activation bus (audit 2026-09-03 #162): a second
+ *     announces once on the activation bus: a second
  *     activation re-wrote identical state and announced the same activation
  *     twice, and converged nothing — panes hold documents only, so a browser
  *     activation never touches a split.
  *   - APG roving tablist: Arrow/Home/End move focus (shared rovingTabFocus);
  *     Enter/Space activate, handled explicitly as the status-bar strip does.
  *   - The tab is its own element and its close control is a SIBLING inside a
- *     non-interactive wrapper (audit 2026-09-03 round 3, #163), never a
+ *     non-interactive wrapper, never a
  *     descendant: a focusable control nested in a role="tab" joined the tab's
  *     accessible name and put one extra stop per page into the normal Tab
  *     order. Only the CURRENT page's close button is a Tab stop; the others are
@@ -29,7 +29,7 @@
  *     non-canonical class on a literal `<button>`, and a tab is not a `.vm-btn`.
  *   - A page an AI run holds shows a dot on ITS tab (lease store): native views
  *     stay alive in the background, so the driven page need not be the visible
- *     one (audit 2026-09-03 #15).
+ *     one.
  *
  * @coordinates-with BrowserChrome.tsx — parent placement wrapper
  * @coordinates-with stores/browserLeaseStore.ts — the AI-hold indicator source
@@ -55,7 +55,7 @@ interface BrowserPageTabsProps {
 
 export function BrowserPageTabs({ pages, activePageId, windowLabel }: BrowserPageTabsProps): React.ReactElement {
   const { t } = useTranslation("common");
-  // Pages an AI run currently holds (audit 2026-09-03 #15). Native views stay
+  // Pages an AI run currently holds. Native views stay
   // alive in the background, so a run can be driving a page that is not the one
   // on screen; the indicator has to live on the page's tab, not only in the chrome
   // of the active page.

@@ -31,8 +31,8 @@ export const MAX_SCRIPT_BYTES = 64 * 1024;
  * The longest wait a browser action accepts, in ms — the app-side twin is
  * `MAX_WAIT_MS` in `src/services/mcpBridge/v2/browserHelpers.ts`. It sits below
  * the bridge's first 10 s deadline on purpose: a wait that outlived that
- * deadline tripped the bridge's wake-and-retry recovery on every slow page
- * (audit 2026-09-03). Keep the two numbers in sync.
+ * deadline tripped the bridge's wake-and-retry recovery on every slow page.
+ * Keep the two numbers in sync.
  */
 export const MAX_WAIT_MS = 9_000;
 

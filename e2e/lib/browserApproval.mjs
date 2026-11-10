@@ -78,7 +78,7 @@ export async function waitForApprovalDialog(client, timeoutMs = 8000) {
  * @param {"allow-once"|"allow-site"|"deny"} decision
  */
 export async function resolveApprovalViaUi(client, decision) {
-  // Prompt-swap protection (audit 2026-09-03 A-02): the dialog IGNORES an Allow that
+  // Prompt-swap protection: the dialog IGNORES an Allow that
   // lands within ACTIVATION_DELAY_MS (500 ms) of the prompt appearing, exactly as it
   // would for a human whose click was aimed at a prompt that was just withdrawn. A
   // journey that clicks the instant the dialog renders is that too-fast click, so

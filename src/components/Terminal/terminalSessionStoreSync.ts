@@ -164,7 +164,7 @@ export function useUIStoreSync(
         // Leaving workspace mode INVALIDATES any deferred cd. Without this the
         // early return skipped the loop below, so a root queued while a shell
         // was busy outlived the workspace, and the next idle event cd'd into a
-        // directory the user had just closed (audit 20260815-163607 #14).
+        // directory the user had just closed.
         // WI-TS2.1 note: this clear deliberately applies to EVERY session,
         // stamped or not — clearing a scoped session's (pre-adoption) pending
         // is exactly what keeps it from ever being cd'd, and skipping stamped
@@ -227,8 +227,7 @@ export function useUIStoreSync(
       const live = new Set(sessions.values());
       // RECONCILE, don't just accumulate. `wired` only ever grew, so a closed
       // session stayed in the set — retaining its disposed xterm instance and
-      // leaving its idle callback installed — until the whole hook unmounted
-      // (audit 20260815-163607 #15).
+      // leaving its idle callback installed — until the whole hook unmounted.
       for (const entry of wired) {
         if (live.has(entry)) continue;
         entry.instance.setOnShellIdle(null);

@@ -230,7 +230,7 @@ export const useWorkspaceInstancesStore = create<WorkspaceInstancesState>()((set
       // merge semantics (re-stamp, ordinal renumber, memory target-wins)
       // live in terminalRekeyScope.
       useTerminalStore.getState().terminalRekeyScope(rekeyedFrom, instanceId);
-      // Closed-tab reopen history follows via the bus (audit 20260831 #9 —
+      // Closed-tab reopen history follows via the bus (
       // tabStoreClosedScopes imports this store, so a direct call back would
       // be an import cycle).
       notifyInstanceRekeyed(windowLabel, rekeyedFrom, instanceId);

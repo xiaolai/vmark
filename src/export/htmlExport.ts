@@ -25,7 +25,7 @@
  * 2. The cost of generating both is minimal (same render, different packaging)
  * 3. Users can choose which file to use after export based on their needs
  *
- * The export is TRANSACTIONAL (audit 20260907, #332/#334/#335) — see
+ * The export is TRANSACTIONAL — see
  * `exportStaging.ts`: staged, published by rename, rolled back with backups if
  * a rename fails part way, serialized per destination within this webview and,
  * through a lock file, across windows.

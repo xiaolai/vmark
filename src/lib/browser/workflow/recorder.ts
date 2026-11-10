@@ -29,8 +29,8 @@
  * clean ARIA token, else dropped; front-matter scalars are validated, not escaped, so
  * a bad `site` fails loudly rather than corrupting the file.
  *
- * A click the shim could not map to an ARIA role becomes a `confirm:` human gate
- * (audit 2026-09-03 S-02): the replayer resolves a click by role + name, so a
+ * A click the shim could not map to an ARIA role becomes a `confirm:` human gate:
+ * the replayer resolves a click by role + name, so a
  * role-less `click` step would fail on every replay. A role-less `type` keeps its
  * `{input}` form — the executor resolves a field's role from a fresh snapshot.
  *

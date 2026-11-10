@@ -1,5 +1,5 @@
-// agentCoreWalk.src.js — the composed walk of the shared page-world core
-// (audit 2026-09-03, S-02 / #103). Concatenated straight after `agentCore.src.js`
+// agentCoreWalk.src.js — the composed walk of the shared page-world core.
+// Concatenated straight after `agentCore.src.js`
 // and before `agentCoreRoles.src.js` by every host (`agentCore.ts` for the agent
 // library and the tests, `recorder_shim_macos.rs` for the recorder shim); the same
 // discipline applies — `__vmark`-prefixed function declarations only, ES5, nothing

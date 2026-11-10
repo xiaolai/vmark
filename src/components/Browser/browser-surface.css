@@ -99,7 +99,7 @@
   word-break: break-word;
 }
 
-/* An answer that did not reach the page (audit 2026-09-03 round 3, #164). Painted
+/* An answer that did not reach the page. Painted
    inside the dialog, which stays up: the user reads why, and clicks again. */
 .browser-dialog-error {
   display: flex;
@@ -209,7 +209,7 @@
   outline-offset: 2px;
 }
 
-/* A blocked popup (audit 2026-09-03 X-03): a bar along the top of the rect — the page
+/* A blocked popup: a bar along the top of the rect — the page
    stays live underneath; this only names the URL the page wanted and offers it as a
    new tab. Tokens throughout; the bar sits above the native view via the viewport's
    own stacking, like the other overlays. */

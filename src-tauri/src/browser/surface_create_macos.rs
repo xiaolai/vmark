@@ -44,7 +44,7 @@ pub fn create(
 ///
 /// `allow_loopback` is the AI destination posture the caller validated the URL
 /// against; an AI-owned webview gets a content rule list compiled for the same
-/// posture (audit 20260903 P-01), so subframes and subresources are held to the
+/// posture, so subframes and subresources are held to the
 /// policy the main frame was.
 ///
 /// Typed end to end: `ai_transactions::create_native` takes this
@@ -93,7 +93,7 @@ fn create_webview(
         // store). Checked before any native object is registered.
         super::browser_store::configure(&config, mtm, mode, profile.as_deref())?;
         // The AI destination policy for every load the nav delegate cannot see —
-        // subframes and subresources (audit 20260903 P-01). Fails closed: an AI
+        // subframes and subresources. Fails closed: an AI
         // webview is never created without its rules.
         super::content_rules::configure(&config, mtm, mode, allow_loopback)?;
         // Page-world console-capture shim — AI-owned tabs only; no message handler.

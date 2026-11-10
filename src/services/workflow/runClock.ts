@@ -1,5 +1,5 @@
 /**
- * Run clock (audit 2026-09-03 W-06 / D1v2) — the workflow run's deadline.
+ * Run clock — the workflow run's deadline.
  *
  * D1v2: "wall-clock deadline 120 s (approval wait time EXCLUDED — the deadline
  * clock pauses while a prompt is open)". The first implementation read a fixed

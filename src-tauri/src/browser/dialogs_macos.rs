@@ -62,7 +62,7 @@ pub(super) fn park_confirm(tab_id: String, block: RcBlock<dyn Fn(Bool)>) -> u64 
 
 /// The tab a parked dialog belongs to, or `None` for an unknown id. Read by
 /// `dialog_respond` so an answer can be refused when it comes from a window that
-/// does not own that tab (audit 20260903).
+/// does not own that tab.
 pub(super) fn tab_of(id: u64) -> Option<String> {
     PENDING.with(|m| m.borrow().get(&id).map(|p| p.tab_id.clone()))
 }

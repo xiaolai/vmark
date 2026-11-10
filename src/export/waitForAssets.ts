@@ -67,7 +67,7 @@ function usableBounds({ timeout, interval }: StabilityOptions): {
 /**
  * Wait for the fonts to load, but never past `timeout`: `document.fonts.ready`
  * is not bounded by anything, and an export that awaited it unraced hung for
- * as long as a stalled font fetch did (audit 20260907). On the deadline the
+ * as long as a stalled font fetch did. On the deadline the
  * poll below reports `fontsReady: false` and a warning, like any other asset.
  */
 async function waitForFonts(timeout: number): Promise<void> {

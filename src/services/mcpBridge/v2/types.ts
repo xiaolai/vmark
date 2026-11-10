@@ -49,8 +49,7 @@ export interface BrowserSessionTab {
   /** True when this webpage is the currently visible page in its workspace. */
   active: boolean;
   /**
-   * Page title — absent for a human tab the AI is not attached to (audit
-   * 2026-09-03 X-02): attachment is the gate for AI access to a human tab, and
+   * Page title — absent for a human tab the AI is not attached to: attachment is the gate for AI access to a human tab, and
    * the title is page content.
    */
   title?: string;

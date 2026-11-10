@@ -10,7 +10,7 @@
  * `clampContrastRatio` come from `terminalOptions.ts`, the same functions
  * creation uses. They were duplicated once and drifted — the copies clamped the
  * range but let NaN and fractional values through, and xterm throws on a NaN
- * scrollback (audit 20260815-163607 #16).
+ * scrollback.
  *
  * @coordinates-with terminalSessionStoreSync.ts — sibling effects, one caller
  * @coordinates-with terminalOptions.ts — the shared normalizers
@@ -68,7 +68,7 @@ useEffect(() => {
         // The SAME normalizers creation uses, not a second copy of the rule.
         // The copies had already drifted: this path clamped the range but let
         // NaN and fractional values through, and xterm throws on a NaN
-        // scrollback (audit 20260815-163607 #16).
+        // scrollback.
         opts.scrollback = clampScrollback(curr.scrollback);
       }
       if (contrastChanged) {

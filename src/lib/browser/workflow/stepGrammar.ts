@@ -10,7 +10,7 @@
  *   type   <value> into "<name>" [(<role>)]        value = "<literal>" | {<input>}
  *   navigate to <url>
  *
- * Two failure classes (audit 2026-09-03 W12):
+ * Two failure classes:
  *   - `not-executable` — free prose, an unquoted name, a bare `navigate`: the
  *     model handles it.
  *   - `malformed-target` / `malformed-value` — a quoted run that is empty,

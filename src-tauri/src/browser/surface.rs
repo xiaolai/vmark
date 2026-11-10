@@ -13,7 +13,7 @@
 //! (`browser/registry.rs`) lives in Tauri-managed state; the two are kept
 //! consistent by the command layer.
 //!
-//! Lock order across this state (audit 20260903 round 3, #35): the registry is
+//! Lock order across this state: the registry is
 //! OUTERMOST. Every path that holds two of these guards takes the registry first
 //! — the authorization gate (registry → grants, registry → attachments →
 //! one_shots), minting (registry → one_shots), `attach_tab` (registry →
@@ -55,7 +55,7 @@ pub struct BrowserSurface {
     pub crash_trackers: Mutex<HashMap<String, CrashTracker>>,
     /// Standing origin grants (R4/R5), mirrored from each window's frontend
     /// approval store via `browser_set_grants` and keyed by that window's label
-    /// (audit 20260903 A-03 — one process-wide vector let whichever window synced
+    /// (one process-wide vector let whichever window synced
     /// last clobber the rest). A tab is authorized by the grants of the window that
     /// owns it, per the registry. **Default-deny**: an absent or empty slice
     /// authorizes nothing, so a driver command is refused until the user has
@@ -106,7 +106,7 @@ pub mod fail {
     /// The main-thread hop did not answer within its deadline.
     pub const MAIN_THREAD_TIMEOUT: &str = "MAIN_THREAD_TIMEOUT";
     /// The AI destination rule list did not compile, so no AI webview was created
-    /// (audit 20260903 P-01 — fail closed, never an unguarded AI tab).
+    /// (fail closed, never an unguarded AI tab).
     pub const CONTENT_RULES_FAILED: &str = "CONTENT_RULES_FAILED";
     /// A page dialog was answered from a window that does not own its tab.
     pub const DIALOG_NOT_OWNED: &str = "DIALOG_NOT_OWNED";
@@ -153,8 +153,7 @@ impl BrowserSurface {
     /// All halves must go together. Removing only the registry entry (what
     /// `browser_destroy` used to do) leaked one `crash_trackers` entry per tab for
     /// the life of the process, and made a **reused** tab id inherit the dead
-    /// tab's exhausted budget. And they must go under one guard (audit 20260903
-    /// round 3, #35): taken sequentially, the entry was already gone while the
+    /// tab's exhausted budget. And they must go under one guard: taken sequentially, the entry was already gone while the
     /// rest still existed, so a `create` + `attach_tab` for the same id could land
     /// in the gap and have its fresh attachment erased by this cleanup — or, in
     /// the other order, a stale generation-0 attachment could be written after
@@ -212,8 +211,7 @@ impl BrowserSurface {
 
     /// Bind an attachment to `tab_id` at `generation` — only for a tab the
     /// registry knows, outside a terminal state, at exactly that generation, and
-    /// with the registry guard held across the write (audit 20260903 round 3,
-    /// #35). A destroy cannot slip between the check and the write, so an
+    /// with the registry guard held across the write. A destroy cannot slip between the check and the write, so an
     /// attachment is never written for an id whose entry is gone, where it would
     /// authorize the id's next tenant at generation 0. `once` makes it
     /// single-use. Refuses with `STALE_NAVIGATION`, the token `mint::attach_ai_tab`

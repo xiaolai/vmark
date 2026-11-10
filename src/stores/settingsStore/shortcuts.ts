@@ -201,7 +201,7 @@ export const useShortcutsStore = create<ShortcutsState & ShortcutsActions>()(
           const bindings: Record<string, string> = {};
 
           // VALIDATE the whole document first, then apply — never entry by
-          // entry (audit 20260907, #422). Applying as it went meant
+          // entry. Applying as it went meant
           // `set({ customBindings })`, a whole-map REPLACE, ran before the
           // errors were returned: one unknown id in an imported file erased
           // every customization the user already had, while the message

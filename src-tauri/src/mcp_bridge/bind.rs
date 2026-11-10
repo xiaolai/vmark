@@ -27,8 +27,7 @@ use tokio::net::TcpListener;
 /// Separate from `start_bridge` so the property is testable without an app.
 pub(crate) async fn bind_listener() -> Result<(TcpListener, u16), CommandError> {
     let addr = "127.0.0.1:0";
-    // Localized, with the STAGE in machine-readable detail (audit 20260907
-    // #366). These two reach the Integrations panel through
+    // Localized, with the STAGE in machine-readable detail. These two reach the Integrations panel through
     // `mcp_bridge_start`, so they were the module's only raw-English strings on
     // an otherwise translated surface; and "Failed to bind" vs "Failed to get
     // local address" were distinguishable only by their prose, which is the

@@ -1,4 +1,4 @@
-//! Typed outcomes of an isolated-world evaluation (audit 20260903 E-03 / E-04).
+//! Typed outcomes of an isolated-world evaluation.
 //!
 //! `eval_js` used to fold every non-result into a STRING the caller received as a
 //! success: a 5-second timeout came back as the literal `<timeout>`; `null`,

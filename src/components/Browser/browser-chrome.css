@@ -125,7 +125,7 @@
    `.tab-strip-close` own paint, hover, focus and the D2 hit box. The class
    names remain in the DOM as residual hooks only. */
 
-/* The tab is a non-interactive WRAPPER (audit 2026-09-03 round 3, #163): it owns
+/* The tab is a non-interactive WRAPPER: it owns
    the frame — border, radius, hover and active paint — and holds two SIBLING
    controls, the role="tab" element (.browser-page-tab-select) and the close
    button. The tab element fills the wrapper so the whole tab face activates;
@@ -237,7 +237,7 @@
   white-space: nowrap;
 }
 
-/* An AI run holds this page (audit 2026-09-03 #15). A dot on the page tab, because
+/* An AI run holds this page. A dot on the page tab, because
    the page may not be the one on screen while it is being driven. */
 .browser-page-tab-ai {
   /* ui-ok(target): a decorative status dot inside the page tab, not a control —

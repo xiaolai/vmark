@@ -32,7 +32,7 @@ function revealPanel(): void {
 /**
  * Take the active session — verified to be VISIBLE — or the first visible
  * one, or create one on an empty visible scope, and reveal the panel
- * (WI-TS4.2/D-T10). The membership check matters (audit 20260831 #18): the
+ * (WI-TS4.2/D-T10). The membership check matters: the
  * active id is normally a member of the visible population (invariant 2),
  * but a rail toggle sequence (off → activate another scope's session → on)
  * can leave it pointing at a HIDDEN session, and reusing that would paste
@@ -58,7 +58,7 @@ export function reuseOrCreateTerminalSession(): string {
     // Unreachable by construction: an empty visible population is below the
     // creation-union cap in every state that resolves no owner (D-T5). Fail
     // loud at the origin rather than dereferencing null if that argument
-    // ever stops holding (audit 20260831 #19).
+    // ever stops holding.
     throw new Error(
       "reuseOrCreateTerminalSession: creation refused over an empty visible scope",
     );

@@ -11,7 +11,7 @@
  * dropped the prompt — so an attach that never happened looked exactly like one
  * that did: no attachment recorded, no prompt, no message, and the user
  * believing they had just granted the AI a tab. Reporting the outcome is what
- * lets the caller keep the prompt raised (audit 20260815-163607 #24).
+ * lets the caller keep the prompt raised.
  *
  * @coordinates-with stores/browserApprovalStore — sole caller
  * @module services/browser/humanTabAttach

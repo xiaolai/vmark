@@ -18,7 +18,7 @@
  * removal notice, not documentation; `NEGATED` is the vocabulary). A code
  * span anywhere on the page used to count, so a cross-reference from another
  * tool's section, an example, or a "no longer supported" note validated an
- * action that had no entry of its own (audit 20260907 #50). Descriptions are
+ * action that had no entry of its own. Descriptions are
  * still prose and drift legitimately; the entry is what must exist. Measured
  * 41/41 on adoption, so it ships zero-tolerance with no allowlist.
  *
@@ -83,7 +83,7 @@ function inputSchemaBodies(code) {
  * How many `action` schemas the source DECLARES: every `action: <expr>`
  * property inside an `inputSchema: { … }` body, whatever the expression —
  * `action: ACTION_SCHEMA` names a schema built elsewhere and used to be
- * invisible, since only `action: z…` was counted (audit 20260907 #47) — plus
+ * invisible, since only `action: z…` was counted — plus
  * any `action: z…` outside one. Read over code, so a commented-out schema
  * declares nothing.
  */

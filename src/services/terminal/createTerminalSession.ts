@@ -1,6 +1,5 @@
 /**
- * createTerminalSession — THE owner-aware creation service (audit 20260831
- * #17/#20).
+ * createTerminalSession — THE owner-aware creation service.
  *
  * Purpose: every production creator of a terminal session goes through this
  * one function, so "resolve the owner, stamp the options" cannot drift

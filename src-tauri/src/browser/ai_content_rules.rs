@@ -1,4 +1,4 @@
-//! The AI tab's destination policy as a WebKit content rule list (audit 20260903 P-01).
+//! The AI tab's destination policy as a WebKit content rule list.
 //!
 //! `validate_ai_navigation_url` is consulted by the navigation delegate, and the
 //! delegate only sees NAVIGATIONS: the main frame's and (since P-01) each

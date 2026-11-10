@@ -8,7 +8,7 @@
 //! platform-free; the policy tests in `ai_policy.test.rs` exercise it through
 //! `validate_ai_navigation_url`, the one public entry point.
 //!
-//! Both families are TABLES, not boolean chains (audit 20260903 round 3, #9):
+//! Both families are TABLES, not boolean chains:
 //! `BLOCKED_IPV4_RANGES` and `BLOCKED_IPV6_RANGES` are read by the predicates
 //! here AND by `ai_content_rules.rs`, which derives the WebKit url-filters from
 //! them, and `ai_content_rules.test.rs` walks every range of both tables asserting

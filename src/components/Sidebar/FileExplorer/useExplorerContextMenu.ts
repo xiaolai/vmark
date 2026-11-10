@@ -1,6 +1,5 @@
 /**
- * useExplorerContextMenu — the file explorer's context-menu state (audit
- * 20260907, #323).
+ * useExplorerContextMenu — the file explorer's context-menu state.
  *
  * A right-click on a tree node opens the menu for that node's path and kind;
  * a right-click on empty space opens the workspace-level menu. The state is

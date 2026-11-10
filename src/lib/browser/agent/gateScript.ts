@@ -13,8 +13,7 @@
  *     managed Turnstile on ordinary checkouts) from reading as challenges.
  *     Where no layout engine exists (jsdom), both checks degrade to the
  *     attribute tier, mirroring actScript's `__vmarkHasLayout` convention.
- *   - The probe is built on the shared perception core (audit 2026-09-03 S-02 /
- *     S-05): hidden-ness is `__vmarkHidden` (one definition, composed-parent
+ *   - The probe is built on the shared perception core: hidden-ness is `__vmarkHidden` (one definition, composed-parent
  *     aware), and the selectors run over the document AND every open shadow root
  *     the composed walk finds — a login form or challenge widget rendered by a
  *     web component is no longer invisible to gate detection.

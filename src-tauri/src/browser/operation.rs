@@ -7,7 +7,7 @@
 //! opaque permission — that is how a hard denial or an operation-scoped grant
 //! cannot be bypassed by a misspelled or case-variant spelling (`"Upload"`).
 //!
-//! `publish` was removed from the set (audit 20260903): it had no consumer on
+//! `publish` was removed from the set: it had no consumer on
 //! either side, so it was a grantable token that authorized nothing — inert
 //! authority the user could be shown and could never observe.
 //!
@@ -40,7 +40,7 @@ pub(crate) const NEVER_GRANTABLE: &[&str] = &["eval", "session", "record"];
 /// retry. The driver binds a hash of the exact script the eval will run and
 /// refuses a mismatched retry.
 ///
-/// `type`, `key` and `scroll` bind too (audit 20260903 A-05): the built script
+/// `type`, `key` and `scroll` bind too: the built script
 /// EMBEDS the text to type, the key plus its modifiers, or the scroll delta, so
 /// binding the script hash binds the payload. Before this an "Allow once" for
 /// `key` authorized any key with any modifiers on the retry, and one for `type`
@@ -57,7 +57,7 @@ pub(crate) fn operation_binds_payload(operation: &str) -> bool {
 /// to it, and every route that can authorize an operation asks one of them.
 ///
 /// It is NOT a wire type, and a `Deserialize` impl claiming to be one was
-/// removed (audit 20260903 round 3, #26): the command boundary takes
+/// removed: the command boundary takes
 /// `operation: String` (`browser_eval`) and `operations: Vec<String>`
 /// (`StandingGrant`), so the deserializer had exactly one caller — its own test —
 /// while the doc comment above it advertised enforcement that was not happening

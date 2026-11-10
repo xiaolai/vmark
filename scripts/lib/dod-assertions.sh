@@ -70,7 +70,7 @@ assert_grep_in_section() {
 # TS/JS goes through the TypeScript parser, Rust through a lexer that blanks
 # comments and literals — a `#[path]` in a block comment, an `it(` inside a
 # template literal, a call site in a doc comment satisfied the greps these
-# replaced (audit 20260907 #26/#27/#31/#32) and satisfy nothing now.
+# replaced and satisfy nothing now.
 DOD_SYNTAX="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/dod-syntax.mjs"
 # Every probe goes through `dod_syntax`, which answers from ONE long-lived
 # `dod-syntax.mjs --serve` per shell instead of a node per probe: loading the

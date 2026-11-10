@@ -41,8 +41,8 @@ export const CONSOLE_BUFFER_ID = "__vmark_console_buffer";
  * Isolated-world script that reads (and optionally clears) the console ring buffer.
  * Returns `JSON.stringify({entries:[{level,text},...]})`. A page that cleared or
  * corrupted the buffer just yields `[]` — the reader never throws. A clearing read
- * also bumps the drain stamp (`shimDrain.ts`), which is what makes the clear stick
- * (audit 2026-09-03 S-01): the shim's closure array is its source of truth and
+ * also bumps the drain stamp (`shimDrain.ts`), which is what makes the clear stick:
+ * the shim's closure array is its source of truth and
  * used to re-publish every drained entry on the next log.
  */
 export function buildConsoleReadScript(clear: boolean): string {

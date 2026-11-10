@@ -16,7 +16,7 @@ use crate::command_error::{CommandError, ErrorCode};
 /// Canonicalize `path` (resolving symlinks) and require it be a directory,
 /// returning the canonical path for the approval one-shot binding.
 ///
-/// **Typed, and `async`** (audit 20260907 #560, #561).
+/// **Typed, and `async`**.
 ///
 /// Typed because the caller has to tell a folder that is GONE from one that is
 /// a file from one it may not read: `open_workspace` is an approval flow, and

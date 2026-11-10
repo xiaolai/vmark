@@ -1,4 +1,4 @@
-//! The immutable half of the driver gate (audit 20260903 round 3, #10).
+//! The immutable half of the driver gate.
 //!
 //! `decide` reads the registry, the policy snapshot and the owning window's
 //! grants and builds a [`Decision`]: what the tab is, which page it is on, and
@@ -76,7 +76,7 @@ pub(super) fn decide(
         AutomationMode::AiSandbox => reg.profile_read_allowed(tab_id, committed),
         _ => true,
     };
-    // 3. Standing authority is the WINDOW's (audit 20260903 A-03): the slice read is
+    // 3. Standing authority is the WINDOW's: the slice read is
     //    the one the window that owns this tab synced, per the registry.
     let allowed = origin_guard::is_driver_operation_allowed_for_mode(
         committed,

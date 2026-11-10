@@ -40,7 +40,7 @@ use tauri::{AppHandle, State};
 /// caller that never syncs simply gets default-deny. Passing an empty vec revokes
 /// everything THIS window granted. The window is the invoking one, from Tauri —
 /// each document window syncs its own store, and the driver keeps one slice per
-/// window (audit 20260903 A-03). Validation lives in `mint::set_standing_grants`.
+/// window. Validation lives in `mint::set_standing_grants`.
 /// Cap on driver-side profile-open approvals. Mirrors the frontend's
 /// `MAX_PENDING_APPROVALS` (`browserApprovalStore.constants.ts`); the TS test
 /// `approvalCapParity.test.ts` reads this line, so the two cannot drift apart.
@@ -72,8 +72,7 @@ pub async fn browser_add_one_shot(
     // The exact script a payload-binding one-shot (`style`, `eval`, `session`,
     // `type`, `key`, `scroll`) authorizes. Required for those operations, ignored
     // otherwise. The driver stores only its hash and binds the eval to it — an
-    // approved script cannot be swapped out on the retry
-    // (audit 20260903 A-05).
+    // approved script cannot be swapped out on the retry.
     eval_script: Option<String>,
 ) -> Result<(), CommandError> {
     // Bound the payload before any authority is minted from it. A one-shot bound to
@@ -215,7 +214,7 @@ pub async fn browser_eval(
         return Err(stale_command(&tab_id, "before the script could run"));
     }
     // A timeout, a thrown exception, no value and an oversized result are typed
-    // failures (audit 20260903 E-03/E-04), never a `<timeout>`/`<null>` string
+    // failures, never a `<timeout>`/`<null>` string
     // returned as the script's result.
     surface::eval(&app, tab_id, script, generation).map_err(eval_error)
 }

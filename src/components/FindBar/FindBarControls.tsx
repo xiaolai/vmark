@@ -1,5 +1,5 @@
 /**
- * FindBar controls — the bar's three button groups (audit 20260907, #301:
+ * FindBar controls — the bar's three button groups (#301:
  * split out of the FindBar component, which had grown to 276 lines of
  * subscriptions, effects and markup).
  *

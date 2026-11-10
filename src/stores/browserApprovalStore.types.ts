@@ -44,7 +44,7 @@ export interface PendingApproval {
    */
   script?: string;
   /**
-   * Human-readable form of a bound payload for the prompt (audit 2026-09-03 A-05).
+   * Human-readable form of a bound payload for the prompt.
    * A `type` binds the text it will enter and a `key` the key it will press by
    * hashing the BUILT script; the script itself is not something to show a user,
    * so the handler supplies this one-line summary alongside it. Display only —
@@ -61,7 +61,7 @@ export interface PendingApproval {
   runId?: string;
   /**
    * Why the last attach attempt on this prompt failed, as an i18n KEY — never
-   * English prose (audit 2026-09-03 #153). Only an `attach` prompt carries it: the
+   * English prose. Only an `attach` prompt carries it: the
    * attach IPC can fail, and the prompt then stays raised so the user can retry or
    * deny; the dialog renders it as a live alert. Set by `settleAttach`, cleared by
    * the next decision on the prompt (`beginAttach`).

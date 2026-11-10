@@ -9,7 +9,7 @@
  * With `onJump`, each row's content is a BUTTON (click or Enter/Space calls
  * onJump(line, column) so the source pane can move the cursor); without it the
  * rows are plain content — nothing focusable, no action for assistive
- * technology to announce (audit 20260907, #282).
+ * technology to announce.
  *
  * The rule pill shows the bare id and carries the engine's documented title
  * localized here at the UI boundary — see RuleBadge.
@@ -51,11 +51,11 @@ function translateDiagnostic(
 // subscribes its component to i18n's change events, so mounting it per row —
 // and again per rule pill — put 2N subscriptions behind a list that is
 // routinely hundreds of diagnostics long, for one translator that is the same
-// object in every one of them (audit 20260907 round 3, #571). A locale change
+// object in every one of them. A locale change
 // still re-renders the whole gutter, because the gutter itself subscribes.
 //
 // The rule pill is BOTH the localized name of the rule and the handle a user
-// looks it up by, so it carries both (audit 20260907, #406 — maintainer
+// looks it up by, so it carries both (#406 — maintainer
 // decision: localize the titles AND keep the id visible).
 //
 //   * The ID stays the pill's own visible text. It is the key

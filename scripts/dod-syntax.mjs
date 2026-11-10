@@ -7,7 +7,7 @@
  * `provision::transition` in a doc comment, a journey whose `name:` sits in
  * some other object — each satisfied the line-anchored greps the assertions
  * used to run, and each is exactly the placeholder a DoD checker exists to
- * refuse (audit 20260907 #26, #27, #31, #32). TypeScript and JavaScript go
+ * refuse. TypeScript and JavaScript go
  * through the TypeScript compiler's parser, the way the repo's other AST
  * gates do (check-ipc-contract, check-mock-boundaries); Rust has no parser in
  * this toolchain, so it gets scripts/lib/rustSource.mjs — comments (nested)

@@ -5,7 +5,7 @@
  * `ExportSurface` asks one of them directly. They were inside the poller, which
  * put two unrelated kinds of reasoning in one file — "has this image finished"
  * and "how do four nested timers race a deadline" — and reading either meant
- * scrolling through the other (audit 20260907 round 3, #706).
+ * scrolling through the other.
  *
  * @coordinates-with src/export/waitForAssets.ts — the poller over these
  * @coordinates-with src/export/ExportSurface.tsx — asks `isImageSettled` directly

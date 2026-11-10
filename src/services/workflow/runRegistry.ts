@@ -10,8 +10,7 @@
  *     `firstStep`, ONE `stepResults` entry per step with attempts folded,
  *     `completedSteps` = distinct completed indices, skips counted apart);
  *   - a one-live-run-per-tab guard — `running` only: a PAUSED run frees its tab,
- *     because the documented resume path is a new run on the same tab (audit
- *     2026-09-03 W-05);
+ *     because the documented resume path is a new run on the same tab;
  *   - which run currently holds the tab's lease, so a cancel releases the lease
  *     only if THIS run holds it (W-08);
  *   - the per-run `AbortController` that cancel and human takeover fire (W-01);

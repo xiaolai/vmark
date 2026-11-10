@@ -6,7 +6,7 @@
  * so the renderer that turns that refusal into actionable prose lives here
  * rather than in either tool.
  *
- * Audit 2026-09-03 E-02: every non-approval failure used to be rendered as its
+ * Every non-approval failure used to be rendered as its
  * message alone, dropping the structured `data` the webview attached — the
  * navigation ticket a TIMEOUT still carries (so `wait` can retrieve it), an
  * act's `reason`/`by`/`matchedTotal`/`url`/`generation`, the retry verb an open

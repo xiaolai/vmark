@@ -1,7 +1,6 @@
 /**
  * restoreInstanceContext — the ONE pane/tab restoration for an instance
- * becoming (or re-becoming) the window's visible context (audit 20260831
- * #22): the rail-switch coordinator and the hydrate/repair path had grown
+ * becoming (or re-becoming) the window's visible context: the rail-switch coordinator and the hydrate/repair path had grown
  * near-identical copies of it, and the copies had already forced hydrate to
  * import a helper out of the switch coordinator.
  *
