@@ -15,6 +15,14 @@
 // call (a continuation, a dispatch) shows up to the sampler exactly like a caller stall. So the
 // library reports `ownMs` — the time it spent in all of its own callbacks after the call returned —
 // and that is subtracted from the excuse. Charging all of it errs late, never in time.
+// The probe and the library's settle timer are armed a hair apart (the probe first, the settle inside
+// `call()`). Node reads a fresh millisecond clock at each arming, so the settle can be due a whole
+// millisecond after the probe, and a sampler tick may then fall legitimately between the two. That
+// is the arming gap, not a free thread, so a tick counts as "the thread was free" only when it lands
+// more than `armGapMs` after the probe: the measured arming gap, capped at EPSILON_MS so the tolerance never exceeds the check's own accuracy and cannot excuse real library lateness, plus one millisecond of clock rounding.
+// A tick counts as a free thread only if it is itself on time (gap < STALL_GAP_MS): a tick that runs
+// late after the probe means the runner held the thread (preemption, a starved CPU), and that is the
+// caller's stall, not the library's lateness.
 // EPSILON_MS = 2: timers run at whole-millisecond resolution and the sampler adds at most 1 ms of
 // under-count. OS preemption probes (stopping the process from a child) are not ported: they are
 // process-level and belong to a soak run, not the unit tier.
@@ -44,6 +52,7 @@ export async function timed<R>(call: () => Promise<R>, deadlineMs: number, ownMs
   let dueStallMs = 0;
   let dueAt: number | null = null;
   let ticksAfterDue = 0;
+  let armGapMs = Infinity; // set once the call has returned; the sampler and the probe run after that
   const t0 = performance.now();
   const due = deadlineMs - COARSE_RESERVE_MS;
   let prev = t0;
@@ -54,7 +63,7 @@ export async function timed<R>(call: () => Promise<R>, deadlineMs: number, ownMs
       stallMs += gap - SAMPLE_MS;
       if (dueAt === null) dueStallMs += Math.max(0, Math.min(gap - SAMPLE_MS, now - t0 - due));
     }
-    if (dueAt !== null) ticksAfterDue++;
+    if (dueAt !== null && gap < STALL_GAP_MS && now - t0 > dueAt + armGapMs) ticksAfterDue++;
     prev = now;
   };
   const control = setTimeout(() => (late = true), deadlineMs);
@@ -65,6 +74,7 @@ export async function timed<R>(call: () => Promise<R>, deadlineMs: number, ownMs
   try {
     const p = call();
     prev = performance.now();
+    armGapMs = Math.min(prev - t0, EPSILON_MS) + 1;
     const sampler = setInterval(sample, SAMPLE_MS);
     try {
       const r = await p;
