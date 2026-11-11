@@ -121,6 +121,72 @@ pub(crate) fn which_command() -> Command {
     }
 }
 
+/// Suffixes a Windows spawn can use: `.exe` directly, `.cmd` and `.bat`
+/// through the batch interpreter the standard library invokes on its own (see
+/// [`build_command`]). The same three `cli_path_guard` accepts, so a path
+/// found here is never refused there (`cli_path_guard.test.rs` pins it); `.ps1`
+/// and `.com` are in neither.
+pub(crate) const SPAWNABLE_WINDOWS_SUFFIXES: [&str; 3] = ["exe", "cmd", "bat"];
+
+/// True when the last path component of `line` ends in a suffix Windows can
+/// spawn. Only the file name is read, so a dot or `.exe` in a directory name
+/// never decides it; both `\` and `/` separate components.
+fn has_spawnable_windows_suffix(line: &str) -> bool {
+    let name = line.rsplit(['\\', '/']).next().unwrap_or(line);
+    match name.rsplit_once('.') {
+        Some((stem, suffix)) => {
+            !stem.is_empty()
+                && SPAWNABLE_WINDOWS_SUFFIXES
+                    .iter()
+                    .any(|s| suffix.eq_ignore_ascii_case(s))
+        }
+        None => false,
+    }
+}
+
+/// Pick the entry of `where`/`which` output a spawn can use.
+///
+/// `where.exe` lists every match on PATH in order, and npm leaves an
+/// extensionless POSIX shell shim (for Git Bash) beside each `.cmd` it
+/// installs, ahead of it. Windows cannot execute that file — spawning it
+/// fails with os error 193 — so on Windows the first line is not necessarily
+/// the one to run: the first one with a spawnable suffix is (issue #1666).
+/// With none, the answer is `None` — found-but-unrunnable is worse than not
+/// found. Elsewhere `which` already reports what a shell would run, and a
+/// POSIX binary has no suffix, so the first non-blank line stands.
+///
+/// `windows` is a parameter, not a `cfg!`, so both rules are testable on
+/// every CI OS; call sites use [`first_spawnable_path`].
+pub(crate) fn spawnable_candidate(stdout: &str, windows: bool) -> Option<String> {
+    stdout
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .find(|line| !windows || has_spawnable_windows_suffix(line))
+        .map(str::to_string)
+}
+
+/// File names to try for `name` in one PATH directory.
+///
+/// Elsewhere that is `name` itself. On Windows a bare `name` is never
+/// spawnable (npm leaves a POSIX shim by that name), so it is tried with each
+/// spawnable suffix, in `.exe`, `.cmd`, `.bat` order — unless `name` already
+/// ends in one.
+pub(crate) fn executable_names(name: &str, windows: bool) -> Vec<String> {
+    if !windows || has_spawnable_windows_suffix(name) {
+        return vec![name.to_string()];
+    }
+    SPAWNABLE_WINDOWS_SUFFIXES
+        .iter()
+        .map(|suffix| format!("{name}.{suffix}"))
+        .collect()
+}
+
+/// [`spawnable_candidate`] for the platform this build runs on.
+pub(crate) fn first_spawnable_path(stdout: &str) -> Option<String> {
+    spawnable_candidate(stdout, cfg!(windows))
+}
+
 /// Extract the text between the first `start` sentinel and the next `end`
 /// sentinel after it, trimmed. Returns `None` if either sentinel is absent.
 /// Sentinels isolate the probed value from shell/profile startup noise.

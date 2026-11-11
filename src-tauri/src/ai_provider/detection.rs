@@ -9,7 +9,7 @@ use std::sync::Mutex;
 use tauri::command;
 
 use super::login_path::{login_shell_path, refresh_login_shell_path, run_login_shell_capture};
-use super::spawn::{parse_sentinel, which_command};
+use super::spawn::{first_spawnable_path, parse_sentinel, which_command};
 use super::types::CliProviderEntry;
 
 // ============================================================================
@@ -231,12 +231,11 @@ fn check_command(cmd: &str) -> (bool, Option<String>) {
     {
         Ok(output) if output.status.success() => {
             let raw = String::from_utf8_lossy(&output.stdout);
-            // `where` on Windows may return multiple lines -- take the first
-            let path = raw.lines().next().unwrap_or("").trim().to_string();
-            if path.is_empty() {
-                (false, None)
-            } else {
-                (true, Some(path))
+            // `where` lists every match, and on Windows the first may be npm's
+            // extensionless shell shim, which cannot be spawned (#1666).
+            match first_spawnable_path(&raw) {
+                Some(path) => (true, Some(path)),
+                None => (false, None),
             }
         }
         _ => (false, None),

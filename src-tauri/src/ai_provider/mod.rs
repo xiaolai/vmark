@@ -55,7 +55,7 @@ pub use rest_api::*;
 #[allow(unused_imports)]
 pub(crate) use {
     capture::capture_stdout_with_timeout, login_path::login_shell_path, spawn::build_command,
-    spawn::which_command,
+    spawn::executable_names, spawn::first_spawnable_path, spawn::which_command,
 };
 
 use std::sync::atomic::{AtomicBool, Ordering};

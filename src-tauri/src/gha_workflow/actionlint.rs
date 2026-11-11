@@ -61,29 +61,23 @@ pub struct ActionlintDiagnostic {
 }
 
 /// The first file named `name` in the directories of `path`, a PATH-style
-/// list. On Windows `name.exe` is tried in each directory too.
+/// list. On Windows a bare `name` is never taken (npm-style shims leave a
+/// POSIX script by that name that cannot be spawned): `name.exe`, `.cmd` and
+/// `.bat` are tried instead, in each directory.
 pub(crate) fn find_in_path(path: &str, name: &str) -> Option<PathBuf> {
-    for dir in std::env::split_paths(path) {
-        let candidate = dir.join(name);
-        #[cfg(target_os = "windows")]
-        {
-            // Windows: try both `name` and `name.exe`.
-            if candidate.is_file() {
-                return Some(candidate);
-            }
-            let exe = dir.join(format!("{}.exe", name));
-            if exe.is_file() {
-                return Some(exe);
-            }
-        }
-        #[cfg(not(target_os = "windows"))]
-        {
-            if candidate.is_file() {
-                return Some(candidate);
-            }
-        }
-    }
-    None
+    find_in_path_for(path, name, cfg!(windows))
+}
+
+/// [`find_in_path`] with the platform rule as a parameter, so both rules are
+/// testable on every CI OS.
+pub(crate) fn find_in_path_for(path: &str, name: &str, windows: bool) -> Option<PathBuf> {
+    let names = crate::ai_provider::executable_names(name, windows);
+    std::env::split_paths(path).find_map(|dir| {
+        names
+            .iter()
+            .map(|file| dir.join(file))
+            .find(|candidate| candidate.is_file())
+    })
 }
 
 /// Run actionlint on the given YAML content. Returns a `LintResult`

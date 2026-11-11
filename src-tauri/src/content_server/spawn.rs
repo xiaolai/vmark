@@ -17,7 +17,8 @@
 //! `supervisor.rs`.
 
 use crate::ai_provider::{
-    build_command, capture_stdout_with_timeout, login_shell_path, which_command,
+    build_command, capture_stdout_with_timeout, first_spawnable_path, login_shell_path,
+    which_command,
 };
 use crate::app_paths::app_data_dir;
 use serde::Serialize;
@@ -91,16 +92,8 @@ pub(super) fn node_from_lookup(success: bool, stdout: &[u8]) -> Result<String, S
     if !success {
         return Err("node not found on PATH".into());
     }
-    let path = String::from_utf8_lossy(stdout)
-        .lines()
-        .next()
-        .unwrap_or("")
-        .trim()
-        .to_string();
-    if path.is_empty() {
-        return Err("node not found on PATH".into());
-    }
-    Ok(path)
+    first_spawnable_path(&String::from_utf8_lossy(stdout))
+        .ok_or_else(|| "node not found on PATH".to_string())
 }
 
 /// Resolve the content-server `cli.js`:

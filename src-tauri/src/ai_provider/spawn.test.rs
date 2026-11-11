@@ -226,3 +226,153 @@ fn only_this_module_constructs_a_command() {
         offenders.join("\n")
     );
 }
+
+// ---------------------------------------------------------------------------
+// `where` output -> the one candidate that can be spawned (issue #1666)
+// ---------------------------------------------------------------------------
+
+/// The reporter's exact `where.exe codex` order: npm's extensionless POSIX
+/// shim first, then its `.cmd`, then the desktop app's `.exe`. The shim is a
+/// shell script; Windows refuses it with os error 193, so it must be skipped.
+#[test]
+fn windows_lookup_skips_npms_extensionless_shim() {
+    let out = "C:\\Users\\u\\scoop\\apps\\nodejs\\current\\bin\\codex\r\n\
+               C:\\Users\\u\\scoop\\apps\\nodejs\\current\\bin\\codex.cmd\r\n\
+               C:\\Users\\u\\AppData\\Local\\Programs\\OpenAI\\Codex\\bin\\codex.exe\r\n";
+    assert_eq!(
+        spawnable_candidate(out, true).as_deref(),
+        Some("C:\\Users\\u\\scoop\\apps\\nodejs\\current\\bin\\codex.cmd")
+    );
+}
+
+#[test]
+fn windows_lookup_keeps_where_order_among_spawnable_candidates() {
+    let out = "C:\\a\\tool.exe\r\nC:\\b\\tool.cmd\r\n";
+    assert_eq!(
+        spawnable_candidate(out, true).as_deref(),
+        Some("C:\\a\\tool.exe")
+    );
+}
+
+#[test]
+fn windows_lookup_accepts_every_spawnable_suffix_in_any_case() {
+    for name in ["a.exe", "a.EXE", "a.Cmd", "a.BAT"] {
+        let out = format!("C:\\bin\\{name}\r\n");
+        assert_eq!(
+            spawnable_candidate(&out, true).as_deref(),
+            Some(format!("C:\\bin\\{name}").as_str()),
+            "{name}"
+        );
+    }
+}
+
+/// `.ps1` cannot be spawned directly, and `.sh`, `.js` or no suffix at all are
+/// not Windows executables either: with nothing else on PATH the tool is
+/// reported as not found rather than found-but-broken.
+#[test]
+fn windows_lookup_returns_none_when_nothing_is_spawnable() {
+    for out in [
+        "C:\\npm\\codex\r\n",
+        "C:\\npm\\codex.ps1\r\n",
+        "C:\\npm\\codex.sh\r\nC:\\npm\\codex.js\r\n",
+        // `.com` is neither accepted by `cli_path_guard` nor produced by npm.
+        "C:\\bin\\codex.com\r\n",
+        "",
+        "\r\n  \r\n",
+    ] {
+        assert_eq!(spawnable_candidate(out, true), None, "{out:?}");
+    }
+}
+
+/// Only the file name decides: a dot, or a spawnable-looking suffix, in a
+/// directory name must not make an extensionless file pass.
+#[test]
+fn windows_lookup_judges_the_file_name_not_the_directory() {
+    for out in [
+        "C:\\node.js\\codex\r\n",
+        "C:\\tools.exe\\codex\r\n",
+        "C:\\a.cmd\\bin\\codex\r\n",
+        "C:/tools.exe/codex\r\n",
+    ] {
+        assert_eq!(spawnable_candidate(out, true), None, "{out:?}");
+    }
+}
+
+#[test]
+fn windows_lookup_handles_cjk_and_spaces_and_untrimmed_lines() {
+    let out = "  C:\\用户\\Program Files\\工具\\codex  \r\n\r\n  C:\\用户\\Program Files\\工具\\codex.cmd \r\n";
+    assert_eq!(
+        spawnable_candidate(out, true).as_deref(),
+        Some("C:\\用户\\Program Files\\工具\\codex.cmd")
+    );
+}
+
+/// A bare name ending in a dot has an empty suffix; it is not `.exe`.
+#[test]
+fn windows_lookup_rejects_a_trailing_dot_and_a_bare_suffix_name() {
+    assert_eq!(spawnable_candidate("C:\\bin\\codex.\r\n", true), None);
+    assert_eq!(spawnable_candidate("C:\\bin\\exe\r\n", true), None);
+}
+
+/// Everywhere else `which` already answers with what a shell would run, and a
+/// POSIX binary legitimately has no suffix: the first non-blank line stands.
+#[test]
+fn posix_lookup_takes_the_first_non_blank_line() {
+    assert_eq!(
+        spawnable_candidate("\n  /usr/local/bin/pandoc \n/usr/bin/pandoc\n", false).as_deref(),
+        Some("/usr/local/bin/pandoc")
+    );
+    assert_eq!(spawnable_candidate("", false), None);
+    assert_eq!(spawnable_candidate("  \n\t\n", false), None);
+}
+
+/// The wrapper every call site uses must apply the rule of the platform it
+/// runs on.
+#[test]
+fn the_platform_wrapper_matches_the_running_platform() {
+    let out = "/x/codex\n/x/codex.cmd\n";
+    let expect = if cfg!(windows) {
+        "/x/codex.cmd"
+    } else {
+        "/x/codex"
+    };
+    assert_eq!(first_spawnable_path(out).as_deref(), Some(expect));
+}
+
+/// Every production caller of `which_command()` reads a `where` list, and the
+/// first line of it is not always runnable on Windows (#1666). A caller that
+/// takes `.lines().next()` itself would bring the bug back, so each one must
+/// pick through `first_spawnable_path`.
+#[test]
+fn every_which_caller_picks_through_the_shared_rule() {
+    let offenders: Vec<String> = crate::source_scan::all_files()
+        .iter()
+        .filter(|(path, code)| {
+            path != "ai_provider/spawn.rs"
+                && !path.ends_with(".test.rs")
+                && code.contains("which_command()")
+                && !code.contains("first_spawnable_path")
+        })
+        .map(|(path, _)| path.clone())
+        .collect();
+    assert!(
+        offenders.is_empty(),
+        "these files read `where` output without `first_spawnable_path`: {offenders:?}"
+    );
+}
+
+#[test]
+fn executable_names_try_each_spawnable_suffix_only_on_windows() {
+    assert_eq!(executable_names("actionlint", false), ["actionlint"]);
+    assert_eq!(
+        executable_names("actionlint", true),
+        ["actionlint.exe", "actionlint.cmd", "actionlint.bat"]
+    );
+    // A name that already carries a spawnable suffix is used as given.
+    assert_eq!(executable_names("tool.CMD", true), ["tool.CMD"]);
+    // A suffix that cannot be spawned does not count as one.
+    assert_eq!(
+        executable_names("tool.ps1", true),
+        ["tool.ps1.exe", "tool.ps1.cmd", "tool.ps1.bat"]
+    );
+}
