@@ -177,3 +177,16 @@ fn rejects_a_path_for_a_rest_provider() {
     assert!(validate_cli_path("anthropic", Some("/usr/local/bin/anthropic")).is_err());
     assert!(validate_cli_path("openai", Some("/bin/sh")).is_err());
 }
+
+/// Detection (`spawn::SPAWNABLE_WINDOWS_SUFFIXES`) and this guard must agree on
+/// what a Windows executable is: a path detection reports as available but the
+/// guard refuses would show Codex as installed and then fail at run time.
+#[test]
+fn every_suffix_detection_accepts_is_one_the_guard_accepts() {
+    for suffix in crate::ai_provider::spawn::SPAWNABLE_WINDOWS_SUFFIXES {
+        assert!(
+            WINDOWS_SUFFIXES.contains(&format!(".{suffix}").as_str()),
+            ".{suffix} is spawnable for detection but not accepted by the guard"
+        );
+    }
+}

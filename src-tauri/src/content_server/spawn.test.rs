@@ -140,18 +140,18 @@ fn a_configured_bundled_resource_that_cannot_be_resolved_is_an_error_not_a_fallt
 #[test]
 fn a_successful_lookup_yields_the_first_candidate_trimmed() {
     assert_eq!(
-        node_from_lookup(true, b"/usr/local/bin/node\n").expect("found"),
-        "/usr/local/bin/node"
+        node_from_lookup(true, b"/usr/local/bin/node.exe\n").expect("found"),
+        "/usr/local/bin/node.exe"
     );
     // `which -a`-style output, and a CRLF line ending: the first line is what
     // a shell would run.
     assert_eq!(
-        node_from_lookup(true, b"/opt/node\r\n/usr/bin/node\n").expect("found"),
-        "/opt/node"
+        node_from_lookup(true, b"/opt/node.exe\r\n/usr/bin/node.exe\n").expect("found"),
+        "/opt/node.exe"
     );
     assert_eq!(
-        node_from_lookup(true, b"  /usr/bin/node  ").expect("found"),
-        "/usr/bin/node"
+        node_from_lookup(true, b"  /usr/bin/node.exe  ").expect("found"),
+        "/usr/bin/node.exe"
     );
 }
 
@@ -159,6 +159,17 @@ fn a_successful_lookup_yields_the_first_candidate_trimmed() {
 fn a_non_zero_status_is_not_on_path_whatever_it_printed() {
     let err = node_from_lookup(false, b"/usr/bin/node\n").expect_err("status wins");
     assert_eq!(err, "node not found on PATH");
+}
+
+// #1666: Windows lists npm's extensionless shim before the real executable;
+// the shim cannot be spawned, so the answer is the first spawnable entry.
+#[cfg(windows)]
+#[test]
+fn a_windows_shim_listed_first_is_skipped_for_the_executable() {
+    assert_eq!(
+        node_from_lookup(true, b"C:\\nvm\\node\r\nC:\\nvm\\node.exe\r\n").expect("found"),
+        "C:\\nvm\\node.exe"
+    );
 }
 
 // A zero exit with nothing usable on stdout is the shape that used to slip
@@ -178,7 +189,7 @@ fn a_successful_lookup_that_printed_nothing_usable_is_not_on_path() {
 // panic — it is replaced and reported, and the spawn then fails by name.
 #[test]
 fn output_that_is_not_utf8_is_replaced_rather_than_panicking() {
-    let path = node_from_lookup(true, b"/usr/bin/n\xffode\n").expect("still a path");
+    let path = node_from_lookup(true, b"/usr/bin/n\xffode.exe\n").expect("still a path");
     assert!(path.contains('\u{FFFD}'), "{path}");
 }
 

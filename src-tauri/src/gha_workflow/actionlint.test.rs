@@ -88,13 +88,45 @@ fn the_binary_is_found_in_the_first_directory_that_holds_it() {
         tempfile::tempdir().expect("tempdir"),
         tempfile::tempdir().expect("tempdir"),
     );
-    std::fs::write(first.path().join("actionlint"), "").expect("write");
-    std::fs::write(second.path().join("actionlint"), "").expect("write");
+    let file = if cfg!(windows) {
+        "actionlint.exe"
+    } else {
+        "actionlint"
+    };
+    std::fs::write(first.path().join(file), "").expect("write");
+    std::fs::write(second.path().join(file), "").expect("write");
 
     let path = join(&[empty.path(), first.path(), second.path()]);
     assert_eq!(
         find_in_path(&path, "actionlint"),
-        Some(first.path().join("actionlint"))
+        Some(first.path().join(file))
+    );
+}
+
+/// #1666: an extensionless `actionlint` beside the real one is a POSIX shim
+/// Windows cannot run (os error 193); it must lose to `actionlint.exe`, and
+/// must not be taken at all when nothing runnable sits next to it.
+#[test]
+fn on_windows_an_extensionless_shim_is_never_taken() {
+    let (shim_dir, exe_dir) = (
+        tempfile::tempdir().expect("tempdir"),
+        tempfile::tempdir().expect("tempdir"),
+    );
+    std::fs::write(shim_dir.path().join("actionlint"), "").expect("write");
+    std::fs::write(exe_dir.path().join("actionlint.exe"), "").expect("write");
+
+    let shim_only = join(&[shim_dir.path()]);
+    assert_eq!(find_in_path_for(&shim_only, "actionlint", true), None);
+    // The same directory is a hit where a bare name is the executable.
+    assert_eq!(
+        find_in_path_for(&shim_only, "actionlint", false),
+        Some(shim_dir.path().join("actionlint"))
+    );
+
+    let both = join(&[shim_dir.path(), exe_dir.path()]);
+    assert_eq!(
+        find_in_path_for(&both, "actionlint", true),
+        Some(exe_dir.path().join("actionlint.exe"))
     );
 }
 

@@ -173,14 +173,8 @@ fn resolve_windows_shell(name: &str) -> Option<String> {
     if !output.status.success() {
         return None;
     }
-    // where.exe may return multiple lines; take the first (highest priority) one
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let first_line = stdout.lines().next()?.trim().to_string();
-    if first_line.is_empty() {
-        None
-    } else {
-        Some(first_line)
-    }
+    // where.exe lists every match; the first one that can be spawned wins.
+    ai_provider::first_spawnable_path(&String::from_utf8_lossy(&output.stdout))
 }
 
 /// Check if a shell path exists and is executable (for validating env vars).

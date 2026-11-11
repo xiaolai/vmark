@@ -13,7 +13,8 @@ use std::time::Duration;
 use tauri::command;
 
 use crate::ai_provider::{
-    build_command, capture_stdout_with_timeout, login_shell_path, which_command,
+    build_command, capture_stdout_with_timeout, first_spawnable_path, login_shell_path,
+    which_command,
 };
 
 /// Allowed output extensions (strict allowlist).
@@ -213,13 +214,7 @@ pub(crate) fn resolve_pandoc_path() -> Option<String> {
         return None;
     }
 
-    let raw = String::from_utf8_lossy(&output.stdout);
-    let path = raw.lines().next().unwrap_or("").trim().to_string();
-    if path.is_empty() {
-        None
-    } else {
-        Some(path)
-    }
+    first_spawnable_path(&String::from_utf8_lossy(&output.stdout))
 }
 
 // ============================================================================
