@@ -39,6 +39,21 @@ describe("the deadline check itself", () => {
     expectInTime(t, "on-time stand-in behind a stall after its settle");
   });
 
+  it("excuses a caller stall after the settle when the settle timer is armed a ms or two after the probe", async () => {
+    // The probe is armed before the call and the settle inside it; a preemption or a millisecond-clock
+    // boundary between the two makes the settle due after the probe, and sampler ticks land between them.
+    // Those ticks are the arming gap, not a free thread: the stall after the settle must still be excused.
+    const call = standIn();
+    const t = await timed(() => {
+      busy(2);
+      const p = call();
+      void p.then(() => busy(40));
+      return p;
+    }, WALL_MS, own);
+    expect(t.ms).toBeGreaterThan(WALL_MS);
+    expectInTime(t, "on-time stand-in whose settle timer is armed late");
+  });
+
   it("still fails 30 ms of library work in the settling callback when a caller stall follows it", async () => {
     const call = standIn({ blockMs: 30 });
     const t = await timed(() => {

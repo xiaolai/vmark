@@ -2,6 +2,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { createRoot, type Root } from "react-dom/client";
 import { flushSync } from "react-dom";
+import i18n from "@/i18n";
 import "@/styles/index.css";
 import "@/styles/button-shared.css";
 import "@/styles/icon-button-shared.css";
@@ -68,6 +69,11 @@ describe("ReviewPanel at scale (real WebKit)", () => {
     document.body.append(host);
     root = createRoot(host);
     const data = history();
+    // The panel reads `statusbar` through `useTranslation`, and the app's i18n loads that namespace
+    // lazily: until it lands the first render SUSPENDS (the root commits nothing), so a slow runner
+    // sees no list after one frame and the budget below would also bill the locale import. Wait for
+    // the namespaces, then the render under measurement is synchronous and the list is there.
+    await i18n.loadNamespaces(["statusbar", "common"]);
     await nextFrame();
 
     const paintStart = performance.now();
@@ -76,7 +82,7 @@ describe("ReviewPanel at scale (real WebKit)", () => {
     const paint = performance.now() - paintStart;
 
     const viewport = host.querySelector<HTMLElement>("[data-testid='review-list']")!;
-    expect(viewport).not.toBeNull();
+    expect(viewport, "the list is committed by the synchronous render (not suspended on a locale)").not.toBeNull();
     // One group header plus one row per hunk, but only a window of them mounted.
     const items = () => host!.querySelectorAll("[role='listitem']");
     expect(items()[0].getAttribute("aria-setsize")).toBe(String(ROWS + 1));
