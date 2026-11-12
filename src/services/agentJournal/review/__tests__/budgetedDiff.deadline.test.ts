@@ -1,141 +1,150 @@
-// WI-AL2.1a — P1-DEADLINE-OWNED-WORK on real timers: the deadline check excuses only caller stalls that delayed the settle or the caller's continuation after it, and charges back every millisecond the library spent in its own callbacks, settling or not; the budgeted diff settles in time at its deadline, and its own dispatch work past the due point is caught as late rather than excused.
+// WI-AL2.1a — P1-DEADLINE-OWNED-WORK, asserted on a controlled clock: the budgeted diff arms its settle timer at the call for `deadlineMs − COARSE_RESERVE_MS`, settles through it before a control timer armed for the deadline at the same moment, never bills a caller stall to itself, and charges every millisecond of its own dispatch work (`ownMs`), so work past the due point reads late instead of being excused. No assertion reads a wall clock, so runner load cannot move it.
 // @vitest-environment node
-// timer-isolation: intentional real timers — the real deadline timer and real elapsed time are the subject
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BudgetedDiff } from "../budgetedDiff";
-import { COARSE_RESERVE_MS, type DiffOutcome } from "../diffBudget";
-import { busy, busyCpu, expectInTime, isInTime, stalled, standIn, timed, WALL_MS, type StandInResult } from "./deadlineCheck";
-import { fakeFactory } from "./fakeDiffWorker";
+import { COARSE_RESERVE_MS, DIFF_DEADLINE_MS, type DiffOutcome } from "../diffBudget";
+import { fakeFactory, type FakeFactory } from "./fakeDiffWorker";
 
-const DUE = WALL_MS - COARSE_RESERVE_MS;
-const own = (r: StandInResult | DiffOutcome) => r.ownMs;
+const DUE = DIFF_DEADLINE_MS - COARSE_RESERVE_MS;
 
-describe("the deadline check itself", () => {
-  it("passes an on-time library", async () => {
-    expectInTime(await timed(standIn(), WALL_MS, own), "on-time stand-in");
-  });
+let f: FakeFactory;
+let lib: BudgetedDiff;
+/** The library's clock: it moves only when a test moves it, so "time" is never sampled from the machine. */
+let clock = 0;
+let readClock = () => clock;
 
-  it("fails a library that does 30 ms of its own work past its due point", async () => {
-    expect(isInTime(await timed(standIn({ blockMs: 30 }), WALL_MS, own))).toBe(false);
-  });
-
-  it("excuses a caller stall that spans the due point", async () => {
-    const stall = stalled(DUE - 5, 40);
-    const t = await timed(standIn(), WALL_MS, own);
-    await stall;
-    expect(t.ms).toBeGreaterThan(WALL_MS);
-    expectInTime(t, "on-time stand-in behind a caller stall");
-  });
-
-  it("excuses a caller stall between the settle and the caller's continuation", async () => {
-    // Stands in for OS preemption or a GC pause after the library settled: no sampler tick can see it.
-    const call = standIn();
-    const t = await timed(() => {
-      const p = call();
-      void p.then(() => busy(40));
-      return p;
-    }, WALL_MS, own);
-    expect(t.ms).toBeGreaterThan(WALL_MS);
-    expectInTime(t, "on-time stand-in behind a stall after its settle");
-  });
-
-  it("excuses a caller stall after the settle when the settle timer is armed a ms or two after the probe", async () => {
-    // The probe is armed before the call and the settle inside it; a preemption or a millisecond-clock
-    // boundary between the two makes the settle due after the probe, and sampler ticks land between them.
-    // Those ticks are the arming gap, not a free thread: the stall after the settle must still be excused.
-    const call = standIn();
-    const t = await timed(() => {
-      busy(2);
-      const p = call();
-      void p.then(() => busy(40));
-      return p;
-    }, WALL_MS, own);
-    expect(t.ms).toBeGreaterThan(WALL_MS);
-    expectInTime(t, "on-time stand-in whose settle timer is armed late");
-  });
-
-  it("excuses a post-settle stall when the thread also woke late after the probe (a starved runner)", async () => {
-    // The probe fires on time, then the thread is held before the settle timer, which is already due.
-    // The first sampler tick afterwards is itself late: a stall, not evidence of a free thread.
-    const call = standIn();
-    const hold = stalled(DUE + 1, 8);
-    const t = await timed(() => {
-      busy(2);
-      const p = call();
-      void p.then(() => busy(40));
-      return p;
-    }, WALL_MS, own);
-    await hold;
-    expect(t.ms).toBeGreaterThan(WALL_MS);
-    expectInTime(t, "on-time stand-in behind a late wake and a stall after its settle");
-  });
-
-  it("still fails 30 ms of library work in the settling callback when a caller stall follows it", async () => {
-    const call = standIn({ blockMs: 30 });
-    const t = await timed(() => {
-      const p = call();
-      void p.then(() => busy(10));
-      return p;
-    }, WALL_MS, own);
-    expect(isInTime(t)).toBe(false);
-  });
-
-  it("charges library work in a callback that does not settle the call", async () => {
-    const t = await timed(standIn({ sideAt: DUE - 5, sideMs: 60 }), WALL_MS, own);
-    expect(t.ms).toBeGreaterThan(WALL_MS);
-    expect(isInTime(t)).toBe(false);
-  });
-
-  it("without the charge the same library would be excused: the hole the charge closes", async () => {
-    const t = await timed(standIn({ sideAt: DUE - 5, sideMs: 60, hideOwn: true }), WALL_MS, own);
-    expect(t.dueStallMs).toBeGreaterThan(20);
-    expect(isInTime(t)).toBe(true);
-  });
+beforeEach(() => {
+  vi.useFakeTimers();
+  clock = 0;
+  readClock = () => clock;
+  f = fakeFactory();
+  lib = new BudgetedDiff({ factory: f.factory, warn: () => {}, now: () => readClock() });
+});
+afterEach(() => {
+  lib.close();
+  vi.useRealTimers();
 });
 
-describe("the budgeted diff against the check", () => {
-  let lib: BudgetedDiff | null = null;
-  afterEach(() => lib?.close());
+/** Time passes with the thread free: the clock and the timers move together. */
+const advance = async (ms: number) => {
+  clock += ms;
+  await vi.advanceTimersByTimeAsync(ms);
+};
+/** A caller stall: the clock moves while no timer gets to run. */
+const stall = (ms: number) => {
+  clock += ms;
+};
 
-  const big = (seed: string) => Array.from({ length: 20000 }, (_, i) => `line ${i} ${seed} 😀 甲 שלום`).join("\n");
+function track(p: Promise<DiffOutcome>) {
+  const box: { value: DiffOutcome | null } = { value: null };
+  void p.then((v) => (box.value = v));
+  return box;
+}
 
-  it("settles in time with the coarse change when the worker never answers", async () => {
-    const f = fakeFactory();
-    f.onSpawn = (w) => queueMicrotask(() => w.ready());
-    lib = new BudgetedDiff({ factory: f.factory, warn: () => {} });
-    lib.warm();
-    await new Promise((r) => setTimeout(r, 5));
-    const a = big("a");
-    const b = a.replace("line 7 a", "line 7 B").replace("line 19000 a", "line 19000 C");
-    const t = await timed(() => lib!.diff(a, b), WALL_MS, own);
-    expectInTime(t, "budgeted diff");
-    expect(t.r).toMatchObject({ mode: "tooComplex", reason: "deadline" });
-    expect(t.r.changes).toHaveLength(1);
+/** A library whose worker is ready and never answers. */
+function silentWorker() {
+  f.onSpawn = (w) => queueMicrotask(() => w.ready());
+  lib.warm();
+}
+
+describe("the settle timer", () => {
+  it("is armed at the call: nothing settles before the due point, the coarse change settles at it", async () => {
+    silentWorker();
+    await advance(0);
+    const out = track(lib.diff("ab12cd", "aX12Yd"));
+    await advance(DUE - 1);
+    expect(out.value).toBeNull();
+    await advance(1);
+    expect(out.value).toMatchObject({ mode: "tooComplex", reason: "deadline", elapsedMs: DUE, ownMs: 0 });
+    expect(out.value!.changes).toHaveLength(1);
     expect(f.workers[0].terminated).toBe(true);
   });
 
-  it("settles in time when a caller stall spans its due point", async () => {
-    const f = fakeFactory();
-    f.onSpawn = (w) => queueMicrotask(() => w.ready());
-    lib = new BudgetedDiff({ factory: f.factory, warn: () => {} });
-    lib.warm();
-    await new Promise((r) => setTimeout(r, 5));
-    const stall = stalled(DUE - 5, 40);
-    const t = await timed(() => lib!.diff("ab12cd", "aX12Yd"), WALL_MS, own);
-    await stall;
-    expectInTime(t, "budgeted diff behind a caller stall");
+  it("settles before a control timer armed for the deadline at the same moment", async () => {
+    silentWorker();
+    await advance(0);
+    const order: string[] = [];
+    setTimeout(() => order.push("control"), DIFF_DEADLINE_MS);
+    void lib.diff("ab12cd", "aX12Yd").then(() => order.push("settled"));
+    await advance(DIFF_DEADLINE_MS);
+    expect(order).toEqual(["settled", "control"]);
   });
 
-  it("charges its own dispatch work: dispatch that runs across the due point reads late, never excused", async () => {
-    const f = fakeFactory();
-    lib = new BudgetedDiff({ factory: f.factory, warn: () => {} });
-    lib.warm();
-    const worker = f.workers[0];
-    worker.onPost = () => busyCpu(60); // a structured clone that costs 60 ms on this thread
-    setTimeout(() => worker.ready(), DUE - 5);
-    const t = await timed(() => lib!.diff("ab", "aX"), WALL_MS, own);
-    expect(t.r.ownMs).toBeGreaterThanOrEqual(55);
-    expect(t.ms).toBeGreaterThan(WALL_MS);
-    expect(isInTime(t)).toBe(false);
+  it("counts from the call, not from when the worker is ready", async () => {
+    f.onSpawn = null;
+    const out = track(lib.diff("ab12cd", "aX12Yd"));
+    await advance(DUE - 1);
+    f.workers[0].ready();
+    await advance(0);
+    expect(out.value).toBeNull();
+    expect(f.workers[0].posted).toHaveLength(1);
+    await advance(1);
+    expect(out.value).toMatchObject({ mode: "tooComplex", reason: "deadline" });
+  });
+});
+
+describe("a caller stall", () => {
+  it("that spans the due point delays the settle but is never charged to the library", async () => {
+    silentWorker();
+    await advance(0);
+    const out = track(lib.diff("ab12cd", "aX12Yd"));
+    await advance(DUE - 5);
+    stall(40);
+    await advance(5);
+    // The caller observed more than the deadline (DUE + 40 = 220 > 200), and all of the excess is the stall.
+    expect(out.value).toMatchObject({ mode: "tooComplex", reason: "deadline", elapsedMs: DUE + 40, ownMs: 0 });
+    expect(out.value!.elapsedMs).toBeGreaterThan(DIFF_DEADLINE_MS);
+  });
+
+  it("before a worker answers does not stop an on-time answer from being accepted", async () => {
+    silentWorker();
+    await advance(0);
+    const out = track(lib.diff("ab12cd", "aX12Yd"));
+    await advance(5);
+    stall(30); // the answer is handled after a stall: waiting is not the library's work
+    f.workers[0].answer();
+    await advance(0);
+    expect(out.value).toMatchObject({ mode: "exact", dispatched: true, elapsedMs: 35, ownMs: 0 });
+  });
+});
+
+describe("the library's own work", () => {
+  it("in a dispatch that runs across the due point is charged in ownMs and reads late, never excused", async () => {
+    const worker = (() => {
+      lib.warm();
+      return f.workers[0];
+    })();
+    worker.onPost = () => stall(60); // a structured clone that costs 60 ms on this thread
+    const out = track(lib.diff("ab", "aX"));
+    await advance(DUE - 5);
+    worker.ready();
+    await advance(0);
+    // Dispatched at DUE − 5 and ended 60 ms later: the 60 ms is its own work, not the 175 ms wait before it.
+    expect(out.value).toMatchObject({ mode: "tooComplex", reason: "deadline", dispatched: true, ownMs: 60, elapsedMs: DUE - 5 + 60 });
+    expect(out.value!.elapsedMs).toBeGreaterThan(DIFF_DEADLINE_MS);
+    expect(f.workers[0].terminated).toBe(true);
+  });
+
+  it("in the settling callback itself is charged: every clock read there costs time, and the lateness is all ownMs", async () => {
+    silentWorker();
+    await advance(0);
+    const out = track(lib.diff("ab12cd", "aX12Yd"));
+    await advance(DUE - 1);
+    readClock = () => {
+      const at = clock;
+      clock += 10;
+      return at;
+    }; // from here each read of the library's clock costs 10 ms of its own time
+    await advance(1);
+    const o = out.value!;
+    expect(o).toMatchObject({ mode: "tooComplex", reason: "deadline" });
+    expect(o.ownMs).toBeGreaterThan(0);
+    expect(o.elapsedMs - o.ownMs).toBeLessThanOrEqual(DUE);
+    expect(o.elapsedMs).toBeGreaterThan(DUE);
+  });
+
+  it("is zero for a call that spent none: equal texts report no own time", async () => {
+    const out = await lib.diff("same", "same");
+    expect(out).toMatchObject({ mode: "exact", ownMs: 0 });
   });
 });
