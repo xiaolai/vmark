@@ -11,6 +11,15 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 ## [Unreleased]
 
+## [0.9.117] - 2026-11-11
+
+### Fixed
+
+- Choosing "Don't Save" when you quit VMark now sticks. The discarded text used to come back as an "Untitled" tab the next time VMark started, because the recovery copy was still being deleted when the app exited. VMark now removes the recovery copy before the window closes. Thanks to xingrong-lai for the report.
+- With "Confirm quit" turned off, the first Quit right after launch is no longer swallowed: VMark reads your setting before the menu is live. The "press again to quit" hint, shown when Confirm quit is on, is now a filled pill that is much harder to miss instead of small grey text. Thanks to xingrong-lai for the report.
+- Images in folders or files whose names start with a dot, such as `.gitbook/assets/` or `.dotfile.png`, now show up. They used to appear as broken images even inside a workspace you had opened. Thanks to Yxuan18 for the report.
+- On Windows, detecting an AI CLI installed with npm, such as Codex, no longer picks npm's extensionless shell script, which Windows cannot run and which failed with "os error 193". VMark now picks the matching `.cmd` or `.exe`. The same lookup is used for Claude, Gemini, pandoc, the content server's Node.js and the GitHub Actions linter. Thanks to 418223397 for the report.
+
 ## [0.9.116] - 2026-11-06
 
 ### Fixed
@@ -610,7 +619,8 @@ Text you may want to copy stays selectable: messages, approval dialogs, Genie an
 
 - Raised the `markdown-it` version floor past GHSA-253c-mchw-3w2r.
 
-[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.116...HEAD
+[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.117...HEAD
+[0.9.117]: https://github.com/xiaolai/vmark/releases/tag/v0.9.117
 [0.9.116]: https://github.com/xiaolai/vmark/releases/tag/v0.9.116
 [0.9.115]: https://github.com/xiaolai/vmark/releases/tag/v0.9.115
 [0.9.114]: https://github.com/xiaolai/vmark/releases/tag/v0.9.114
