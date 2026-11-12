@@ -35,6 +35,8 @@ const CONSOLE_SHIM_SRC: &str = include_str!("../../../src/lib/browser/agent/cons
 /// compile time: flipping it back to every frame is a deliberate edit here, not a
 /// drive-by.
 const MAIN_FRAME_ONLY: bool = true;
+// A compile-time pin: the constant IS the subject. Older clippy reports it as a constant assertion.
+#[allow(clippy::assertions_on_constants)]
 const _: () = assert!(MAIN_FRAME_ONLY);
 
 /// Which postures receive the shim: every AI-owned one, and never a human's page.

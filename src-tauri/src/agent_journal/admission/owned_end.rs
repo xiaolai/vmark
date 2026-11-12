@@ -80,7 +80,7 @@ pub(crate) fn end_owned_in(w: &Writer, g: &mut Inner, txn: TxnId) -> OwnedEnd {
         g.requests.owners.remove(&txn);
         return OwnedEnd::AlreadyQueued;
     }
-    if !g.reservations.get(&t.doc).is_some_and(|r| r.txn == txn) {
+    if g.reservations.get(&t.doc).is_none_or(|r| r.txn != txn) {
         broken(g, OwnedBreak::NoReservation, false);
         return end_unreserved(w, g, t.doc, txn);
     }
