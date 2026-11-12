@@ -111,9 +111,12 @@ describe("useOutlineSync — scroll-to-heading listener", () => {
 
     renderHook(() => useOutlineSync(getView));
 
+    // Registered for THIS window: a listener with no target is woken by every
+    // window's outline click (#1672; outlineSync.windowScope.test.ts models it).
     expect(mocks.listen).toHaveBeenCalledWith(
       "outline:scroll-to-heading",
-      expect.any(Function)
+      expect.any(Function),
+      { target: { kind: "WebviewWindow", label: "main" } }
     );
   });
 
@@ -727,7 +730,11 @@ describe("useOutlineSync — unfocused split pane (#1554)", () => {
     expect(mocks.listen).not.toHaveBeenCalled();
 
     rerender({ on: true });
-    expect(mocks.listen).toHaveBeenCalledWith("outline:scroll-to-heading", expect.any(Function));
+    expect(mocks.listen).toHaveBeenCalledWith(
+      "outline:scroll-to-heading",
+      expect.any(Function),
+      { target: { kind: "WebviewWindow", label: "main" } }
+    );
   });
 });
 

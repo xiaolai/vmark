@@ -9,6 +9,10 @@
  *   this hook → find nth heading in ProseMirror doc → scroll into view
  *
  * Key decisions:
+ *   - Listens FOR THIS WINDOW (`target`), because the click is addressed with
+ *     `emitTo(<window>)`: Tauri wakes a listener registered with no target for
+ *     every window's event, so a click here scrolled every other open window
+ *     (#1672)
  *   - Polls for editor readiness (100ms intervals, 5s max) for lazy-loaded editors
  *   - Scrolls the heading to the top of the editor's scroll container through
  *     settledScroll: on large documents content-visibility moves it while a
@@ -38,6 +42,7 @@ import { useUIStore } from "@/stores/uiStore";
 import { getTiptapEditorDom } from "@/services/editor/tiptapView";
 import { safeUnlisten } from "@/utils/safeUnlisten";
 import { findScrollContainer } from "@/services/editor/scrollPosition";
+import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { scrollToSettled } from "@/utils/settledScroll";
 
 type EditorViewGetter = () => EditorView | null;
@@ -149,7 +154,10 @@ export function useOutlineSync(getEditorView: EditorViewGetter, enabled = true) 
                 view.dom,
               );
             });
-          }
+          },
+          // For THIS window only: the click is addressed with `emitTo`, and a
+          // listener with no target is woken by every window's click (#1672).
+          { target: { kind: "WebviewWindow", label: getCurrentWindowLabel() } },
         );
 
         // Check if cancelled while awaiting - cleanup immediately

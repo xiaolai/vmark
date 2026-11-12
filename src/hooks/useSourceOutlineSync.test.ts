@@ -201,9 +201,12 @@ describe("useSourceOutlineSync hook", () => {
     const viewRef = { current: null };
     renderHook(() => useSourceOutlineSync(viewRef, false));
 
+    // Registered for THIS window: a listener with no target is woken by every
+    // window's outline click (#1672).
     expect(listen).toHaveBeenCalledWith(
       "outline:scroll-to-heading",
-      expect.any(Function)
+      expect.any(Function),
+      { target: { kind: "WebviewWindow", label: "main" } }
     );
   });
 
