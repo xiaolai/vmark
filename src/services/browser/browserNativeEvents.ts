@@ -8,6 +8,9 @@
  * listeners and decode the same payloads separately; they now both subscribe here,
  * so the two can no longer disagree about what an event said.
  *
+ * Scope: every native listener is registered on THIS webview (`listenOnThisWindow`),
+ * because Rust addresses each event to the window that owns the tab.
+ *
  * Lifecycle:
  *  - Registration is REF-COUNTED: the first subscriber registers the native
  *    listeners, the last unsubscribe unlistens them. An unsubscribe that lands
