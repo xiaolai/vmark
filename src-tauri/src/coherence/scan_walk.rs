@@ -6,7 +6,6 @@
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
-use std::time::SystemTime;
 
 use super::canonical::{masked_text, MaskedText};
 use super::frontmatter::read_identity;
@@ -134,7 +133,7 @@ pub(super) fn walk_markdown(
             let name = entry.file_name().to_string_lossy().into_owned();
             let rel = to_workspace_rel(path.strip_prefix(root).unwrap_or(&path));
             // Taken BEFORE the stat: a write after it moves the stamp.
-            let stamped_at = SystemTime::now();
+            let stamped_at = kernel.scan_cache.now();
             let Ok(meta) = std::fs::symlink_metadata(&path) else {
                 report.complete = false;
                 continue;

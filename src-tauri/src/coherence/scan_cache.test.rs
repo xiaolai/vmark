@@ -187,18 +187,55 @@ fn a_same_size_rewrite_that_restores_the_mtime_is_still_seen() {
     assert_eq!(report.external_edits, 1);
 }
 
-#[test]
-fn a_file_written_just_before_the_scan_is_read_every_time() {
-    // The real slack: a file modified within it may change again inside the
-    // same timestamp tick, so its stamp is not trusted yet.
+/// How many files the second of two scans reads, when the scans stamp files
+/// at `offset` past the moment the file last changed (before it when
+/// `before`). The clock is frozen: the slack is measured against a chosen
+/// moment, so no stall of the test thread can move the answer.
+fn second_scan_reads(offset: Duration, before: bool) -> usize {
     let (dir, mut kernel) = workspace();
     saved_doc(&mut kernel, dir.path(), "a.md", "alpha\n");
+    let meta = std::fs::metadata(dir.path().join("a.md")).unwrap();
+    let changed = FileStamp::of(&meta).unwrap().last_change();
+    kernel.scan_cache.freeze_now(if before {
+        changed - offset
+    } else {
+        changed + offset
+    });
 
     scan_workspace(&mut kernel).unwrap();
     let after_first = reads(&kernel);
+    assert_eq!(after_first, 1, "the first scan reads the file");
     scan_workspace(&mut kernel).unwrap();
+    reads(&kernel) - after_first
+}
 
-    assert_eq!(reads(&kernel), after_first + 1);
+// A file modified within the slack may change again inside the same timestamp
+// tick, so its stamp is not trusted yet: it is read on every scan.
+#[test]
+fn a_file_written_just_before_the_scan_is_read_every_time() {
+    assert_eq!(second_scan_reads(Duration::ZERO, false), 1);
+    assert_eq!(second_scan_reads(Duration::from_millis(500), false), 1);
+}
+
+/// Windows `SystemTime` counts 100 ns units, so the margin is 1 us, not 1 ns.
+#[test]
+fn a_file_one_tick_inside_the_slack_is_still_read_every_time() {
+    assert_eq!(
+        second_scan_reads(MTIME_SLACK - Duration::from_micros(1), false),
+        1
+    );
+}
+
+#[test]
+fn a_file_quiet_for_exactly_the_slack_is_trusted() {
+    assert_eq!(second_scan_reads(MTIME_SLACK, false), 0);
+    assert_eq!(second_scan_reads(Duration::from_secs(3600), false), 0);
+}
+
+#[test]
+fn a_file_modified_in_the_future_is_read_every_time() {
+    assert_eq!(second_scan_reads(Duration::from_micros(1), true), 1);
+    assert_eq!(second_scan_reads(Duration::from_secs(3600), true), 1);
 }
 
 #[test]
