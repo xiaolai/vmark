@@ -18,7 +18,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { safeUnlistenAsync } from "@/utils/safeUnlisten";
 import { imeToast as toast } from "@/services/ime/imeToast";
@@ -107,7 +107,10 @@ export function PdfExportContent({
       finishing: "pdf.progress.finishing",
       done: "pdf.progress.done",
     };
-    const unlisten = listen<{ stage: string }>(
+    // Rust addresses this to the export window (`emit_to`); a global `listen` has
+    // target `Any` and is woken by every window's addressed event. Listen on this
+    // webview, whose label is the real one.
+    const unlisten = getCurrentWebviewWindow().listen<{ stage: string }>(
       "pdf-export-progress",
       (event) => {
         const key = stageKeys[event.payload.stage];

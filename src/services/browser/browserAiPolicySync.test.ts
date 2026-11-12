@@ -13,6 +13,11 @@ const mocks = vi.hoisted(() => ({
 // The real event broker runs; its native boundary is Tauri's `listen`.
 vi.mock("@tauri-apps/api/core", () => ({ invoke: (...args: unknown[]) => mocks.invoke(...args) }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: (...args: unknown[]) => mocks.listen(...args) }));
+// The hub listens on its own webview (window-scoped); route that to the same fake.
+vi.mock("@tauri-apps/api/webviewWindow", async () => {
+  const events = await import("@tauri-apps/api/event");
+  return { getCurrentWebviewWindow: () => ({ listen: events.listen }) };
+});
 vi.mock("@/utils/debug", () => ({ browserWarn: (...args: unknown[]) => mocks.warn(...args) }));
 
 import { startBrowserAiPolicySync } from "./browserAiPolicySync";

@@ -22,8 +22,8 @@ const defaultListen = (name: string, cb: Listener) => {
   return Promise.resolve(unlisten);
 };
 let listenImpl: (name: string, cb: Listener) => Promise<() => void> = defaultListen;
-vi.mock("@tauri-apps/api/event", () => ({
-  listen: (name: string, cb: Listener) => listenImpl(name, cb),
+vi.mock("@tauri-apps/api/webviewWindow", () => ({
+  getCurrentWebviewWindow: () => ({ listen: (name: string, cb: Listener) => listenImpl(name, cb) }),
 }));
 
 function emit(name: string, payload: unknown) {

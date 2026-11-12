@@ -26,6 +26,12 @@ const tauri = vi.hoisted(() => ({
   listeners: new Map<string, Set<(event: { payload: unknown }) => void>>(),
   toasts: [] as Array<{ kind: string; message: unknown; description?: unknown }>,
   window: {
+    // The webview's own listen (window-scoped in production): same fake bus.
+    listen: (name: string, handler: (event: { payload: unknown }) => void) => {
+      const set = tauri.listeners.get(name) ?? new Set();
+      tauri.listeners.set(name, set.add(handler));
+      return Promise.resolve(() => void set.delete(handler));
+    },
     scaleFactor: () => Promise.resolve(2),
     outerPosition: () => Promise.resolve({ x: 200, y: 100 }),
     outerSize: () => Promise.resolve({ width: 2000, height: 1600 }),

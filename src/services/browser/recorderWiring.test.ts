@@ -14,6 +14,11 @@ vi.mock("@tauri-apps/api/event", () => ({
     return Promise.resolve(unlistenNav);
   },
 }));
+// The hub listens on its own webview (window-scoped); route that to the same fake.
+vi.mock("@tauri-apps/api/webviewWindow", async () => {
+  const events = await import("@tauri-apps/api/event");
+  return { getCurrentWebviewWindow: () => ({ listen: events.listen }) };
+});
 
 const isRecording = vi.fn<(tabId: string) => boolean>(() => true);
 const recordNavigation = vi.fn<(tabId: string, url: string, generation: number) => Promise<void>>(async () => {});

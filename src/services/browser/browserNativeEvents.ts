@@ -27,7 +27,8 @@
  * @coordinates-with services/browser/browserEventBroker — subscriber: navigation waiters
  * @module services/browser/browserNativeEvents
  */
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import type { UnlistenFn } from "@tauri-apps/api/event";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { browserWarn } from "@/utils/debug";
 import {
   BROWSER_NATIVE_EVENTS,
@@ -48,6 +49,25 @@ export interface BrowserNativeEventSubscription {
 /** What a consumer needs from the hub — injectable so tests can hand a fresh one. */
 export interface BrowserNativeEventSource {
   subscribe: (listener: (event: BrowserNativeEvent) => void) => BrowserNativeEventSubscription;
+}
+
+/**
+ * Listen on THIS webview only. Rust addresses every `browser://*` event to the one
+ * window that owns the tab (`emit_to_owner`, resolved from the invoking
+ * `webview.label()`), and a global `listen()` has target `Any`, which Tauri wakes
+ * for every window's addressed event. The webview's own `.listen` is scoped to its
+ * real label, so it cannot disagree with Rust. A throw from
+ * `getCurrentWebviewWindow()` becomes a rejection so the retry path handles it.
+ */
+function listenOnThisWindow(
+  event: string,
+  handler: (message: { payload: unknown }) => void,
+): Promise<UnlistenFn> {
+  try {
+    return getCurrentWebviewWindow().listen<unknown>(event, handler);
+  } catch (error) {
+    return Promise.reject(error instanceof Error ? error : new Error(String(error)));
+  }
 }
 
 /** Listener registration is retried before it is declared dead. */
@@ -109,7 +129,7 @@ export class BrowserNativeEventHub implements BrowserNativeEventSource {
           reject(new Error(`browser: subscription to ${event} cancelled before it registered`));
           return;
         }
-        listen<unknown>(event, (message) => this.dispatch(event, message.payload))
+        listenOnThisWindow(event, (message) => this.dispatch(event, message.payload))
           .then((unlisten) => {
             if (registration.cancelled) {
               unlisten(); // torn down before listen() resolved — undo it
