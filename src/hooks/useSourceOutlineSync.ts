@@ -13,6 +13,9 @@
  *   - 250ms debounce on keyup/mouseup instead of rAF — matches useOutlineSync.ts pattern
  *   - In a two-document split only the focused pane listens: the outline lists
  *     the focused document, so the caller passes `hidden` for a background pane (#1554)
+ *   - Listens FOR THIS WINDOW (`target`): the click is addressed with
+ *     `emitTo(<window>)`, and Tauri wakes a listener registered with no target
+ *     for every window's event, so a click in one window scrolled the others (#1672)
  *
  * @coordinates-with useOutlineSync.ts — same event, handles WYSIWYG mode
  * @coordinates-with uiStore.ts — writes activeHeadingLine for outline highlight
@@ -26,6 +29,7 @@ import type { Text } from "@codemirror/state";
 import { safeUnlisten } from "@/utils/safeUnlisten";
 import { outlineSyncError } from "@/utils/debug";
 import { useUIStore } from "@/stores/uiStore";
+import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { parseFenceDelimiter } from "@/utils/markdownOutline";
 
 type CMViewRef = React.RefObject<EditorView | null>;
@@ -127,7 +131,10 @@ export function useSourceOutlineSync(
               effects: EditorView.scrollIntoView(pos, { y: "start" }),
             });
             view.focus();
-          }
+          },
+          // For THIS window only: the click is addressed with `emitTo`, and a
+          // listener with no target is woken by every window's click (#1672).
+          { target: { kind: "WebviewWindow", label: getCurrentWindowLabel() } },
         );
 
         if (cancelled) {
