@@ -11,6 +11,12 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 ## [Unreleased]
 
+## [0.9.118] - 2026-11-11
+
+### Fixed
+
+- With several windows open, clicking a heading in the outline of one window no longer scrolls the other windows as well. Each window now only follows the clicks made in its own outline, in both WYSIWYG and Source mode. Thanks to xiaohaifeng1999 for the report.
+
 ## [0.9.117] - 2026-11-11
 
 ### Fixed
@@ -619,7 +625,8 @@ Text you may want to copy stays selectable: messages, approval dialogs, Genie an
 
 - Raised the `markdown-it` version floor past GHSA-253c-mchw-3w2r.
 
-[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.117...HEAD
+[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.118...HEAD
+[0.9.118]: https://github.com/xiaolai/vmark/releases/tag/v0.9.118
 [0.9.117]: https://github.com/xiaolai/vmark/releases/tag/v0.9.117
 [0.9.116]: https://github.com/xiaolai/vmark/releases/tag/v0.9.116
 [0.9.115]: https://github.com/xiaolai/vmark/releases/tag/v0.9.115
