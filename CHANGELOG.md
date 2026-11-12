@@ -11,6 +11,12 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 ## [Unreleased]
 
+## [0.9.120] - 2026-11-12
+
+### Changed
+
+- Maintenance release with no change to how VMark behaves. The Rust code now builds cleanly under the lint checker and test suite of the oldest supported Rust version, which contributors building VMark from source can now run.
+
 ## [0.9.119] - 2026-11-12
 
 ### Fixed
@@ -631,7 +637,8 @@ Text you may want to copy stays selectable: messages, approval dialogs, Genie an
 
 - Raised the `markdown-it` version floor past GHSA-253c-mchw-3w2r.
 
-[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.119...HEAD
+[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.120...HEAD
+[0.9.120]: https://github.com/xiaolai/vmark/releases/tag/v0.9.120
 [0.9.119]: https://github.com/xiaolai/vmark/releases/tag/v0.9.119
 [0.9.118]: https://github.com/xiaolai/vmark/releases/tag/v0.9.118
 [0.9.117]: https://github.com/xiaolai/vmark/releases/tag/v0.9.117
