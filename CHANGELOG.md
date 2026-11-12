@@ -11,6 +11,12 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 ## [Unreleased]
 
+## [0.9.119] - 2026-11-12
+
+### Fixed
+
+- With several windows open, the PDF export progress and the built-in browser's page events (navigation, load failures, crashes, dialogs and popups) now reach only the window they belong to. Other windows used to receive them as well and ignore them, so nothing you could see changes, but each window no longer does that work for the others.
+
 ## [0.9.118] - 2026-11-11
 
 ### Fixed
@@ -625,7 +631,8 @@ Text you may want to copy stays selectable: messages, approval dialogs, Genie an
 
 - Raised the `markdown-it` version floor past GHSA-253c-mchw-3w2r.
 
-[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.118...HEAD
+[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.119...HEAD
+[0.9.119]: https://github.com/xiaolai/vmark/releases/tag/v0.9.119
 [0.9.118]: https://github.com/xiaolai/vmark/releases/tag/v0.9.118
 [0.9.117]: https://github.com/xiaolai/vmark/releases/tag/v0.9.117
 [0.9.116]: https://github.com/xiaolai/vmark/releases/tag/v0.9.116
