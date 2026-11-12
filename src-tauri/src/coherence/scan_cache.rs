@@ -120,6 +120,9 @@ pub struct ScanCache {
     slack: Duration,
     #[cfg(test)]
     reads: usize,
+    /// Test-only: the moment scans stamp files at, instead of the real clock.
+    #[cfg(test)]
+    frozen_now: Option<SystemTime>,
 }
 
 impl Default for ScanCache {
@@ -129,11 +132,22 @@ impl Default for ScanCache {
             slack: MTIME_SLACK,
             #[cfg(test)]
             reads: 0,
+            #[cfg(test)]
+            frozen_now: None,
         }
     }
 }
 
 impl ScanCache {
+    /// The moment a scan stamps a file at: the wall clock.
+    pub(super) fn now(&self) -> SystemTime {
+        #[cfg(test)]
+        if let Some(frozen) = self.frozen_now {
+            return frozen;
+        }
+        SystemTime::now()
+    }
+
     /// The facts recorded for `rel` under exactly this stamp.
     pub(super) fn unchanged(&self, rel: &str, stamp: &FileStamp) -> Option<&FileFacts> {
         self.entries
@@ -193,6 +207,13 @@ impl ScanCache {
     #[cfg(test)]
     pub(crate) fn len(&self) -> usize {
         self.entries.len()
+    }
+
+    /// Test-only: scans stamp files at `now` however long the test thread
+    /// stalls, so the slack is measured against a chosen moment, not the clock.
+    #[cfg(test)]
+    pub(crate) fn freeze_now(&mut self, now: SystemTime) {
+        self.frozen_now = Some(now);
     }
 
     /// Test-only: trust a stamp however recent, so a test need not wait out
