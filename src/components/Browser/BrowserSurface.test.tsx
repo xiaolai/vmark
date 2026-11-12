@@ -14,9 +14,12 @@ import userEvent from "@testing-library/user-event";
 
 const invoke = vi.fn().mockResolvedValue(undefined);
 vi.mock("@tauri-apps/api/core", () => ({ invoke: (...a: unknown[]) => invoke(...a) }));
-vi.mock("@tauri-apps/api/webviewWindow", () => ({
-  getCurrentWebviewWindow: () => ({ label: "main" }),
-}));
+// The browser hub listens on its own webview (window-scoped); route that to the
+// same capturing fake the `api/event` mock below feeds.
+vi.mock("@tauri-apps/api/webviewWindow", async () => {
+  const events = await import("@tauri-apps/api/event");
+  return { getCurrentWebviewWindow: () => ({ label: "main", listen: events.listen }) };
+});
 vi.mock("@/contexts/WindowContext", () => ({
   useWindowLabel: () => "main",
   useIsDocumentWindow: () => true,

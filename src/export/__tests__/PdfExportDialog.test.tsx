@@ -35,8 +35,24 @@ vi.mock("@tauri-apps/api/core", () => ({
 vi.mock("@tauri-apps/plugin-opener", () => ({
   openPath: (...args: unknown[]) => openPathMock(...args),
 }));
+// A fake of Tauri's delivery rule: a listener with no target is `Any` and hears
+// every window's addressed event; the webview's own `.listen` is scoped to it.
+type Registered = { event: string; target: { kind: "Any" } | { kind: "WebviewWindow"; label: string }; handler: () => void };
+const bus = vi.hoisted(() => ({ listeners: [] as Registered[], windowLabel: "pdf-export" }));
 vi.mock("@tauri-apps/api/event", () => ({
-  listen: vi.fn().mockResolvedValue(() => {}),
+  listen: (event: string, handler: () => void) => {
+    bus.listeners.push({ event, target: { kind: "Any" }, handler });
+    return Promise.resolve(() => {});
+  },
+}));
+vi.mock("@tauri-apps/api/webviewWindow", () => ({
+  getCurrentWebviewWindow: () => ({
+    label: bus.windowLabel,
+    listen: (event: string, handler: () => void) => {
+      bus.listeners.push({ event, target: { kind: "WebviewWindow", label: bus.windowLabel }, handler });
+      return Promise.resolve(() => {});
+    },
+  }),
 }));
 vi.mock("sonner", () => ({
   toast: { success: toastSuccessMock, error: toastErrorMock },
@@ -356,5 +372,24 @@ describe("PdfExportContent", () => {
     expect(toastErrorMock).toHaveBeenCalled();
     expect(openPathMock).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+// Rust sends `pdf-export-progress` with `emit_to("pdf-export", …)`. A listener with
+// no window target is woken by every window's addressed event, so the dialog
+// listens on its own webview (the real label, not a stored one).
+describe("PdfExportContent progress listener scope", () => {
+  beforeEach(() => {
+    bus.listeners = [];
+  });
+
+  it("hears progress addressed to its window and not to another", () => {
+    render(<PdfExportContent renderedHtml="<p>x</p>" defaultName="t" onClose={vi.fn()} />);
+    const mine = bus.listeners.filter((l) => l.event === "pdf-export-progress");
+    expect(mine).toHaveLength(1);
+    const reaches = (label: string) =>
+      mine.some((l) => l.target.kind === "Any" || l.target.label === label);
+    expect(reaches("pdf-export")).toBe(true);
+    expect(reaches("doc-1")).toBe(false);
   });
 });

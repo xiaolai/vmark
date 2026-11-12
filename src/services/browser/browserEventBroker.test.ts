@@ -83,6 +83,11 @@ describe("BrowserEventBroker", () => {
 vi.mock("@tauri-apps/api/event", () => ({
   listen: (event: string, cb: (m: { payload: unknown }) => void) => listenImpl(event, cb),
 }));
+// The hub listens on its own webview (window-scoped); route that to the same fake.
+vi.mock("@tauri-apps/api/webviewWindow", async () => {
+  const events = await import("@tauri-apps/api/event");
+  return { getCurrentWebviewWindow: () => ({ listen: events.listen }) };
+});
 const handlers = new Map<string, (m: { payload: unknown }) => void>();
 const unlistened: string[] = [];
 const registerListener = (event: string, cb: (m: { payload: unknown }) => void) => {

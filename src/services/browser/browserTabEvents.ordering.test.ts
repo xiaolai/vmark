@@ -18,6 +18,11 @@ vi.mock("@tauri-apps/api/event", () => ({
     return Promise.resolve(() => listeners.delete(name));
   },
 }));
+// The hub listens on its own webview (window-scoped); route that to the same fake.
+vi.mock("@tauri-apps/api/webviewWindow", async () => {
+  const events = await import("@tauri-apps/api/event");
+  return { getCurrentWebviewWindow: () => ({ listen: events.listen }) };
+});
 vi.mock("@/services/persistence/workspaceStorage", () => ({
   getCurrentWindowLabel: () => "main",
 }));
