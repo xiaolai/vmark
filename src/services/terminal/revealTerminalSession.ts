@@ -29,6 +29,12 @@ function revealPanel(): void {
   if (!now.terminalVisible) now.toggleTerminal();
 }
 
+/** Select a session in the caller's active scope and reveal its panel. */
+export function revealTerminalSession(sessionId: string): void {
+  useTerminalStore.getState().terminalSetActiveSession(sessionId);
+  revealPanel();
+}
+
 /**
  * Take the active session — verified to be VISIBLE — or the first visible
  * one, or create one on an empty visible scope, and reveal the panel

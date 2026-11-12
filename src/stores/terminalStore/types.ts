@@ -40,6 +40,12 @@ export interface TerminalSession {
    *  over the sibling-cwd inheritance that otherwise wins. Cleared on spawn so
    *  a later restart does not silently re-anchor the shell. */
   requestedCwd?: string;
+  /** Interpreter family pinned to this Windows session; Python has a PowerShell host. */
+  windowsShell?: "powershell" | "cmd" | "python";
+  /** One-shot source, cleared after its PTY accepted the startup command. */
+  pendingCode?: string;
+  /** Claimed before the launcher write: restarts must never dispatch it twice. */
+  codeBlockDispatched?: boolean;
   /** Owning workspace instance (WI-TS1.1, D-T1/D-T2). Stamped at creation from
    *  the active scope (via resolveTerminalOwnerInstanceId), or later by
    *  adoption/rekey. ABSENT ⇒ window-scoped: visible in every scope and
@@ -70,6 +76,8 @@ export interface TerminalActions {
   terminalCreateSession: (options?: {
     requestedCwd?: string;
     ownerInstanceId?: string;
+    windowsShell?: "powershell" | "cmd" | "python";
+    pendingCode?: string;
   }) => TerminalSession | null;
   /** Remove a session. When the removed session was active, the fallback
    *  active is picked from `opts.visibleIds` (the caller's visible population,
@@ -87,6 +95,8 @@ export interface TerminalActions {
   /** Clear it — only after the spawn that used it actually succeeded, so a
    *  failed spawn can still be retried in the directory the user asked for. */
   terminalClearRequestedCwd: (id: string) => void;
+  terminalClearPendingCode: (id: string) => void;
+  terminalClaimPendingCode: (id: string) => boolean;
 }
 
 /** Scope-transition actions (WI-TS1.2) — the kernel the rail coordinator and
