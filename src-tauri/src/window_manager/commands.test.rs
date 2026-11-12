@@ -215,7 +215,10 @@ fn a_link_swapped_between_validation_and_the_grant_grants_nothing_outside() {
 
     let judged = target.canonicalize().expect("canonical");
     assert_eq!(
-        granted,
+        granted
+            .iter()
+            .map(std::path::PathBuf::from)
+            .collect::<Vec<_>>(),
         vec![judged.clone()],
         "the grant names what was judged"
     );

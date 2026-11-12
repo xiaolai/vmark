@@ -156,6 +156,7 @@ impl Dir {
     /// caller renders that as "<parent> resolves outside the workspace" — a
     /// containment refusal, which is the one thing an `EIO` or an `EACCES` is
     /// not, and the one message that sends a reader looking for an attack.
+    #[allow(clippy::unnecessary_cast)] // st_dev/st_ino widths differ per Unix (`dev_t` is i32 on macOS)
     pub(super) fn holds(&self, name: &CString, file: &File) -> Result<bool, String> {
         let want = file
             .metadata()
