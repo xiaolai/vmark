@@ -10,11 +10,16 @@
  *   - Double-click triggers Source mode switch with cursor sync via sourceLine attribute,
  *     because raw HTML can only be meaningfully edited in source.
  *   - HTML is sanitized before innerHTML injection to prevent XSS from user content.
+ *   - Embedded media (`img`/`source`) keeps its ORIGINAL relative `src`/`srcset`
+ *     in the document for portability, but the rendered DOM rewrites it to the
+ *     resolved asset URL — otherwise the webview resolves the relative path
+ *     against its own origin and shows a broken image.
  *
  * @coordinates-with htmlBlock.ts, htmlInline.ts — factory functions wrap this view
  * @coordinates-with settingsStore.ts — subscribes to `markdown.htmlRenderingMode`,
  *   `htmlAllowlistLevel`, and `htmlAllowlistCustomTags`
  * @coordinates-with utils/htmlAllowlists.ts — parseCustomTags for the custom field
+ * @coordinates-with plugins/shared/resolveMediaPath.ts — the embedded-media resolver
  * @module plugins/markdownArtifacts/HtmlNodeView
  */
 import { hostSettings, type HtmlRendering } from "@/plugins/shared/hostSettings";
@@ -26,6 +31,7 @@ import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { toggleSourceModeWithCheckpoint } from "@/services/history/unifiedHistory";
 import { sanitizeHtmlPreview } from "@/utils/sanitize";
 import { parseCustomTags } from "@/utils/htmlAllowlists";
+import { resolveImageSrc, snapshotActiveFilePath } from "@/plugins/shared/resolveMediaPath";
 import type { CursorInfo } from "@/types/cursorSync";
 
 interface HtmlNodeViewOptions {
@@ -44,6 +50,8 @@ class BaseHtmlNodeView implements NodeView {
   private customTags: string;
   private unsubscribe: (() => void) | null = null;
   private options: HtmlNodeViewOptions;
+  /** Bumped each render; a stale in-flight resolution must not touch a newer fragment. */
+  private renderGeneration = 0;
 
   constructor(node: PMNode, options: HtmlNodeViewOptions) {
     this.node = node;
@@ -155,6 +163,69 @@ class BaseHtmlNodeView implements NodeView {
       allowlistLevel: this.allowlistLevel,
       customTags: parseCustomTags(this.customTags),
     });
+
+    // Raw HTML keeps its ORIGINAL relative `src`/`srcset` in the document for
+    // portability, but the webview resolves a relative URL against its own
+    // origin, where no such file exists — so embedded media resolves through
+    // the same path the Markdown image view uses. Whose document this is must
+    // be read NOW: the awaits below give focus a chance to move (split pane).
+    const generation = ++this.renderGeneration;
+    const documentPath = snapshotActiveFilePath();
+    void this.resolveEmbeddedMedia(generation, documentPath);
+  }
+
+  /**
+   * Rewrite `src`/`srcset` on embedded media (`img`, `source`) onto their
+   * resolved asset URLs, leaving the document value untouched.
+   *
+   * `generation` is a render epoch: when a settings change or an update
+   * re-renders the node mid-flight, the stale loop must not paint its result
+   * onto the new fragment.
+   */
+  private async resolveEmbeddedMedia(
+    generation: number,
+    documentPath: () => string | null,
+  ): Promise<void> {
+    const media = Array.from(
+      this.dom.querySelectorAll<HTMLImageElement | HTMLSourceElement>("img, source"),
+    );
+    for (const el of media) {
+      const src = el.getAttribute("src");
+      if (src) {
+        const resolved = await resolveImageSrc(src, documentPath);
+        if (generation !== this.renderGeneration) return;
+        if (resolved && resolved !== src) el.setAttribute("src", resolved);
+      }
+
+      const srcset = el.getAttribute("srcset");
+      if (srcset) {
+        const resolvedSrcset = await this.resolveSrcset(srcset, documentPath);
+        if (generation !== this.renderGeneration) return;
+        el.setAttribute("srcset", resolvedSrcset);
+      }
+    }
+  }
+
+  /** Resolve each candidate in a `srcset`, keeping its width/density descriptor. */
+  private async resolveSrcset(
+    srcset: string,
+    documentPath: () => string | null,
+  ): Promise<string> {
+    const candidates = srcset.split(",");
+    const resolved = await Promise.all(
+      candidates.map(async (candidate) => {
+        const trimmed = candidate.trim();
+        if (!trimmed) return "";
+        // The URL is the leading token; everything after it is the descriptor.
+        const match = /^(\S+)(\s+.*)?$/.exec(trimmed);
+        if (!match) return trimmed;
+        const url = match[1];
+        const descriptor = match[2] ?? "";
+        const resolvedUrl = await resolveImageSrc(url, documentPath);
+        return resolvedUrl ? `${resolvedUrl}${descriptor}` : trimmed;
+      }),
+    );
+    return resolved.filter(Boolean).join(", ");
   }
 }
 
