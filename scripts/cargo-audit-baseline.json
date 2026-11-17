@@ -35,6 +35,11 @@
       "crate": "zvariant_derive",
       "kind": "unmaintained",
       "reason": "vmark > tauri-plugin-notification / tauri-plugin-opener / tauri-plugin-single-instance > zbus 5.16 > zvariant_derive 5.12. No affected version range and no patched release; the derive macros moved into zbus 6.0.0, which the Tauri plugins here do not accept (they require zbus 5.x). Linux only. It is a proc-macro: it runs in the compiler and is not linked into the shipped app, so the unmaintained status carries no runtime surface."
+    },
+    "RUSTSEC-2026-0543": {
+      "crate": "chrono",
+      "kind": "unmaintained",
+      "reason": "vmark > chrono 0.4, a direct dependency used for timestamps and durations across shell integration, the external-editor and pandoc paths, hot-exit, the window manager and the watcher, so it is linked into every shipped build. RUSTSEC-2026-0543 marks the whole 0.4 line unmaintained — all versions affected, no patched release — and names jiff and time as the replacements, so no fixed version is reachable by `cargo update`. The advisory is a maintenance-status flag with no associated vulnerability; migrating to jiff or time is a cross-cutting change across ~20 call sites and is tracked as its own work, not a bump. This acceptance expires once that migration lands."
     }
   }
 }
