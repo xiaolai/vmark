@@ -14,7 +14,6 @@
  *     the promoted spare returned was the full one.
  *
  * @coordinates-with scripts/lib/alSpikeVerdicts.mjs — revertVerdict
- * @coordinates-with dev-docs/grills/agent-edit-ledger/revert/lib/probePerf.mjs — records minHunkCount and the mode tallies
  * @module scripts/lib/alSpikeVerdicts.revert.test
  */
 import { describe, expect, it } from "vitest";

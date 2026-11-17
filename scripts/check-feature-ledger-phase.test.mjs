@@ -18,8 +18,6 @@
  *   - a NEAR-MISS (test file present but not discovered, decision line absent,
  *     evidence line absent) stays non-zero — presence is not the property;
  *   - `all` exits 0 only when every phase does.
- *
- * @coordinates-with dev-docs/plans/20260907-feature-ledger-fixes.md — the phases asserted
  */
 import { describe, it, expect } from "vitest";
 import { spawnSync } from "node:child_process";
