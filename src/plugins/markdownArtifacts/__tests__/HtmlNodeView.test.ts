@@ -69,6 +69,19 @@ vi.mock("@/utils/sanitize", () => ({
   sanitizeHtmlPreview: (...args: unknown[]) => mockSanitizeHtmlPreview(...args),
 }));
 
+// Relative media sources resolve to an asset URL; schemes and absolute paths
+// pass through verbatim — a stand-in for the shared resolver, not the app's.
+const mockResolveImageSrc = vi.fn(async (src: string, _documentPath?: () => string | null) =>
+  /^(?:[a-z][a-z0-9+.-]*:|\/)/i.test(src) ? src : `asset://localhost/${src}`,
+);
+const mockSnapshotActiveFilePath = vi.fn(() => () => "/docs/notes.md");
+
+vi.mock("@/plugins/shared/resolveMediaPath", () => ({
+  resolveImageSrc: (src: string, documentPath?: () => string | null) =>
+    mockResolveImageSrc(src, documentPath),
+  snapshotActiveFilePath: () => mockSnapshotActiveFilePath(),
+}));
+
 import { createHtmlInlineNodeView, createHtmlBlockNodeView } from "../HtmlNodeView";
 import type { NodeView } from "@tiptap/pm/view";
 
@@ -404,5 +417,93 @@ describe("HtmlNodeView (block)", () => {
       const wrongNode = createMockNode({}, "html_inline");
       expect(nodeView.update!(wrongNode)).toBe(false);
     });
+  });
+});
+
+describe("HtmlNodeView — embedded media resolution", () => {
+  let nodeView: NodeView;
+
+  const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    document.body.textContent = "";
+    mockHtmlRenderingMode = "sanitized";
+    storeSubscriber = null;
+    mockSanitizeHtmlPreview.mockImplementation((html: string) => html);
+  });
+
+  afterEach(() => {
+    nodeView?.destroy?.();
+    mockSanitizeHtmlPreview.mockImplementation((html: string) => `sanitized:${html}`);
+  });
+
+  it("resolves a relative img[src] to an asset URL", async () => {
+    const node = createMockNode({ value: '<img src="photo.png" alt="">' }, "html_block");
+    nodeView = createHtmlBlockNodeView(node);
+    document.body.appendChild(nodeView.dom);
+
+    await flush();
+
+    const img = nodeView.dom.querySelector("img");
+    expect(img?.getAttribute("src")).toBe("asset://localhost/photo.png");
+    expect(mockSnapshotActiveFilePath).toHaveBeenCalledTimes(1);
+    expect(mockResolveImageSrc).toHaveBeenCalledWith("photo.png", expect.any(Function));
+  });
+
+  it("resolves a relative source[src] to an asset URL", async () => {
+    const node = createMockNode({ value: '<video><source src="clip.mp4"></video>' }, "html_block");
+    nodeView = createHtmlBlockNodeView(node);
+    document.body.appendChild(nodeView.dom);
+
+    await flush();
+
+    const source = nodeView.dom.querySelector("source");
+    expect(source?.getAttribute("src")).toBe("asset://localhost/clip.mp4");
+  });
+
+  it("resolves every candidate in an img[srcset] and keeps descriptors", async () => {
+    const node = createMockNode(
+      { value: '<img src="a.png" srcset="a.png 1x, b.png 2x">' },
+      "html_block",
+    );
+    nodeView = createHtmlBlockNodeView(node);
+    document.body.appendChild(nodeView.dom);
+
+    await flush();
+
+    const img = nodeView.dom.querySelector("img");
+    expect(img?.getAttribute("srcset")).toBe(
+      "asset://localhost/a.png 1x, asset://localhost/b.png 2x",
+    );
+  });
+
+  it("leaves external and data URLs verbatim", async () => {
+    const node = createMockNode(
+      {
+        value:
+          '<img src="https://example.com/a.png"><img src="data:image/png;base64,AAAA">',
+      },
+      "html_block",
+    );
+    nodeView = createHtmlBlockNodeView(node);
+    document.body.appendChild(nodeView.dom);
+
+    await flush();
+
+    const imgs = nodeView.dom.querySelectorAll("img");
+    expect(imgs[0]?.getAttribute("src")).toBe("https://example.com/a.png");
+    expect(imgs[1]?.getAttribute("src")).toBe("data:image/png;base64,AAAA");
+  });
+
+  it("leaves the document value untouched", async () => {
+    const value = '<figure><img src="photo.png" alt=""></figure>';
+    const node = createMockNode({ value }, "html_block");
+    nodeView = createHtmlBlockNodeView(node);
+    document.body.appendChild(nodeView.dom);
+
+    await flush();
+
+    expect(nodeView.dom.getAttribute("data-value")).toBe(value);
   });
 });
