@@ -34,7 +34,7 @@
  * @coordinates-with components/Editor/Editor.tsx — the dispatcher that mounts this
  * @module components/Editor/FormatSurface
  */
-import { Component, Suspense, lazy, useState, type ComponentType, type ReactNode } from "react";
+import { Component, Suspense, lazy, useEffect, useState, type ComponentType, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import {
@@ -161,6 +161,28 @@ function MountedSurface({
       return resolveFormatSurface(id, "wysiwygComponent", wysiwygComponent);
     });
   });
+
+  // #1690: on the cold first mount React can lose the Suspense retry after the
+  // lazy's promise settles — the module resolves (the cache fills, so later
+  // mounts are instant) but the suspended boundary never re-renders, leaving a
+  // blank editor. Re-resolving returns the SAME in-flight promise (the cache),
+  // and bumping a state on settle forces the re-render React.lazy should have
+  // performed. A rejection is the lazy's to report through the boundary.
+  const [, forceRender] = useState(0);
+  useEffect(() => {
+    if (typeof wysiwygComponent !== "function") return;
+    let cancelled = false;
+    resolveFormatSurface<SurfaceModule>(id, "wysiwygComponent", wysiwygComponent)
+      .then(() => {
+        if (!cancelled) forceRender((n) => n + 1);
+      })
+      .catch(() => {
+        /* the lazy's rejection reaches the error boundary */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id, wysiwygComponent]);
 
   return (
     <SurfaceErrorBoundary
