@@ -2,13 +2,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Use vi.hoisted() so mock variables are available before vi.mock() factories run
-const { mockInvoke, mockPick, mockToast } = vi.hoisted(() => ({
+const { mockInvoke, mockPick, mockToast, mockRevealItemInDir } = vi.hoisted(() => ({
   mockInvoke: vi.fn(),
   mockPick: vi.fn(),
   mockToast: {
     error: vi.fn(),
     success: vi.fn(),
   },
+  mockRevealItemInDir: vi.fn(),
 }));
 
 // The save panel is Rust's (`pick_export_target`, which records the answer as
@@ -23,8 +24,17 @@ vi.mock("sonner", () => ({
   toast: mockToast,
 }));
 
+vi.mock("@tauri-apps/plugin-opener", () => ({
+  revealItemInDir: (...args: unknown[]) => mockRevealItemInDir(...args),
+}));
+
 vi.mock("@/utils/pathUtils", () => ({
   joinPath: (...parts: string[]) => parts.join("/"),
+  revealInFileManagerKey: () => "sidebar:contextMenu.revealInFinder",
+}));
+
+vi.mock("@/utils/revealFailedKey", () => ({
+  revealFailedKey: () => "dialog:toast.revealFailedFinder",
 }));
 
 import { exportViaPandoc } from "./pandocExport";
@@ -120,7 +130,58 @@ describe("exportViaPandoc", () => {
       outputPath: "/tmp/output.docx",
       sourceDir: null,
     });
-    expect(mockToast.success).toHaveBeenCalledWith("Exported successfully");
+    expect(mockToast.success).toHaveBeenCalledWith(
+      "Exported successfully",
+      expect.objectContaining({
+        duration: 10000,
+        action: expect.objectContaining({
+          label: expect.any(String),
+          onClick: expect.any(Function),
+        }),
+      }),
+    );
+  });
+
+  it("reveals the exported file in the file manager when the action is clicked", async () => {
+    mockInvoke
+      .mockResolvedValueOnce({
+        available: true,
+        path: "/usr/local/bin/pandoc",
+        version: "3.1.2",
+      })
+      .mockResolvedValueOnce(undefined);
+    mockPick.mockResolvedValueOnce("/tmp/output.docx");
+    mockRevealItemInDir.mockResolvedValueOnce(undefined);
+
+    await exportViaPandoc({ markdown: "# Hello", format: "docx" });
+
+    const action = mockToast.success.mock.calls[0][1].action;
+    action.onClick();
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(mockRevealItemInDir).toHaveBeenCalledWith("/tmp/output.docx");
+    expect(mockToast.error).not.toHaveBeenCalled();
+  });
+
+  it("shows a reveal-failure toast when the reveal action fails", async () => {
+    mockInvoke
+      .mockResolvedValueOnce({
+        available: true,
+        path: "/usr/local/bin/pandoc",
+        version: "3.1.2",
+      })
+      .mockResolvedValueOnce(undefined);
+    mockPick.mockResolvedValueOnce("/tmp/output.docx");
+    mockRevealItemInDir.mockRejectedValueOnce(new Error("no opener"));
+
+    await exportViaPandoc({ markdown: "# Hello", format: "docx" });
+
+    const action = mockToast.success.mock.calls[0][1].action;
+    action.onClick();
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(mockRevealItemInDir).toHaveBeenCalledWith("/tmp/output.docx");
+    expect(mockToast.error).toHaveBeenCalledWith("Failed to reveal in Finder.");
   });
 
   it("uses correct extension for each format", async () => {

@@ -11,13 +11,17 @@
  * @coordinates-with pandoc/commands.rs — Rust backend for Pandoc execution
  * @coordinates-with export_target/commands.rs — the save panel; `export_via_pandoc` writes only its answer
  * @coordinates-with export/pandocFormats.ts — the format keys, readable without this module
+ * @coordinates-with utils/pathUtils.ts — revealInFileManagerKey, the reveal action's platform label
+ * @coordinates-with utils/revealFailedKey.ts — the reveal-failure toast key
  * @module export/pandocExport
  */
 
 import { invoke } from "@tauri-apps/api/core";
+import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
-import { joinPath } from "@/utils/pathUtils";
+import { joinPath, revealInFileManagerKey } from "@/utils/pathUtils";
+import { revealFailedKey } from "@/utils/revealFailedKey";
 import { exportError } from "@/utils/debug";
 import type { PandocFormatKey } from "./pandocFormats";
 
@@ -99,7 +103,22 @@ export async function exportViaPandoc(options: {
       sourceDir: sourceDirectory ?? null,
     });
 
-    toast.success(i18n.t("dialog:toast.pandocExportSuccess"));
+    // Success carries a Reveal action (Finder / Explorer / file manager), kept
+    // ~10s so the freshly exported file can be located without hunting through
+    // the save panel's suggested folder. Reveal failure is its own toast — the
+    // export succeeded, so it must not read as a failed export.
+    toast.success(i18n.t("dialog:toast.pandocExportSuccess"), {
+      duration: 10000,
+      action: {
+        label: i18n.t(revealInFileManagerKey()),
+        onClick: () => {
+          void revealItemInDir(selectedPath).catch((error) => {
+            exportError("Failed to reveal Pandoc export:", error);
+            toast.error(i18n.t(revealFailedKey()));
+          });
+        },
+      },
+    });
     return true;
   } catch (error) {
     exportError("Pandoc export failed:", error);
