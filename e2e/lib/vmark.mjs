@@ -32,6 +32,13 @@ import { evalJs } from "./bridge.mjs";
 
 const DEFAULT_TIMEOUT_MS = 15000;
 
+/**
+ * The budget for the FIRST editor mount after boot. The warmup pre-compiles the
+ * module graph but not the first React render + ProseMirror init, which on a
+ * cold CI runner outlasts the steady-state 8s budget (#1694).
+ */
+const FIRST_MOUNT_TIMEOUT_MS = 20000;
+
 // ---------------------------------------------------------------------------
 // Polling
 // ---------------------------------------------------------------------------
@@ -181,8 +188,15 @@ function markEditorInstanceStale(client) {
 /**
  * Wait until the visible editor is a FRESH instance (not the tagged one).
  * A CodeMirror surface (split-pane / source formats) also counts as rebound.
+ *
+ * `timeoutMs` defaults to the steady-state budget (a remount of an already
+ * warm surface is fast). The FIRST mount after boot pays the rest of the
+ * startup cost the warmup does not: `warmEditorSurface` pre-compiles the
+ * module graph, but the first React render + `createTiptapExtensions` +
+ * ProseMirror init is still cold, and on a fresh CI runner that outlasts the
+ * steady-state budget (#1694).
  */
-function waitForEditorRebind(client, label) {
+function waitForEditorRebind(client, label, timeoutMs = 8000) {
   return poll(
     () =>
       evalJs(
@@ -194,7 +208,8 @@ function waitForEditorRebind(client, label) {
          })()`
       ),
     (v) => v === "fresh",
-    label
+    label,
+    { timeoutMs }
   );
 }
 
@@ -227,7 +242,7 @@ export async function createScratchTab(client) {
     if (!scratch.selected) {
       await switchToTab(client, scratch.id);
     } else {
-      await waitForEditorRebind(client, "editor to rebind to the new scratch tab");
+      await waitForEditorRebind(client, "editor to rebind to the new scratch tab", FIRST_MOUNT_TIMEOUT_MS);
     }
     // The scratch document must present as VERIFIABLY empty before anyone
     // types into it. Require an actual (empty) string: getEditorText returns
