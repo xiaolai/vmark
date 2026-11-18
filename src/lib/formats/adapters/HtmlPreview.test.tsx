@@ -563,3 +563,56 @@ describe("diagnostics are not echoed as a bare-coordinate strip", () => {
     expect(document.querySelector(".html-preview__hint")).toBeNull();
   });
 });
+
+describe("zoom (issue #1704)", () => {
+  it("starts at 100% and applies the identity factor to the frame", () => {
+    renderPreview();
+    expect(screen.getByTestId("html-zoom-value").textContent).toBe("100%");
+    expect(frame().style.zoom).toBe("1");
+  });
+
+  it("zooms in and applies the factor to the frame", async () => {
+    const user = userEvent.setup();
+    renderPreview();
+
+    await user.click(screen.getByRole("button", { name: /zoom in/i }));
+
+    expect(screen.getByTestId("html-zoom-value").textContent).toBe("110%");
+    expect(frame().style.zoom).toBe("1.1");
+  });
+
+  it("zooms out, and reset returns the frame to 100%", async () => {
+    const user = userEvent.setup();
+    renderPreview();
+
+    await user.click(screen.getByRole("button", { name: /zoom in/i }));
+    await user.click(screen.getByRole("button", { name: /zoom out/i }));
+    expect(screen.getByTestId("html-zoom-value").textContent).toBe("100%");
+
+    await user.click(screen.getByRole("button", { name: /zoom in/i }));
+    await user.click(screen.getByRole("button", { name: /reset zoom/i }));
+
+    expect(screen.getByTestId("html-zoom-value").textContent).toBe("100%");
+    expect(frame().style.zoom).toBe("1");
+  });
+
+  it("holds the zoom independent of the editor font size", async () => {
+    const user = userEvent.setup();
+    const { rerender } = renderPreview();
+
+    await user.click(screen.getByRole("button", { name: /zoom in/i }));
+    expect(screen.getByTestId("html-zoom-value").textContent).toBe("110%");
+
+    // The preview re-renders as the source changes; the zoom must survive it.
+    rerender(
+      <HtmlPreview content={`${SCRIPTED}<p>edit</p>`} liveContent={`${SCRIPTED}<p>edit</p>`} path={PATH} diagnostics={[]} />,
+    );
+    expect(screen.getByTestId("html-zoom-value").textContent).toBe("110%");
+  });
+
+  it("does not show zoom controls for an empty document", () => {
+    renderPreview("   ");
+    expect(screen.queryByTestId("html-zoom-value")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /zoom in/i })).not.toBeInTheDocument();
+  });
+});

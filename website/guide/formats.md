@@ -202,6 +202,8 @@ The validator surfaces script tags, `javascript:` URLs, and inline event handler
 
 The formal security sign-off for this preview is still pending, and the preview says so in a notice above the rendered page: **HTML preview is sandboxed. Its security review is still in progress.** The three layers above are in place; the outstanding step is confirming them against the OWASP XSS payloads inside the running app's webview.
 
+The preview has its own zoom, separate from the editor font size (**View → Zoom In** only changes that). **Zoom out** and **Zoom in** step the rendered page between 50% and 400% in 10% increments, **Reset** returns it to 100%, and the current percentage sits in a bar below the page. The page reflows at the new size — text, tables and diagrams together — so nothing is clipped or blurred.
+
 ### Trusted HTML preview (opt-in)
 
 The safe preview above is the default and never changes. For a document you

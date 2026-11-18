@@ -1,8 +1,9 @@
 /**
  * Standalone HTML preview — sandboxed by default, trusted by explicit consent.
  *
- * Purpose: render a `.html` / `.htm` document in one of two modes, and own the
- * transition between them.
+ * Purpose: render a `.html` / `.htm` document in one of two modes, own the
+ * transition between them, and zoom the rendered page (issue #1704)
+ * independently of the editor font size.
  *
  * | Mode | Frame | Scripts |
  * |---|---|---|
@@ -32,15 +33,18 @@
  * / Revoke actions — is `useHtmlTrust`.
  *
  * @coordinates-with useHtmlTrust.ts — the trust lifecycle
+ * @coordinates-with htmlZoom.ts, HtmlZoomBar.tsx — the page zoom
  * @module lib/formats/adapters/HtmlPreview
  */
 
-import { useMemo } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import DOMPurify from "dompurify";
 import { HtmlTrustBar } from "./HtmlTrustBar";
+import { HtmlZoomBar } from "./HtmlZoomBar";
 import { useHtmlTrust } from "./useHtmlTrust";
 import { TRUSTED_ALLOW, TRUSTED_SANDBOX, trustedFrameUrl } from "./htmlTrust";
+import { HTML_ZOOM_DEFAULT_PERCENT, stepZoomPercent } from "./htmlZoom";
 import type { PreviewRendererProps } from "../types";
 import "./html-preview.css";
 
@@ -98,6 +102,15 @@ export function HtmlPreview({
     [content, trusted],
   );
 
+  // #1704: the rendered page's own zoom, independent of the editor font size
+  // (View → Zoom In only changes that). Held here, not in the bar, so the one
+  // value drives the frame's `zoom`, the bar's label, and its disabled ends.
+  const [zoomPercent, setZoomPercent] = useState(HTML_ZOOM_DEFAULT_PERCENT);
+  const zoomStyle = { zoom: zoomPercent / 100 } as CSSProperties;
+  const handleZoomOut = () => setZoomPercent((p) => stepZoomPercent(p, -1));
+  const handleZoomIn = () => setZoomPercent((p) => stepZoomPercent(p, 1));
+  const handleResetZoom = () => setZoomPercent(HTML_ZOOM_DEFAULT_PERCENT);
+
   // An empty document used to return before the trust bar rendered, which took
   // the REVOKE control away while the grant stayed live — clearing the buffer
   // silently removed the only off switch. The placeholder now replaces the
@@ -131,27 +144,41 @@ export function HtmlPreview({
       />
       {empty ? (
         <div className="html-preview__empty-slot" data-testid="html-preview-empty" />
-      ) : trusted && token ? (
-        <iframe
-          // Opaque origin: `allow-scripts` WITHOUT `allow-same-origin`, so the
-          // document cannot read this one, cannot reach Tauri, and cannot
-          // rewrite its own sandbox attribute.
-          sandbox={TRUSTED_SANDBOX}
-          allow={TRUSTED_ALLOW}
-          title={t("preview.htmlIframeTitle")}
-          src={`${trustedFrameUrl(token)}?run=${runCount}`}
-          className="html-preview__iframe"
-          referrerPolicy="no-referrer"
-        />
       ) : (
-        <iframe
-          // Empty sandbox: no scripts, no same-origin, no forms, no popups.
-          sandbox=""
-          title={t("preview.htmlIframeTitle")}
-          srcDoc={srcdoc ?? ""}
-          className="html-preview__iframe"
-          referrerPolicy="no-referrer"
-        />
+        <>
+          <div className="html-preview__viewport">
+            {trusted && token ? (
+              <iframe
+                // Opaque origin: `allow-scripts` WITHOUT `allow-same-origin`, so the
+                // document cannot read this one, cannot reach Tauri, and cannot
+                // rewrite its own sandbox attribute.
+                sandbox={TRUSTED_SANDBOX}
+                allow={TRUSTED_ALLOW}
+                title={t("preview.htmlIframeTitle")}
+                src={`${trustedFrameUrl(token)}?run=${runCount}`}
+                className="html-preview__iframe"
+                referrerPolicy="no-referrer"
+                style={zoomStyle}
+              />
+            ) : (
+              <iframe
+                // Empty sandbox: no scripts, no same-origin, no forms, no popups.
+                sandbox=""
+                title={t("preview.htmlIframeTitle")}
+                srcDoc={srcdoc ?? ""}
+                className="html-preview__iframe"
+                referrerPolicy="no-referrer"
+                style={zoomStyle}
+              />
+            )}
+          </div>
+          <HtmlZoomBar
+            zoomPercent={zoomPercent}
+            onZoomOut={handleZoomOut}
+            onZoomIn={handleZoomIn}
+            onReset={handleResetZoom}
+          />
+        </>
       )}
     </div>
   );
