@@ -8575,7 +8575,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ------------------------------------------------------------------------------
-@hono/node-server 2.1.5 (MIT)
+@hono/node-server 2.1.6 (MIT)
 
 MIT License
 
@@ -12871,7 +12871,7 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ------------------------------------------------------------------------------
-hono 4.13.14 (MIT)
+hono 4.13.17 (MIT)
 
 MIT License
 
