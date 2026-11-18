@@ -52,6 +52,10 @@
     "GHSA-v6wh-96g9-6wx3": {
       "module": "vite",
       "reason": "launch-editor UNC handling reachable only from Vite's dev-server error overlay in the website toolchain. Not shipped."
+    },
+    "GHSA-fc5q-39xc-vjpf": {
+      "module": "picomatch",
+      "reason": "ReDoS from a malicious glob pattern with repeated single-branch extglobs. picomatch is reached only through build/test tooling — vite (via @tailwindcss/vite and @vitejs/plugin-react) and vitest (via @vitest/mocker) — as a devDependency, never bundled into the desktop app. No patched release exists (the advisory lists <0.0.0), so the only input is a pattern in this repo's own build configs."
     }
   }
 }
