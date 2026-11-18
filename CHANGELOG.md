@@ -11,6 +11,12 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 ## [Unreleased]
 
+## [0.9.122] - 2026-11-18
+
+### Added
+
+- The standalone HTML preview now has its own zoom controls — Zoom out, Zoom in, and Reset to 100% — with a percentage readout. They scale the rendered page (text, tables, and diagrams) from 50% to 400%, independent of the editor font size.
+
 ## [0.9.121] - 2026-11-18
 
 ### Added
@@ -652,7 +658,8 @@ Text you may want to copy stays selectable: messages, approval dialogs, Genie an
 
 - Raised the `markdown-it` version floor past GHSA-253c-mchw-3w2r.
 
-[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.121...HEAD
+[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.122...HEAD
+[0.9.122]: https://github.com/xiaolai/vmark/releases/tag/v0.9.122
 [0.9.121]: https://github.com/xiaolai/vmark/releases/tag/v0.9.121
 [0.9.120]: https://github.com/xiaolai/vmark/releases/tag/v0.9.120
 [0.9.119]: https://github.com/xiaolai/vmark/releases/tag/v0.9.119
