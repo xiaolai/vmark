@@ -11,6 +11,21 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 ## [Unreleased]
 
+## [0.9.121] - 2026-11-18
+
+### Added
+
+- The success notification after File → Export → Pandoc now includes a "Reveal in Finder" button (Explorer on Windows, the file manager elsewhere), so you can jump straight to the exported file.
+
+### Fixed
+
+- Images written as raw HTML — for example the `<figure><img>` blocks GitBook, Hugo and Pandoc emit — now resolve their relative paths and display, the way Markdown images already do. They used to show a broken image.
+- Opening a Markdown file right after launch no longer occasionally leaves a blank editor until you interact with the window. The editor now mounts reliably on that first open.
+
+### Security
+
+- Updated the Hono web framework and the QUIC networking library (quinn-udp) to releases that fix recently reported advisories. These are routine dependency updates.
+
 ## [0.9.120] - 2026-11-12
 
 ### Changed
@@ -637,7 +652,8 @@ Text you may want to copy stays selectable: messages, approval dialogs, Genie an
 
 - Raised the `markdown-it` version floor past GHSA-253c-mchw-3w2r.
 
-[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.120...HEAD
+[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.121...HEAD
+[0.9.121]: https://github.com/xiaolai/vmark/releases/tag/v0.9.121
 [0.9.120]: https://github.com/xiaolai/vmark/releases/tag/v0.9.120
 [0.9.119]: https://github.com/xiaolai/vmark/releases/tag/v0.9.119
 [0.9.118]: https://github.com/xiaolai/vmark/releases/tag/v0.9.118
