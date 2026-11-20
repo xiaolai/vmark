@@ -183,7 +183,7 @@ VMark는 빠른 모드 전환을 위해 기능 키 (F2–F10)를 사용합니다
 | 터미널 또는 에디터에 포커스 | Ctrl + Shift + `` ` `` (Windows/Linux에서는 Alt + Shift + `` ` ``) |
 | 다이어그램 미리보기 토글 | `Alt + Mod + P` |
 | 너비에 맞게 테이블 | _(사용자 정의 가능)_ |
-| 범용 도구 모음 열기 | `Mod + Shift + B` |
+| 범용 도구 모음 전환 | `Mod + Shift + B` |
 | 소스 미리보기 | `F5` |
 | Markdown 검사 | `Alt + Mod + V` |
 | 다음 문제 | `F2` |

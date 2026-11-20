@@ -47,7 +47,7 @@ afterEach(() => {
 });
 
 describe("useUniversalToolbar — shortcut toggle", () => {
-  it("opens the toolbar, displaces the StatusBar, and closes the FindBar", () => {
+  it("opens the toolbar, keeps the StatusBar, and closes the FindBar", () => {
     useUIStore.getState().searchOpen();
     const { unmount } = renderHook(() => useUniversalToolbar());
 
@@ -56,21 +56,21 @@ describe("useUniversalToolbar — shortcut toggle", () => {
 
     const ui = useUIStore.getState();
     expect(ui.universalToolbarVisible).toBe(true);
-    expect(ui.statusBarVisible).toBe(false);
+    expect(ui.statusBarVisible).toBe(true);
     expect(ui.search.isOpen).toBe(false);
     expect(event.defaultPrevented).toBe(true);
     unmount();
   });
 
-  it("keeps the toolbar open on a second press (focus toggle, not hide)", () => {
+  it("hides the toolbar on a second press", () => {
     const { unmount } = renderHook(() => useUniversalToolbar());
     document.dispatchEvent(shortcutEvent());
-    expect(useUIStore.getState().universalToolbarHasFocus).toBe(true);
+    expect(useUIStore.getState().universalToolbarVisible).toBe(true);
 
     document.dispatchEvent(shortcutEvent());
     const ui = useUIStore.getState();
-    expect(ui.universalToolbarVisible).toBe(true);
-    expect(ui.universalToolbarHasFocus).toBe(false);
+    expect(ui.universalToolbarVisible).toBe(false);
+    expect(ui.statusBarVisible).toBe(true);
     unmount();
   });
 
@@ -109,11 +109,10 @@ describe("useUniversalToolbar — Escape cascade", () => {
     unmount();
   });
 
-  it("step 2: closes the toolbar session and restores the StatusBar", () => {
+  it("step 2: closes the toolbar and leaves the StatusBar visible", () => {
     const { unmount } = renderHook(() => useUniversalToolbar());
-    // Open via the shortcut so the StatusBar displacement is recorded.
     document.dispatchEvent(shortcutEvent());
-    expect(useUIStore.getState().statusBarVisible).toBe(false);
+    expect(useUIStore.getState().statusBarVisible).toBe(true);
 
     document.dispatchEvent(escapeEvent());
 
@@ -123,9 +122,10 @@ describe("useUniversalToolbar — Escape cascade", () => {
     unmount();
   });
 
-  it("does not restore the StatusBar when the FindBar is open", () => {
+  it("does not reveal the StatusBar when the FindBar still owns the strip", () => {
     const { unmount } = renderHook(() => useUniversalToolbar());
-    document.dispatchEvent(shortcutEvent());
+    useUIStore.setState({ universalToolbarVisible: true } as never);
+    useUIStore.getState().displaceStatusBar();
     useUIStore.getState().searchOpen();
 
     document.dispatchEvent(escapeEvent());

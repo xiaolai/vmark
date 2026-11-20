@@ -384,7 +384,7 @@ Lint results are not updated as you type. In Source mode, an edit clears them. I
 
 A formatting toolbar anchored at the bottom of the editor, providing quick access to all formatting actions in both WYSIWYG and Source modes.
 
-- **Toggle:** `Mod + Shift + B` opens the toolbar and gives it focus. Press it again to return focus to the editor while keeping the toolbar visible.
+- **Toggle:** `Mod + Shift + B` shows the toolbar above the status bar and gives it focus. Press it again to hide it. The document tabs stay in the status bar.
 - **Keyboard navigation:** Use `Left`/`Right` arrows to move between groups. `Enter` or `Space` opens a dropdown menu. Arrow keys navigate within menus.
 - **Two-step Escape:** If a dropdown menu is open, `Escape` closes the menu first. Press `Escape` again to close the entire toolbar.
 - **Session memory:** The toolbar remembers which button was last focused during the current session, so re-focusing picks up where you left off.

@@ -6,9 +6,9 @@
 //! are `CheckMenuItem`s whose checkmarks are kept in sync by
 //! `menu::menu_state`.
 //!
-//! `universal-toolbar` is deliberately a plain `MenuItem`: invoking it while
-//! the toolbar is already visible moves focus rather than hiding it (Esc
-//! dismisses), so a checkmark would advertise a state the click cannot clear.
+//! `universal-toolbar` is a check item. The first click shows the toolbar
+//! and the second hides it, the same command as its accelerator. The
+//! checkmark is kept in sync by `menu::menu_state`.
 
 use rust_i18n::t;
 use tauri::menu::{CheckMenuItem, MenuItem, PredefinedMenuItem, Submenu};
@@ -134,11 +134,12 @@ pub(super) fn build(app: &tauri::AppHandle, accel: &AccelFn) -> tauri::Result<Su
                 true,
                 accel("word-wrap", "Alt+Z"),
             )?,
-            &MenuItem::with_id(
+            &CheckMenuItem::with_id(
                 app,
                 "universal-toolbar",
                 &t!("menu.view.universalToolbar"),
                 true,
+                false,
                 accel("universal-toolbar", "CmdOrCtrl+Shift+B"),
             )?,
             &MenuItem::with_id(

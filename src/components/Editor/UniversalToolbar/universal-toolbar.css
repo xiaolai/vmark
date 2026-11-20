@@ -1,23 +1,25 @@
 /**
  * UniversalToolbar styles
  *
- * Follows FindBar geometry for consistent bottom-bar alignment:
+ * In flow in the bottom lane, above the StatusBar. The StatusBar is
+ * absolute at the bottom of that lane and holds the document tabs, so the
+ * toolbar reserves one bar of margin for it instead of covering it (#1711).
+ * When the StatusBar is hidden the margin class is absent and the toolbar
+ * sits on the bottom edge.
+ *
  * - Height: 40px (--universal-toolbar-height)
  * - Padding: 6px 12px
  * - Row height: 28px
- * - Z-index: 102 (above FindBar at 101, StatusBar at 100)
+ * - Z-index: 102 (above FindBar and StatusBar at 100)
  *
  * Uses existing theme tokens from src/styles/index.css
  */
 
 .universal-toolbar {
-  /* ui-ok(float): layer owner — rule 32 z-table (Toolbar, 102) */
   --universal-toolbar-height: var(--bar-height);
 
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  position: relative;
+  flex-shrink: 0;
   height: var(--universal-toolbar-height);
   padding: var(--space-1-5) var(--space-3);
   z-index: var(--z-toolbar);
@@ -28,6 +30,11 @@
   gap: var(--space-2);
 
   background-color: var(--bg-color);
+}
+
+/* The absolute StatusBar occupies this strip. Without it the toolbar paints over the tabs. */
+.universal-toolbar--above-status {
+  margin-bottom: var(--bar-height);
 }
 
 /* Hide toolbar when FindBar is open to prevent overlap */

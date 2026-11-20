@@ -384,7 +384,7 @@ Les résultats du lint ne sont pas mis à jour pendant la frappe. En mode Source
 
 Une barre d'outils de mise en forme ancrée en bas de l'éditeur, offrant un accès rapide à toutes les actions de mise en forme en mode WYSIWYG et Source.
 
-- **Basculer :** `Mod + Shift + B` ouvre la barre d'outils et lui donne le focus. Appuyez à nouveau pour redonner le focus à l'éditeur tout en gardant la barre visible.
+- **Basculer :** `Mod + Shift + B` affiche la barre d'outils au-dessus de la barre d'état et lui donne le focus. Appuyez à nouveau pour la masquer. Les onglets du document restent dans la barre d'état.
 - **Navigation au clavier :** Utilisez les flèches `Gauche`/`Droite` pour naviguer entre les groupes. `Entrée` ou `Espace` ouvre un menu déroulant. Les flèches naviguent à l'intérieur des menus.
 - **Échappement en deux temps :** Si un menu déroulant est ouvert, `Échap` ferme d'abord le menu. Appuyez à nouveau sur `Échap` pour fermer toute la barre d'outils.
 - **Mémoire de session :** La barre d'outils se souvient du dernier bouton focalisé pendant la session en cours, la refocalisation reprend là où vous en étiez.

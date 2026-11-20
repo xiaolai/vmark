@@ -383,7 +383,7 @@ I risultati del lint non si aggiornano mentre scrivi. In modalità Sorgente, una
 
 Una barra degli strumenti di formattazione ancorata nella parte inferiore dell'editor, che fornisce accesso rapido a tutte le azioni di formattazione sia in modalità WYSIWYG che Sorgente.
 
-- **Attiva/disattiva:** `Mod + Shift + B` apre la barra degli strumenti e le assegna il focus. Premilo di nuovo per restituire il focus all'editor mantenendo la barra visibile.
+- **Attiva/disattiva:** `Mod + Shift + B` mostra la barra degli strumenti sopra la barra di stato e le assegna il focus. Premilo di nuovo per nasconderla. Le schede del documento restano nella barra di stato.
 - **Navigazione da tastiera:** Usa le frecce `Sinistra`/`Destra` per spostarti tra i gruppi. `Enter` o `Spazio` apre un menu a discesa. Le frecce navigano all'interno dei menu.
 - **Escape a due fasi:** Se un menu a discesa è aperto, `Escape` chiude prima il menu. Premi `Escape` di nuovo per chiudere l'intera barra degli strumenti.
 - **Memoria di sessione:** La barra ricorda quale pulsante era focalizzato per ultimo durante la sessione corrente, quindi la rifocalizzazione riprende da dove eri rimasto.

@@ -1,31 +1,46 @@
 /**
- * The one way to toggle the Universal Toolbar (#1204).
+ * The one way to show or hide the Universal Toolbar (#1204, #1711).
  *
- * Showing the toolbar is not a single flag flip: it displaces the StatusBar
- * and closes the FindBar first, because all three compete for the same strip
- * at the bottom of the window. That sequence used to live inside
- * `useUniversalToolbar`'s keydown handler, which was fine while the shortcut
- * was the only entry point. Adding a View-menu item gives it a second caller,
- * and a copy of the sequence in the command would drift from the copy in the
- * hook — the toolbar would open over a still-visible StatusBar from one path
- * and not the other.
+ * The View menu item and its accelerator are one command, so both must
+ * show the bar on the first invocation and hide it on the second. The
+ * document tabs live in the StatusBar, so opening the toolbar must not
+ * take that strip: it closes the FindBar (which had hidden the StatusBar)
+ * and gives the strip back. A StatusBar the reader hid themselves stays
+ * hidden, because that path never saved a value to restore.
  *
  * @coordinates-with hooks/useUniversalToolbar.ts — the keyboard entry point
  * @coordinates-with services/commands/viewCommands.ts — the menu entry point
+ * @coordinates-with components/Editor/UniversalToolbar/useToolbarSession.ts — re-exports focusActiveEditor
  * @module services/editor/universalToolbarToggle
  */
+import { useEditorStore } from "@/stores/editorStore";
+import { selectSourceEditing } from "@/stores/selectSourceEditing";
 import { useUIStore } from "@/stores/uiStore";
 
+/** Focus whichever editor surface (Source or WYSIWYG) is active. */
+export function focusActiveEditor(): void {
+  const isSource = selectSourceEditing(useUIStore.getState());
+  if (isSource) {
+    useEditorStore.getState().source.editorView?.focus();
+    return;
+  }
+  useEditorStore.getState().tiptap.editorView?.focus();
+}
+
 /**
- * Show the toolbar (displacing the StatusBar and closing search) or hide it
- * again. Safe to call from any surface — it reads current state itself.
+ * Show the toolbar, or hide it if it is already showing.
+ * Safe to call from any surface — it reads current state itself.
  */
 export function toggleUniversalToolbar(): void {
   const ui = useUIStore.getState();
-  if (!ui.universalToolbarVisible) {
-    // Opening: the StatusBar and FindBar share this strip, so they yield.
-    ui.displaceStatusBar();
-    useUIStore.getState().searchClose();
+  if (ui.universalToolbarVisible) {
+    focusActiveEditor();
+    ui.clearToolbarSession();
+    return;
   }
-  ui.toggleUniversalToolbar();
+  // FindBar hides the StatusBar while it is open. Closing it from here
+  // does not run FindBar's own close handler, so restore explicitly.
+  useUIStore.getState().searchClose();
+  useUIStore.getState().restoreStatusBar();
+  useUIStore.getState().toggleUniversalToolbar();
 }

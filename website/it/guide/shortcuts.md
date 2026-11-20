@@ -183,7 +183,7 @@ Se preferisci mantenere le funzioni di sistema sui tasti F, puoi personalizzare 
 | Metti a fuoco terminale o editor | Ctrl + Shift + `` ` `` (Alt + Shift + `` ` `` su Windows/Linux) |
 | Attiva/disattiva anteprima diagramma | `Alt + Mod + P` |
 | Adatta tabelle alla larghezza | _(personalizzabile)_ |
-| Apri la barra degli strumenti universale | `Mod + Shift + B` |
+| Attiva/disattiva la barra degli strumenti universale | `Mod + Shift + B` |
 | Anteprima Sorgente | `F5` |
 | Controlla Markdown | `Alt + Mod + V` |
 | Problema successivo | `F2` |

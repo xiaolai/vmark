@@ -183,7 +183,7 @@ If you prefer keeping system functions on F-keys, you can customize VMark shortc
 | Focus Terminal or Editor | Ctrl + Shift + `` ` `` (Alt + Shift + `` ` `` on Windows/Linux) |
 | Toggle Diagram Preview | `Alt + Mod + P` |
 | Fit Tables to Width | _(customizable)_ |
-| Open Universal Toolbar | `Mod + Shift + B` |
+| Toggle Universal Toolbar | `Mod + Shift + B` |
 | Source Peek | `F5` |
 | Check Markdown | `Alt + Mod + V` |
 | Next Issue | `F2` |
