@@ -49,7 +49,8 @@ import { useUIStoreSync } from "./terminalSessionStoreSync";
 import { useTerminalShellLifecycle } from "./useTerminalShellLifecycle";
 import { useTerminalSessionsInit } from "./useTerminalSessionsInit";
 import { removeSessionEntry, switchVisibility } from "./terminalSessionRegistry";
-import { registerTerminalResolver } from "@/services/terminal/activeTerminal";
+import { registerTerminalResolver, registerCodeBlockTerminalResolver } from "@/services/terminal/activeTerminal";
+import { invoke } from "@tauri-apps/api/core";
 import { wireSessionInput } from "./terminalSessionInputWiring";
 import type { SearchAddon } from "@xterm/addon-search";
 import type { SessionEntry } from "./terminalSessionTypes";
@@ -126,6 +127,19 @@ export function useTerminalSessions(
       }),
     [],
   );
+
+  useEffect(() => registerCodeBlockTerminalResolver(sessionId => {
+    const entry = sessionsRef.current.get(sessionId);
+    if (!entry?.pty || entry.disposed || entry.shellExited || entry.shellSpawning) return null;
+    const pty = entry.pty;
+    return {
+      run: async (shell, source) => {
+        if (entry.disposed || entry.pty !== pty || entry.shellExited) throw new Error("Terminal closed or restarted");
+        await invoke("pty_run_code_block", { pid: pty.pid, codeBlock: { shell, source } });
+      },
+      focus: () => entry.instance.term.focus(),
+    };
+  }), []);
 
   // Shell spawn / exit / restart lifecycle (with localized status lines).
   const { startShell, restartActiveSession } =

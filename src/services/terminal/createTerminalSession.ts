@@ -30,11 +30,13 @@ export function canCreateTerminalSessionHere(windowLabel: string): boolean {
  *  Returns null at the creation-union cap, exactly like the store action. */
 export function createTerminalSessionInScope(
   windowLabel: string,
-  options?: { requestedCwd?: string },
+  options?: Pick<TerminalSession, "requestedCwd" | "windowsShell" | "pendingCode">,
 ): TerminalSession | null {
   const owner = resolveTerminalOwnerInstanceId(windowLabel);
   return useTerminalStore.getState().terminalCreateSession({
     ...(options?.requestedCwd ? { requestedCwd: options.requestedCwd } : {}),
+    ...(options?.windowsShell ? { windowsShell: options.windowsShell } : {}),
+    ...(options?.pendingCode !== undefined ? { pendingCode: options.pendingCode } : {}),
     ...(owner ? { ownerInstanceId: owner } : {}),
   });
 }

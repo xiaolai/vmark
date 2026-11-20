@@ -123,6 +123,29 @@ The menu is fully keyboard-navigable: it opens with the first available action f
 
 ## Running a code block
 
+On Windows, code blocks tagged `powershell` or `ps1` have a **▶ Run in
+Terminal** button that executes the block in the current internal terminal.
+Tags `cmd`, `bat`, `batch` and `dos` execute with CMD. Choose **CMD / Batch** in
+the language picker for batch commands. Output stays inside VMark and the shell
+remains interactive. Run reuses the active live terminal, creating one only when
+none is available, subject to the five-session limit. The block runs once;
+restarting its shell does not run the block again.
+
+Python fences (`python`, `py`, `python3`) also have the Run button on Windows.
+They run in the internal terminal using its working directory's
+`.venv/Scripts/python.exe`, then the system `py -3` or `python.exe` when no
+virtual environment exists. Python must be installed. The terminal stays open
+after the script finishes, including when the script reports an error.
+
+CMD batches use the Windows system code page. Characters that it cannot
+represent are refused instead of being replaced; use PowerShell or Python for
+those blocks.
+
+Reused terminals keep their current working directory. A new terminal starts
+in the saved document's directory, or the open workspace when the document is
+unsaved. With neither, it starts in your home directory. The paste-only behavior
+below applies to Unix shell fences.
+
 Hover any `bash`, `sh`, `zsh` or `shell` fence — or a transcript fence tagged
 `console`, `shell-session`, `shellsession` or `terminal` — in your document and
 a **▶ Run in Terminal** button appears beside the copy button. It pastes the

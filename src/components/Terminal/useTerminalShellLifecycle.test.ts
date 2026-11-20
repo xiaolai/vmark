@@ -332,3 +332,31 @@ describe("restart during an in-flight spawn (audit fix)", () => {
     expect(entry.pty).toBe(keeper);
   });
 });
+
+describe("one-shot Windows code blocks (WI-WCR2)", () => {
+  beforeEach(() => { resetTerminalSessionStore(); vi.clearAllMocks(); });
+
+  it("consumes source after startup and restarts with the same interpreter without rerunning it", async () => {
+    const session = useTerminalStore.getState().terminalCreateSession({ windowsShell: "cmd", pendingCode: "echo 中文", requestedCwd: "C:/notes" })!;
+    const { entry } = makeEntry();
+    const sessionsRef = { current: new Map([[session.id, entry]]) };
+    vi.mocked(spawnPty).mockResolvedValue(makeFakePty());
+    const { result } = renderHook(() => useTerminalShellLifecycle(sessionsRef));
+    await act(async () => { await result.current.startShell(session.id); });
+    expect(spawnPty).toHaveBeenLastCalledWith(expect.objectContaining({ windowsShell: "cmd", codeBlockSource: "echo 中文", cwd: "C:/notes" }));
+    expect(useTerminalStore.getState().sessions[0].pendingCode).toBeUndefined();
+    await act(async () => { result.current.restartActiveSession(); });
+    expect(vi.mocked(spawnPty).mock.calls.at(-1)?.[0].windowsShell).toBe("cmd");
+    expect(vi.mocked(spawnPty).mock.calls.at(-1)?.[0]).not.toHaveProperty("codeBlockSource");
+  });
+
+  it("retains source and directory after a failed startup for an explicit retry", async () => {
+    const session = useTerminalStore.getState().terminalCreateSession({ windowsShell: "powershell", pendingCode: "Write-Output hello", requestedCwd: "C:/notes" })!;
+    const { entry } = makeEntry();
+    const sessionsRef = { current: new Map([[session.id, entry]]) };
+    vi.mocked(spawnPty).mockRejectedValue(new Error("unavailable"));
+    const { result } = renderHook(() => useTerminalShellLifecycle(sessionsRef));
+    await act(async () => { await result.current.startShell(session.id); });
+    expect(useTerminalStore.getState().sessions[0]).toMatchObject({ isAlive: false, pendingCode: "Write-Output hello", requestedCwd: "C:/notes" });
+  });
+});

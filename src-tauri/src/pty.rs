@@ -63,6 +63,7 @@
 //! @module pty
 
 mod child;
+pub mod code_block;
 mod input;
 mod output;
 mod pause;

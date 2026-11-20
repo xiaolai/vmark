@@ -4,7 +4,7 @@
 // class; this file drives the production one, because the thing under test is
 // exactly "which fences get the button", and a copy of the class could answer
 // that differently from the shipped one.
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { Editor } from "@tiptap/core";
 
@@ -45,6 +45,36 @@ function mountView(language: string, text = "echo hi") {
 function isOffered(btn: HTMLButtonElement | null): boolean {
   return !!btn && !btn.hidden && btn.style.display !== "none";
 }
+
+// WI-WCR1 — native Windows execution reuses the existing click entry point.
+describe("Windows code-block run button", () => {
+  beforeEach(() => {
+    vi.spyOn(navigator, "platform", "get").mockReturnValue("Win32");
+    mockRunInTerminal.mockReset();
+    mockRunInTerminal.mockResolvedValue({ ok: true });
+  });
+  afterEach(() => vi.restoreAllMocks());
+  it.each(["powershell", "ps1", "cmd", "bat", "batch", "dos", "python", "py", "python3"])("offers Run for %s", (language) => {
+    const { view, runBtn } = mountView(language);
+    expect(isOffered(runBtn)).toBe(true);
+    expect(mockRunInTerminal).not.toHaveBeenCalled();
+    view.destroy();
+  });
+  it("dispatches the current Windows source only after a click", async () => {
+    const { view, runBtn } = mountView("powershell", "Write-Output '中文'");
+    expect(mockRunInTerminal).not.toHaveBeenCalled();
+    runBtn!.click();
+    await Promise.resolve();
+    expect(mockRunInTerminal).toHaveBeenCalledExactlyOnceWith("Write-Output '中文'", "powershell");
+    view.destroy();
+  });
+  it("keeps Windows-only execution hidden on macOS", () => {
+    vi.spyOn(navigator, "platform", "get").mockReturnValue("MacIntel");
+    const { view, runBtn } = mountView("cmd");
+    expect(isOffered(runBtn)).toBe(false);
+    view.destroy();
+  });
+});
 
 describe("code block run button (WI-4.3)", () => {
   beforeEach(() => {

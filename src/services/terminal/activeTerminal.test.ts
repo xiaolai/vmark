@@ -11,6 +11,8 @@ import {
   registerTerminalResolver,
   getTerminalForSession,
   type RunTargetTerminal,
+  registerCodeBlockTerminalResolver,
+  getCodeBlockTerminalForSession,
 } from "./activeTerminal";
 
 const term = (id: string) =>
@@ -18,6 +20,17 @@ const term = (id: string) =>
     RunTargetTerminal;
 
 describe("activeTerminal (WI-4.3)", () => {
+  it("keeps a new code-block resolver registered after an old cleanup", () => {
+    const offOld = registerCodeBlockTerminalResolver(() => null);
+    const terminal = { run: vi.fn(), focus: vi.fn() };
+    const off = registerCodeBlockTerminalResolver(id => id === "selected" ? terminal : null);
+    try {
+      offOld();
+      expect(getCodeBlockTerminalForSession("selected")).toBe(terminal);
+      expect(getCodeBlockTerminalForSession("other")).toBeNull();
+    } finally { off(); }
+    expect(getCodeBlockTerminalForSession("selected")).toBeNull();
+  });
   let cleanups: Array<() => void>;
 
   beforeEach(() => {

@@ -47,6 +47,7 @@ import type { Terminal } from "@xterm/xterm";
 import { useTabStore } from "@/stores/tabStore";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useSettingsStore } from "@/stores/settingsStore";
+import { resolveWindowsCodeBlockShell } from "./windowsCodeBlockShell";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { getActiveWorkspaceScope } from "@/services/workspaces/activeWorkspaceScope";
 import { getParentDir } from "@/utils/paths/paths";
@@ -102,6 +103,9 @@ export function resolveTerminalWorkspaceRoot(
 
 /** Options for spawning a PTY process connected to an xterm instance. */
 export interface SpawnOptions {
+  windowsShell?: "powershell" | "cmd" | "python";
+  codeBlockSource?: string;
+  claimCodeBlock?: () => boolean;
   sessionId?: string;
   term: Terminal;
   cwd?: string;
@@ -121,13 +125,6 @@ export const HIGH_WATERMARK = 5;
 /** Number of pending write callbacks that triggers PTY resume. */
 export const LOW_WATERMARK = 2;
 
-/**
- * Wire PTY → xterm with watermark-based flow control.
- * Fast producers (e.g. claude-code with rapid ANSI redraws) can overwhelm
- * xterm.js's PARSER (not the transport — output is now binary). We pause
- * the PTY when too many write callbacks are pending, and resume when the parser
- * catches up. This backpressure guards the parse/render rate, so it is retained.
- */
 /** Runtime PTY data: a Uint8Array (the binary Channel always delivers bytes). */
 export type PtyPayload = Uint8Array;
 
@@ -186,7 +183,9 @@ export async function spawnPty(options: SpawnOptions): Promise<IPty> {
   // macOS GUI apps have minimal PATH; this aligns with system terminal behavior.
   const loginPath = await resolveLoginShellPath();
 
-  const configuredShell = useSettingsStore.getState().terminal.shell.trim();
+  const configuredShell = options.windowsShell
+    ? await resolveWindowsCodeBlockShell(options.windowsShell)
+    : useSettingsStore.getState().terminal.shell.trim();
   // Reject relative paths (security: prevent CWD/PATH hijack on Windows).
   // Only absolute paths are accepted: Unix (/) or Windows drive letter (C:\).
   const isAbsolute = configuredShell.startsWith("/") || /^[a-zA-Z]:[/\\]/.test(configuredShell);
@@ -239,12 +238,24 @@ export async function spawnPty(options: SpawnOptions): Promise<IPty> {
   // reader may emit the moment it starts. A refused or failed spawn rejects; a
   // wrapper that never started emits nothing, so its listeners stay inert.
   const start = async (file: string, config: ShellSpawnConfig): Promise<IPty> => {
-    const pty = spawn(file, config.args, { ...baseSpawnOpts, env: config.env });
+    const pty = spawn(file, config.args, {
+      ...baseSpawnOpts, env: config.env,
+      ...(options.windowsShell && options.codeBlockSource !== undefined ? {
+        codeBlock: { shell: options.windowsShell, source: options.codeBlockSource },
+        isDisposed: disposed,
+        ...(options.claimCodeBlock ? { claimCodeBlock: options.claimCodeBlock } : {}),
+      } : {}),
+    });
     wirePtyFlowControl(pty, term, disposed);
     pty.onExit(({ exitCode }) => {
       onExit(exitCode);
     });
-    await pty.ready;
+    // ConPTY's startup cursor query can arrive before the lifecycle installs
+    // entry.pty. Forward xterm's reply during that gap, then hand input back
+    // to the session's normal wiring as soon as ready settles.
+    const earlyInput = options.windowsShell
+      ? term.onData(data => { if (!disposed()) pty.write(data); }) : undefined;
+    try { await pty.ready; } finally { earlyInput?.dispose(); }
     return pty;
   };
 
@@ -252,7 +263,7 @@ export async function spawnPty(options: SpawnOptions): Promise<IPty> {
     return await start(shell, spawnConfig);
   } catch (err) {
     // Only a configured shell has something to fall back to.
-    if (!safeShell) throw err;
+    if (!safeShell || options.windowsShell) throw err;
     terminalLog("Configured shell could not be started; trying the default:", err);
     const fallback = await invoke<string>("get_default_shell");
     if (disposed())

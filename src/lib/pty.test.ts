@@ -30,6 +30,27 @@ import { spawn } from "@/lib/pty";
 
 const PID = 4242;
 
+describe("Windows code blocks inside a PTY (WI-WCR2)", () => {
+  it("starts the reader before sending the fixed startup command", async () => {
+    const command = "run-script\r";
+    invokeMock.mockImplementation((name: string) => Promise.resolve(name === "pty_spawn_code_block" ? { pid: PID, command } : undefined));
+    const pty = spawn("C:\\Windows\\System32\\cmd.exe", [], { codeBlock: { shell: "cmd", source: "echo 中文" } });
+    await pty.ready;
+    expect(invokeMock).toHaveBeenCalledWith("pty_spawn_code_block", expect.objectContaining({ codeBlock: { shell: "cmd", source: "echo 中文" } }));
+    const names = invokeMock.mock.calls.map(call => call[0]);
+    expect(names.indexOf("pty_start")).toBeLessThan(names.indexOf("pty_write"));
+    expect(invokeMock).toHaveBeenCalledWith("pty_write", { pid: PID, data: command });
+    pty.kill();
+  });
+  it("cancels a superseded spawn before executing its code", async () => {
+    invokeMock.mockImplementation((name: string) => Promise.resolve(name === "pty_spawn_code_block" ? { pid: PID, command: "must-not-run\r" } : undefined));
+    const pty = spawn("C:\\Windows\\System32\\cmd.exe", [], { codeBlock: { shell: "cmd", source: "echo hello" }, isDisposed: () => true });
+    await expect(pty.ready).rejects.toThrow("disposed");
+    expect(invokeMock.mock.calls.some(call => call[0] === "pty_write")).toBe(false);
+    expect(invokeMock).toHaveBeenCalledWith("pty_close", { pid: PID });
+  });
+});
+
 beforeEach(() => {
   invokeMock.mockReset();
   listenMock.mockReset();

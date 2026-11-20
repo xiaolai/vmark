@@ -4,11 +4,13 @@
  * Purpose: Send a fenced shell code block from the document into the
  * integrated terminal (F1). VMark is a markdown editor full of `bash`
  * fences; this closes the copy-switch-paste loop.
+ * Explicit Windows fences instead delegate to runWindowsCodeBlock, which
+ * executes it in the current internal terminal with a matching interpreter.
  *
  * SECURITY BOUNDARY — read before changing anything here.
- *   This is the only path by which DOCUMENT CONTENT reaches a shell, and a
- *   document can arrive from anywhere (a clone, a download, an AI tool). The
- *   payload is *pasted into the input line* and must **never auto-execute**.
+ *   The Unix-shell paste path accepts documents from a clone, download or
+ *   AI tool. Its payload is *pasted into the input line* and must **never
+ *   auto-execute**. Explicit Windows Run clicks execute in the internal terminal.
  *   Two separate things are required for that, and both are enforced here:
  *
  *   1. **No trailing line terminator.** A trailing "\n" IS an Enter press.
@@ -29,7 +31,7 @@
  *   command. `runInTerminal.test.ts` asserts both rules.
  *
  * Key decisions:
- *   - Delivery goes through `term.paste()`, not `term.write()`. Paste applies
+ *   - Unix delivery goes through `term.paste()`, not `term.write()`. Paste applies
  *     bracketed-paste wrapping when the shell enabled it, so a multi-line
  *     block lands in the input line as one editable unit (a plan
  *     invariant).
@@ -53,6 +55,8 @@ import { getTerminalForSession, type RunTargetTerminal } from "./activeTerminal"
 import { reuseOrCreateTerminalSession } from "./revealTerminalSession";
 import { terminalLog } from "@/utils/debug";
 import { errorMessage } from "@/utils/errorMessage";
+import { isWindowsPlatform } from "@/utils/platform";
+import { runWindowsCodeBlock, windowsCodeBlockShell } from "./runWindowsCodeBlock";
 
 /** Fences that hold a session TRANSCRIPT, where prompts are decoration. */
 const TRANSCRIPT_LANGUAGES = new Set([
@@ -69,17 +73,18 @@ const COMMAND_LANGUAGES = new Set(["bash", "sh", "zsh", "shell"]);
  * Every fence info string we offer to run. Derived from the two sets above so
  * adding a transcript language cannot silently leave it unrunnable (or vice
  * versa). Matched exactly after trim + lowercase — `bashrc` and `powershell`
- * are deliberately NOT matched, since a substring match would put a run button
- * on blocks that are not commands for THIS shell.
+ * are not Unix command fences. Windows-specific fences use their own exact
+ * mapping and are offered only on Windows.
  */
 const SHELL_LANGUAGES = new Set([...COMMAND_LANGUAGES, ...TRANSCRIPT_LANGUAGES]);
 
 /** A line that begins with a shell prompt, capturing what follows it. */
 const PROMPT_LINE = /^\s*[$%#] (.*)$/;
 
-/** True when a fence's info string marks it as shell commands. */
+/** True when a fence is runnable in the terminal on this platform. */
 export function isShellLanguage(language: string | null | undefined): boolean {
   if (!language) return false;
+  if (isWindowsPlatform() && windowsCodeBlockShell(language)) return true;
   return SHELL_LANGUAGES.has(language.trim().toLowerCase());
 }
 
@@ -144,7 +149,9 @@ type RunInTerminalFailure =
   /** The session's terminal never became reachable. */
   | "timeout"
   /** `paste` itself threw (session disposed mid-delivery). */
-  | "paste-failed";
+  | "paste-failed"
+  | "launch-failed"
+  | "max-sessions";
 
 export interface RunInTerminalResult {
   ok: boolean;
@@ -224,13 +231,17 @@ function deliver(
 
 /**
  * Send a shell code block to the terminal, creating a session and revealing
- * the panel if needed. The payload is pasted, NEVER executed. Resolves only
- * once delivery has succeeded or provably failed.
+ * the panel if needed. Unix fences are pasted without execution; explicitly
+ * tagged Windows fences execute in the current internal session.
+ * Resolves once delivery or internal session startup succeeded or failed.
  */
 export function runInTerminal(
   source: string,
   language: string,
 ): Promise<RunInTerminalResult> {
+  if (isWindowsPlatform() && windowsCodeBlockShell(language)) {
+    return runWindowsCodeBlock(source, language);
+  }
   if (!isShellLanguage(language)) {
     return Promise.resolve({ ok: false, reason: "not-shell" });
   }

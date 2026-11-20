@@ -7,8 +7,8 @@
  *
  * Why `common` + selective imports (not `all`):
  *   `lowlight/lib/common` ships ~37 grammars covering the 80% case while
- *   keeping the bundle small. The dropdown also exposes 12 less-common ids
- *   (Scala, PowerShell, Dockerfile, Haskell, Elixir, Clojure, Erlang, OCaml,
+ *   keeping the bundle small. The dropdown also exposes 13 less-common ids
+ *   (Scala, PowerShell, DOS, Dockerfile, Haskell, Elixir, Clojure, Erlang, OCaml,
  *   F#, Dart, MATLAB, LaTeX); we register those individually from
  *   `highlight.js/lib/languages/*` so every dropdown id resolves to a real
  *   grammar without dragging in the full ~195-grammar `all` set (~+730 kB on
@@ -29,6 +29,7 @@ import { common, createLowlight } from "lowlight";
 import clojure from "highlight.js/lib/languages/clojure";
 import dart from "highlight.js/lib/languages/dart";
 import dockerfile from "highlight.js/lib/languages/dockerfile";
+import dos from "highlight.js/lib/languages/dos";
 import elixir from "highlight.js/lib/languages/elixir";
 import erlang from "highlight.js/lib/languages/erlang";
 import fsharp from "highlight.js/lib/languages/fsharp";
@@ -45,6 +46,7 @@ lowlight.register({
   clojure,
   dart,
   dockerfile,
+  dos,
   elixir,
   erlang,
   fsharp,
@@ -100,6 +102,7 @@ export const LANGUAGES: readonly LanguageEntry[] = [
   { id: "shell", name: "Shell" },
   { id: "bash", name: "Bash" },
   { id: "powershell", name: "PowerShell" },
+  { id: "dos", name: "CMD / Batch" },
   { id: "dockerfile", name: "Dockerfile" },
   { id: "graphql", name: "GraphQL" },
   { id: "lua", name: "Lua" },

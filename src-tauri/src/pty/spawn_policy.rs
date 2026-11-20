@@ -78,6 +78,10 @@ pub(super) struct VettedCommand {
 }
 
 impl VettedCommand {
+    pub(super) fn file(&self) -> &str {
+        &self.file
+    }
+
     /// The command to hand the PTY, started in `cwd` when one is given.
     pub(super) fn into_builder(self, cwd: Option<&str>) -> CommandBuilder {
         let mut builder = CommandBuilder::new(&self.file);

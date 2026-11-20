@@ -129,6 +129,11 @@ export function useTerminalShellLifecycle(
       try {
         const pty = await spawnPty({
           sessionId,
+          ...(storeSession?.windowsShell ? { windowsShell: storeSession.windowsShell } : {}),
+          ...(storeSession?.pendingCode !== undefined && !storeSession.codeBlockDispatched ? {
+            codeBlockSource: storeSession.pendingCode,
+            claimCodeBlock: () => useTerminalStore.getState().terminalClaimPendingCode(sessionId),
+          } : {}),
           term: entry.instance.term,
           // Omitted when nothing resolved a directory — see spawnPty's cwd note.
           ...(cwd !== undefined ? { cwd } : {}),
@@ -143,7 +148,7 @@ export function useTerminalShellLifecycle(
           },
           disposed: () => {
             const e = sessionsRef.current.get(sessionId);
-            return !e || e.disposed;
+            return !e || e.disposed || e.spawnGen !== gen;
           },
         });
 
@@ -170,6 +175,9 @@ export function useTerminalShellLifecycle(
         currentEntry.spawnedCwd = cwd;
         currentEntry.shellSpawning = false;
         useTerminalStore.getState().terminalMarkSessionAlive(sessionId);
+        if (storeSession?.pendingCode !== undefined) {
+          useTerminalStore.getState().terminalClearPendingCode(sessionId);
+        }
         // The requested directory has now been honored — release it so a later
         // restart resolves normally instead of re-anchoring to a stale request.
         if (requestedCwd) useTerminalStore.getState().terminalClearRequestedCwd(sessionId);

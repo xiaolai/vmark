@@ -24,6 +24,11 @@ import { describe, expect, it } from "vitest";
 import { LANGUAGES, lowlight } from "../languages";
 
 describe("language registry", () => {
+  // WI-WCR1 — users can select CMD rather than relying on an unlisted fence.
+  it("offers a highlighted CMD / Batch language", () => {
+    expect(LANGUAGES.some((language) => language.id === "dos")).toBe(true);
+    expect(lowlight.registered("dos")).toBe(true);
+  });
   it("every dropdown id resolves to a real lowlight grammar", () => {
     const registered = new Set(lowlight.listLanguages());
     const unresolved: string[] = [];

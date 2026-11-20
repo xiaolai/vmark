@@ -40,22 +40,21 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { ptyWarn, terminalLog } from "@/utils/debug";
 import { commandErrorMessage } from "@/services/commands/commandError";
 import { createPtyInputQueue } from "./ptyInputQueue";
+import { EventEmitter, type IEvent } from "./ptyEvents";
+export type { IEvent } from "./ptyEvents";
 
 // ---------------------------------------------------------------------------
 // Public types — match the tauri-pty interface that spawnPty.ts expects
 // ---------------------------------------------------------------------------
-
-interface IDisposable {
-  dispose(): void;
-}
-
-export type IEvent<T> = (listener: (data: T) => void) => IDisposable;
 
 interface IPtyExitEvent {
   exitCode: number;
 }
 
 export interface IPtySpawnOptions {
+  codeBlock?: { shell: "powershell" | "cmd" | "python"; source: string };
+  isDisposed?: () => boolean;
+  claimCodeBlock?: () => boolean;
   name?: string;
   cols?: number;
   rows?: number;
@@ -76,32 +75,6 @@ export interface IPty {
   kill(): void;
   pause(): void;
   resume(): void;
-}
-
-// ---------------------------------------------------------------------------
-// EventEmitter — minimal pub/sub
-// ---------------------------------------------------------------------------
-
-class EventEmitter<T> {
-  private _listeners: Array<(data: T) => void> = [];
-
-  get event(): IEvent<T> {
-    return (listener) => {
-      this._listeners.push(listener);
-      return {
-        dispose: () => {
-          const idx = this._listeners.indexOf(listener);
-          if (idx >= 0) this._listeners.splice(idx, 1);
-        },
-      };
-    };
-  }
-
-  fire(data: T): void {
-    for (const fn of [...this._listeners]) {
-      fn(data);
-    }
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -148,14 +121,21 @@ class VMarkPty implements IPty {
 
   private async _setup(file: string, args: string[], opts?: IPtySpawnOptions): Promise<void> {
     // Phase 1: create PTY + spawn child (reader NOT started yet)
-    this._pid = await invoke<number>("pty_spawn", {
+    const spawnOptions = {
       file,
-      args,
       cols: this.cols,
       rows: this.rows,
       cwd: opts?.cwd ?? null,
       env: opts?.env ?? {},
-    });
+    };
+    let initialCommand: string | undefined;
+    if (opts?.codeBlock) {
+      const created = await invoke<{ pid: number; command: string }>("pty_spawn_code_block", { ...spawnOptions, codeBlock: opts.codeBlock });
+      this._pid = created.pid;
+      initialCommand = created.command;
+    } else {
+      this._pid = await invoke<number>("pty_spawn", { ...spawnOptions, args });
+    }
 
     // Everything after pty_spawn must free the Rust session on ANY failure
     // (listen, channel wiring, or pty_start) — otherwise the session created by
@@ -191,6 +171,11 @@ class VMarkPty implements IPty {
 
       // Start the reader thread, handing it the channel as `onBytes`.
       await invoke("pty_start", { pid: this._pid, onBytes: channel });
+      if (initialCommand) {
+        if (this._destroyed || opts?.isDisposed?.()) throw new Error("disposed before code-block execution");
+        if (opts?.claimCodeBlock && !opts.claimCodeBlock()) throw new Error("code block already dispatched");
+        await invoke("pty_write", { pid: this._pid, data: initialCommand });
+      }
     } catch (err) {
       this._cleanup();
       await this._freeRustSession();
