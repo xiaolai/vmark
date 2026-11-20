@@ -2,8 +2,9 @@
  * useViewMenuStateSync — reflect the active editor mode in the native View menu.
  *
  * Purpose: keep the View menu's editor-mode radio group (WYSIWYG / Source /
- *   Markdown Split) checkmark and the enabled-state of Word Wrap / Line Numbers
- *   in sync with the editor's actual mode (#1070). Computes the desired state
+ *   Markdown Split) checkmark, the Universal Toolbar checkmark, and the
+ *   enabled-state of Word Wrap / Line Numbers in sync with the editor (#1070).
+ *   Computes the desired state
  *   with the pure `selectViewMenuModeState` policy and pushes it to Rust via
  *   `sync_view_menu_state`, which diffs against its own cache (so redundant
  *   calls are cheap no-ops on the main thread).
@@ -33,12 +34,13 @@ import { menuError } from "@/utils/debug";
 
 const SYNC_DEBOUNCE_MS = 50;
 
-function pushViewMenuState(s: ViewMenuModeState): void {
+function pushViewMenuState(s: ViewMenuModeState, universalToolbar: boolean): void {
   void invoke("sync_view_menu_state", {
     mode: s.mode,
     modeApplies: s.modeApplies,
     wordWrapApplies: s.wordWrapApplies,
     lineNumbersApplies: s.lineNumbersApplies,
+    universalToolbar,
   }).catch((e) => menuError("sync_view_menu_state failed:", e));
 }
 
@@ -59,6 +61,7 @@ export function useViewMenuStateSync(): void {
   const forcedSource = useLargeFileSessionStore((s) =>
     activeTabId ? Boolean(s.forcedSourceTabs[activeTabId]) : false,
   );
+  const universalToolbarVisible = useUIStore((s) => s.universalToolbarVisible);
 
   const state = selectViewMenuModeState(
     { sourceMode, markdownSplitView },
@@ -71,18 +74,22 @@ export function useViewMenuStateSync(): void {
   // Hold the latest state so the focus listener re-pushes current values
   // without needing to be a dependency. Updated in an effect (never during
   // render) per react-hooks/refs.
-  const stateRef = useRef(state);
+  const snapshotRef = useRef({ state, universalToolbar: universalToolbarVisible });
   useEffect(() => {
-    stateRef.current = state;
+    snapshotRef.current = { state, universalToolbar: universalToolbarVisible };
   });
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const push = useCallback((s: ViewMenuModeState) => pushViewMenuState(s), []);
+  const push = useCallback(
+    (snapshot: { state: ViewMenuModeState; universalToolbar: boolean }) =>
+      pushViewMenuState(snapshot.state, snapshot.universalToolbar),
+    [],
+  );
 
   // Debounced push when the derived state changes.
   useEffect(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => push(stateRef.current), SYNC_DEBOUNCE_MS);
+    timerRef.current = setTimeout(() => push(snapshotRef.current), SYNC_DEBOUNCE_MS);
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
@@ -91,6 +98,7 @@ export function useViewMenuStateSync(): void {
     state.modeApplies,
     state.wordWrapApplies,
     state.lineNumbersApplies,
+    universalToolbarVisible,
     push,
   ]);
 
@@ -100,7 +108,7 @@ export function useViewMenuStateSync(): void {
     let cancelled = false;
     void getCurrentWebviewWindow()
       .onFocusChanged(({ payload: focused }) => {
-        if (focused) push(stateRef.current);
+        if (focused) push(snapshotRef.current);
       })
       .then((u) => {
         if (cancelled) u();

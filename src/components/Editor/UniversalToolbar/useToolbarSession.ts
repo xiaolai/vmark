@@ -8,9 +8,9 @@
  * active editor when the toolbar keeps its place but loses focus.
  *
  * Key decisions:
- *   - Shift+Cmd+P toggles FOCUS, not visibility; the toolbar can stay visible
- *     with focus in the editor, so focus is moved out only if it is still
- *     inside the toolbar.
+ *   - The shortcut shows the toolbar or hides it. While it stays open, dropping
+ *     focus moves the caret back to the editor only if focus is still inside
+ *     the toolbar.
  *
  * @coordinates-with src/components/Editor/UniversalToolbar/toolbarFocus.ts — initial focus choice
  * @coordinates-with src/components/Editor/UniversalToolbar/UniversalToolbar.tsx — the consumer
@@ -19,21 +19,12 @@
 import { useEffect, useRef, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { useUIStore } from "@/stores/uiStore";
-import { selectSourceEditing } from "@/stores/selectSourceEditing";
-import { useEditorStore } from "@/stores/editorStore";
 import { imeToast as toast } from "@/services/ime/imeToast";
+import { focusActiveEditor } from "@/services/editor/universalToolbarToggle";
 import { getInitialFocusIndex } from "./toolbarFocus";
 import type { ToolbarButtons } from "./useToolbarButtons";
 
-/** Focus whichever editor surface (Source or WYSIWYG) is active. */
-export function focusActiveEditor(): void {
-  const isSource = selectSourceEditing(useUIStore.getState());
-  if (isSource) {
-    useEditorStore.getState().source.editorView?.focus();
-    return;
-  }
-  useEditorStore.getState().tiptap.editorView?.focus();
-}
+export { focusActiveEditor };
 
 interface ToolbarSessionInput {
   visible: boolean;

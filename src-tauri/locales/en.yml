@@ -187,7 +187,7 @@ menu:
   view.zoomIn: "Zoom In"
   view.zoomOut: "Zoom Out"
   view.wordWrap: "Toggle Word Wrap"
-  view.universalToolbar: "Universal Toolbar"
+  view.universalToolbar: "Toggle Universal Toolbar"
   view.lineNumbers: "Toggle Line Numbers"
   view.diagramPreview: "Toggle Diagram Preview"
   view.fitTables: "Fit Tables to Width"

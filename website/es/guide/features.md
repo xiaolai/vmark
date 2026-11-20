@@ -383,7 +383,7 @@ Los resultados del lint no se actualizan mientras escribes. En el modo Fuente, c
 
 Una barra de herramientas de formato anclada en la parte inferior del editor, que proporciona acceso rápido a todas las acciones de formato tanto en modo WYSIWYG como de Fuente.
 
-- **Alternar:** `Mod + Shift + B` abre la barra de herramientas y le da el foco. Pulsa de nuevo para devolver el foco al editor manteniendo la barra visible.
+- **Alternar:** `Mod + Shift + B` muestra la barra de herramientas sobre la barra de estado y le da el foco. Púlsalo de nuevo para ocultarla. Las pestañas del documento siguen en la barra de estado.
 - **Navegación por teclado:** Usa las flechas `Izquierda`/`Derecha` para moverte entre grupos. `Enter` o `Espacio` abre un menú desplegable. Las flechas navegan dentro de los menús.
 - **Escape en dos pasos:** Si un menú desplegable está abierto, `Escape` cierra primero el menú. Pulsa `Escape` de nuevo para cerrar toda la barra de herramientas.
 - **Memoria de sesión:** La barra de herramientas recuerda qué botón fue el último enfocado durante la sesión actual, así que al re-enfocar continúas donde lo dejaste.

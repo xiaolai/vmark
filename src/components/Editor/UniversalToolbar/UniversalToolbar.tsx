@@ -4,9 +4,9 @@
  * A universal, single-line toolbar anchored at the bottom of the window.
  * Triggered by Shift+Cmd+P, provides formatting actions across WYSIWYG and Source.
  *
- * Per redesign spec: focus-toggle model (Shift+Cmd+P toggles focus, not visibility),
- * two-step Escape (dropdown then toolbar), session memory (cleared on close), and
- * smart initial focus (active marks > selection > context > default).
+ * The shortcut and the View menu item show the toolbar or hide it.
+ * Two-step Escape (dropdown then toolbar), session memory (cleared on close),
+ * and smart initial focus (active marks > selection > context > default).
  *
  * The component owns layout. The button model lives in `useToolbarButtons`,
  * the dropdown in `useToolbarMenu`, keyboard and focus navigation in
@@ -35,13 +35,14 @@ import "./universal-toolbar.css";
 /**
  * Universal bottom toolbar for formatting actions.
  *
- * Renders a fixed-position toolbar at the bottom of the editor window.
+ * Renders in the bottom lane, above the status bar while that bar is visible.
  * Visibility is controlled by the `universalToolbarVisible` state in uiStore.
  */
 export function UniversalToolbar() {
   const { t } = useTranslation("editor");
   const aiPromptsShortcut = useShortcutsStore((state) => state.getShortcut("aiPrompts"));
   const visible = useUIStore((state) => state.universalToolbarVisible);
+  const statusBarVisible = useUIStore((state) => state.statusBarVisible);
   const toolbarHasFocus = useUIStore((state) => state.universalToolbarHasFocus);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -73,7 +74,11 @@ export function UniversalToolbar() {
       role="toolbar"
       aria-label={t("toolbar.ariaLabel")}
       aria-orientation="horizontal"
-      className="universal-toolbar"
+      className={
+        statusBarVisible
+          ? "universal-toolbar universal-toolbar--above-status"
+          : "universal-toolbar"
+      }
       onKeyDown={handleKeyDown}
       onFocusCapture={handleFocusCapture}
       onBlurCapture={handleBlurCapture}

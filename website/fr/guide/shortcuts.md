@@ -183,7 +183,7 @@ Si vous préférez conserver les fonctions système sur les touches F, vous pouv
 | Activer le terminal ou l'éditeur | Ctrl + Shift + `` ` `` (Alt + Shift + `` ` `` sous Windows/Linux) |
 | Afficher/masquer l'aperçu des diagrammes | `Alt + Mod + P` |
 | Ajuster les tableaux à la largeur | _(personnalisable)_ |
-| Ouvrir la barre d'outils universelle | `Mod + Shift + B` |
+| Afficher ou masquer la barre d'outils universelle | `Mod + Shift + B` |
 | Aperçu source | `F5` |
 | Vérifier le Markdown | `Alt + Mod + V` |
 | Problème suivant | `F2` |

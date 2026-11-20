@@ -17,6 +17,7 @@ import { flushSync } from "react-dom";
 import "@/styles/index.css";
 import "@/components/FindBar/FindBar.css";
 import "@/components/StatusBar/StatusBar.css";
+import "@/components/Editor/UniversalToolbar/universal-toolbar.css";
 import { EditorArea } from "./EditorArea";
 
 let root: Root | null = null;
@@ -84,5 +85,37 @@ describe("bottom lane (real engine, production EditorArea)", () => {
     const main = box('[role="main"]');
     const status = box(".status-bar-container");
     expect(Math.round(status.bottom - main.bottom)).toBe(40);
+  });
+
+  it("the formatting toolbar sits above the status bar and does not cover the tabs", () => {
+    host = document.createElement("div");
+    host.style.cssText = `width: ${Math.min(700, window.innerWidth - 16)}px; height: 500px; display: flex`;
+    document.body.append(host);
+    root = createRoot(host);
+    flushSync(() =>
+      root!.render(
+        <EditorArea
+          panelPosition="bottom"
+          editor={<div className="probe-editor" style={{ height: "100%" }} />}
+          bottomBar={
+            <>
+              <div className="status-bar-container">
+                <div className="status-bar" style={{ height: 40 }}>status</div>
+              </div>
+              <div className="universal-toolbar universal-toolbar--above-status" data-testid="toolbar">
+                toolbar
+              </div>
+            </>
+          }
+        />,
+      ),
+    );
+    const main = box('[role="main"]');
+    const toolbar = box('[data-testid="toolbar"]');
+    const status = box(".status-bar-container");
+    expect(main.bottom).toBeLessThanOrEqual(toolbar.top + 0.5);
+    expect(toolbar.bottom).toBeLessThanOrEqual(status.top + 0.5);
+    expect(Math.round(status.height)).toBe(40);
+    expect(Math.round(toolbar.height)).toBe(40);
   });
 });

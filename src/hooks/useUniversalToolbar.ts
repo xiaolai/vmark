@@ -5,10 +5,11 @@
  *   universal toolbar — works in both WYSIWYG and Source modes — and owns the
  *   Escape cascade that dismisses it.
  *
- *   The summon itself is delegated to `services/editor/universalToolbarToggle`,
+ *   The show/hide itself is delegated to `services/editor/universalToolbarToggle`,
  *   shared with the View-menu command so the keyboard and the menu item cannot
  *   drift. This hook keeps the key matching and the Escape handling, which have
- *   no menu counterpart.
+ *   no menu counterpart. Escape while typing in the editor is left to the
+ *   editor; the shortcut still hides the toolbar from there.
  *
  * @coordinates-with services/editor/universalToolbarToggle.ts — the shared summon
  * @coordinates-with uiStore.ts — Escape cascade (dropdown → toolbar → StatusBar)
@@ -61,7 +62,8 @@ export function useUniversalToolbar(): void {
           ui.setToolbarDropdownOpen(false);
           return;
         }
-        // Step 2: Close toolbar entirely and restore StatusBar
+        // Step 2: Close toolbar entirely. Restore the StatusBar only when
+        // FindBar is not the one holding it hidden.
         e.preventDefault();
         e.stopPropagation();
         ui.clearToolbarSession();

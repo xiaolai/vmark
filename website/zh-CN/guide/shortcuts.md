@@ -183,7 +183,7 @@ VMark 使用功能键（F2–F10）进行快速模式切换。在 macOS 上，�
 | 聚焦终端或编辑器 | Ctrl + Shift + `` ` ``（Windows/Linux 上为 Alt + Shift + `` ` ``） |
 | 切换图表预览 | `Alt + Mod + P` |
 | 表格适应宽度 | _（可自定义）_ |
-| 打开通用工具栏 | `Mod + Shift + B` |
+| 切换通用工具栏 | `Mod + Shift + B` |
 | 源码预览 | `F5` |
 | 检查 Markdown | `Alt + Mod + V` |
 | 下一个问题 | `F2` |

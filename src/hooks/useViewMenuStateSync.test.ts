@@ -44,7 +44,11 @@ beforeEach(() => {
   invokeMock.mockClear();
   menuErrorMock.mockClear();
   onFocusChangedMock.mockReset().mockResolvedValue(() => {});
-  useUIStore.setState({ sourceMode: false, markdownSplitView: false } as never);
+  useUIStore.setState({
+    sourceMode: false,
+    markdownSplitView: false,
+    universalToolbarVisible: false,
+  } as never);
   useLargeFileSessionStore.setState({ forcedSourceTabs: {} } as never);
 });
 
@@ -65,6 +69,7 @@ describe("useViewMenuStateSync", () => {
       "lineNumbersApplies",
       "mode",
       "modeApplies",
+      "universalToolbar",
       "wordWrapApplies",
     ]);
   });
@@ -78,6 +83,7 @@ describe("useViewMenuStateSync", () => {
       modeApplies: true,
       wordWrapApplies: false,
       lineNumbersApplies: true,
+      universalToolbar: false,
     });
   });
 
@@ -91,6 +97,7 @@ describe("useViewMenuStateSync", () => {
       modeApplies: true,
       wordWrapApplies: true,
       lineNumbersApplies: true,
+      universalToolbar: false,
     });
   });
 
@@ -104,6 +111,7 @@ describe("useViewMenuStateSync", () => {
       modeApplies: true,
       wordWrapApplies: true,
       lineNumbersApplies: true,
+      universalToolbar: false,
     });
   });
 
@@ -116,7 +124,16 @@ describe("useViewMenuStateSync", () => {
       modeApplies: false,
       wordWrapApplies: true,
       lineNumbersApplies: true,
+      universalToolbar: false,
     });
+  });
+
+  it("checks the universal toolbar item while the toolbar is showing", () => {
+    seedTab("markdown");
+    useUIStore.setState({ universalToolbarVisible: true } as never);
+    renderHook(() => useViewMenuStateSync());
+    vi.advanceTimersByTime(60);
+    expect(lastInvokeArgs()?.universalToolbar).toBe(true);
   });
 
   it("logs a focus-listener registration failure instead of rejecting unhandled", async () => {

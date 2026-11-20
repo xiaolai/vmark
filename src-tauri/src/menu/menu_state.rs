@@ -12,7 +12,7 @@
 //! the group is only ~5 items, so applying all setters on an actual change is
 //! a handful of main-thread hops, far cheaper than a per-item diff and much
 //! simpler. The policy (what is checked/enabled for a given mode) lives in the
-//! frontend; this module only maps three booleans onto specific menu ids.
+//! frontend; this module only maps those booleans onto specific menu ids.
 //!
 //! @coordinates-with accelerators.rs — shares `collect_items_from_menu`
 //! @coordinates-with src/hooks/useViewMenuStateSync.ts — sole caller
@@ -39,6 +39,9 @@ pub(crate) struct ViewMenuState {
     /// Whether Line Numbers applies. Kept separate from word-wrap because in
     /// markdown WYSIWYG it still drives code-block gutters (#1082).
     line_numbers_applies: bool,
+    /// Whether the universal toolbar is showing. Its menu item checks and
+    /// unchecks with the bar (#1711).
+    universal_toolbar: bool,
 }
 
 static MENU_STATE_CACHE: Mutex<Option<ViewMenuState>> = Mutex::new(None);
@@ -57,7 +60,7 @@ fn mode_checked(id: &str, mode: &str) -> bool {
 /// group. `checked` is meaningless for the plain toggle items and is reported
 /// as `false`. Unit-tested without a live menu.
 pub(crate) fn view_menu_targets(state: &ViewMenuState) -> Vec<(&'static str, bool, bool)> {
-    let mut out = Vec::with_capacity(MODE_IDS.len() + 2);
+    let mut out = Vec::with_capacity(MODE_IDS.len() + 3);
     for id in MODE_IDS {
         out.push((
             id,
@@ -67,6 +70,7 @@ pub(crate) fn view_menu_targets(state: &ViewMenuState) -> Vec<(&'static str, boo
     }
     out.push(("word-wrap", false, state.word_wrap_applies));
     out.push(("line-numbers", false, state.line_numbers_applies));
+    out.push(("universal-toolbar", state.universal_toolbar, true));
     out
 }
 
@@ -120,12 +124,14 @@ pub fn sync_view_menu_state(
     mode_applies: bool,
     word_wrap_applies: bool,
     line_numbers_applies: bool,
+    universal_toolbar: bool,
 ) -> Result<(), String> {
     let next = ViewMenuState {
         mode,
         mode_applies,
         word_wrap_applies,
         line_numbers_applies,
+        universal_toolbar,
     };
 
     let mut guard = menu_state_cache();
@@ -147,6 +153,7 @@ mod tests {
             mode_applies,
             word_wrap_applies: word_wrap,
             line_numbers_applies: line_numbers,
+            universal_toolbar: false,
         }
     }
 
@@ -225,6 +232,28 @@ mod tests {
             enabled_of(&t, "line-numbers"),
             "line-numbers stays enabled in WYSIWYG"
         );
+    }
+
+    #[test]
+    fn universal_toolbar_check_follows_its_flag() {
+        let hidden = view_menu_targets(&state("wysiwyg", true, true, true));
+        let (_, checked, enabled) = hidden
+            .iter()
+            .find(|(id, _, _)| *id == "universal-toolbar")
+            .copied()
+            .unwrap();
+        assert!(!checked);
+        assert!(enabled);
+
+        let mut showing = state("wysiwyg", true, true, true);
+        showing.universal_toolbar = true;
+        let shown = view_menu_targets(&showing);
+        let (_, checked, _) = shown
+            .iter()
+            .find(|(id, _, _)| *id == "universal-toolbar")
+            .copied()
+            .unwrap();
+        assert!(checked);
     }
 
     #[test]

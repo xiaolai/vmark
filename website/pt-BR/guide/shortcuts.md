@@ -183,7 +183,7 @@ Se você preferir manter as funções do sistema nas teclas F, pode personalizar
 | Focar Terminal ou Editor | Ctrl + Shift + `` ` `` (Alt + Shift + `` ` `` no Windows/Linux) |
 | Alternar Visualização de Diagrama | `Alt + Mod + P` |
 | Ajustar Tabelas à Largura | _(personalizável)_ |
-| Abrir Barra de Ferramentas Universal | `Mod + Shift + B` |
+| Alternar Barra de Ferramentas Universal | `Mod + Shift + B` |
 | Peek de Fonte | `F5` |
 | Verificar Markdown | `Alt + Mod + V` |
 | Próximo problema | `F2` |
