@@ -11,6 +11,12 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 ## [Unreleased]
 
+## [0.9.123] - 2026-11-20
+
+### Fixed
+
+- The universal toolbar no longer covers the document tabs. It sits above the status bar, and choosing View → Toggle Universal Toolbar again (or pressing the same shortcut) hides it. Thanks to Amateurape for the report.
+
 ## [0.9.122] - 2026-11-18
 
 ### Added
@@ -658,7 +664,8 @@ Text you may want to copy stays selectable: messages, approval dialogs, Genie an
 
 - Raised the `markdown-it` version floor past GHSA-253c-mchw-3w2r.
 
-[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.122...HEAD
+[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.123...HEAD
+[0.9.123]: https://github.com/xiaolai/vmark/releases/tag/v0.9.123
 [0.9.122]: https://github.com/xiaolai/vmark/releases/tag/v0.9.122
 [0.9.121]: https://github.com/xiaolai/vmark/releases/tag/v0.9.121
 [0.9.120]: https://github.com/xiaolai/vmark/releases/tag/v0.9.120
