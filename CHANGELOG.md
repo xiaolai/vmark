@@ -11,6 +11,18 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 ## [Unreleased]
 
+## [0.9.124] - 2026-11-22
+
+### Fixed
+
+- Dropping a Markdown file onto an open document no longer crashes the window with "This view has stopped working". Thanks to wintys for the report.
+- Windows and Linux now have View → Toggle Full Screen, on F11. Thanks to xingrong-lai for the report.
+- Help → Keyboard Shortcuts now opens Settings at the Shortcuts section, so it works without a web browser (for example on Linux under WSL). Thanks to xingrong-lai for the report.
+
+### Security
+
+- Updated the `url` library to fix a crash on deeply nested `blob:` addresses (RUSTSEC-2026-0592).
+
 ## [0.9.123] - 2026-11-20
 
 ### Fixed
@@ -664,7 +676,8 @@ Text you may want to copy stays selectable: messages, approval dialogs, Genie an
 
 - Raised the `markdown-it` version floor past GHSA-253c-mchw-3w2r.
 
-[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.123...HEAD
+[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.124...HEAD
+[0.9.124]: https://github.com/xiaolai/vmark/releases/tag/v0.9.124
 [0.9.123]: https://github.com/xiaolai/vmark/releases/tag/v0.9.123
 [0.9.122]: https://github.com/xiaolai/vmark/releases/tag/v0.9.122
 [0.9.121]: https://github.com/xiaolai/vmark/releases/tag/v0.9.121
