@@ -47,9 +47,7 @@ pub(super) enum MenuAction {
     Close,
     /// `open` | `open-folder` | `quick-open`: must work without windows.
     OpenLike,
-    /// `toggle-fullscreen`: the Windows/Linux View-menu item (macOS uses the
-    /// predefined native item, which never reaches this dispatcher).
-    ToggleFullScreen,
+    ToggleFullScreen, // Windows/Linux only; macOS's native item never gets here.
     /// Everything else: emit `menu:{id}` to a document window.
     Generic,
 }
