@@ -1,0 +1,116 @@
+/**
+ * TreeDndScope — owns the react-dnd manager (and HTML5 backend) for exactly one
+ * mount of the file explorer's react-arborist Tree, and releases that backend
+ * when the mount goes away.
+ *
+ * Left to itself, every Tree mount brings its own DndProvider, whose manager
+ * lives in a window-global slot that react-dnd CLEARS when its last provider
+ * unmounts — without tearing the manager's backend down. Normally the backend
+ * releases itself once the Tree unregisters its last drag source / drop target,
+ * but a NATIVE-item drag (a file, a link, selected text) registers a synthetic
+ * source of its own that only the DOM `drop` or final `dragleave` removes — and
+ * Tauri's drag-drop handler intercepts drag events, so those can never arrive.
+ * That pending native drag kept the old backend set up; the next Tree mount
+ * built a second one, and react-dnd threw "Cannot have two HTML5 backends at
+ * the same time" during commit, taking down the whole view (#1714).
+ *
+ * Here the manager is created per mount and its backend is released in a
+ * LAYOUT cleanup — which React runs, for a removed subtree, before any layout
+ * effect of the subtree replacing it registers with a new backend. A Suspense
+ * hide runs the same cleanup without removing the Tree, so the reveal reattaches
+ * a backend the cleanup released while a native drag still held it. A fresh
+ * manager per mount also means a drag stuck in the old mount dies with it.
+ *
+ * @coordinates-with FileExplorer.tsx — keys this scope the way it keyed the Tree
+ * @module components/Sidebar/FileExplorer/TreeDndScope
+ */
+
+import { useLayoutEffect, useState, type ReactNode } from "react";
+import {
+  createDragDropManager,
+  type Backend,
+  type BackendFactory,
+  type DragDropManager,
+} from "dnd-core";
+import { HTML5Backend } from "react-dnd-html5-backend";
+
+interface TreeDndScopeProps {
+  /** Renders the Tree, handing it this mount's manager as `dndManager`. */
+  children: (manager: DragDropManager) => ReactNode;
+}
+
+/** HTML5Backend's public window-level drop handler (not on dnd-core's Backend type). */
+type Html5Backend = Backend & { handleTopDrop: (e: DragEvent) => void };
+
+/** One Tree mount's manager, plus the scope's hold on its backend. */
+export interface TreeDnd {
+  manager: DragDropManager;
+  /** Release the backend if it is set up (unmount, or a Suspense hide). */
+  release: () => void;
+  /** Re-set-up a backend `release` took while a native drag still held it. */
+  reattach: () => void;
+}
+
+/**
+ * A manager whose HTML5 backend:
+ * - only undoes a setup it actually did — the stock teardown clears the
+ *   WINDOW-wide "a backend is set up" flag unconditionally, which would erase
+ *   another backend's claim;
+ * - ignores a DOM `drop` while nothing is being dragged — a backend set up
+ *   mid-gesture (a remount between `dragenter` and `drop`) otherwise throws
+ *   "Cannot call hover while not dragging" from its drop handler.
+ */
+export function createTreeDnd(): TreeDnd {
+  let isSetUp = false;
+  let releasedWhileHeld = false;
+  let backend: Html5Backend | null = null;
+
+  const factory: BackendFactory = (manager, context, options) => {
+    const created = HTML5Backend(manager, context, options) as Html5Backend;
+    const setup = created.setup.bind(created);
+    const teardown = created.teardown.bind(created);
+    const handleTopDrop = created.handleTopDrop;
+    created.setup = () => {
+      setup();
+      isSetUp = true;
+    };
+    created.teardown = () => {
+      if (!isSetUp) return;
+      isSetUp = false;
+      teardown();
+    };
+    // Read by setup() when it installs its listeners, so replace it first.
+    created.handleTopDrop = (e) => {
+      if (manager.getMonitor().isDragging()) handleTopDrop(e);
+    };
+    backend = created;
+    return created;
+  };
+
+  const manager = createDragDropManager(factory);
+  return {
+    manager,
+    release: () => {
+      if (!isSetUp) return;
+      releasedWhileHeld = true;
+      backend?.teardown();
+    },
+    reattach: () => {
+      if (!releasedWhileHeld) return;
+      releasedWhileHeld = false;
+      // The Tree's targets re-registering set it up again unless a native
+      // drag's source kept dnd-core believing it never went away.
+      if (!isSetUp) backend?.setup();
+    },
+  };
+}
+
+/** One drag-drop manager per Tree mount, released on unmount. */
+export function TreeDndScope({ children }: TreeDndScopeProps) {
+  const [dnd] = useState(createTreeDnd);
+  useLayoutEffect(() => {
+    dnd.reattach();
+    return dnd.release;
+  }, [dnd]);
+  return <>{children(dnd.manager)}</>;
+}
