@@ -41,6 +41,8 @@ pub(super) enum MenuAction {
     NewWindow,
     Preferences,
     About,
+    /// Help → Keyboard Shortcuts: the Settings window's Shortcuts section.
+    KeyboardShortcuts,
     New,
     Close,
     /// `open` | `open-folder` | `quick-open`: must work without windows.
@@ -78,6 +80,7 @@ pub(super) fn classify_menu_id(id: &str) -> MenuAction {
         "new-window" => MenuAction::NewWindow,
         "preferences" => MenuAction::Preferences,
         "about" => MenuAction::About,
+        "keyboard-shortcuts" => MenuAction::KeyboardShortcuts,
         "new" => MenuAction::New,
         "close" => MenuAction::Close,
         "open" | "open-folder" | "quick-open" => MenuAction::OpenLike,
@@ -133,7 +136,8 @@ fn route_to_document_window(app: &AppHandle, event: PendingMenuEvent) {
 /// Route a native menu click to the correct frontend window via Tauri events.
 pub fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
     let id = event.id().as_ref();
-    match classify_menu_id(id) {
+    let action = classify_menu_id(id);
+    match action {
         // Custom Quit (Cmd+Q) is handled in Rust so we can coordinate
         // unsaved-changes prompts. request_quit applies the confirm-quit gate
         // internally before starting coordinated quit.
@@ -149,7 +153,11 @@ pub fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
         MenuAction::InstallCli => handle_install_cli(app, id),
         MenuAction::NewWindow => handle_new_window(app),
         MenuAction::Preferences => handle_preferences(app),
-        MenuAction::About => handle_about(app),
+        MenuAction::About | MenuAction::KeyboardShortcuts => {
+            if let Some(section) = settings_section(&action) {
+                show_settings_section(app, section);
+            }
+        }
         MenuAction::New => handle_new(app, id),
         MenuAction::Close => handle_close(app),
         MenuAction::OpenLike => {
@@ -229,12 +237,25 @@ fn handle_preferences(app: &AppHandle) {
     }
 }
 
-/// "about" opens the Settings window at the About section.
-fn handle_about(app: &AppHandle) {
-    log::debug!("[menu_events] Handling 'about' menu event");
-    match crate::window_manager::show_settings_window_section(app, Some("about")) {
-        Ok(label) => log::debug!("[menu_events] Settings window (about) ready: {label}"),
-        Err(e) => log::error!("[menu_events] Failed to show about: {e}"),
+/// The Settings section an action opens (`pages/Settings.tsx` `validSections`),
+/// if any. The palette's `help.keyboardShortcuts` opens `shortcuts` too.
+pub(super) fn settings_section(action: &MenuAction) -> Option<&'static str> {
+    match action {
+        MenuAction::About => Some("about"),
+        MenuAction::KeyboardShortcuts => Some("shortcuts"),
+        _ => None,
+    }
+}
+
+/// "about" and "keyboard-shortcuts" open the Settings window at a section, in
+/// Rust like "preferences": no document window or browser needed. Keyboard
+/// Shortcuts once opened a web page, which fails silently without a browser
+/// handler (WSL2/WSLg, #1716).
+fn show_settings_section(app: &AppHandle, section: &str) {
+    log::debug!("[menu_events] Opening Settings at section {section:?}");
+    match crate::window_manager::show_settings_window_section(app, Some(section)) {
+        Ok(label) => log::debug!("[menu_events] Settings window ({section}) ready: {label}"),
+        Err(e) => log::error!("[menu_events] Failed to show Settings ({section}): {e}"),
     }
 }
 

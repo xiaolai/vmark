@@ -441,6 +441,8 @@ Visualizza e personalizza tutte le scorciatoie da tastiera. Le scorciatoie sono 
 - **Ripristina** — Ripristina una singola scorciatoia al suo predefinito, o ripristina tutte in una volta
 - **Esporta / Importa** — Salva le tue associazioni personalizzate come file JSON e importale su un'altra macchina
 
+**Aiuto → Scorciatoie da tastiera** apre questa sezione.
+
 Vedi [Scorciatoie da Tastiera](/it/guide/shortcuts) per il riferimento completo alle scorciatoie predefinite.
 
 ## Terminale

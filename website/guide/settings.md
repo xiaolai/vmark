@@ -437,6 +437,8 @@ View and customize all keyboard shortcuts. Shortcuts are grouped by category (Fi
 - **Reset** — Restore an individual shortcut to its default, or reset all at once
 - **Export / Import** — Save your custom bindings as a JSON file and import them on another machine
 
+**Help → Keyboard Shortcuts** opens this section.
+
 See [Keyboard Shortcuts](/guide/shortcuts) for the full default shortcut reference.
 
 ## Terminal

@@ -47,7 +47,7 @@ describe("static menu bindings resolve to registered commands (#916)", () => {
 describe("no binding listens for a menu id Rust handles itself", () => {
   // The MenuAction variants whose handler acts natively (the quit coordinator,
   // window creation, the Settings window) and forwards no `menu:<id>` event.
-  const NATIVE = ["Quit", "SaveAllQuit", "NewWindow", "Preferences", "About"];
+  const NATIVE = ["Quit", "SaveAllQuit", "NewWindow", "Preferences", "About", "KeyboardShortcuts"];
 
   /** `"id" => MenuAction::Variant` arms of the Rust menu classifier. */
   function classifiedIds(): Map<string, string> {

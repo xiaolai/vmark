@@ -55,7 +55,6 @@ async function openHelpLink(url: string): Promise<void> {
 }
 
 const HELP_URL = "https://vmark.app/guide/";
-const SHORTCUTS_URL = "https://vmark.app/guide/shortcuts";
 const REPORT_ISSUE_URL = "https://github.com/xiaolai/vmark/issues/new";
 
 type Ctx = { windowLabel?: string };
@@ -181,7 +180,15 @@ function mediaCommandSpecs(): CommandDefinition[] {
   ];
 }
 
-/** External documentation links. */
+/**
+ * Help: external documentation links, plus the in-app Shortcuts reference.
+ *
+ * Keyboard Shortcuts opens the Settings window's Shortcuts section, the same
+ * place the Help menu item opens from Rust (`menu/events/dispatch.rs`). It
+ * used to open a web page through the OS opener, which spawns detached on
+ * Linux — with no browser handler (WSL2/WSLg, #1716) that failed silently.
+ * The in-app section also lists the user's own rebinds and works offline.
+ */
 function helpCommandSpecs(): CommandDefinition[] {
   return [
     {
@@ -197,7 +204,11 @@ function helpCommandSpecs(): CommandDefinition[] {
       title: () => i18n.t("commands:help.keyboardShortcuts"),
       category: "help",
       run: async () => {
-        await openHelpLink(SHORTCUTS_URL);
+        try {
+          await openSettingsWindow("shortcuts");
+        } catch (error) {
+          reportCommandFailure(error, { label: "Failed to open keyboard shortcuts:" });
+        }
       },
     },
     {

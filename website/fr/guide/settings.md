@@ -442,6 +442,8 @@ Afficher et personnaliser tous les raccourcis clavier. Les raccourcis sont regro
 - **Réinitialiser** — Restaurer un raccourci individuel à sa valeur par défaut, ou réinitialiser tous à la fois
 - **Exporter / Importer** — Enregistrer vos liaisons personnalisées dans un fichier JSON et les importer sur une autre machine
 
+**Aide → Raccourcis clavier** ouvre cette section.
+
 Voir [Raccourcis clavier](/fr/guide/shortcuts) pour la référence complète des raccourcis par défaut.
 
 ## Terminal

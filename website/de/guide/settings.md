@@ -440,6 +440,8 @@ Alle Tastaturkürzel anzeigen und anpassen. Tastaturkürzel sind nach Kategorien
 - **Zurücksetzen** — Ein einzelnes Tastaturkürzel auf seinen Standard zurücksetzen oder alle auf einmal zurücksetzen
 - **Exportieren / Importieren** — Benutzerdefinierte Bindungen als JSON-Datei speichern und auf einem anderen Computer importieren
 
+**Hilfe → Tastenkürzel** öffnet diesen Abschnitt.
+
 Unter [Tastaturkürzel](/de/guide/shortcuts) finden Sie die vollständige Standard-Tastaturkürzel-Referenz.
 
 ## Terminal
