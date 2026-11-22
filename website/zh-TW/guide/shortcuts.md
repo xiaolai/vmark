@@ -38,6 +38,7 @@ VMark 使用功能鍵（F2–F10）進行快速模式切換。在 macOS 上，�
 | `F8` | 專注模式 |
 | `F9` | 打字機模式 |
 | `F10` | 唯讀模式 |
+| `F11` | 切換全螢幕 _（Windows/Linux；macOS 使用 `Ctrl + Cmd + F`）_ |
 
 ## 編輯
 
@@ -167,6 +168,7 @@ VMark 使用功能鍵（F2–F10）進行快速模式切換。在 macOS 上，�
 | 實際大小 | `Mod + 0` |
 | 放大 | `Mod + =` |
 | 縮小 | `Mod + -` |
+| 切換全螢幕 | macOS 上為 `Ctrl + Cmd + F`，Windows/Linux 上為 `F11` |
 | 自動換行 | `Alt + Z` |
 | 最近使用的分頁 | `Ctrl + Tab` |
 | 分割編輯器 — 兩個文件 | `Alt + Mod + \` |

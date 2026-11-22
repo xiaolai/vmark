@@ -1,5 +1,8 @@
 //! View menu: editor modes, zoom, panels, lint navigation, fullscreen.
 //!
+//! Fullscreen is platform-split: macOS keeps the predefined native item
+//! (Ctrl+Cmd+F); Windows/Linux get a `toggle-fullscreen` item on F11.
+//!
 //! Purpose: Builds the View menu section for `create_localized_menu`.
 //! Extracted verbatim from `localized.rs` to keep that file under the size
 //! gate. The mode items (`wysiwyg-mode`, `source-mode`, `markdown-split`)
@@ -249,7 +252,22 @@ pub(super) fn build(app: &tauri::AppHandle, accel: &AccelFn) -> tauri::Result<Su
                 accel("lint-prev", "Shift+F2"),
             )?,
             &PredefinedMenuItem::separator(app)?,
+            // muda's predefined fullscreen item is macOS-only: on Windows and
+            // GTK it builds nothing, which left those menus without the item
+            // and F11 unbound (#1715). There a real item toggles the window
+            // in Rust (`menu::events::dispatch`) on the platform-standard F11.
+            #[cfg(target_os = "macos")]
             &PredefinedMenuItem::fullscreen(app, Some(&t!("menu.view.toggleFullScreen")))?,
+            #[cfg(not(target_os = "macos"))]
+            &MenuItem::with_id(
+                app,
+                "toggle-fullscreen",
+                &t!("menu.view.toggleFullScreen"),
+                true,
+                // Fixed, not rebindable: OS-standard, outside the shortcut
+                // registry, so no custom map or accelerator update moves it.
+                Some("F11"),
+            )?,
         ],
     )
 }

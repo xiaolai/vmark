@@ -103,6 +103,18 @@ fn remaining_special_ids_are_classified() {
 }
 
 #[test]
+fn toggle_fullscreen_is_rust_handled() {
+    // #1715: off macOS the View menu carries a real `toggle-fullscreen` item
+    // (muda's predefined fullscreen item does not exist on Windows/GTK). Its
+    // click must toggle the window in Rust, not become an unheard
+    // `menu:toggle-fullscreen` event.
+    assert_eq!(
+        classify_menu_id("toggle-fullscreen"),
+        MenuAction::ToggleFullScreen
+    );
+}
+
+#[test]
 fn everything_else_routes_generically() {
     for id in ["save", "bold", "undo", "toggle-terminal", "unknown-id", ""] {
         assert_eq!(classify_menu_id(id), MenuAction::Generic, "id: {id}");
