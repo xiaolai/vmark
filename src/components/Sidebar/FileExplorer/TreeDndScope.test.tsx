@@ -1,7 +1,7 @@
 // #1714 — each file-explorer Tree mount owns one react-dnd manager, and its
 // HTML5 backend is released when that mount goes away, even mid-drag.
 import { act, cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { Suspense, useLayoutEffect } from "react";
 import type { DragDropManager } from "dnd-core";
 import { NativeTypes } from "react-dnd-html5-backend";
@@ -124,10 +124,13 @@ describe("TreeDndScope (#1714)", () => {
     const nextTarget = next.manager.getRegistry().addTarget("NODE", NODE_TARGET);
     expect(backendSetUp()).toBe(true);
 
-    // The old Tree's targets go after the scope released; dnd-core's own
-    // release (and any repeat) must not touch the replacement's claim.
+    // The old Tree's last target goes after the replacement took over: react-dnd
+    // itself now releases the old backend (its refcount hits zero), and that
+    // late release — or a repeated one — must not touch the replacement's claim.
+    const lateTeardown = vi.spyOn(old.manager.getBackend(), "teardown");
     old.manager.getRegistry().removeTarget(oldTarget);
-    old.manager.getBackend().teardown();
+    expect(lateTeardown).toHaveBeenCalledTimes(1);
+    expect(backendSetUp()).toBe(true);
     old.release();
     expect(backendSetUp()).toBe(true);
 

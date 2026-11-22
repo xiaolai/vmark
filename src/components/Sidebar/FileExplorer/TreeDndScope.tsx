@@ -8,11 +8,11 @@
  * unmounts — without tearing the manager's backend down. Normally the backend
  * releases itself once the Tree unregisters its last drag source / drop target,
  * but a NATIVE-item drag (a file, a link, selected text) registers a synthetic
- * source of its own that only the DOM `drop` or final `dragleave` removes — and
- * Tauri's drag-drop handler intercepts drag events, so those can never arrive.
- * That pending native drag kept the old backend set up; the next Tree mount
- * built a second one, and react-dnd threw "Cannot have two HTML5 backends at
- * the same time" during commit, taking down the whole view (#1714).
+ * source of its own that only the DOM `drop` or final `dragleave` removes. When
+ * Tauri's drag-drop handler intercepts them, that pending native drag keeps the
+ * old backend set up. Without this scope, the next Tree mount built a second
+ * backend, and react-dnd threw "Cannot have two HTML5 backends at the same
+ * time" during commit, taking down the whole view (#1714).
  *
  * Here the manager is created per mount and its backend is released in a
  * LAYOUT cleanup — which React runs, for a removed subtree, before any layout
