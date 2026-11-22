@@ -173,7 +173,7 @@ describe("history.clearWorkspace (destructive)", () => {
 // dispatcher writes such a throw to the log and the palette route drops it, so
 // clicking Help did nothing at all with no way to tell it from a slow browser.
 describe("help links report a refused open (#921)", () => {
-  it.each(["help.vmarkHelp", "help.keyboardShortcuts", "help.reportIssue"])(
+  it.each(["help.vmarkHelp", "help.reportIssue"])(
     "%s resolves and toasts when the opener refuses",
     async (id) => {
       mockOpenUrl.mockRejectedValue({ code: "unsupported", message: "no handler for https" });
@@ -189,6 +189,35 @@ describe("help links report a refused open (#921)", () => {
     await executeCommand("help.vmarkHelp", null, { windowLabel: "main" });
     expect(mockOpenUrl).toHaveBeenCalledWith("https://vmark.app/guide/");
     expect(mockToastError).not.toHaveBeenCalled();
+  });
+});
+
+// #1716 — Keyboard Shortcuts handed an external URL to the OS opener, which
+// spawns `xdg-open` detached on Linux: with no browser handler (WSL2/WSLg) it
+// failed silently and the item did nothing. It is an in-app reference now —
+// the Settings window's Shortcuts section, which also shows the user's own
+// rebinds and works offline.
+describe("help.keyboardShortcuts opens the in-app Shortcuts reference (#1716)", () => {
+  it("opens Settings at the shortcuts section, not an external URL", async () => {
+    mockInvoke.mockResolvedValue("settings");
+
+    await expect(
+      executeCommand("help.keyboardShortcuts", null, { windowLabel: "main" }),
+    ).resolves.toBe(true);
+
+    expect(mockInvoke).toHaveBeenCalledWith("open_settings_window", { section: "shortcuts" });
+    expect(mockOpenUrl).not.toHaveBeenCalled();
+    expect(mockToastError).not.toHaveBeenCalled();
+  });
+
+  it("reports a refusal to open the Settings window", async () => {
+    mockInvoke.mockRejectedValue(new Error("window build failed"));
+
+    await expect(
+      executeCommand("help.keyboardShortcuts", null, { windowLabel: "main" }),
+    ).resolves.toBe(true);
+
+    expect(mockToastError).toHaveBeenCalledTimes(1);
   });
 });
 

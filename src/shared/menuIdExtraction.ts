@@ -76,6 +76,7 @@ export const EXCLUDED_MENU_IDS: ReadonlySet<string> = new Set([
   "save-all-quit",
   "report-issue",
   "vmark-help",
+  // #1716 — opened in Rust (Settings → Shortcuts), like "about".
   "keyboard-shortcuts",
   // Placeholders for empty dynamic submenus
   "no-recent",

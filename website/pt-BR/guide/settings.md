@@ -436,6 +436,8 @@ Visualize e personalize todos os atalhos de teclado. Os atalhos são agrupados p
 - **Redefinir** — Restaurar um atalho individual para seu padrão ou redefinir todos de uma vez
 - **Exportar / Importar** — Salvar suas vinculações personalizadas como arquivo JSON e importá-las em outra máquina
 
+**Ajuda → Atalhos de teclado** abre esta seção.
+
 Veja [Atalhos de Teclado](/pt-BR/guide/shortcuts) para a referência completa de atalhos padrão.
 
 ## Terminal

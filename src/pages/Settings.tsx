@@ -153,11 +153,14 @@ export function SettingsPage() {
 
   // Listen for section jumps: `open_settings_window(section)` emits this when
   // the window already exists (status bar → Integrations, the update toast →
-  // About, the formats nudge → Formats).
+  // About, the formats nudge → Formats, Help → Keyboard Shortcuts). A jump
+  // clears the search, as a nav click does — otherwise the stacked results
+  // stay on screen and hide the requested section.
   useEffect(() => {
     const unlistenPromise = listen<string>("settings:navigate", (event) => {
       const targetSection = event.payload;
       if (isValidSection(targetSection)) {
+        setSearchQuery("");
         setSection(targetSection);
       }
     });
