@@ -38,6 +38,7 @@ VMark 使用功能键（F2–F10）进行快速模式切换。在 macOS 上，�
 | `F8` | 专注模式 |
 | `F9` | 打字机模式 |
 | `F10` | 只读模式 |
+| `F11` | 切换全屏 _（Windows/Linux；macOS 使用 `Ctrl + Cmd + F`）_ |
 
 ## 编辑
 
@@ -167,6 +168,7 @@ VMark 使用功能键（F2–F10）进行快速模式切换。在 macOS 上，�
 | 实际大小 | `Mod + 0` |
 | 放大 | `Mod + =` |
 | 缩小 | `Mod + -` |
+| 切换全屏 | macOS 上为 `Ctrl + Cmd + F`，Windows/Linux 上为 `F11` |
 | 自动换行 | `Alt + Z` |
 | 最近使用的标签页 | `Ctrl + Tab` |
 | 拆分编辑器 — 两个文档 | `Alt + Mod + \` |

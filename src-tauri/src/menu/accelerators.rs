@@ -72,16 +72,22 @@ fn accel_cache() -> MutexGuard<'static, Option<HashMap<String, String>>> {
     ACCEL_CACHE.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
+/// Menu ids whose accelerator is fixed in the builder and never follows the
+/// shortcut map: the Windows/Linux Toggle Full Screen item (F11, #1715).
+pub(crate) const FIXED_ACCELERATOR_IDS: &[&str] = &["toggle-fullscreen"];
+
 /// Pure diff of two accelerator maps.
 /// Returns the subset of `next` whose accelerator differs from `current`
 /// (including keys absent from `current`). Keys present only in `current`
-/// are ignored — they are not tracked by the frontend shortcut store.
+/// are ignored — they are not tracked by the frontend shortcut store. Fixed
+/// ids (`FIXED_ACCELERATOR_IDS`) are never part of a diff.
 pub fn diff_accelerators(
     current: &HashMap<String, String>,
     next: &HashMap<String, String>,
 ) -> Vec<(String, String)> {
     let mut changes: Vec<(String, String)> = next
         .iter()
+        .filter(|(id, _)| !FIXED_ACCELERATOR_IDS.contains(&id.as_str()))
         .filter_map(|(id, accel)| {
             let is_changed = current.get(id).map(|cur| cur != accel).unwrap_or(true);
             if is_changed {

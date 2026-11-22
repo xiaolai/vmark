@@ -38,6 +38,7 @@ Si vous préférez conserver les fonctions système sur les touches F, vous pouv
 | `F8` | Mode focus |
 | `F9` | Mode machine à écrire |
 | `F10` | Mode lecture seule |
+| `F11` | Activer/désactiver le plein écran _(Windows/Linux ; macOS utilise `Ctrl + Cmd + F`)_ |
 
 ## Édition
 
@@ -167,6 +168,7 @@ Si vous préférez conserver les fonctions système sur les touches F, vous pouv
 | Taille réelle | `Mod + 0` |
 | Zoom avant | `Mod + =` |
 | Zoom arrière | `Mod + -` |
+| Activer/désactiver le plein écran | `Ctrl + Cmd + F` sur macOS, `F11` sur Windows/Linux |
 | Retour à la ligne | `Alt + Z` |
 | Dernier onglet utilisé | `Ctrl + Tab` |
 | Diviser l'éditeur — deux documents | `Alt + Mod + \` |

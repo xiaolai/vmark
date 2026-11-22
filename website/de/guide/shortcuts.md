@@ -38,6 +38,7 @@ Wenn Sie die Systemfunktionen auf F-Tasten bevorzugen, können Sie VMark-Tastatu
 | `F8` | Fokusmodus |
 | `F9` | Schreibmaschinenmodus |
 | `F10` | Nur-Lese-Modus |
+| `F11` | Vollbildmodus ein/aus _(Windows/Linux; macOS verwendet `Ctrl + Cmd + F`)_ |
 
 ## Bearbeiten
 
@@ -167,6 +168,7 @@ Wenn Sie die Systemfunktionen auf F-Tasten bevorzugen, können Sie VMark-Tastatu
 | Tatsächliche Größe | `Mod + 0` |
 | Vergrößern | `Mod + =` |
 | Verkleinern | `Mod + -` |
+| Vollbildmodus ein/aus | `Ctrl + Cmd + F` unter macOS, `F11` unter Windows/Linux |
 | Zeilenumbruch | `Alt + Z` |
 | Zuletzt verwendeter Tab | `Strg + Tab` |
 | Editor teilen — zwei Dokumente | `Alt + Mod + \` |

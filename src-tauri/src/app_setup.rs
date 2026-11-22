@@ -208,17 +208,23 @@ pub(crate) fn handle_run_event(app: &tauri::AppHandle, event: tauri::RunEvent) {
         } => {
             window_destroyed::release_destroyed_window(app, &label);
             quit::handle_window_destroyed(app, &label);
+            menu::events::forget_fullscreen_window(&label);
         }
         tauri::RunEvent::WindowEvent {
             label,
             event: tauri::WindowEvent::Focused(focused),
             ..
-        } => crate::files::open::record_document_window_focus(
-            app,
-            &label,
-            focused,
-            menu::events::is_window_ready(&label),
-        ),
+        } => {
+            // Toggle Full Screen's target when a menu click clears focus
+            // (Windows/Linux, #1715); kept for every window, ready or not.
+            menu::events::note_window_focus(&label, focused);
+            crate::files::open::record_document_window_focus(
+                app,
+                &label,
+                focused,
+                menu::events::is_window_ready(&label),
+            )
+        }
         #[cfg(target_os = "macos")]
         tauri::RunEvent::Reopen {
             has_visible_windows,

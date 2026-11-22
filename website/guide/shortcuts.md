@@ -38,6 +38,7 @@ If you prefer keeping system functions on F-keys, you can customize VMark shortc
 | `F8` | Focus Mode |
 | `F9` | Typewriter Mode |
 | `F10` | Read-Only Mode |
+| `F11` | Toggle Full Screen _(Windows/Linux; macOS uses `Ctrl + Cmd + F`)_ |
 
 ## Edit
 
@@ -167,6 +168,7 @@ If you prefer keeping system functions on F-keys, you can customize VMark shortc
 | Actual Size | `Mod + 0` |
 | Zoom In | `Mod + =` |
 | Zoom Out | `Mod + -` |
+| Toggle Full Screen | `Ctrl + Cmd + F` on macOS, `F11` on Windows/Linux |
 | Word Wrap | `Alt + Z` |
 | Last Used Tab | `Ctrl + Tab` |
 | Split Editor — Two Documents | `Alt + Mod + \` |

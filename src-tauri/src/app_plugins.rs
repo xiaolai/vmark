@@ -121,13 +121,25 @@ pub(crate) fn register(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<ta
                 // "ready" event. Neither is true (see window_manager::
                 // document_windows' module doc); dropping the flag is still
                 // correct, but it is not part of an anti-flash mechanism.
-                .with_state_flags(
-                    tauri_plugin_window_state::StateFlags::all()
-                        - tauri_plugin_window_state::StateFlags::VISIBLE,
-                )
+                .with_state_flags(window_state_flags())
                 .build(),
         );
     builder
+}
+
+/// Window state the window-state plugin saves and restores.
+///
+/// VISIBLE is excluded (see the builder above). On Linux FULLSCREEN is too:
+/// tao's Linux `fullscreen()` reports the last state VMark REQUESTED, not what
+/// the window manager applied, so a window put in fullscreen with F11 (#1715)
+/// and taken out of it by the window manager would be saved — and relaunched —
+/// as fullscreen.
+fn window_state_flags() -> tauri_plugin_window_state::StateFlags {
+    use tauri_plugin_window_state::StateFlags;
+    let flags = StateFlags::all() - StateFlags::VISIBLE;
+    #[cfg(target_os = "linux")]
+    let flags = flags - StateFlags::FULLSCREEN;
+    flags
 }
 
 /// The one store file the webview uses (`secureStorage.ts`), relative to the

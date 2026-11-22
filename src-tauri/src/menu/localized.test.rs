@@ -336,3 +336,50 @@ fn every_menu_locale_key_exists_in_english_yaml() {
         }
     }
 }
+
+/// #1715 — muda's `PredefinedMenuItem::fullscreen` is unsupported on Windows
+/// and GTK: it builds no item there, so the View menu had no Toggle Full
+/// Screen entry and F11 did nothing. It must stay macOS-only, and the other
+/// platforms must get a real `toggle-fullscreen` item in its place.
+#[test]
+fn fullscreen_item_is_native_on_macos_and_real_elsewhere() {
+    let view = include_str!("localized/view_menu.rs");
+    let lines: Vec<&str> = view.lines().map(str::trim).collect();
+    let attribute_before = |needle: &str| -> &str {
+        let at = lines
+            .iter()
+            .position(|line| line.contains(needle))
+            .unwrap_or_else(|| panic!("view_menu.rs has no `{needle}`"));
+        assert!(at > 0, "`{needle}` has no preceding line");
+        lines[at - 1]
+    };
+    assert_eq!(
+        attribute_before("PredefinedMenuItem::fullscreen("),
+        "#[cfg(target_os = \"macos\")]",
+        "the predefined fullscreen item builds nothing off macOS — gate it to macOS"
+    );
+    let custom = view
+        .find("\"toggle-fullscreen\"")
+        .expect("view_menu.rs must build a `toggle-fullscreen` item for Windows/Linux");
+    let with_id = view[..custom]
+        .rfind("MenuItem::with_id(")
+        .expect("`toggle-fullscreen` must be a MenuItem::with_id item");
+    let attribute = view[..with_id]
+        .trim_end()
+        .rsplit('\n')
+        .nth(1)
+        .unwrap_or("")
+        .trim();
+    assert_eq!(
+        attribute, "#[cfg(not(target_os = \"macos\"))]",
+        "the `toggle-fullscreen` item must be gated to non-macOS"
+    );
+    // F11 is fixed, not rebindable: a literal accelerator, never `accel(…)`,
+    // so neither a rebuild's custom map nor an accelerator update can move it.
+    let call = &view[custom..];
+    let call = &call[..call.find(")?").expect("item call ends with `)?`")];
+    assert!(
+        call.contains("Some(\"F11\")") && !call.contains("accel("),
+        "`toggle-fullscreen` must carry the literal accelerator Some(\"F11\"): {call}"
+    );
+}

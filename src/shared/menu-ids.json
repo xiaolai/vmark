@@ -236,6 +236,7 @@
     "superscript",
     "sync-pane-scroll",
     "task-list",
+    "toggle-fullscreen",
     "toggle-quote-style",
     "toggle-terminal",
     "transform-lowercase",
@@ -260,5 +261,5 @@
     "zoom-in",
     "zoom-out"
   ],
-  "generatedAt": "2026-10-22T21:37:34.852Z"
+  "generatedAt": "2026-11-22T09:40:29.852Z"
 }

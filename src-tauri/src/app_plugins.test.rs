@@ -112,3 +112,17 @@ fn the_secure_store_is_open_before_any_window_asks_for_it() {
         "the webview's getStore lookup would find nothing and fall back to localStorage"
     );
 }
+
+/// #1715: Linux reports the REQUESTED fullscreen state, so saving it could
+/// relaunch a window fullscreen after the window manager took it out.
+#[test]
+fn window_state_never_saves_visibility_and_skips_fullscreen_on_linux() {
+    use tauri_plugin_window_state::StateFlags;
+    let flags = super::window_state_flags();
+    assert!(!flags.contains(StateFlags::VISIBLE));
+    assert!(flags.contains(StateFlags::SIZE | StateFlags::POSITION | StateFlags::MAXIMIZED));
+    assert_eq!(
+        flags.contains(StateFlags::FULLSCREEN),
+        !cfg!(target_os = "linux")
+    );
+}

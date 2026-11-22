@@ -38,6 +38,7 @@ Se você preferir manter as funções do sistema nas teclas F, pode personalizar
 | `F8` | Modo Foco |
 | `F9` | Modo Máquina de Escrever |
 | `F10` | Modo Somente Leitura |
+| `F11` | Alternar tela cheia _(Windows/Linux; no macOS use `Ctrl + Cmd + F`)_ |
 
 ## Editar
 
@@ -167,6 +168,7 @@ Se você preferir manter as funções do sistema nas teclas F, pode personalizar
 | Tamanho Real | `Mod + 0` |
 | Aumentar Zoom | `Mod + =` |
 | Diminuir Zoom | `Mod + -` |
+| Alternar tela cheia | `Ctrl + Cmd + F` no macOS, `F11` no Windows/Linux |
 | Quebra de Linha | `Alt + Z` |
 | Última Aba Usada | `Ctrl + Tab` |
 | Dividir Editor — Dois Documentos | `Alt + Mod + \` |

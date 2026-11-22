@@ -38,6 +38,7 @@ Si prefieres mantener las funciones del sistema en las teclas F, puedes personal
 | `F8` | Modo Enfoque |
 | `F9` | Modo Máquina de Escribir |
 | `F10` | Modo Solo Lectura |
+| `F11` | Activar/desactivar pantalla completa _(Windows/Linux; macOS usa `Ctrl + Cmd + F`)_ |
 
 ## Editar
 
@@ -167,6 +168,7 @@ Si prefieres mantener las funciones del sistema en las teclas F, puedes personal
 | Tamaño Real | `Mod + 0` |
 | Ampliar | `Mod + =` |
 | Reducir | `Mod + -` |
+| Activar/desactivar pantalla completa | `Ctrl + Cmd + F` en macOS, `F11` en Windows/Linux |
 | Ajuste de Línea | `Alt + Z` |
 | Última pestaña usada | `Ctrl + Tab` |
 | Dividir editor — dos documentos | `Alt + Mod + \` |

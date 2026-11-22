@@ -38,6 +38,7 @@ Se preferisci mantenere le funzioni di sistema sui tasti F, puoi personalizzare 
 | `F8` | Modalità Focus |
 | `F9` | Modalità Macchina da Scrivere |
 | `F10` | Modalità Sola Lettura |
+| `F11` | Attiva/disattiva modalità a tutto schermo _(Windows/Linux; su macOS si usa `Ctrl + Cmd + F`)_ |
 
 ## Modifica
 
@@ -167,6 +168,7 @@ Se preferisci mantenere le funzioni di sistema sui tasti F, puoi personalizzare 
 | Dimensione effettiva | `Mod + 0` |
 | Ingrandisci | `Mod + =` |
 | Riduci | `Mod + -` |
+| Attiva/disattiva modalità a tutto schermo | `Ctrl + Cmd + F` su macOS, `F11` su Windows/Linux |
 | Testo a capo | `Alt + Z` |
 | Ultima scheda usata | `Ctrl + Tab` |
 | Dividi editor — due documenti | `Alt + Mod + \` |

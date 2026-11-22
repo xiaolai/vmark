@@ -47,6 +47,9 @@ pub(super) enum MenuAction {
     Close,
     /// `open` | `open-folder` | `quick-open`: must work without windows.
     OpenLike,
+    /// `toggle-fullscreen`: the Windows/Linux View-menu item (macOS uses the
+    /// predefined native item, which never reaches this dispatcher).
+    ToggleFullScreen,
     /// Everything else: emit `menu:{id}` to a document window.
     Generic,
 }
@@ -84,6 +87,7 @@ pub(super) fn classify_menu_id(id: &str) -> MenuAction {
         "new" => MenuAction::New,
         "close" => MenuAction::Close,
         "open" | "open-folder" | "quick-open" => MenuAction::OpenLike,
+        "toggle-fullscreen" => MenuAction::ToggleFullScreen,
         _ => MenuAction::Generic,
     }
 }
@@ -163,6 +167,7 @@ pub fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
         MenuAction::OpenLike => {
             route_to_document_window(app, make_menu_event(&format!("menu:{id}")))
         }
+        MenuAction::ToggleFullScreen => super::fullscreen::handle_toggle_fullscreen(app),
         MenuAction::Generic => emit_generic(app, id),
     }
 }
