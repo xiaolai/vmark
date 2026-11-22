@@ -28,6 +28,9 @@
  *     across Files ↔ Outline ↔ History view switches via useFileExplorerOpenState, which
  *     snapshots uiStore at mount and mirrors toggles back.
  *   - Root element is a `navigation` ARIA landmark (labelled `aria.fileExplorer`).
+ *   - Each Tree mount gets its `dndManager` from TreeDndScope, which releases the
+ *     HTML5 backend on unmount, so a remount can never create a second backend
+ *     while a stuck drag holds the first (#1714).
  *
  * @coordinates-with useTreeWiring.tsx — identity-stable Tree children/ref, measured height, scroller class
  * @coordinates-with useFileTree.ts — loads directory tree and watches for fs changes
@@ -35,6 +38,7 @@
  * @coordinates-with useExplorerContextMenu.ts — context-menu state, keyed to the workspace
  * @coordinates-with useFileExplorerOpenState.ts — persists folder open state across remounts
  * @coordinates-with Sidebar.tsx — parent component that provides the ref
+ * @coordinates-with TreeDndScope.tsx — per-mount drag-drop manager handed to the Tree
  * @module components/Sidebar/FileExplorer/FileExplorer
  */
 import { useRef, forwardRef, useImperativeHandle } from "react";
@@ -57,6 +61,7 @@ import { fileExplorerError } from "@/utils/debug";
 import { useQuickLookHotkey } from "./useQuickLookHotkey";
 import { useExplorerContextMenu } from "./useExplorerContextMenu";
 import { useExplorerActionWiring } from "./useExplorerActionWiring";
+import { TreeDndScope } from "./TreeDndScope";
 import type { FileNode as FileNodeType } from "./types";
 import "./FileExplorer.css";
 
@@ -181,28 +186,34 @@ export const FileExplorer = forwardRef<FileExplorerHandle, FileExplorerProps>(
           handleTreeScroll(target.scrollTop);
         }}
       >
-        <Tree<FileNodeType>
-          key={workspaceInstanceId ?? "window"}
-          ref={treeRef}
-          className={scrollerClassName}
-          data={tree}
-          openByDefault={false}
-          initialOpenState={initialOpenState}
-          width="100%"
-          height={treeHeight}
-          indent={16}
-          rowHeight={26}
-          onActivate={handleActivate}
-          onToggle={handleToggle}
-          onRename={handleRename}
-          onDelete={handleDelete}
-          onMove={handleMove}
-          disableDrag={false}
-          disableDrop={false}
-          disableEdit={false}
-        >
-          {renderNode}
-        </Tree>
+        {/* Keyed per workspace instance: a switch remounts the Tree WITH its own
+            drag-drop manager (see TreeDndScope's header, #1714). */}
+        <TreeDndScope key={workspaceInstanceId ?? "window"}>
+          {(dndManager) => (
+            <Tree<FileNodeType>
+              ref={treeRef}
+              className={scrollerClassName}
+              data={tree}
+              openByDefault={false}
+              initialOpenState={initialOpenState}
+              width="100%"
+              height={treeHeight}
+              indent={16}
+              rowHeight={26}
+              onActivate={handleActivate}
+              onToggle={handleToggle}
+              onRename={handleRename}
+              onDelete={handleDelete}
+              onMove={handleMove}
+              disableDrag={false}
+              disableDrop={false}
+              disableEdit={false}
+              dndManager={dndManager}
+            >
+              {renderNode}
+            </Tree>
+          )}
+        </TreeDndScope>
       </div>
 
       {contextMenu.visible && (
