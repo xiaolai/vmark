@@ -128,6 +128,7 @@ impl FullscreenWindow for tauri::WebviewWindow {
 
 /// Flip a window whose state is synchronous (Windows); returns the state
 /// requested.
+#[cfg(any(not(target_os = "linux"), test))]
 pub(super) fn toggle_fullscreen(window: &impl FullscreenWindow) -> tauri::Result<bool> {
     let next = !window.is_fullscreen_now()?;
     window.set_fullscreen(next)?;
@@ -148,7 +149,7 @@ fn press_fullscreen(window: &tauri::WebviewWindow) -> tauri::Result<()> {
         std::time::Instant::now(),
     );
     if let Some(next) = request {
-        if let Err(e) = window.set_fullscreen(next) {
+        if let Err(e) = FullscreenWindow::set_fullscreen(window, next) {
             if let Some(map) = pending().as_mut() {
                 map.remove(label);
             }
