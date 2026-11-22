@@ -16,10 +16,10 @@
  *
  * Here the manager is created per mount and its backend is released in a
  * LAYOUT cleanup — which React runs, for a removed subtree, before any layout
- * effect of the subtree replacing it registers with a new backend. A Suspense
- * hide runs the same cleanup without removing the Tree, so the reveal reattaches
- * a backend the cleanup released while a native drag still held it. A fresh
- * manager per mount also means a drag stuck in the old mount dies with it.
+ * effect of the subtree replacing it registers with a new backend. Releasing
+ * first cancels a pending native drag and unregisters its synthetic source, so
+ * a Suspense hide (the same cleanup, Tree kept) cannot carry a stale drag into
+ * the reveal: the Tree's targets re-registering set the backend up afresh.
  *
  * @coordinates-with FileExplorer.tsx — keys this scope the way it keyed the Tree
  * @module components/Sidebar/FileExplorer/TreeDndScope
@@ -32,23 +32,29 @@ import {
   type BackendFactory,
   type DragDropManager,
 } from "dnd-core";
-import { HTML5Backend } from "react-dnd-html5-backend";
+import { HTML5Backend, NativeTypes } from "react-dnd-html5-backend";
 
 interface TreeDndScopeProps {
   /** Renders the Tree, handing it this mount's manager as `dndManager`. */
   children: (manager: DragDropManager) => ReactNode;
 }
 
-/** HTML5Backend's public window-level drop handler (not on dnd-core's Backend type). */
-type Html5Backend = Backend & { handleTopDrop: (e: DragEvent) => void };
+/** HTML5Backend's public window-level drop handlers (not on dnd-core's Backend type). */
+type Html5Backend = Backend & {
+  handleTopDrop: (e: DragEvent) => void;
+  handleTopDropCapture: (e: DragEvent) => void;
+};
+
+const NATIVE_ITEM_TYPES: ReadonlySet<unknown> = new Set(Object.values(NativeTypes));
+
+/** Stand-in for a `drop` the DOM will not deliver: no data, nothing to prevent. */
+const NO_DROP = { dataTransfer: null, preventDefault: () => {} } as unknown as DragEvent;
 
 /** One Tree mount's manager, plus the scope's hold on its backend. */
 export interface TreeDnd {
   manager: DragDropManager;
-  /** Release the backend if it is set up (unmount, or a Suspense hide). */
+  /** Cancel a pending native drag and release the backend (unmount, Suspense hide). */
   release: () => void;
-  /** Re-set-up a backend `release` took while a native drag still held it. */
-  reattach: () => void;
 }
 
 /**
@@ -62,7 +68,6 @@ export interface TreeDnd {
  */
 export function createTreeDnd(): TreeDnd {
   let isSetUp = false;
-  let releasedWhileHeld = false;
   let backend: Html5Backend | null = null;
 
   const factory: BackendFactory = (manager, context, options) => {
@@ -92,15 +97,16 @@ export function createTreeDnd(): TreeDnd {
     manager,
     release: () => {
       if (!isSetUp) return;
-      releasedWhileHeld = true;
+      const monitor = manager.getMonitor();
+      if (monitor.isDragging() && NATIVE_ITEM_TYPES.has(monitor.getItemType())) {
+        const sourceId = monitor.getSourceId();
+        manager.getActions().endDrag();
+        if (sourceId) manager.getRegistry().removeSource(sourceId);
+      }
+      // Forget the elements the cancelled gesture had entered, so the next
+      // `dragenter` counts as a first enter and can start a fresh drag.
+      backend?.handleTopDropCapture(NO_DROP);
       backend?.teardown();
-    },
-    reattach: () => {
-      if (!releasedWhileHeld) return;
-      releasedWhileHeld = false;
-      // The Tree's targets re-registering set it up again unless a native
-      // drag's source kept dnd-core believing it never went away.
-      if (!isSetUp) backend?.setup();
     },
   };
 }
@@ -108,9 +114,6 @@ export function createTreeDnd(): TreeDnd {
 /** One drag-drop manager per Tree mount, released on unmount. */
 export function TreeDndScope({ children }: TreeDndScopeProps) {
   const [dnd] = useState(createTreeDnd);
-  useLayoutEffect(() => {
-    dnd.reattach();
-    return dnd.release;
-  }, [dnd]);
+  useLayoutEffect(() => dnd.release, [dnd]);
   return <>{children(dnd.manager)}</>;
 }

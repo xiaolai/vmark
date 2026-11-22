@@ -4,6 +4,7 @@ import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { Suspense, useLayoutEffect } from "react";
 import type { DragDropManager } from "dnd-core";
+import { NativeTypes } from "react-dnd-html5-backend";
 import { TreeDndScope, createTreeDnd } from "./TreeDndScope";
 
 function backendSetUp(): boolean {
@@ -154,7 +155,7 @@ describe("TreeDndScope (#1714)", () => {
     expect(errors).toEqual([]);
   });
 
-  it("reattaches the backend when Suspense reveals a Tree it hid mid native drag", async () => {
+  it("sets the backend up again when Suspense reveals a Tree it hid mid native drag", async () => {
     let release: () => void = () => {};
     let suspended: Promise<void> | null = null;
     function MaybeSuspend() {
@@ -186,5 +187,43 @@ describe("TreeDndScope (#1714)", () => {
     expect(screen.queryByText("loading")).toBeNull();
     expect(new Set(seen).size).toBe(1); // same mount, same manager
     expect(backendSetUp()).toBe(true); // revealed: attached again
+  });
+
+  it("starts a fresh native drag after a Suspense hide swallowed the last one's drop", async () => {
+    let release: () => void = () => {};
+    let suspended: Promise<void> | null = null;
+    function MaybeSuspend() {
+      if (suspended) throw suspended;
+      return null;
+    }
+    const seen: DragDropManager[] = [];
+    const ui = () => (
+      <Suspense fallback={<p>loading</p>}>
+        {renderScope("a", seen)}
+        <MaybeSuspend />
+      </Suspense>
+    );
+    const { rerender } = render(ui());
+    act(() => nativeDragEnter());
+    const monitor = seen[0].getMonitor();
+    expect(monitor.isDragging()).toBe(true);
+
+    suspended = new Promise<void>((resolve) => {
+      release = () => {
+        suspended = null;
+        resolve();
+      };
+    });
+    rerender(ui());
+    // Hidden: the drag is cancelled with the release, and its drop lands
+    // while no listener is attached.
+    expect(monitor.isDragging()).toBe(false);
+    act(() => document.body.dispatchEvent(new Event("drop", { bubbles: true })));
+
+    await act(async () => release());
+    expect(backendSetUp()).toBe(true);
+    act(() => nativeDragEnter());
+    expect(monitor.isDragging()).toBe(true);
+    expect(monitor.getItemType()).toBe(NativeTypes.FILE);
   });
 });
