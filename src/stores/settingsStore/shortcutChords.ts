@@ -59,13 +59,44 @@ function currentPlatform(): Platform {
 }
 
 /**
+ * Rust `char::is_whitespace` (Unicode White_Space): the set `str::trim` strips.
+ * U+0085 (NEL) is in; U+FEFF (BOM/ZWNBSP) is out, so it must NOT be trimmed.
+ */
+function isRustWhitespace(code: number): boolean {
+  return (
+    (code >= 0x0009 && code <= 0x000d) ||
+    code === 0x0020 ||
+    code === 0x0085 ||
+    code === 0x00a0 ||
+    code === 0x1680 ||
+    (code >= 0x2000 && code <= 0x200a) ||
+    code === 0x2028 ||
+    code === 0x2029 ||
+    code === 0x202f ||
+    code === 0x205f ||
+    code === 0x3000
+  );
+}
+
+/**
  * Trim whitespace the way Rust's `str::trim` does, so the native accelerator
  * reservation can't be slipped past by a control character the JS `trim` leaves
- * in place. JS `\s` already covers every Rust white-space character except
- * U+0085 (NEL); adding it makes the two agree for these purposes.
+ * in place. A linear scan from each end, never a regex: this runs on untrusted
+ * imported/persisted strings, so its cost must stay linear in the input.
  */
 function trimRustWhitespace(s: string): string {
-  return s.replace(/^[\s\u0085]+|[\s\u0085]+$/g, "");
+  let start = 0;
+  let end = s.length;
+  while (start < end && isRustWhitespace(s.charCodeAt(start))) start++;
+  while (end > start && isRustWhitespace(s.charCodeAt(end - 1))) end--;
+  return s.slice(start, end);
+}
+
+/** Drop a trailing run of `+`, linear in the run length. */
+function stripTrailingPluses(s: string): string {
+  let end = s.length;
+  while (end > 0 && s[end - 1] === "+") end--;
+  return s.slice(0, end);
 }
 
 /** Textual identity for a chord the canonicalizer cannot map. */
@@ -126,7 +157,7 @@ function nativeIdentity(key: string, platform: Platform): string | null {
       mods = accel.slice(0, pos);
       base = trimRustWhitespace(raw);
     } else {
-      mods = accel.slice(0, pos).replace(/\++$/, "");
+      mods = stripTrailingPluses(accel.slice(0, pos));
       base = "+";
     }
   }
