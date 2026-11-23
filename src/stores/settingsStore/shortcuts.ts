@@ -27,6 +27,7 @@ import {
   type ShortcutDefinition,
 } from "./shortcutDefinitions";
 import { syncMenuShortcuts } from "./shortcutMenuSync";
+import { isPlainObject } from "./persistGuards";
 import { chordIdentity, isFixedAccelerator, reconcileCustomBindings } from "./shortcutChords";
 
 export {
@@ -201,7 +202,9 @@ export const useShortcutsStore = create<ShortcutsState & ShortcutsActions>()(
       importConfig: (json) => {
         try {
           const data = JSON.parse(json);
-          if (typeof data !== "object" || !data.customBindings) {
+          // The map must be a plain object: `true` or `[]` used to enumerate
+          // as an empty import and wipe every existing customization.
+          if (!isPlainObject(data) || !isPlainObject(data.customBindings)) {
             return { success: false, errors: [{ code: "invalidFormat" }] };
           }
 

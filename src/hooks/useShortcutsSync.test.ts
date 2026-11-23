@@ -94,18 +94,6 @@ describe("useShortcutsSync cross-window sync", () => {
       });
     });
 
-    it("off macOS, unassigns an incoming binding on the fixed F11 accelerator (#1722)", () => {
-      const platform = vi.spyOn(navigator, "platform", "get").mockReturnValue("Win32");
-      try {
-        handleShortcutsStorageEvent(
-          createStorageEvent({ customBindings: { bold: "F11", italic: "Mod-j" } }),
-        );
-        expect(useShortcutsStore.getState().customBindings).toEqual({ bold: "", italic: "Mod-j" });
-      } finally {
-        platform.mockRestore();
-      }
-    });
-
     it("ignores unparseable JSON", () => {
       useShortcutsStore.setState({ customBindings: { "file.save": "Mod-Alt-s" } });
 

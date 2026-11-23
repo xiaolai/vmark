@@ -41,6 +41,21 @@ describe("isFixedAccelerator", () => {
     expect(isFixedAccelerator("", "other")).toBe(false);
   });
 
+  it.each([" F11 ", "+F11", "f11", "\tF11"])(
+    "reserves %j off macOS: the native menu would parse it as F11",
+    (key) => {
+      expect(isFixedAccelerator(key, "other")).toBe(true);
+      expect(isFixedAccelerator(key, "mac")).toBe(false);
+    },
+  );
+
+  it.each(["Shift+F11", "Ctrl-F11", "CmdOrCtrl+F11", "F1", "F111", "++F11"])(
+    "does not reserve %j (a different chord, or one the native parser rejects)",
+    (key) => {
+      expect(isFixedAccelerator(key, "other")).toBe(false);
+    },
+  );
+
   it("no default shortcut sits on a fixed accelerator on its platform", () => {
     for (const def of DEFAULT_SHORTCUTS) {
       expect(isFixedAccelerator(def.defaultKeyMac ?? def.defaultKey, "mac"), def.id).toBe(false);
@@ -81,12 +96,18 @@ describe("FIXED_ACCELERATORS mirrors the Rust menu builder", () => {
   it.each(FIXED_ACCELERATORS.map((f) => [f.menuId, f] as const))(
     "%s: the builder binds the same literal accelerator, on the same platforms",
     (menuId, fixed) => {
-      // The item: `#[cfg(...)]` then `MenuItem::with_id(app, "<id>", label, enabled, Some("<accel>"))`.
+      // The item: `#[cfg(...)]` then `MenuItem::with_id(app, "<id>", label,
+      // enabled, Some("<accel>"))?` — the accelerator is read only from INSIDE
+      // that call (the lazy body may not cross its `)?` terminator), and every
+      // call site in every file counts toward the uniqueness check.
       const pattern = new RegExp(
-        String.raw`#\[cfg\(([^\]]*)\)\]\s*&MenuItem::with_id\(\s*app,\s*"${menuId}"[\s\S]*?Some\("([^"]+)"\)`,
+        String.raw`#\[cfg\(([^\]]*)\)\]\s*&MenuItem::with_id\(\s*app,\s*"${menuId}",(?:(?!\)\?)[\s\S])*?Some\("([^"]+)"\),?\s*\)\?`,
+        "g",
       );
-      const hits = menuSources.map((src) => pattern.exec(src)).filter((m) => m !== null);
+      const hits = menuSources.flatMap((src) => [...src.matchAll(pattern)]);
+      const sites = menuSources.reduce((n, src) => n + src.split(`"${menuId}"`).length - 1, 0);
       expect(hits, `exactly one builder site for ${menuId}`).toHaveLength(1);
+      expect(sites, `${menuId} is named exactly once across the menu builder`).toBe(1);
       const [, cfg, accel] = hits[0];
       expect(accel).toBe(prosemirrorToTauri(fixed.key));
       const platformsFromCfg =
