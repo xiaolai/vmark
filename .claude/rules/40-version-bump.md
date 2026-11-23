@@ -17,6 +17,15 @@ Use `/bump` or `scripts/bump-version.sh <x.y.z>`. The five version sources must
 change together, and `src-tauri/Cargo.lock` must be regenerated and committed
 with them (`cargo update -p vmark --manifest-path src-tauri/Cargo.toml`).
 
+The version format is **`YYYY.M.<count>`** — year, month (no leading zero), and
+the cumulative release count, e.g. `2026.11.125`. It is deliberately SemVer-shaped
+(`X.Y.Z`) so the Tauri updater keeps working; `YYYY` and `M` follow the calendar
+and only `<count>` increments on each release. The month carries **no leading
+zero**: `2026.1.126`, not `2026.01.126` — the `semver` crate (used by the
+updater on `latest.json`) rejects a leading zero in the minor component. The
+transition was from `0.9.125` to `2026.11.126`: the `<count>` carried over from
+the old patch number.
+
 | File | Field |
 |------|-------|
 | `package.json` | `"version"` (the website reads it at build time) |
