@@ -11,6 +11,12 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 ## [Unreleased]
 
+## [2026.11.167] - 2026-11-23
+
+### Fixed
+
+- The line-height selector no longer snaps back to "Compact (1.4)" after choosing "Spacious (2.0)". Thanks to xingrong-lai for the report.
+
 ## [0.9.125] - 2026-11-23
 
 ### Fixed
@@ -684,7 +690,8 @@ Text you may want to copy stays selectable: messages, approval dialogs, Genie an
 
 - Raised the `markdown-it` version floor past GHSA-253c-mchw-3w2r.
 
-[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.125...HEAD
+[Unreleased]: https://github.com/xiaolai/vmark/compare/v2026.11.167...HEAD
+[2026.11.167]: https://github.com/xiaolai/vmark/releases/tag/v2026.11.167
 [0.9.125]: https://github.com/xiaolai/vmark/releases/tag/v0.9.125
 [0.9.124]: https://github.com/xiaolai/vmark/releases/tag/v0.9.124
 [0.9.123]: https://github.com/xiaolai/vmark/releases/tag/v0.9.123
