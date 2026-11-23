@@ -22,8 +22,9 @@
  *     actions re-invoke the native menu sync, which the originating window has
  *     already done. Going through them would bounce accelerator updates between
  *     windows for no benefit.
- *   - Validates values are strings before adopting them (zero-trust at the
- *     storage boundary, matching useSettingsSync).
+ *   - Adopts the incoming map through `reconcileCustomBindings`, the same
+ *     zero-trust boundary hydration uses: non-string values are dropped and a
+ *     binding on a fixed accelerator (F11 off macOS) becomes unassigned.
  *
  * @coordinates-with stores/settingsStore/shortcuts.ts — the synced store
  * @coordinates-with hooks/useSettingsSync.ts — sibling for the settings store
