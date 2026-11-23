@@ -49,12 +49,20 @@ describe("isFixedAccelerator", () => {
     },
   );
 
-  it.each(["Shift+F11", "Ctrl-F11", "CmdOrCtrl+F11", "F1", "F111", "++F11", "\uFEFFF11\uFEFF"])(
-    "does not reserve %j (a different chord, or one the native parser rejects)",
-    (key) => {
-      expect(isFixedAccelerator(key, "other")).toBe(false);
-    },
-  );
+  it.each([
+    "Shift+F11",
+    "Ctrl-F11",
+    "CmdOrCtrl+F11",
+    "F1",
+    "F111",
+    "++F11",
+    "\uFEFFF11\uFEFF",
+    "constructor",
+    "__proto__",
+    "toString",
+  ])("does not reserve %j (a different chord, or one the native parser rejects)", (key) => {
+    expect(isFixedAccelerator(key, "other")).toBe(false);
+  });
 
   it("trims a large whitespace-padded binding without pathological cost", () => {
     const padded = "\u0085 ".repeat(5000) + "F11" + " \u0085".repeat(5000);

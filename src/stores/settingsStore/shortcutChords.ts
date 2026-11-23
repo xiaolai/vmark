@@ -175,12 +175,15 @@ function nativeIdentity(key: string, platform: Platform): string | null {
 /** True when `key` is a fixed menu accelerator on `platform`. */
 export function isFixedAccelerator(key: string, platform: Platform = currentPlatform()): boolean {
   if (!key) return false;
-  const identity = chordIdentity(key, platform);
+  // Compare the canonical identity directly (no textual-fallback sort): a
+  // fixed chord is always mappable, so an unmappable `key` can never equal it
+  // and must not pay for sorting an unbounded hostile token list.
+  const identity = canonicalizeChordString(key, platform);
   const native = nativeIdentity(key, platform);
   return FIXED_ACCELERATORS.some(
     (fixed) =>
       fixed.platforms.includes(platform) &&
-      (chordIdentity(fixed.key, platform) === identity ||
+      ((identity !== null && canonicalizeChordString(fixed.key, platform) === identity) ||
         (native !== null && nativeIdentity(fixed.key, platform) === native)),
   );
 }
