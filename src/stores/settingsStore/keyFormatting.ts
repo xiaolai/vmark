@@ -33,7 +33,10 @@ export function prosemirrorToTauri(key: string): string {
     } else if (modifierNames.has(part) && i < parts.length - 1) {
       result.push(modifierMap[part] ?? part);
     } else {
-      const mapped = modifierMap[part] ?? part;
+      // Own-property lookup: a plain-object `map[part]` would resolve
+      // "constructor" to Object.prototype.constructor and throw on
+      // `mapped.length`, so a hostile saved binding could break hydration.
+      const mapped = Object.hasOwn(modifierMap, part) ? modifierMap[part] : part;
       if (mapped.length === 1 && /[a-z]/i.test(mapped)) {
         result.push(mapped.toUpperCase());
       } else {

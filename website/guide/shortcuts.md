@@ -403,8 +403,9 @@ When the terminal search bar is open:
 
 The dialog warns you before you assign a combination:
 
-- **Conflict** — the combination is already used by another shortcut, which it names. You can still choose **Assign Anyway**.
+- **Conflict** — the combination is already used by another shortcut, which it names. Choosing **Reassign** moves the combination here and leaves the other shortcut unassigned. On Windows and Linux `Mod` is `Ctrl`, so `Mod + B` and `Ctrl + B` count as the same combination.
 - **Not supported** — VMark cannot use that combination, so it cannot be assigned. Try another.
+- **Reserved** — on Windows and Linux, `F11` belongs to **Toggle Full Screen** and cannot be assigned to anything else. A shortcut saved or imported on `F11` is left unassigned.
 
 A customized shortcut is highlighted and gets a **Reset to default** button. **Reset All** restores every default after asking for confirmation. **Export** saves your shortcuts as a JSON file (`vmark-shortcuts.json`) and **Import** loads one; if any entry in the file is invalid, nothing is imported and the problems are listed.
 

@@ -403,8 +403,9 @@ Quando a barra de pesquisa do terminal estiver aberta:
 
 A caixa de diálogo avisa você antes de atribuir uma combinação:
 
-- **Conflito** — a combinação já é usada por outro atalho, que é indicado pelo nome. Você ainda pode escolher **Atribuir mesmo assim**.
+- **Conflito** — a combinação já é usada por outro atalho, que é indicado pelo nome. Ao escolher **Reatribuir**, a combinação passa para este atalho e o outro fica sem atribuição. No Windows e no Linux `Mod` é `Ctrl`, então `Mod + B` e `Ctrl + B` contam como a mesma combinação.
 - **Não suportada** — o VMark não pode usar essa combinação, então ela não pode ser atribuída. Tente outra.
+- **Reservada** — no Windows e no Linux, `F11` pertence a **Alternar tela cheia** e não pode ser atribuída a mais nada. Um atalho salvo ou importado em `F11` fica sem atribuição.
 
 Um atalho personalizado fica destacado e ganha um botão **Redefinir para o padrão**. **Redefinir tudo** restaura todos os padrões após pedir confirmação. **Exportar** salva seus atalhos como um arquivo JSON (`vmark-shortcuts.json`) e **Importar** carrega um; se alguma entrada do arquivo for inválida, nada é importado e os problemas são listados.
 

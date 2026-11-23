@@ -22,6 +22,7 @@ function renderCapture(overrides: Partial<Parameters<typeof KeyCapture>[0]> = {}
     <KeyCapture
       shortcut={shortcut}
       getConflict={() => null}
+      isReserved={() => false}
       currentKey=""
       onCapture={onCapture}
       onClear={onClear}
@@ -69,6 +70,20 @@ describe("KeyCapture", () => {
     const { onClear, onCapture } = renderCapture({ currentKey: "Mod-/" });
     fireEvent.click(screen.getByRole("button", { name: "Remove Shortcut" }));
     expect(onClear).toHaveBeenCalledTimes(1);
+    expect(onCapture).not.toHaveBeenCalled();
+  });
+
+  it("refuses a chord reserved by a fixed menu item (#1722), with no reassign offer", () => {
+    const { onCapture } = renderCapture({
+      isReserved: (key) => key === "F11",
+      getConflict: () => shortcut,
+    });
+    fireEvent.keyDown(window, { key: "F11", code: "F11" });
+    expect(screen.getByText(/built-in menu command/i)).toBeTruthy();
+    expect(screen.queryByText(/Conflict:/)).toBeNull();
+    const confirm = screen.getByRole("button", { name: "Assign" });
+    expect((confirm as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(confirm);
     expect(onCapture).not.toHaveBeenCalled();
   });
 

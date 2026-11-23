@@ -189,28 +189,25 @@ describe("startupMenuSync", () => {
       );
     });
 
-    it("logs, instead of throwing at import, when the saved binding map is malformed", async () => {
+    it("sanitizes a malformed saved binding map without throwing at import", async () => {
       await expect(
         launchWith({ language: "en", customBindings: null }),
       ).resolves.toBeUndefined();
 
-      await vi.waitFor(() =>
-        expect(menu.menuSyncWarn).toHaveBeenCalledWith("rebuild failed:", expect.any(TypeError)),
-      );
+      // A null map is sanitized to {} at the load boundary (#1721/#1722), so
+      // there is nothing to rebuild and nothing to warn about.
       expect(menu.rebuildNativeMenu).not.toHaveBeenCalled();
+      expect(menu.menuSyncWarn).not.toHaveBeenCalled();
     });
 
-    it("still sets a non-English locale when the saved binding map is malformed", async () => {
-      menu.rebuildNativeMenu.mockImplementation(async () => {
-        const { useShortcutsStore } = await import("@/stores/settingsStore");
-        useShortcutsStore.getState().getAllShortcuts();
-      });
+    it("still sets a non-English locale and rebuilds when the saved binding map is malformed", async () => {
       await launchWith({ language: "de", customBindings: null });
 
       await vi.waitFor(() =>
-        expect(menu.menuSyncWarn).toHaveBeenCalledWith("rebuild failed:", expect.any(TypeError)),
+        expect(invokeMock).toHaveBeenCalledWith("set_locale", { locale: "de" }),
       );
-      expect(invokeMock).toHaveBeenCalledWith("set_locale", { locale: "de" });
+      await vi.waitFor(() => expect(menu.rebuildNativeMenu).toHaveBeenCalled());
+      expect(menu.menuSyncWarn).not.toHaveBeenCalled();
     });
 
     it("logs, instead of throwing at import, when there is no Tauri window", async () => {

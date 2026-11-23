@@ -784,6 +784,7 @@
   "files.coherenceCapture.label": "Insérer le bloc d'identité à l'enregistrement",
   "files.coherenceCapture.description": "Permet à VMark d'insérer un bloc d'identité `vmark:` dans le frontmatter d'un fichier et de créer un dossier .vmark dans l'espace de travail, pour que la couche de cohérence puisse suivre le document. Cela vaut pour toute écriture : enregistrements, modifications par l'IA et MCP, rétablissements de versions antérieures et nouveaux fichiers. Désactivé, rien n'est inséré et aucun dossier .vmark n'est créé ; un espace de travail qui en possède déjà un continue d'enregistrer les modifications des documents qu'il suit — un document qu'il a déjà enregistré, ou un document qui porte déjà sa propre identité `vmark:`, comme un fichier suivi que vous avez déplacé ou récupéré par un checkout",
   "shortcuts.capture.unsupported": "Cette combinaison de touches n'est pas prise en charge. Essayez-en une autre.",
+  "shortcuts.capture.reserved": "Cette touche appartient à une commande de menu intégrée et ne peut pas être réassignée. Essayez-en une autre.",
   "coherence.group": "Cohérence",
   "coherence.checkTau.label": "Confiance de la vérification sémantique",
   "coherence.checkTau.description": "Degré de certitude requis pour qu'une vérification soit enregistrée comme verdict. En dessous, la réponse est conservée mais marquée inconnue.",

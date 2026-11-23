@@ -784,6 +784,7 @@
   "files.coherenceCapture.label": "保存时写入标识块",
   "files.coherenceCapture.description": "允许 VMark 向文件的 frontmatter 插入 `vmark:` 标识块，并在工作区创建 .vmark 文件夹，以便一致性层跟踪该文档。适用于所有写入：保存、AI 与 MCP 编辑、恢复早期版本和新建文件。关闭时不会插入标识块，也不会创建 .vmark 文件夹；已有 .vmark 的工作区会继续记录其所跟踪文档的变更——即它此前记录过的文档，或本身已带有 `vmark:` 标识块的文档，例如你移动或检出的已跟踪文件",
   "shortcuts.capture.unsupported": "不支持此组合键。请换一个。",
+  "shortcuts.capture.reserved": "此按键属于内置菜单命令，无法重新分配。请换一个。",
   "coherence.group": "一致性",
   "coherence.checkTau.label": "语义检查置信度",
   "coherence.checkTau.description": "检查结果需要多确定才会记录为判定。低于此值时答案仍会保留，但标记为未知。",
