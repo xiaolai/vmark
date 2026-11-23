@@ -26,24 +26,35 @@ $ARGUMENTS
 Read current version from `package.json`.
 
 Version format is `YYYY.M.<count>` — year, month (no leading zero), and the
-cumulative release count, e.g. `2026.11.125`. It is deliberately SemVer-shaped
+cumulative release count, e.g. `2026.11.167`. It is deliberately SemVer-shaped
 so the Tauri updater keeps working; `YYYY` and `M` follow the calendar and only
-`<count>` increments, and the month has **no leading zero** (`2026.1.126`, not
-`2026.01.126` — the `semver` crate rejects a leading zero in the minor).
+`<count>` increments, and the month has **no leading zero** (`2026.1.168`, not
+`2026.01.168` — the `semver` crate rejects a leading zero in the minor).
+
+`<count>` is the TOTAL number of releases, not the old 0.9.x patch. Compute it
+as the number of release tags plus one (tags are never deleted —
+`cleanup-old-releases` prunes GitHub release pages, not git tags):
+
+```
+count=$(( $(git tag | grep -cE '^v[0-9]+\.[0-9]+\.[0-9]+$') + 1 ))
+```
+
+At the transition 166 tags exist (v0.6.14 → v0.9.125), so the next release is
+`2026.11.167`.
 
 Parse `$ARGUMENTS`:
 
 | Input | Action |
 |-------|--------|
 | `X.Y.Z` | Use exactly as specified |
-| `patch` | `$(date +%Y).$((10#$(date +%m))).<count+1>` — today's year and month, count = the current third component + 1 |
+| `patch` | `$(date +%Y).$((10#$(date +%m))).$count` — today's year and month, `$count` as computed above |
 | (empty) | Same as `patch` |
 
 `minor` and `major` no longer apply: the year and month come from the calendar,
 not from a bump choice. To set a version by hand, pass the explicit `X.Y.Z`.
 
 Validate the resolved version matches `^[0-9]+\.[0-9]+\.[0-9]+$`. Anything
-else (e.g., `0.7.14.1`, `0.7`, `v0.7.15`, `2026.01.126`) is rejected — the
+else (e.g., `0.7.14.1`, `0.7`, `v0.7.15`, `2026.01.168`) is rejected — the
 Tauri updater parses `latest.json.version` with `semver` and rejects
 non-canonical shapes, and any divergence between the five files breaks the
 build.

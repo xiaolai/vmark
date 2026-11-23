@@ -18,13 +18,17 @@ change together, and `src-tauri/Cargo.lock` must be regenerated and committed
 with them (`cargo update -p vmark --manifest-path src-tauri/Cargo.toml`).
 
 The version format is **`YYYY.M.<count>`** — year, month (no leading zero), and
-the cumulative release count, e.g. `2026.11.125`. It is deliberately SemVer-shaped
+the cumulative release count, e.g. `2026.11.167`. It is deliberately SemVer-shaped
 (`X.Y.Z`) so the Tauri updater keeps working; `YYYY` and `M` follow the calendar
 and only `<count>` increments on each release. The month carries **no leading
-zero**: `2026.1.126`, not `2026.01.126` — the `semver` crate (used by the
-updater on `latest.json`) rejects a leading zero in the minor component. The
-transition was from `0.9.125` to `2026.11.126`: the `<count>` carried over from
-the old patch number.
+zero**: `2026.1.168`, not `2026.01.168` — the `semver` crate (used by the
+updater on `latest.json`) rejects a leading zero in the minor component.
+
+`<count>` is the TOTAL number of releases (release tags plus one — tags are kept
+forever by `cleanup-old-releases`), not the old 0.9.x patch number. The
+transition was from `0.9.125` (the 166th release) to `2026.11.167`: the count
+jumps once from the 0.9.x patch to the true total, then increments by one each
+release.
 
 | File | Field |
 |------|-------|
