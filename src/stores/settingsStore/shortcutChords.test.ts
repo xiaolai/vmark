@@ -41,7 +41,7 @@ describe("isFixedAccelerator", () => {
     expect(isFixedAccelerator("", "other")).toBe(false);
   });
 
-  it.each([" F11 ", "+F11", "f11", "\tF11"])(
+  it.each([" F11 ", "+F11", "f11", "\tF11", "\u0085F11\u0085"])(
     "reserves %j off macOS: the native menu would parse it as F11",
     (key) => {
       expect(isFixedAccelerator(key, "other")).toBe(true);

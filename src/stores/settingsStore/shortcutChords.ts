@@ -38,7 +38,7 @@ import { canonicalizeChordString, type Platform } from "@/utils/keybinding/canon
 import { prosemirrorToTauri } from "./keyFormatting";
 
 /** A menu accelerator fixed in the Rust menu builder, outside the shortcut registry. */
-export interface FixedAccelerator {
+interface FixedAccelerator {
   /** The Rust menu item id (in `FIXED_ACCELERATOR_IDS`). */
   menuId: string;
   /** The chord, in shortcut-store (ProseMirror) form. */
@@ -56,6 +56,16 @@ export const FIXED_ACCELERATORS: readonly FixedAccelerator[] = [
 
 function currentPlatform(): Platform {
   return isMacPlatform() ? "mac" : "other";
+}
+
+/**
+ * Trim whitespace the way Rust's `str::trim` does, so the native accelerator
+ * reservation can't be slipped past by a control character the JS `trim` leaves
+ * in place. JS `\s` already covers every Rust white-space character except
+ * U+0085 (NEL); adding it makes the two agree for these purposes.
+ */
+function trimRustWhitespace(s: string): string {
+  return s.replace(/^[\s\u0085]+|[\s\u0085]+$/g, "");
 }
 
 /** Textual identity for a chord the canonicalizer cannot map. */
@@ -76,7 +86,7 @@ export function chordIdentity(key: string, platform: Platform = currentPlatform(
 
 /** muda's modifier tokens → one name per platform (`CmdOrCtrl` resolves like `Mod`). */
 function nativeModifier(token: string, platform: Platform): string | null {
-  switch (token.trim().toUpperCase()) {
+  switch (trimRustWhitespace(token).toUpperCase()) {
     case "OPTION":
     case "ALT":
       return "alt";
@@ -105,16 +115,16 @@ function nativeModifier(token: string, platform: Platform): string | null {
  * as muda's `split_key_and_modifiers` does. Null when muda would reject it.
  */
 function nativeIdentity(key: string, platform: Platform): string | null {
-  const accel = prosemirrorToTauri(key).trim();
+  const accel = trimRustWhitespace(prosemirrorToTauri(key));
   if (!accel) return null;
   const pos = accel.lastIndexOf("+");
   let mods = "";
   let base = accel;
   if (pos >= 0) {
     const raw = accel.slice(pos + 1);
-    if (raw.trim()) {
+    if (trimRustWhitespace(raw)) {
       mods = accel.slice(0, pos);
-      base = raw.trim();
+      base = trimRustWhitespace(raw);
     } else {
       mods = accel.slice(0, pos).replace(/\++$/, "");
       base = "+";
