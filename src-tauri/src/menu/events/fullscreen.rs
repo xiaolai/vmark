@@ -27,6 +27,9 @@
 //!     keeps no pending record.
 //!   - Records are keyed by label and dropped when the window is destroyed,
 //!     so a later window reusing the label (`main`) starts clean.
+//!   - Linux also keeps the geometry a window had before full screen on
+//!     disk, until a clean exit saves a normal size, to undo the window-state
+//!     plugin saving the monitor size (#1723, `fullscreen_restore.rs`).
 
 use std::sync::Mutex;
 
@@ -48,6 +51,15 @@ use pending_req::{on_press, PENDING_WINDOW};
 #[cfg(target_os = "linux")]
 #[path = "fullscreen_gtk.rs"]
 mod gtk_watch;
+
+#[cfg(any(target_os = "linux", test))]
+#[path = "fullscreen_geometry.rs"]
+mod geometry;
+#[cfg(target_os = "linux")]
+#[path = "fullscreen_restore.rs"]
+mod restore;
+#[cfg(target_os = "linux")]
+pub(crate) use restore::plugin as geometry_plugin;
 
 /// Record a native focus change. Losing focus keeps the record: a Windows
 /// menu click is exactly the moment focus has just been lost.
@@ -139,7 +151,7 @@ pub(super) fn toggle_fullscreen(window: &impl FullscreenWindow) -> tauri::Result
 /// only when none is in flight.
 #[cfg(target_os = "linux")]
 fn press_fullscreen(window: &tauri::WebviewWindow) -> tauri::Result<()> {
-    gtk_watch::ensure_watched(window);
+    gtk_watch::ensure_watched(&window.as_ref().window());
     let label = window.label();
     let realized = window.is_fullscreen_now()?;
     let request = apply_press(

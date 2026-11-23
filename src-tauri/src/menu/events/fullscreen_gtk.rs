@@ -1,7 +1,10 @@
-//! Linux: follow GTK's `window-state-event` for each window Toggle Full
-//! Screen acts on, so a pending request is retired when the window manager
-//! actually applies it (#1715). A child of `menu/events/fullscreen.rs`; the
-//! decision itself is the pure `fullscreen_pending.rs`.
+//! Linux: follow GTK's `window-state-event` for every window, so a pending
+//! Toggle Full Screen request is retired when the window manager actually
+//! applies it (#1715), and follow `configure-event` so the geometry a window
+//! had before full screen can be given back on the next launch (#1723,
+//! `fullscreen_restore.rs`). A child of `menu/events/fullscreen.rs`; the
+//! decisions themselves are the pure `fullscreen_pending.rs` and
+//! `fullscreen_geometry.rs`.
 //!
 //! A resize is not a confirmation: unrelated resizes happen mid-transition,
 //! and a fullscreen change need not resize at all. The state event reports
@@ -19,8 +22,8 @@ fn watched() -> std::sync::MutexGuard<'static, Option<HashSet<String>>> {
     WATCHED.lock().unwrap_or_else(|p| p.into_inner())
 }
 
-/// Connect the state handler to `window` once per native window.
-pub(super) fn ensure_watched(window: &tauri::WebviewWindow) {
+/// Connect the handlers to `window` once per native window.
+pub(super) fn ensure_watched(window: &tauri::Window) {
     let label = window.label().to_string();
     if !watched()
         .get_or_insert_with(HashSet::new)
@@ -34,6 +37,20 @@ pub(super) fn ensure_watched(window: &tauri::WebviewWindow) {
         }
         return;
     };
+    let sampled_window = window.clone();
+    gtk_window.connect_configure_event(move |gtk_window, _| {
+        use gtk::gdk::WindowState;
+        let abnormal = WindowState::FULLSCREEN | WindowState::MAXIMIZED | WindowState::ICONIFIED;
+        // tao's own configure handler, connected when the window was built,
+        // has already updated the size and position this reads.
+        if gtk_window
+            .window()
+            .is_some_and(|realized| !realized.state().intersects(abnormal))
+        {
+            super::restore::note_normal_configure(&sampled_window);
+        }
+        false
+    });
     let tauri_window = window.clone();
     gtk_window.connect_window_state_event(move |_, event| {
         if event
@@ -43,6 +60,7 @@ pub(super) fn ensure_watched(window: &tauri::WebviewWindow) {
             let realized = event
                 .new_window_state()
                 .contains(gtk::gdk::WindowState::FULLSCREEN);
+            super::restore::note_fullscreen_state(&tauri_window, realized);
             // Decide under the lock, request outside it.
             let request = super::pending().as_mut().and_then(|map| {
                 super::apply_observed(map, &label, realized, std::time::Instant::now())

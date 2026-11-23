@@ -113,7 +113,7 @@ pub(crate) fn register(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<ta
         .plugin(tauri_plugin_notification::init())
         .plugin(
             tauri_plugin_window_state::Builder::new()
-                .with_denylist(&["settings", "pdf-export"])
+                .with_denylist(WINDOW_STATE_DENYLIST)
                 // Exclude VISIBLE from state restoration: a window saved while
                 // hidden must not be restored hidden, with no way to reach it.
                 // NOTE: windows are NOT created hidden — this comment used to
@@ -124,8 +124,17 @@ pub(crate) fn register(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<ta
                 .with_state_flags(window_state_flags())
                 .build(),
         );
+    // Directly after the window-state plugin, whose restore it corrects for a
+    // window that was closed, quit or crashed in full screen (#1723).
+    #[cfg(target_os = "linux")]
+    {
+        builder = builder.plugin(crate::menu::events::fullscreen_geometry_plugin());
+    }
     builder
 }
+
+/// Windows the window-state plugin neither saves nor restores.
+pub(crate) const WINDOW_STATE_DENYLIST: &[&str] = &["settings", "pdf-export"];
 
 /// Window state the window-state plugin saves and restores.
 ///

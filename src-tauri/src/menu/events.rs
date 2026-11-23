@@ -35,6 +35,8 @@ mod fullscreen;
 mod windows;
 
 pub use dispatch::handle_menu_event;
+#[cfg(target_os = "linux")]
+pub(crate) use fullscreen::geometry_plugin as fullscreen_geometry_plugin;
 pub(crate) use fullscreen::{forget_window as forget_fullscreen_window, note_window_focus};
 
 /// Pending menu event to emit when window becomes ready
