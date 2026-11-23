@@ -52,9 +52,10 @@ export async function rebuildNativeMenu(): Promise<void> {
   const menuShortcuts = buildMenuShortcuts();
   await invoke("rebuild_menu", { shortcuts: menuShortcuts });
 
-  const geniesAccel = menuShortcuts["search-genies"]
-    ? { "search-genies": menuShortcuts["search-genies"] }
-    : null;
+  // "" is a deliberate unbinding and must reach Rust as such; `null` asks
+  // Rust for its default accelerator instead.
+  const geniesKey = menuShortcuts["search-genies"];
+  const geniesAccel = geniesKey !== undefined ? { "search-genies": geniesKey } : null;
   await invoke("refresh_genies_menu", { shortcuts: geniesAccel });
 
   const { useRecentFilesStore } = await import("@/stores/workspaceStore");

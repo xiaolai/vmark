@@ -4556,10 +4556,10 @@ The Settings window is its own route (`src/pages/Settings.tsx`, panes under `src
 - id: menu-rebuild
 - feature: Native menu bar & menu events
 - summary: A full menu rebuild re-translates every label, re-applies accelerators, and re-populates the dynamic submenus a rebuild resets.
-- capabilities: `rebuildNativeMenu()` invokes `rebuild_menu`, then `refresh_genies_menu`, then re-syncs recent files and recent workspaces; Rust side re-applies macOS menu fixes/icons, then conditional-item visibility; startup rebuild (after `set_locale`) when the persisted language is non-English
+- capabilities: `rebuildNativeMenu()` invokes `rebuild_menu`, then `refresh_genies_menu`, then re-syncs recent files and recent workspaces; Rust side re-applies macOS menu fixes/icons, then conditional-item visibility; startup rebuild from the launch window only: after `set_locale` when the persisted language is non-English, otherwise when a custom binding for a menu-backed shortcut is saved (Rust builds the launch menu with default accelerators, #1720); an explicitly unbound Search Genies reaches `refresh_genies_menu` as `""`, not `null`
 - status: shipped-on
 - gate: always on
-- surfaces: automatic — startup (non-English), language change in Settings → Language (with revert on failure), Pandoc detect in Settings → Files & Images
+- surfaces: automatic — startup (non-English, or custom shortcuts), language change in Settings → Language (with revert on failure), Pandoc detect in Settings → Files & Images
 - code: `src/services/menu/rebuildNativeMenu.ts`, `src/services/menu/startupMenuSync.ts`, `src-tauri/src/menu/commands.rs`, `src-tauri/src/menu/dynamic.rs`
 - rust: `menu::rebuild_menu`, `menu::refresh_genies_menu`, `menu::update_recent_files`, `menu::update_recent_workspaces`, `menu::set_locale`
 - docs: none
@@ -4696,7 +4696,7 @@ The Settings window is its own route (`src/pages/Settings.tsx`, panes under `src
 - id: frontend-bootstrap
 - feature: App chrome (titlebar/statusbar/welcome)
 - summary: Not user-facing: a staged bootstrap runs before React mounts — `src/main.tsx` is the entry, `src/bootstrap.tsx` the startup sequence — so i18n, secure storage, the native theme capability, format adapters, plugin host settings and the platform class are in place at first paint.
-- capabilities: side-effect imports of `./i18n` and `./services/menu/startupMenuSync` (the non-English startup menu rebuild); platform root class before first paint; `initSecureStorage` over a private key list (`vmark-ai-providers`) and `loadNativeThemeCapability()` started first and both awaited before the App loader the entry passes in runs (the AI provider store's Zustand persist hydrates at module evaluation, and a tinted theme on Windows 11 must paint as itself from the first frame), the synchronous setup overlapping their IPCs; `setTabExistenceGuard` wiring documentStore to tabStore; `bindPluginHostSettings` (ADR-015 host-settings seam); `bootstrapFormats` honouring the user's `formats.*` opt-ins; global stylesheet order (index.css → shared `.vm-*` primitive sheets → KaTeX → KaTeX fixes); `StrictMode` + `BrowserRouter`; a bootstrap failure is logged through `appError`
+- capabilities: side-effect imports of `./i18n` and `./services/menu/startupMenuSync` (the startup menu rebuild for a non-English language or custom shortcuts); platform root class before first paint; `initSecureStorage` over a private key list (`vmark-ai-providers`) and `loadNativeThemeCapability()` started first and both awaited before the App loader the entry passes in runs (the AI provider store's Zustand persist hydrates at module evaluation, and a tinted theme on Windows 11 must paint as itself from the first frame), the synchronous setup overlapping their IPCs; `setTabExistenceGuard` wiring documentStore to tabStore; `bindPluginHostSettings` (ADR-015 host-settings seam); `bootstrapFormats` honouring the user's `formats.*` opt-ins; global stylesheet order (index.css → shared `.vm-*` primitive sheets → KaTeX → KaTeX fixes); `StrictMode` + `BrowserRouter`; a bootstrap failure is logged through `appError`
 - status: shipped-on
 - gate: always on
 - surfaces: automatic

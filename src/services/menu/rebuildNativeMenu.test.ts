@@ -76,7 +76,9 @@ describe("rebuildNativeMenu", () => {
     });
   });
 
-  it("passes null to refresh_genies_menu when search-genies has no binding", async () => {
+  // An explicit unbinding must reach Rust as "" — `null` asks Rust for its
+  // default (CmdOrCtrl+Y), which put an unbound shortcut back (#1720).
+  it("passes an empty search-genies accel to refresh_genies_menu when it is unbound", async () => {
     getAllShortcutsMock.mockReturnValue({
       bold: "Mod-b",
       searchGenies: "",
@@ -85,7 +87,7 @@ describe("rebuildNativeMenu", () => {
     await rebuildNativeMenu();
 
     expect(invokeMock).toHaveBeenCalledWith("refresh_genies_menu", {
-      shortcuts: null,
+      shortcuts: { "search-genies": "" },
     });
   });
 
