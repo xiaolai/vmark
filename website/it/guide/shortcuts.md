@@ -404,8 +404,9 @@ Quando la barra di ricerca del terminale è aperta:
 
 La finestra di dialogo ti avvisa prima che tu assegni una combinazione:
 
-- **Conflitto** — la combinazione è già usata da un'altra scorciatoia, che viene indicata. Puoi comunque scegliere **Assegna comunque**.
+- **Conflitto** — la combinazione è già usata da un'altra scorciatoia, che viene indicata. Scegliendo **Riassegna** la combinazione passa qui e l'altra scorciatoia resta non assegnata. Su Windows e Linux `Mod` è `Ctrl`, quindi `Mod + B` e `Ctrl + B` contano come la stessa combinazione.
 - **Non supportata** — VMark non può usare quella combinazione, quindi non può essere assegnata. Provane un'altra.
+- **Riservata** — su Windows e Linux, `F11` appartiene a **Attiva/disattiva modalità a tutto schermo** e non può essere assegnato ad altro. Una scorciatoia salvata o importata su `F11` resta non assegnata.
 
 Una scorciatoia personalizzata viene evidenziata e riceve un pulsante **Reimposta al valore predefinito**. **Reimposta tutto** ripristina tutti i valori predefiniti dopo aver chiesto conferma. **Esporta** salva le tue scorciatoie come file JSON (`vmark-shortcuts.json`) e **Importa** ne carica uno; se una qualsiasi voce del file non è valida, non viene importato nulla e i problemi vengono elencati.
 

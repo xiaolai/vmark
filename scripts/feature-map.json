@@ -1216,6 +1216,7 @@
         "src/utils/keybinding",
         "src/stores/settingsStore/shortcuts.ts",
         "src/stores/settingsStore/shortcutMenuSync.ts",
+        "src/stores/settingsStore/shortcutChords.ts",
         "src/stores/settingsStore/shortcutsReassign.test.ts",
         "src/stores/settingsStore/shortcutLabelKeys.test.ts",
         "src-tauri/src/menu/accelerators.rs",

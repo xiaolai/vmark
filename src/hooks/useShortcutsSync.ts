@@ -22,8 +22,8 @@
  *     actions re-invoke the native menu sync, which the originating window has
  *     already done. Going through them would bounce accelerator updates between
  *     windows for no benefit.
- *   - Validates values are strings before adopting them (zero-trust at the
- *     storage boundary, matching useSettingsSync).
+ *   - Validates the incoming map with `reconcileCustomBindings`, the same
+ *     boundary hydration uses (zero-trust, matching useSettingsSync).
  *
  * @coordinates-with stores/settingsStore/shortcuts.ts — the synced store
  * @coordinates-with hooks/useSettingsSync.ts — sibling for the settings store
@@ -32,6 +32,7 @@
 
 import { useEffect } from "react";
 import { useShortcutsStore } from "@/stores/settingsStore/shortcuts";
+import { reconcileCustomBindings } from "@/stores/settingsStore/shortcutChords";
 import { shortcutsSyncWarn } from "@/utils/debug";
 
 const STORAGE_KEY = "vmark-shortcuts";
@@ -62,12 +63,9 @@ export function handleShortcutsStorageEvent(event: StorageEvent): void {
       return; // malformed write — leave live bindings alone
     }
 
-    // Bindings are id -> key strings. Drop anything else rather than letting a
-    // non-string reach the keymap builders.
-    const clean: Record<string, string> = {};
-    for (const [id, key] of Object.entries(incoming as Record<string, unknown>)) {
-      if (typeof key === "string") clean[id] = key;
-    }
+    // The same boundary hydration uses: drop non-string values rather than let
+    // them reach the keymap builders, and unassign fixed accelerators.
+    const clean = reconcileCustomBindings(incoming);
 
     const current = useShortcutsStore.getState().customBindings;
     if (JSON.stringify(current) === JSON.stringify(clean)) return;

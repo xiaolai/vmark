@@ -784,6 +784,7 @@
   "files.coherenceCapture.label": "Identitätsblock beim Speichern einfügen",
   "files.coherenceCapture.description": "Erlaubt VMark, einen `vmark:`-Identitätsblock in das Frontmatter einer Datei einzufügen und einen .vmark-Ordner im Arbeitsbereich anzulegen, damit die Kohärenz-Ebene das Dokument verfolgen kann. Das gilt für jeden Schreibvorgang — Speichern, KI- und MCP-Bearbeitungen, das Zurücksetzen auf frühere Versionen und neue Dateien. Wenn aus, wird nichts eingefügt und kein .vmark-Ordner angelegt; ein Arbeitsbereich, der bereits einen hat, zeichnet weiterhin Änderungen an den Dokumenten auf, die er verfolgt — an einem Dokument, das er bereits aufgezeichnet hat, oder an einem, das schon eine eigene `vmark:`-Identität trägt, etwa einer verfolgten Datei, die Sie verschoben oder ausgecheckt haben",
   "shortcuts.capture.unsupported": "Diese Tastenkombination wird nicht unterstützt. Versuchen Sie eine andere.",
+  "shortcuts.capture.reserved": "Diese Taste gehört zu einem integrierten Menübefehl und kann nicht neu zugewiesen werden. Versuchen Sie eine andere.",
   "coherence.group": "Kohärenz",
   "coherence.checkTau.label": "Konfidenz der semantischen Prüfung",
   "coherence.checkTau.description": "Wie sicher eine Prüfung sein muss, damit ihre Antwort als Urteil gilt. Darunter wird die Antwort behalten, aber als unbekannt markiert.",

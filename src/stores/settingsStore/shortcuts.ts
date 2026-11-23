@@ -27,6 +27,7 @@ import {
   type ShortcutDefinition,
 } from "./shortcutDefinitions";
 import { syncMenuShortcuts } from "./shortcutMenuSync";
+import { chordIdentity, isFixedAccelerator, reconcileCustomBindings } from "./shortcutChords";
 
 export {
   DEFAULT_SHORTCUTS,
@@ -90,6 +91,8 @@ interface ShortcutsActions {
   resetAllShortcuts: () => void;
   /** Check if key conflicts with any other shortcut */
   getConflict: (key: string, excludeId?: string) => ShortcutDefinition | null;
+  /** True when `key` is a fixed menu accelerator on this platform (never assignable). */
+  isReserved: (key: string) => boolean;
   /** Export config as JSON string */
   exportConfig: () => string;
   /** Import config from JSON string */
@@ -133,6 +136,7 @@ export const useShortcutsStore = create<ShortcutsState & ShortcutsActions>()(
       },
 
       setShortcut: (id, key) => {
+        if (isFixedAccelerator(key)) return;
         set((state) => ({
           customBindings: { ...state.customBindings, [id]: key },
         }));
@@ -140,14 +144,15 @@ export const useShortcutsStore = create<ShortcutsState & ShortcutsActions>()(
       },
 
       reassignShortcut: (id, key) => {
+        if (isFixedAccelerator(key)) return;
         const { customBindings } = get();
         const next = { ...customBindings, [id]: key };
         if (key) {
-          const target = normalizeKey(key);
+          const target = chordIdentity(key);
           for (const def of DEFAULT_SHORTCUTS) {
             if (def.id === id) continue;
             const effective = customBindings[def.id] ?? resolveDefaultKey(def);
-            if (effective && normalizeKey(effective) === target) next[def.id] = "";
+            if (effective && chordIdentity(effective) === target) next[def.id] = "";
           }
         }
         set({ customBindings: next });
@@ -172,18 +177,21 @@ export const useShortcutsStore = create<ShortcutsState & ShortcutsActions>()(
         if (!key) return null;
 
         const { customBindings } = get();
-        const normalizedKey = normalizeKey(key);
+        // Platform-resolved identity (#1721): off macOS `Mod-x` IS `Ctrl-x`.
+        const target = chordIdentity(key);
 
         for (const def of DEFAULT_SHORTCUTS) {
           if (def.id === excludeId) continue;
           const effectiveKey = customBindings[def.id] ?? resolveDefaultKey(def);
           if (!effectiveKey) continue; // unbound shortcuts don't conflict
-          if (normalizeKey(effectiveKey) === normalizedKey) {
+          if (chordIdentity(effectiveKey) === target) {
             return def;
           }
         }
         return null;
       },
+
+      isReserved: (key) => isFixedAccelerator(key),
 
       exportConfig: () => {
         const { customBindings, version } = get();
@@ -223,7 +231,8 @@ export const useShortcutsStore = create<ShortcutsState & ShortcutsActions>()(
           // went wrong" signal, distinct from an empty problem list.
           if (errors.length > 0) return { success: false, errors };
 
-          set({ customBindings: bindings });
+          // A binding on a fixed accelerator loses to the fixed item (#1722).
+          set({ customBindings: reconcileCustomBindings(bindings) });
           syncMenuShortcuts(get().getAllShortcuts());
           return { success: true };
         } catch (e) {
@@ -249,16 +258,22 @@ export const useShortcutsStore = create<ShortcutsState & ShortcutsActions>()(
       storage: createJSONStorage(() =>
         createSectionMergingStorage(createSafeStorage()),
       ),
+      // The saved map is untrusted: `reconcileCustomBindings` (shared with the
+      // cross-window route in useShortcutsSync) loads a non-object as `{}`,
+      // drops non-string values and unassigns bindings on fixed accelerators.
+      merge: (persisted, current) => {
+        if (typeof persisted !== "object" || persisted === null || Array.isArray(persisted)) {
+          return current;
+        }
+        const { customBindings, version } = persisted as Record<string, unknown>;
+        return {
+          ...current,
+          version: typeof version === "number" ? version : current.version,
+          customBindings: reconcileCustomBindings(customBindings),
+        };
+      },
     }
   )
 );
-
-/** Normalize key string for comparison (case-insensitive, sorted modifiers). */
-function normalizeKey(key: string): string {
-  const parts = key.toLowerCase().split("-");
-  const modifiers = parts.slice(0, -1).sort();
-  const mainKey = parts[parts.length - 1];
-  return [...modifiers, mainKey].join("-");
-}
 
 // getCategoryLabel / getShortcutLabel live in `../settingsShortcutLabels.ts` (avoids a settingsStore ⇄ i18n circular import).
