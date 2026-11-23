@@ -20,6 +20,9 @@
 //!   - The automation bridge's capability lives outside `capabilities/` and is
 //!     added at runtime only in a debug build whose bridge started, so a
 //!     release build carries no `mcp-bridge` permission.
+//!   - On Linux the full-screen geometry plugin registers immediately after the
+//!     window-state plugin, so its exit hook reads the plugin's file after the
+//!     save and its restore runs after the plugin's (#1723).
 //!
 //! @coordinates-with lib.rs — `run`, the only caller
 //! @coordinates-with automation_port.rs — the probe the debug bridge is pinned to
