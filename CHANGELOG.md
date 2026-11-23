@@ -11,6 +11,14 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 ## [Unreleased]
 
+## [0.9.125] - 2026-11-23
+
+### Fixed
+
+- Custom keyboard shortcuts now survive a restart when the interface language is English (or unset). They were only applied to the menu for non-English languages.
+- On Windows and Linux, shortcut conflict detection now treats Mod and Ctrl as the same key, so two commands can no longer silently share one chord.
+- The full-screen shortcut F11 (Windows/Linux) is now reserved, so it can no longer be rebound to another command.
+
 ## [0.9.124] - 2026-11-22
 
 ### Fixed
@@ -676,7 +684,8 @@ Text you may want to copy stays selectable: messages, approval dialogs, Genie an
 
 - Raised the `markdown-it` version floor past GHSA-253c-mchw-3w2r.
 
-[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.124...HEAD
+[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.125...HEAD
+[0.9.125]: https://github.com/xiaolai/vmark/releases/tag/v0.9.125
 [0.9.124]: https://github.com/xiaolai/vmark/releases/tag/v0.9.124
 [0.9.123]: https://github.com/xiaolai/vmark/releases/tag/v0.9.123
 [0.9.122]: https://github.com/xiaolai/vmark/releases/tag/v0.9.122
