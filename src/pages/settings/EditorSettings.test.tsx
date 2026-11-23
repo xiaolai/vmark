@@ -189,6 +189,25 @@ describe("EditorSettings — typography selects", () => {
     await user.selectOptions(screen.getByRole("combobox", { name: /^latin font$/i }), "georgia");
     expect(store().appearance.latinFont).toBe("georgia");
   });
+
+  it("shows the stored line-height 2 as the 2.0 option instead of snapping to the first (#1731)", () => {
+    useSettingsStore.setState({ appearance: { ...store().appearance, lineHeight: 2 } });
+    render(<EditorSettings />);
+
+    const select = screen.getByRole("combobox", { name: /^line height$/i }) as HTMLSelectElement;
+    expect(select.value).toBe("2.0");
+  });
+
+  it("keeps the 2.0 line-height option selected after choosing it (#1731)", async () => {
+    const user = userEvent.setup();
+    render(<EditorSettings />);
+
+    const select = screen.getByRole("combobox", { name: /^line height$/i }) as HTMLSelectElement;
+    await user.selectOptions(select, "2.0");
+
+    expect(store().appearance.lineHeight).toBe(2);
+    expect(select.value).toBe("2.0");
+  });
 });
 
 describe("EditorSettings — large files", () => {
