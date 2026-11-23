@@ -11,13 +11,14 @@ VERSION=$1
 
 if [ -z "$VERSION" ]; then
   echo "Usage: ./scripts/bump-version.sh <version>"
-  echo "Example: ./scripts/bump-version.sh 0.3.20"
+  echo "Example: ./scripts/bump-version.sh 2026.11.167"
   exit 1
 fi
 
-# Validate version format (basic semver check)
+# Validate version format (YYYY.M.count, a SemVer shape the updater accepts).
+# The month carries no leading zero: `semver` rejects `2026.01.167`.
 if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-  echo "Error: Version must be in semver format (e.g., 0.3.20)"
+  echo "Error: Version must look like YYYY.M.count (e.g., 2026.11.167)"
   exit 1
 fi
 
