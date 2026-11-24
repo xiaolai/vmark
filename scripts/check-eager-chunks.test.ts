@@ -392,10 +392,16 @@ describe("eager byte budget — what cold start loads, whatever the chunk shape"
     expect(message).toContain((MAX_EAGER_BYTES / MiB).toFixed(2));
   });
 
-  it("sits within ~5% of the measured cold-start closure (3.00 MiB), like every other budget", () => {
-    const measured = 3.0 * MiB;
+  it("sits within ~5% of the measured cold-start closure (3.16 MiB), like every other budget", () => {
+    const measured = 3_309_964;
     expect(MAX_EAGER_BYTES).toBeGreaterThan(measured);
     expect(MAX_EAGER_BYTES).toBeLessThanOrEqual(measured * 1.06);
+  });
+
+  it("spends only the 907 bytes of headroom main had left on the i18next bump", () => {
+    // 3,305,484 (old cap) − 3,304,577 (main's closure) = 907. The i18next 27
+    // code adds 5,387 bytes; the new cap must not buy any further slack.
+    expect(MAX_EAGER_BYTES).toBe(3_309_964 + 907);
   });
 
   it("takes an explicit budget, so the check is testable apart from the constant", () => {
