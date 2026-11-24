@@ -99,7 +99,7 @@ urlencoding = "2"
 # identically instead of drifting. Already in the tree via tauri; promoting it to
 # a direct dependency adds no new package to the lockfile.
 url = "2"
-notify = { version = "8", default-features = false, features = ["macos_fsevent"] }
+notify = { version = "9", default-features = false, features = ["macos_fsevent"] }
 tokio = { version = "1", features = ["sync", "macros", "rt-multi-thread", "process", "io-util", "time"] }
 tokio-tungstenite = "0.30"
 tokio-util = { version = "0.7", features = ["rt"] }
