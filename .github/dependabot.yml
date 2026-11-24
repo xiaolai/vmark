@@ -59,6 +59,16 @@ updates:
     groups:
       npm-minor-patch:
         update-types: ["minor", "patch"]
+        # Tiptap's minor releases carry type and editor-behaviour changes that
+        # need the plugin tests migrated deliberately (#1736: the npm group at
+        # Tiptap 3.34.0 failed 11 test files plus `lint:test-types`). Grouping
+        # it with ~50 routine updates blocks all of them, so it gets its own PR.
+        exclude-patterns:
+          - "@tiptap/*"
+      npm-tiptap:
+        patterns:
+          - "@tiptap/*"
+        update-types: ["minor", "patch"]
     ignore:
       # @types/node tracks the Node runtime major (22 — CI, dev, and the
       # pkg-compiled sidecar all run 22). Majors are bumped manually when
