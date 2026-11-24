@@ -38,6 +38,7 @@ Wenn Sie die Systemfunktionen auf F-Tasten bevorzugen, können Sie VMark-Tastatu
 | `F8` | Fokusmodus |
 | `F9` | Schreibmaschinenmodus |
 | `F10` | Nur-Lese-Modus |
+| `F11` | Vollbildmodus ein/aus _(Windows/Linux; macOS verwendet `Ctrl + Cmd + F`)_ |
 
 ## Bearbeiten
 
@@ -167,6 +168,7 @@ Wenn Sie die Systemfunktionen auf F-Tasten bevorzugen, können Sie VMark-Tastatu
 | Tatsächliche Größe | `Mod + 0` |
 | Vergrößern | `Mod + =` |
 | Verkleinern | `Mod + -` |
+| Vollbildmodus ein/aus | `Ctrl + Cmd + F` unter macOS, `F11` unter Windows/Linux |
 | Zeilenumbruch | `Alt + Z` |
 | Zuletzt verwendeter Tab | `Strg + Tab` |
 | Editor teilen — zwei Dokumente | `Alt + Mod + \` |
@@ -401,8 +403,9 @@ Wenn die Terminal-Suchleiste geöffnet ist:
 
 Der Dialog warnt Sie, bevor Sie eine Kombination zuweisen:
 
-- **Konflikt** — die Kombination wird bereits von einem anderen Tastaturkürzel verwendet, das genannt wird. Sie können trotzdem **Trotzdem zuweisen** wählen.
+- **Konflikt** — die Kombination wird bereits von einem anderen Tastaturkürzel verwendet, das genannt wird. Mit **Neu zuweisen** wandert die Kombination hierher, und das andere Tastaturkürzel bleibt ohne Zuweisung. Unter Windows und Linux ist `Mod` gleich `Ctrl`, daher gelten `Mod + B` und `Ctrl + B` als dieselbe Kombination.
 - **Nicht unterstützt** — VMark kann diese Kombination nicht verwenden, daher lässt sie sich nicht zuweisen. Versuchen Sie eine andere.
+- **Reserviert** — unter Windows und Linux gehört `F11` zu **Vollbildmodus ein/aus** und kann nichts anderem zugewiesen werden. Ein auf `F11` gespeichertes oder importiertes Tastaturkürzel bleibt ohne Zuweisung.
 
 Ein angepasstes Tastaturkürzel wird hervorgehoben und erhält eine Schaltfläche **Auf Standard zurücksetzen**. **Alle zurücksetzen** stellt nach einer Rückfrage alle Standardwerte wieder her. **Exportieren** speichert Ihre Tastaturkürzel als JSON-Datei (`vmark-shortcuts.json`), und **Importieren** lädt eine solche; ist ein Eintrag in der Datei ungültig, wird nichts importiert und die Probleme werden aufgelistet.
 

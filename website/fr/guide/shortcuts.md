@@ -38,6 +38,7 @@ Si vous préférez conserver les fonctions système sur les touches F, vous pouv
 | `F8` | Mode focus |
 | `F9` | Mode machine à écrire |
 | `F10` | Mode lecture seule |
+| `F11` | Activer/désactiver le plein écran _(Windows/Linux ; macOS utilise `Ctrl + Cmd + F`)_ |
 
 ## Édition
 
@@ -167,6 +168,7 @@ Si vous préférez conserver les fonctions système sur les touches F, vous pouv
 | Taille réelle | `Mod + 0` |
 | Zoom avant | `Mod + =` |
 | Zoom arrière | `Mod + -` |
+| Activer/désactiver le plein écran | `Ctrl + Cmd + F` sur macOS, `F11` sur Windows/Linux |
 | Retour à la ligne | `Alt + Z` |
 | Dernier onglet utilisé | `Ctrl + Tab` |
 | Diviser l'éditeur — deux documents | `Alt + Mod + \` |
@@ -401,8 +403,9 @@ Quand la barre de recherche du terminal est ouverte :
 
 La boîte de dialogue vous avertit avant que vous n'attribuiez une combinaison :
 
-- **Conflit** — la combinaison est déjà utilisée par un autre raccourci, qu'elle nomme. Vous pouvez tout de même choisir **Assigner quand même**.
+- **Conflit** — la combinaison est déjà utilisée par un autre raccourci, qu'elle nomme. Choisir **Réassigner** déplace la combinaison ici et laisse l'autre raccourci sans attribution. Sous Windows et Linux, `Mod` correspond à `Ctrl` : `Mod + B` et `Ctrl + B` comptent donc comme la même combinaison.
 - **Non prise en charge** — VMark ne peut pas utiliser cette combinaison, elle ne peut donc pas être attribuée. Essayez-en une autre.
+- **Réservée** — sous Windows et Linux, `F11` appartient à **Activer/désactiver le plein écran** et ne peut être attribuée à rien d'autre. Un raccourci enregistré ou importé sur `F11` reste sans attribution.
 
 Un raccourci personnalisé est mis en évidence et reçoit un bouton **Rétablir les valeurs par défaut**. **Tout réinitialiser** restaure toutes les valeurs par défaut après confirmation. **Exporter** enregistre vos raccourcis dans un fichier JSON (`vmark-shortcuts.json`) et **Importer** en charge un ; si une entrée du fichier est invalide, rien n'est importé et les problèmes sont listés.
 

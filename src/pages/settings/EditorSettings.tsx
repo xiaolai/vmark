@@ -28,6 +28,24 @@ const numericOptions = {
   ],
 };
 
+/**
+ * The option string a stored setting corresponds to, so a `<select>` that
+ * stores numbers still matches its option when the number's string form
+ * differs from the option's (e.g. line-height `2` for the option `"2.0"`).
+ * Without this `String(2)` → `"2"` matches no option and the browser falls
+ * back to the first one (#1731). Numeric settings compare by value; string
+ * settings keep the plain string.
+ */
+function optionValue(
+  stored: unknown,
+  options: { value: string }[],
+  isNumeric: boolean,
+): string {
+  const s = String(stored);
+  if (!isNumeric) return s;
+  return options.find((o) => Number(o.value) === Number(stored))?.value ?? s;
+}
+
 /** Typography settings configuration for data-driven rendering.
  *  The three FONT roles moved to `FontSettings.tsx` with #1429; what is left
  *  here is the numeric/enum half, whose labels are never the system default. */
@@ -111,7 +129,7 @@ export function EditorSettings() {
         {typographySettings.map(({ labelKey, key, options, isNumeric }) => (
           <SettingRow key={key} label={t(labelKey)}>
             <Select
-              value={String(appearance[key])}
+              value={optionValue(appearance[key], options, isNumeric)}
               options={options}
               onChange={(v) =>
                 updateAppearanceSetting(key, isNumeric ? Number(v) : v)

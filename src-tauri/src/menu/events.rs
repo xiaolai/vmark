@@ -31,9 +31,11 @@ use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager};
 
 mod dispatch;
+mod fullscreen;
 mod windows;
 
 pub use dispatch::handle_menu_event;
+pub(crate) use fullscreen::{forget_window as forget_fullscreen_window, note_window_focus};
 
 /// Pending menu event to emit when window becomes ready
 #[derive(Clone)]

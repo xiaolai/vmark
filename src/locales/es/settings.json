@@ -784,6 +784,7 @@
   "files.coherenceCapture.label": "Insertar bloque de identidad al guardar",
   "files.coherenceCapture.description": "Permite que VMark inserte un bloque de identidad `vmark:` en el frontmatter de un archivo y cree una carpeta .vmark en el espacio de trabajo, para que la capa de coherencia pueda seguir el documento. Se aplica a toda escritura: guardados, ediciones de IA y MCP, restauraciones de versiones anteriores y archivos nuevos. Si está desactivado, no se inserta nada ni se crea ninguna carpeta .vmark; un espacio de trabajo que ya tenga una sigue registrando los cambios de los documentos que sigue — uno que ya ha registrado antes, o uno que ya lleva su propia identidad `vmark:`, como un archivo con seguimiento que moviste o que trajiste con un checkout de git",
   "shortcuts.capture.unsupported": "Esta combinación de teclas no es compatible. Prueba con otra.",
+  "shortcuts.capture.reserved": "Esta tecla pertenece a un comando de menú integrado y no se puede reasignar. Prueba con otra.",
   "coherence.group": "Coherencia",
   "coherence.checkTau.label": "Confianza de la comprobación semántica",
   "coherence.checkTau.description": "Cuánta seguridad necesita una comprobación para que su respuesta cuente como veredicto. Por debajo, la respuesta se guarda pero se marca como desconocida.",

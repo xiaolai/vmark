@@ -72,7 +72,6 @@ const MISC_BINDINGS: MenuCommandBinding[] = [
   { menuEvent: "menu:export-journal-git", commandId: "history.exportToGit" },
   { menuEvent: "menu:cleanup-images", commandId: "image.cleanupOrphans" },
   { menuEvent: "menu:vmark-help", commandId: "help.vmarkHelp" },
-  { menuEvent: "menu:keyboard-shortcuts", commandId: "help.keyboardShortcuts" },
   { menuEvent: "menu:report-issue", commandId: "help.reportIssue" },
   { menuEvent: "menu:open-genies-folder", commandId: "genies.openFolder" },
   { menuEvent: "menu:search-genies", commandId: "genies.openPicker" },

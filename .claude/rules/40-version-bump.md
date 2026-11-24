@@ -17,6 +17,13 @@ Use `/bump` or `scripts/bump-version.sh <x.y.z>`. The five version sources must
 change together, and `src-tauri/Cargo.lock` must be regenerated and committed
 with them (`cargo update -p vmark --manifest-path src-tauri/Cargo.toml`).
 
+The version format is **SemVer `X.Y.Z`** — e.g. `1.0.1`. Only the **patch**
+(`Z`) is bumped automatically, one increment per release. **Minor and major
+bumps are manual-only**: the owner approves them; the maintainer never raises
+them on its own. (This reverts the `YYYY.M.<count>` scheme of 2026-11-23,
+whose `2026` major exceeded the Windows MSI / WiX 0–255 limit and blocked every
+Windows release.)
+
 | File | Field |
 |------|-------|
 | `package.json` | `"version"` (the website reads it at build time) |

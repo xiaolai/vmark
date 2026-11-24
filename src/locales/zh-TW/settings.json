@@ -784,6 +784,7 @@
   "files.coherenceCapture.label": "儲存時寫入識別區塊",
   "files.coherenceCapture.description": "允許 VMark 在檔案的 frontmatter 插入 `vmark:` 識別區塊，並在工作區建立 .vmark 資料夾，讓一致性層能追蹤該文件。適用於所有寫入：儲存、AI 與 MCP 編輯、還原舊版本和新增檔案。關閉時不會插入識別區塊，也不會建立 .vmark 資料夾；已有 .vmark 的工作區會繼續記錄其所追蹤文件的變更 — 即它先前記錄過的文件，或本身已帶有 `vmark:` 識別區塊的文件，例如你移動或簽出的已追蹤檔案",
   "shortcuts.capture.unsupported": "不支援此組合鍵。請換一個。",
+  "shortcuts.capture.reserved": "此按鍵屬於內建選單命令，無法重新指定。請換一個。",
   "coherence.group": "一致性",
   "coherence.checkTau.label": "語意檢查信心度",
   "coherence.checkTau.description": "檢查結果需要多確定才會記錄為判定。低於此值時答案仍會保留，但標記為未知。",

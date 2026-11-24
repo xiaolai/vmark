@@ -38,6 +38,7 @@ Si prefieres mantener las funciones del sistema en las teclas F, puedes personal
 | `F8` | Modo Enfoque |
 | `F9` | Modo Máquina de Escribir |
 | `F10` | Modo Solo Lectura |
+| `F11` | Activar/desactivar pantalla completa _(Windows/Linux; macOS usa `Ctrl + Cmd + F`)_ |
 
 ## Editar
 
@@ -167,6 +168,7 @@ Si prefieres mantener las funciones del sistema en las teclas F, puedes personal
 | Tamaño Real | `Mod + 0` |
 | Ampliar | `Mod + =` |
 | Reducir | `Mod + -` |
+| Activar/desactivar pantalla completa | `Ctrl + Cmd + F` en macOS, `F11` en Windows/Linux |
 | Ajuste de Línea | `Alt + Z` |
 | Última pestaña usada | `Ctrl + Tab` |
 | Dividir editor — dos documentos | `Alt + Mod + \` |
@@ -405,8 +407,9 @@ Cuando la barra de búsqueda del terminal está abierta:
 
 El diálogo te avisa antes de asignar una combinación:
 
-- **Conflicto** — otro atajo ya usa esa combinación, y el diálogo indica cuál. Aun así puedes elegir **Asignar de todos modos**.
+- **Conflicto** — otro atajo ya usa esa combinación, y el diálogo indica cuál. Al elegir **Reasignar**, la combinación pasa a este atajo y el otro queda sin asignar. En Windows y Linux `Mod` es `Ctrl`, así que `Mod + B` y `Ctrl + B` cuentan como la misma combinación.
 - **No compatible** — VMark no puede usar esa combinación, así que no se puede asignar. Prueba con otra.
+- **Reservada** — en Windows y Linux, `F11` pertenece a **Activar/desactivar pantalla completa** y no se puede asignar a nada más. Un atajo guardado o importado en `F11` queda sin asignar.
 
 Un atajo personalizado aparece resaltado y recibe un botón **Restablecer al predeterminado**. **Restablecer todos** restaura todos los valores predeterminados tras pedir confirmación. **Exportar** guarda tus atajos como un archivo JSON (`vmark-shortcuts.json`) e **Importar** carga uno; si alguna entrada del archivo no es válida, no se importa nada y se enumeran los problemas.
 

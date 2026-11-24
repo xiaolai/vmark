@@ -76,7 +76,11 @@ export const EXCLUDED_MENU_IDS: ReadonlySet<string> = new Set([
   "save-all-quit",
   "report-issue",
   "vmark-help",
+  // #1716 — opened in Rust (Settings → Shortcuts), like "about".
   "keyboard-shortcuts",
+  // Windows/Linux View-menu item (#1715): toggles the window in Rust. macOS
+  // uses muda's predefined fullscreen item, which has no id.
+  "toggle-fullscreen",
   // Placeholders for empty dynamic submenus
   "no-recent",
   "no-recent-workspace",

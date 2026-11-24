@@ -8,6 +8,8 @@
  *     the owner will be unassigned: the parent moves the chord rather than
  *     letting two shortcuts share it (only one of a shared pair ever fires).
  *   - "Remove Shortcut" appears only when the shortcut has a chord to remove.
+ *   - A chord a fixed menu item holds (F11 on Windows/Linux) is refused like
+ *     an unsupported one: the fixed item cannot move, so there is no reassign.
  *
  * @module pages/settings/KeyCapture
  */
@@ -28,6 +30,8 @@ interface KeyCaptureProps {
    *  binding's conflict, so a freshly pressed chord another shortcut owned
    *  showed no warning, or a stale one. */
   getConflict: (key: string) => ShortcutDefinition | null;
+  /** True when `key` belongs to a fixed menu accelerator on this platform. */
+  isReserved: (key: string) => boolean;
   /** The shortcut's effective chord now; empty when it is unassigned. */
   currentKey: string;
   onCapture: (key: string) => void;
@@ -39,6 +43,7 @@ interface KeyCaptureProps {
 export function KeyCapture({
   shortcut,
   getConflict,
+  isReserved,
   currentKey,
   onCapture,
   onClear,
@@ -75,9 +80,11 @@ export function KeyCapture({
   // Validate against the SAME canonicalizer the router uses and refuse
   // to assign an unmappable chord instead of accepting a dead one.
   const unsupported = capturedKey !== null && canonicalizeChordString(capturedKey) === null;
+  const reserved = capturedKey !== null && !unsupported && isReserved(capturedKey);
+  const refused = unsupported || reserved;
 
   const handleConfirm = () => {
-    if (capturedKey && !unsupported) {
+    if (capturedKey && !refused) {
       onCapture(capturedKey);
     }
   };
@@ -115,8 +122,16 @@ export function KeyCapture({
           </div>
         )}
 
+        {/* Reserved-chord warning (a fixed menu item owns it) */}
+        {reserved && (
+          <div className="bg-[var(--error-bg)] text-[var(--error-color)] border border-[var(--warning-border)]
+                          rounded-lg p-3 mb-4 text-sm">
+            {t("shortcuts.capture.reserved")}
+          </div>
+        )}
+
         {/* Conflict warning */}
-        {conflict && !unsupported && (
+        {conflict && !refused && (
           <div className="bg-[var(--warning-bg)] text-[var(--warning-color)] border border-[var(--warning-border)]
                           rounded-lg p-3 mb-4 text-sm">
             <strong>{t("shortcuts.capture.conflict")}</strong>{" "}
@@ -139,9 +154,9 @@ export function KeyCapture({
           <Button
             variant="primary"
             onClick={handleConfirm}
-            disabled={!capturedKey || unsupported}
+            disabled={!capturedKey || refused}
           >
-            {conflict ? t("shortcuts.capture.reassign") : t("shortcuts.capture.assign")}
+            {conflict && !refused ? t("shortcuts.capture.reassign") : t("shortcuts.capture.assign")}
           </Button>
         </div>
 

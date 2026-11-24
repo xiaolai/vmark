@@ -60,6 +60,33 @@ fn settings_and_about_are_rust_handled() {
 }
 
 #[test]
+fn keyboard_shortcuts_is_rust_handled() {
+    // #1716 — this id used to route generically to a document window, whose
+    // command handed an external URL to the OS opener. Where no browser
+    // handler exists (WSL2/WSLg) the detached opener fails silently, so the
+    // click did nothing. It now opens the in-app Shortcuts reference in Rust,
+    // like About, so it needs neither a browser nor a document window.
+    assert_eq!(
+        classify_menu_id("keyboard-shortcuts"),
+        MenuAction::KeyboardShortcuts
+    );
+}
+
+#[test]
+fn settings_opening_actions_name_the_section_they_open() {
+    // The section is what the dispatch arm opens, so pin the pair end to end:
+    // a wrong section would open Settings on a pane the user did not ask for.
+    assert_eq!(
+        settings_section(&classify_menu_id("keyboard-shortcuts")),
+        Some("shortcuts")
+    );
+    assert_eq!(settings_section(&classify_menu_id("about")), Some("about"));
+    for id in ["preferences", "quit", "vmark-help", "report-issue", "save"] {
+        assert_eq!(settings_section(&classify_menu_id(id)), None, "{id}");
+    }
+}
+
+#[test]
 fn open_like_ids_share_the_document_routing_path() {
     assert_eq!(classify_menu_id("open"), MenuAction::OpenLike);
     assert_eq!(classify_menu_id("open-folder"), MenuAction::OpenLike);
@@ -73,6 +100,18 @@ fn remaining_special_ids_are_classified() {
         MenuAction::ClearRecentWorkspaces
     );
     assert_eq!(classify_menu_id("install-cli"), MenuAction::InstallCli);
+}
+
+#[test]
+fn toggle_fullscreen_is_rust_handled() {
+    // #1715: off macOS the View menu carries a real `toggle-fullscreen` item
+    // (muda's predefined fullscreen item does not exist on Windows/GTK). Its
+    // click must toggle the window in Rust, not become an unheard
+    // `menu:toggle-fullscreen` event.
+    assert_eq!(
+        classify_menu_id("toggle-fullscreen"),
+        MenuAction::ToggleFullScreen
+    );
 }
 
 #[test]

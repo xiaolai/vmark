@@ -440,6 +440,8 @@ Ver y personalizar todos los atajos de teclado. Los atajos están agrupados por 
 - **Restablecer** — Restaura un atajo individual a su predeterminado, o restablece todos a la vez
 - **Exportar / Importar** — Guarda tus combinaciones personalizadas como un archivo JSON e impórtalas en otra máquina
 
+**Ayuda → Atajos de teclado** abre esta sección.
+
 Consulta [Atajos de Teclado](/es/guide/shortcuts) para la referencia completa de atajos predeterminados.
 
 ## Terminal

@@ -139,3 +139,21 @@ fn a_poisoned_cache_still_takes_a_rebuild() {
     ACCEL_CACHE.clear_poison();
     assert_eq!(snap, Some(map(&[("save", "CmdOrCtrl+S")])));
 }
+
+/// #1715: the Windows/Linux Toggle Full Screen item has a FIXED F11 (it is
+/// not in the shortcut registry), so a caller passing its id can neither
+/// rebind nor clear it.
+#[test]
+fn fixed_accelerators_are_never_part_of_a_diff() {
+    let current = HashMap::new();
+    let next = HashMap::from([
+        ("toggle-fullscreen".to_string(), "F12".to_string()),
+        ("bold".to_string(), "CmdOrCtrl+B".to_string()),
+    ]);
+    assert_eq!(
+        diff_accelerators(&current, &next),
+        vec![("bold".to_string(), "CmdOrCtrl+B".to_string())]
+    );
+    let cleared = HashMap::from([("toggle-fullscreen".to_string(), String::new())]);
+    assert!(diff_accelerators(&current, &cleared).is_empty());
+}

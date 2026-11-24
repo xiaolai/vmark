@@ -784,6 +784,7 @@
   "files.coherenceCapture.label": "Inserisci il blocco identità al salvataggio",
   "files.coherenceCapture.description": "Consente a VMark di inserire un blocco identità `vmark:` nel frontmatter di un file e di creare una cartella .vmark nello spazio di lavoro, così che il livello di coerenza possa seguire il documento. Vale per ogni scrittura: salvataggi, modifiche di IA e MCP, ripristini di versioni precedenti e nuovi file. Se disattivata, non viene inserito nulla né creata alcuna cartella .vmark; uno spazio di lavoro che ne ha già una continua a registrare le modifiche ai documenti che segue — un documento che ha già registrato in precedenza, o uno che porta già una propria identità `vmark:`, come un file già seguito che hai spostato o recuperato con un checkout",
   "shortcuts.capture.unsupported": "Questa combinazione di tasti non è supportata. Provane un'altra.",
+  "shortcuts.capture.reserved": "Questo tasto appartiene a un comando di menu integrato e non può essere riassegnato. Provane un altro.",
   "coherence.group": "Coerenza",
   "coherence.checkTau.label": "Confidenza del controllo semantico",
   "coherence.checkTau.description": "Quanto deve essere sicuro un controllo perché la sua risposta valga come verdetto. Sotto questa soglia la risposta viene conservata ma segnata come sconosciuta.",

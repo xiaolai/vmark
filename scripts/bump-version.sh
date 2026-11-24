@@ -11,13 +11,13 @@ VERSION=$1
 
 if [ -z "$VERSION" ]; then
   echo "Usage: ./scripts/bump-version.sh <version>"
-  echo "Example: ./scripts/bump-version.sh 0.3.20"
+  echo "Example: ./scripts/bump-version.sh 1.0.1"
   exit 1
 fi
 
-# Validate version format (basic semver check)
+# Validate version format (SemVer X.Y.Z).
 if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-  echo "Error: Version must be in semver format (e.g., 0.3.20)"
+  echo "Error: Version must look like X.Y.Z (e.g., 1.0.1)"
   exit 1
 fi
 

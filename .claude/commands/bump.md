@@ -25,20 +25,29 @@ $ARGUMENTS
 
 Read current version from `package.json`.
 
+Version format is **SemVer `X.Y.Z`** — e.g. `1.0.1`. Only the **patch** (`Z`)
+increments automatically, one per release. **Minor and major bumps are
+manual-only**: the owner approves them; the maintainer never raises them on its
+own. (This reverts the `YYYY.M.<count>` scheme, whose `2026` major exceeded the
+Windows MSI / WiX 0–255 limit and blocked every Windows release.)
+
 Parse `$ARGUMENTS`:
 
 | Input | Action |
 |-------|--------|
-| `0.5.0` | Use exactly as specified |
-| `patch` | Increment patch: `0.4.2` → `0.4.3` |
-| `minor` | Increment minor: `0.4.2` → `0.5.0` |
-| `major` | Increment major: `0.4.2` → `1.0.0` |
-| (empty) | Default to `patch` |
+| `X.Y.Z` | Use exactly as specified |
+| `patch` | Increment the patch component: `1.0.1` → `1.0.2` |
+| (empty) | Same as `patch` |
+| `minor` / `major` | Rejected — manual-only, requires the owner's approval |
+
+To bump the patch, read the current `X.Y.Z` from `package.json` and add one to
+`Z`. Never raise minor or major on your own.
 
 Validate the resolved version matches `^[0-9]+\.[0-9]+\.[0-9]+$`. Anything
-else (e.g., `0.7.14.1`, `0.7`, `v0.7.15`) is rejected — the Tauri updater
-parses `latest.json.version` with `semver` and rejects non-canonical
-shapes, and any divergence between the five files breaks the build.
+else (e.g., `0.7.14.1`, `0.7`, `v0.7.15`, `2026.01.168`) is rejected — the
+Tauri updater parses `latest.json.version` with `semver` and rejects
+non-canonical shapes, and any divergence between the five files breaks the
+build.
 
 Display: `Current: {old} → New: {new}` and ask user to confirm.
 

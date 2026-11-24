@@ -11,6 +11,36 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-11-24
+
+### Changed
+
+- Versioning reverted from `YYYY.M.<count>` back to SemVer; the patch number bumps automatically, minor and major are manual-only. The `2026` major exceeded the Windows MSI (WiX) 0–255 limit and blocked Windows releases.
+
+### Fixed
+
+- The line-height selector no longer snaps back to "Compact (1.4)" after choosing "Spacious (2.0)". Thanks to xingrong-lai for the report.
+
+## [0.9.125] - 2026-11-23
+
+### Fixed
+
+- Custom keyboard shortcuts now survive a restart when the interface language is English (or unset). They were only applied to the menu for non-English languages.
+- On Windows and Linux, shortcut conflict detection now treats Mod and Ctrl as the same key, so two commands can no longer silently share one chord.
+- The full-screen shortcut F11 (Windows/Linux) is now reserved, so it can no longer be rebound to another command.
+
+## [0.9.124] - 2026-11-22
+
+### Fixed
+
+- Dropping a Markdown file onto an open document no longer crashes the window with "This view has stopped working". Thanks to wintys for the report.
+- Windows and Linux now have View → Toggle Full Screen, on F11. Thanks to xingrong-lai for the report.
+- Help → Keyboard Shortcuts now opens Settings at the Shortcuts section, so it works without a web browser (for example on Linux under WSL). Thanks to xingrong-lai for the report.
+
+### Security
+
+- Updated the `url` library to fix a crash on deeply nested `blob:` addresses (RUSTSEC-2026-0592).
+
 ## [0.9.123] - 2026-11-20
 
 ### Fixed
@@ -664,7 +694,10 @@ Text you may want to copy stays selectable: messages, approval dialogs, Genie an
 
 - Raised the `markdown-it` version floor past GHSA-253c-mchw-3w2r.
 
-[Unreleased]: https://github.com/xiaolai/vmark/compare/v0.9.123...HEAD
+[Unreleased]: https://github.com/xiaolai/vmark/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/xiaolai/vmark/releases/tag/v1.0.1
+[0.9.125]: https://github.com/xiaolai/vmark/releases/tag/v0.9.125
+[0.9.124]: https://github.com/xiaolai/vmark/releases/tag/v0.9.124
 [0.9.123]: https://github.com/xiaolai/vmark/releases/tag/v0.9.123
 [0.9.122]: https://github.com/xiaolai/vmark/releases/tag/v0.9.122
 [0.9.121]: https://github.com/xiaolai/vmark/releases/tag/v0.9.121

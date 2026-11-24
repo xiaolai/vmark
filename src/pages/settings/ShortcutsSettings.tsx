@@ -262,6 +262,7 @@ export function ShortcutsSettings() {
         <KeyCapture
           shortcut={capturing}
           getConflict={(key) => getConflict(key, capturing.id)}
+          isReserved={(key) => useShortcutsStore.getState().isReserved(key)}
           currentKey={getShortcut(capturing.id)}
           onCapture={handleCapture}
           onClear={handleClear}
