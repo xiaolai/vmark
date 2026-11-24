@@ -397,6 +397,38 @@ mod on_a_mock_app {
         stop_watching("ra11-lifecycle".to_string()).expect("stopping twice is fine");
     }
 
+    /// The OS backend itself, end to end: a real write under a watched root
+    /// must reach the owning window as an `fs:changed` batch. The tests above
+    /// pin what each notify event maps to; this one proves the backend still
+    /// produces those events (FSEvents on macOS, inotify on Linux). The write
+    /// repeats until an event lands, so a coalesced or slow first notification
+    /// cannot flake the assertion.
+    #[test]
+    fn a_real_file_write_is_delivered_to_the_owning_window() {
+        let app = mock_app();
+        let seen = deliveries(&window(&app, "ra11-real-event"));
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().to_string_lossy().to_string();
+        let file = dir.path().join("note.md");
+
+        start_watching_blocking(app.handle(), "ra11-real-event".to_string(), root)
+            .expect("watcher starts");
+
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        let mut attempt = 0;
+        while seen.load(Ordering::SeqCst) == 0 && std::time::Instant::now() < deadline {
+            attempt += 1;
+            std::fs::write(&file, format!("# write {attempt}\n")).expect("write under the root");
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
+        stop_watching("ra11-real-event".to_string()).expect("stop is infallible");
+
+        assert!(
+            seen.load(Ordering::SeqCst) > 0,
+            "a write under the watched root must be delivered as {FS_CHANGED_EVENT}"
+        );
+    }
+
     #[test]
     fn a_watcher_started_for_a_window_that_is_gone_is_not_left_behind() {
         // The window-destroyed cleanup already ran: nobody else will ever stop
