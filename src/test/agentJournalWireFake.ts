@@ -20,8 +20,8 @@
  *     command is answered and echoed around the reply, so a test's
  *     `invoke` mock and assertions see the arguments without it.
  *   - Any other command (a restore's prepare, the history panel's reads)
- *     falls through to the global `invoke` mock; `answerPrepare` and
- *     `boundRestoreReply` build a restore prepare's answer for a test that
+ *     falls through to the global `invoke` mock; `answerPrepare` builds a
+ *     restore prepare's answer for a test that
  *     scripts it.
  *
  * Use: the global setup mocks `@/services/agentJournal/journalTransport`
@@ -66,14 +66,6 @@ function decodePrepare(payload: unknown): { requestId: string; fields: Args } {
   const fields: Args = { ...p };
   for (const k of IDENTITY) delete fields[k];
   return { requestId: String(p.requestId), fields };
-}
-
-/** A restore prepare's (or any prepare's) bound reply for the payload `args` carried. */
-export async function boundRestoreReply(args: unknown, reply: unknown): Promise<unknown> {
-  const payload = isRecord(args) ? String(args.payload) : "";
-  const p: unknown = JSON.parse(payload);
-  const requestId = isRecord(p) ? p.requestId : null;
-  return { bind: { requestId, digest: await sha256Hex(payload) }, reply };
 }
 
 /**
@@ -180,7 +172,7 @@ async function viaInvoke(command: string, args: Args): Promise<unknown> {
 }
 
 /** Answer one journal command over the fake. */
-export function invokeJournal(command: string, args: Args): Promise<unknown> {
+function invokeJournal(command: string, args: Args): Promise<unknown> {
   return bindCall(command, args, answer);
 }
 

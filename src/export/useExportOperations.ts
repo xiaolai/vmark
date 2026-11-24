@@ -23,11 +23,7 @@ import { flushNearViewport } from "@/plugins/shared/nearViewport";
 // Re-exported, not moved away: `services/commands/exportCommands.ts` and the
 // export test suite reach the folder export through this module, and the split
 // is about file size, not about relocating a public entry point.
-export {
-  exportFolderPath,
-  exportToHtml,
-  type ExportToHtmlOptions,
-} from "./exportToHtmlFolder";
+export { exportFolderPath, exportToHtml } from "./exportToHtmlFolder";
 import {
   buildPrintHtml,
   prepareExportBody,
