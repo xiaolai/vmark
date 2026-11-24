@@ -11,6 +11,18 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-11-25
+
+### Changed
+
+- Updated the editor and UI dependencies, including CodeMirror's lint extension, the Tauri plugins, DOMPurify, Lucide, Mermaid, markmap, Turndown, Zustand, Tailwind CSS, ESLint, Playwright and the sidecar's pkg runtime.
+- Updated i18next to 27.1.3. A missing plural form now falls back to the same language's `_other` before another language's text, so a language with partial plural data shows its own wording instead of English; the translation caches are bounded.
+- Updated the GitHub Actions pins used by CI and the release pipeline.
+
+### Security
+
+- i18next 27 no longer throws when a language code or namespace is named after a built-in object property, and it bounds the memory used by failed loads and the language and plural caches.
+
 ## [1.0.2] - 2026-11-24
 
 ### Changed
@@ -706,7 +718,8 @@ Text you may want to copy stays selectable: messages, approval dialogs, Genie an
 
 - Raised the `markdown-it` version floor past GHSA-253c-mchw-3w2r.
 
-[Unreleased]: https://github.com/xiaolai/vmark/compare/v1.0.2...HEAD
+[Unreleased]: https://github.com/xiaolai/vmark/compare/v1.0.3...HEAD
+[1.0.3]: https://github.com/xiaolai/vmark/releases/tag/v1.0.3
 [1.0.2]: https://github.com/xiaolai/vmark/releases/tag/v1.0.2
 [1.0.1]: https://github.com/xiaolai/vmark/releases/tag/v1.0.1
 [0.9.125]: https://github.com/xiaolai/vmark/releases/tag/v0.9.125
