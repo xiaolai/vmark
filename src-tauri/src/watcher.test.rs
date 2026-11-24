@@ -434,6 +434,14 @@ mod on_a_mock_app {
                 seen.fetch_add(1, Ordering::SeqCst);
             }
         });
+        // A second window must not see another window's changes.
+        let stray = Arc::new(AtomicUsize::new(0));
+        let stray_seen = Arc::clone(&stray);
+        window(&app, "ra11-bystander").listen(FS_CHANGED_EVENT, move |event| {
+            if reports_the_note_write(event.payload()) {
+                stray_seen.fetch_add(1, Ordering::SeqCst);
+            }
+        });
         let dir = tempfile::tempdir().unwrap();
         let root = dir.path().to_string_lossy().to_string();
         let file = dir.path().join("note.md");
@@ -453,6 +461,11 @@ mod on_a_mock_app {
         assert!(
             delivered.load(Ordering::SeqCst) > 0,
             "a write to note.md must be delivered as a {FS_CHANGED_EVENT} create/modify"
+        );
+        assert_eq!(
+            stray.load(Ordering::SeqCst),
+            0,
+            "another window must not see this window's changes"
         );
     }
 
