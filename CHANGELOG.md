@@ -11,6 +11,13 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-11-25
+
+### Changed
+
+- Updated the file watcher library (notify 9.0.0); the macOS FSEvents backend now uses the current Apple framework bindings. How VMark classifies changes and asks for a rescan is unchanged, and a new end-to-end test covers a real file write reaching the window.
+- Updated the GitHub Actions pins used by CI and the release pipeline.
+
 ## [1.0.2] - 2026-11-24
 
 ### Changed
@@ -707,6 +714,7 @@ Text you may want to copy stays selectable: messages, approval dialogs, Genie an
 - Raised the `markdown-it` version floor past GHSA-253c-mchw-3w2r.
 
 [Unreleased]: https://github.com/xiaolai/vmark/compare/v1.0.2...HEAD
+[1.0.3]: https://github.com/xiaolai/vmark/releases/tag/v1.0.3
 [1.0.2]: https://github.com/xiaolai/vmark/releases/tag/v1.0.2
 [1.0.1]: https://github.com/xiaolai/vmark/releases/tag/v1.0.1
 [0.9.125]: https://github.com/xiaolai/vmark/releases/tag/v0.9.125
