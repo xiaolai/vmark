@@ -166,7 +166,7 @@
     "alfaaz": "^1.1.0",
     "codemirror-lang-mermaid": "0.5.0",
     "diff-match-patch": "1.0.5",
-    "dnd-core": "^14.0.1",
+    "dnd-core": "^16.0.1",
     "dompurify": "^3.4.18",
     "highlight.js": "^11.12.0",
     "html-to-image": "1.11.13",

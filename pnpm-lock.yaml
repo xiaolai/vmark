@@ -257,8 +257,8 @@ importers:
         specifier: 1.0.5
         version: 1.0.5
       dnd-core:
-        specifier: ^14.0.1
-        version: 14.0.1
+        specifier: ^16.0.1
+        version: 16.0.1
       dompurify:
         specifier: '>=3.4.17 <4'
         version: 3.4.18
@@ -2803,8 +2803,14 @@ packages:
   '@react-dnd/asap@4.0.1':
     resolution: {integrity: sha512-kLy0PJDDwvwwTXxqTFNAAllPHD73AycE9ypWeln/IguoGBEbvFcPDbCV03G52bEcC5E+YgupBE0VzHGdC8SIXg==}
 
+  '@react-dnd/asap@5.0.2':
+    resolution: {integrity: sha512-WLyfoHvxhs0V9U+GTsGilGgf2QsPl6ZZ44fnv0/b8T3nQyvzxidxsg/ZltbWssbsRDlYW8UKSQMTGotuTotZ6A==}
+
   '@react-dnd/invariant@2.0.0':
     resolution: {integrity: sha512-xL4RCQBCBDJ+GRwKTFhGUW8GXa4yoDfJrPbLblc3U09ciS+9ZJXJ3Qrcs/x2IODOdIE5kQxvMmE2UKyqUictUw==}
+
+  '@react-dnd/invariant@4.0.2':
+    resolution: {integrity: sha512-xKCTqAK/FFauOM9Ta2pswIyT3D8AQlfrYdOi/toTPEhqCuAs1v5tcJ3Y08Izh1cJ5Jchwy9SeAXmMg6zrKs2iw==}
 
   '@react-dnd/shallowequal@2.0.0':
     resolution: {integrity: sha512-Pc/AFTdwZwEKJxFJvlxrSmGe/di+aAOBn60sremrpLo6VI/6cmiUYNNwlI5KNYttg7uypzA3ILPMPgxB2GYZEg==}
@@ -5850,6 +5856,9 @@ packages:
   dnd-core@14.0.1:
     resolution: {integrity: sha512-+PVS2VPTgKFPYWo3vAFEA8WPbTf7/xo43TifH9G8S1KqnrQu0o77A3unrF5yOugy4mIz7K5wAVFHUcha7wsz6A==}
 
+  dnd-core@16.0.1:
+    resolution: {integrity: sha512-HK294sl7tbw6F6IeuK16YSBUoorvHpY8RHO+9yFfaJyCDVb6n7PRcezrOEOa2SBCqiYpemh5Jx20ZcjKdFAVng==}
+
   dns-packet@5.6.1:
     resolution: {integrity: sha512-l4gcSouhcgIKRvyy99RNVOgxXiicE+2jZoNmaNmZ6JXiGajBOJAesk1OBlJuM5k2c+eudGdLxDqXuPCKIj6kpw==}
     engines: {node: '>=6'}
@@ -7296,6 +7305,7 @@ packages:
 
   markmap-lib@0.18.12:
     resolution: {integrity: sha512-WCA4OT+b71jYg0e4PS/6NRKqihod5OpPsvw1jEGHQwCtqQrY/yXXCeRyuL3axOS5cMy5pV8BSl4CwKfJU1LxJg==}
+    deprecated: Replaced by @markmap/* in 1.0.0. See https://markmap.js.org/docs/migration
     peerDependencies:
       markmap-common: '*'
 
@@ -7313,6 +7323,7 @@ packages:
 
   markmap-view@0.18.12:
     resolution: {integrity: sha512-D8bzT1YwIC/8rkbwm6WzigVUrpOAGv7ioEGTi1Lj+Oo8gO5sAm6hhli27jvTgUcZ9TwBeIWZ+dSUP+AupYUGlQ==}
+    deprecated: Replaced by @markmap/* in 1.0.0. See https://markmap.js.org/docs/migration
     peerDependencies:
       markmap-common: '*'
 
@@ -12244,7 +12255,11 @@ snapshots:
 
   '@react-dnd/asap@4.0.1': {}
 
+  '@react-dnd/asap@5.0.2': {}
+
   '@react-dnd/invariant@2.0.0': {}
+
+  '@react-dnd/invariant@4.0.2': {}
 
   '@react-dnd/shallowequal@2.0.0': {}
 
@@ -15611,6 +15626,12 @@ snapshots:
     dependencies:
       '@react-dnd/asap': 4.0.1
       '@react-dnd/invariant': 2.0.0
+      redux: 4.2.1
+
+  dnd-core@16.0.1:
+    dependencies:
+      '@react-dnd/asap': 5.0.2
+      '@react-dnd/invariant': 4.0.2
       redux: 4.2.1
 
   dns-packet@5.6.1:
