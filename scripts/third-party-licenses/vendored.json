@@ -88,12 +88,12 @@
     },
     {
       "component": "pkg runtime bootstrap",
-      "version": "6.24.0",
+      "version": "6.25.0",
       "license": "MIT",
-      "host": { "name": "@yao-pkg/pkg", "version": "6.24.0" },
-      "embeddedIn": "the bootstrap inside the vmark-mcp-server sidecar binary, as built by @yao-pkg/pkg 6.24.0",
-      "source": "https://github.com/yao-pkg/pkg/blob/v6.24.0/LICENSE",
-      "file": "yao-pkg-6.24.0.txt"
+      "host": { "name": "@yao-pkg/pkg", "version": "6.25.0" },
+      "embeddedIn": "the bootstrap inside the vmark-mcp-server sidecar binary, as built by @yao-pkg/pkg 6.25.0",
+      "source": "https://github.com/yao-pkg/pkg/blob/v6.25.0/LICENSE",
+      "file": "yao-pkg-6.25.0.txt"
     }
   ]
 }
