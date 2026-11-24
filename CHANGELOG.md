@@ -11,6 +11,18 @@ section as part of the version bump (`.claude/rules/40-version-bump.md`).
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-11-24
+
+### Changed
+
+- Updated the bundled database library (rusqlite 0.43, SQLite 3.54.1), the Tauri plugins (opener, notification, log, store), and the uuid, regex, trash and serde-saphyr libraries.
+- Updated react-i18next to 17.1.13: values inserted into a translation are escaped instead of being parsed as markup, and type-checking large translation files is fast again.
+- Updated the GitHub Actions pins used by CI and the release pipeline.
+
+### Security
+
+- rusqlite 0.43 fixes use-after-free bugs in changeset iteration, column metadata and `IN`-list filtering, and a panic when parsing `time::OffsetDateTime` text shorter than eight characters.
+
 ## [1.0.1] - 2026-11-24
 
 ### Changed
@@ -694,7 +706,8 @@ Text you may want to copy stays selectable: messages, approval dialogs, Genie an
 
 - Raised the `markdown-it` version floor past GHSA-253c-mchw-3w2r.
 
-[Unreleased]: https://github.com/xiaolai/vmark/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/xiaolai/vmark/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/xiaolai/vmark/releases/tag/v1.0.2
 [1.0.1]: https://github.com/xiaolai/vmark/releases/tag/v1.0.1
 [0.9.125]: https://github.com/xiaolai/vmark/releases/tag/v0.9.125
 [0.9.124]: https://github.com/xiaolai/vmark/releases/tag/v0.9.124
