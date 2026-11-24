@@ -2024,7 +2024,7 @@ DEALINGS IN THE SOFTWARE.
 ------------------------------------------------------------------------------
 MIT License (MIT)
 Used by:
-cookie 0.18.1
+cookie 0.18.3
 
 Copyright (c) 2017 Sergio Benitez
 Copyright (c) 2014 Alex Crichton
