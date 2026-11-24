@@ -713,7 +713,7 @@ Text you may want to copy stays selectable: messages, approval dialogs, Genie an
 
 - Raised the `markdown-it` version floor past GHSA-253c-mchw-3w2r.
 
-[Unreleased]: https://github.com/xiaolai/vmark/compare/v1.0.2...HEAD
+[Unreleased]: https://github.com/xiaolai/vmark/compare/v1.0.3...HEAD
 [1.0.3]: https://github.com/xiaolai/vmark/releases/tag/v1.0.3
 [1.0.2]: https://github.com/xiaolai/vmark/releases/tag/v1.0.2
 [1.0.1]: https://github.com/xiaolai/vmark/releases/tag/v1.0.1

@@ -397,16 +397,43 @@ mod on_a_mock_app {
         stop_watching("ra11-lifecycle".to_string()).expect("stopping twice is fine");
     }
 
+    /// True when one `fs:changed` payload names a create or modify of the
+    /// file the test writes. A startup rescan carries `rescan: true` and no
+    /// changes, so it cannot stand in for the write the backend must report.
+    fn reports_the_note_write(payload: &str) -> bool {
+        let Ok(value) = serde_json::from_str::<serde_json::Value>(payload) else {
+            return false;
+        };
+        value["changes"].as_array().is_some_and(|changes| {
+            changes.iter().any(|change| {
+                let kind = change["kind"].as_str().unwrap_or_default();
+                (kind == "create" || kind == "modify")
+                    && change["paths"].as_array().is_some_and(|paths| {
+                        paths
+                            .iter()
+                            .any(|path| path.as_str().is_some_and(|p| p.ends_with("note.md")))
+                    })
+            })
+        })
+    }
+
     /// The OS backend itself, end to end: a real write under a watched root
-    /// must reach the owning window as an `fs:changed` batch. The tests above
-    /// pin what each notify event maps to; this one proves the backend still
-    /// produces those events (FSEvents on macOS, inotify on Linux). The write
-    /// repeats until an event lands, so a coalesced or slow first notification
-    /// cannot flake the assertion.
+    /// must reach the owning window as an `fs:changed` batch naming the file.
+    /// The tests above pin what each notify event maps to; this one proves the
+    /// backend still produces those events (FSEvents on macOS, inotify on
+    /// Linux). The write repeats until the payload lands, so a coalesced or
+    /// slow first notification cannot flake the assertion.
     #[test]
     fn a_real_file_write_is_delivered_to_the_owning_window() {
         let app = mock_app();
-        let seen = deliveries(&window(&app, "ra11-real-event"));
+        let win = window(&app, "ra11-real-event");
+        let delivered = Arc::new(AtomicUsize::new(0));
+        let seen = Arc::clone(&delivered);
+        win.listen(FS_CHANGED_EVENT, move |event| {
+            if reports_the_note_write(event.payload()) {
+                seen.fetch_add(1, Ordering::SeqCst);
+            }
+        });
         let dir = tempfile::tempdir().unwrap();
         let root = dir.path().to_string_lossy().to_string();
         let file = dir.path().join("note.md");
@@ -416,7 +443,7 @@ mod on_a_mock_app {
 
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
         let mut attempt = 0;
-        while seen.load(Ordering::SeqCst) == 0 && std::time::Instant::now() < deadline {
+        while delivered.load(Ordering::SeqCst) == 0 && std::time::Instant::now() < deadline {
             attempt += 1;
             std::fs::write(&file, format!("# write {attempt}\n")).expect("write under the root");
             std::thread::sleep(std::time::Duration::from_millis(100));
@@ -424,8 +451,8 @@ mod on_a_mock_app {
         stop_watching("ra11-real-event".to_string()).expect("stop is infallible");
 
         assert!(
-            seen.load(Ordering::SeqCst) > 0,
-            "a write under the watched root must be delivered as {FS_CHANGED_EVENT}"
+            delivered.load(Ordering::SeqCst) > 0,
+            "a write to note.md must be delivered as a {FS_CHANGED_EVENT} create/modify"
         );
     }
 
