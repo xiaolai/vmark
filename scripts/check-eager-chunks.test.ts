@@ -392,8 +392,8 @@ describe("eager byte budget — what cold start loads, whatever the chunk shape"
     expect(message).toContain((MAX_EAGER_BYTES / MiB).toFixed(2));
   });
 
-  it("sits within ~5% of the measured cold-start closure (3.00 MiB), like every other budget", () => {
-    const measured = 3.0 * MiB;
+  it("sits within ~5% of the measured cold-start closure (3.16 MiB), like every other budget", () => {
+    const measured = 3_309_964;
     expect(MAX_EAGER_BYTES).toBeGreaterThan(measured);
     expect(MAX_EAGER_BYTES).toBeLessThanOrEqual(measured * 1.06);
   });

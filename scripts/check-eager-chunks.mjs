@@ -165,8 +165,13 @@ export function findLazyOnlyViolations(names, reachable, patterns = LAZY_ONLY_CH
  * Lowered 3,310,399 → 3,305,484 bytes when smol-toml left the entry chunk for
  * the lazy `vendor-toml` chunk (the TOML parser now loads on first use). The
  * measured closure is 3,148,980 bytes; same ratio again.
+ *
+ * Raised 3,305,484 → 3,474,469 bytes by the i18next 27.1.3 bump: its new
+ * fallback-language and plural-form paths grew the measured closure
+ * 3,148,980 → 3,309,964 bytes (+160,984). No import moved; the budget is
+ * restored to the same ratio (1.0497) over the new measurement.
  */
-export const MAX_EAGER_BYTES = 3_305_484;
+export const MAX_EAGER_BYTES = 3_474_469;
 
 /** A failure message when `closureBytes` exceeds `max`, else null. */
 export function eagerBudgetViolation(closureBytes, max = MAX_EAGER_BYTES) {
