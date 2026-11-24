@@ -48,7 +48,7 @@ beforeEach(() => {
   vi.spyOn(i18n, "t").mockImplementation(((key: string, opts?: Record<string, unknown>) => {
     const param = opts?.id ?? opts?.detail;
     return param === undefined ? `⟦${key}⟧` : `⟦${key}|${String(param)}⟧`;
-  }) as typeof i18n.t);
+  }) as unknown as typeof i18n.t);
 });
 
 afterEach(() => {
