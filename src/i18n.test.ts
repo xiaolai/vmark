@@ -38,6 +38,25 @@ describe("i18n initialization", () => {
     ).toContain("2 new documents");
   });
 
+  it("prefers the same language's _other over the fallback language (i18next 27)", async () => {
+    // CLDR gives French a `many` form for exact millions. When the selected
+    // form is missing, i18next 27 uses the same language's `_other` before the
+    // next fallback language; 26 skipped straight to English. The English
+    // value differs so the two behaviours cannot pass the same assertion.
+    const { default: i18n } = await import("./i18n");
+    await i18n.changeLanguage("fr");
+    i18n.addResourceBundle("fr", "pluraltest", { phrase_other: "FR other" }, true, true);
+    i18n.addResourceBundle(
+      "en",
+      "pluraltest",
+      { phrase_many: "EN many", phrase_other: "EN other" },
+      true,
+      true
+    );
+
+    expect(i18n.t("pluraltest:phrase", { count: 1_000_000 })).toBe("FR other");
+  });
+
   it("has common as default namespace", async () => {
     const { default: i18n } = await import("./i18n");
     expect(i18n.options.defaultNS).toBe("common");

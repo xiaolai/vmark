@@ -166,10 +166,13 @@ export function findLazyOnlyViolations(names, reachable, patterns = LAZY_ONLY_CH
  * the lazy `vendor-toml` chunk (the TOML parser now loads on first use). The
  * measured closure is 3,148,980 bytes; same ratio again.
  *
- * Raised 3,305,484 → 3,474,469 bytes by the i18next 27.1.3 bump: its new
- * fallback-language and plural-form paths grew the measured closure
- * 3,148,980 → 3,309,964 bytes (+160,984). No import moved; the budget is
- * restored to the same ratio (1.0497) over the new measurement.
+ * Raised 3,305,484 → 3,474,469 bytes by the i18next 27.1.3 bump. A clean
+ * build of main against a clean build of the bump differs by +5,387 bytes in
+ * one reachable chunk only: the shared `commandError` chunk, which bundles
+ * i18next, went 44,590 → 49,977 bytes (its fallback-language and plural
+ * resolver code). The measured closure went 3,304,577 → 3,309,964 bytes. No
+ * import moved; the budget is restored to the same ratio (1.0497) over the
+ * new measurement.
  */
 export const MAX_EAGER_BYTES = 3_474_469;
 
