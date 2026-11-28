@@ -119,7 +119,7 @@ jobs:
       - name: Binaries the gates tier executes
         run: sudo apt-get update && sudo apt-get install -y zsh
       - name: Install tokei
-        uses: taiki-e/install-action@25f51f6b1bf4e18876107cece836f4f77ac17c8c # v2.90.7
+        uses: taiki-e/install-action@fe3acb53a98b62c772db35de75ce0e4595e7ca8c # v2.90.8
         with:
           tool: tokei
 
@@ -665,7 +665,7 @@ jobs:
           node-version: 22
 
       - name: Install cargo-audit
-        uses: taiki-e/install-action@25f51f6b1bf4e18876107cece836f4f77ac17c8c # v2.90.7
+        uses: taiki-e/install-action@fe3acb53a98b62c772db35de75ce0e4595e7ca8c # v2.90.8
         with:
           tool: cargo-audit
 
