@@ -21,7 +21,7 @@
   "author": "VMark",
   "license": "MIT",
   "dependencies": {
-    "@hono/node-server": "^2.1.9",
+    "@hono/node-server": "^2.1.11",
     "@slidev/cli": "^53.1.0",
     "chokidar": "^6.0.0",
     "dompurify": "^3.4.18",
