@@ -162,7 +162,7 @@
     "@xterm/addon-web-links": "^0.12.0",
     "@xterm/addon-webgl": "^0.19.0",
     "@xterm/xterm": "^6.0.0",
-    "@xyflow/react": "12.12.0",
+    "@xyflow/react": "13.0.2",
     "alfaaz": "^1.1.0",
     "codemirror-lang-mermaid": "0.5.0",
     "diff-match-patch": "1.0.5",
